@@ -9,6 +9,7 @@ import { listDemos } from '../api/demos';
 import type { DemoListItem } from '../types/demo';
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
+const heroLines = ['Not mockups.', 'Live products.', 'Built in minutes.'];
 
 export default function DemoPage() {
   const [demos, setDemos] = useState<DemoListItem[]>([]);
@@ -36,77 +37,82 @@ export default function DemoPage() {
   const rest = demos.slice(1);
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#060a14] overflow-x-hidden">
       <SiteNav />
 
-      <section className="about-cinematic-hero relative flex items-center overflow-hidden pt-16 hero-surface">
-        <div className="absolute inset-0 hero-mesh pointer-events-none" />
-        <div className="absolute inset-0 cinematic-grid opacity-70 pointer-events-none" />
-        <div className="hero-blob w-[600px] h-[360px] bg-blue-400/28 -top-28 -right-28" />
-        <div className="hero-blob w-[480px] h-[300px] bg-cyan-400/22 -bottom-36 -left-28" />
+      <section className="demo-hero relative overflow-hidden pt-16">
+        <div className="absolute inset-0 demo-hero__mesh pointer-events-none" />
+        <div className="absolute inset-0 cinematic-grid opacity-30 pointer-events-none" />
+        <div className="hero-blob w-[700px] h-[400px] bg-blue-500/20 -top-40 -right-32" />
+        <div className="hero-blob w-[500px] h-[320px] bg-cyan-500/15 -bottom-48 -left-32" />
+        <div className="hero-orb w-3 h-3 bg-cyan-400/50 top-[22%] right-[18%]" />
+        <div className="hero-orb w-2 h-2 bg-blue-400/40 bottom-[30%] left-[12%]" style={{ animationDelay: '2s' }} />
 
-        <div className="container-max relative z-10 px-4 sm:px-6 w-full py-12 min-h-[calc(100dvh-4rem)] flex flex-col justify-center text-center">
+        <div className="container-max relative z-10 px-4 sm:px-6 py-16 sm:py-24 min-h-[min(88vh,720px)] flex flex-col justify-center">
           <motion.span
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: easeOut }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full about-glass text-blue-700 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] mb-6 mx-auto shadow-sm"
+            transition={{ duration: 0.5, ease: easeOut }}
+            className="demo-hero__eyebrow"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            Live generated products
+            <span className="demo-hero__pulse" />
+            {demos.length > 0 ? `${demos.length} live product${demos.length === 1 ? '' : 's'}` : 'AI-generated gallery'}
           </motion.span>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.05, ease: easeOut }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-bold text-navy tracking-tight mb-5"
-          >
-            Real demos, built by AI
-          </motion.h1>
+          <h1 className="demo-hero__headline">
+            {heroLines.map((line, i) => (
+              <motion.span
+                key={line}
+                initial={{ opacity: 0, y: 32 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 + i * 0.1, duration: 0.75, ease: easeOut }}
+                className={`demo-hero__line ${i === 1 ? 'demo-hero__line--accent' : ''}`}
+              >
+                {line}
+              </motion.span>
+            ))}
+          </h1>
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.12, ease: easeOut }}
-            className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed mb-8"
+            transition={{ delay: 0.38, duration: 0.6, ease: easeOut }}
+            className="demo-hero__sub"
           >
-            Every completed submission appears here automatically. Open any demo to browse the interactive product.
-            Create your own version to get the AI refine chatbot and unlimited revisions.
+            Every completed submission becomes a real, interactive app — not a slide deck.
+            Open any build below and explore it like a shipped product.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2, ease: easeOut }}
+            transition={{ delay: 0.5, duration: 0.5, ease: easeOut }}
+            className="mt-10"
           >
-            <GlowButton to="/submit" className="text-sm px-6 py-3 !inline-block">
-              Create yours
+            <GlowButton to="/submit" className="text-sm px-7 py-3.5 !inline-block">
+              Create yours — free
             </GlowButton>
           </motion.div>
         </div>
+
+        <div className="demo-hero__fade" aria-hidden />
       </section>
 
-      <section className="section-padding bg-slate-50 relative">
-        <div className="absolute inset-0 hero-mesh opacity-30 pointer-events-none" />
-        <div className="container-max relative">
+      <section className="demo-gallery relative">
+        <div className="absolute inset-0 demo-gallery__bg-grid pointer-events-none" />
+        <div className="container-max relative px-4 sm:px-6 py-16 sm:py-24">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-500">
-              <div className="w-12 h-12 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mb-4" />
-              Loading live demos…
+            <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+              <div className="w-12 h-12 border-2 border-white/10 border-t-cyan-400 rounded-full animate-spin mb-4" />
+              Loading live products…
             </div>
           )}
 
-          {error && (
-            <p className="text-center text-red-500 py-16">{error}</p>
-          )}
+          {error && <p className="text-center text-red-400 py-20">{error}</p>}
 
           {!loading && !error && demos.length === 0 && (
-            <div className="text-center py-20">
-              <p className="text-slate-600 mb-6">No live demos yet — be the first to generate one.</p>
+            <div className="text-center py-24">
+              <p className="text-slate-400 mb-8 text-lg">No live products yet — yours could be first.</p>
               <GlowButton to="/submit" className="text-sm px-6 py-3 !inline-block">
                 Create my version
               </GlowButton>
@@ -114,25 +120,37 @@ export default function DemoPage() {
           )}
 
           {!loading && !error && featured && (
-            <>
-              <div className="mb-10">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">Latest demo</p>
-                <DemoCard demo={featured} featured />
-              </div>
+            <div className="demo-gallery__stack">
+              <motion.div
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                className="demo-gallery__section-label"
+              >
+                <span className="demo-gallery__label-num">01</span>
+                <span>Spotlight</span>
+              </motion.div>
+              <DemoCard demo={featured} featured />
 
               {rest.length > 0 && (
                 <>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">
-                    All demos ({demos.length})
-                  </p>
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    className="demo-gallery__section-label demo-gallery__section-label--mt"
+                  >
+                    <span className="demo-gallery__label-num">02</span>
+                    <span>All builds ({demos.length})</span>
+                  </motion.div>
+                  <div className="demo-gallery__grid">
                     {rest.map((demo, i) => (
                       <DemoCard key={demo.id} demo={demo} index={i} />
                     ))}
                   </div>
                 </>
               )}
-            </>
+            </div>
           )}
         </div>
       </section>

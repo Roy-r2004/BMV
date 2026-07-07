@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useId } from 'react';
 import { motion } from 'framer-motion';
+import type { CSSProperties } from 'react';
 import type { DemoListItem } from '../../types/demo';
 
 interface Props {
@@ -8,103 +10,178 @@ interface Props {
   featured?: boolean;
 }
 
+const ease = [0.22, 1, 0.36, 1] as const;
+
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function cleanFeature(text: string) {
+  return text.replace(/\*\*/g, '').replace(/^\+\+|\+\+$/g, '').trim();
+}
+
+function DemoPreview({ primary, secondary, conceptName, large }: { primary: string; secondary: string; conceptName: string; large?: boolean }) {
+  return (
+    <div className={`demo-preview ${large ? 'demo-preview--large' : ''}`}>
+      <div className="demo-preview__chrome">
+        <span className="demo-preview__dot demo-preview__dot--red" />
+        <span className="demo-preview__dot demo-preview__dot--yellow" />
+        <span className="demo-preview__dot demo-preview__dot--green" />
+        <span className="demo-preview__url">{conceptName.toLowerCase().replace(/\s+/g, '')}.app</span>
+      </div>
+      <div className="demo-preview__body">
+        <div className="demo-preview__sidebar" style={{ background: `linear-gradient(180deg, ${primary}22, ${primary}08)` }}>
+          <div className="demo-preview__logo" style={{ background: primary }} />
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="demo-preview__nav-item" style={{ opacity: n === 1 ? 1 : 0.35 }} />
+          ))}
+        </div>
+        <div className="demo-preview__main">
+          <div className="demo-preview__hero" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary || primary})` }}>
+            <div className="demo-preview__hero-line demo-preview__hero-line--lg" />
+            <div className="demo-preview__hero-line demo-preview__hero-line--sm" />
+          </div>
+          <div className="demo-preview__stats">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="demo-preview__stat">
+                <div className="demo-preview__stat-bar" style={{ width: `${60 + n * 12}%`, background: primary }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
+  const gradId = useId();
+  const r = (size - 8) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (score / 100) * circ;
+  return (
+    <div className="demo-score-ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth="3" className="text-white/10" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+        />
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#60a5fa" />
+            <stop offset="100%" stopColor="#22d3ee" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <span className="demo-score-ring__label">{score}</span>
+    </div>
+  );
 }
 
 export default function DemoCard({ demo, index = 0, featured }: Props) {
   const primary = demo.primary_color || '#4f46e5';
+  const secondary = demo.secondary_color || '#0891b2';
   const score = demo.business_fit_score ?? 0;
+  const features = demo.preview_features.slice(0, featured ? 4 : 3).map(cleanFeature);
+
+  if (featured) {
+    return (
+      <motion.article
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.8, ease }}
+        className="demo-card demo-card--featured"
+        style={{ '--demo-primary': primary, '--demo-secondary': secondary } as CSSProperties}
+      >
+        <div className="demo-card__glow" aria-hidden />
+        <Link to={`/result/${demo.id}?from=demo`} className="demo-card__link">
+          <div className="demo-card__featured-grid">
+            <div className="demo-card__preview-wrap">
+              <span className="demo-card__badge demo-card__badge--live">
+                <span className="demo-card__live-dot" />
+                Latest build
+              </span>
+              <DemoPreview primary={primary} secondary={secondary} conceptName={demo.concept_name} large />
+            </div>
+            <div className="demo-card__content">
+              <div className="demo-card__meta">
+                <span className="demo-card__industry">{demo.industry || 'Custom business'}</span>
+                {score > 0 && <ScoreRing score={score} size={64} />}
+              </div>
+              <h2 className="demo-card__title">{demo.concept_name}</h2>
+              <p className="demo-card__business">{demo.business_name}</p>
+              {demo.preview_summary && (
+                <p className="demo-card__summary">{cleanFeature(demo.preview_summary)}</p>
+              )}
+              {features.length > 0 && (
+                <ul className="demo-card__features">
+                  {features.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="demo-card__footer">
+                <span className="demo-card__date">Generated {formatDate(demo.created_at)}</span>
+                <span className="demo-card__cta">
+                  Open live product
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </Link>
+      </motion.article>
+    );
+  }
 
   return (
     <motion.article
       initial={{ opacity: 0, y: 32 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
-      transition={{ delay: index * 0.06, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -6 }}
-      className={`about-gradient-ring about-glass h-full overflow-hidden transition-shadow duration-500 hover:shadow-xl hover:shadow-blue-500/10 rounded-2xl p-5 sm:p-6 flex flex-col ${
-        featured ? 'ring-2 ring-emerald-200/80' : ''
-      }`}
+      transition={{ delay: index * 0.08, duration: 0.65, ease }}
+      whileHover={{ y: -8 }}
+      className="demo-card demo-card--grid"
+      style={{ '--demo-primary': primary, '--demo-secondary': secondary } as CSSProperties}
     >
-      {featured && (
-        <span className="self-start mb-3 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider">
-          Latest
-        </span>
-      )}
-
-      <CardBody demo={demo} primary={primary} score={score} large={featured} />
+      <div className="demo-card__glow" aria-hidden />
+      <Link to={`/result/${demo.id}?from=demo`} className="demo-card__link">
+        <DemoPreview primary={primary} secondary={secondary} conceptName={demo.concept_name} />
+        <div className="demo-card__grid-body">
+          <div className="demo-card__grid-top">
+            <div>
+              <span className="demo-card__industry demo-card__industry--sm">{demo.industry || 'Custom'}</span>
+              <h3 className="demo-card__grid-title">{demo.concept_name}</h3>
+              <p className="demo-card__grid-business">{demo.business_name}</p>
+            </div>
+            {score > 0 && <ScoreRing score={score} size={48} />}
+          </div>
+          {features.length > 0 && (
+            <ul className="demo-card__grid-features">
+              {features.slice(0, 2).map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          )}
+          <span className="demo-card__grid-cta">
+            Explore
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </div>
+      </Link>
     </motion.article>
-  );
-}
-
-function CardBody({
-  demo,
-  primary,
-  score,
-  large,
-}: {
-  demo: DemoListItem;
-  primary: string;
-  score: number;
-  large?: boolean;
-}) {
-  return (
-    <>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
-          {demo.industry || 'Custom business'}
-        </span>
-        {score > 0 && (
-          <span className={`font-bold gradient-text ${large ? 'text-3xl' : 'text-xl'}`}>{score}%</span>
-        )}
-      </div>
-
-      <div className="flex items-start gap-3 mb-3">
-        <div
-          className="w-9 h-9 rounded-lg text-white flex items-center justify-center shrink-0 shadow-sm text-sm font-bold"
-          style={{ backgroundColor: primary }}
-        >
-          {demo.concept_name.charAt(0)}
-        </div>
-        <div className="min-w-0">
-          <h3 className={`font-bold text-navy leading-tight ${large ? 'text-xl sm:text-2xl' : 'text-lg'}`}>
-            {demo.concept_name}
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5 truncate">{demo.business_name}</p>
-        </div>
-      </div>
-
-      {demo.preview_summary && (
-        <p className="text-sm text-slate-600 leading-relaxed mb-4 line-clamp-3">{demo.preview_summary}</p>
-      )}
-
-      {demo.preview_features.length > 0 && (
-        <ul className="space-y-2 mb-4">
-          {demo.preview_features.slice(0, large ? 5 : 4).map((f) => (
-            <li key={f} className="text-sm text-slate-600 flex items-start gap-2">
-              <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              {f}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-auto pt-3 border-t border-slate-100/80 flex items-center justify-between gap-3">
-        <p className="text-[11px] text-slate-400">Generated {formatDate(demo.created_at)}</p>
-        <Link
-          to={`/result/${demo.id}?from=demo`}
-          className="text-sm font-semibold text-blue-600 hover:text-blue-700 shrink-0"
-        >
-          View live demo →
-        </Link>
-      </div>
-    </>
   );
 }
