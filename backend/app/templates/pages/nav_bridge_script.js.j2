@@ -1,0 +1,27 @@
+<script id="preview-nav-bridge">
+(function() {
+  var PAGE_MAP = {{ page_map | tojson }};
+  var PAGE_IDS = {{ page_ids | tojson }};
+
+  function resolvePageId(el) {
+    if (!el) return null;
+    var attr = el.getAttribute("data-preview-nav");
+    if (attr && PAGE_IDS.indexOf(attr) >= 0) return attr;
+    var text = (el.textContent || "").trim().toLowerCase().replace(/\s+/g, " ");
+    if (PAGE_MAP[text]) return PAGE_MAP[text];
+    return null;
+  }
+
+  document.addEventListener("click", function(e) {
+    var el = e.target.closest("[data-preview-nav], a, button");
+    if (!el) return;
+    var pageId = resolvePageId(el);
+    if (!pageId || PAGE_IDS.indexOf(pageId) < 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      window.parent.postMessage({ type: "preview-nav", pageId: pageId }, "*");
+    } catch (err) {}
+  }, true);
+})();
+</script>

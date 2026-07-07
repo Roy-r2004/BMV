@@ -1,0 +1,14 @@
+<link href="{{ font_link }}" rel="stylesheet">
+<style id="preview-theme">
+:root {
+  --brand-primary: {{ accent }};
+  --brand-primary-dark: {{ accent_dark }};
+  --brand-primary-light: {{ accent_light }};
+  --brand-font: '{{ font }}', system-ui, sans-serif;
+  --brand-text: {{ text }};
+  --brand-muted: {{ muted }};
+  --brand-bg: {{ bg }};
+  --brand-radius: {{ radius }};
+}
+body { font-family: var(--brand-font); color: var(--brand-text); background: var(--brand-bg); }
+</style>

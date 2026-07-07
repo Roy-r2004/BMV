@@ -1,0 +1,11 @@
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="preview-tailwind-config">
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: { brand: {{ accent | tojson }}, branddark: {{ accent_dark | tojson }} },
+      fontFamily: { sans: [{{ font | tojson }}, "system-ui", "sans-serif"] }
+    }
+  }
+};
+</script>

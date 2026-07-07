@@ -1,0 +1,29 @@
+Fix the React preview app build errors.
+
+=== BUILD ERRORS ===
+{{ build_errors }}
+
+=== ALL FILES THAT EXIST IN THE PROJECT (import ONLY from these + react/react-router-dom) ===
+{{ file_tree }}
+
+=== ARCHITECT PLAN ===
+{{ architect_json }}
+
+=== FILES (current content) ===
+{{ files_content }}
+
+Fix ONLY what is needed to make `vite build` succeed. Follow these rules strictly:
+- For an UNRESOLVED_IMPORT or MISSING_EXPORT from ANY npm package (e.g. `lucide-react`, `@mantine/*`, `@mui/*`, `antd`, `react-icons`, `recharts`, `chart.js`) or an invented local module (`../lib/*`, `../hooks/*`, `../utils/*`): DELETE that import and inline the logic. Replace icons with inline SVG/emoji and charts with styled divs/SVG. The ONLY allowed imports are `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), and existing local files. Do NOT add dependencies or create missing modules.
+- For an import of a page/component that doesn't match a real file (e.g. importing `HomePage` when the file is `Home.tsx`): fix the IMPORT to point to the real existing file. Do NOT create a duplicate file.
+- Only import names that mock.ts actually exports; if missing, add the export to mock.ts.
+- Do NOT create new files unless a real, referenced file is genuinely absent from the file tree above.
+- Do NOT modify package.json unless dependency errors explicitly require it.
+
+Return ONLY valid JSON:
+{
+  "files": [
+    { "path": "relative/path.tsx", "content": "full fixed file content" }
+  ]
+}
+
+Include every file that needs changes. Full file content for each — no partial patches.

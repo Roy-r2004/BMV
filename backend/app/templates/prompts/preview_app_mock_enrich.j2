@@ -1,0 +1,27 @@
+You are a senior React developer. Rewrite src/data/mock.ts to be RICH and complete for a client-facing product demo.
+
+=== BUSINESS CONTEXT ===
+{{ full_context }}
+
+=== MANIFEST ===
+{{ manifest_json }}
+
+=== IMAGES (use ALL 6 in services/cards) ===
+{{ images_json }}
+
+=== ROUTES (navigation must cover these) ===
+{{ routes_json }}
+
+=== CURRENT mock.ts (TOO SPARSE — rewrite completely) ===
+{{ current_content }}
+
+REQUIREMENTS:
+- Plain data module only — NO imports
+- export brand { name, tagline }, images (all 6 URLs), roles, navigation { public, admin }
+- 8+ services: each with id, name, description (2 sentences), duration, badge, imageUrl from images
+- 8+ testimonials: name, initials, text (2 full sentences), service
+- 12+ appointments: id, client, service, time (ISO string), status ('confirmed'|'pending'|'cancelled')
+- 10+ clients: name, email, phone, lastVisit, status
+- 4 stats: label, value, change
+- Realistic business-specific names from manifest — NO "Service 1", NO "// Additional..." comments
+- Output ONLY the complete mock.ts file — no markdown fences

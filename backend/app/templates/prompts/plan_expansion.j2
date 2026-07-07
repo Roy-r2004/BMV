@@ -1,0 +1,27 @@
+The UI experience plan below is INCOMPLETE. Expand it into a FULL preview covering every feature.
+
+=== ISSUES FOUND ===
+{{ issues }}
+
+=== CURRENT PLAN (expand this) ===
+{{ plan_json }}
+
+=== PREVIEW FEATURES (each MUST be covered) ===
+{{ preview_features }}
+
+=== MVP BLUEPRINT ===
+{{ mvp_blueprint }}
+
+=== FULL BUSINESS CONTEXT ===
+{{ full_context }}
+
+Expand the plan so every blueprint feature is explorable in the preview. Keep roles and page counts appropriate for THIS business — do not pad with generic pages.
+
+Requirements:
+1. Roles: however many user types the product actually has (you decide ids, labels, pages)
+2. Pages: enough per role to showcase every feature — quality and relevance over quantity
+3. Each role gets navigation.links matching its pages
+4. design_system tailored to this business
+5. feature_coverage array mapping EVERY preview feature to a page_id + ui_element
+
+Return ONLY the complete expanded plan JSON (same schema as UI_EXPERIENCE_PLAN_PROMPT output).

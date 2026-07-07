@@ -1,0 +1,22 @@
+You are a product QA architect. Review this UI experience plan against the required features and blueprint.
+
+=== CURRENT PLAN ===
+{{ plan_json }}
+
+=== REQUIRED PREVIEW FEATURES (each MUST be covered) ===
+{{ preview_features }}
+
+=== MVP BLUEPRINT EXCERPT ===
+{{ mvp_blueprint }}
+
+Check:
+1. Is every preview feature mapped in feature_coverage with a page_id and ui_element?
+2. Are any blueprint modules missing pages or sections?
+3. Are page sections detailed enough to build (not empty stubs)?
+4. Does each role have navigation linking only to existing pages?
+5. Do roles and page counts fit THIS product (not a generic template)?
+
+If ANY requirement fails, return the FULL expanded plan JSON fixing ALL gaps.
+If the plan is already complete, return it unchanged.
+
+Return ONLY valid JSON — the complete plan object.

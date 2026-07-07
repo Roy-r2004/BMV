@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Python
+backend/venv
+backend/**/__pycache__
+backend/**/*.pyc
+backend/*.db
+backend/app/uploads/*
+!backend/app/uploads/.gitkeep
+
+# Node
+frontend/node_modules
+frontend/dist
+
+# Env & local
+.env
+backend/.env
+frontend/.env
+*.md
+!README.md
+
+# IDE
+.vscode
+.idea
+
+# Docker
+docker-compose.override.yml

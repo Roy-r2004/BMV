@@ -1,0 +1,78 @@
+You are a senior product architect planning a UNIQUE React + Tailwind preview app for ONE business.
+
+This is NOT a template — the file structure, routes, components, and visual style must be specific to THIS business and blueprint.
+
+=== FULL BUSINESS CONTEXT ===
+{{ full_context }}
+
+=== EXPERIENCE PLAN (roles, pages, design system, features) ===
+{{ plan_json }}
+
+=== BRAND MANIFEST ===
+{{ manifest_json }}
+
+=== ALLOWED IMAGE URLS (only these in img src) ===
+{{ images_json }}
+
+Output ONLY valid JSON:
+{
+  "app_name": "slug-safe app name",
+  "design_direction": "1-2 sentences on unique visual style for THIS business",
+  "roles": [
+    {
+      "id": "your-role-id",
+      "label": "Role display name",
+      "defaultPath": "/landing-path-for-this-role",
+      "route_prefix": "/optional-prefix",
+      "icon": "users or chart"
+    }
+  ],
+  "routes": [
+    {
+      "path": "/your-route",
+      "page_id": "unique-id",
+      "role_id": "your-role-id",
+      "title": "Page Title",
+      "component_file": "src/pages/YourPage.tsx",
+      "layout": "public or admin",
+      "purpose": "what this page shows",
+      "features": ["feature names visible here"]
+    }
+  ],
+  "files_to_generate": [
+    {
+      "path": "src/index.css",
+      "kind": "theme",
+      "instructions": "Tailwind v4 @theme with brand colors and font from design system"
+    },
+    {
+      "path": "src/data/mock.ts",
+      "kind": "data",
+      "instructions": "realistic sample data for this business"
+    },
+    {
+      "path": "src/App.tsx",
+      "kind": "router",
+      "instructions": "React Router routes for ALL pages in routes array; keep RouteBridge and RoleBridge imports"
+    },
+    {
+      "path": "<one entry per route, path = that route's component_file>",
+      "kind": "page",
+      "instructions": "detailed spec for THIS specific page"
+    }
+  ],
+  "shared_components": [
+    { "path": "src/components/Nav.tsx", "kind": "component", "instructions": "Public top nav for this brand" },
+    { "path": "src/layouts/AdminLayout.tsx", "kind": "layout", "instructions": "Admin sidebar shell matching admin routes" }
+  ]
+}
+
+RULES:
+- Derive roles, routes, and page count ENTIRELY from the experience plan — build EVERY feature the plan describes
+- CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.
+- CRITICAL: MUST include at least ONE public marketing landing route (path "/" or "/home", layout "public", component HomePage.tsx). Client always lands on a rich homepage first.
+- Always include src/index.css (theme), src/data/mock.ts (data), and src/App.tsx (router) in files_to_generate
+- src/data/mock.ts MUST export: brand, images, roles (id, label, defaultPath, icon), navigation { public: [...], admin: [...] } synced with ALL routes, plus every data array each page needs
+- component_file paths must start with src/
+- Do NOT include main.tsx or preview-bridge.ts (already in template)
+- Quality bar: if a feature exists in the plan, there is a DEDICATED PAGE for it. Do not cram 3 features into one generic page.

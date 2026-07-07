@@ -1,0 +1,138 @@
+# Production stack: Traefik (TLS) + App + Ollama (separate services)
+#
+# First-time model download (good connection recommended):
+#   docker compose -f docker-compose.prod.yml --profile init run --rm ollama-init
+#
+# Run:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Requires: .env with DOMAIN, ACME_EMAIL, ADMIN_PASSWORD, ROY_WHATSAPP_NUMBER
+
+name: buildmyversion-prod
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: bmv-traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+      - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - bmv-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:-admin:$$apr1$$H6uskkkW$$IgXLP6ewTrSuBkTrqE8wj/}"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+    mem_limit: 256m
+    cpus: "0.50"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bmv-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - bmv-internal
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    mem_limit: 6g
+    cpus: "4"
+    # NVIDIA GPU (uncomment on GPU hosts):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  ollama-init:
+    profiles: ["init"]
+    image: ollama/ollama:latest
+    container_name: bmv-ollama-init
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      PULL_MODELS: ${PULL_MODELS:-true}
+      TEXT_MODEL: ${TEXT_MODEL:-llama3.1:8b}
+      VISION_MODEL: ${VISION_MODEL:-llama3.2-vision}
+      CODER_MODEL: ${CODER_MODEL:-qwen2.5-coder:7b}
+    volumes:
+      - ./docker/ollama-init.sh:/init.sh:ro
+    entrypoint: ["/bin/bash", "/init.sh"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - bmv-internal
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+    container_name: bmv-app
+    restart: unless-stopped
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+      DATABASE_URL: sqlite:////app/data/buildmyversion.db
+      UPLOAD_DIR: /app/data/uploads
+      STATIC_DIR: /app/static
+      OLLAMA_URL: http://ollama:11434
+      CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env}
+      PULL_MODELS: "false"
+    volumes:
+      - buildmyversion-data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - bmv-public
+      - bmv-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bmv.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.bmv.entrypoints=websecure"
+      - "traefik.http.routers.bmv.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bmv.loadbalancer.server.port=8000"
+    mem_limit: 1g
+    cpus: "1.50"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+networks:
+  bmv-public:
+    name: bmv-public
+  bmv-internal:
+    name: bmv-internal
+    internal: true
+
+volumes:
+  buildmyversion-data:
+  ollama-models:
+  traefik-certs:

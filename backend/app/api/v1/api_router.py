@@ -1,0 +1,12 @@
+"""Aggregates and mounts every v1 router — the single include point for `main.py`."""
+from fastapi import APIRouter
+
+from app.api.v1.routers import admin, demos, health, preview_apps, requests
+
+api_router = APIRouter()
+
+api_router.include_router(health.router)
+api_router.include_router(requests.router)
+api_router.include_router(admin.router)
+api_router.include_router(demos.router)
+api_router.include_router(preview_apps.router)

@@ -1,0 +1,34 @@
+You are a brand designer. Read the full business context and experience plan, then extract a design manifest ensuring consistency across ALL generated pages.
+
+=== FULL CONTEXT ===
+{{ full_context }}
+
+=== EXPERIENCE PLAN SUMMARY ===
+{{ experience_plan_summary }}
+
+Accent color: {{ accent }}
+Features to reflect: {{ features }}
+
+Return ONLY valid JSON:
+{
+  "brand_name": "exact business name from context",
+  "tagline": "one-sentence value proposition",
+  "accent": "{{ accent }}",
+  "accent_dark": "darker shade of {{ accent }} (hex)",
+  "accent_light": "very light tint of {{ accent }} (hex)",
+  "font": "from design_system.font_family",
+  "services": [
+    {"name": "...", "description": "one line", "duration": "...", "badge": "..."}
+  ],
+  "owner_name": "realistic first name",
+  "client_names": ["6 realistic full names"],
+  "testimonials": [
+    {"name": "...", "initials": "..", "text": "specific quote", "service": "..."}
+  ],
+  "social_proof": "realistic social proof line"
+}
+
+CRITICAL: Use EXACT accent {{ accent }}. Font and colors must match design_system below. All copy specific to THIS business.
+
+=== DESIGN SYSTEM FROM PLANNER ===
+{{ design_system_json }}

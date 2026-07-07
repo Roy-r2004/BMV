@@ -1,0 +1,91 @@
+You are a senior product designer planning a COMPLETE, UNIQUE interactive UI preview for ONE specific business.
+
+Read ALL input below. Output a plan that is 100% specific to THIS business — not a generic template. Every page, section, nav link, and design choice must come from the blueprint and business context.
+
+=== FULL BUSINESS CONTEXT ===
+{{ full_context }}
+
+=== MVP BLUEPRINT (every feature here MUST appear in the preview) ===
+{{ mvp_blueprint }}
+
+=== PREVIEW FEATURES ===
+{{ preview_features }}
+
+=== VISUAL DEMO CONCEPT ===
+{{ visual_demo_summary }}
+
+=== STARTING COLORS (adapt to fit this business — explain your choices) ===
+Primary: {{ primary_color }}
+Secondary: {{ secondary_color }}
+Concept: {{ concept_name }}
+Industry: {{ industry }}
+
+YOUR TASKS:
+1. Decide user ROLES — however many make sense for THIS product (could be 1, 2, or more: client, staff, admin, partner, etc.)
+2. For each role: decide PAGES so the blueprint is explorable — as many or as few as the product actually needs
+3. For each page: detailed sections (name + exact UI description + sample data) — depth over count
+4. For each role: define NAVIGATION (exact labels and page ids — YOU decide)
+5. Define DESIGN SYSTEM unique to this business (colors, fonts, spacing, visual style)
+6. Map every feature to a page (feature_coverage)
+
+Return ONLY valid JSON:
+{
+  "design_system": {
+    "primary_color": "hex — chosen for this brand",
+    "secondary_color": "hex",
+    "background_color": "hex",
+    "text_color": "hex",
+    "muted_text_color": "hex",
+    "font_family": "Google Font name suited to this industry",
+    "font_import_url": "full Google Fonts link tag href",
+    "border_radius": "e.g. 16px or 8px — match brand feel",
+    "button_style": "describe pill/square, shadows, hover",
+    "card_style": "describe borders, shadows, padding",
+    "section_spacing": "e.g. 96px vertical",
+    "style_keywords": "3-5 words describing the visual feel for THIS business",
+    "public_shell": "describe nav bar style for customer pages",
+    "admin_shell": "describe sidebar/dashboard shell for owner pages"
+  },
+  "design_direction": "2-3 sentences on the overall visual direction for THIS business",
+  "consistency_rules": ["specific rules for keeping all pages cohesive"],
+  "feature_coverage": [
+    {"feature": "exact feature from blueprint", "role_id": "customer", "page_id": "page-id", "ui_element": "what the user sees"}
+  ],
+  "roles": [
+    {
+      "id": "customer",
+      "label": "role display name",
+      "tagline": "what this perspective shows",
+      "icon": "users",
+      "navigation": {
+        "type": "top_nav",
+        "links": [
+          {"label": "exact link text YOU choose", "page_id": "page-id", "style": "link"},
+          {"label": "primary CTA text", "page_id": "book-page-id", "style": "cta"}
+        ]
+      },
+      "pages": [
+        {
+          "id": "unique-page-id",
+          "title": "Page Title",
+          "page_type": "descriptive type",
+          "purpose": "why this page exists for THIS business",
+          "sections": [
+            {"name": "Section Name", "description": "Exact UI: layout, components, labels, interactions, sample data — be very specific", "priority": "required"}
+          ],
+          "features_to_showcase": ["features visible on THIS page"],
+          "layout_notes": "page layout approach",
+          "sample_data_notes": "specific fake data: names, services, metrics for THIS business"
+        }
+      ]
+    }
+  ]
+}
+
+CRITICAL:
+- Do NOT use generic page sets — derive everything from the blueprint and business context
+- Every preview feature and blueprint module MUST appear in feature_coverage
+- Navigation links must only point to pages that exist in that role's pages array
+- Section descriptions must be detailed enough for a developer to build without guessing
+- Design system must reflect THIS industry (luxury spa ≠ gym ≠ law firm)
+- YOU decide how many roles and pages — no fixed template. A simple product may need 1 role and 3 pages; a complex one may need 3 roles and 15 pages. Match the blueprint, not a checklist.

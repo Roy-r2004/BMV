@@ -1,0 +1,40 @@
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import PublicLayout from './layouts/PublicLayout';
+import AdminLayout from './layouts/AdminLayout';
+{{ import_lines }}
+import { roles } from './data/mock';
+import { notifyParent, setupPreviewBridge } from './lib/preview-bridge';
+
+type Role = { id: string; defaultPath?: string };
+
+function RouteBridge() {
+  const location = useLocation();
+  useEffect(() => { notifyParent(location.pathname); }, [location.pathname]);
+  return null;
+}
+
+function RoleBridge() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    setupPreviewBridge((roleId, path) => {
+      if (path) { navigate(path); return; }
+      const list = (roles as Role[]) || [];
+      const role = list.find((r) => r.id === roleId);
+      navigate(role?.defaultPath ?? list[0]?.defaultPath ?? '{{ first_path }}');
+    });
+  }, [navigate]);
+  return null;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <RouteBridge />
+      <RoleBridge />
+      <Routes>
+{{ routes_jsx }}
+      </Routes>
+    </BrowserRouter>
+  );
+}

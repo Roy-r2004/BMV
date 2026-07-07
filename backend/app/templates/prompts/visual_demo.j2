@@ -1,0 +1,175 @@
+You are a senior product designer.
+
+Using the business information and MVP blueprint below, generate a detailed visual demo concept for the client.
+
+The output will be rendered by a React frontend as a visual preview page.
+
+Return ONLY valid JSON.
+
+Required JSON shape:
+
+{
+  "product_name": "",
+  "visual_theme": {
+    "style": "",
+    "primary_color": "",
+    "secondary_color": "",
+    "background_color": "",
+    "font_style": ""
+  },
+  "hero": {
+    "headline": "",
+    "subheadline": "",
+    "primary_cta": "",
+    "secondary_cta": ""
+  },
+  "feature_cards": [
+    {
+      "title": "",
+      "description": "",
+      "icon": ""
+    }
+  ],
+  "user_journey": [
+    {
+      "step": 1,
+      "title": "",
+      "description": ""
+    }
+  ],
+  "screen_mockups": [
+    {
+      "screen_name": "",
+      "screen_type": "",
+      "description": "",
+      "visible_elements": ["", "", ""]
+    }
+  ],
+  "admin_dashboard_preview": {
+    "should_show": true,
+    "cards": [
+      {
+        "title": "",
+        "value": "",
+        "description": ""
+      }
+    ],
+    "recent_activity": ["", "", ""]
+  },
+  "ai_workflow": [
+    {
+      "step": 1,
+      "title": "",
+      "description": ""
+    }
+  ],
+  "final_cta": {
+    "headline": "",
+    "description": "",
+    "button_text": "Request Our Team to Build This"
+  },
+  "app_config": {
+    "enabled_modules": ["website", "inbox", "schedule", "dashboard"],
+    "schedule_variant": "progress | calendar",
+    "header_variant": "light | dark",
+    "hero_layout": "split | centered",
+    "home_sections": ["hero", "features", "programs", "journey"],
+    "website_nav": [
+      { "id": "home | services | about | contact", "label": "" }
+    ],
+    "tabs": [
+      { "id": "website | inbox | schedule | dashboard", "label": "", "short": "", "url_segment": "" }
+    ],
+    "features_section": { "title": "", "subtitle": "" },
+    "inbox": {
+      "title": "", "subtitle": "", "footer": "", "status_label": "",
+      "quick_replies": ["", "", ""]
+    },
+    "schedule": {
+      "title": "", "subtitle": "", "add_button": "", "today_label": "", "slots_label": ""
+    },
+    "dashboard": {
+      "greeting": "", "subtitle": "",
+      "nav": [{ "id": "overview | leads | bookings | clients | settings", "label": "" }],
+      "leads_panel": "", "bookings_panel": "", "clients_panel": "",
+      "table_headers": { "client": "", "source": "", "service": "", "status": "" },
+      "fourth_metric": { "title": "", "value": "", "sub": "" },
+      "settings_labels": ["", "", "", ""]
+    },
+    "leads_panel_mode": "table | adherence",
+    "bookings_panel_mode": "appointments | programs"
+  },
+  "preview_content": {
+    "image_theme": "wellness | fitness | saas | generic",
+    "website": {
+      "eyebrow": "",
+      "services_label": "",
+      "services": [
+        { "name": "", "description": "", "duration": "", "cta": "" }
+      ],
+      "about_paragraphs": ["", ""],
+      "contact_intro": "",
+      "form_fields": ["Full name", "Email", "Phone", ""],
+      "social_proof": "",
+      "hero_highlight": { "label": "", "title": "", "subtitle": "" }
+    },
+    "inbox": {
+      "conversations": [
+        { "name": "", "channel": "Instagram|WhatsApp|Email", "preview": "", "time": "2m", "unread": true }
+      ],
+      "messages": [
+        { "role": "user", "text": "" },
+        { "role": "team", "text": "" }
+      ],
+      "booked_banner": ""
+    },
+    "schedule": {
+      "appointments": [
+        { "time": "10:30", "client": "", "service": "", "status": "confirmed|available|pending" }
+      ],
+      "week_stat": "",
+      "week_detail": ""
+    },
+    "dashboard": {
+      "leads": [
+        { "name": "", "source": "", "service": "", "status": "" }
+      ]
+    }
+  }
+}
+
+Business information:
+{{ business_information }}
+
+MVP blueprint:
+{{ mvp_blueprint }}
+
+Blueprint preview features (MUST use for feature_cards titles and preview_content.website.services):
+{{ preview_features }}
+
+Rules:
+- Make the preview specific to the client's business.
+- Hero headline must be punchy and outcome-focused (e.g. "Turn Instagram DMs into booked appointments") — NEVER "Welcome to your custom X solution".
+- Subheadline must explain the concrete value in one sentence.
+- admin_dashboard_preview.cards must have realistic non-empty value fields (e.g. "12", "8", "34%") — never leave value empty.
+- recent_activity must be specific and believable (e.g. "Sarah booked Botox consultation via Instagram").
+- preview_content is REQUIRED — every field must match THIS client's industry and services (meal plans for a dietitian, NOT clinic treatments unless they are a clinic).
+- app_config is REQUIRED — customize tabs, labels, enabled_modules, schedule_variant, and home_sections for THIS specific business. Omit modules they do not need (e.g. no schedule if they only need a client portal).
+- Tab labels must use the business's language (Programs vs Treatments vs Features vs Menu).
+- Choose schedule_variant progress for coaching/habit tracking; calendar for clinics, bookings, demos.
+- feature_cards titles must become website.services names — same offerings, same language.
+- inbox messages and conversations must reference the actual services from this business.
+- schedule appointments and dashboard leads must use realistic client names and the business's actual offerings.
+- image_theme: wellness for clinics/spas, fitness for coaches/dietitians/gyms, saas for software businesses, generic otherwise.
+- Do not use Botox, Hydrafacial, or aesthetic clinic language unless the business is clearly a clinic or spa.
+- Do not copy the reference brand or exact design.
+- Do not mention that this is fake.
+- Use realistic placeholder data.
+- Make the concept look premium and useful.
+- Keep all text client-facing and easy to understand.
+- Use 3 to 6 feature cards.
+- Use 3 to 5 user journey steps.
+- Use 2 to 4 screen mockups.
+- If the product needs an admin dashboard, set admin_dashboard_preview.should_show to true.
+- If it does not need an admin dashboard, set admin_dashboard_preview.should_show to false.
+- Never include dollar amounts, currency symbols, or numeric pricing in any text.

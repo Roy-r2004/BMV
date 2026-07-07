@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ brand_name or concept_slug }}</title>
+<link href="{{ font_url }}" rel="stylesheet">
+{% include "pages/tailwind_setup.html.j2" %}
+<style id="preview-theme">
+:root {
+  --brand-primary: {{ accent }};
+  --brand-font: '{{ font }}', system-ui, sans-serif;
+}
+html, body { margin: 0; padding: 0; min-height: 100%; }
+.preview-page { width: 100%; }
+</style>
+{% for asset in head_assets %}
+{{ asset }}
+{% endfor %}
+<style id="preview-router-css">
+.preview-page { animation: previewFadeIn 0.2s ease; }
+@keyframes previewFadeIn { from { opacity: 0.96; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+{% for page in pages %}
+<div class="preview-page" data-page-id="{{ page.id }}" role="main" aria-hidden="{{ 'false' if page.is_default else 'true' }}" style="display:{{ 'block' if page.is_default else 'none' }};min-height:100vh;">
+{{ page.body }}
+</div>
+{% endfor %}
+{% include "pages/router_script.js.j2" %}
+</body>
+</html>
