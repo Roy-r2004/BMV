@@ -1,7 +1,16 @@
 """
 Curated, verified Unsplash photo URLs mapped by industry category.
 All URLs use ?w=NNN&q=80&fit=crop&auto=format for reliable loading.
+
+Two mechanisms keep two businesses in the same industry from ending up with
+pixel-identical imagery:
+  1. `seed` deterministically rotates which of the bucket's verified photos
+     lands in which slot (hero/card1/card2/...), so "fitness business #12"
+     doesn't get the exact same hero photo as "fitness business #3".
+  2. `hero_override` lets a real image scraped from the client's own
+     reference URL (og:image) replace the generic stock hero entirely.
 """
+import hashlib
 
 _LIBRARY: dict[str, dict[str, str]] = {
     "beauty": {
@@ -81,10 +90,34 @@ _INDUSTRY_KEYWORDS: dict[str, list[str]] = {
 }
 
 
-def get_images_for_industry(industry: str) -> dict[str, str]:
-    """Return curated Unsplash image URLs matched to the given industry string."""
+def get_images_for_industry(
+    industry: str,
+    seed: str | int | None = None,
+    hero_override: str | None = None,
+) -> dict[str, str]:
+    """Return curated Unsplash image URLs matched to the given industry string.
+
+    `seed` (e.g. the request id or business name) rotates the assignment of
+    the bucket's photos across slots so repeat businesses in the same
+    industry don't render identical imagery. `hero_override` — typically the
+    client's own reference-site og:image — replaces the generic stock hero
+    when one was found.
+    """
     industry_lower = (industry or "").lower()
+    bucket = _LIBRARY["generic"]
     for category, keywords in _INDUSTRY_KEYWORDS.items():
         if any(kw in industry_lower for kw in keywords):
-            return _LIBRARY[category]
-    return _LIBRARY["generic"]
+            bucket = _LIBRARY[category]
+            break
+
+    slots = list(bucket.keys())
+    values = list(bucket.values())
+    if seed is not None and values:
+        offset = int(hashlib.sha256(str(seed).encode("utf-8")).hexdigest(), 16) % len(values)
+        values = values[offset:] + values[:offset]
+    result = dict(zip(slots, values))
+
+    if hero_override:
+        result["hero"] = hero_override
+
+    return result

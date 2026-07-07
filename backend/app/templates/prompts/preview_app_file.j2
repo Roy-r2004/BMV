@@ -22,6 +22,11 @@ Path: {{ file_path }}
 Kind: {{ file_kind }}
 Instructions: {{ file_instructions }}
 
+{% if page_plan_json is defined and page_plan_json and page_plan_json != "{}" %}
+=== PAGE PLAN FROM USER'S EXPERIENCE (SOURCE OF TRUTH — build ONLY what is listed here) ===
+{{ page_plan_json }}
+{% endif %}
+
 === EXISTING FILES (for imports/reference) ===
 {{ existing_files_summary }}
 
@@ -30,7 +35,6 @@ TECH RULES:
 - CRITICAL for src/index.css: it MUST start with the line `@import "tailwindcss";` then a `@theme { ... }` block defining --color-brand, --color-brand-dark, --font-sans from the design system. NEVER remove the tailwindcss import and NEVER replace Tailwind with plain custom CSS classes (no .container/.table/.button rules). Styling comes from Tailwind utilities in the components (bg-brand, text-brand, rounded-2xl, grid, etc.).
 - Import mock data from ../data/mock or @/data/mock
 - Text over photos: dark gradient overlay + white text — NEVER gray boxes on images
-- Hero: min-h-[85vh], image absolute inset-0 object-cover, gradient overlay, left-aligned content
 - Cards: rounded-2xl border border-slate-100 bg-white shadow-sm
 - Logo is TEXT (brand name) — never img logo
 - Only use provided Unsplash URLs for images
@@ -40,7 +44,7 @@ TECH RULES:
 - IMPORTS ALLOW-LIST — you may ONLY import from these, nothing else:
   * `react`, `react-router-dom`
   * `../data/mock` (or `@/data/mock`) and files that already exist in EXISTING FILES above
-  * `../components/UiIcons` for dashboard/feature icons (`<UiIcon name="chart" />`)
+  * `../components/UiIcons` for icons (`<UiIcon name="chart" />`)
   NEVER import ANY npm package (no lucide-react, no @mantine, no @mui, no antd, no react-icons, no recharts, no chart.js, etc.). NEVER import invented local paths like `../lib/aiUtils`, `../hooks/*`, `../utils/*`. Put ALL helper logic INLINE.
 - Icons: use `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield, bell, calendar, check, search) OR inline SVG (24x24, stroke-current) — NEVER emoji
 - Charts/graphs: build with styled divs or inline <svg> (e.g. bar heights via Tailwind h-*) — never a chart library.
@@ -50,54 +54,38 @@ For App.tsx:
 - Import roles from ./data/mock for RoleBridge defaultPath lookup
 - BrowserRouter, Routes, Route, Navigate from react-router-dom
 - CRITICAL: the app is served under a sub-path, so BrowserRouter MUST set basename to import.meta.env.BASE_URL — output exactly: <BrowserRouter basename={import.meta.env.BASE_URL}>
-- CRITICAL: include an index route that redirects the root to the first real page, and a catch-all, e.g. output exactly: <Route path="/" element={<Navigate to="/home" replace />} /> and <Route path="*" element={<Navigate to="/" replace />} /> (use the actual first route path instead of /home)
+- CRITICAL: include an index route that redirects the root to the first real page, and a catch-all
 - Wire every route from architect plan; wrap routes in the correct layout per route.layout
 
-For src/data/mock.ts:
-- This is a plain data module. It MUST NOT import anything (especially NEVER import from '../data/mock' or './mock' — that is itself). Only `export const ...` declarations.
-- Export EVERYTHING the pages/layouts import (brand, images, roles, navigation, services, appointments, clients, stats, testimonials, etc.)
-- roles: array of { id, label, defaultPath, icon }
-- navigation: { public: [{path,label}...], admin: [{path,label}...] } covering every route
-- Write out ALL items in FULL — never use placeholder comments like "// Additional services..." or "// more items". Real, complete arrays (6+ services, 6+ testimonials, 10+ appointments, 8+ clients).
-
-For layouts + Nav:
+For page components (kind=page):
+- Import from `../data/mock` ONLY the symbols this page needs (e.g. `inventory`, `leads`, `stats`). Choose names that match the business — mock.ts is generated later to match your imports.
+- You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
 - PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
-- Pages export ONLY their main content (sections inside a fragment or single div). No min-h-screen wrapper unless needed for a full-bleed hero.
+- Pages export ONLY their main content (sections inside a fragment or single div).
 
-═══ PREMIUM DESIGN LAWS (violations = failed demo) ═══
-- NEVER use emoji as icons — use inline SVG (24x24, stroke-current, viewBox="0 0 24 24")
-- NEVER hardcode hex colors (#be185d, #333) — use text-brand, bg-brand, bg-brand/10, text-slate-600, border-slate-100
-- NEVER use hover:scale-105 or cheap transform tricks — use hover:shadow-md, hover:border-brand/30
-- NEVER use bg-brand-light unless you define --color-brand-light in @theme (prefer bg-brand/5 or bg-brand/10)
-- Typography: marketing headlines text-5xl lg:text-6xl font-bold tracking-tight; section titles text-3xl font-bold
-- Spacing: sections py-20 lg:py-28; containers max-w-7xl mx-auto px-6 lg:px-8
-- Hero MUST be left-aligned (not centered): badge pill + headline + subtitle + 2 CTAs + trust row with avatar stack
-- Service cards MUST show photos (img with object-cover rounded-2xl h-48) — never text-only service grids
-- Every marketing page: 8 sections minimum (hero, logo strip, features, services gallery, how-it-works, testimonials, FAQ accordion, final CTA band)
-- Dashboard: 4 stat cards in a row (each with `<UiIcon name={stat.icon} />` in a rounded bg-brand/10 container), SVG/div chart with 7 bars, table with 8+ rows + status badges, recent activity list, quick actions
-- Booking: step indicator (1-2-3), service cards WITH images, date grid styled as calendar, form in elevated card with labels
+═══ CONTENT RULE (MOST IMPORTANT) ═══
+Do NOT invent a generic SaaS/marketing template. The user's experience plan (in Instructions and PAGE PLAN above) defines:
+- which sections exist on this page
+- what each section shows
+- which features are visible
+- what sample data to use
 
-═══ VISUAL DENSITY BAR (CRITICAL — thin pages FAIL the product demo) ═══
-This must look like a shipped premium product, not a student project.
+Implement EVERY section from the plan with rich, business-specific UI. If the plan has 3 sections, build 3 — deeply. If it has 10, build 10. Never add sections that are not in the plan (no default FAQ, testimonials, or logo strip unless the plan asks for them).
 
-For src/data/mock.ts:
-- brand, images (ALL 6 URLs: hero, hero2, card1, card2, card3, ambient)
-- 6+ services with name, description, duration, badge, imageUrl
-- 6+ testimonials with full 2-sentence quotes, name, initials, service
-- 10+ appointments with client names, service, date/time, status
-- 8+ clients with name, email, phone, lastVisit, status
-- 4+ stats with label, value, change, icon (string key: chart|clipboard|target|clock|users|zap|shield — NEVER emoji)
-- roles, navigation { public, admin } synced to routes
+═══ QUALITY BAR (how to implement the plan well) ═══
+- NEVER use emoji as icons — use UiIcon or inline SVG
+- NEVER hardcode hex colors — use text-brand, bg-brand, bg-brand/10, text-slate-600, border-slate-100
+- Typography: clear hierarchy (page titles text-3xl+ font-bold; body text-slate-600)
+- Spacing: generous section padding (py-16 lg:py-24); containers max-w-7xl mx-auto px-6
+- Use images from mock where the plan calls for imagery — object-cover, rounded-2xl
+- Each section in the plan should be visually distinct (not copy-paste the same card grid everywhere)
+- Pages must feel dense and production-ready — thin placeholder pages fail
+- NEVER wrap AdminLayout or PublicLayout inside page components — App.tsx applies layouts via routes
 
 For page components (kind=page):
-- MINIMUM 120+ lines of JSX for inner pages, 180+ for home/landing
-- 5-8 distinct sections per marketing page (hero, social proof, features, process, gallery, testimonials, FAQ, CTA)
-- Hero: badge + text-5xl/6xl headline + subtitle + 2 buttons + trust row (avatars + "500+ clients")
-- Use images from mock throughout — service cards with photos, not text-only grids
-- Dashboard pages: 4 stat cards from stats export, weekly bar chart (7 bars, div/SVG), table with ALL appointments rows + status badges, recent clients list (6+), activity feed (5+ items with inline SVG icons), top services progress bars, quick action buttons — NEVER use invalid classes like bg-brand-backgroundColor
-- Admin dashboard (AdminDashboard): studio-owner operations view — stats row, bookings chart, appointments table (8+ rows), client list, activity feed, satisfaction quotes. Import stats, appointments, clients, services, testimonials from mock. NO emoji in activity feed — inline SVG only.
-- Booking/forms: multi-step or grouped fields with labels, helpers, icons — never 3 bare inputs
-- NEVER wrap AdminLayout or PublicLayout inside page components — App.tsx already applies layouts via routes; pages render content only
-- Use inline Tailwind classes (rounded-2xl shadow-sm px-6 py-20) — avoid vague custom classes unless defined in index.css
+- Implement the sections listed in the plan — each with the UI described there
+- Match the page's role and purpose from Instructions (marketing vs operations vs admin are different UX patterns — follow the plan, not a template)
+- Use realistic sample data from sample_data_notes / business context — never "Service 1" or Lorem ipsum
+- Import only what you need from mock.ts for THIS page's sections
 
 Output the complete file source code only.

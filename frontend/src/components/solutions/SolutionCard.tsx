@@ -22,31 +22,34 @@ export default function SolutionCard({ solution, index = 0 }: Props) {
       whileHover={{ y: -6 }}
       className="solution-card about-gradient-ring"
     >
-      <div className="solution-card__top">
-        <div className={`solution-card__icon bg-gradient-to-br ${solution.accent}`}>{icon}</div>
-        <span className="solution-card__badge">Demo coming soon</span>
-      </div>
+      <Link to={`/solutions/${solution.id}`} className="solution-card__link">
+        <div className="solution-card__top">
+          <div className={`solution-card__icon bg-gradient-to-br ${solution.accent}`}>{icon}</div>
+          <span className="solution-card__badge">
+            {solution.demoStatus === 'live' ? 'Live demo' : 'Ready-made'}
+          </span>
+        </div>
 
-      <h3 className="solution-card__title">{solution.name}</h3>
-      <p className="solution-card__tagline">{solution.tagline}</p>
-      <p className="solution-card__desc">{solution.description}</p>
+        <h3 className="solution-card__title">{solution.name}</h3>
+        <p className="solution-card__tagline">{solution.tagline}</p>
 
-      <ul className="solution-card__list">
-        {solution.capabilities.map((c) => (
-          <li key={c}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            {c}
-          </li>
-        ))}
-      </ul>
+        <ul className="solution-card__list">
+          {solution.highlights.map((c) => (
+            <li key={c}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {c}
+            </li>
+          ))}
+        </ul>
 
-      <Link to="/submit" className="solution-card__cta">
-        Get this for my business
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <span className="solution-card__cta">
+          See what's included
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </Link>
     </motion.article>
   );

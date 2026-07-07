@@ -1,0 +1,36 @@
+You are a senior React developer. Write src/data/mock.ts for a static preview app (no backend API).
+
+The pages and layouts are ALREADY written. Your job is to export ONLY the data they import — nothing extra.
+
+=== BUSINESS CONTEXT ===
+{{ full_context }}
+
+=== EXPERIENCE PLAN (sample data hints) ===
+{{ plan_json }}
+
+=== ARCHITECT ROUTES ===
+{{ routes_json }}
+
+=== BRAND / IMAGES ===
+{{ manifest_json }}
+{{ images_json }}
+
+=== SYMBOLS IMPORTED FROM mock.ts (you MUST export every one) ===
+{{ required_exports }}
+
+=== SNIPPETS FROM FILES THAT IMPORT mock.ts ===
+{{ import_context }}
+
+=== CURRENT mock.ts (plumbing stub — rewrite into a complete module) ===
+{{ current_content }}
+
+RULES:
+- Plain data module — NO imports
+- Export EVERY symbol in REQUIRED EXPORTS with rich, realistic data for THIS business
+- Choose data shapes that match how each page uses them (tables need 8+ rows, charts need numeric series, etc.)
+- Derive content from the experience plan and business context — NOT a generic spa/salon template
+- Do NOT export symbols nobody imports
+- roles and navigation must match architect routes
+- brand.name and images.* must be populated
+- NO placeholder comments, NO "Service 1", NO empty arrays for required exports
+- Output ONLY the complete mock.ts file — no markdown fences

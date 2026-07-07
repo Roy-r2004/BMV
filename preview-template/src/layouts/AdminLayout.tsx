@@ -31,7 +31,7 @@ export default function AdminLayout() {
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b border-slate-200 bg-white px-6 py-5 lg:px-10">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Studio Owner</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Admin</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">{brand?.name ?? 'Dashboard'}</h1>
         </header>
         <main className="flex-1 overflow-auto p-6 lg:p-10">

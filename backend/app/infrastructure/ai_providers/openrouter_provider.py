@@ -8,6 +8,7 @@ import requests
 
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
+from app.infrastructure.ai_providers.retry import call_with_retry
 
 _CLAUDE_MODEL_PREFIXES = (
     "anthropic/claude",
@@ -52,7 +53,7 @@ class OpenRouterAIProvider(AIProvider):
         self,
         model: str,
         messages: list,
-        timeout: int = 300,
+        timeout: int = 120,
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
@@ -61,14 +62,30 @@ class OpenRouterAIProvider(AIProvider):
             payload["max_tokens"] = max_tokens
         if temperature is not None:
             payload["temperature"] = temperature
-        response = requests.post(
-            f"{self._base_url}/chat/completions",
-            headers=self._headers(),
-            json=payload,
-            timeout=timeout,
+
+        def _do_request() -> dict:
+            response = requests.post(
+                f"{self._base_url}/chat/completions",
+                headers=self._headers(),
+                json=payload,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        def _heartbeat(elapsed: float) -> None:
+            print(f"    ...still waiting on {model} ({elapsed:.0f}s elapsed)", flush=True)
+
+        # Transient network/rate-limit errors are retried automatically so one
+        # flaky call doesn't stall or abort an entire generation stage. Capped
+        # at 2 attempts (was 3) with a 120s timeout (was 300s) — worst case is
+        # now ~4 minutes per call instead of ~15, and the heartbeat print means
+        # a slow-but-working call is now distinguishable from a stuck one in
+        # the logs instead of both looking like total silence.
+        data = call_with_retry(
+            _do_request, attempts=2, base_delay=3,
+            heartbeat_interval=20, on_heartbeat=_heartbeat,
         )
-        response.raise_for_status()
-        data = response.json()
         return data["choices"][0]["message"]["content"]
 
     def ask_chat(

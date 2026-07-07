@@ -1,4 +1,4 @@
-You are a senior React + Tailwind developer. Rewrite this file to fully address the design critic's notes and reach 90+ quality. Keep the same imports/exports contract (only import names that exist in mock.ts).
+You are a senior React + Tailwind developer. Rewrite this file to fully address the design critic's notes and implement every section from the page plan. Keep the same imports/exports contract (only import names that exist in mock.ts).
 
 === BUSINESS CONTEXT ===
 {{ full_context }}
@@ -9,7 +9,7 @@ You are a senior React + Tailwind developer. Rewrite this file to fully address 
 === IMAGES (use these exact Unsplash URLs) ===
 {{ images_json }}
 
-=== PAGE PURPOSE ===
+=== PAGE PURPOSE + PLANNED SECTIONS (implement ALL of these) ===
 {{ file_instructions }}
 
 === CRITIC NOTES (address ALL of these) ===
@@ -20,9 +20,9 @@ You are a senior React + Tailwind developer. Rewrite this file to fully address 
 
 RULES:
 - React 19 + TypeScript, Tailwind utility classes only, text-brand/bg-brand for accents
-- Replace any generic data with realistic business-specific content
-- Use the provided Unsplash URLs in <img> with object-cover; text over photos gets a dark gradient overlay + white text
-- Marketing pages: hero + 6+ distinct sections; dashboards: stat cards + chart + 8-row table + activity — do NOT wrap in AdminLayout/PublicLayout (App.tsx applies layouts)
-- IMPORTS ALLOW-LIST: ONLY `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, and local files. NEVER import ANY npm package (no lucide-react/recharts/etc.) or invented local module. Icons = `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield) OR inline SVG — NEVER emoji. Charts = styled divs/SVG. Put helper logic INLINE.
-- Only import names that mock.ts actually exports
+- Build ONLY the sections described in the page plan — do not add generic marketing blocks the plan did not request
+- Replace any generic data with realistic business-specific content from the plan
+- Use the provided Unsplash URLs in <img> with object-cover where imagery is needed
+- IMPORTS ALLOW-LIST: ONLY `react`, `react-router-dom`, `../data/mock`, `../components/UiIcons`, and local files listed in EXISTING FILES. NEVER import npm packages or invented modules. Icons = UiIcon or inline SVG — NEVER emoji.
+- Do NOT wrap in AdminLayout/PublicLayout (App.tsx applies layouts)
 - Output ONLY the complete rewritten file — no markdown fences, no commentary

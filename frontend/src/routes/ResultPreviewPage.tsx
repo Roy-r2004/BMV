@@ -168,7 +168,7 @@ export default function ResultPreviewPage() {
             transition={{ delay: 0.1, duration: 0.55, ease }}
             className={`result-window-stage flex-1 min-h-0 w-full ${chatGutter}`}
           >
-            {showLivePreviewApp ? (
+            {showLivePreviewApp && preview.generated_pages ? (
               <div className="h-full w-full">
                 <PreviewAppPreview
                   pages={preview.generated_pages}

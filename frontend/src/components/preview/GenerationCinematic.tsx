@@ -136,7 +136,7 @@ export default function GenerationCinematic({
           className="relative flex items-center justify-center"
           style={{ width: compact ? 280 : 400, height: compact ? 280 : 400 }}
         >
-          <NodeGraph activeStep={activeStep} pct={pct} businessName={businessName} compact={compact} />
+          <NodeGraph activeStep={activeStep} pct={pct} compact={compact} />
         </motion.div>
 
         {/* Current action pill */}
@@ -225,12 +225,10 @@ export default function GenerationCinematic({
 function NodeGraph({
   activeStep,
   pct,
-  businessName,
   compact,
 }: {
   activeStep: number;
   pct: number;
-  businessName?: string;
   compact: boolean;
 }) {
   const size = compact ? 280 : 400;

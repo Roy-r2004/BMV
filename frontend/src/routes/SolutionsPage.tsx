@@ -30,7 +30,7 @@ export default function SolutionsPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            Our roadmap, industry by industry
+            Our software, industry by industry
           </motion.span>
 
           <motion.h1
@@ -48,9 +48,8 @@ export default function SolutionsPage() {
             transition={{ duration: 0.6, delay: 0.12, ease: easeOut }}
             className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed mb-8"
           >
-            We're building a growing library of ready-made solution blueprints — one for every kind of
-            business, from clinics to barbershops to real estate. Pick your industry below, and we'll
-            customize, build, and integrate it for you. Live demos for each vertical are rolling out soon.
+            Ready-made software for every kind of business — from clinics to barbershops to real estate.
+            Pick your industry below to see what's included, then we'll customize and integrate it for you.
           </motion.p>
 
           <motion.div
@@ -60,7 +59,7 @@ export default function SolutionsPage() {
             className="flex flex-wrap justify-center gap-3"
           >
             <GlowButton to="/submit" className="text-sm px-6 py-3 !inline-block">
-              Get my industry built
+              Get this software
             </GlowButton>
           </motion.div>
         </div>
@@ -75,14 +74,13 @@ export default function SolutionsPage() {
             viewport={{ once: true }}
             className="mb-10 text-center max-w-2xl mx-auto"
           >
-            <p className="text-blue-600 font-medium mb-2 tracking-[0.2em] uppercase text-xs">The plan</p>
+            <p className="text-blue-600 font-medium mb-2 tracking-[0.2em] uppercase text-xs">Our software</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-navy mb-3">
-              Solutions we're building for every industry
+              A solution for every industry
             </h2>
             <p className="text-slate-600 leading-relaxed">
-              Each card below is a real blueprint on our roadmap — a proven set of features we already
-              know your industry needs. Don't see yours listed? We build fully custom solutions for any
-              business, industry or not.
+              Each card is software we already have. Click any industry to see the full package —
+              what's included, features, and demo — then tell us how to set it up for your business.
             </p>
           </motion.div>
 
@@ -108,9 +106,9 @@ export default function SolutionsPage() {
 
       <CinematicCTA
         eyebrow="How it works"
-        title="We customize, build, and integrate it for you"
-        subtitle="Every solution above is a starting point, not a template. Share your business details and we tailor it to how you actually work."
-        primaryLabel="Create My Business Version"
+        title="Ready-made software, customized for you"
+        subtitle="The platform already exists — we tailor it to your brand, workflow, and integrations, then launch it for your business."
+        primaryLabel="Get this software"
         secondaryLabel="See live demos"
         secondaryTo="/demo"
       />

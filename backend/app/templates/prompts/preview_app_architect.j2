@@ -62,17 +62,23 @@ Output ONLY valid JSON:
     }
   ],
   "shared_components": [
-    { "path": "src/components/Nav.tsx", "kind": "component", "instructions": "Public top nav for this brand" },
-    { "path": "src/layouts/AdminLayout.tsx", "kind": "layout", "instructions": "Admin sidebar shell matching admin routes" }
+    { "path": "src/components/Nav.tsx", "kind": "component", "instructions": "Public top nav, bespoke to this brand — not a generic default" },
+    { "path": "src/layouts/PublicLayout.tsx", "kind": "layout", "instructions": "Public shell (header/main/footer) bespoke to this brand" },
+    { "path": "src/layouts/AdminLayout.tsx", "kind": "layout", "instructions": "Admin sidebar shell matching admin routes, bespoke to this brand" },
+    { "path": "src/components/UiIcons.tsx", "kind": "component", "instructions": "Bespoke icon set matching this brand's style" }
   ]
 }
 
 RULES:
 - Derive roles, routes, and page count ENTIRELY from the experience plan — build EVERY feature the plan describes
+- CRITICAL: Each role MUST have visually DISTINCT pages — derive page types and sections from the plan, not from a fixed template
+- CRITICAL: component_file paths MUST reflect role folders: public pages in src/pages/, owner pages in src/pages/owner/, admin pages in src/pages/admin/
+- Each route's files_to_generate instructions MUST copy the section list from the matching page in the experience plan
 - CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.
 - CRITICAL: MUST include at least ONE public marketing landing route (path "/" or "/home", layout "public", component HomePage.tsx). Client always lands on a rich homepage first.
-- Always include src/index.css (theme), src/data/mock.ts (data), and src/App.tsx (router) in files_to_generate
-- src/data/mock.ts MUST export: brand, images, roles (id, label, defaultPath, icon), navigation { public: [...], admin: [...] } synced with ALL routes, plus every data array each page needs
+- Always include src/index.css (theme) and src/App.tsx (router) in files_to_generate
+- Do NOT include src/data/mock.ts — the pipeline writes plumbing data, then synthesizes exports after pages exist based on what they import
 - component_file paths must start with src/
 - Do NOT include main.tsx or preview-bridge.ts (already in template)
 - Quality bar: if a feature exists in the plan, there is a DEDICATED PAGE for it. Do not cram 3 features into one generic page.
+- Nav, PublicLayout, AdminLayout, and UiIcons are NOT shared defaults anymore — they are generated fresh for every business and MUST always appear in shared_components. Give them real instructions tailored to this brand's visual style, not the placeholder text above.

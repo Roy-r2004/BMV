@@ -39,13 +39,8 @@ from app.shared.json_utils import extract_json_from_text
 
 
 def _architect_from_generated(generated_pages: dict) -> dict:
-    pa = generated_pages.get("preview_app") or {}
-    return {
-        "routes": pa.get("routes") or [],
-        "roles": pa.get("roles") or [],
-        "design_direction": pa.get("design_direction") or "",
-        "files_to_generate": [],
-    }
+    from app.application.preview_app.assemble import architect_from_stored
+    return architect_from_stored(generated_pages)
 
 
 def _rank_refinement_files(path: str) -> tuple:
@@ -185,7 +180,17 @@ def refine_preview_app_from_chat(
         secondary = theme.get("secondary_color", "#0d9488")
         design_system = plan.get("design_system") or {}
         font = design_system.get("font_family") or design_system.get("font") or ""
-        images = get_images_for_industry(req.industry or "")
+        ref_meta: dict = {}
+        if req.reference_metadata:
+            try:
+                ref_meta = json.loads(req.reference_metadata)
+            except Exception:
+                ref_meta = {}
+        images = get_images_for_industry(
+            req.industry or "",
+            seed=request_id,
+            hero_override=ref_meta.get("og_image") or None,
+        )
         brand_name = req.business_name or "Brand"
 
         sanitize_workspace_sources(workspace)

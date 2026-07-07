@@ -1,4 +1,6 @@
-"""Scrapes basic metadata (title/description/h1/snippet) from a reference URL."""
+"""Scrapes basic metadata (title/description/h1/snippet/og:image) from a reference URL."""
+from urllib.parse import urljoin
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -29,6 +31,7 @@ def fetch_reference_metadata(url: str) -> dict:
         "description": "",
         "h1": "",
         "visible_text_snippet": "",
+        "og_image": "",
         "fetch_success": False,
     }
 
@@ -58,6 +61,17 @@ def fetch_reference_metadata(url: str) -> dict:
         h1_tag = soup.find("h1")
         if h1_tag:
             result["h1"] = fix_encoding(h1_tag.get_text(strip=True))
+
+        # Real hero image from the client's own reference site — used instead of
+        # a generic industry stock photo when available, so the preview isn't
+        # visually identical to every other business in the same category.
+        og_image = soup.find("meta", property="og:image")
+        if not og_image:
+            og_image = soup.find("meta", attrs={"name": "twitter:image"})
+        if og_image and og_image.get("content"):
+            candidate = og_image.get("content", "").strip()
+            if candidate:
+                result["og_image"] = urljoin(url, candidate)
 
         paragraphs = soup.find_all("p")
         texts = [fix_encoding(p.get_text(strip=True)) for p in paragraphs[:5] if p.get_text(strip=True)]

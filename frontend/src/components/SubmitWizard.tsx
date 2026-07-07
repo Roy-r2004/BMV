@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { markOwnRequest } from '../utils/ownRequest';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createRequest } from '../api/requests';
@@ -170,6 +170,7 @@ const inputClass =
 
 export default function SubmitWizard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [data, setData] = useState<FormData>(INITIAL);
@@ -177,6 +178,12 @@ export default function SubmitWizard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState('');
+
+  useEffect(() => {
+    const industry = searchParams.get('industry');
+    if (!industry) return;
+    setData((d) => (d.industry ? d : { ...d, industry }));
+  }, [searchParams]);
 
   const update = (key: keyof FormData, value: string) => {
     setData((d) => ({ ...d, [key]: value }));

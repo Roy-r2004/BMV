@@ -9,6 +9,7 @@ from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep
 from app.application.pipelines.orchestrator import GenerationPipeline
 from app.application.pipelines.role_pages import generate_role_pages
 from app.application.preview_app import generate_preview_app
+from app.application.services.progress import emit as _emit
 from app.application.services.preview_parser import parse_preview_features
 from app.application.services.preview_refinement import get_chat_history, refine_preview
 from app.application.services.reference_formatter import format_reference_analysis
@@ -162,8 +163,12 @@ def _run_preview_app_in_background(request_id: int) -> None:
     bg_db = SessionLocal()
     try:
         generate_preview_app(bg_db, request_id, get_ai_provider(), get_template_renderer())
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"preview app generation failed for request {request_id}: {e}", flush=True)
+        try:
+            _emit(bg_db, request_id, "failed", f"Generation failed: {e}", 0)
+        except Exception:
+            pass
     finally:
         bg_db.close()
 

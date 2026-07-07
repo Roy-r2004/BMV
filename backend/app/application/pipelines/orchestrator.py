@@ -79,11 +79,21 @@ class GenerationPipeline:
             _emit(db, request_id, "codegen", "Launching UI generation pipeline...", 28,
                   detail="Planning agent designing pages and roles")
             generate_preview_app(db, request_id, self.ai_provider, self.template_renderer)
-        except Exception:
+        except Exception as e:
+            # The pipeline already self-heals build failures internally (safe-stub
+            # fallback). If it still raised, the failure was likely transient
+            # (flaky AI call, workspace race) — retry the whole generation once
+            # from a fresh workspace before falling back to the lesser role-pages mode.
+            print(f"preview app generation failed ({e}) — retrying once...", flush=True)
+            _emit(db, request_id, "codegen", "Retrying preview generation...", 28,
+                  detail="First attempt hit an error — trying again")
             try:
-                role_pages.generate_role_pages(db, request_id, self.ai_provider, self.template_renderer)
+                generate_preview_app(db, request_id, self.ai_provider, self.template_renderer)
             except Exception:
-                pass
+                try:
+                    role_pages.generate_role_pages(db, request_id, self.ai_provider, self.template_renderer)
+                except Exception:
+                    pass
 
         try:
             _emit(db, request_id, "tech", "Writing technical plan...", 90,

@@ -218,6 +218,152 @@ def sanitize_workspace_sources(workspace) -> list[str]:
     return cleaned
 
 
+# Matches a single-line `key: '...'` or bare `'...',` string value — the only
+# shape AI-written mock/data files reliably use for narrative copy.
+_STRING_LINE_RE = re.compile(r"^(\s*(?:[\w.\[\]\"]+\s*:\s*)?)'(.*)'(\s*[,;]?\s*)$")
+
+
+def fix_unescaped_apostrophes(content: str) -> tuple[str, bool]:
+    """Escape stray apostrophes (contractions/possessives) inside single-quoted
+    string literals — e.g. `'the station's over-portioning'` breaks the JS
+    parser because the AI wrote natural-language text without escaping `'`.
+
+    Only touches single-line `key: '...'` / `'...'` value lines so normal code
+    (JSX, regex, multi-line templates) is never at risk of being rewritten.
+    """
+    changed = False
+    out_lines = []
+    for line in content.splitlines():
+        m = _STRING_LINE_RE.match(line)
+        if m:
+            prefix, body, suffix = m.group(1), m.group(2), m.group(3)
+            if re.search(r"(?<!\\)'", body):
+                fixed_body = re.sub(r"(?<!\\)'", r"\\'", body)
+                line = f"{prefix}'{fixed_body}'{suffix}"
+                changed = True
+        out_lines.append(line)
+    return ("\n".join(out_lines), changed)
+
+
+def _import_prefix_for_page(rel: str) -> str:
+    """Relative prefix from a page file back to `src/` (e.g. `../../` for `src/pages/owner/X.tsx`)."""
+    norm = rel.replace("\\", "/")
+    if "src/pages/" not in norm:
+        return "../"
+    tail = norm.split("src/pages/", 1)[1]
+    depth = tail.count("/")
+    return "../" * (depth + 1)
+
+
+def fix_nested_import_paths(workspace) -> list[str]:
+    """Correct `../components` → `../../components` (etc.) in nested page folders."""
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        if not rel.endswith((".tsx", ".ts")):
+            continue
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm:
+            continue
+        correct = _import_prefix_for_page(norm)
+        content = read_file(workspace, rel)
+        updated = content
+        for target in ("components/", "data/", "lib/", "layouts/"):
+            for shallow_len in range(1, 6):
+                shallow = "../" * shallow_len
+                if shallow == correct:
+                    break
+                for quote in ("'", '"'):
+                    wrong = f"from {quote}{shallow}{target}"
+                    right = f"from {quote}{correct}{target}"
+                    if wrong in updated:
+                        updated = updated.replace(wrong, right)
+        if updated != content:
+            write_file(workspace, rel, updated)
+            fixed.append(rel)
+    return fixed
+
+
+def find_truncated_pages(workspace) -> list[str]:
+    """Return page source paths that look cut off mid-generation."""
+    out: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".ts")):
+            continue
+        if looks_truncated_source(read_file(workspace, rel)):
+            out.append(rel)
+    return out
+
+
+def apply_workspace_guards(
+    workspace,
+    architect: dict,
+    plan: dict,
+    images: dict,
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+    template_renderer: TemplateRenderer,
+) -> list[str]:
+    """Run every deterministic build guard. Safe to call before every `vite build`."""
+    from app.application.preview_app.assemble import write_app_tsx, write_index_css
+
+    actions: list[str] = []
+    for fn, label in (
+        (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
+        (lambda: sanitize_data_files(workspace), "quotes escaped"),
+        (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
+    ):
+        try:
+            result = fn()
+            if result:
+                actions.extend(result if isinstance(result, list) else [label])
+        except Exception as e:
+            print(f"    guard {label} skipped: {e}", flush=True)
+    try:
+        if ensure_ui_icons(workspace):
+            actions.append("src/components/UiIcons.tsx")
+    except Exception as e:
+        print(f"    ui icons guard skipped: {e}", flush=True)
+    try:
+        added = ensure_mock_exports(workspace, architect, plan, images, brand_name)
+        actions.extend(added)
+    except Exception as e:
+        print(f"    mock exports guard skipped: {e}", flush=True)
+    try:
+        write_index_css(workspace, primary, secondary, font, template_renderer)
+        write_app_tsx(workspace, architect, template_renderer)
+    except Exception as e:
+        print(f"    assemble skipped: {e}", flush=True)
+    try:
+        actions.extend(ensure_runtime_correctness(
+            workspace, architect, plan, primary, secondary, font, template_renderer,
+        ))
+    except Exception as e:
+        print(f"    runtime correctness skipped: {e}", flush=True)
+    return actions
+
+
+def sanitize_data_files(workspace) -> list[str]:
+    """Run `fix_unescaped_apostrophes` over every `src/data/*.ts(x)` file.
+
+    Called before *every* build attempt (not just once) so this guard applies
+    even to content written later by the fix-loop or critic-refine passes.
+    """
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.startswith("src/data/") or not norm.endswith((".ts", ".tsx")):
+            continue
+        raw = read_file(workspace, rel)
+        new_content, changed = fix_unescaped_apostrophes(raw)
+        if changed:
+            write_file(workspace, rel, new_content)
+            fixed.append(rel)
+    return fixed
+
+
 def _clean_mock(mock: str) -> str:
     """Remove any self-import lines (mock.ts importing from itself -> redeclare)."""
     return _MOCK_SELF_IMPORT_RE.sub("", mock)
@@ -272,15 +418,22 @@ def cleanup_page_shells(workspace) -> list[str]:
 
 
 def ensure_ui_icons(workspace) -> bool:
-    """Copy UiIcons scaffold from preview template if the workspace is missing it."""
+    """Ensure UiIcons exists and exports a default (pages use `import UiIcon from ...`)."""
     target = "src/components/UiIcons.tsx"
-    if read_file(workspace, target).strip():
-        return False
-    source = settings.PREVIEW_TEMPLATE_DIR / "src" / "components" / "UiIcons.tsx"
-    if not source.is_file():
-        return False
-    write_file(workspace, target, source.read_text(encoding="utf-8"))
-    return True
+    content = read_file(workspace, target).strip()
+    changed = False
+    if not content:
+        source = settings.PREVIEW_TEMPLATE_DIR / "src" / "components" / "UiIcons.tsx"
+        if not source.is_file():
+            return False
+        content = source.read_text(encoding="utf-8")
+        changed = True
+    if "export default UiIcon" not in content and "export function UiIcon" in content:
+        content = content.rstrip() + "\n\nexport default UiIcon;\n"
+        changed = True
+    if changed:
+        write_file(workspace, target, content)
+    return changed
 
 
 def ensure_runtime_correctness(

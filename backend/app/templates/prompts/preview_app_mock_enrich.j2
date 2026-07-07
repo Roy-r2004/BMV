@@ -1,4 +1,4 @@
-You are a senior React developer. Rewrite src/data/mock.ts to be RICH and complete for a client-facing product demo.
+You are a senior React developer. Rewrite src/data/mock.ts to be complete for this specific business preview.
 
 === BUSINESS CONTEXT ===
 {{ full_context }}
@@ -6,7 +6,7 @@ You are a senior React developer. Rewrite src/data/mock.ts to be RICH and comple
 === MANIFEST ===
 {{ manifest_json }}
 
-=== IMAGES (use ALL 6 in services/cards) ===
+=== IMAGES (use these URLs where pages need imagery) ===
 {{ images_json }}
 
 === ROUTES (navigation must cover these) ===
@@ -18,10 +18,9 @@ You are a senior React developer. Rewrite src/data/mock.ts to be RICH and comple
 REQUIREMENTS:
 - Plain data module only — NO imports
 - export brand { name, tagline }, images (all 6 URLs), roles, navigation { public, admin }
-- 8+ services: each with id, name, description (2 sentences), duration, badge, imageUrl from images
-- 8+ testimonials: name, initials, text (2 full sentences), service
-- 12+ appointments: id, client, service, time (ISO string), status ('confirmed'|'pending'|'cancelled')
-- 10+ clients: name, email, phone, lastVisit, status
-- 4 stats: label, value, change
-- Realistic business-specific names from manifest — NO "Service 1", NO "// Additional..." comments
+- Export ONLY data arrays this product's pages need — derive from business context and routes, NOT a generic spa/salon template
+- Examples by product type: restaurant ERP → inventory, orders, suppliers; CRM → leads, contacts; booking app → appointments, services
+- Do NOT add services, testimonials, or appointments unless this business would actually use them
+- Realistic business-specific names — NO "Service 1", NO "// Additional..." comments
+- Each array should have enough items for tables/lists to look real (typically 6-12 rows)
 - Output ONLY the complete mock.ts file — no markdown fences

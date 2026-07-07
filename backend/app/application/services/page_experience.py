@@ -150,7 +150,7 @@ def build_experience_plan(
     plan: dict | None = None
     features = parse_preview_features(req.preview_features)
 
-    for model in (settings.TEXT_MODEL, settings.HTML_MODEL):
+    for model in (settings.TEXT_MODEL, settings.ARCHITECT_MODEL):
         try:
             plan = _call_planner(req, demo, primary, secondary, model, ai_provider, template_renderer)
             if plan:
@@ -196,7 +196,7 @@ def _expand_plan(
         mvp_blueprint=(req.mvp_blueprint or "")[:8000],
         full_context=full_context[:8000],
     )
-    for model in (settings.HTML_MODEL, settings.TEXT_MODEL):
+    for model in (settings.ARCHITECT_MODEL, settings.TEXT_MODEL):
         try:
             raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
             result = _parse_json_from_response(raw)
@@ -225,7 +225,7 @@ def validate_and_expand_plan(
         preview_features="\n".join(f"- {f}" for f in features) if features else "- all blueprint features",
         mvp_blueprint=(req.mvp_blueprint or "")[:8000],
     )
-    for model in (settings.HTML_MODEL, settings.TEXT_MODEL):
+    for model in (settings.ARCHITECT_MODEL, settings.TEXT_MODEL):
         try:
             raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
             result = _parse_json_from_response(raw)
@@ -260,7 +260,7 @@ def build_design_manifest(
         features=", ".join(dict.fromkeys(features_from_plan))[:800] or "core features",
     )
     try:
-        raw = ai_provider.ask_chat(settings.HTML_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
+        raw = ai_provider.ask_chat(settings.ARCHITECT_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
         manifest = _parse_json_from_response(raw)
         if manifest:
             manifest["design_system"] = ds

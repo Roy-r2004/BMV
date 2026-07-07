@@ -89,3 +89,5 @@ export function UiIcon({ name, className = 'w-5 h-5' }: { name: string; classNam
     </span>
   );
 }
+
+export default UiIcon;

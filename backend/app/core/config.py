@@ -57,8 +57,11 @@ class Settings:
     CODER_MODEL: str
     HTML_MODEL: str
     PREVIEW_APP_MODEL: str
+    ARCHITECT_MODEL: str
     CRITIC_MODEL: str
     FIX_MODEL: str
+    PREVIEW_SKIP_CRITIC: bool
+    PREVIEW_PARALLEL_WORKERS: int
 
     def __init__(self) -> None:
         self.PREVIEW_TEMPLATE_DIR = Path(
@@ -77,9 +80,21 @@ class Settings:
         self.HTML_MODEL = os.getenv("HTML_MODEL", defaults["html"])
         self.PREVIEW_APP_MODEL = os.getenv("PREVIEW_APP_MODEL", self.HTML_MODEL)
 
-        cheap_default = "google/gemini-2.5-flash" if provider_key == "openrouter" else defaults["text"]
-        self.CRITIC_MODEL = os.getenv("CRITIC_MODEL", cheap_default)
-        self.FIX_MODEL = os.getenv("FIX_MODEL", cheap_default)
+        # Architecture and design-critique are where model "taste" actually shows
+        # up (layout, hierarchy, visual judgment) — bulk file codegen can stay on
+        # a cheap coder model, but these two calls get a stronger default.
+        taste_default = "anthropic/claude-haiku-4.5" if provider_key == "openrouter" else defaults["text"]
+        self.ARCHITECT_MODEL = os.getenv("ARCHITECT_MODEL", taste_default)
+        self.CRITIC_MODEL = os.getenv("CRITIC_MODEL", taste_default)
+        # Fix loop uses the codegen model by default — Flash often returns empty JSON.
+        self.FIX_MODEL = os.getenv("FIX_MODEL", self.PREVIEW_APP_MODEL)
+        self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "true").strip().lower() in (
+            "1", "true", "yes", "on",
+        )
+        try:
+            self.PREVIEW_PARALLEL_WORKERS = max(1, int(os.getenv("PREVIEW_PARALLEL_WORKERS", "4")))
+        except ValueError:
+            self.PREVIEW_PARALLEL_WORKERS = 4
 
     @property
     def TEMPLATES_DIR(self) -> Path:
