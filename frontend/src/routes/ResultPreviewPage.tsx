@@ -16,7 +16,6 @@ import DeliveryNavigator from '../components/delivery/DeliveryNavigator';
 import { buildDeliveryNavItems } from '../components/delivery/deliveryNavItems';
 import FullDeliveryPackage from '../components/delivery/FullDeliveryPackage';
 import { useAiStatus } from '../hooks/useAiStatus';
-import { isOwnRequest } from '../utils/ownRequest';
 import type { BuildRequestContact } from '../types/buildRequest';
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -65,7 +64,7 @@ export default function ResultPreviewPage() {
 
   const requestId = id ? Number(id) : 0;
   const isDemoView = searchParams.get('from') === 'demo';
-  const showRefineChat = !isDemoView && isOwnRequest(requestId);
+  const showRefineChat = !isDemoView;
   const chatGutter = showRefineChat ? 'result-with-chat-gutter' : '';
 
   const handlePreviewUpdate = useCallback((updates: Partial<PreviewResponse>) => {
@@ -216,7 +215,11 @@ export default function ResultPreviewPage() {
       </div>
 
       {showRefineChat && (
-        <PreviewRefineChat requestId={preview.id} onPreviewUpdate={handlePreviewUpdate} />
+        <PreviewRefineChat
+          requestId={preview.id}
+          onPreviewUpdate={handlePreviewUpdate}
+          onRefetchPreview={fetchPreview}
+        />
       )}
     </div>
   );

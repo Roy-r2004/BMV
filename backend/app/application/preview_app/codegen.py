@@ -18,6 +18,34 @@ from app.application.preview_app.workspace import (
 )
 
 _FENCE_RE = re.compile(r"^```(?:tsx?|typescript|javascript|css)?\s*\n?", re.MULTILINE)
+_EMOJI_ICON_RE = re.compile(r"icon:\s*['\"]([^'\"]+)['\"]")
+_EMOJI_TO_KEY = {
+    "📋": "clipboard",
+    "📊": "chart",
+    "🎯": "target",
+    "⏱": "clock",
+    "⏱️": "clock",
+    "👥": "users",
+    "✨": "zap",
+    "🔔": "bell",
+    "📅": "calendar",
+    "✅": "check",
+    "🔍": "search",
+    "🛡": "shield",
+    "🛡️": "shield",
+}
+
+
+def _sanitize_emoji_icons(content: str) -> str:
+    """Replace emoji icon literals with UiIcon string keys."""
+    def _repl(match: re.Match[str]) -> str:
+        val = match.group(1)
+        for emoji, key in _EMOJI_TO_KEY.items():
+            if emoji in val:
+                return f"icon: '{key}'"
+        return match.group(0)
+
+    return _EMOJI_ICON_RE.sub(_repl, content)
 
 
 def _strip_fences(text: str) -> str:
@@ -100,7 +128,7 @@ def generate_file(
     )
 
     raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
-    content = _strip_fences(raw)
+    content = _sanitize_emoji_icons(_strip_fences(raw))
     write_file(workspace, file_path, content)
     return content
 

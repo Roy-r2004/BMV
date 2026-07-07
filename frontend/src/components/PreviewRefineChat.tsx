@@ -17,9 +17,10 @@ const SUGGESTIONS = [
 interface Props {
   requestId: number;
   onPreviewUpdate: (updates: Partial<PreviewResponse>) => void;
+  onRefetchPreview?: () => Promise<void>;
 }
 
-export default function PreviewRefineChat({ requestId, onPreviewUpdate }: Props) {
+export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetchPreview }: Props) {
   const [open, setOpen] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false,
   );
@@ -89,6 +90,9 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate }: Props)
       const history = await getChatHistory(requestId);
       setMessages(history);
       applyPreviewUpdate(result);
+      if (result.preview_updated) {
+        await onRefetchPreview?.();
+      }
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setError('Something went wrong. Please try again.');

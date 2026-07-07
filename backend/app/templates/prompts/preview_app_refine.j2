@@ -23,6 +23,6 @@ RULES:
 - Replace any generic data with realistic business-specific content
 - Use the provided Unsplash URLs in <img> with object-cover; text over photos gets a dark gradient overlay + white text
 - Marketing pages: hero + 6+ distinct sections; dashboards: stat cards + chart + 8-row table + activity — do NOT wrap in AdminLayout/PublicLayout (App.tsx applies layouts)
-- IMPORTS ALLOW-LIST: ONLY `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), and local files. NEVER import ANY npm package (no lucide-react/recharts/etc.) or invented local module. Icons = inline SVG/emoji; charts = styled divs/SVG. Put helper logic INLINE.
+- IMPORTS ALLOW-LIST: ONLY `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, and local files. NEVER import ANY npm package (no lucide-react/recharts/etc.) or invented local module. Icons = `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield) OR inline SVG — NEVER emoji. Charts = styled divs/SVG. Put helper logic INLINE.
 - Only import names that mock.ts actually exports
 - Output ONLY the complete rewritten file — no markdown fences, no commentary

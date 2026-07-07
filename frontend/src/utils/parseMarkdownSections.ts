@@ -15,12 +15,24 @@ export type SectionKind =
   | 'timeline'
   | 'general';
 
+/** Remove inline markdown emphasis markers for plain-text display. */
+export function stripMarkdownFormatting(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .trim();
+}
+
 /** Strip underline dividers and normalize whitespace. */
 export function cleanMarkdownText(text: string): string {
-  return text
-    .replace(/^[-=]{3,}\s*$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return stripMarkdownFormatting(
+    text
+      .replace(/^[-=]{3,}\s*$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+  );
 }
 
 function classifySection(title: string): SectionKind {
@@ -125,7 +137,7 @@ export function extractListItems(body: string): string[] {
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => /^\d+\.\s+/.test(l) || /^[-*]\s+/.test(l))
-    .map((l) => l.replace(/^\d+\.\s+/, '').replace(/^[-*]\s+/, '').trim())
+    .map((l) => stripMarkdownFormatting(l.replace(/^\d+\.\s+/, '').replace(/^[-*]\s+/, '')))
     .filter(Boolean);
 }
 

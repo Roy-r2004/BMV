@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import type { PreviewResponse } from '../../types/request';
-import { parseMarkdownSections, highlightSections } from '../../utils/parseMarkdownSections';
+import { parseMarkdownSections, highlightSections, stripMarkdownFormatting } from '../../utils/parseMarkdownSections';
 
 interface Props {
   preview: PreviewResponse;
@@ -66,7 +66,7 @@ export default function ClientInsights({ preview }: Props) {
                 <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
                   {i + 1}
                 </span>
-                <p className="text-sm text-slate-700 leading-relaxed">{feature}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{stripMarkdownFormatting(feature)}</p>
               </motion.div>
             ))}
           </div>
@@ -88,7 +88,7 @@ export default function ClientInsights({ preview }: Props) {
               >
                 <h3 className="font-semibold text-slate-900 text-sm mb-2">{section.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed line-clamp-4 whitespace-pre-line">
-                  {section.body.replace(/\*\*/g, '').slice(0, 280)}
+                  {stripMarkdownFormatting(section.body).slice(0, 280)}
                   {section.body.length > 280 ? '…' : ''}
                 </p>
               </motion.div>

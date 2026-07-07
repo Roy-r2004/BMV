@@ -1,7 +1,7 @@
 import { useRef, type ReactElement } from 'react';
 import { motion, useInView } from 'framer-motion';
 import type { MarkdownSection } from '../../utils/parseMarkdownSections';
-import { extractListItems, extractScalar } from '../../utils/parseMarkdownSections';
+import { extractListItems, extractScalar, stripMarkdownFormatting } from '../../utils/parseMarkdownSections';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -57,7 +57,7 @@ export default function BlueprintShowcase({ sections, conceptName, fitScore }: P
   /* All features items flattened for the film strip */
   const allFeatureItems = features.flatMap((s) => {
     const items = extractListItems(s.body);
-    return items.length ? items : [s.body.replace(/\*\*/g, '').trim()];
+    return items.length ? items : [stripMarkdownFormatting(s.body)];
   });
 
   /* Summaries prose */
@@ -315,7 +315,7 @@ function FilmStrip({ items }: { items: string[] }) {
               <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center mb-3 group-hover:bg-indigo-100 transition-colors">
                 <span className="text-xs font-bold text-indigo-600">{i + 1}</span>
               </div>
-              <p className="text-sm font-semibold text-slate-900 leading-snug">{item}</p>
+              <p className="text-sm font-semibold text-slate-900 leading-snug">{stripMarkdownFormatting(item)}</p>
             </motion.div>
           ))}
 
@@ -386,7 +386,7 @@ function JourneyTimeline({ sections }: { sections: MarkdownSection[] }) {
                       >
                         {j + 1}
                       </span>
-                      <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{step}</p>
+                      <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{stripMarkdownFormatting(step)}</p>
                     </motion.li>
                   ))}
                   {steps.length === 0 && (
@@ -407,9 +407,13 @@ function RiskStrip({ sections }: { sections: MarkdownSection[] }) {
   const allItems = sections.flatMap((s) => {
     const items = extractListItems(s.body);
     return items.length ? items : [cleanText(s.body)];
-  }).slice(0, 8);
+  }).slice(0, 10);
 
   if (!allItems.length) return null;
+
+  const parsed = allItems.map(parseRiskItem);
+  const assumptions = parsed.filter((p) => p.kind === 'assumption');
+  const questions = parsed.filter((p) => p.kind === 'question');
 
   return (
     <motion.div
@@ -417,9 +421,9 @@ function RiskStrip({ sections }: { sections: MarkdownSection[] }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.55, ease }}
-      className="rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-50/80 to-orange-50/40 p-7 sm:p-9 mb-4"
+      className="rounded-3xl border border-amber-200/60 bg-gradient-to-br from-amber-50/80 to-orange-50/40 p-7 sm:p-9 mb-4 space-y-8"
     >
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
           {icons.risk}
         </div>
@@ -431,21 +435,68 @@ function RiskStrip({ sections }: { sections: MarkdownSection[] }) {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
-        {allItems.map((item, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.06, duration: 0.4, ease }}
-            className="flex items-start gap-3 rounded-2xl bg-white/70 border border-amber-100 px-4 py-3.5"
-          >
-            <span className="shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <p className="text-sm text-amber-900/90 leading-relaxed">{cleanText(item)}</p>
-          </motion.div>
-        ))}
-      </div>
+      {assumptions.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-800/70 mb-4">
+            Key assumptions
+          </p>
+          <div className="space-y-3">
+            {assumptions.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -12 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05, duration: 0.4, ease }}
+                className="rounded-2xl bg-white/80 border border-amber-100 border-l-4 border-l-amber-400 px-5 py-4"
+              >
+                {item.title ? (
+                  <>
+                    <p className="text-sm font-semibold text-amber-950 mb-1.5">{item.title}</p>
+                    <p className="text-sm text-amber-900/75 leading-relaxed">{item.detail}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-amber-900/90 leading-relaxed">{item.detail}</p>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {questions.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700/80 mb-4">
+            Questions for you
+          </p>
+          <div className="space-y-4">
+            {questions.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.06, duration: 0.4, ease }}
+                className="rounded-2xl bg-white border border-violet-100 px-5 py-4 shadow-sm"
+              >
+                <div className="flex items-start gap-4">
+                  <span className="shrink-0 w-8 h-8 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-bold">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 pt-0.5">
+                    <p className="text-sm font-semibold text-slate-900 leading-snug">
+                      {item.title || item.detail}
+                    </p>
+                    {item.title && item.detail && (
+                      <p className="text-sm text-slate-600 leading-relaxed mt-2">{item.detail}</p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -456,9 +507,30 @@ function shortLabel(title: string) {
 }
 
 function cleanText(body: string) {
-  return body
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/^[-=]{3,}\s*$/gm, '')
-    .trim();
+  return stripMarkdownFormatting(body.replace(/^[-=]{3,}\s*$/gm, ''));
+}
+
+function parseRiskItem(item: string): { kind: 'question' | 'assumption'; title: string; detail: string } {
+  const cleaned = cleanText(item);
+  const hasQuestionMark = cleaned.includes('?');
+  const startsAsQuestion = /^(which|what|how|when|where|who|do you|can you|are you|would you|have you)/i.test(cleaned);
+
+  const colonIdx = cleaned.indexOf(':');
+  if (colonIdx > 0 && colonIdx < 90) {
+    const title = cleaned.slice(0, colonIdx).trim();
+    const detail = cleaned.slice(colonIdx + 1).trim();
+    const titleIsLabel = !title.includes('?') && title.length < 60 && !startsAsQuestion;
+    return { kind: titleIsLabel ? 'assumption' : 'question', title, detail };
+  }
+
+  if (hasQuestionMark) {
+    const qEnd = cleaned.indexOf('?') + 1;
+    return {
+      kind: 'question',
+      title: cleaned.slice(0, qEnd).trim(),
+      detail: cleaned.slice(qEnd).trim(),
+    };
+  }
+
+  return { kind: 'assumption', title: '', detail: cleaned };
 }

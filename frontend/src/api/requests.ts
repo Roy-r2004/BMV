@@ -1,6 +1,15 @@
 import { apiClient } from './client';
 import type { ChatMessage, ChatSendResponse, PreviewResponse } from '../types/request';
 import type { BuildRequestContact } from '../types/buildRequest';
+import { stripMarkdownFormatting } from '../utils/parseMarkdownSections';
+
+function normalizePreview(data: PreviewResponse): PreviewResponse {
+  return {
+    ...data,
+    preview_features: (data.preview_features ?? []).map(stripMarkdownFormatting),
+    preview_summary: data.preview_summary ? stripMarkdownFormatting(data.preview_summary) : data.preview_summary,
+  };
+}
 
 export async function createRequest(formData: FormData): Promise<{ id: number; status: string }> {
   // The backend now returns immediately and runs generation in the background —
@@ -14,7 +23,7 @@ export async function createRequest(formData: FormData): Promise<{ id: number; s
 
 export async function getPreview(id: number): Promise<PreviewResponse> {
   const { data } = await apiClient.get(`/api/requests/${id}/preview`);
-  return data;
+  return normalizePreview(data);
 }
 
 export async function requestBuild(id: number, contact: BuildRequestContact): Promise<{ id: number; build_requested: boolean; status: string }> {
@@ -33,5 +42,9 @@ export async function sendChatMessage(id: number, message: string): Promise<Chat
     { message },
     { timeout: 600000 },
   );
-  return data;
+  return {
+    ...data,
+    preview_features: data.preview_features?.map(stripMarkdownFormatting),
+    preview_summary: data.preview_summary ? stripMarkdownFormatting(data.preview_summary) : data.preview_summary,
+  };
 }

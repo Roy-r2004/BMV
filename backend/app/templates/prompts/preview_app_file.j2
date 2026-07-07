@@ -40,8 +40,9 @@ TECH RULES:
 - IMPORTS ALLOW-LIST — you may ONLY import from these, nothing else:
   * `react`, `react-router-dom`
   * `../data/mock` (or `@/data/mock`) and files that already exist in EXISTING FILES above
+  * `../components/UiIcons` for dashboard/feature icons (`<UiIcon name="chart" />`)
   NEVER import ANY npm package (no lucide-react, no @mantine, no @mui, no antd, no react-icons, no recharts, no chart.js, etc.). NEVER import invented local paths like `../lib/aiUtils`, `../hooks/*`, `../utils/*`. Put ALL helper logic INLINE.
-- Icons: use INLINE SVG only (24x24, stroke-current) — NEVER emoji
+- Icons: use `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield, bell, calendar, check, search) OR inline SVG (24x24, stroke-current) — NEVER emoji
 - Charts/graphs: build with styled divs or inline <svg> (e.g. bar heights via Tailwind h-*) — never a chart library.
 
 For App.tsx:
@@ -73,7 +74,7 @@ For layouts + Nav:
 - Hero MUST be left-aligned (not centered): badge pill + headline + subtitle + 2 CTAs + trust row with avatar stack
 - Service cards MUST show photos (img with object-cover rounded-2xl h-48) — never text-only service grids
 - Every marketing page: 8 sections minimum (hero, logo strip, features, services gallery, how-it-works, testimonials, FAQ accordion, final CTA band)
-- Dashboard: 4 stat cards in a row, SVG/div chart with 7 bars, table with 8+ rows + status badges, recent activity list, quick actions
+- Dashboard: 4 stat cards in a row (each with `<UiIcon name={stat.icon} />` in a rounded bg-brand/10 container), SVG/div chart with 7 bars, table with 8+ rows + status badges, recent activity list, quick actions
 - Booking: step indicator (1-2-3), service cards WITH images, date grid styled as calendar, form in elevated card with labels
 
 ═══ VISUAL DENSITY BAR (CRITICAL — thin pages FAIL the product demo) ═══
@@ -85,7 +86,7 @@ For src/data/mock.ts:
 - 6+ testimonials with full 2-sentence quotes, name, initials, service
 - 10+ appointments with client names, service, date/time, status
 - 8+ clients with name, email, phone, lastVisit, status
-- 4+ stats with label, value, change (e.g. "+12%")
+- 4+ stats with label, value, change, icon (string key: chart|clipboard|target|clock|users|zap|shield — NEVER emoji)
 - roles, navigation { public, admin } synced to routes
 
 For page components (kind=page):

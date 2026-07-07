@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 
+from app.core.config import settings
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 
@@ -235,6 +236,18 @@ def cleanup_page_shells(workspace) -> list[str]:
     return cleaned
 
 
+def ensure_ui_icons(workspace) -> bool:
+    """Copy UiIcons scaffold from preview template if the workspace is missing it."""
+    target = "src/components/UiIcons.tsx"
+    if read_file(workspace, target).strip():
+        return False
+    source = settings.PREVIEW_TEMPLATE_DIR / "src" / "components" / "UiIcons.tsx"
+    if not source.is_file():
+        return False
+    write_file(workspace, target, source.read_text(encoding="utf-8"))
+    return True
+
+
 def ensure_runtime_correctness(
     workspace,
     architect: dict,
@@ -245,6 +258,11 @@ def ensure_runtime_correctness(
     template_renderer: TemplateRenderer,
 ) -> list[str]:
     fixed: list[str] = []
+    try:
+        if ensure_ui_icons(workspace):
+            fixed.append("src/components/UiIcons.tsx")
+    except Exception as e:
+        print(f"    ui icons guard skipped: {e}", flush=True)
     try:
         if _ensure_tailwind_css(workspace, primary, secondary, font):
             fixed.append("src/index.css (tailwind/theme)")

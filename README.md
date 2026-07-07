@@ -1,4 +1,4 @@
-# BuildMyVersion AI
+# BMV · BuildMyVersion AI
 
 Show us a tool you like. We'll design your business version.
 
@@ -7,18 +7,20 @@ A lead-generation web app where business owners describe their business, share a
 ## Stack
 
 - **Frontend:** React, Vite, TypeScript, Tailwind CSS, React Router, Axios
-- **Backend:** Python, FastAPI, SQLite, SQLAlchemy, Pydantic
-- **AI:** Ollama (local models only)
+- **Backend:** Python, FastAPI, SQLite, SQLAlchemy, Pydantic, Jinja2
+- **AI:** **OpenRouter** (cloud API — default for local dev) or **Ollama** (self-hosted local models). Switch with `AI_PROVIDER` in `backend/.env`.
 
 ## Quick Start (Docker — recommended)
 
-Everything runs in **one container**: React frontend, FastAPI backend, SQLite, uploads, and Ollama.
+Everything runs in **one container**: React frontend, FastAPI backend, SQLite, uploads, and (optionally) Ollama for self-hosted AI.
+
+**Using OpenRouter instead?** Set `AI_PROVIDER=openrouter` and `OPENROUTER_API_KEY` in `.env` — no local model downloads or GPU required.
 
 ### Requirements
 
 - Docker Desktop (or Docker Engine + Compose)
-- ~8 GB RAM recommended (Ollama + models)
-- First start downloads AI models (~10 GB) — can take 15–30+ minutes
+- **OpenRouter:** API key only — no extra RAM for models
+- **Ollama (optional):** ~8 GB RAM recommended; first start downloads AI models (~10 GB) — can take 15–30+ minutes
 
 ### Run
 
@@ -109,12 +111,31 @@ Open **https://your-domain.com** (app) and **https://traefik.your-domain.com** (
 
 ## Local development (without Docker)
 
+### Option A — OpenRouter (recommended)
+
+No local GPU or model pulls. Create `backend/.env` from `backend/.env.example`, set:
+
+```env
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-v1-...
+TEXT_MODEL=google/gemini-2.5-flash
+PREVIEW_APP_MODEL=deepseek/deepseek-chat
+CRITIC_MODEL=google/gemini-2.5-flash
+FIX_MODEL=google/gemini-2.5-flash
+```
+
+Then start backend + frontend (steps 2–3 below).
+
+### Option B — Ollama (self-hosted)
+
 ```bash
 ollama serve
 ollama pull llama3.2-vision
 ollama pull llama3.1:8b
 ollama pull qwen2.5-coder:7b
 ```
+
+Set `AI_PROVIDER=ollama` in `backend/.env`.
 
 ### 2. Backend
 
@@ -148,9 +169,21 @@ Open http://localhost:5173
 ```env
 DATABASE_URL=sqlite:///./buildmyversion.db
 ADMIN_PASSWORD=change_this_password
-OLLAMA_URL=http://localhost:11434
 UPLOAD_DIR=./app/uploads
 ROY_WHATSAPP_NUMBER=replace_with_number
+
+# AI provider: openrouter (cloud) | ollama (local)
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=your_key_here
+
+# Optional — per-task models (defaults vary by provider in app/core/config.py)
+# TEXT_MODEL=google/gemini-2.5-flash
+# PREVIEW_APP_MODEL=deepseek/deepseek-chat
+# CRITIC_MODEL=google/gemini-2.5-flash
+# FIX_MODEL=google/gemini-2.5-flash
+
+# Ollama only (when AI_PROVIDER=ollama)
+# OLLAMA_URL=http://localhost:11434
 ```
 
 **Frontend** (`frontend/.env`):
@@ -186,15 +219,16 @@ On form submit, the system automatically runs the full AI pipeline:
 
 1. Fetch reference URL metadata
 2. Analyze uploaded screenshot (if image)
-3. Generate MVP blueprint (llama3.1:8b)
-4. Generate visual demo JSON (llama3.1:8b)
-5. Generate technical plan (qwen2.5-coder:7b)
-6. Generate client proposal (llama3.1:8b)
+3. Generate MVP blueprint
+4. Generate visual demo JSON
+5. Build React preview app (or HTML role pages fallback)
+6. Generate technical plan
+7. Generate client proposal
 
-If Ollama is unavailable, the request is still saved and admin can regenerate later.
+Models are chosen from `backend/.env` (`TEXT_MODEL`, `PREVIEW_APP_MODEL`, `VISION_MODEL`, etc.) based on `AI_PROVIDER` (OpenRouter or Ollama).
+
+If the AI provider is unavailable, the request is still saved and admin can regenerate later.
 
 ## Legal
 
 This tool does not copy proprietary code, designs, or brand assets. References are used only to understand the desired workflow or experience, then a custom version is designed for the client's business.
-
-# BMV

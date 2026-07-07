@@ -74,6 +74,15 @@ def _apply_visual_demo(req: Request, existing: dict, updated: dict) -> dict:
     return enrich_visual_demo(merged, req)
 
 
+def _current_generated_pages(req: Request) -> dict:
+    if not req.generated_pages:
+        return {}
+    try:
+        return json.loads(req.generated_pages)
+    except Exception:
+        return {}
+
+
 def refine_preview(
     db: Session,
     request_id: int,
@@ -100,6 +109,8 @@ def refine_preview(
 
     visual_demo = _current_visual_demo(req)
     features = _current_features(req)
+    generated_pages = _current_generated_pages(req)
+    experience_plan = generated_pages.get("experience_plan") or {}
 
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_REFINEMENT,
@@ -108,6 +119,8 @@ def refine_preview(
         preview_summary=req.preview_summary or "A tailored MVP for your business.",
         preview_features=json.dumps(features),
         business_fit_score=req.business_fit_score or 80,
+        experience_plan=json.dumps(experience_plan, ensure_ascii=False, indent=2)[:8000],
+        mvp_blueprint_snippet=(req.mvp_blueprint or "")[:4000],
         visual_demo=json.dumps(visual_demo, indent=2) if visual_demo else "{}",
         chat_history=_format_chat_history(history[:-1]),
         user_message=user_message,
@@ -159,6 +172,11 @@ def refine_preview(
         demo = enrich_visual_demo(visual_demo, req)
         req.visual_demo_json = json.dumps(demo)
         req.visual_demo_generated_at = datetime.utcnow()
+
+    if result.get("experience_plan"):
+        generated_pages["experience_plan"] = result["experience_plan"]
+        req.generated_pages = json.dumps(generated_pages)
+        preview_updated = True
 
     if preview_updated:
         req.updated_at = datetime.utcnow()
