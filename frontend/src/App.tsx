@@ -3,6 +3,7 @@ import ScrollManager from './components/ScrollManager';
 import LandingPage from './routes/LandingPage';
 import ExamplesPage from './routes/ExamplesPage';
 import DemoPage from './routes/DemoPage';
+import SolutionsPage from './routes/SolutionsPage';
 import AboutPage from './routes/AboutPage';
 import SubmitPage from './routes/SubmitPage';
 import ResultPreviewPage from './routes/ResultPreviewPage';
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/examples" element={<ExamplesPage />} />
         <Route path="/demo" element={<DemoPage />} />
+        <Route path="/solutions" element={<SolutionsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/submit" element={<SubmitPage />} />
         <Route path="/result/:id" element={<ResultPreviewPage />} />

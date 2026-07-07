@@ -5,6 +5,7 @@ type FooterLink = { to: To; label: string };
 
 const PRODUCT_LINKS: FooterLink[] = [
   { to: '/submit', label: 'Create my version' },
+  { to: '/solutions', label: 'Solutions by industry' },
   { to: '/demo', label: 'Live demos' },
   { to: '/examples', label: 'Example outputs' },
   { to: { pathname: '/', hash: 'how-it-works' }, label: 'How it works' },
