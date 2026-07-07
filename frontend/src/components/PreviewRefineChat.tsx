@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getChatHistory, sendChatMessage } from '../api/requests';
+import { getChatHistory, getPreview, sendChatMessage } from '../api/requests';
 import type { ChatMessage, ChatSendResponse, PreviewResponse } from '../types/request';
 import { useAiStatus } from '../hooks/useAiStatus';
 
 const WELCOME_MESSAGE =
-  "This is your draft preview. Tell me what to change — colors, headlines, features, tab layout, home page sections, inbox copy, anything. We'll keep refining until you're happy. No limits.";
+  "You can change anything here: the live preview app (pages, roles, colors, navigation), the experience plan, feature list, product name, summary, and marketing copy. Describe what you want — I'll rebuild the app and keep the plan in sync.";
 
 const SUGGESTIONS = [
-  'Use a darker header with gold accents',
-  'Put features before programs on the home page',
-  'Rename the tabs for my coaching brand',
-  'Add a habit-tracking feature',
+  'Visitor role should show the dashboard, not login',
+  'Add a pipeline status page to the plan and app',
+  'Use purple colors and update the feature list',
+  'Rename the product and change the headline',
 ];
 
 interface Props {
@@ -30,6 +30,7 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [error, setError] = useState('');
+  const [rebuilding, setRebuilding] = useState(false);
   const aiStatus = useAiStatus(12000);
   const modelsPulling = aiStatus?.provider === 'ollama' && !aiStatus.ready;
   const modelsReady = !modelsPulling;
@@ -59,7 +60,7 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
   }, [messages, loading, open, expanded]);
 
   const applyPreviewUpdate = (result: ChatSendResponse) => {
-    if (!result.preview_updated) return;
+    if (!result.preview_updated && !result.preview_rebuild_started) return;
     onPreviewUpdate({
       concept_name: result.concept_name ?? undefined,
       preview_summary: result.preview_summary ?? undefined,
@@ -67,6 +68,33 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
       business_fit_score: result.business_fit_score ?? undefined,
       visual_demo: result.visual_demo ?? undefined,
     });
+  };
+
+  const pollUntilRebuildDone = async () => {
+    setRebuilding(true);
+    try {
+      for (let i = 0; i < 120; i += 1) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const preview = await getPreview(requestId);
+        onPreviewUpdate({
+          generated_pages: preview.generated_pages,
+          concept_name: preview.concept_name ?? undefined,
+          preview_summary: preview.preview_summary ?? undefined,
+          preview_features: preview.preview_features ?? undefined,
+          business_fit_score: preview.business_fit_score ?? undefined,
+          visual_demo: preview.visual_demo ?? undefined,
+        });
+        const status = preview.generated_pages?.preview_app?.status;
+        if (status === 'ready' || status === 'failed') {
+          const history = await getChatHistory(requestId);
+          setMessages(history);
+          await onRefetchPreview?.();
+          break;
+        }
+      }
+    } finally {
+      setRebuilding(false);
+    }
   };
 
   const handleSend = async (text?: string) => {
@@ -90,7 +118,11 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
       const history = await getChatHistory(requestId);
       setMessages(history);
       applyPreviewUpdate(result);
-      if (result.preview_updated) {
+      if (result.preview_rebuild_started) {
+        const preview = await getPreview(requestId);
+        onPreviewUpdate({ generated_pages: preview.generated_pages });
+        void pollUntilRebuildDone();
+      } else if (result.preview_updated) {
         await onRefetchPreview?.();
       }
     } catch {
@@ -193,7 +225,7 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
                   {loading && (
                     <div className="flex items-center gap-2 text-sm text-slate-400">
                       <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-                      Updating your preview...
+                      {rebuilding ? 'Rebuilding your live preview…' : 'Updating your preview...'}
                     </div>
                   )}
                 </>
@@ -231,14 +263,20 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
                   rows={2}
-                  disabled={loading || loadingHistory || !modelsReady}
-                  placeholder={modelsReady ? "Describe what you'd like to change..." : 'Waiting for AI models to finish downloading...'}
+                  disabled={loading || loadingHistory || rebuilding || !modelsReady}
+                  placeholder={
+                    rebuilding
+                      ? 'Rebuilding live preview…'
+                      : modelsReady
+                        ? "Describe what you'd like to change..."
+                        : 'Waiting for AI models to finish downloading...'
+                  }
                   className="preview-chat-input flex-1 resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/15"
                 />
                 <button
                   type="button"
                   onClick={() => handleSend()}
-                  disabled={loading || loadingHistory || !input.trim() || !modelsReady}
+                  disabled={loading || loadingHistory || rebuilding || !input.trim() || !modelsReady}
                   className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center justify-center disabled:opacity-40 hover:shadow-lg hover:shadow-cyan-500/20 transition-all"
                   aria-label="Send message"
                 >

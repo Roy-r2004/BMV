@@ -109,6 +109,11 @@ export default function ResultPreviewPage() {
     );
   }
 
+  const previewAppInfo = preview.generated_pages?.preview_app;
+  const showLivePreviewApp =
+    Boolean(previewAppInfo?.url) &&
+    (previewAppInfo?.status === 'ready' || previewAppInfo?.status === 'rebuilding');
+
   return (
     <div className={`min-h-screen bg-[#f8fafc] ${showRefineChat ? 'result-page--with-chat' : ''}`}>
       <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
@@ -163,7 +168,7 @@ export default function ResultPreviewPage() {
             transition={{ delay: 0.1, duration: 0.55, ease }}
             className={`result-window-stage flex-1 min-h-0 w-full ${chatGutter}`}
           >
-            {preview.generated_pages?.preview_app?.status === 'ready' && preview.generated_pages.preview_app.url ? (
+            {showLivePreviewApp ? (
               <div className="h-full w-full">
                 <PreviewAppPreview
                   pages={preview.generated_pages}

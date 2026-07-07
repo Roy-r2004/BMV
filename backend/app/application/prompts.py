@@ -36,3 +36,4 @@ class PromptTemplate:
     PREVIEW_APP_REFINE = "prompts/preview_app_refine.j2"
     PREVIEW_APP_FIX = "prompts/preview_app_fix.j2"
     PREVIEW_APP_MOCK_ENRICH = "prompts/preview_app_mock_enrich.j2"
+    PREVIEW_APP_CHAT_REFINEMENT = "prompts/preview_app_chat_refinement.j2"

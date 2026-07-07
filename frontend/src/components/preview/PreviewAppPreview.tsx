@@ -29,7 +29,8 @@ function siteUrl(concept: string, path: string): string {
 }
 
 function resolvePreviewUrl(previewApp?: PreviewAppInfo | null): string | null {
-  if (!previewApp?.url || previewApp.status !== 'ready') return null;
+  if (!previewApp?.url) return null;
+  if (previewApp.status !== 'ready' && previewApp.status !== 'rebuilding') return null;
   const path = previewApp.url.startsWith('/') ? previewApp.url : `/${previewApp.url}`;
   return `${API_BASE}${path}`;
 }
@@ -44,6 +45,7 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const iframeSrc = resolvePreviewUrl(previewApp);
+  const isRebuilding = previewApp?.status === 'rebuilding';
   const activeRole = roles.find((r) => r.id === activeRoleId) ?? roles[0];
   const accent = activeRole?.accent ?? '#6366f1';
 
@@ -140,10 +142,18 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
           </div>
         </div>
 
-        <div className="rbp-viewport rbp-viewport--site">
+        <div className="rbp-viewport rbp-viewport--site relative">
+          {isRebuilding && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+              <div className="text-center text-white px-4">
+                <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm font-medium">Applying your changes…</p>
+              </div>
+            </div>
+          )}
           <iframe
             ref={iframeRef}
-            key={iframeSrc}
+            key={`${iframeSrc}-${previewApp?.status ?? 'idle'}`}
             title={`${activeRole?.label ?? 'Preview'} — ${conceptName ?? 'Preview'}`}
             src={iframeSrc}
             className="rbp-iframe"

@@ -298,6 +298,7 @@ def send_request_chat(
         reply=result["reply"],
         changes_made=result.get("changes_made", []),
         preview_updated=result.get("preview_updated", False),
+        preview_rebuild_started=result.get("preview_rebuild_started", False),
         concept_name=result.get("concept_name"),
         preview_summary=result.get("preview_summary"),
         preview_features=result.get("preview_features", []),

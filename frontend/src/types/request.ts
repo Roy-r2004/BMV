@@ -258,7 +258,7 @@ export interface PreviewAppRole {
 
 export interface PreviewAppInfo {
   url: string | null;
-  status: 'ready' | 'failed' | 'building';
+  status: 'ready' | 'failed' | 'building' | 'rebuilding';
   roles?: PreviewAppRole[];
   routes?: { path: string; title: string; role_id?: string }[];
   design_direction?: string;
@@ -309,6 +309,7 @@ export interface ChatSendResponse {
   reply: string;
   changes_made: string[];
   preview_updated: boolean;
+  preview_rebuild_started?: boolean;
   concept_name?: string | null;
   preview_summary?: string | null;
   preview_features?: string[];

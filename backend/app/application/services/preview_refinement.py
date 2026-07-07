@@ -1,8 +1,11 @@
 import json
+import threading
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.application.preview_app.chat_refinement import refine_preview_app_from_chat
+from app.application.preview_app.workspace import get_workspace
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import business_info, get_request
 from app.core.config import settings
@@ -11,6 +14,9 @@ from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models import PreviewChatMessage, Request
 from app.application.services.visual_demo_enrichment import enrich_visual_demo
 from app.application.services.visual_demo_merge import merge_visual_demo
+from app.infrastructure.ai_providers.factory import get_ai_provider
+from app.infrastructure.db.session import SessionLocal
+from app.infrastructure.templating.renderer import get_template_renderer
 from app.shared.json_utils import extract_json_from_text
 
 
@@ -83,6 +89,65 @@ def _current_generated_pages(req: Request) -> dict:
         return {}
 
 
+def _has_live_preview_app(req: Request, generated_pages: dict) -> bool:
+    pa = generated_pages.get("preview_app") or {}
+    if not pa and not get_workspace(req.id).is_dir():
+        return False
+    if pa.get("url") or pa.get("status") in ("ready", "failed", "rebuilding"):
+        return get_workspace(req.id).is_dir()
+    return get_workspace(req.id).is_dir()
+
+
+def _mark_preview_rebuilding(db: Session, req: Request, generated_pages: dict) -> None:
+    pa = generated_pages.setdefault("preview_app", {})
+    pa["status"] = "rebuilding"
+    req.generated_pages = json.dumps(generated_pages)
+    req.updated_at = datetime.utcnow()
+    db.commit()
+
+
+def _run_chat_preview_rebuild(request_id: int, user_message: str) -> None:
+    """Background worker: patch + rebuild the live React preview from chat."""
+    bg_db = SessionLocal()
+    try:
+        result = refine_preview_app_from_chat(
+            bg_db,
+            request_id,
+            user_message,
+            get_ai_provider(),
+            get_template_renderer(),
+        )
+        reply = result.get("reply") or "Your live preview has been updated."
+        changes = result.get("changes_made") or []
+        if changes:
+            reply = f"{reply}\n\nChanges: " + "; ".join(changes[:6])
+        if not result.get("preview_rebuild_succeeded"):
+            reply += "\n\nThe rebuild hit errors — try one focused change at a time."
+        _save_message(bg_db, request_id, "assistant", reply)
+    except Exception as exc:
+        req = bg_db.query(Request).filter(Request.id == request_id).first()
+        if req and req.generated_pages:
+            try:
+                gp = json.loads(req.generated_pages)
+                pa = gp.get("preview_app") or {}
+                if pa.get("status") == "rebuilding":
+                    pa["status"] = "failed"
+                    gp["preview_app"] = pa
+                    req.generated_pages = json.dumps(gp)
+                    bg_db.commit()
+            except Exception:
+                pass
+        _save_message(
+            bg_db,
+            request_id,
+            "assistant",
+            f"I couldn't rebuild the live preview: {exc}. Try describing one specific change "
+            "(e.g. 'Visitor role should open the dashboard, not login').",
+        )
+    finally:
+        bg_db.close()
+
+
 def refine_preview(
     db: Session,
     request_id: int,
@@ -100,6 +165,34 @@ def refine_preview(
 
     _save_message(db, request_id, "user", user_message)
 
+    generated_pages = _current_generated_pages(req)
+
+    # Live React preview → rebuild from chat instructions (not JSON mockup tweaks).
+    if _has_live_preview_app(req, generated_pages):
+        _mark_preview_rebuilding(db, req, generated_pages)
+        threading.Thread(
+            target=_run_chat_preview_rebuild,
+            args=(request_id, user_message),
+            daemon=True,
+        ).start()
+        reply = (
+            "Got it — I'm updating your live preview app with that change now. "
+            "This usually takes a few minutes. The preview will refresh automatically when ready."
+        )
+        assistant = _save_message(db, request_id, "assistant", reply)
+        return {
+            "reply": reply,
+            "changes_made": ["Live preview rebuild started"],
+            "message_id": assistant.id,
+            "preview_updated": True,
+            "preview_rebuild_started": True,
+            "concept_name": req.concept_name,
+            "preview_summary": req.preview_summary,
+            "preview_features": _current_features(req),
+            "business_fit_score": req.business_fit_score,
+            "visual_demo": _current_visual_demo(req) or None,
+        }
+
     history = (
         db.query(PreviewChatMessage)
         .filter(PreviewChatMessage.request_id == request_id)
@@ -109,7 +202,6 @@ def refine_preview(
 
     visual_demo = _current_visual_demo(req)
     features = _current_features(req)
-    generated_pages = _current_generated_pages(req)
     experience_plan = generated_pages.get("experience_plan") or {}
 
     prompt = template_renderer.render(
@@ -131,9 +223,8 @@ def refine_preview(
         result = extract_json_from_text(response)
     except Exception as exc:
         fallback_reply = (
-            "I had trouble applying that change right now. Could you rephrase what you'd like to adjust? "
-            "For example: change the headline, switch to a darker header, reorder the home page, "
-            "use purple colors, or add a progress-tracking tab."
+            "I couldn't apply that to the preview mockup. Try a specific change like: "
+            "use purple colors, rename the concept, or add a habit-tracking feature."
         )
         assistant = _save_message(db, request_id, "assistant", fallback_reply)
         return {
@@ -141,6 +232,7 @@ def refine_preview(
             "changes_made": [],
             "message_id": assistant.id,
             "preview_updated": False,
+            "preview_rebuild_started": False,
             "error": str(exc),
         }
 
@@ -188,6 +280,7 @@ def refine_preview(
         "changes_made": changes_made,
         "message_id": assistant.id,
         "preview_updated": preview_updated,
+        "preview_rebuild_started": False,
         "concept_name": req.concept_name,
         "preview_summary": req.preview_summary,
         "preview_features": _current_features(req),
