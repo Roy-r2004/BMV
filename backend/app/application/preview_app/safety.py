@@ -295,6 +295,64 @@ def find_truncated_pages(workspace) -> list[str]:
     return out
 
 
+_EMPTY_ARRAY_STATE_RE = re.compile(
+    r"const\s*\[\s*(\w+)\s*,\s*set\w+\s*\]\s*=\s*useState\s*(?:<[^(]*>)?\s*\(\s*\[\s*\]\s*\)"
+)
+_MOCK_IMPORT_ANY_RE = re.compile(
+    r"^\s*import\s+[^;\n]*from\s*['\"][^'\"]*data/mock['\"]", re.MULTILINE
+)
+
+
+def _empty_seed_state_vars(content: str) -> list[str]:
+    """`useState([])` variable names in `content` that are later `.map()`'d in
+    render — i.e. they drive visible list content rather than being
+    incidental UI state (a `showModal`/`editingItem` boolean, or a
+    multi-select `selectedIds` array that's legitimately meant to start
+    empty). Exposed separately from `find_empty_seed_pages` so callers can
+    name the specific violating variable in a regeneration instruction.
+    """
+    return [
+        var for var in _EMPTY_ARRAY_STATE_RE.findall(content)
+        if re.search(rf"\b{re.escape(var)}\??\.map\(", content)
+    ]
+
+
+def find_empty_seed_pages(workspace) -> list[str]:
+    """Pages whose primary rendered list starts empty with nothing to seed it.
+
+    A generated CRUD/list page sometimes initializes its main content as
+    `useState([])` and never populates it — no mock import, no inline seed
+    data — so the live page renders an empty "No items found" state instead
+    of a realistic demo. This isn't a compile error (an empty array is
+    syntactically valid), so the build-error fix-loop never catches it —
+    this is a content-realism guard, not a correctness guard. It only
+    detects; the caller (pipeline.py) handles regeneration with a reinforced
+    instruction rather than this module trying to synthesize fake seed data
+    itself — guessing the wrong shape would trade an empty list for a new
+    runtime bug.
+
+    Signal used: a `useState([])` variable that IS `.map()`'d in render
+    (drives visible content) AND the file has zero `data/mock` imports at
+    all (no chance it's actually seeded from mock data under another name).
+    Both conditions are required together — either alone produces false
+    positives (plenty of legitimately-empty state like `selectedIds` starts
+    as `useState([])` and is never meant to render a list; plenty of pages
+    import mock data under names that don't obviously pair with a specific
+    `.map()`'d variable).
+    """
+    out: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        if _MOCK_IMPORT_ANY_RE.search(content):
+            continue
+        if _empty_seed_state_vars(content):
+            out.append(rel)
+    return out
+
+
 def apply_workspace_guards(
     workspace,
     architect: dict,
@@ -326,6 +384,10 @@ def apply_workspace_guards(
             actions.append("src/components/UiIcons.tsx")
     except Exception as e:
         print(f"    ui icons guard skipped: {e}", flush=True)
+    try:
+        actions.extend(ensure_ui_icon_coverage(workspace))
+    except Exception as e:
+        print(f"    ui icon coverage guard skipped: {e}", flush=True)
     try:
         added = ensure_mock_exports(workspace, architect, plan, images, brand_name)
         actions.extend(added)
@@ -415,6 +477,138 @@ def cleanup_page_shells(workspace) -> list[str]:
             write_file(workspace, rel, updated)
             cleaned.append(rel)
     return cleaned
+
+
+_UI_ICON_USAGE_RE = re.compile(
+    r"<UiIcon\b[^>]*\bname\s*=\s*(?:\{\s*)?['\"]([a-zA-Z0-9_-]+)['\"]"
+)
+_ICON_MAP_DECL_RE = re.compile(r"\bconst\s+(\w+)\s*(?::[^=]+)?=\s*\{")
+_ICON_MAP_KEY_RE = re.compile(
+    r"(?:^|[,{\n])\s*(?:'([^']+)'|\"([^\"]+)\"|([A-Za-z_$][\w$-]*))\s*:"
+)
+
+
+def _collect_ui_icon_usages(workspace) -> set[str]:
+    """Every literal icon name referenced via `<UiIcon name="...">` across the
+    app (excluding the icon-set file itself, which defines names rather than
+    using them). Dynamic names (`name={item.icon}`) can't be resolved
+    statically and are intentionally skipped — this only catches the common
+    case of a page hardcoding an icon key that the icon set never defines.
+    """
+    names: set[str] = set()
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if norm.endswith("components/uiicons.tsx") or not norm.endswith((".tsx", ".ts")):
+            continue
+        for m in _UI_ICON_USAGE_RE.finditer(read_file(workspace, rel)):
+            names.add(m.group(1).strip().lower())
+    return names
+
+
+def _find_icon_map(content: str) -> tuple[int, int] | None:
+    """Locate the icon-name -> JSX map inside a generated UiIcons.tsx.
+
+    Doesn't assume the AI kept the static template's `icons` variable name —
+    scans every top-level `const X = { ... }` object literal (brace/string
+    aware, since JSX values contain their own braces) and returns the body
+    span of the first one that actually contains SVG markup, which
+    disambiguates it from unrelated objects like a shared `stroke` props
+    object. Returns None if no such map can be found.
+    """
+    for m in _ICON_MAP_DECL_RE.finditer(content):
+        start = m.end()
+        depth = 1
+        i = start
+        in_str: str | None = None
+        while i < len(content) and depth > 0:
+            ch = content[i]
+            if in_str:
+                if ch == "\\":
+                    i += 1
+                elif ch == in_str:
+                    in_str = None
+            elif ch in ("'", '"', "`"):
+                in_str = ch
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+            i += 1
+        end = i - 1
+        if end <= start:
+            continue
+        if "<svg" in content[start:end]:
+            return start, end
+    return None
+
+
+def _icon_map_keys(body: str) -> set[str]:
+    keys: set[str] = set()
+    for km in _ICON_MAP_KEY_RE.finditer(body):
+        key = km.group(1) or km.group(2) or km.group(3)
+        if key:
+            keys.add(key.strip().lower())
+    return keys
+
+
+def ensure_ui_icon_coverage(workspace) -> list[str]:
+    """Guarantee every `<UiIcon name="...">` usage has a matching entry in the
+    generated UiIcons.tsx icon map.
+
+    AI-authored icon sets sometimes omit keys that pages actually reference
+    (e.g. a page uses `name="dashboard"` but the generated set only defines
+    `gauge`) — the lookup then silently renders nothing for that slot: the
+    build still passes, the icon is just blank space. This appends a generic
+    fallback shape for any missing key (reusing the file's own stroke-prop
+    styling when detectable) so every reference renders SOMETHING instead of
+    empty space. Purely additive — never touches or removes existing icons.
+    """
+    target = "src/components/UiIcons.tsx"
+    content = read_file(workspace, target)
+    if not content.strip():
+        return []
+
+    used = _collect_ui_icon_usages(workspace)
+    if not used:
+        return []
+
+    found = _find_icon_map(content)
+    if not found:
+        return []
+    body_start, body_end = found
+    defined = _icon_map_keys(content[body_start:body_end])
+
+    missing = sorted(n for n in used if n and n not in defined and n != "default")
+    if not missing:
+        return []
+
+    stroke_match = re.search(r"\{\.\.\.(\w+)\}", content)
+    stroke_attrs = (
+        f"{{...{stroke_match.group(1)}}}" if stroke_match else
+        'fill="none" stroke="currentColor" strokeWidth={1.75} '
+        'strokeLinecap="round" strokeLinejoin="round"'
+    )
+    additions = "".join(
+        f"  '{key}': (\n"
+        f"    <svg viewBox=\"0 0 24 24\" {stroke_attrs}>\n"
+        f"      <circle cx=\"12\" cy=\"12\" r=\"8\" />\n"
+        f"    </svg>\n"
+        f"  ),\n"
+        for key in missing
+    )
+    # `content[:body_end]` ends wherever the last existing entry's value ends
+    # — if the AI didn't write a trailing comma after it (valid JS either
+    # way, but ours needs one before splicing in more entries), gluing
+    # `additions` on directly would concatenate two expressions with no
+    # separator (`)\n  'x': (` — invalid object-literal syntax). Detect that
+    # and insert the missing comma ourselves rather than assuming it's there.
+    head = content[:body_end]
+    head_trimmed = head.rstrip()
+    if head_trimmed and not head_trimmed.endswith((",", "{")):
+        head = head_trimmed + ",\n"
+    updated = head + additions + content[body_end:]
+    write_file(workspace, target, updated)
+    return [f"UiIcons.tsx (+{len(missing)} icon key{'s' if len(missing) != 1 else ''}: {', '.join(missing)})"]
 
 
 def ensure_ui_icons(workspace) -> bool:

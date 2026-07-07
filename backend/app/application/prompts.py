@@ -33,6 +33,7 @@ class PromptTemplate:
     PREVIEW_APP_ARCHITECT = "prompts/preview_app_architect.j2"
     PREVIEW_APP_FILE = "prompts/preview_app_file.j2"
     PREVIEW_APP_CRITIC = "prompts/preview_app_critic.j2"
+    PREVIEW_APP_VISUAL_CRITIC = "prompts/preview_app_visual_critic.j2"
     PREVIEW_APP_REFINE = "prompts/preview_app_refine.j2"
     PREVIEW_APP_FIX = "prompts/preview_app_fix.j2"
     PREVIEW_APP_MOCK_ENRICH = "prompts/preview_app_mock_enrich.j2"

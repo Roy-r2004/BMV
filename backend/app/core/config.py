@@ -62,6 +62,8 @@ class Settings:
     FIX_MODEL: str
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
+    PREVIEW_SKIP_VISUAL_CRITIC: bool
+    INTERNAL_BASE_URL: str
 
     def __init__(self) -> None:
         self.PREVIEW_TEMPLATE_DIR = Path(
@@ -95,6 +97,18 @@ class Settings:
             self.PREVIEW_PARALLEL_WORKERS = max(1, int(os.getenv("PREVIEW_PARALLEL_WORKERS", "4")))
         except ValueError:
             self.PREVIEW_PARALLEL_WORKERS = 4
+
+        # Post-build visual critique (screenshot + vision critic) is the most
+        # expensive/slowest stage in the pipeline (headless Chromium launch +
+        # render wait + a vision model call per page) — default OFF so it
+        # never turns on unannounced; toggle in .env without a redeploy.
+        self.PREVIEW_SKIP_VISUAL_CRITIC = os.getenv(
+            "PREVIEW_SKIP_VISUAL_CRITIC", "true"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        # Internal-only address Playwright uses to reach this same server's
+        # already-running preview-app route — never exposed to end users,
+        # unrelated to any public base URL / CORS setting.
+        self.INTERNAL_BASE_URL = os.getenv("INTERNAL_BASE_URL", "http://localhost:8000").rstrip("/")
 
     @property
     def TEMPLATES_DIR(self) -> Path:

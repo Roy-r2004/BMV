@@ -27,9 +27,11 @@ from app.application.preview_app.build import extract_build_errors, run_build
 from app.application.preview_app.codegen import (
     call_architect,
     critique_and_refine,
+    critique_file_visual,
     enrich_mock_if_sparse,
     fix_build_errors,
     generate_file,
+    refine_file,
     synthesize_mock_data,
 )
 from app.application.preview_app.fallback import (
@@ -40,11 +42,19 @@ from app.application.preview_app.fallback import (
 )
 from app.application.preview_app.parallel import parallel_map, split_codegen_phases
 from app.application.preview_app.safety import (
+    _empty_seed_state_vars,
     apply_workspace_guards,
     cleanup_page_shells,
+    find_empty_seed_pages,
     find_truncated_pages,
 )
-from app.application.preview_app.workspace import prepare_workspace
+from app.application.preview_app.screenshot import capture_route_screenshot
+from app.application.preview_app.workspace import (
+    prepare_workspace,
+    read_file,
+    restore_source,
+    snapshot_source,
+)
 from app.application.services.progress import emit as _emit
 from app.core.config import settings
 from app.infrastructure.db.session import SessionLocal
@@ -54,6 +64,149 @@ MAX_FILES = 40  # No artificial cap — build every page the architect plans
 MAX_FIX_LOOP_SECONDS = 900  # 15 min ceiling on the AI fix-loop specifically —
 # beyond this, stop paying for more AI-fix attempts and drop straight to the
 # deterministic regen-once-then-stub/revert safety net, which always finishes.
+MAX_VISUAL_CRITIQUE_PAGES = 6  # Screenshotting + vision-critiquing every route
+# (could be 15-30+ for a bigger business) is expensive — cap to the homepage
+# plus each role's primary/landing page.
+
+
+def _select_visual_critique_routes(architect: dict) -> list[dict]:
+    """Homepage + each role's primary/landing page, capped at
+    MAX_VISUAL_CRITIQUE_PAGES. Falls back to filling remaining slots from the
+    full route list (in plan order) if roles don't cover the cap.
+    """
+    routes = architect.get("routes") or []
+    by_path = {rt.get("path"): rt for rt in routes if rt.get("path")}
+    selected: list[dict] = []
+    seen_paths: set[str] = set()
+
+    def _add(rt: dict | None) -> None:
+        if not rt or len(selected) >= MAX_VISUAL_CRITIQUE_PAGES:
+            return
+        path = rt.get("path")
+        if not path or path in seen_paths:
+            return
+        seen_paths.add(path)
+        selected.append(rt)
+
+    _add(by_path.get("/") or by_path.get("/home"))
+    for role in architect.get("roles") or []:
+        _add(by_path.get(role.get("defaultPath")))
+    for rt in routes:
+        _add(rt)
+
+    return selected[:MAX_VISUAL_CRITIQUE_PAGES]
+
+
+def _run_visual_critique(
+    db: Session,
+    request_id: int,
+    workspace,
+    architect: dict,
+    plan: dict,
+    specs_by_path: dict,
+    full_context: str,
+    manifest: dict,
+    images: dict,
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+    base_path: str,
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+) -> None:
+    """Post-build visual critique: screenshot the actually-built app (a real
+    rendered page, not raw source) and feed each screenshot to a
+    vision-capable critic. Flagged pages get refined and the app rebuilt
+    ONCE — a secondary polish pass, not the primary 6-attempt fix-loop. If
+    that rebuild fails, the pre-critique snapshot is restored and rebuilt
+    again to confirm the previously-working version still serves — visual
+    "improvement" must never be able to take a working preview and ship a
+    broken one instead. Every failure mode here degrades to "keep whatever
+    was already built", never raises.
+    """
+    routes = _select_visual_critique_routes(architect)
+    if not routes:
+        return
+
+    design_direction = architect.get("design_direction", "")
+    screenshot_dir = workspace / "_visual_critique_shots"
+    base_url = f"{settings.INTERNAL_BASE_URL}{base_path}/"
+
+    flagged: list[tuple[str, str, dict]] = []
+    for i, rt in enumerate(routes, 1):
+        route_path = rt.get("path") or "/"
+        component_file = (rt.get("component_file") or "").replace("\\", "/")
+        if not component_file:
+            continue
+        _emit(db, request_id, "visual_critic",
+              f"Visually reviewing page {i}/{len(routes)}: {rt.get('title', route_path)}", 90,
+              detail=route_path)
+        shot_path = screenshot_dir / f"shot_{i}.png"
+        if not capture_route_screenshot(base_url, route_path, shot_path):
+            print(f"    visual critic: skip {component_file} (screenshot failed)", flush=True)
+            continue
+        spec = specs_by_path.get(component_file) or {}
+        try:
+            review = critique_file_visual(
+                workspace, component_file, str(shot_path),
+                spec.get("instructions", ""), full_context, design_direction,
+                ai_provider, template_renderer,
+            )
+        except Exception as e:
+            print(f"    visual critic skip {component_file}: {e}", flush=True)
+            continue
+        score = review.get("score", 100)
+        verdict = review.get("verdict", "pass")
+        print(f"    visual critic {component_file}: {score} ({verdict})", flush=True)
+        if verdict == "revise":
+            notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
+            if notes:
+                flagged.append((component_file, notes, spec))
+
+    try:
+        import shutil
+        shutil.rmtree(screenshot_dir, ignore_errors=True)
+    except Exception:
+        pass
+
+    if not flagged:
+        print("    visual critic: no pages flagged", flush=True)
+        return
+
+    print(f"    visual critic: refining {len(flagged)} page(s)", flush=True)
+    _emit(db, request_id, "visual_critic",
+          f"Applying visual fixes to {len(flagged)} page(s)...", 91)
+    snapshot = snapshot_source(workspace)
+
+    def _rebuild_and_guard() -> tuple[bool, str]:
+        apply_workspace_guards(
+            workspace, architect, plan, images, brand_name, primary, secondary, font, template_renderer,
+        )
+        return run_build(workspace, base_path, template_renderer)
+
+    try:
+        for component_file, notes, spec in flagged:
+            refine_file(
+                workspace, component_file, spec.get("instructions", ""), notes,
+                full_context, manifest, images, ai_provider, template_renderer,
+            )
+        ok2, _ = _rebuild_and_guard()
+    except Exception as e:
+        print(f"    visual critic refine pass raised ({e}) — rolling back", flush=True)
+        ok2 = False
+
+    if ok2:
+        print("    visual critic: rebuild OK, keeping visually-refined version", flush=True)
+        return
+
+    print("    visual critic: rebuild failed after refinement — rolling back to pre-critique version", flush=True)
+    restore_source(workspace, snapshot)
+    ok3, _ = _rebuild_and_guard()
+    if ok3:
+        print("    visual critic: rollback confirmed — restored version still builds", flush=True)
+    else:
+        print("    visual critic: rollback rebuild ALSO failed — unexpected, workspace may be inconsistent", flush=True)
 
 
 def _sort_gen_order(files: list[dict]) -> list[dict]:
@@ -462,6 +615,47 @@ def generate_preview_app(
         except Exception as e:
             print(f"    critic pass skipped: {e}", flush=True)
 
+    # Content-realism guard: a page can compile cleanly with an empty
+    # `useState([])` that's never seeded (see find_empty_seed_pages) — not a
+    # build error, so the fix-loop never touches it, and the critic can
+    # approve/refine a page's copy without ever noticing its list renders
+    # empty. Runs regardless of PREVIEW_SKIP_CRITIC since the underlying gap
+    # is independent of whether the critic pass ran at all.
+    try:
+        empty_seed = find_empty_seed_pages(workspace)
+    except Exception as e:
+        empty_seed = []
+        print(f"    empty-seed guard skipped: {e}", flush=True)
+    if empty_seed:
+        print(
+            f"    empty-seed guard: {len(empty_seed)} page(s) render with no seed data: "
+            f"{', '.join(empty_seed)}", flush=True,
+        )
+        reinforced_specs = []
+        for rel in empty_seed:
+            base_spec = specs_by_path.get(rel) or {"path": rel, "kind": "page", "instructions": rel}
+            spec = dict(base_spec)
+            state_vars = _empty_seed_state_vars(read_file(workspace, rel))
+            var_ref = f"`{state_vars[0]}`" if state_vars else "its list state"
+            reinforcement = (
+                f"Your previous version initialized {var_ref} as an empty array with no seed "
+                "data. This page must render pre-populated with 3-6 realistic example items for "
+                "this business — either import them from mock data or define them inline. Do not "
+                "ship an empty list."
+            )
+            spec["instructions"] = f"{spec.get('instructions', '')}\n\n{reinforcement}".strip()
+            reinforced_specs.append(spec)
+        try:
+            _run_batch("empty-seed-fix", reinforced_specs, parallel=True)
+            still_empty = find_empty_seed_pages(workspace)
+            if still_empty:
+                print(
+                    f"    empty-seed guard: {len(still_empty)} page(s) still empty after regen: "
+                    f"{', '.join(still_empty)}", flush=True,
+                )
+        except Exception as e:
+            print(f"    empty-seed regen failed: {e}", flush=True)
+
     stripped = cleanup_page_shells(workspace)
     if stripped:
         print(f"    removed duplicate nav from: {', '.join(stripped)}", flush=True)
@@ -587,12 +781,33 @@ def generate_preview_app(
                 print(f"    stabilized — build now succeeds", flush=True)
                 break
 
-    preview_url = f"{base_path}/" if ok else None
     if ok:
         _emit(db, request_id, "build_done", "Preview app compiled successfully!", 89,
               detail=f"{total_files} pages built and live")
     else:
         _emit(db, request_id, "build_failed", "Build failed — falling back to role pages", 89)
+
+    # Post-build visual critique: only ever runs against a build that's
+    # already succeeded (never a broken one), and is wrapped in its own
+    # try/except on top of the guards already inside it — a failure here must
+    # degrade to "keep whatever was already built", never take down the
+    # whole request.
+    if ok and not settings.PREVIEW_SKIP_VISUAL_CRITIC:
+        print("  [7/7] Visual critique — screenshotting + reviewing rendered pages...", flush=True)
+        _emit(db, request_id, "visual_critic", "AI visually reviewing the built app...", 90,
+              detail="Screenshotting pages and checking rendering quality")
+        try:
+            _run_visual_critique(
+                db, request_id, workspace, architect, plan, specs_by_path, full_context,
+                manifest, images, brand_name, primary, secondary, font, base_path,
+                ai_provider, template_renderer,
+            )
+        except Exception as e:
+            print(f"    visual critique stage failed entirely, keeping existing build: {e}", flush=True)
+    elif ok:
+        print("    visual critique skipped (PREVIEW_SKIP_VISUAL_CRITIC=true)", flush=True)
+
+    preview_url = f"{base_path}/" if ok else None
     print(f"  {'OK Preview built: ' + preview_url if ok else 'FAIL build'}", flush=True)
 
     accent = design_system.get("primary_color") or manifest.get("accent") or primary

@@ -134,20 +134,39 @@ def call_architect(
     raise ValueError("Architect agent failed to produce valid JSON")
 
 
+# index.css only ever defines --color-brand and --color-brand-dark (see
+# write_index_css / _ensure_tailwind_css) — no "primary", "navy", "cream", or
+# any other invented color family exists anywhere in the build. The regular
+# page-file prompt already constrains pages to real tokens; this was missing
+# from the chrome contracts, which let a model invent classes like
+# `bg-navy-800` that silently compile to nothing (Tailwind drops unknown
+# utility classes instead of erroring) — the build passes, the color is gone.
+_COLOR_CONSTRAINT = (
+    " COLORS: the only theme color tokens that exist are `brand` and `brand-dark` "
+    "(text-brand, bg-brand, bg-brand-dark, border-brand, bg-brand/10, etc.) plus "
+    "Tailwind's built-in defaults (slate, gray, white, black, and so on). NEVER invent "
+    "a new color family name (no bg-navy-800, text-primary-600, bg-cream-50, etc.) — "
+    "those classes do not exist in this build's CSS and will silently render as no "
+    "color at all. Vary the LOOK using shade/opacity of brand + slate/gray, spacing, "
+    "typography, and shape — not by inventing color tokens that were never defined."
+)
+
 _CHROME_CONTRACTS: dict[str, str] = {
     "src/components/nav.tsx": (
         "This is the shared top navigation bar, rendered once by PublicLayout on every "
         "public page. Keep the exact signature: "
         "`export default function Nav({ brandName = 'Brand', items = [], cta }: Props)` "
         "with Props = { brandName?: string; items?: {path,label}[]; cta?: {path,label} }. "
-        "Redesign the visual style (colors, spacing, typography, button shape) to fit THIS "
+        "Redesign the visual style (spacing, typography, button shape) to fit THIS "
         "brand specifically — do not default to a generic indigo/slate look."
+        + _COLOR_CONSTRAINT
     ),
     "src/layouts/publiclayout.tsx": (
         "This wraps EVERY public page — it must keep rendering <Outlet /> for page content, "
         "keep importing `brand, navigation` from '../data/mock', and keep rendering "
         "<Nav /> from '../components/Nav'. You control the footer content/structure and "
         "overall shell styling — make it specific to this business, not a generic template."
+        + _COLOR_CONSTRAINT
     ),
     "src/layouts/adminlayout.tsx": (
         "This wraps EVERY admin page — it must keep rendering <Outlet /> for page content and "
@@ -155,6 +174,7 @@ _CHROME_CONTRACTS: dict[str, str] = {
         "type in any label (do not assume 'Studio', 'Restaurant', 'Clinic', etc.) — use "
         "`brand.name` and neutral wording like 'Admin' or 'Dashboard'. You control the "
         "sidebar/header styling — make it specific to this business."
+        + _COLOR_CONSTRAINT
     ),
     "src/components/uiicons.tsx": (
         "This is the shared icon set used everywhere via `<UiIcon name=\"...\" />`. Keep "
@@ -163,6 +183,7 @@ _CHROME_CONTRACTS: dict[str, str] = {
         "calendar, check, search. Design a bespoke stroke style (weight, corner rounding) "
         "that fits this brand rather than a generic outline set — but every icon must share "
         "the same stroke weight/rounding as each other."
+        + _COLOR_CONSTRAINT
     ),
 }
 
@@ -368,6 +389,38 @@ def critique_file(
         current_content=current[:14000],
     )
     raw = ai_provider.ask_chat(settings.CRITIC_MODEL, [{"role": "user", "content": prompt}], max_tokens=2000)
+    try:
+        return _parse_json(raw)
+    except Exception:
+        return {"score": 100, "verdict": "pass", "issues": [], "revision_instructions": ""}
+
+
+def critique_file_visual(
+    workspace: Path,
+    file_path: str,
+    screenshot_path: str,
+    file_instructions: str,
+    full_context: str,
+    design_direction: str,
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+) -> dict:
+    """Visual-critic agent: score one page from its rendered screenshot.
+
+    Same return shape as `critique_file` so callers can feed the result into
+    the same `refine_file` used by the text critic — but this one judges what
+    is actually visible on screen (a screenshot), not raw source, so it can
+    catch rendering defects (blank icon slots, broken images, empty-looking
+    lists, overlap) that a text-only read of the source can never see.
+    """
+    prompt = template_renderer.render(
+        PromptTemplate.PREVIEW_APP_VISUAL_CRITIC,
+        full_context=full_context[:8000],
+        design_direction=design_direction or "Modern, premium, conversion-focused",
+        file_instructions=file_instructions or "Client-facing product page",
+        file_path=file_path,
+    )
+    raw = ai_provider.ask_vision(settings.CRITIC_MODEL, prompt, screenshot_path)
     try:
         return _parse_json(raw)
     except Exception:
