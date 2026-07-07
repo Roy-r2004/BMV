@@ -179,8 +179,43 @@ def _default_export_value(name: str, architect: dict, plan: dict, images: dict, 
 
 
 _MOCK_SELF_IMPORT_RE = re.compile(
-    r"^\s*import\s+[^;\n]*from\s*['\"][^'\"]*data/mock['\"]\s*;?\s*$", re.MULTILINE
+    r"^\s*import\s+[^;\n]*from\s*['\"][^'\"]*(?:/)?mock['\"]\s*;?\s*$", re.MULTILINE
 )
+
+
+def looks_truncated_source(content: str) -> bool:
+    """Heuristic: reject AI file writes cut off mid-line (common token-limit failure)."""
+    stripped = content.rstrip()
+    if len(stripped) < 20:
+        return True
+    last = stripped.splitlines()[-1].rstrip()
+    if not last:
+        return False
+    if stripped.endswith(("}", ");", "};", "/>", ">", '"""', "'''")):
+        return False
+    if last.count('"') % 2 == 1 or last.count("'") % 2 == 1:
+        return True
+    if re.search(r'className="[^"]*$', last):
+        return True
+    if re.search(r"<\w+[^>]*$", last):
+        return True
+    return False
+
+
+def sanitize_workspace_sources(workspace) -> list[str]:
+    """Strip markdown fences/prose accidentally pasted into source files."""
+    from app.application.preview_app.codegen import _strip_fences
+
+    cleaned: list[str] = []
+    for rel in list_source_files(workspace):
+        if not rel.endswith((".tsx", ".ts", ".css")):
+            continue
+        raw = read_file(workspace, rel)
+        fixed = _strip_fences(raw)
+        if fixed != raw.strip():
+            write_file(workspace, rel, fixed)
+            cleaned.append(rel)
+    return cleaned
 
 
 def _clean_mock(mock: str) -> str:

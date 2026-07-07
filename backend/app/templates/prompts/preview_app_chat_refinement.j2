@@ -27,7 +27,9 @@ Rules:
 - Update `architect` routes/roles when navigation structure changes.
 - Import only from react, react-router-dom, existing local files, and `../data/mock`.
 - Do NOT add npm dependencies. Use inline SVG or UiIcons — no emoji.
-- Return FULL file contents for every file you change.
+- Return FULL file contents for every file you change — never truncate mid-line.
+- Never add `import ... from './mock'` or `from '../data/mock'` inside `src/data/mock.ts` itself.
+- Prefer changing only the files needed (often `src/data/mock.ts` for roles/routes, or one page file for copy/layout).
 
 Return ONLY valid JSON:
 {

@@ -74,3 +74,44 @@ def summarize_files(workspace: Path, paths: list[str], max_chars: int = 12000) -
         parts.append(chunk)
         total += len(chunk)
     return "\n".join(parts) if parts else "(no files yet)"
+
+
+def snapshot_source(workspace: Path) -> dict[str, str]:
+    """Capture current content of every source file, to allow safe rollback."""
+    return {p: read_file(workspace, p) for p in list_source_files(workspace)}
+
+
+def restore_source(workspace: Path, snapshot: dict[str, str]) -> None:
+    """Restore source files to a prior snapshot, removing any files added since."""
+    for path, content in snapshot.items():
+        write_file(workspace, path, content)
+    for path in set(list_source_files(workspace)) - set(snapshot.keys()):
+        try:
+            (workspace / path).unlink()
+        except OSError:
+            pass
+
+
+def backup_dist(workspace: Path) -> Path | None:
+    """Copy the currently-served build output aside before a risky rebuild."""
+    dist = workspace / "dist"
+    if not dist.is_dir():
+        return None
+    backup = workspace / "_dist_backup"
+    if backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
+    shutil.copytree(dist, backup)
+    return backup
+
+
+def restore_dist(workspace: Path, backup: Path) -> None:
+    """Bring back the last known-good build output."""
+    dist = workspace / "dist"
+    if dist.exists():
+        shutil.rmtree(dist, ignore_errors=True)
+    shutil.copytree(backup, dist)
+
+
+def discard_backup(backup: Path | None) -> None:
+    if backup and backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)

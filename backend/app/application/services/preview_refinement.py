@@ -121,7 +121,7 @@ def _run_chat_preview_rebuild(request_id: int, user_message: str) -> None:
         changes = result.get("changes_made") or []
         if changes:
             reply = f"{reply}\n\nChanges: " + "; ".join(changes[:6])
-        if not result.get("preview_rebuild_succeeded"):
+        if not result.get("preview_rebuild_succeeded") and not result.get("reverted"):
             reply += "\n\nThe rebuild hit errors — try one focused change at a time."
         _save_message(bg_db, request_id, "assistant", reply)
     except Exception as exc:
