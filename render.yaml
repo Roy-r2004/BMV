@@ -10,7 +10,9 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.4
       - key: DATABASE_URL
-        value: sqlite:///./buildmyversion.db
+        fromDatabase:
+          name: bmv-db
+          property: connectionString
       - key: UPLOAD_DIR
         value: ./app/uploads
       - key: AI_PROVIDER
@@ -39,3 +41,7 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+databases:
+  - name: bmv-db
+    plan: free

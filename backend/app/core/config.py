@@ -18,14 +18,23 @@ _APP_DIR = Path(__file__).resolve().parent.parent  # backend/app
 _PROJECT_ROOT = _APP_DIR.parent.parent  # repo root
 
 
+def _normalize_database_url(url: str) -> str:
+    """Render/Heroku often give postgres://; SQLAlchemy expects postgresql://."""
+    if url.startswith("postgres://"):
+        return "postgresql://" + url[len("postgres://") :]
+    return url
+
+
 class Settings:
     """Environment-driven settings, resolved once at import time."""
 
     BASE_DIR: Path = _APP_DIR
     PROJECT_ROOT: Path = _PROJECT_ROOT
 
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./buildmyversion.db")
+    # Database (Render may provide postgres:// — normalize for SQLAlchemy)
+    DATABASE_URL: str = _normalize_database_url(
+        os.getenv("DATABASE_URL", "sqlite:///./buildmyversion.db")
+    )
 
     # Admin auth
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "change_this_password")
