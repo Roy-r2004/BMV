@@ -28,8 +28,9 @@ services:
       mountPath: /var/data
       sizeGB: 1
 
-  - type: static
+  - type: web
     name: bmv-web
+    runtime: static
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
