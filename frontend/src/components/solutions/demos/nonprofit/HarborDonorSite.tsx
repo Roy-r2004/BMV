@@ -215,12 +215,22 @@ export default function HarborDonorSite({ onDonate, onVolunteerIntent }: Props) 
               <div className="hg-site__stories">
                 {IMPACT_STORIES.map((s) => (
                   <article key={s.id} className="hg-site__story">
-                    <img src={s.imageUrl} alt="" onError={onHarborFundImageError} />
-                    <div>
+                    <div className="hg-site__story-media">
+                      <img
+                        src={s.imageUrl}
+                        alt={s.title}
+                        data-hg-scene={s.id}
+                        onError={(e) => onHarborFundImageError(e, s.id)}
+                      />
                       <span className="hg-site__story-amt">${s.amount}+</span>
+                    </div>
+                    <div className="hg-site__story-body">
                       <h3>{s.title}</h3>
                       <p>{s.story}</p>
-                      <strong>{s.metric}</strong>
+                      <div className="hg-site__story-foot">
+                        <strong>{s.metric}</strong>
+                        <span>Campaign AI</span>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -305,21 +315,33 @@ export default function HarborDonorSite({ onDonate, onVolunteerIntent }: Props) 
                 </button>
               </div>
               <aside className="hg-site__impact-card">
-                <img src={story.imageUrl} alt="" onError={onHarborFundImageError} />
-                <span className="hg-site__story-amt">Impact · ${amount}</span>
-                <h3>{story.title}</h3>
-                <p>{story.story}</p>
-                <strong>{story.metric}</strong>
-                <ul className="hg-site__impact-beats">
-                  <li>Thank-you bot drafts your receipt in under 60s</li>
-                  <li>Impact story ties to Bridge the Gap live meter</li>
-                  <li>Tax PDF · EIN on file · privacy-first</li>
-                </ul>
-                {confirmed && (
-                  <div className="hg-site__receipt-note">
-                    Thank-you bot: personalized receipt → inbox in &lt;60s
+                <div className="hg-site__story-media">
+                  <img
+                    src={story.imageUrl}
+                    alt={story.title}
+                    data-hg-scene={story.id}
+                    onError={(e) => onHarborFundImageError(e, story.id)}
+                  />
+                  <span className="hg-site__story-amt">Impact · ${amount}</span>
+                </div>
+                <div className="hg-site__impact-card-body">
+                  <h3>{story.title}</h3>
+                  <p>{story.story}</p>
+                  <div className="hg-site__story-foot">
+                    <strong>{story.metric}</strong>
+                    <span>Campaign AI</span>
                   </div>
-                )}
+                  <ul className="hg-site__impact-beats">
+                    <li>Thank-you bot drafts your receipt in under 60s</li>
+                    <li>Impact story ties to Bridge the Gap live meter</li>
+                    <li>Tax PDF · EIN on file · privacy-first</li>
+                  </ul>
+                  {confirmed && (
+                    <div className="hg-site__receipt-note">
+                      Thank-you bot: personalized receipt → inbox in &lt;60s
+                    </div>
+                  )}
+                </div>
               </aside>
             </div>
             <SiteFooter onNavigate={nav} />
