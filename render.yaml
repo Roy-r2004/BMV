@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: bmv-api
+    runtime: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: DATABASE_URL
+        value: sqlite:////var/data/buildmyversion.db
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: AI_PROVIDER
+        value: openrouter
+      - key: CORS_ORIGINS
+        value: https://bmv-web.onrender.com
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: ROY_WHATSAPP_NUMBER
+        sync: false
+    disk:
+      name: bmv-data
+      mountPath: /var/data
+      sizeGB: 1
+
+  - type: static
+    name: bmv-web
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://bmv-api.onrender.com
+      - key: VITE_ROY_WHATSAPP_NUMBER
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
