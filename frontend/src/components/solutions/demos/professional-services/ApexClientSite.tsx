@@ -11,9 +11,11 @@ import {
   type ConsultSlot,
 } from './apexData.ts';
 import ApexClientChat from './ApexClientChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import ApexCounselLive from './ApexCounselLive.tsx';
 import { ApexLogo, IconArrowRight } from '../shared/ShowcaseChatIcons.tsx';
 import { onApexImageError } from './apexImageFallback.ts';
+import { OverlayPlainHero, OverlayPlainSub } from '../shared/overlayUi.tsx';
 
 type Page = 'home' | 'practice' | 'matter';
 type MatterStep = 1 | 2 | 3 | 4;
@@ -109,17 +111,18 @@ export default function ApexClientSite({ onBookConsult }: Props) {
       <div className="ax-site__scroll" ref={scrollRef}>
         <div className="ax-site__main">
           <SitePane id="home" current={page}>
-            <section className="ax-counsel-hero">
+            <section className="ax-counsel-hero" data-overlay-target="hero">
               <div className="ax-counsel-hero__inner">
                 <div className="ax-counsel-hero__copy">
                   <p className="ax-counsel-hero__eyebrow">Counsel AI · not another intake form</p>
-                  <h1>
-                    Conflict checks, clause review, and vault chasing —
-                    <em> before partners bill a minute.</em>
-                  </h1>
-                  <p className="ax-counsel-hero__sub">
+                  <OverlayPlainHero
+                    primary="Conflict checks, clause review, and vault chasing —"
+                    accent="before partners bill a minute."
+                    accentTag="em"
+                  />
+                  <OverlayPlainSub className="ax-counsel-hero__sub">
                     Apex runs the admin layer lawyers hate: clearance, document vault, engagement drafts, and partner routing — live in your branded portal.
-                  </p>
+                  </OverlayPlainSub>
                   <ul className="ax-counsel-hero__proof">
                     <li><strong>0</strong> conflict surprises</li>
                     <li><strong>55%</strong> less paralegal chase</li>
@@ -154,6 +157,8 @@ export default function ApexClientSite({ onBookConsult }: Props) {
                 ))}
               </div>
             </section>
+
+            <OverlayCustomSections />
 
             <section className="ax-counsel-practice">
               <div className="ax-counsel-practice__inner">

@@ -14,9 +14,12 @@ import RowShowcaseDemo from './hospitality/RowShowcaseDemo';
 import MetroShowcaseDemo from './automotive/MetroShowcaseDemo';
 import GenericShowcaseDemo from './GenericShowcaseDemo';
 
+import type { SolutionOverlay } from '../../../types/auth';
+
 export interface ShowcaseDemoProps {
   showcase: SolutionShowcase;
   onRequestClick: () => void;
+  overlay?: SolutionOverlay;
 }
 
 /** Bespoke cinematic demos — all 12 industries */

@@ -8,8 +8,10 @@ import {
   type BookingSubmission,
 } from './metroData.ts';
 import MetroCustomerChat from './MetroCustomerChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { IconArrowRight, MetroLogo } from '../shared/ShowcaseChatIcons.tsx';
 import { onMetroImageError } from './metroImageFallback.ts';
+import { OverlayPlainHero, OverlayPlainSub } from '../shared/overlayUi.tsx';
 
 const STEPS = ['Service', 'Vehicle', 'Slot'];
 
@@ -89,7 +91,7 @@ export default function MetroCustomerSite({ onBookSubmit }: Props) {
           </button>
         </header>
 
-        <section className="mt-site__hero" aria-label="Metro Auto Care">
+        <section className="mt-site__hero" aria-label="Metro Auto Care" data-overlay-target="hero">
           <div className="mt-site__hero-bg" aria-hidden>
             <img src={COMPANY.heroImage} alt="" onError={(e) => onMetroImageError(e)} />
             <div className="mt-site__hero-shade" />
@@ -97,10 +99,10 @@ export default function MetroCustomerSite({ onBookSubmit }: Props) {
           </div>
           <div className="mt-site__hero-copy">
             <p className="mt-site__brand-mark">METRO</p>
-            <h1>Bay ready. Progress on your phone.</h1>
-            <p className="mt-site__hero-sub">
+            <OverlayPlainHero primary="Bay ready. Progress on your phone." />
+            <OverlayPlainSub className="mt-site__hero-sub">
               Book the lift online — Bay AI assigns the right rack and Status Bot texts every stage.
-            </p>
+            </OverlayPlainSub>
             <div className="mt-site__hero-actions">
               <button type="button" className="mt-site__btn mt-site__btn--primary" onClick={openWizard}>
                 Book service
@@ -112,6 +114,8 @@ export default function MetroCustomerSite({ onBookSubmit }: Props) {
             </div>
           </div>
         </section>
+
+        <OverlayCustomSections />
 
         {wizardOpen && (
           <section className="mt-site__book" aria-label="Book service">

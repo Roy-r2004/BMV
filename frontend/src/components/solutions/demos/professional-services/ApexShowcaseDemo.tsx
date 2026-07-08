@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/professional-services-demo.css';
 import '../../../../styles/apex-counsel-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { ApexLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { ConsultSlot } from './apexData.ts';
 import ApexClientSite from './ApexClientSite.tsx';
@@ -31,6 +32,7 @@ export default function ApexShowcaseDemo({ onRequestClick }: ShowcaseDemoProps) 
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Apex Legal');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--professional-services">
@@ -49,7 +51,7 @@ export default function ApexShowcaseDemo({ onRequestClick }: ShowcaseDemoProps) 
               <ApexLogo className="ax-frame__logo-svg" />
             </span>
             <div>
-              <p className="ax-frame__product">Apex Legal</p>
+              <p className="ax-frame__product">{productLabel}</p>
               <p className="ax-frame__tag">Counsel AI OS</p>
             </div>
           </div>

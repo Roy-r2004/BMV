@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/home-services-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { BrightFixLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { QuoteSubmission } from './brightfixData.ts';
 import BrightFixCustomerSite from './BrightFixCustomerSite.tsx';
@@ -30,6 +31,7 @@ export default function BrightFixShowcaseDemo({ onRequestClick }: ShowcaseDemoPr
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('BrightFix Dispatch');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--home-services">
@@ -48,7 +50,7 @@ export default function BrightFixShowcaseDemo({ onRequestClick }: ShowcaseDemoPr
               <BrightFixLogo className="bf-frame__logo-svg" />
             </span>
             <div>
-              <p className="bf-frame__product">BrightFix Dispatch</p>
+              <p className="bf-frame__product">{productLabel}</p>
               <p className="bf-frame__tag">Home Services OS</p>
             </div>
           </div>

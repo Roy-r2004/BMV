@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/food-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { EmberLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { ReservationSlot } from './emberData.ts';
 import EmberGuestSite from './EmberGuestSite.tsx';
@@ -30,6 +31,7 @@ export default function EmberShowcaseDemo({ onRequestClick }: ShowcaseDemoProps)
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Ember Order');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--food">
@@ -48,7 +50,7 @@ export default function EmberShowcaseDemo({ onRequestClick }: ShowcaseDemoProps)
               <EmberLogo className="eo-frame__logo-svg" />
             </span>
             <div>
-              <p className="eo-frame__product">Ember Order</p>
+              <p className="eo-frame__product">{productLabel}</p>
               <p className="eo-frame__tag">Restaurant OS</p>
             </div>
           </div>

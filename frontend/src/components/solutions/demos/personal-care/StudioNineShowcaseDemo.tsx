@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/personal-care-demo.css';
 
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 
 import type { TimeSlot } from './studioData.ts';
 
@@ -59,6 +60,7 @@ export default function StudioNineShowcaseDemo({ onRequestClick }: ShowcaseDemoP
 
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Studio Nine');
 
 
 
@@ -92,7 +94,7 @@ export default function StudioNineShowcaseDemo({ onRequestClick }: ShowcaseDemoP
 
             <div>
 
-              <p className="sn-frame__product">Studio Nine</p>
+              <p className="sn-frame__product">{productLabel}</p>
 
               <p className="sn-frame__tag">Barbershop OS</p>
 

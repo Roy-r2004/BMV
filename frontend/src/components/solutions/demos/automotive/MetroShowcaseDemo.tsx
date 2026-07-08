@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/automotive-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { MetroLogo } from '../shared/ShowcaseChatIcons.tsx';
 import { preferredBayForService, type BookingSubmission } from './metroData.ts';
 import MetroCustomerSite from './MetroCustomerSite.tsx';
@@ -30,6 +31,7 @@ export default function MetroShowcaseDemo({ onRequestClick }: ShowcaseDemoProps)
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Metro Service');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--automotive">
@@ -48,7 +50,7 @@ export default function MetroShowcaseDemo({ onRequestClick }: ShowcaseDemoProps)
               <MetroLogo className="mt-frame__logo-svg" />
             </span>
             <div>
-              <p className="mt-frame__product">Metro Service</p>
+              <p className="mt-frame__product">{productLabel}</p>
               <p className="mt-frame__tag">Automotive OS</p>
             </div>
           </div>

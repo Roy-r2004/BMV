@@ -10,7 +10,9 @@ import {
   type TimeSlot,
 } from './harborData';
 import HarborPatientChat from './HarborPatientChat';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { SitePageHeader } from './HarborPageChrome';
+import { OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
 
 type Page = 'home' | 'treatments' | 'providers' | 'about' | 'book' | 'contact' | 'portal' | 'faq';
 
@@ -146,13 +148,18 @@ export default function HarborPatientSite({ onBook }: Props) {
       <div className="hc-site__scroll" ref={scrollRef}>
       <div className="hc-site__main">
         <SitePane id="home" current={page}>
-            <section className="hc-site__hero hc-site__hero--cinematic">
+            <section className="hc-site__hero hc-site__hero--cinematic" data-overlay-target="hero">
               <div className="hc-site__hero-mesh" />
               <div className="hc-site__hero-grid">
                 <div>
                   <span className="hc-site__badge">Clinical intake AI · digital forms · 24/7</span>
-                  <h1 className="hc-site__hero-title">Patients book at midnight. Your staff wake up ready.</h1>
-                  <p className="hc-site__hero-sub">Harbor Intake AI sends forms, checks insurance basics, and locks slots — no hold music, no clipboards.</p>
+                  <OverlayHeroTitle
+                    className="hc-site__hero-title"
+                    primary="Patients book at midnight. Your staff wake up ready."
+                  />
+                  <OverlayHeroSub className="hc-site__hero-sub">
+                    Harbor Intake AI sends forms, checks insurance basics, and locks slots — no hold music, no clipboards.
+                  </OverlayHeroSub>
                   <div className="hc-site__ai-magnet" aria-label="AI proof">
                     <div><strong>38</strong><span>after-hours books</span></div>
                     <div><strong>12s</strong><span>avg AI reply</span></div>
@@ -185,6 +192,7 @@ export default function HarborPatientSite({ onBook }: Props) {
                 </div>
               </div>
             </section>
+            <OverlayCustomSections />
             <section className="hc-site__journey">
               <div className="hc-site__section-inner">
                 <h2 className="hc-site__section-title">Your visit, step by step</h2>

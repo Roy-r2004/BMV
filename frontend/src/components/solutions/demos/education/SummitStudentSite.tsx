@@ -15,8 +15,11 @@ import {
   type Subject,
 } from './summitData.ts';
 import SummitStudentChat from './SummitStudentChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { SummitLogo, IconSparkle } from '../shared/ShowcaseChatIcons.tsx';
 import { onSummitImageError } from './summitImageFallback.ts';
+import { OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
+import { useOverlayBrand } from '../../../../context/ShowcaseOverlayContext.tsx';
 
 type Page = 'home' | 'subjects' | 'match';
 type MatchPhase = 'idle' | 'scanning' | 'results';
@@ -173,6 +176,7 @@ function SiteFooter({ onNavigate }: { onNavigate: (p: Page) => void }) {
 }
 
 export default function SummitStudentSite({ onBookSession }: Props) {
+  const brandName = useOverlayBrand(SUMMIT.brand);
   const [page, setPage] = useState<Page>('home');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedSubject, setSelectedSubject] = useState('math');
@@ -270,17 +274,17 @@ export default function SummitStudentSite({ onBookSession }: Props) {
       <div className="sm-site__scroll" ref={scrollRef}>
         <div className="sm-site__main">
           <SitePane id="home" current={page}>
-            <section className="sm-site__hero sm-site__hero--slim">
+            <section className="sm-site__hero sm-site__hero--slim" data-overlay-target="hero">
               <img src={SUMMIT.heroImage} alt="" className="sm-site__hero-bg" onError={onSummitImageError} />
               <div className="sm-site__hero-overlay" />
               <div className="sm-site__hero-grid" aria-hidden />
               <div className="sm-site__hero-grain" aria-hidden />
               <div className="sm-site__hero-content">
-                <p className="sm-site__hero-brand">{SUMMIT.brand}</p>
-                <h1 className="sm-site__hero-title">The right tutor for every subject.</h1>
-                <p className="sm-site__hero-sub">
+                <p className="sm-site__hero-brand">{brandName}</p>
+                <OverlayHeroTitle className="sm-site__hero-title" primary="The right tutor for every subject." />
+                <OverlayHeroSub className="sm-site__hero-sub">
                   AI matches by subject and level — then preps and reports for every session.
-                </p>
+                </OverlayHeroSub>
                 <div className="sm-site__hero-actions">
                   <button type="button" className="sm-site__btn sm-site__btn--primary" onClick={goFindTutor}>
                     Find your tutor
@@ -288,6 +292,8 @@ export default function SummitStudentSite({ onBookSession }: Props) {
                 </div>
               </div>
             </section>
+
+            <OverlayCustomSections />
 
             <section className="sm-site__section sm-site__ai-surfaces">
               <div className="sm-site__section-head">

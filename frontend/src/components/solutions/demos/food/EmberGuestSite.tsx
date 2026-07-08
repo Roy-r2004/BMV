@@ -8,6 +8,8 @@ import {
   type ReservationSlot,
 } from './emberData.ts';
 import EmberGuestChat from './EmberGuestChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
+import { OverlayHeroStats, OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
 import { EmberLogo, IconArrowRight } from '../shared/ShowcaseChatIcons.tsx';
 import { onEmberImageError } from './emberImageFallback.ts';
 
@@ -196,7 +198,7 @@ export default function EmberGuestSite({ onReserve }: Props) {
       <div className="eo-guest__scroll" ref={scrollRef}>
         <div className="eo-guest__main">
           <SitePane id="home" current={page}>
-            <section className="eo-guest__hero">
+            <section className="eo-guest__hero" data-overlay-target="hero">
               <img src={RESTAURANT.heroImage} alt="" className="eo-guest__hero-bg" onError={onEmberImageError} />
               <div className="eo-guest__hero-overlay" />
               <div className="eo-guest__hero-grain" aria-hidden />
@@ -207,13 +209,14 @@ export default function EmberGuestSite({ onReserve }: Props) {
                   <span>Allergen aware</span>
                   <span>Kitchen sync</span>
                 </div>
-                <h1 className="eo-guest__hero-title">
-                  Ask the menu.
-                  <span>Keep the 30%.</span>
-                </h1>
-                <p className="eo-guest__hero-sub">
+                <OverlayHeroTitle
+                  className="eo-guest__hero-title"
+                  primary="Ask the menu."
+                  accent="Keep the 30%."
+                />
+                <OverlayHeroSub className="eo-guest__hero-sub">
                   Menu AI tags allergens, books patio parties, and routes direct orders — no aggregator cut.
-                </p>
+                </OverlayHeroSub>
                 <div className="eo-guest__ai-magnet" aria-label="AI proof">
                   <div><strong>34%</strong><span>revenue direct</span></div>
                   <div><strong>$0</strong><span>platform fees</span></div>
@@ -230,14 +233,9 @@ export default function EmberGuestSite({ onReserve }: Props) {
               </div>
             </section>
 
-            <div className="eo-guest__hero-stats">
-              {HERO_STATS.map((s) => (
-                <div key={s.label} className="eo-guest__stat">
-                  <strong>{s.value}</strong>
-                  <span>{s.label}</span>
-                </div>
-              ))}
-            </div>
+            <OverlayHeroStats className="eo-guest__hero-stats" statClassName="eo-guest__stat" defaults={HERO_STATS} />
+
+            <OverlayCustomSections />
 
             <section className="eo-guest__journey">
               <div className="eo-guest__section-inner">

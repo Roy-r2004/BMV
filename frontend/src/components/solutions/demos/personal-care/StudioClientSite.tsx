@@ -11,7 +11,9 @@ import {
   type TimeSlot,
 } from './studioData.ts';
 import StudioClientChat from './StudioClientChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { onStudioImageError } from './studioImageFallback.ts';
+import { OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
 
 const GALLERY = [
   { src: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&w=500&h=620&fit=crop&q=80', tag: '#skinfade' },
@@ -175,7 +177,7 @@ export default function StudioClientSite({ onBook }: Props) {
       <div className="sn-shop__scroll" ref={scrollRef}>
         <div className="sn-shop__main">
           <SitePane id="home" current={page}>
-            <section className="sn-shop__hero">
+            <section className="sn-shop__hero" data-overlay-target="hero">
               <img src={SALON.heroImage} alt="" className="sn-shop__hero-bg" onError={onStudioImageError} />
               <div className="sn-shop__hero-overlay" />
               <div className="sn-shop__hero-grain" aria-hidden />
@@ -186,11 +188,14 @@ export default function StudioClientSite({ onBook }: Props) {
                   <span>DM booking</span>
                   <span>Waitlist fill</span>
                 </div>
-                <h1 className="sn-shop__hero-title">
-                  Cuts that hit.<br />
-                  <span>DMs that book themselves.</span>
-                </h1>
-                <p className="sn-shop__hero-sub">Style memory AI recalls your fade + barber — Instagram DMs become confirmed chairs while barbers cut.</p>
+                <OverlayHeroTitle
+                  className="sn-shop__hero-title"
+                  primary="Cuts that hit."
+                  accent="DMs that book themselves."
+                />
+                <OverlayHeroSub className="sn-shop__hero-sub">
+                  Style memory AI recalls your fade + barber — Instagram DMs become confirmed chairs while barbers cut.
+                </OverlayHeroSub>
                 <div className="sn-shop__ai-magnet" aria-label="AI proof">
                   <div><strong>71%</strong><span>rebook rate</span></div>
                   <div><strong>4.2m</strong><span>avg DM reply</span></div>
@@ -214,6 +219,8 @@ export default function StudioClientSite({ onBook }: Props) {
                 <button type="button" className="sn-shop__walkin-btn" onClick={() => setChatOpen(true)}>Check live wait</button>
               </aside>
             </section>
+
+            <OverlayCustomSections />
 
             <section className="sn-shop__journey">
               <div className="sn-shop__section-inner">

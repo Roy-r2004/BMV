@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/fitness-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { PeakFormLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { ClassSlot } from './peakformData.ts';
 import PeakFormMemberSite from './PeakFormMemberSite.tsx';
@@ -30,6 +31,7 @@ export default function PeakFormShowcaseDemo({ onRequestClick }: ShowcaseDemoPro
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Peak Form');
   const highlightMember = bookedSlot?.programId === 'hiit' ? 'Jordan K.' : undefined;
 
   return (
@@ -49,7 +51,7 @@ export default function PeakFormShowcaseDemo({ onRequestClick }: ShowcaseDemoPro
               <PeakFormLogo className="pf-frame__logo-svg" />
             </span>
             <div>
-              <p className="pf-frame__product">Peak Form</p>
+              <p className="pf-frame__product">{productLabel}</p>
               <p className="pf-frame__tag">Fitness OS</p>
             </div>
           </div>

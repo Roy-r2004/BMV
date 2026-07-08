@@ -1,0 +1,1231 @@
+{
+  "healthcare": [
+    {
+      "id": "hc-intake-chat",
+      "title": "AI patient intake",
+      "description": "24/7 chat qualifies symptoms, insurance, and treatment interest before staff sees the thread.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "24/7 AI intake",
+          "Auto booking",
+          "Smart reminders"
+        ],
+        "sections": [
+          {
+            "id": "ai-intake",
+            "title": "AI patient intake",
+            "body": "Harbor Intake AI answers FAQs, collects history, and routes to the right treatment — around the clock.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hc-slot-matching",
+      "title": "Smart slot matching",
+      "description": "Finds open rooms and practitioners — offers 2–3 times instantly in chat.",
+      "category": "scheduling",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Live slots",
+          "Room matching",
+          "Instant confirm"
+        ],
+        "ctaSecondary": "Check availability"
+      }
+    },
+    {
+      "id": "hc-reminders",
+      "title": "Auto reminders",
+      "description": "SMS and WhatsApp confirmations cut no-shows without front-desk calls.",
+      "category": "reminders",
+      "icon": "zap",
+      "patch": {
+        "aiChips": [
+          "SMS reminders",
+          "WhatsApp nudges",
+          "No-show shield"
+        ],
+        "sections": [
+          {
+            "id": "ai-reminders",
+            "title": "Reminder automation",
+            "body": "Confirmations and day-before nudges sent automatically across channels.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hc-clinic-digest",
+      "title": "Daily clinic digest",
+      "description": "Morning summary: arrivals, open slots, and follow-ups due.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-digest",
+            "title": "Daily clinic digest",
+            "body": "Morning AI summary for your team — who is arriving, open slots, and follow-ups due.",
+            "style": "stats",
+            "bullets": [
+              "12 today",
+              "3 open slots",
+              "5 follow-ups"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "hc-telehealth-triage",
+      "title": "Telehealth triage",
+      "description": "Routes virtual vs in-person visits based on symptoms and insurance.",
+      "category": "automation",
+      "icon": "users",
+      "patch": {
+        "aiChips": [
+          "Telehealth triage",
+          "Virtual routing",
+          "Insurance check"
+        ],
+        "ctaSecondary": "Start virtual visit"
+      }
+    },
+    {
+      "id": "hc-insurance-verify",
+      "title": "Insurance verifier",
+      "description": "Checks coverage and copay before the patient books — fewer surprises.",
+      "category": "scoring",
+      "icon": "shield",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-insurance",
+            "title": "Insurance verification",
+            "body": "AI confirms coverage and copay in chat before appointments are confirmed.",
+            "style": "highlight"
+          }
+        ]
+      }
+    }
+  ],
+  "personal-care": [
+    {
+      "id": "pc-dm-booking",
+      "title": "DM → booking bot",
+      "description": "Instagram and WhatsApp messages become confirmed chair slots automatically.",
+      "category": "chat",
+      "icon": "zap",
+      "patch": {
+        "aiChips": [
+          "Instagram booking",
+          "DM replies",
+          "Instant confirm"
+        ],
+        "ctaPrimary": "Book via DM"
+      }
+    },
+    {
+      "id": "pc-style-memory",
+      "title": "Style memory",
+      "description": "AI recalls fade type, barber preference, and usual timing for regulars.",
+      "category": "automation",
+      "icon": "users",
+      "patch": {
+        "aiChips": [
+          "Style memory",
+          "Barber prefs",
+          "Regulars VIP"
+        ],
+        "sections": [
+          {
+            "id": "ai-style",
+            "title": "Style memory AI",
+            "body": "Every regular feels known — fade, barber, and timing remembered automatically.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pc-waitlist",
+      "title": "Waitlist fill",
+      "description": "Smart reminders plus waitlist backfill when someone cancels.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Waitlist fill",
+          "Cancel backfill",
+          "Text reminders"
+        ]
+      }
+    },
+    {
+      "id": "pc-rebook",
+      "title": "Rebook nudges",
+      "description": "Loyalty prompts when clients are due — fills slow afternoons.",
+      "category": "automation",
+      "icon": "chart",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-rebook",
+            "title": "Rebook automation",
+            "body": "AI nudges regulars before they drift — fills slow afternoons automatically.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pc-loyalty-points",
+      "title": "Loyalty points AI",
+      "description": "Tracks visits, rewards, and birthday offers without a punch card.",
+      "category": "automation",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Loyalty AI",
+          "Birthday offers",
+          "Points track"
+        ]
+      }
+    },
+    {
+      "id": "pc-product-recs",
+      "title": "Product recommendations",
+      "description": "Suggests pomades, treatments, and retail at checkout in chat.",
+      "category": "chat",
+      "icon": "chart",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-retail",
+            "title": "Retail recommendations",
+            "body": "AI suggests products based on service history — sold in-chair or shipped.",
+            "style": "highlight"
+          }
+        ]
+      }
+    }
+  ],
+  "food": [
+    {
+      "id": "food-menu-ai",
+      "title": "Menu Q&A AI",
+      "description": "Answers allergens, specials, and dietary questions on web and WhatsApp.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Menu AI",
+          "Allergen aware",
+          "Wine pairing"
+        ],
+        "ctaSecondary": "Ask the menu"
+      }
+    },
+    {
+      "id": "food-table-planner",
+      "title": "Table optimizer",
+      "description": "AI suggests best table and section for party size and turn time.",
+      "category": "scheduling",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Table planner",
+          "Party sizing",
+          "Patio routing"
+        ]
+      }
+    },
+    {
+      "id": "food-direct-orders",
+      "title": "Direct order routing",
+      "description": "Orders hit kitchen display — no aggregator middleman.",
+      "category": "ops",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-direct",
+            "title": "Direct ordering",
+            "body": "Branded checkout keeps margin — orders route straight to kitchen.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "food-winback",
+      "title": "Guest win-back",
+      "description": "Personalized offers when diners have not visited in 30 days.",
+      "category": "automation",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Guest win-back",
+          "Loyalty offers",
+          "30-day trigger"
+        ]
+      }
+    },
+    {
+      "id": "food-reservation-hold",
+      "title": "Reservation hold AI",
+      "description": "Holds tables for 10 minutes while guests finish ordering or traveling.",
+      "category": "scheduling",
+      "icon": "clock",
+      "patch": {
+        "ctaPrimary": "Reserve a table",
+        "aiChips": [
+          "Smart holds",
+          "No-show guard",
+          "SMS confirm"
+        ]
+      }
+    },
+    {
+      "id": "food-kitchen-pacing",
+      "title": "Kitchen pacing",
+      "description": "Staggers tickets so the line never floods — consistent ticket times.",
+      "category": "ops",
+      "icon": "users",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-kitchen",
+            "title": "Kitchen pacing AI",
+            "body": "Ticket flow optimized by party size and prep time — steadier service, happier guests.",
+            "style": "highlight"
+          }
+        ]
+      }
+    }
+  ],
+  "real-estate": [
+    {
+      "id": "re-listing-ai",
+      "title": "Listing Q&A AI",
+      "description": "Answers HOA, schools, and availability on every property page.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Listing AI",
+          "HOA answers",
+          "School data"
+        ],
+        "sections": [
+          {
+            "id": "ai-listing",
+            "title": "Listing AI on every page",
+            "body": "Buyers get instant answers on HOA, schools, and comps — agents get qualified leads.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "re-lead-scoring",
+      "title": "Lead scoring",
+      "description": "Hot buyers ranked by budget fit, timeline, and engagement.",
+      "category": "scoring",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Lead scoring",
+          "Hot-lead rank",
+          "Budget fit"
+        ],
+        "heroStats": [
+          {
+            "label": "Qualified this week",
+            "value": "23"
+          },
+          {
+            "label": "Avg response",
+            "value": "<2m"
+          },
+          {
+            "label": "Hot-lead score",
+            "value": "94"
+          }
+        ]
+      }
+    },
+    {
+      "id": "re-viewing-scheduler",
+      "title": "Viewing scheduler",
+      "description": "Syncs agent calendars — offers tour slots without email ping-pong.",
+      "category": "scheduling",
+      "icon": "clock",
+      "patch": {
+        "ctaPrimary": "Book a viewing",
+        "aiChips": [
+          "Auto viewings",
+          "Calendar sync",
+          "Tour confirm"
+        ]
+      }
+    },
+    {
+      "id": "re-nurture",
+      "title": "Follow-up nurture",
+      "description": "Auto nurture for warm leads who viewed but did not book.",
+      "category": "automation",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-nurture",
+            "title": "Lead nurture flows",
+            "body": "Automated follow-up for warm buyers who viewed listings but have not booked a tour yet.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "re-open-house",
+      "title": "Open house promoter",
+      "description": "Auto-invites matched buyers and collects RSVPs for every open house.",
+      "category": "automation",
+      "icon": "users",
+      "patch": {
+        "aiChips": [
+          "Open house AI",
+          "Buyer match",
+          "RSVP flow"
+        ],
+        "ctaSecondary": "RSVP to open house"
+      }
+    },
+    {
+      "id": "re-market-report",
+      "title": "Market report AI",
+      "description": "Generates neighborhood comps and price trends on demand in chat.",
+      "category": "scoring",
+      "icon": "chart",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-market",
+            "title": "Instant market reports",
+            "body": "Buyers and sellers get AI-generated comp summaries — shareable in one click.",
+            "style": "highlight"
+          }
+        ],
+        "heroStats": [
+          {
+            "label": "Avg days on market",
+            "value": "18"
+          },
+          {
+            "label": "Median price",
+            "value": "$485k"
+          }
+        ]
+      }
+    }
+  ],
+  "fitness": [
+    {
+      "id": "fit-class-rec",
+      "title": "Class recommender",
+      "description": "AI suggests programs based on goals and attendance history.",
+      "category": "automation",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Class AI",
+          "Goal matching",
+          "Smart schedule"
+        ]
+      }
+    },
+    {
+      "id": "fit-reschedule",
+      "title": "Reschedule bot",
+      "description": "Members move sessions in-app — calendar updates instantly.",
+      "category": "chat",
+      "icon": "clock",
+      "patch": {
+        "ctaSecondary": "Reschedule in chat",
+        "aiChips": [
+          "1-tap reschedule",
+          "Calendar sync"
+        ]
+      }
+    },
+    {
+      "id": "fit-churn",
+      "title": "Churn predictor",
+      "description": "Flags at-risk members before they cancel; auto-offers incentives.",
+      "category": "scoring",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Churn alerts",
+          "Retention offers",
+          "Coach nudges"
+        ],
+        "sections": [
+          {
+            "id": "ai-churn",
+            "title": "Churn prevention",
+            "body": "AI flags at-risk members and sends win-back offers before they cancel.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fit-coach-digest",
+      "title": "Coach digest",
+      "description": "Daily adherence snapshot — who needs a nudge today.",
+      "category": "ops",
+      "icon": "users",
+      "patch": {
+        "aiChips": [
+          "Coach digest",
+          "Adherence view",
+          "Daily nudges"
+        ]
+      }
+    },
+    {
+      "id": "fit-progress-tracker",
+      "title": "Progress tracker",
+      "description": "Visual milestones and PR celebrations keep members motivated.",
+      "category": "automation",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-progress",
+            "title": "Progress milestones",
+            "body": "AI tracks PRs and streaks — members see wins and coaches know who to cheer on.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fit-nutrition-coach",
+      "title": "Nutrition coach",
+      "description": "Macro tips and meal ideas tied to each member's program goals.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Nutrition AI",
+          "Macro tips",
+          "Meal ideas"
+        ],
+        "ctaSecondary": "Ask nutrition coach"
+      }
+    }
+  ],
+  "professional-services": [
+    {
+      "id": "apex-conflict",
+      "title": "Conflict scan",
+      "description": "AI clears new matters against active client roster before consult.",
+      "category": "scoring",
+      "icon": "shield",
+      "patch": {
+        "aiChips": [
+          "Conflict scan",
+          "Roster check",
+          "Clear to consult"
+        ]
+      }
+    },
+    {
+      "id": "apex-clause",
+      "title": "Clause review AI",
+      "description": "Uploaded contracts scanned — indemnity and liability risks flagged.",
+      "category": "automation",
+      "icon": "spark",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-clause",
+            "title": "Clause review AI",
+            "body": "Vendor agreements scanned — indemnity, liability, and termination risks flagged before partner review.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "apex-vault",
+      "title": "Vault chaser",
+      "description": "Encrypted doc requests with auto-reminders until billable-ready.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Vault chaser",
+          "Doc reminders",
+          "Secure upload"
+        ]
+      }
+    },
+    {
+      "id": "apex-engagement",
+      "title": "Engagement draft",
+      "description": "Letters pre-filled from matter data — partners review, not re-ask.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "ctaPrimary": "Draft engagement",
+        "aiChips": [
+          "Engagement draft",
+          "Matter prefill"
+        ]
+      }
+    },
+    {
+      "id": "apex-deadline-tracker",
+      "title": "Deadline tracker",
+      "description": "Court dates, filings, and client deadlines in one AI-maintained calendar.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Deadline AI",
+          "Filing alerts",
+          "Court dates"
+        ],
+        "sections": [
+          {
+            "id": "ai-deadlines",
+            "title": "Deadline intelligence",
+            "body": "Never miss a filing — AI surfaces upcoming deadlines with matter context.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "apex-billing-predict",
+      "title": "Billing prediction",
+      "description": "Forecasts billable hours and flags matters trending over budget.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Billing forecast",
+          "Budget alerts",
+          "Utilization"
+        ]
+      }
+    }
+  ],
+  "ecommerce": [
+    {
+      "id": "lum-search",
+      "title": "Natural language search",
+      "description": "Shoppers describe what they want — AI finds the right products.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Natural search",
+          "Vision match",
+          "Style finder"
+        ]
+      }
+    },
+    {
+      "id": "lum-bundles",
+      "title": "Smart bundles",
+      "description": "Recommendations based on cart, season, and purchase history.",
+      "category": "automation",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-bundles",
+            "title": "Smart bundles",
+            "body": "AI-curated product bundles based on cart, season, and purchase history.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "lum-order-ai",
+      "title": "Order assistant",
+      "description": "Where is my order? Returns? AI resolves without support tickets.",
+      "category": "chat",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Order AI",
+          "Return help",
+          "Track shipment"
+        ]
+      }
+    },
+    {
+      "id": "lum-stock",
+      "title": "Inventory alerts",
+      "description": "Low-stock and reorder suggestions on the seller dashboard.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Stock alerts",
+          "Reorder hints",
+          "Seller hub"
+        ]
+      }
+    },
+    {
+      "id": "lum-size-finder",
+      "title": "Size finder AI",
+      "description": "Shoppers enter height and fit preference — AI recommends the right size.",
+      "category": "automation",
+      "icon": "users",
+      "patch": {
+        "ctaSecondary": "Find my size",
+        "aiChips": [
+          "Size AI",
+          "Fit quiz",
+          "Fewer returns"
+        ]
+      }
+    },
+    {
+      "id": "lum-abandoned-cart",
+      "title": "Abandoned cart recovery",
+      "description": "Personalized nudges and offers when shoppers leave items behind.",
+      "category": "reminders",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-cart",
+            "title": "Cart recovery",
+            "body": "AI sends timed reminders with dynamic discounts — recover revenue automatically.",
+            "style": "highlight"
+          }
+        ]
+      }
+    }
+  ],
+  "home-services": [
+    {
+      "id": "bf-quote",
+      "title": "Quote intake AI",
+      "description": "Captures job details, photos, and urgency from web or SMS.",
+      "category": "chat",
+      "icon": "zap",
+      "patch": {
+        "ctaPrimary": "Get a quote",
+        "aiChips": [
+          "Quote AI",
+          "Photo upload",
+          "Urgency routing"
+        ]
+      }
+    },
+    {
+      "id": "bf-dispatch",
+      "title": "Smart dispatch",
+      "description": "Routes jobs to nearest available tech by skill and location.",
+      "category": "ops",
+      "icon": "users",
+      "patch": {
+        "aiChips": [
+          "Auto dispatch",
+          "Route optimize",
+          "Skill match"
+        ]
+      }
+    },
+    {
+      "id": "bf-status",
+      "title": "Live job status",
+      "description": "Customers get on-the-way and job-complete updates automatically.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-status",
+            "title": "Live job status",
+            "body": "Homeowners track progress — en route, in progress, done — without calling the office.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bf-reviews",
+      "title": "Review requests",
+      "description": "Five-star follow-ups sent after every completed job.",
+      "category": "automation",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Review bot",
+          "Google asks",
+          "Post-job follow-up"
+        ]
+      }
+    },
+    {
+      "id": "bf-seasonal-prep",
+      "title": "Seasonal prep campaigns",
+      "description": "AI launches HVAC winter tune-ups or gutter cleanings before peak season.",
+      "category": "automation",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Seasonal campaigns",
+          "Tune-up blasts",
+          "Peak prep"
+        ],
+        "sections": [
+          {
+            "id": "ai-seasonal",
+            "title": "Seasonal outreach",
+            "body": "Automated campaigns before weather shifts — fill the schedule early.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bf-estimate-followup",
+      "title": "Estimate follow-up",
+      "description": "Nudges homeowners who requested quotes but have not scheduled yet.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "ctaPrimary": "Schedule now",
+        "aiChips": [
+          "Quote follow-up",
+          "Estimate nudge",
+          "Close more jobs"
+        ]
+      }
+    }
+  ],
+  "education": [
+    {
+      "id": "sm-match",
+      "title": "Tutor matcher",
+      "description": "AI pairs students with the right tutor by subject and level.",
+      "category": "scoring",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Tutor match",
+          "Level fit",
+          "Subject AI"
+        ],
+        "ctaPrimary": "Find your tutor"
+      }
+    },
+    {
+      "id": "sm-prep",
+      "title": "Homework reminders",
+      "description": "Automated nudges before sessions with materials attached.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Prep automation",
+          "Material send",
+          "Session nudges"
+        ]
+      }
+    },
+    {
+      "id": "sm-parent",
+      "title": "Parent progress reports",
+      "description": "Weekly summaries for parents — no manual email blasts.",
+      "category": "automation",
+      "icon": "chart",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-parent",
+            "title": "Parent reports",
+            "body": "Weekly AI-generated progress summaries — professional and on time.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sm-billing",
+      "title": "Payment automation",
+      "description": "Packages, renewals, and receipts handled in-app.",
+      "category": "ops",
+      "icon": "zap",
+      "patch": {
+        "aiChips": [
+          "Auto billing",
+          "Package renew",
+          "Receipts"
+        ]
+      }
+    },
+    {
+      "id": "sm-attendance-ai",
+      "title": "Attendance insights",
+      "description": "Flags students missing sessions and suggests intervention steps.",
+      "category": "scoring",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Attendance AI",
+          "At-risk alerts",
+          "Intervention tips"
+        ],
+        "heroStats": [
+          {
+            "label": "Sessions this term",
+            "value": "24"
+          },
+          {
+            "label": "Attendance rate",
+            "value": "96%"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sm-curriculum-path",
+      "title": "Learning path AI",
+      "description": "Adaptive curriculum sequences based on quiz results and pace.",
+      "category": "automation",
+      "icon": "spark",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-path",
+            "title": "Adaptive learning paths",
+            "body": "AI adjusts lesson order and difficulty based on each student's progress.",
+            "style": "highlight"
+          }
+        ]
+      }
+    }
+  ],
+  "automotive": [
+    {
+      "id": "mt-booking",
+      "title": "Service booking AI",
+      "description": "Books the right bay and service type from natural language.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "ctaPrimary": "Book service",
+        "aiChips": [
+          "Bay AI",
+          "Service match",
+          "Online booking"
+        ]
+      }
+    },
+    {
+      "id": "mt-status",
+      "title": "Status bot",
+      "description": "Texts every repair stage — customer never has to call.",
+      "category": "reminders",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Status bot",
+          "SMS updates",
+          "Progress track"
+        ],
+        "ctaSecondary": "Track my car"
+      }
+    },
+    {
+      "id": "mt-parts",
+      "title": "Parts ETA tracker",
+      "description": "AI updates customers when parts arrive and work can begin.",
+      "category": "automation",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-parts",
+            "title": "Parts ETA updates",
+            "body": "Customers notified automatically when parts land and the lift is ready.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mt-shop-hub",
+      "title": "Shop floor hub",
+      "description": "Bay board, tech assignments, and daily throughput in one view.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Shop hub",
+          "Bay board",
+          "Tech assign"
+        ]
+      }
+    },
+    {
+      "id": "mt-warranty-check",
+      "title": "Warranty checker",
+      "description": "Looks up OEM warranty status before quoting out-of-pocket work.",
+      "category": "scoring",
+      "icon": "shield",
+      "patch": {
+        "aiChips": [
+          "Warranty AI",
+          "OEM lookup",
+          "Coverage check"
+        ]
+      }
+    },
+    {
+      "id": "mt-fleet-diagnostics",
+      "title": "Fleet diagnostics",
+      "description": "Bulk vehicle health reports for commercial fleet accounts.",
+      "category": "ops",
+      "icon": "users",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-fleet",
+            "title": "Fleet health dashboard",
+            "body": "Commercial clients get AI-summarized diagnostics across every vehicle in the lot.",
+            "style": "highlight"
+          }
+        ],
+        "ctaSecondary": "Fleet report"
+      }
+    }
+  ],
+  "hospitality": [
+    {
+      "id": "row-concierge",
+      "title": "Concierge AI",
+      "description": "Answers amenities, local tips, and upgrade offers 24/7.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Concierge AI",
+          "Local tips",
+          "Upgrades"
+        ],
+        "ctaSecondary": "Ask concierge"
+      }
+    },
+    {
+      "id": "row-upsell",
+      "title": "Room upsell",
+      "description": "AI offers suite upgrades based on availability and stay profile.",
+      "category": "automation",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-upsell",
+            "title": "Smart upsell",
+            "body": "Suite and late-checkout offers based on availability and guest profile.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "row-housekeeping",
+      "title": "Housekeeping sync",
+      "description": "Room-ready status flows to front desk and guest app.",
+      "category": "ops",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Housekeeping sync",
+          "Room ready",
+          "Floor ops"
+        ]
+      }
+    },
+    {
+      "id": "row-direct",
+      "title": "Direct booking",
+      "description": "Book direct incentives and abandoned-cart recovery.",
+      "category": "automation",
+      "icon": "chart",
+      "patch": {
+        "ctaPrimary": "Book direct",
+        "aiChips": [
+          "Direct book",
+          "Best rate",
+          "Cart recovery"
+        ]
+      }
+    },
+    {
+      "id": "row-event-planner",
+      "title": "Event planner AI",
+      "description": "Weddings and conferences — AI coordinates rooms, catering, and AV.",
+      "category": "scheduling",
+      "icon": "spark",
+      "patch": {
+        "aiChips": [
+          "Event AI",
+          "Group blocks",
+          "Catering sync"
+        ],
+        "sections": [
+          {
+            "id": "ai-events",
+            "title": "Group & event planning",
+            "body": "AI coordinates room blocks, catering, and AV for weddings and conferences.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "row-guest-feedback",
+      "title": "Guest feedback digest",
+      "description": "Summarizes reviews and in-stay surveys — surfaces issues fast.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Feedback AI",
+          "Review digest",
+          "Issue alerts"
+        ]
+      }
+    }
+  ],
+  "nonprofit": [
+    {
+      "id": "hg-donate-ai",
+      "title": "Donation assistant",
+      "description": "Guides donors through impact, amounts, and recurring gifts.",
+      "category": "chat",
+      "icon": "spark",
+      "patch": {
+        "ctaPrimary": "Donate now",
+        "aiChips": [
+          "Donate AI",
+          "Impact stories",
+          "Recurring gifts"
+        ]
+      }
+    },
+    {
+      "id": "hg-campaign",
+      "title": "Campaign pages",
+      "description": "AI-built campaign microsites with goal thermometers.",
+      "category": "automation",
+      "icon": "zap",
+      "patch": {
+        "sections": [
+          {
+            "id": "ai-campaign",
+            "title": "Campaign builder",
+            "body": "Launch goal-tracked campaign pages with AI-written impact copy.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hg-volunteer",
+      "title": "Volunteer matcher",
+      "description": "Matches skills and availability to open volunteer shifts.",
+      "category": "scheduling",
+      "icon": "clock",
+      "patch": {
+        "aiChips": [
+          "Volunteer match",
+          "Shift fill",
+          "Skills map"
+        ],
+        "ctaSecondary": "Volunteer"
+      }
+    },
+    {
+      "id": "hg-donor",
+      "title": "Donor nurture",
+      "description": "Thank-you sequences and re-engagement for lapsed donors.",
+      "category": "reminders",
+      "icon": "chart",
+      "patch": {
+        "aiChips": [
+          "Donor nurture",
+          "Thank-you flow",
+          "Re-engage"
+        ]
+      }
+    },
+    {
+      "id": "hg-grant-finder",
+      "title": "Grant finder AI",
+      "description": "Matches your mission to open grants and drafts LOI outlines.",
+      "category": "scoring",
+      "icon": "shield",
+      "patch": {
+        "aiChips": [
+          "Grant match",
+          "LOI drafts",
+          "Deadline track"
+        ],
+        "sections": [
+          {
+            "id": "ai-grants",
+            "title": "Grant discovery",
+            "body": "AI surfaces matching grants and drafts letter-of-intent outlines for your team.",
+            "style": "highlight"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hg-impact-dashboard",
+      "title": "Impact dashboard",
+      "description": "Live beneficiary stats and stories for board reports and donors.",
+      "category": "ops",
+      "icon": "chart",
+      "patch": {
+        "heroStats": [
+          {
+            "label": "Lives impacted",
+            "value": "2,400"
+          },
+          {
+            "label": "Programs active",
+            "value": "12"
+          },
+          {
+            "label": "Volunteer hours",
+            "value": "8.2k"
+          }
+        ],
+        "ctaSecondary": "See our impact"
+      }
+    }
+  ]
+}

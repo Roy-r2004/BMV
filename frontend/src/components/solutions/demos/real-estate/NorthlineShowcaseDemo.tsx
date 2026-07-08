@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/real-estate-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { NorthlineLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { ViewingSlot } from './northlineData.ts';
 import NorthlineBuyerSite from './NorthlineBuyerSite.tsx';
@@ -31,6 +32,7 @@ export default function NorthlineShowcaseDemo({ onRequestClick }: ShowcaseDemoPr
 
   const tab = TABS.find((t) => t.id === view)!;
   const highlightBuyer = bookedSlot?.listingId === 'oak-lane' ? 'Alex P.' : undefined;
+  const productLabel = useOverlayProduct('Northline');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--real-estate">
@@ -49,7 +51,7 @@ export default function NorthlineShowcaseDemo({ onRequestClick }: ShowcaseDemoPr
               <NorthlineLogo className="nr-frame__logo-svg" />
             </span>
             <div>
-              <p className="nr-frame__product">Northline</p>
+              <p className="nr-frame__product">{productLabel}</p>
               <p className="nr-frame__tag">Real Estate OS</p>
             </div>
           </div>

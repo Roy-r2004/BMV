@@ -11,6 +11,9 @@ import {
 } from './northlineData.ts';
 import NorthlineBuyerChat from './NorthlineBuyerChat.tsx';
 import { NorthlineLogo, IconArrowRight } from '../shared/ShowcaseChatIcons.tsx';
+import { OverlayAiChips, OverlayCtaButton, OverlayEyebrow, OverlayHeroStats, OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
+import { useOverlayBrand } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { onNorthlineImageError } from './northlineImageFallback.ts';
 
 type Page = 'home' | 'listings' | 'view';
@@ -74,11 +77,12 @@ function ListingCard({ listing, onView }: { listing: Listing; onView: (id: strin
 }
 
 function SiteFooter({ onNavigate }: { onNavigate: (p: Page) => void }) {
+  const brandName = useOverlayBrand(AGENCY.name);
   return (
     <footer className="nr-site__footer">
       <div className="nr-site__footer-grid">
         <div>
-          <p className="nr-site__footer-brand">{AGENCY.name}</p>
+          <p className="nr-site__footer-brand">{brandName}</p>
           <p className="nr-site__footer-muted">{AGENCY.tagline}</p>
           <p className="nr-site__footer-muted">{AGENCY.address}</p>
           <p className="nr-site__footer-muted">{AGENCY.city}</p>
@@ -96,12 +100,13 @@ function SiteFooter({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <p className="nr-site__footer-legal">Privacy · Fair housing · MLS</p>
         </div>
       </div>
-      <p className="nr-site__footer-copy">© 2026 {AGENCY.name}. All rights reserved.</p>
+      <p className="nr-site__footer-copy">© 2026 {brandName}. All rights reserved.</p>
     </footer>
   );
 }
 
 export default function NorthlineBuyerSite({ onBookViewing }: Props) {
+  const brandName = useOverlayBrand(AGENCY.name);
   const [page, setPage] = useState<Page>('home');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedListing, setSelectedListing] = useState<string>('oak-lane');
@@ -138,7 +143,7 @@ export default function NorthlineBuyerSite({ onBookViewing }: Props) {
       <header className="nr-site__header">
         <button type="button" className="nr-site__brand" onClick={() => nav('home')}>
           <NorthlineLogo className="nr-site__mark" />
-          <span className="nr-site__name">{AGENCY.name}</span>
+          <span className="nr-site__name">{brandName}</span>
         </button>
         <nav className="nr-site__nav" aria-label="Site navigation">
           {(['home', 'listings', 'view'] as Page[]).map((p) => (
@@ -160,48 +165,49 @@ export default function NorthlineBuyerSite({ onBookViewing }: Props) {
       <div className="nr-site__scroll" ref={scrollRef}>
         <div className="nr-site__main">
           <SitePane id="home" current={page}>
-            <section className="nr-site__hero">
+            <section className="nr-site__hero" data-overlay-target="hero">
               <img src={AGENCY.heroImage} alt="" className="nr-site__hero-bg" onError={onNorthlineImageError} />
               <div className="nr-site__hero-overlay" />
               <div className="nr-site__hero-grain" aria-hidden />
               <div className="nr-site__hero-content">
-                <p className="nr-site__hero-eyebrow">Brooklyn · Manhattan · AI-qualified leads</p>
-                <div className="nr-site__ai-chips" aria-label="AI capabilities">
-                  <span>Listing AI</span>
-                  <span>Lead scoring</span>
-                  <span>Tour booking</span>
-                </div>
-                <h1 className="nr-site__hero-title">
-                  Listings that sell
-                  <span>while agents sleep.</span>
-                </h1>
-                <p className="nr-site__hero-sub">
+                <OverlayEyebrow className="nr-site__hero-eyebrow">Brooklyn · Manhattan · AI-qualified leads</OverlayEyebrow>
+                <OverlayAiChips
+                  className="nr-site__ai-chips"
+                  aria-label="AI capabilities"
+                  defaults={['Listing AI', 'Lead scoring', 'Tour booking']}
+                />
+                <OverlayHeroTitle
+                  className="nr-site__hero-title"
+                  primary="Listings that sell"
+                  accent="while agents sleep."
+                />
+                <OverlayHeroSub className="nr-site__hero-sub">
                   Listing AI answers HOA &amp; schools, scores buyers, and books tours — warm leads, not inquiry spam.
-                </p>
+                </OverlayHeroSub>
                 <div className="nr-site__ai-magnet" aria-label="AI proof">
                   <div><strong>23</strong><span>qualified this week</span></div>
                   <div><strong>&lt;2m</strong><span>avg response</span></div>
                   <div><strong>94</strong><span>hot-lead score</span></div>
                 </div>
                 <div className="nr-site__hero-actions">
-                  <button type="button" className="nr-site__btn nr-site__btn--primary" onClick={() => nav('listings')}>
-                    Browse listings
-                  </button>
-                  <button type="button" className="nr-site__btn nr-site__btn--ghost" onClick={() => setChatOpen(true)}>
-                    Ask listing AI
-                  </button>
+                  <OverlayCtaButton
+                    className="nr-site__btn nr-site__btn--primary"
+                    defaultLabel="Browse listings"
+                    onClick={() => nav('listings')}
+                  />
+                  <OverlayCtaButton
+                    className="nr-site__btn nr-site__btn--ghost"
+                    defaultLabel="Ask listing AI"
+                    slot="secondary"
+                    onClick={() => setChatOpen(true)}
+                  />
                 </div>
               </div>
             </section>
 
-            <div className="nr-site__hero-stats">
-              {HERO_STATS.map((s) => (
-                <div key={s.label} className="nr-site__stat">
-                  <strong>{s.value}</strong>
-                  <span>{s.label}</span>
-                </div>
-              ))}
-            </div>
+            <OverlayHeroStats className="nr-site__hero-stats" statClassName="nr-site__stat" defaults={HERO_STATS} />
+
+            <OverlayCustomSections />
 
             <section className="nr-site__journey">
               <div className="nr-site__section-inner">

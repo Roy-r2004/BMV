@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/healthcare-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import type { TimeSlot } from './harborData';
 import HarborPatientSite from './HarborPatientSite.tsx';
 
@@ -29,6 +30,7 @@ export default function HealthcareShowcaseDemo({ onRequestClick }: ShowcaseDemoP
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Harbor Care');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--healthcare">
@@ -45,7 +47,7 @@ export default function HealthcareShowcaseDemo({ onRequestClick }: ShowcaseDemoP
             <div className="hc-demo__lights">
               <span /><span /><span />
             </div>
-            <p className="hc-demo__product">Harbor Care · Healthcare platform</p>
+            <p className="hc-demo__product">{productLabel} · Healthcare platform</p>
             <span className="hc-demo__titlebar-spacer" aria-hidden />
           </div>
 

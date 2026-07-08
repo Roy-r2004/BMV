@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/education-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { SummitLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { SessionSlot } from './summitData.ts';
 import SummitStudentSite from './SummitStudentSite.tsx';
@@ -30,6 +31,7 @@ export default function SummitShowcaseDemo({ onRequestClick }: ShowcaseDemoProps
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Summit Tutoring');
   const highlightStudent = bookedSlot ? 'Ava M.' : undefined;
 
   return (
@@ -49,7 +51,7 @@ export default function SummitShowcaseDemo({ onRequestClick }: ShowcaseDemoProps
               <SummitLogo className="sm-frame__logo-svg" />
             </span>
             <div>
-              <p className="sm-frame__product">Summit Tutoring</p>
+              <p className="sm-frame__product">{productLabel}</p>
               <p className="sm-frame__tag">Education OS</p>
             </div>
           </div>

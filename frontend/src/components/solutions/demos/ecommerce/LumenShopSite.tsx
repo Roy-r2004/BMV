@@ -16,7 +16,9 @@ import {
   type ProductCategory,
 } from './lumenData.ts';
 import LumenShopChat from './LumenShopChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { onLumenImageError } from './lumenImageFallback.ts';
+import { OverlayAiChips, OverlayPlainHero, OverlayPlainSub } from '../shared/overlayUi.tsx';
 
 const SEARCH_HINTS = [
   'warm minimalist lamp for bedroom',
@@ -289,7 +291,7 @@ export default function LumenShopSite({ onOrderPlaced }: Props) {
       )}
 
       <div className="lh-shop__scroll" ref={scrollRef}>
-        <section className="lh-shop__hero">
+        <section className="lh-shop__hero" data-overlay-target="hero">
           <div className="lh-shop__hero-mesh" aria-hidden />
           <div className="lh-shop__hero-layout">
             <div className="lh-shop__hero-copy">
@@ -297,13 +299,19 @@ export default function LumenShopSite({ onOrderPlaced }: Props) {
                 <IconSparkle className="lh-shop__sparkle" />
                 Curated home
               </span>
-              <h1>
-                Find the feeling.
-                <em> Then the piece.</em>
-              </h1>
-              <p>
+              <OverlayPlainHero
+                primary="Find the feeling."
+                accent="Then the piece."
+                accentTag="em"
+              />
+              <OverlayPlainSub>
                 Natural-language search and vision matching — for rooms that already know what they want.
-              </p>
+              </OverlayPlainSub>
+              <OverlayAiChips
+                className="lh-shop__ai-chips"
+                aria-label="AI commerce capabilities"
+                defaults={['Natural search', 'Vision match', 'Style bundles']}
+              />
             </div>
             <div className="lh-shop__hero-duo" aria-hidden={!featuredProducts.length}>
               {featuredProducts.map((p, i) => (
@@ -421,6 +429,8 @@ export default function LumenShopSite({ onOrderPlaced }: Props) {
             </p>
           )}
         </section>
+
+        <OverlayCustomSections />
 
         <section className="lh-shop__bundles" aria-label="AI picked for you" ref={bundlesRef}>
           <header className="lh-shop__bundles-head">

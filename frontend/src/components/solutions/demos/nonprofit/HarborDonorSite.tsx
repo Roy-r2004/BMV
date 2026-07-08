@@ -8,8 +8,11 @@ import {
   type Donation,
 } from './harborFundData.ts';
 import HarborDonorChat from './HarborDonorChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { HarborFundLogo } from '../shared/ShowcaseChatIcons.tsx';
 import { onHarborFundImageError } from './harborFundImageFallback.ts';
+import { OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
+import { useOverlayBrand } from '../../../../context/ShowcaseOverlayContext.tsx';
 
 type Page = 'home' | 'donate' | 'volunteer';
 
@@ -75,6 +78,7 @@ function SiteFooter({ onNavigate }: { onNavigate: (p: Page) => void }) {
 }
 
 export default function HarborDonorSite({ onDonate, onVolunteerIntent }: Props) {
+  const brandName = useOverlayBrand(HARBOR_FUND.name);
   const [page, setPage] = useState<Page>('home');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [amount, setAmount] = useState(50);
@@ -132,16 +136,16 @@ export default function HarborDonorSite({ onDonate, onVolunteerIntent }: Props) 
       <div className="hg-site__scroll" ref={scrollRef}>
         <div className="hg-site__main">
           <SitePane id="home" current={page}>
-            <section className="hg-site__hero">
+            <section className="hg-site__hero" data-overlay-target="hero">
               <img src={HARBOR_FUND.heroImage} alt="" className="hg-site__hero-bg" onError={onHarborFundImageError} />
               <div className="hg-site__hero-overlay" />
               <div className="hg-site__hero-grain" aria-hidden />
               <div className="hg-site__hero-content">
-                <p className="hg-site__hero-brand">{HARBOR_FUND.name}</p>
-                <h1 className="hg-site__hero-title">Give where it lands.</h1>
-                <p className="hg-site__hero-sub">
+                <p className="hg-site__hero-brand">{brandName}</p>
+                <OverlayHeroTitle className="hg-site__hero-title" primary="Give where it lands." />
+                <OverlayHeroSub className="hg-site__hero-sub">
                   Neighbors funding meals, mentorship, and housing — one gift, one shift at a time.
-                </p>
+                </OverlayHeroSub>
                 <div className="hg-site__hero-ctas">
                   <button type="button" className="hg-site__btn hg-site__btn--primary" onClick={() => nav('donate')}>
                     Donate
@@ -156,6 +160,8 @@ export default function HarborDonorSite({ onDonate, onVolunteerIntent }: Props) 
                 </div>
               </div>
             </section>
+
+            <OverlayCustomSections />
 
             <section className="hg-site__campaign" id="campaign">
               <div className="hg-site__campaign-inner">

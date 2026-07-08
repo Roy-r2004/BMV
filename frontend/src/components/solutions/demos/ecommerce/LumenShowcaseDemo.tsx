@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/ecommerce-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { LumenLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { PlacedOrder } from './lumenData.ts';
 import LumenShopSite from './LumenShopSite.tsx';
@@ -30,6 +31,7 @@ export default function LumenShowcaseDemo({ onRequestClick }: ShowcaseDemoProps)
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Lumen Store');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--ecommerce">
@@ -48,7 +50,7 @@ export default function LumenShowcaseDemo({ onRequestClick }: ShowcaseDemoProps)
               <LumenLogo className="lh-frame__logo-svg" />
             </span>
             <div>
-              <p className="lh-frame__product">Lumen Store</p>
+              <p className="lh-frame__product">{productLabel}</p>
               <p className="lh-frame__tag">Commerce OS</p>
             </div>
           </div>

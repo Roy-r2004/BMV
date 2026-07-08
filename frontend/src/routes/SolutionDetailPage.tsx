@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
@@ -10,6 +10,14 @@ import { hasCustomShowcaseDemo } from '../components/solutions/demos/showcaseReg
 import { SOLUTION_ICONS } from '../components/solutions/SolutionIcons';
 import SolutionShowcaseDemo from '../components/solutions/SolutionShowcaseDemo';
 import SolutionRequestModal from '../components/solutions/SolutionRequestModal';
+import AuthGateModal from '../components/solutions/AuthGateModal';
+import SolutionEditChat from '../components/solutions/SolutionEditChat';
+import { useAuth } from '../context/AuthContext';
+import { useSolutionWorkspace } from '../hooks/useSolutionWorkspace';
+import { mergeShowcaseWithOverlay } from '../utils/mergeShowcaseOverlay';
+import { focusCatalogFeature } from '../utils/catalogFocus';
+import type { AIFeatureCatalogItem } from '../data/aiFeatureCatalog';
+import type { PreviewEditSelection } from '../components/solutions/SolutionShowcaseDemo';
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
@@ -17,6 +25,32 @@ export default function SolutionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const solution = id ? getSolutionById(id) : undefined;
   const [requestOpen, setRequestOpen] = useState(false);
+  const [authGateOpen, setAuthGateOpen] = useState(false);
+  const [editChatOpen, setEditChatOpen] = useState(false);
+  const [selectedEditTarget, setSelectedEditTarget] = useState<PreviewEditSelection | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, isAuthenticated } = useAuth();
+  const { overlay, setOverlay, loading: workspaceLoading, reset } = useSolutionWorkspace(
+    solution?.id ?? '',
+    isAuthenticated,
+  );
+  const showcase = solution ? getShowcaseDemo(solution.id) : undefined;
+  const mergedShowcase = useMemo(
+    () =>
+      showcase
+        ? mergeShowcaseWithOverlay(showcase, isAuthenticated ? overlay : {})
+        : undefined,
+    [showcase, overlay, isAuthenticated],
+  );
+
+  useEffect(() => {
+    if (isAuthenticated && searchParams.get('edit') === '1') {
+      setEditChatOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('edit');
+      setSearchParams(next, { replace: true });
+    }
+  }, [isAuthenticated, searchParams, setSearchParams]);
 
   if (!solution) {
     return <Navigate to="/solutions" replace />;
@@ -24,8 +58,27 @@ export default function SolutionDetailPage() {
 
   const icon = SOLUTION_ICONS[solution.icon];
   const openRequest = () => setRequestOpen(true);
-  const showcase = getShowcaseDemo(solution.id);
   const demoLive = hasShowcaseDemo(solution.id) || solution.demoStatus === 'live';
+  const returnPath = `/solutions/${solution.id}?edit=1`;
+
+  const openEditWithAi = () => {
+    if (!isAuthenticated) {
+      setAuthGateOpen(true);
+      return;
+    }
+    setEditChatOpen(true);
+  };
+
+  const handleFocusInPreview = (feature: AIFeatureCatalogItem) => {
+    requestAnimationFrame(() => {
+      window.setTimeout(() => focusCatalogFeature(feature), 120);
+    });
+  };
+
+  const handlePreviewElementSelect = (selection: PreviewEditSelection) => {
+    setSelectedEditTarget(selection);
+    setEditChatOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
@@ -238,7 +291,7 @@ export default function SolutionDetailPage() {
       </section>
 
       {/* Demo slot */}
-      <section id="demo" className="section-padding bg-[#060a14] relative overflow-hidden scroll-mt-20">
+      <section id="solution-live-demo" className="section-padding bg-[#060a14] relative overflow-hidden scroll-mt-20">
         <div className="absolute inset-0 demo-hero__mesh pointer-events-none" />
         <div className="absolute inset-0 cinematic-grid opacity-20 pointer-events-none" />
         <div className={`sol-detail-demo__orb bg-gradient-to-br ${solution.accent}`} aria-hidden />
@@ -259,11 +312,31 @@ export default function SolutionDetailPage() {
             </h2>
             <p className="text-slate-400 leading-relaxed">
               {demoLive
-                ? showcase
-                  ? `Explore ${showcase.businessName} — a real walkthrough of the ${solution.name.toLowerCase()} platform we customize for your business.`
+                ? mergedShowcase
+                  ? `Explore ${mergedShowcase.businessName} — a real walkthrough of the ${solution.name.toLowerCase()} platform we customize for your business.`
                   : 'Explore the live demo of this software — the same platform we customize for your business.'
                 : `A live demo of our ${solution.name.toLowerCase()} software is on the way. Contact us to see it set up for your business.`}
             </p>
+            {demoLive && showcase && (
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={openEditWithAi}
+                  className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-5 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 hover:border-cyan-400/50 transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M5 19l2-2M19 5l-2 2" strokeLinecap="round" />
+                  </svg>
+                  Edit with AI
+                </button>
+                {isAuthenticated ? (
+                  <span className="text-xs text-cyan-400/90">Signed in — demo below is your personal copy</span>
+                ) : (
+                  <span className="text-xs text-slate-500">Sign in to save your own version</span>
+                )}
+              </div>
+            )}
           </motion.div>
 
           <motion.div
@@ -273,8 +346,21 @@ export default function SolutionDetailPage() {
             transition={{ duration: 0.7, ease: easeOut }}
             className={`sol-detail-demo__frame ${hasCustomShowcaseDemo(solution.id) ? 'sol-detail-demo__frame--wide' : ''}`}
           >
-            {showcase ? (
-              <SolutionShowcaseDemo showcase={showcase} onRequestClick={openRequest} />
+            {mergedShowcase ? (
+              <SolutionShowcaseDemo
+                key={`${solution.id}-${user?.id ?? 'guest'}`}
+                showcase={mergedShowcase}
+                solutionName={solution.name}
+                onRequestClick={openRequest}
+                overlay={overlay}
+                isOwnerView={isAuthenticated}
+                ownerUserId={user?.id}
+                onEditWithAi={openEditWithAi}
+                onResetWorkspace={reset}
+                resetting={workspaceLoading}
+                selectionEnabled={isAuthenticated && editChatOpen}
+                onPreviewElementSelect={handlePreviewElementSelect}
+              />
             ) : solution.demoStatus === 'live' && solution.demoUrl ? (
               <div className="sol-detail-demo__browser">
                 <div className="sol-detail-demo__chrome">
@@ -321,6 +407,28 @@ export default function SolutionDetailPage() {
         solutionId={solution.id}
         solutionName={solution.name}
       />
+
+      <AuthGateModal
+        open={authGateOpen}
+        onClose={() => setAuthGateOpen(false)}
+        solutionName={solution.name}
+        returnPath={returnPath}
+      />
+
+      {isAuthenticated && (
+        <SolutionEditChat
+          solutionId={solution.id}
+          solutionName={solution.name}
+          open={editChatOpen}
+          overlay={overlay}
+          onClose={() => setEditChatOpen(false)}
+          onOverlayUpdate={setOverlay}
+          onFocusInPreview={handleFocusInPreview}
+          selectedEditTarget={selectedEditTarget}
+        />
+      )}
+
+      <div id="catalog-focus-toast" className="catalog-focus-toast" role="status" aria-live="polite" />
     </div>
   );
 }

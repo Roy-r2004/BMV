@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/nonprofit-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { HarborFundLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { Donation } from './harborFundData.ts';
 import HarborDonorSite from './HarborDonorSite.tsx';
@@ -34,6 +35,7 @@ export default function HarborFundShowcaseDemo({ onRequestClick }: ShowcaseDemoP
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Harbor Give');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--nonprofit">
@@ -52,7 +54,7 @@ export default function HarborFundShowcaseDemo({ onRequestClick }: ShowcaseDemoP
               <HarborFundLogo className="hg-frame__logo-svg" />
             </span>
             <div>
-              <p className="hg-frame__product">Harbor Give</p>
+              <p className="hg-frame__product">{productLabel}</p>
               <p className="hg-frame__tag">Nonprofit OS</p>
             </div>
           </div>

@@ -12,6 +12,8 @@ import {
   type Program,
 } from './peakformData.ts';
 import PeakFormMemberChat from './PeakFormMemberChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
+import { OverlayHeroStats, OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
 import { PeakFormLogo, IconArrowRight } from '../shared/ShowcaseChatIcons.tsx';
 import { onPeakformImageError } from './peakformImageFallback.ts';
 
@@ -157,7 +159,7 @@ export default function PeakFormMemberSite({ onBookClass }: Props) {
       <div className="pf-site__scroll" ref={scrollRef}>
         <div className="pf-site__main">
           <SitePane id="home" current={page}>
-            <section className="pf-site__hero">
+            <section className="pf-site__hero" data-overlay-target="hero">
               <img src={STUDIO.heroImage} alt="" className="pf-site__hero-bg" onError={onPeakformImageError} />
               <div className="pf-site__hero-overlay" />
               <div className="pf-site__hero-grain" aria-hidden />
@@ -168,13 +170,14 @@ export default function PeakFormMemberSite({ onBookClass }: Props) {
                   <span>Streak keeper</span>
                   <span>Churn alerts</span>
                 </div>
-                <h1 className="pf-site__hero-title">
-                  Stop losing members
-                  <span>to silent churn.</span>
-                </h1>
-                <p className="pf-site__hero-sub">
+                <OverlayHeroTitle
+                  className="pf-site__hero-title"
+                  primary="Stop losing members"
+                  accent="to silent churn."
+                />
+                <OverlayHeroSub className="pf-site__hero-sub">
                   Adherence coach AI saves streaks, reschedules in one tap, and flags who needs a nudge before they cancel.
-                </p>
+                </OverlayHeroSub>
                 <div className="pf-site__ai-magnet" aria-label="AI proof">
                   <div><strong>89%</strong><span>30-day retain</span></div>
                   <div><strong>12</strong><span>day avg streak</span></div>
@@ -191,14 +194,9 @@ export default function PeakFormMemberSite({ onBookClass }: Props) {
               </div>
             </section>
 
-            <div className="pf-site__hero-stats">
-              {HERO_STATS.map((s) => (
-                <div key={s.label} className="pf-site__stat">
-                  <strong>{s.value}</strong>
-                  <span>{s.label}</span>
-                </div>
-              ))}
-            </div>
+            <OverlayHeroStats className="pf-site__hero-stats" statClassName="pf-site__stat" defaults={HERO_STATS} />
+
+            <OverlayCustomSections />
 
             <section className="pf-site__journey">
               <div className="pf-site__section-inner">

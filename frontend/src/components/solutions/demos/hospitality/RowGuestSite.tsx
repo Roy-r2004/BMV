@@ -7,8 +7,10 @@ import {
   type BookingHold,
 } from './rowData.ts';
 import RowGuestChat from './RowGuestChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { RowLogo, IconArrowRight } from '../shared/ShowcaseChatIcons.tsx';
 import { onRowImageError } from './rowImageFallback.ts';
+import { OverlayHeroSub, OverlayHeroTitle } from '../shared/overlayUi.tsx';
 
 type Page = 'home' | 'rooms' | 'book';
 
@@ -205,7 +207,7 @@ export default function RowGuestSite({ onBook }: Props) {
       <div className="rh-guest__scroll" ref={scrollRef}>
         <div className="rh-guest__main">
           <SitePane id="home" current={page}>
-            <section className="rh-guest__hero">
+            <section className="rh-guest__hero" data-overlay-target="hero">
               <img
                 src={HOTEL.heroImage}
                 alt=""
@@ -215,13 +217,14 @@ export default function RowGuestSite({ onBook }: Props) {
               <div className="rh-guest__hero-overlay" />
               <div className="rh-guest__hero-grain" aria-hidden />
               <div className="rh-guest__hero-content">
-                <h1 className="rh-guest__hero-title">
-                  The Row
-                  <span>Hotel</span>
-                </h1>
-                <p className="rh-guest__hero-sub">
+                <OverlayHeroTitle
+                  className="rh-guest__hero-title"
+                  primary="The Row"
+                  accent="Hotel"
+                />
+                <OverlayHeroSub className="rh-guest__hero-sub">
                   Forty-six keys on the corridor — quiet, remembered, book direct.
-                </p>
+                </OverlayHeroSub>
                 <div className="rh-guest__hero-actions">
                   <button type="button" className="rh-guest__btn rh-guest__btn--primary" onClick={() => nav('book')}>
                     Book your stay
@@ -229,6 +232,8 @@ export default function RowGuestSite({ onBook }: Props) {
                 </div>
               </div>
             </section>
+
+            <OverlayCustomSections />
 
             <ConciergeMoment onOpen={() => setChatOpen(true)} />
 

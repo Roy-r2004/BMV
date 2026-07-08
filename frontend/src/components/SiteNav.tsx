@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 import GlowButton from './GlowButton';
+import { useAuth } from '../context/AuthContext';
 import { scrollToTop } from '../utils/scroll';
 
 const LINKS = [
@@ -14,6 +15,7 @@ const LINKS = [
 export default function SiteNav() {
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user, isAuthenticated, logout, loading } = useAuth();
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 border-b border-blue-100/80 bg-white/90 backdrop-blur-xl shadow-sm shadow-blue-500/5">
@@ -68,6 +70,31 @@ export default function SiteNav() {
             )}
           </button>
 
+          {!loading && isAuthenticated ? (
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-xs text-slate-500 max-w-[120px] truncate" title={user?.email}>
+                {user?.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="text-xs font-medium text-slate-600 hover:text-blue-600 px-2 py-1 rounded-lg hover:bg-slate-50"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            !loading && (
+              <Link
+                to="/login"
+                state={{ from: pathname }}
+                className="hidden sm:inline text-xs font-medium text-slate-600 hover:text-blue-600 px-2 py-1 rounded-lg hover:bg-slate-50"
+              >
+                Sign in
+              </Link>
+            )
+          )}
+
           <GlowButton to="/submit" className="!inline-flex items-center justify-center text-xs sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap leading-none max-h-10">
             <span className="sm:hidden">Create</span>
             <span className="hidden sm:inline">Create My Version</span>
@@ -95,6 +122,32 @@ export default function SiteNav() {
               </Link>
             );
           })}
+          {!loading && (
+            isAuthenticated ? (
+              <>
+                <span className="px-3 py-2.5 text-sm text-slate-500">{user?.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    logout();
+                  }}
+                  className="px-3 py-2.5 rounded-lg text-sm font-medium text-left text-slate-700 hover:bg-slate-50"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                state={{ from: pathname }}
+                onClick={() => setMenuOpen(false)}
+                className="px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50"
+              >
+                Sign in
+              </Link>
+            )
+          )}
         </div>
       )}
     </nav>

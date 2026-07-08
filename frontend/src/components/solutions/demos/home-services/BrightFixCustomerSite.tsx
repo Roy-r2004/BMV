@@ -8,8 +8,11 @@ import {
   type Urgency,
 } from './brightfixData.ts';
 import BrightFixCustomerChat from './BrightFixCustomerChat.tsx';
+import OverlayCustomSections from '../shared/OverlayCustomSections.tsx';
 import { BrightFixLogo, IconArrowRight } from '../shared/ShowcaseChatIcons.tsx';
 import { onBrightfixImageError } from './brightfixImageFallback.ts';
+import { OverlayPlainHero, OverlayPlainSub } from '../shared/overlayUi.tsx';
+import { useOverlayBrand } from '../../../../context/ShowcaseOverlayContext.tsx';
 
 const STEPS = ['Job type', 'Photos', 'Urgency & zone'];
 
@@ -47,6 +50,7 @@ function estimateQuote(
 }
 
 export default function BrightFixCustomerSite({ onQuoteSubmit }: Props) {
+  const brandName = useOverlayBrand(COMPANY.name);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -151,17 +155,17 @@ export default function BrightFixCustomerSite({ onQuoteSubmit }: Props) {
           </button>
         </header>
 
-        <section className="bf-site__hero">
+        <section className="bf-site__hero" data-overlay-target="hero">
           <div className="bf-site__hero-bg" aria-hidden>
             <img src={COMPANY.heroImage} alt="" onError={(e) => onBrightfixImageError(e)} />
             <div className="bf-site__hero-shade" />
           </div>
           <div className="bf-site__hero-copy">
-            <p className="bf-site__brand-mark">{COMPANY.name}</p>
-            <h1>Plumber booked. Not put on hold.</h1>
-            <p className="bf-site__hero-sub">
+            <p className="bf-site__brand-mark">{brandName}</p>
+            <OverlayPlainHero primary="Plumber booked. Not put on hold." />
+            <OverlayPlainSub className="bf-site__hero-sub">
               Describe the job, drop photos, pick urgency — Quote AI prices it and routes the nearest licensed tech.
-            </p>
+            </OverlayPlainSub>
             <div className="bf-site__hero-actions">
               <button type="button" className="bf-site__btn bf-site__btn--primary" onClick={openWizard}>
                 Get a quote
@@ -177,6 +181,8 @@ export default function BrightFixCustomerSite({ onQuoteSubmit }: Props) {
             <span key={tickerIdx} className="bf-site__ticker-text">{TICKER[tickerIdx]}</span>
           </div>
         </section>
+
+        <OverlayCustomSections />
 
         {wizardOpen && (
           <section className="bf-site__wizard" aria-label="Quote wizard">

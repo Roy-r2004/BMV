@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/hospitality-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
+import { useOverlayProduct } from '../../../../context/ShowcaseOverlayContext.tsx';
 import { RowLogo } from '../shared/ShowcaseChatIcons.tsx';
 import type { BookingHold } from './rowData.ts';
 import RowGuestSite from './RowGuestSite.tsx';
@@ -30,6 +31,7 @@ export default function RowShowcaseDemo({ onRequestClick }: ShowcaseDemoProps) {
   }, []);
 
   const tab = TABS.find((t) => t.id === view)!;
+  const productLabel = useOverlayProduct('Row Guest');
 
   return (
     <div className="sol-detail-demo__showcase sol-detail-demo__showcase--hospitality">
@@ -48,7 +50,7 @@ export default function RowShowcaseDemo({ onRequestClick }: ShowcaseDemoProps) {
               <RowLogo className="rh-frame__logo-svg" />
             </span>
             <div>
-              <p className="rh-frame__product">Row Guest</p>
+              <p className="rh-frame__product">{productLabel}</p>
               <p className="rh-frame__tag">Hospitality OS</p>
             </div>
           </div>

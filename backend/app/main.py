@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.api_router import api_router
 from app.core.config import settings
-from app.domain.models import PreviewChatMessage, Request  # noqa: F401 — register models for create_all
+from app.domain.models import PreviewChatMessage, Request, SolutionEditMessage, SolutionWorkspace, User, UserSession  # noqa: F401
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.migrations import run_sqlite_migrations
 from app.infrastructure.db.session import engine
