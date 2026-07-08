@@ -20,10 +20,12 @@ from app.infrastructure.db.base import Base
 from app.infrastructure.db.migrations import run_sqlite_migrations
 from app.infrastructure.db.session import engine
 from app.infrastructure.storage.file_service import ensure_upload_dir
+from app.application.services.demo_seed import seed_demo_if_empty
 
 Base.metadata.create_all(bind=engine)
 run_sqlite_migrations()
 ensure_upload_dir()
+seed_demo_if_empty()
 
 app = FastAPI(title="BuildMyVersion AI", version="1.0.0")
 
