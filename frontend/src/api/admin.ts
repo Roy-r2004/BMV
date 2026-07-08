@@ -45,7 +45,7 @@ export async function getWhatsAppMessage(id: number): Promise<{ message: string 
 }
 
 export function getFileUrl(id: number): string {
-  const base = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:8000');
+  const base = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:8001');
   const password = sessionStorage.getItem('admin_password') || '';
   return `${base}/api/admin/requests/${id}/file?admin_password=${encodeURIComponent(password)}`;
 }

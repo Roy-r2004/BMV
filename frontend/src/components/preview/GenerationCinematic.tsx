@@ -296,13 +296,14 @@ function NodeGraph({
         );
       })}
 
-      {/* Center glow ring (outer) */}
+      {/* Center glow ring (outer) — animate scale, not r (FM can briefly set r=undefined) */}
       <motion.circle
         cx={cx} cy={cy} r={compact ? 46 : 62}
         fill="none"
         stroke="#3b82f6"
         strokeWidth="1"
-        animate={{ opacity: [0.2, 0.5, 0.2], r: [compact ? 46 : 62, compact ? 50 : 66, compact ? 46 : 62] }}
+        style={{ transformOrigin: `${cx}px ${cy}px` }}
+        animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.08, 1] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
       />
       {/* Center glow ring (inner) */}
@@ -400,24 +401,33 @@ function SurroundingNode({
   const strokeWidth = isActive ? 2 : 1;
   const filterStr = isActive || isDone ? 'url(#glow-cyan)' : undefined;
   const labelSize = compact ? 8 : 10;
+  const safeR = Number.isFinite(r) && r > 0 ? r : compact ? 28 : 36;
   // Icon drawn in a 24×24 viewBox, scaled to fit inside circle
-  const iconScale = compact ? (r * 1.0) / 24 : (r * 1.1) / 24;
+  const iconScale = compact ? (safeR * 1.0) / 24 : (safeR * 1.1) / 24;
   const iconColor = isDone ? '#6ee7b7' : isActive ? '#38bdf8' : '#334155';
 
   return (
     <g filter={filterStr}>
       {/* Node bg */}
-      <motion.circle cx={x} cy={y} r={r} fill={fillColor}
+      <motion.circle cx={x} cy={y} r={safeR} fill={fillColor}
         animate={{ fill: fillColor }} transition={{ duration: 0.6 }} />
-      <motion.circle cx={x} cy={y} r={r} fill="none"
+      <motion.circle cx={x} cy={y} r={safeR} fill="none"
         stroke={strokeColor} strokeWidth={strokeWidth}
         animate={{ stroke: strokeColor, strokeWidth }} transition={{ duration: 0.6 }} />
 
-      {/* Pulse ring on active */}
+      {/* Pulse ring on active — scale instead of r to avoid undefined SVG lengths */}
       {isActive && (
-        <motion.circle cx={x} cy={y} r={r + 4} fill="none" stroke="#38bdf8" strokeWidth="0.8"
-          animate={{ opacity: [0.4, 0.9, 0.4], r: [r + 4, r + 8, r + 4] }}
-          transition={{ duration: 1.5, repeat: Infinity }} />
+        <motion.circle
+          cx={x}
+          cy={y}
+          r={safeR + 4}
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth="0.8"
+          style={{ transformOrigin: `${x}px ${y}px` }}
+          animate={{ opacity: [0.4, 0.9, 0.4], scale: [1, 1.12, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        />
       )}
 
       {/* Inline SVG icon — centred via transform */}
