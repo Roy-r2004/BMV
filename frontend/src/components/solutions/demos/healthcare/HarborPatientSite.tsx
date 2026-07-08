@@ -150,12 +150,17 @@ export default function HarborPatientSite({ onBook }: Props) {
               <div className="hc-site__hero-mesh" />
               <div className="hc-site__hero-grid">
                 <div>
-                  <span className="hc-site__badge">Same-week appointments · AI chat 24/7</span>
-                  <h1 className="hc-site__hero-title">Clinical care that feels calm, clear, and personal.</h1>
-                  <p className="hc-site__hero-sub">Book in under a minute — or chat with Harbor AI anytime for pricing, availability, and prep.</p>
+                  <span className="hc-site__badge">Clinical intake AI · digital forms · 24/7</span>
+                  <h1 className="hc-site__hero-title">Patients book at midnight. Your staff wake up ready.</h1>
+                  <p className="hc-site__hero-sub">Harbor Intake AI sends forms, checks insurance basics, and locks slots — no hold music, no clipboards.</p>
+                  <div className="hc-site__ai-magnet" aria-label="AI proof">
+                    <div><strong>38</strong><span>after-hours books</span></div>
+                    <div><strong>12s</strong><span>avg AI reply</span></div>
+                    <div><strong>−40%</strong><span>phone time</span></div>
+                  </div>
                   <div className="hc-site__hero-actions">
                     <button type="button" className="hc-site__btn-primary" onClick={() => nav('book')}>Book appointment</button>
-                    <button type="button" className="hc-site__btn-ghost" onClick={() => setChatOpen(true)}>Chat with us</button>
+                    <button type="button" className="hc-site__btn-ghost" onClick={() => setChatOpen(true)}>Try intake AI</button>
                   </div>
                   <div className="hc-site__trust"><span>★ 4.9</span><span>380+ patients</span><span>Board-certified</span></div>
                 </div>
@@ -185,9 +190,9 @@ export default function HarborPatientSite({ onBook }: Props) {
                 <h2 className="hc-site__section-title">Your visit, step by step</h2>
                 <div className="hc-site__journey-grid">
                   {[
-                    ['1', 'Book or chat', 'Pick a treatment online or ask Harbor AI — real slots, real providers.'],
-                    ['2', 'Complete intake', 'Digital forms by email. Arrive with prep done — no clipboard.'],
-                    ['3', 'Walk in ready', 'Check in at front desk. Your team already has your history.'],
+                    ['1', 'Chat or book', 'Ask Harbor Intake AI — slots, pricing, insurance basics in seconds.'],
+                    ['2', 'Digital intake', 'Forms emailed before the visit. Arrive ready — no clipboard.'],
+                    ['3', 'Walk in calm', 'Reminders sent. Room + provider already matched.'],
                   ].map(([n, t, d]) => (
                     <article key={n} className="hc-site__journey-card">
                       <span className="hc-site__journey-num">{n}</span>

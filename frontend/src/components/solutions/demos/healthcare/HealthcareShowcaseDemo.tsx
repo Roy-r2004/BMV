@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import '../../../../styles/healthcare-demo.css';
 import type { ShowcaseDemoProps } from '../showcaseRegistry';
 import type { TimeSlot } from './harborData';
@@ -11,17 +11,15 @@ const HarborClinicAdmin = lazy(() => import('./HarborClinicAdmin.tsx'));
 export type HarborView = 'site' | 'intake' | 'schedule' | 'admin';
 
 const TABS: { id: HarborView; label: string; short: string; path: string; role: string }[] = [
-  { id: 'site', label: 'Patient website', short: 'Site', path: 'harborwellness.com', role: 'Public — what patients see' },
-  { id: 'intake', label: 'AI patient intake', short: 'Intake', path: 'harborcare.app/inbox', role: 'Staff — AI handles messages' },
+  { id: 'site', label: 'Patient website', short: 'Site', path: 'harborwellness.com', role: 'Patient site + Harbor clinical intake AI on every page' },
+  { id: 'intake', label: 'AI patient intake', short: 'Intake', path: 'harborcare.app/inbox', role: 'Clinical intake AI — forms, insurance, slot matching + escalation queue' },
   { id: 'schedule', label: 'Clinic calendar', short: 'Calendar', path: 'harborcare.app/schedule', role: 'Front desk — today\'s appointments' },
   { id: 'admin', label: 'Practice admin', short: 'Admin', path: 'harborcare.app/admin', role: 'Manager — rooms, services, staff' },
 ];
 
 export default function HealthcareShowcaseDemo({ onRequestClick }: ShowcaseDemoProps) {
-  const shellRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<HarborView>('site');
   const [bookedSlot, setBookedSlot] = useState<TimeSlot | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const goToView = useCallback((id: HarborView) => setView(id), []);
 
@@ -30,72 +28,18 @@ export default function HealthcareShowcaseDemo({ onRequestClick }: ShowcaseDemoP
     setView('intake');
   }, []);
 
-  useEffect(() => {
-    const sync = () => {
-      const active =
-        document.fullscreenElement ??
-        (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
-      setIsFullscreen(active === shellRef.current);
-    };
-    document.addEventListener('fullscreenchange', sync);
-    document.addEventListener('webkitfullscreenchange', sync);
-    return () => {
-      document.removeEventListener('fullscreenchange', sync);
-      document.removeEventListener('webkitfullscreenchange', sync);
-    };
-  }, []);
-
-  const toggleFullscreen = async () => {
-    const el = shellRef.current;
-    if (!el) return;
-    try {
-      const active = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
-      if (active === el) {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else (document as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen?.();
-      } else {
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.();
-      }
-    } catch {
-      /* browser blocked */
-    }
-  };
-
   const tab = TABS.find((t) => t.id === view)!;
 
   return (
-    <div
-      ref={shellRef}
-      className={`sol-detail-demo__showcase sol-detail-demo__showcase--healthcare ${isFullscreen ? 'hc-demo-root--fs' : ''}`}
-    >
+    <div className="sol-detail-demo__showcase sol-detail-demo__showcase--healthcare">
       <div className="hc-demo-toolbar">
-        <div className="hc-demo-toolbar__text">
-          <p className="sol-detail-demo__hint hc-demo-toolbar__hint">
-            <span className="sol-detail-demo__hint-dot" aria-hidden />
-            <strong>{tab.role}</strong> — switch tabs to explore each role.
-          </p>
-        </div>
-        <button type="button" className="hc-demo-toolbar__fs" onClick={toggleFullscreen}>
-          {isFullscreen ? (
-            <>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Exit fullscreen
-            </>
-          ) : (
-            <>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" strokeLinecap="round" />
-              </svg>
-              Fullscreen
-            </>
-          )}
-        </button>
+        <p className="sol-detail-demo__hint hc-demo-toolbar__hint">
+          <span className="sol-detail-demo__hint-dot" aria-hidden />
+          <strong>{tab.role}</strong> — switch tabs to explore each role.
+        </p>
       </div>
 
-      <div className={`sol-detail-demo__experience sol-detail-demo__experience--cinematic hc-demo-shell ${isFullscreen ? 'hc-demo-shell--fs' : ''}`}>
+      <div className="sol-detail-demo__experience sol-detail-demo__experience--cinematic hc-demo-shell">
         <div className="hc-demo">
           <div className="hc-demo__titlebar">
             <div className="hc-demo__lights">
@@ -148,7 +92,7 @@ export default function HealthcareShowcaseDemo({ onRequestClick }: ShowcaseDemoP
 
       <div className="sol-detail-demo__footer">
         <p className="sol-detail-demo__footer-copy">
-          <strong>Try the flow:</strong> Book on the patient site → see the booking in AI intake &amp; calendar → rooms are set up in Practice admin.
+          <strong>Try the flow:</strong> Open intake chat → “Send intake now” → Harbor books after hours while your front desk sleeps.
         </p>
         <button type="button" onClick={onRequestClick} className="sol-detail-demo__footer-cta">
           Get this for my business

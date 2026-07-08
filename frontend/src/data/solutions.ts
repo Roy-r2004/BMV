@@ -107,10 +107,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Healthcare & Clinics',
     icon: 'pulse',
     accent: 'from-blue-500 to-cyan-500',
-    tagline: 'Turn DMs and calls into booked appointments with an AI intake assistant.',
+    tagline: 'Clinical intake AI that books patients while your team focuses on care.',
     description:
-      'A booking and intake system that qualifies patients, answers common questions, and keeps your front desk focused on care instead of scheduling.',
-    capabilities: ['AI patient intake chat', 'Appointment booking & reminders', 'Staff dashboard & daily summaries', 'Treatment FAQ automation'],
+      'Harbor-style patient portal with AI intake that qualifies symptoms, offers live slots, and sends reminders — so your front desk stops playing phone tag.',
+    capabilities: ['Clinical intake AI chat', 'Smart slot matching & reminders', 'Clinic admin dashboard', 'Treatment FAQ automation'],
+    demoStatus: 'live',
     planContext: 'clinic or practice',
     customerModule: {
       title: 'Patient experience',
@@ -126,10 +127,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Barbershops & Salons',
     icon: 'scissors',
     accent: 'from-violet-500 to-fuchsia-500',
-    tagline: 'Fill every chair with automated booking, reminders, and repeat-client loyalty.',
+    tagline: 'Turn Instagram DMs into confirmed chairs — with style memory for every regular.',
     description:
-      'Clients book online in seconds, get automatic reminders, and you get a simple dashboard to manage your day — no more back-and-forth on Instagram.',
-    capabilities: ['Online booking & calendar', 'No-show reminders', 'Client history & preferences', 'Loyalty & rebooking prompts'],
+      'Studio-style booking where AI recalls fade type, barber preference, and timing — fills cancellations from waitlist and nudges clients before they drift.',
+    capabilities: ['DM booking bot', 'Style memory for regulars', 'Waitlist fill & reminders', 'Owner hub & chair utilization'],
+    demoStatus: 'live',
     planContext: 'salon or barbershop',
     customerModule: {
       title: 'Client booking flow',
@@ -145,10 +147,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Restaurants & Cafes',
     icon: 'utensils',
     accent: 'from-orange-500 to-amber-500',
-    tagline: 'Online ordering and reservations that feel as good as your food tastes.',
+    tagline: 'Menu concierge AI, direct orders, and a kitchen board that runs peak service.',
     description:
-      'A branded ordering and reservation experience for your restaurant, with a live dashboard for staff to manage tables and incoming orders.',
-    capabilities: ['Digital menu & ordering', 'Table reservations', 'Order status for staff', 'Repeat-customer offers'],
+      'Ember-style guest site where AI answers allergens and wine pairings, optimizes tables, routes direct orders to kitchen, and win-backs repeat diners.',
+    capabilities: ['Menu concierge AI', 'Direct ordering & reservations', 'Kitchen ops board', 'Guest win-back offers'],
+    demoStatus: 'live',
     planContext: 'restaurant or cafe',
     customerModule: {
       title: 'Guest ordering & reservations',
@@ -164,10 +167,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Real Estate',
     icon: 'home',
     accent: 'from-indigo-500 to-blue-600',
-    tagline: 'Capture and qualify leads the moment they view a listing.',
+    tagline: 'Listing AI that answers at 11pm and books viewings by morning.',
     description:
-      'A listings site with an AI assistant that answers buyer questions, schedules viewings, and hands your agents a qualified lead — not a cold one.',
-    capabilities: ['Listings showcase', 'AI buyer Q&A assistant', 'Viewing scheduler', 'Lead scoring dashboard'],
+      'Northline-style listings with embedded AI that handles HOA questions, scores buyer intent, syncs agent calendars, and nurtures warm leads automatically.',
+    capabilities: ['Listing Q&A AI', 'Lead scoring & nurture', 'Viewing scheduler', 'Agent CRM pipeline'],
+    demoStatus: 'live',
     planContext: 'real estate agency',
     customerModule: {
       title: 'Buyer journey',
@@ -183,10 +187,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Gyms & Fitness Coaching',
     icon: 'dumbbell',
     accent: 'from-emerald-500 to-teal-500',
-    tagline: 'Class bookings, memberships, and progress tracking in one place.',
+    tagline: 'Adherence coach AI that keeps members accountable and flags churn before it happens.',
     description:
-      'Members book classes, track progress, and stay engaged — while you get a dashboard for attendance, memberships, and renewals.',
-    capabilities: ['Class & session booking', 'Membership management', 'Progress tracking', 'Automated renewal reminders'],
+      'Peak Form-style member portal with class recommender, reschedule bot, progress tracking, and a coach hub that shows who needs a nudge today.',
+    capabilities: ['Smart class booking', 'Progress & adherence tracking', 'Churn alerts & renewals', 'Coach command center'],
+    demoStatus: 'live',
     planContext: 'gym or coaching business',
     customerModule: {
       title: 'Member portal',
@@ -202,18 +207,19 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Legal & Consulting',
     icon: 'briefcase',
     accent: 'from-slate-600 to-slate-800',
-    tagline: 'Client intake and document requests without the email back-and-forth.',
+    tagline: 'Counsel AI — conflict scans, clause review, and vault chasing before partners bill a minute.',
     description:
-      'A client portal that handles intake forms, document collection, and scheduling — so your team spends time advising, not chasing paperwork.',
-    capabilities: ['Client intake forms', 'Secure document requests', 'Consultation scheduling', 'Case/matter status dashboard'],
+      'Apex-style firm portal where AI clears conflicts, flags contract risks, chases encrypted documents, and drafts engagements — partners advise, not chase admin.',
+    capabilities: ['Conflict scan AI', 'Clause review & risk flags', 'Vault chaser & secure uploads', 'Engagement draft & matter dossiers'],
+    demoStatus: 'live',
     planContext: 'legal or consulting firm',
     customerModule: {
-      title: 'Client onboarding',
-      description: 'Structured intake and secure uploads — professional from the first touch.',
+      title: 'Counsel AI portal',
+      description: 'Conflict scans, clause review, and secure vault — professional from the first touch.',
     },
     opsModule: {
-      title: 'Matter management',
-      description: 'Status, scheduling, and document tracking without inbox chaos.',
+      title: 'Partner desk',
+      description: 'Matter dossiers, engagement drafts, and billable-ready tracking without inbox chaos.',
     },
   }),
   solution({
@@ -221,10 +227,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Retail & E-commerce',
     icon: 'cart',
     accent: 'from-purple-500 to-indigo-500',
-    tagline: 'A storefront with AI product search that actually understands shoppers.',
+    tagline: 'Shopper AI that understands "warm minimalist lamp" — not filter mazes.',
     description:
-      'An online storefront with natural-language product search, smart recommendations, and a seller dashboard to manage inventory and orders.',
-    capabilities: ['Product storefront', 'AI-powered search & recs', 'Inventory dashboard', 'Order & fulfillment tracking'],
+      'Lumen-style storefront with natural-language search, AI-curated bundles, order support chat, and a seller hub with stock alerts and fulfillment tracking.',
+    capabilities: ['Natural language product search', 'AI style bundles & recs', 'Order support automation', 'Seller inventory & fulfillment hub'],
+    demoStatus: 'live',
     planContext: 'retail or e-commerce brand',
     customerModule: {
       title: 'Shopper experience',
@@ -240,10 +247,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Home Services',
     icon: 'wrench',
     accent: 'from-yellow-500 to-orange-500',
-    tagline: 'Quote requests, scheduling, and dispatch — for plumbers, electricians, cleaners.',
+    tagline: 'Quote AI to dispatch in minutes — emergency calls quoted while you\'re on the first job.',
     description:
-      'Customers request quotes and book jobs online; you get a dispatch dashboard to assign and track work without juggling phone calls.',
-    capabilities: ['Instant quote requests', 'Job scheduling & dispatch', 'Technician status updates', 'Customer follow-up automation'],
+      'BrightFix-style customer site with job wizard, dispatch AI scoring, zone route board, and ops hub — live status updates and review bot after every visit.',
+    capabilities: ['Quote AI & job wizard', 'Smart dispatch scoring', 'Live job status updates', 'Ops hub & review automation'],
+    demoStatus: 'live',
     planContext: 'home services company',
     customerModule: {
       title: 'Customer requests',
@@ -259,10 +267,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Education & Tutoring',
     icon: 'graduation',
     accent: 'from-cyan-500 to-blue-500',
-    tagline: 'Course booking, student portals, and progress tracking for tutors and schools.',
+    tagline: 'Tutor matcher AI that pairs students, sends prep packs, and reports to parents automatically.',
     description:
-      'Students book sessions and track progress, while instructors get a portal to manage schedules, materials, and payments.',
-    capabilities: ['Session/course booking', 'Student progress portal', 'Materials & resource sharing', 'Payment & package tracking'],
+      'Summit-style student portal with subject matching, family inbox for prep materials, session calendar with attached resources, and tutor hub with auto-billing.',
+    capabilities: ['Tutor match AI', 'Prep pack automation', 'Parent progress reports', 'Tutor hub & auto billing'],
+    demoStatus: 'live',
     planContext: 'tutoring or education business',
     customerModule: {
       title: 'Student experience',
@@ -278,10 +287,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Automotive Services',
     icon: 'car',
     accent: 'from-red-500 to-rose-600',
-    tagline: 'Service booking and real-time repair status for shops and dealers.',
+    tagline: 'Service bot books bays online — customers track repair progress without calling.',
     description:
-      'Customers book service appointments and track repair status online, cutting down the "is my car ready?" calls to your front desk.',
-    capabilities: ['Service appointment booking', 'Live repair status', 'Estimate approvals', 'Service history records'],
+      'Metro-style shop with service menu booking, bay scheduler AI, live status bot, and shop hub with upsell alerts — full bays, fewer front-desk calls.',
+    capabilities: ['Online service booking', 'Bay scheduler AI', 'Live repair status bot', 'Shop hub & upsell alerts'],
+    demoStatus: 'live',
     planContext: 'auto shop or dealership',
     customerModule: {
       title: 'Driver portal',
@@ -297,10 +307,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Hospitality & Hotels',
     icon: 'bed',
     accent: 'from-teal-500 to-emerald-600',
-    tagline: 'A booking engine and AI concierge for guest requests.',
+    tagline: 'Direct bookings plus AI concierge — guests get answers at 2am, staff handle exceptions.',
     description:
-      'Guests book stays and message an AI concierge for requests, while staff manage bookings and requests from one dashboard.',
-    capabilities: ['Direct booking engine', 'AI concierge chat', 'Guest request dashboard', 'Automated pre-arrival messaging'],
+      'The Row-style luxury site with room gallery, concierge AI with guest memory, housekeeping floor board, and occupancy ops hub — commission-free direct rates.',
+    capabilities: ['Direct booking engine', '24/7 AI concierge', 'Housekeeping floor board', 'Occupancy ops hub'],
+    demoStatus: 'live',
     planContext: 'hotel or hospitality property',
     customerModule: {
       title: 'Guest journey',
@@ -316,10 +327,11 @@ export const INDUSTRY_SOLUTIONS: IndustrySolution[] = [
     name: 'Nonprofits & Community Orgs',
     icon: 'heart',
     accent: 'from-pink-500 to-rose-500',
-    tagline: 'Donor management, event signups, and volunteer coordination.',
+    tagline: 'Donate AI, volunteer matcher, and campaign hub — built for teams of four, not forty.',
     description:
-      'A donation and event platform with a dashboard to track donors, volunteers, and upcoming events — built for teams without a tech department.',
-    capabilities: ['Donation & campaign pages', 'Event signup & RSVPs', 'Volunteer coordination', 'Donor & impact dashboard'],
+      'Harbor Fund-style donor site with impact meter, smart gift tiers, volunteer skill board, thank-you automation, and campaign progress rings.',
+    capabilities: ['Smart donate flow AI', 'Volunteer skill matcher', 'Thank-you automation', 'Campaign & impact dashboard'],
+    demoStatus: 'live',
     planContext: 'nonprofit or community organization',
     customerModule: {
       title: 'Community engagement',

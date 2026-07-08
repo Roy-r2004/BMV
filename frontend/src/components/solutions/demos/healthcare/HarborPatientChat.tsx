@@ -1,27 +1,32 @@
-import { useState } from 'react';
-import { BOOKING_SLOTS } from './harborData';
+import ShowcaseChatWidget from '../shared/ShowcaseChatWidget.tsx';
+import '../../../../styles/showcase-chat.css';
 
-type Msg = { role: 'user' | 'ai'; text: string };
-
-const GREETING: Msg = {
-  role: 'ai',
-  text: 'Hi! I\'m Harbor AI — ask about treatments, pricing, or availability. I can book you in under a minute.',
-};
+const GREETING =
+  'I\'m Harbor Intake AI — I handle forms, insurance, and booking so patients never wait on hold. 38 patients booked after hours last month. What do you need?';
 
 const REPLIES: Record<string, string> = {
-  botox: `Botox consults start at $420 with Dr. Elena Chen in Consult Suite A. Next openings: ${BOOKING_SLOTS.filter((s) => s.treatmentId === 'botox').map((s) => s.time).join(' or ')}.`,
-  hydra: `Hydrafacial is $189 · 45 min in Treatment Room 2 with Jess Kim, RN. Most popular — want me to hold a slot?`,
-  book: 'I can book you now — which treatment interests you? Hydrafacial, Botox consult, IV drip, or laser?',
-  hours: 'Mon–Fri 8am–6pm · Sat 9am–2pm · Sun closed. Online booking is 24/7.',
-  default: 'Great question — let me check that for you. Average response: under 15 seconds. Want to book or speak with our team?',
+  botox:
+    'Botox consult $420 with Dr. Chen. I\'ll send the digital intake now (4 min on phone) + screen POI contraindications — you arrive ready, not clipboarding. Want Thu 2:30 or Fri 11?',
+  hydra:
+    'Hydrafacial $189 · Jess Kim RN. I\'ll lock the slot, email prep + intake, and text a reminder 24h before. Most patients book this in under 45 seconds.',
+  intake:
+    'Digital intake beats the clipboard: history, allergies, consent — done before you walk in. Clinics using this cut front-desk phone time ~40%. Want the link?',
+  insurance:
+    'Share your carrier — I flag what we verify before consult day so billing never blindsides you. Complex cases escalate to staff in under 30 min.',
+  book: 'Hydrafacial, Botox, IV drip, or laser? I match live rooms + providers and send confirmation + forms instantly.',
+  hours: 'Clinic hours Mon–Sat — I book 24/7. Last night alone: 6 midnight bookings that would\'ve been lost voicemails.',
+  default:
+    'Pricing, intake forms, insurance basics, or a same-week slot — I reply in seconds and fill your calendar while the front desk sleeps.',
 };
 
 function aiReply(text: string): string {
   const t = text.toLowerCase();
   if (t.includes('botox')) return REPLIES.botox;
   if (t.includes('hydra') || t.includes('facial')) return REPLIES.hydra;
+  if (t.includes('intake') || t.includes('form') || t.includes('clipboard')) return REPLIES.intake;
+  if (t.includes('insurance') || t.includes('ppo') || t.includes('cover')) return REPLIES.insurance;
   if (t.includes('book') || t.includes('appointment') || t.includes('slot')) return REPLIES.book;
-  if (t.includes('hour') || t.includes('open')) return REPLIES.hours;
+  if (t.includes('hour') || t.includes('open') || t.includes('midnight') || t.includes('night')) return REPLIES.hours;
   return REPLIES.default;
 }
 
@@ -31,79 +36,28 @@ interface Props {
   onOpenChange?: (open: boolean) => void;
 }
 
-export default function HarborPatientChat({ onBookClick, open: controlledOpen, onOpenChange }: Props) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = (v: boolean | ((o: boolean) => boolean)) => {
-    const next = typeof v === 'function' ? v(open) : v;
-    onOpenChange?.(next);
-    if (controlledOpen === undefined) setInternalOpen(next);
-  };
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Msg[]>([GREETING]);
-
-  const send = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setMessages((m) => [...m, { role: 'user', text: trimmed }, { role: 'ai', text: aiReply(trimmed) }]);
-    setInput('');
-  };
-
+export default function HarborPatientChat({ onBookClick, open, onOpenChange }: Props) {
   return (
-    <>
-      {open && (
-        <div className="hc-chat__panel" role="dialog" aria-label="Chat with Harbor AI">
-          <header className="hc-chat__head">
-            <div className="hc-chat__head-info">
-              <span className="hc-chat__avatar">AI</span>
-              <div>
-                <p className="hc-chat__name">Harbor AI</p>
-                <p className="hc-chat__status"><span className="hc-pulse" /> Online · replies instantly</p>
-              </div>
-            </div>
-            <button type="button" className="hc-chat__close" onClick={() => setOpen(false)} aria-label="Close chat">×</button>
-          </header>
-          <div className="hc-chat__body">
-            {messages.map((msg, i) => (
-              <div key={i} className={`hc-chat__msg hc-chat__msg--${msg.role}`}>
-                {msg.role === 'ai' && <span className="hc-chat__ai-tag">Harbor AI</span>}
-                {msg.text}
-              </div>
-            ))}
-          </div>
-          <div className="hc-chat__quick">
-            {['Botox pricing?', 'Book Hydrafacial', 'Clinic hours'].map((q) => (
-              <button key={q} type="button" onClick={() => send(q)}>{q}</button>
-            ))}
-          </div>
-          <div className="hc-chat__composer">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send(input)}
-              placeholder="Ask anything..."
-              className="hc-chat__input"
-            />
-            <button type="button" className="hc-chat__send" onClick={() => send(input)}>Send</button>
-          </div>
-          {onBookClick && (
-            <button type="button" className="hc-chat__book-cta" onClick={onBookClick}>
-              Book appointment →
-            </button>
-          )}
-        </div>
-      )}
-      <button type="button" className={`hc-chat__fab ${open ? 'hc-chat__fab--open' : ''}`} onClick={() => setOpen((o) => !o)}>
-        {open ? (
-          'Close'
-        ) : (
-          <>
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-            Chat with us
-          </>
-        )}
-      </button>
-    </>
+    <ShowcaseChatWidget
+      theme="harbor"
+      brandName="Harbor Intake AI"
+      aiLabel="Clinical intake"
+      statusText="Forms · insurance · slots · 24/7"
+      greeting={GREETING}
+      capabilityChips={['Digital intake', 'Insurance triage', 'Zero hold music']}
+      hookProof="38 after-hours bookings last month · avg reply 12s"
+      quickReplies={['Send intake now', 'Botox + insurance?', 'Book tonight']}
+      fabLabel="Book without calling"
+      fabBadge="Intake"
+      placeholder="Treatments, forms, insurance…"
+      poweredByText="Patients book at midnight · staff wake up to a full day"
+      ctaLabel="Book my slot now"
+      onCtaClick={onBookClick}
+      onReply={aiReply}
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabel="Harbor clinical intake chat"
+    />
   );
 }
 

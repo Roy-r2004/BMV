@@ -87,8 +87,20 @@ export default function HarborAIIntake({ bookedSlot, onClearBooking }: Props) {
         <div className="hc-intake">
           <aside className="hc-intake__sidebar">
             <div className="hc-intake__sidebar-head">
-              <h2>All channels</h2>
+              <div className="hc-intake__sidebar-head-row">
+                <h2>All channels</h2>
+                <span className="hc-intake__ai-pill">Clinical intake</span>
+              </div>
               <p>Instagram · WhatsApp · Web chat</p>
+            </div>
+            <div className="hc-intake__ai-strip">
+              <span>Digital forms</span>
+              <span>Insurance triage</span>
+              <span>Escalation queue</span>
+            </div>
+            <div className="hc-intake__ai-magnet-bar">
+              <strong>38 midnight books last month</strong>
+              <span>Front desk never saw the phone · patients arrived with intake done</span>
             </div>
             {bookedSlot && (
               <div className="hc-intake__banner">

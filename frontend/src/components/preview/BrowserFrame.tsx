@@ -32,7 +32,6 @@ export default function BrowserFrame({ url, children, badge = 'LIVE PREVIEW', cl
             <span className="w-3 h-3 rounded-full bg-emerald-400 shadow-sm" />
           </div>
           <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200/80 text-xs text-slate-500 font-mono truncate">
-            <span className="text-emerald-500 shrink-0">🔒</span>
             <span className="truncate">{url}</span>
           </div>
           {badge && (
