@@ -74,6 +74,8 @@ export interface PreviewConversation {
 export interface PreviewMessage {
   role: 'user' | 'team';
   text: string;
+  /** Showcase demos — marks AI-drafted or auto-sent replies */
+  ai_assisted?: boolean;
 }
 
 export interface PreviewAppointment {
@@ -101,6 +103,11 @@ export interface PreviewContent {
     form_fields?: string[];
     social_proof?: string;
     hero_highlight?: { label: string; title: string; subtitle: string };
+    /** Floating automation badges on cinematic hero */
+    ai_chips?: string[];
+    automation_title?: string;
+    automation_subtitle?: string;
+    testimonial?: { quote: string; name: string; role: string; rating?: number };
   };
   inbox?: {
     conversations?: PreviewConversation[];
@@ -129,7 +136,7 @@ export interface AppConfig {
   schedule_variant?: 'progress' | 'calendar';
   header_variant?: 'light' | 'dark';
   hero_layout?: 'split' | 'centered';
-  home_sections?: Array<'hero' | 'features' | 'programs' | 'journey' | 'testimonial' | 'cta'>;
+  home_sections?: Array<'hero' | 'features' | 'ai' | 'programs' | 'journey' | 'testimonial' | 'cta'>;
   website_nav?: Array<{ id: 'home' | 'services' | 'about' | 'contact'; label: string }>;
   tabs?: AppConfigTab[];
   features_section?: { title?: string; subtitle?: string };

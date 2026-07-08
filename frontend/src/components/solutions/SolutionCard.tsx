@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { IndustrySolution } from '../../data/solutions';
+import { hasShowcaseDemo } from '../../data/showcaseDemos';
 import { SOLUTION_ICONS } from './SolutionIcons';
 
 interface Props {
@@ -26,7 +27,7 @@ export default function SolutionCard({ solution, index = 0 }: Props) {
         <div className="solution-card__top">
           <div className={`solution-card__icon bg-gradient-to-br ${solution.accent}`}>{icon}</div>
           <span className="solution-card__badge">
-            {solution.demoStatus === 'live' ? 'Live demo' : 'Ready-made'}
+            {hasShowcaseDemo(solution.id) || solution.demoStatus === 'live' ? 'Live demo' : 'Ready-made'}
           </span>
         </div>
 

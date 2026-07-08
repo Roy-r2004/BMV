@@ -183,6 +183,12 @@ export default function InboxView({ demo, businessName, industry, previewFeature
 
               >
 
+                {msg.role === 'team' && msg.ai_assisted && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-violet-600 mb-1.5">
+                    <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor" aria-hidden><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+                    AI sent
+                  </span>
+                )}
                 {msg.text}
 
               </div>

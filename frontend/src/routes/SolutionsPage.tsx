@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
-import CinematicCTA from '../components/CinematicCTA';
 import GlowButton from '../components/GlowButton';
 import SolutionCard from '../components/solutions/SolutionCard';
 import { INDUSTRY_SOLUTIONS } from '../data/solutions';
@@ -104,14 +103,6 @@ export default function SolutionsPage() {
         </div>
       </section>
 
-      <CinematicCTA
-        eyebrow="How it works"
-        title="Ready-made software, customized for you"
-        subtitle="The platform already exists — we tailor it to your brand, workflow, and integrations, then launch it for your business."
-        primaryLabel="Get this software"
-        secondaryLabel="See live demos"
-        secondaryTo="/demo"
-      />
       <SiteFooter />
     </div>
   );

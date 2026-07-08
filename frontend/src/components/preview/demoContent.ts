@@ -31,6 +31,10 @@ export interface ResolvedPreviewContent {
   formFields: string[];
   socialProof: string;
   heroHighlight: { label: string; title: string; subtitle: string };
+  aiChips: string[];
+  automationTitle: string;
+  automationSubtitle: string;
+  testimonial: { quote: string; name: string; role: string; rating: number } | null;
   conversations: PreviewConversation[];
   messages: PreviewMessage[];
   bookedBanner: string;
@@ -184,6 +188,12 @@ export function resolvePreviewContent(demo: VisualDemo, ctx: DemoContext): Resol
       title: 'Thursday · 2:00 PM',
       subtitle: `${firstSvc} — 1 slot left`,
     },
+    aiChips: pc.website?.ai_chips || [],
+    automationTitle: pc.website?.automation_title || 'AI automations that run while you work',
+    automationSubtitle: pc.website?.automation_subtitle || 'Every repetitive task handled — so your team focuses on clients.',
+    testimonial: pc.website?.testimonial
+      ? { ...pc.website.testimonial, rating: pc.website.testimonial.rating ?? 5 }
+      : null,
     conversations: pc.inbox?.conversations?.length
       ? pc.inbox.conversations
       : defaultConversations(demo, services),

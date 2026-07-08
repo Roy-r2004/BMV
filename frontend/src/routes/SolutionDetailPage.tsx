@@ -1,23 +1,31 @@
+import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import GlowButton from '../components/GlowButton';
 import { getSolutionById } from '../data/solutions';
+import { hasShowcaseDemo, getShowcaseDemo } from '../data/showcaseDemos';
+import { hasCustomShowcaseDemo } from '../components/solutions/demos/showcaseRegistry';
 import { SOLUTION_ICONS } from '../components/solutions/SolutionIcons';
+import SolutionShowcaseDemo from '../components/solutions/SolutionShowcaseDemo';
+import SolutionRequestModal from '../components/solutions/SolutionRequestModal';
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export default function SolutionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const solution = id ? getSolutionById(id) : undefined;
+  const [requestOpen, setRequestOpen] = useState(false);
 
   if (!solution) {
     return <Navigate to="/solutions" replace />;
   }
 
   const icon = SOLUTION_ICONS[solution.icon];
-  const submitUrl = `/submit?industry=${encodeURIComponent(solution.name)}&solution=${solution.id}`;
+  const openRequest = () => setRequestOpen(true);
+  const showcase = getShowcaseDemo(solution.id);
+  const demoLive = hasShowcaseDemo(solution.id) || solution.demoStatus === 'live';
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
@@ -54,7 +62,7 @@ export default function SolutionDetailPage() {
               >
                 <div className={`sol-detail-hero__icon bg-gradient-to-br ${solution.accent}`}>{icon}</div>
                 <span className="sol-detail-badge">
-                  {solution.demoStatus === 'live' ? 'Live demo available' : 'Ready-made software'}
+                  {demoLive ? 'Live demo available' : 'Ready-made software'}
                 </span>
               </motion.div>
 
@@ -91,9 +99,14 @@ export default function SolutionDetailPage() {
                 transition={{ duration: 0.5, delay: 0.22, ease: easeOut }}
                 className="flex flex-wrap gap-3 mt-8"
               >
-                <GlowButton to={submitUrl} className="text-sm px-7 py-3.5 !inline-block">
+                <GlowButton onClick={openRequest} className="text-sm px-7 py-3.5 !inline-block">
                   Get this for my business
                 </GlowButton>
+                {demoLive && (
+                  <a href="#demo" className="sol-detail-ghost-btn">
+                    Try live demo
+                  </a>
+                )}
                 <a href="#included" className="sol-detail-ghost-btn">
                   See what's included
                 </a>
@@ -242,11 +255,13 @@ export default function SolutionDetailPage() {
               Interactive demo
             </p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 tracking-tight">
-              {solution.demoStatus === 'live' ? 'Try it live' : 'Demo rolling out soon'}
+              {demoLive ? 'Try it live' : 'Demo rolling out soon'}
             </h2>
             <p className="text-slate-400 leading-relaxed">
-              {solution.demoStatus === 'live'
-                ? 'Explore the live demo of this software — the same platform we customize for your business.'
+              {demoLive
+                ? showcase
+                  ? `Explore ${showcase.businessName} — a real walkthrough of the ${solution.name.toLowerCase()} platform we customize for your business.`
+                  : 'Explore the live demo of this software — the same platform we customize for your business.'
                 : `A live demo of our ${solution.name.toLowerCase()} software is on the way. Contact us to see it set up for your business.`}
             </p>
           </motion.div>
@@ -256,9 +271,11 @@ export default function SolutionDetailPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: easeOut }}
-            className="sol-detail-demo__frame"
+            className={`sol-detail-demo__frame ${hasCustomShowcaseDemo(solution.id) ? 'sol-detail-demo__frame--wide' : ''}`}
           >
-            {solution.demoStatus === 'live' && solution.demoUrl ? (
+            {showcase ? (
+              <SolutionShowcaseDemo showcase={showcase} onRequestClick={openRequest} />
+            ) : solution.demoStatus === 'live' && solution.demoUrl ? (
               <div className="sol-detail-demo__browser">
                 <div className="sol-detail-demo__chrome">
                   <span /><span /><span />
@@ -284,7 +301,7 @@ export default function SolutionDetailPage() {
                     <p className="sol-detail-demo__empty-sub">
                       We're preparing a live walkthrough of this software. Get in touch to see it configured for your business.
                     </p>
-                    <GlowButton to={submitUrl} className="text-sm px-6 py-3 !inline-block mt-2">
+                    <GlowButton onClick={openRequest} className="text-sm px-6 py-3 !inline-block mt-2">
                       Get this software
                     </GlowButton>
                   </div>
@@ -295,40 +312,15 @@ export default function SolutionDetailPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="landing-cta-band relative py-20 sm:py-24 overflow-hidden text-white">
-        <div className="landing-section__grid" aria-hidden />
-        <div className="container-max relative px-4 sm:px-6 text-center max-w-2xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4 tracking-tight">
-              Want this software for your business?
-            </h2>
-            <p className="text-slate-300 mb-8 leading-relaxed">
-              The platform is ready — tell us about your business and we'll customize, integrate, and launch your version.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to={submitUrl}
-                className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-white text-blue-600 font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
-              >
-                Get this for my business
-              </Link>
-              <Link
-                to="/solutions"
-                className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border border-white/35 text-white font-semibold hover:bg-white/10 transition-all"
-              >
-                Browse all solutions
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
       <SiteFooter />
+
+      <SolutionRequestModal
+        open={requestOpen}
+        onClose={() => setRequestOpen(false)}
+        industry={solution.name}
+        solutionId={solution.id}
+        solutionName={solution.name}
+      />
     </div>
   );
 }

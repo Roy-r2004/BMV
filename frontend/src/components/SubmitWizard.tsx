@@ -168,7 +168,20 @@ function Field({
 const inputClass =
   'submit-input w-full px-4 py-3.5 rounded-xl border border-slate-200/90 bg-white/95 text-navy placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 outline-none transition-all text-[15px] shadow-sm';
 
-export default function SubmitWizard() {
+export interface SubmitWizardProps {
+  variant?: 'page' | 'modal';
+  defaultIndustry?: string;
+  solutionId?: string;
+  solutionName?: string;
+  onClose?: () => void;
+}
+
+export default function SubmitWizard({
+  variant = 'page',
+  defaultIndustry,
+  solutionId,
+  solutionName,
+}: SubmitWizardProps = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState(0);
@@ -180,10 +193,26 @@ export default function SubmitWizard() {
   const [fieldError, setFieldError] = useState('');
 
   useEffect(() => {
-    const industry = searchParams.get('industry');
-    if (!industry) return;
-    setData((d) => (d.industry ? d : { ...d, industry }));
-  }, [searchParams]);
+    const industry = defaultIndustry || searchParams.get('industry');
+    if (!industry && !solutionName) return;
+    setData((d) => ({
+      ...d,
+      industry: d.industry || industry || '',
+      needs_ai: d.needs_ai || 'yes',
+      project_type: d.project_type || 'new',
+      reference_url: d.reference_url || (solutionId ? `https://buildmyversion.com/solutions/${solutionId}` : ''),
+      what_you_like:
+        d.what_you_like
+        || (solutionName
+          ? `The ${solutionName} demo — AI automations, booking flow, and admin dashboard.`
+          : ''),
+      main_problem:
+        d.main_problem
+        || (solutionName
+          ? `Interested in the ${solutionName} ready-made software from BuildMyVersion Solutions.`
+          : ''),
+    }));
+  }, [searchParams, defaultIndustry, solutionName]);
 
   const update = (key: keyof FormData, value: string) => {
     setData((d) => ({ ...d, [key]: value }));
@@ -248,7 +277,11 @@ export default function SubmitWizard() {
     if (data.target_customers) fd.set('target_customers', data.target_customers);
     if (data.main_problem) fd.set('main_problem', data.main_problem);
     if (data.reference_url) fd.set('reference_url', data.reference_url);
+    else if (solutionId) fd.set('reference_url', `https://buildmyversion.com/solutions/${solutionId}`);
     if (data.what_you_like) fd.set('what_you_like', data.what_you_like);
+    else if (solutionName) {
+      fd.set('what_you_like', `The ${solutionName} demo — AI automations, booking flow, and admin dashboard.`);
+    }
     if (data.desired_outcome) fd.set('desired_outcome', data.desired_outcome);
     if (data.needs_ai) fd.set('needs_ai', data.needs_ai);
     if (data.budget_range) fd.set('budget_range', data.budget_range);
@@ -290,7 +323,7 @@ export default function SubmitWizard() {
       <div className="space-y-6">
         <FormProgress steps={STEPS} current={step} />
 
-        <div className="about-gradient-ring submit-wizard-panel rounded-3xl about-glass shadow-2xl shadow-blue-500/8 p-6 sm:p-8 lg:p-10 min-h-[460px] flex flex-col relative overflow-hidden">
+        <div className={`about-gradient-ring submit-wizard-panel rounded-3xl about-glass shadow-2xl shadow-blue-500/8 p-6 sm:p-8 lg:p-10 flex flex-col relative overflow-hidden ${variant === 'page' ? 'min-h-[460px]' : 'min-h-0'}`}>
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-cyan-400/10 via-blue-400/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
           <div className="mb-7 sm:mb-8 relative flex items-start gap-4">

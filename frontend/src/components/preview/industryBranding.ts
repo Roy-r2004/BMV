@@ -266,7 +266,7 @@ export interface ThemeDefaults extends AppShellConfig {
   featuresTitle: string;
   featuresSubtitle: string;
   headerVariant: 'light' | 'dark';
-  homeSections: Array<'hero' | 'features' | 'programs' | 'journey' | 'testimonial' | 'cta'>;
+  homeSections: Array<'hero' | 'features' | 'ai' | 'programs' | 'journey' | 'testimonial' | 'cta'>;
   heroLayout: 'split' | 'centered';
   leadsPanelMode: 'table' | 'adherence';
   bookingsPanelMode: 'appointments' | 'programs';

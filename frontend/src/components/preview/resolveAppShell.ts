@@ -10,7 +10,7 @@ import {
 } from './industryBranding';
 import type { AppView, DashboardPage } from './previewTypes';
 
-type HomeSectionId = 'hero' | 'features' | 'programs' | 'journey' | 'testimonial' | 'cta';
+type HomeSectionId = 'hero' | 'features' | 'ai' | 'programs' | 'journey' | 'testimonial' | 'cta';
 
 export interface ResolvedShell extends IndustryBranding {
   homeSections: HomeSectionId[];
@@ -22,7 +22,7 @@ export interface ResolvedShell extends IndustryBranding {
 }
 
 const VALID_VIEWS = new Set<AppView>(['website', 'inbox', 'schedule', 'dashboard']);
-const VALID_SECTIONS = new Set<HomeSectionId>(['hero', 'features', 'programs', 'journey', 'testimonial', 'cta']);
+const VALID_SECTIONS = new Set<HomeSectionId>(['hero', 'features', 'ai', 'programs', 'journey', 'testimonial', 'cta']);
 const VALID_DASH: Set<DashboardPage> = new Set(['overview', 'leads', 'bookings', 'clients', 'settings']);
 
 function mapNav(raw: AppConfig['website_nav'], fallback: NavItem[]): NavItem[] {

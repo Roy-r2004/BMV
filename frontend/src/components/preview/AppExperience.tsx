@@ -24,11 +24,15 @@ interface Props {
   businessName?: string;
   industry?: string | null;
   previewFeatures?: string[];
+  /** Business-branded public site (not "powered by product") */
+  websiteTone?: boolean;
+  /** Cinematic showcase mode for /solutions demos */
+  cinematic?: boolean;
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export default function AppExperience({ demo, businessName, industry, previewFeatures }: Props) {
+export default function AppExperience({ demo, businessName, industry, previewFeatures, websiteTone = false, cinematic = false }: Props) {
   const content = resolvePreviewContent(demo, { businessName, industry, previewFeatures });
   const branding: ResolvedShell = resolvePreviewShell(demo, content.imageTheme);
   const primary = branding.primary;
@@ -126,16 +130,16 @@ export default function AppExperience({ demo, businessName, industry, previewFea
         {/* Tab context hint */}
         <div className="desktop-tab-hint">
           {view === 'website' && (
-            <span>Public website — what your customers see when they visit. Click the nav links to explore pages.</span>
+            <span>{cinematic ? 'Public website — cinematic, on-brand, with AI booking built in. Explore the nav.' : 'Public website — what your customers see when they visit. Click the nav links to explore pages.'}</span>
           )}
           {view === 'inbox' && (
-            <span>Inbox / messages — how you and your team handle client communication inside the platform.</span>
+            <span>{cinematic ? 'AI inbox — drafts replies, books appointments, and escalates only when needed.' : 'Inbox / messages — how you and your team handle client communication inside the platform.'}</span>
           )}
           {view === 'schedule' && (
-            <span>Booking & schedule — how clients book appointments and how you manage your calendar.</span>
+            <span>{cinematic ? 'Smart calendar — auto-filled from AI bookings, reminders, and waitlist backfill.' : 'Booking & schedule — how clients book appointments and how you manage your calendar.'}</span>
           )}
           {view === 'dashboard' && (
-            <span>Owner dashboard — your business at a glance: bookings, clients, revenue, and settings.</span>
+            <span>{cinematic ? 'Owner command center — live metrics, AI-scored leads, and automations at a glance.' : 'Owner dashboard — your business at a glance: bookings, clients, revenue, and settings.'}</span>
           )}
         </div>
 
@@ -161,6 +165,8 @@ export default function AppExperience({ demo, businessName, industry, previewFea
                   secondary={secondary}
                   page={websitePage}
                   onNavigate={navigateWebsite}
+                  websiteTone={websiteTone}
+                  cinematic={cinematic}
                 />
               )}
               {view === 'inbox' && (
