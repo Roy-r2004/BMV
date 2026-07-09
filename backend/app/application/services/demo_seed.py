@@ -40,6 +40,27 @@ def _first_existing(paths: list[Path], *, is_dir: bool = False) -> Path | None:
     return None
 
 
+def _rewrite_preview_asset_paths(dist_dir: Path, request_id: int) -> None:
+    """Seeded builds hardcode /api/preview-apps/4/... — remap to the real request id."""
+    import re
+
+    target_prefix = f"/api/preview-apps/{request_id}/"
+    pattern = re.compile(r"/api/preview-apps/\d+/")
+    for path in dist_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in {".html", ".js", ".css", ".json", ".map", ".svg"}:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        updated = pattern.sub(target_prefix, text)
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
+            logger.info("Rewrote preview asset paths in %s", path.name)
+
+
 def _install_preview_dist(request_id: int) -> bool:
     src = _first_existing(_seed_dist_paths(), is_dir=True)
     if not src:
@@ -51,6 +72,7 @@ def _install_preview_dist(request_id: int) -> bool:
     if dest.exists():
         shutil.rmtree(dest, ignore_errors=True)
     shutil.copytree(src, dest)
+    _rewrite_preview_asset_paths(dest, request_id)
     logger.info("Installed seeded preview dist at %s", dest)
     return True
 
@@ -106,13 +128,16 @@ def seed_demo_if_empty() -> None:
             .all()
         )
 
-        # If a complete live PlateSync already exists, only ensure dist is present
+        # If a complete live PlateSync already exists, refresh dist + asset paths
         complete = next((r for r in existing_rows if _has_live_preview(r)), None)
         if complete is not None:
-            dist = settings.PREVIEW_APPS_DIR / str(complete.id) / "dist" / "index.html"
-            if not dist.is_file():
-                _install_preview_dist(complete.id)
-            logger.info("Real PlateSync already seeded (id=%s); skip", complete.id)
+            _install_preview_dist(complete.id)
+            # Keep generated_pages URL aligned with this request id
+            remapped = _remap_generated_pages(complete.generated_pages, complete.id)
+            if remapped and remapped != complete.generated_pages:
+                complete.generated_pages = remapped
+                db.commit()
+            logger.info("Real PlateSync already seeded (id=%s); refreshed preview dist", complete.id)
             return
 
         # Remove incomplete/fallback gallery rows so we can replace with the real one
