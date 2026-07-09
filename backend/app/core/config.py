@@ -18,11 +18,18 @@ _APP_DIR = Path(__file__).resolve().parent.parent  # backend/app
 _PROJECT_ROOT = _APP_DIR.parent.parent  # repo root
 
 
-def _normalize_database_url(url: str) -> str:
-    """Render/Heroku often give postgres://; SQLAlchemy expects postgresql://."""
-    if url.startswith("postgres://"):
-        return "postgresql://" + url[len("postgres://") :]
-    return url
+def _normalize_database_url(url: str | None) -> str:
+    """Render/Heroku often give postgres://; SQLAlchemy expects postgresql://.
+
+    Empty env values (common with Blueprint sync:false) must fall back to SQLite
+    so the web process can still bind a port on Render.
+    """
+    raw = (url or "").strip()
+    if not raw:
+        return "sqlite:///./buildmyversion.db"
+    if raw.startswith("postgres://"):
+        return "postgresql://" + raw[len("postgres://") :]
+    return raw
 
 
 class Settings:
@@ -32,9 +39,7 @@ class Settings:
     PROJECT_ROOT: Path = _PROJECT_ROOT
 
     # Database (Render may provide postgres:// — normalize for SQLAlchemy)
-    DATABASE_URL: str = _normalize_database_url(
-        os.getenv("DATABASE_URL", "sqlite:///./buildmyversion.db")
-    )
+    DATABASE_URL: str = _normalize_database_url(os.getenv("DATABASE_URL"))
 
     # Admin auth
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "change_this_password")

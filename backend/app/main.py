@@ -22,10 +22,19 @@ from app.infrastructure.db.session import engine
 from app.infrastructure.storage.file_service import ensure_upload_dir
 from app.application.services.demo_seed import seed_demo_if_empty
 
-Base.metadata.create_all(bind=engine)
-run_sqlite_migrations()
-ensure_upload_dir()
-seed_demo_if_empty()
+# Never block process start — Render kills deploys that don't bind $PORT in time.
+try:
+    Base.metadata.create_all(bind=engine)
+    run_sqlite_migrations()
+    ensure_upload_dir()
+    seed_demo_if_empty()
+except Exception:
+    import logging
+
+    logging.getLogger(__name__).exception(
+        "DB bootstrap failed (DATABASE_URL=%s) — app will still start",
+        settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else settings.DATABASE_URL,
+    )
 
 app = FastAPI(title="BuildMyVersion AI", version="1.0.0")
 
