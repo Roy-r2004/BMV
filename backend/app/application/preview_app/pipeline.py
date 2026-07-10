@@ -132,20 +132,18 @@ def _run_visual_critique(
     design_direction = architect.get("design_direction", "")
     screenshot_dir = workspace / "_visual_critique_shots"
     base_url = f"{settings.INTERNAL_BASE_URL}{base_path}/"
+    workers = max(1, settings.PREVIEW_PARALLEL_WORKERS)
 
-    flagged: list[tuple[str, str, dict]] = []
-    for i, rt in enumerate(routes, 1):
+    def _review_route(item: tuple[int, dict]) -> tuple[str, str, dict] | None:
+        i, rt = item
         route_path = rt.get("path") or "/"
         component_file = (rt.get("component_file") or "").replace("\\", "/")
         if not component_file:
-            continue
-        _emit(db, request_id, "visual_critic",
-              f"Visually reviewing page {i}/{len(routes)}: {rt.get('title', route_path)}", 90,
-              detail=route_path)
+            return None
         shot_path = screenshot_dir / f"shot_{i}.png"
         if not capture_route_screenshot(base_url, route_path, shot_path):
             print(f"    visual critic: skip {component_file} (screenshot failed)", flush=True)
-            continue
+            return None
         spec = specs_by_path.get(component_file) or {}
         try:
             review = critique_file_visual(
@@ -155,14 +153,40 @@ def _run_visual_critique(
             )
         except Exception as e:
             print(f"    visual critic skip {component_file}: {e}", flush=True)
-            continue
+            return None
         score = review.get("score", 100)
         verdict = review.get("verdict", "pass")
         print(f"    visual critic {component_file}: {score} ({verdict})", flush=True)
-        if verdict == "revise":
-            notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
-            if notes:
-                flagged.append((component_file, notes, spec))
+        if verdict != "revise":
+            return None
+        notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
+        if not notes:
+            return None
+        return component_file, notes, spec
+
+    indexed_routes = list(enumerate(routes, 1))
+    _emit(db, request_id, "visual_critic",
+          f"Visually reviewing {len(indexed_routes)} page(s) in parallel...", 90,
+          detail=f"workers={workers}")
+
+    flagged: list[tuple[str, str, dict]] = []
+    done = 0
+    for _item, result, exc in parallel_map(
+        indexed_routes,
+        _review_route,
+        max_workers=workers,
+        on_done=lambda d, tot, item, _res, _exc: None,
+    ):
+        done += 1
+        i, rt = _item
+        _emit(db, request_id, "visual_critic",
+              f"Visually reviewed {done}/{len(indexed_routes)}: {rt.get('title', rt.get('path', ''))}", 90,
+              detail=rt.get("path") or "/")
+        if exc:
+            print(f"    visual critic route error: {exc}", flush=True)
+            continue
+        if result:
+            flagged.append(result)
 
     try:
         import shutil
@@ -186,11 +210,17 @@ def _run_visual_critique(
         return run_build(workspace, base_path, template_renderer)
 
     try:
-        for component_file, notes, spec in flagged:
+        def _refine_flagged(item: tuple[str, str, dict]) -> str:
+            component_file, notes, spec = item
             refine_file(
                 workspace, component_file, spec.get("instructions", ""), notes,
                 full_context, manifest, images, ai_provider, template_renderer,
             )
+            return component_file
+
+        for _item, _result, exc in parallel_map(flagged, _refine_flagged, max_workers=workers):
+            if exc:
+                print(f"    visual critic refine failed: {exc}", flush=True)
         ok2, _ = _rebuild_and_guard()
     except Exception as e:
         print(f"    visual critic refine pass raised ({e}) — rolling back", flush=True)
@@ -547,7 +577,8 @@ def generate_preview_app(
         return ok_count, page_count
 
     foundation, components, pages = split_codegen_phases(files_to_gen)
-    _run_batch("foundation", foundation, parallel=False)
+    # Parallelize every codegen phase — OpenRouter calls are network-bound.
+    _run_batch("foundation", foundation, parallel=True)
     _run_batch("components", components, parallel=True)
     _run_batch("pages", pages, parallel=True)
 
