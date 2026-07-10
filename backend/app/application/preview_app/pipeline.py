@@ -706,11 +706,11 @@ def generate_preview_app(
     ok, build_log = run_build(workspace, base_path, template_renderer)
     attempt = 0
     fix_loop_start = time.monotonic()
-    while not ok and attempt < MAX_BUILD_FIX_ATTEMPTS:
+    while not ok and attempt < max_fix_attempts:
         elapsed = time.monotonic() - fix_loop_start
-        if elapsed > MAX_FIX_LOOP_SECONDS:
+        if elapsed > max_fix_seconds:
             print(
-                f"    fix loop budget exceeded ({elapsed:.0f}s > {MAX_FIX_LOOP_SECONDS}s) — "
+                f"    fix loop budget exceeded ({elapsed:.0f}s > {max_fix_seconds}s) — "
                 "stopping AI fix attempts, dropping to the guaranteed-safe fallback", flush=True,
             )
             _emit(db, request_id, "build",
@@ -718,9 +718,9 @@ def generate_preview_app(
             break
         attempt += 1
         _emit(db, request_id, "build",
-              f"Fixing build errors (attempt {attempt}/{MAX_BUILD_FIX_ATTEMPTS})...", 87,
+              f"Fixing build errors (attempt {attempt}/{max_fix_attempts})...", 87,
               detail="AI is patching compilation errors")
-        print(f"    fix attempt {attempt}/{MAX_BUILD_FIX_ATTEMPTS}...", flush=True)
+        print(f"    fix attempt {attempt}/{max_fix_attempts}...", flush=True)
         errors = extract_build_errors(build_log)
         try:
             fixed = fix_build_errors(workspace, errors, architect, ai_provider, template_renderer)
