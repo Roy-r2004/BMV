@@ -24,3 +24,6 @@ frontend/.env
 # OS
 .DS_Store
 Thumbs.db
+
+# Separate project — never commit into BMV
+bmv-core/
