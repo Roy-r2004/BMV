@@ -456,20 +456,31 @@ def generate_preview_app(
     total_files = len(files_to_gen)
     workers = settings.PREVIEW_PARALLEL_WORKERS
     print(f"  [4/6] Codegen agent — {total_files} files (parallel workers={workers})...", flush=True)
+    _emit(
+        db,
+        request_id,
+        "codegen",
+        f"Generating {total_files} files (workers={workers})...",
+        42,
+        detail="Starting code generation",
+        files_done=0,
+        files_total=total_files,
+    )
     generated_ok = 0
     page_ok = 0
     specs_by_path = {f.get("path", ""): f for f in files_to_gen}
     progress_lock = threading.Lock()
     files_completed = 0
 
-    def _emit_codegen_progress(path: str, done: int) -> None:
+    def _emit_codegen_progress(path: str, done: int, *, started: bool = False) -> None:
         short_path = path.replace("src/pages/", "").replace("src/components/", "").replace("src/", "")
         pct = 42 + int((done / max(total_files, 1)) * 36)
+        label = f"{'Starting' if started else 'Generated'}: {short_path}"
         with progress_lock:
             thread_db = SessionLocal()
             try:
                 _emit(thread_db, request_id, "codegen",
-                      f"Generating: {short_path}", pct,
+                      label, pct,
                       detail=path,
                       files_done=done,
                       files_total=total_files)
@@ -477,11 +488,13 @@ def generate_preview_app(
                 thread_db.close()
 
     def _generate_spec(spec: dict) -> str:
+        path = spec.get("path", "?")
+        _emit_codegen_progress(path, files_completed, started=True)
         generate_file(
             workspace, spec, full_context, architect, plan, manifest, images,
             ai_provider, template_renderer,
         )
-        return spec.get("path", "?")
+        return path
 
     def _run_batch(label: str, batch: list[dict], *, parallel: bool) -> tuple[int, int]:
         nonlocal files_completed, generated_ok, page_ok

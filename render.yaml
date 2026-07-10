@@ -47,6 +47,9 @@ services:
         value: "false"
       - key: PREVIEW_SKIP_VISUAL_CRITIC
         value: "true"
+      # Free tier OOM risk — generate files one at a time
+      - key: PREVIEW_PARALLEL_WORKERS
+        value: "1"
       - key: CORS_ORIGINS
         value: https://bmv-web.onrender.com
       - key: ADMIN_PASSWORD
