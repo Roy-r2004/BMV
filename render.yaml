@@ -2,12 +2,12 @@ services:
   - type: web
     name: bmv-api
     runtime: python
-    # Repo root so preview-template/ is available (codegen needs it)
-    rootDir: .
+    # Keep backend rootDir; preview-template is vendored at backend/preview-template
+    rootDir: backend
     plan: free
     buildCommand: |
       set -e
-      pip install -r backend/requirements.txt
+      pip install -r requirements.txt
       # Node/npm required for Vite preview-app builds at runtime
       NODE_DIR="$HOME/node"
       if [ ! -x "$NODE_DIR/bin/node" ]; then
@@ -17,7 +17,9 @@ services:
       fi
       "$NODE_DIR/bin/node" -v
       "$NODE_DIR/bin/npm" -v
-    startCommand: export PATH="$HOME/node/bin:$PATH" && cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      test -f preview-template/package.json
+      echo "preview-template OK"
+    startCommand: export PATH="$HOME/node/bin:$PATH" && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.4
@@ -27,8 +29,7 @@ services:
       - key: UPLOAD_DIR
         value: ./app/uploads
       - key: PREVIEW_TEMPLATE_DIR
-        # startCommand cds into backend/, so template is one level up
-        value: ../preview-template
+        value: ./preview-template
       - key: AI_PROVIDER
         value: openrouter
       # Match local OpenRouter model stack (not the cheap code defaults)

@@ -36,6 +36,13 @@ except Exception:
         settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else settings.DATABASE_URL,
     )
 
+# Visibility for Render logs: codegen dies without a template / node.
+print(
+    f"[boot] PREVIEW_TEMPLATE_DIR={settings.PREVIEW_TEMPLATE_DIR} "
+    f"exists={settings.PREVIEW_TEMPLATE_DIR.is_dir()}",
+    flush=True,
+)
+
 app = FastAPI(title="BuildMyVersion AI", version="1.0.0")
 
 app.add_middleware(

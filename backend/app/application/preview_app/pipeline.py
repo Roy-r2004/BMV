@@ -432,6 +432,8 @@ def generate_preview_app(
     print("  [3/5] Preparing workspace...", flush=True)
     _emit(db, request_id, "codegen", "Setting up build workspace...", 40)
     workspace = prepare_workspace(request_id)
+    _emit(db, request_id, "codegen", "Build workspace ready", 41,
+          detail=str(workspace))
     brand_name = (
         (manifest.get("brand") or {}).get("name")
         if isinstance(manifest.get("brand"), dict)

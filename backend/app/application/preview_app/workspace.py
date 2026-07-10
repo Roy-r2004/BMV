@@ -20,14 +20,21 @@ def get_dist_dir(request_id: int) -> Path:
 def prepare_workspace(request_id: int) -> Path:
     """Copy template into an isolated workspace (fresh each generation)."""
     workspace = get_workspace(request_id)
+    tpl = settings.PREVIEW_TEMPLATE_DIR
+    print(f"    prepare_workspace id={request_id} template={tpl} exists={tpl.is_dir()}", flush=True)
     if workspace.exists():
+        print(f"    removing old workspace {workspace}", flush=True)
         shutil.rmtree(workspace, ignore_errors=True)
     workspace.mkdir(parents=True, exist_ok=True)
 
-    if not settings.PREVIEW_TEMPLATE_DIR.is_dir():
-        raise FileNotFoundError(f"Preview template not found: {settings.PREVIEW_TEMPLATE_DIR}")
+    if not tpl.is_dir():
+        raise FileNotFoundError(
+            f"Preview template not found: {tpl}. "
+            "Deploy must include preview-template/ (see render.yaml / backend/preview-template)."
+        )
 
-    for item in settings.PREVIEW_TEMPLATE_DIR.iterdir():
+    copied = 0
+    for item in tpl.iterdir():
         if item.name in _SKIP_COPY:
             continue
         dest = workspace / item.name
@@ -35,6 +42,8 @@ def prepare_workspace(request_id: int) -> Path:
             shutil.copytree(item, dest, ignore=shutil.ignore_patterns(*_SKIP_COPY))
         else:
             shutil.copy2(item, dest)
+        copied += 1
+    print(f"    workspace ready at {workspace} ({copied} top-level items)", flush=True)
     return workspace
 
 
