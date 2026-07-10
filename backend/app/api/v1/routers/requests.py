@@ -48,16 +48,20 @@ def _run_pipeline_in_background(request_id: int) -> None:
         # and OpenRouter errors must show in Logs + progress UI.
         import traceback
 
-        print(f"[pipeline] FAILED request {request_id}: {exc}", flush=True)
+        # Never echo secrets (e.g. malformed Bearer tokens) into logs/progress.
+        safe = str(exc)
+        if "Bearer sk-" in safe or "sk-or-" in safe:
+            safe = "OpenRouter API key is invalid or has whitespace — re-save OPENROUTER_API_KEY in Render (no trailing spaces/newlines)."
+        print(f"[pipeline] FAILED request {request_id}: {safe}", flush=True)
         traceback.print_exc()
         try:
             _emit(
                 bg_db,
                 request_id,
                 "failed",
-                f"Generation failed: {exc}",
+                f"Generation failed: {safe}",
                 0,
-                detail=str(exc)[:300],
+                detail=safe[:300],
             )
             req = bg_db.query(Request).filter(Request.id == request_id).first()
             if req and req.status == "new" and not req.mvp_blueprint:

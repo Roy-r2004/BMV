@@ -56,9 +56,9 @@ class Settings:
     # Ollama
     OLLAMA_URL: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
-    # OpenRouter
-    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    # OpenRouter (strip — Render/dashboard pastes often include trailing newlines)
+    OPENROUTER_API_KEY: str = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+    OPENROUTER_BASE_URL: str = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
     OPENROUTER_APP_NAME: str = os.getenv("OPENROUTER_APP_NAME", "Build My Version")
 
     # Preview app build paths
