@@ -32,8 +32,8 @@ services:
       PREVIEW_APPS_DIR: /app/data/preview-apps
       PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
       DATABASE_URL: sqlite:////app/data/buildmyversion.db
-      # 8 workers + slow models = stall; 4 is enough parallelism without hanging
-      PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-4}
+      # Parallel is safe after progress_lock/SQLite fixes; 3 keeps Flash responsive
+      PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-3}
       PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-true}
       PREVIEW_SKIP_VISUAL_CRITIC: ${PREVIEW_SKIP_VISUAL_CRITIC:-false}
       PREVIEW_MAX_BUILD_FIX_ATTEMPTS: ${PREVIEW_MAX_BUILD_FIX_ATTEMPTS:-2}

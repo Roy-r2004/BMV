@@ -15,9 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     xz-utils \
-    && curl -fsSL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz \
+    && curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz \
       | tar -xJ -C /opt \
-    && mv /opt/node-v20.18.1-linux-x64 /opt/node \
+    && mv /opt/node-v22.14.0-linux-x64 /opt/node \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,7 +29,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY backend/ ./
 COPY docker/entrypoint.api.sh /entrypoint.sh
-RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh \
+RUN sed -i 's/\r$//' /entrypoint.sh \
+    && chmod +x /entrypoint.sh \
+    && test -s /entrypoint.sh \
     && mkdir -p /app/data/uploads /app/data/preview-apps \
     && test -f preview-template/package.json
 

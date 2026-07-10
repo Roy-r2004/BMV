@@ -30,6 +30,16 @@ Instructions: {{ file_instructions }}
 === EXISTING FILES (for imports/reference) ===
 {{ existing_files_summary }}
 
+═══ PRODUCT IMMERSION (NON-NEGOTIABLE) ═══
+You are building the LIVE product the business owner already runs — not a pitch deck, not a "demo of a demo", not Build My Version marketing.
+- Copy speaks AS the brand to its customers/staff (e.g. "Order your morning latte", "Today's tickets", "Book a table"). NEVER meta language: no "We'll build…", "interactive demo", "preview of", "simulated", "showcase", "Start your plan", "View programs", "Preview … Core Features", or BMV/product-agency voice.
+- Never paste preview_summary / preview_features / blueprint pitch text into the UI. Translate features into real product screens (menu cards, order tickets, reservation form, KPI tiles with fake-but-real numbers).
+- Every interactive control must look usable: filled forms, selected states, badges, timestamps, statuses, quantities — as if the shop opened this morning and data is live.
+- Owner/admin pages must feel like an ops console the owner checks before service: dense tables, filters, status chips, today's counts — not empty marketing cards.
+- Customer pages must feel like a real storefront/app: appetizing imagery, concrete item names/prices (no currency symbols — use plain numbers or "pts"/credits if needed), clear CTAs ("Order now", "Reserve a table").
+- Thin pages fail. Target ~180+ lines for primary pages (home, menu, dashboard, orders). Confirmation pages can be shorter but still polished.
+- NEVER ship "This section is being fine-tuned" or placeholder empty states when the plan calls for content.
+
 TECH RULES:
 - React 19 functional components, TypeScript, Tailwind utility classes only
 - CRITICAL for src/index.css: it MUST start with the line `@import "tailwindcss";` then a `@theme { ... }` block defining --color-brand, --color-brand-dark, --font-sans from the design system. NEVER remove the tailwindcss import and NEVER replace Tailwind with plain custom CSS classes (no .container/.table/.button rules). Styling comes from Tailwind utilities in the components (bg-brand, text-brand, rounded-2xl, grid, etc.).
@@ -46,7 +56,7 @@ TECH RULES:
   * `../data/mock` (or `@/data/mock`) and files that already exist in EXISTING FILES above
   * `../components/UiIcons` for icons (`<UiIcon name="chart" />`)
   NEVER import ANY npm package (no lucide-react, no @mantine, no @mui, no antd, no react-icons, no recharts, no chart.js, etc.). NEVER import invented local paths like `../lib/aiUtils`, `../hooks/*`, `../utils/*`. Put ALL helper logic INLINE.
-- Icons: use `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield, bell, calendar, check, search) OR inline SVG (24x24, stroke-current) — NEVER emoji
+- Icons: use `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield, bell, calendar, check, search, cart, brain, coffee) OR inline SVG (24x24, stroke-current) — NEVER emoji
 - Charts/graphs: build with styled divs or inline <svg> (e.g. bar heights via Tailwind h-*) — never a chart library.
 
 For App.tsx:
@@ -62,6 +72,7 @@ For page components (kind=page):
 - You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
 - PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
 - Pages export ONLY their main content (sections inside a fragment or single div).
+- Home/landing: full-bleed hero is OK (negative margins or full-width sections). Do not nest a second site header.
 
 ═══ CONTENT RULE (MOST IMPORTANT) ═══
 Do NOT invent a generic SaaS/marketing template. The user's experience plan (in Instructions and PAGE PLAN above) defines:
@@ -81,6 +92,7 @@ Implement EVERY section from the plan with rich, business-specific UI. If the pl
 - Each section in the plan should be visually distinct (not copy-paste the same card grid everywhere)
 - Pages must feel dense and production-ready — thin placeholder pages fail
 - NEVER wrap AdminLayout or PublicLayout inside page components — App.tsx applies layouts via routes
+- Micro-details that sell realism: last-updated times, staff initials, order #s, table numbers, allergen tags, "Ready in 12 min", occupancy dots, unread counts
 
 For page components (kind=page):
 - Implement the sections listed in the plan — each with the UI described there

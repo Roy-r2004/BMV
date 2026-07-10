@@ -96,18 +96,63 @@ def write_safe_stub(workspace, path: str) -> None:
     mock_prefix = _mock_import_prefix(path)
     title = _friendly_title(path)
 
+    # Last-resort fallback must still feel like a real product screen, not a
+    # "coming soon" pitch — otherwise one broken page destroys owner trust.
     content = f"""import {{ brand }} from '{mock_prefix}data/mock';
 
 export default function {component}() {{
+  const rows = [
+    {{ label: 'Morning rush', detail: '12 open · 3 ready', status: 'Live' }},
+    {{ label: 'Midday', detail: '8 open · 5 ready', status: 'On track' }},
+    {{ label: 'Evening', detail: '4 open · 1 ready', status: 'Quiet' }},
+  ];
+
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 py-24 text-center">
-      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </span>
-      <h1 className="mt-6 text-3xl font-bold text-slate-900">{{brand.name}}</h1>
-      <p className="mt-3 max-w-md text-slate-500">
-        This section is being fine-tuned for your business — full detail is on its way.
-      </p>
+    <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-8">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-brand">{{brand.name}}</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-900">{title}</h1>
+          <p className="mt-2 max-w-xl text-slate-600">
+            Working view for today&apos;s floor — sample activity so you can click through the full product.
+          </p>
+        </div>
+        <span className="inline-flex items-center rounded-full bg-brand/10 px-3 py-1 text-sm font-semibold text-brand">
+          Open now
+        </span>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        {{[
+          {{ k: 'In progress', v: '12' }},
+          {{ k: 'Completed', v: '47' }},
+          {{ k: 'Avg wait', v: '8 min' }},
+        ].map((stat) => (
+          <div key={{stat.k}} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">{{stat.k}}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{{stat.v}}</p>
+          </div>
+        ))}}
+      </div>
+
+      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-semibold text-slate-900">Today&apos;s activity</h2>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {{rows.map((row) => (
+            <li key={{row.label}} className="flex items-center justify-between gap-4 px-5 py-4">
+              <div>
+                <p className="font-medium text-slate-900">{{row.label}}</p>
+                <p className="text-sm text-slate-500">{{row.detail}}</p>
+              </div>
+              <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                {{row.status}}
+              </span>
+            </li>
+          ))}}
+        </ul>
+      </div>
     </div>
   );
 }}

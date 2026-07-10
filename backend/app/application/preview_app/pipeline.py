@@ -505,32 +505,53 @@ def generate_preview_app(
     generated_ok = 0
     page_ok = 0
     specs_by_path = {f.get("path", ""): f for f in files_to_gen}
-    progress_lock = threading.Lock()
+    progress_lock = threading.RLock()
     files_completed = 0
 
     def _emit_codegen_progress(path: str, done: int, *, started: bool = False) -> None:
         short_path = path.replace("src/pages/", "").replace("src/components/", "").replace("src/", "")
         pct = 42 + int((done / max(total_files, 1)) * 36)
         label = f"{'Starting' if started else 'Generated'}: {short_path}"
-        with progress_lock:
-            thread_db = SessionLocal()
+        # Never hold progress_lock across SQLite I/O — that deadlocked the pool
+        # when the pipeline session also touched the same DB.
+        thread_db = SessionLocal()
+        try:
+            _emit(thread_db, request_id, "codegen",
+                  label, pct,
+                  detail=path,
+                  files_done=done,
+                  files_total=total_files)
+        finally:
+            thread_db.close()
+
+    def _release_pipeline_db() -> None:
+        """Drop any open SQLite transaction on the request session before workers run."""
+        try:
+            db.commit()
+        except Exception:
             try:
-                _emit(thread_db, request_id, "codegen",
-                      label, pct,
-                      detail=path,
-                      files_done=done,
-                      files_total=total_files)
-            finally:
-                thread_db.close()
+                db.rollback()
+            except Exception:
+                pass
+        try:
+            db.expire_all()
+        except Exception:
+            pass
 
     def _generate_spec(spec: dict) -> str:
         path = spec.get("path", "?")
+        print(f"    >> begin {path}", flush=True)
         _emit_codegen_progress(path, files_completed, started=True)
-        generate_file(
-            workspace, spec, full_context, architect, plan, manifest, images,
-            ai_provider, template_renderer,
-        )
-        return path
+        try:
+            generate_file(
+                workspace, spec, full_context, architect, plan, manifest, images,
+                ai_provider, template_renderer,
+            )
+            print(f"    << done {path}", flush=True)
+            return path
+        except Exception as exc:
+            print(f"    << fail {path}: {exc}", flush=True)
+            raise
 
     def _run_batch(label: str, batch: list[dict], *, parallel: bool) -> tuple[int, int]:
         nonlocal files_completed, generated_ok, page_ok
@@ -540,13 +561,15 @@ def generate_preview_app(
         page_count = 0
         if parallel and workers > 1 and len(batch) > 1:
             print(f"    {label}: {len(batch)} files in parallel (workers={workers})", flush=True)
+            _release_pipeline_db()
 
             def _on_file_done(done: int, _total: int, spec: dict, result, exc) -> None:
                 nonlocal files_completed, generated_ok, page_ok, ok_count, page_count
                 path = spec.get("path", "?")
                 with progress_lock:
                     files_completed += 1
-                    _emit_codegen_progress(path, files_completed)
+                    done_now = files_completed
+                _emit_codegen_progress(path, done_now)
                 if exc:
                     print(f"    FAIL {path}: {exc}", flush=True)
                 else:
@@ -561,11 +584,16 @@ def generate_preview_app(
         else:
             for spec in batch:
                 path = spec.get("path", "?")
-                files_completed += 1
-                _emit_codegen_progress(path, files_completed)
-                print(f"    -> [{files_completed}/{total_files}] {path}", flush=True)
+                with progress_lock:
+                    files_completed += 1
+                    done_now = files_completed
+                _emit_codegen_progress(path, done_now)
+                print(f"    -> [{done_now}/{total_files}] {path}", flush=True)
                 try:
-                    _generate_spec(spec)
+                    generate_file(
+                        workspace, spec, full_context, architect, plan, manifest, images,
+                        ai_provider, template_renderer,
+                    )
                     generated_ok += 1
                     ok_count += 1
                     if spec.get("kind") == "page":
@@ -738,6 +766,16 @@ def generate_preview_app(
     attempt = 0
     fix_loop_start = time.monotonic()
     while not ok and attempt < max_fix_attempts:
+        # Native/tooling failures can't be patched by the LLM — skip straight to fallbacks.
+        infra_markers = (
+            "Cannot find native binding",
+            "@rolldown/binding-",
+            "Vite requires Node.js version",
+            "vite not installed after npm install",
+        )
+        if any(m in build_log for m in infra_markers):
+            print("    build tooling/native error — skipping AI fix loop", flush=True)
+            break
         elapsed = time.monotonic() - fix_loop_start
         if elapsed > max_fix_seconds:
             print(

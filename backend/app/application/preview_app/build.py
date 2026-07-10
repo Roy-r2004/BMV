@@ -74,6 +74,10 @@ def run_build(
     logs.append("=== vite build ===")
     logs.append(build.stdout or "")
     logs.append(build.stderr or "")
+    if build.returncode != 0:
+        # Surface the real failure in pipeline logs (AI fix can't patch missing native bindings).
+        err_tail = (build.stderr or build.stdout or "")[-1200:]
+        print(f"    vite build failed:\n{err_tail}", flush=True)
 
     dist = workspace / "dist" / "index.html"
     ok = build.returncode == 0 and dist.is_file()

@@ -46,9 +46,17 @@ def gather_full_context(req: Request, demo: dict | None = None) -> str:
         f"What They Like (reference): {req.what_you_like or 'N/A'}",
         f"Reference URL: {req.reference_url or 'N/A'}",
         f"Needs AI: {req.needs_ai or 'N/A'}",
-        f"Preview Summary: {req.preview_summary or 'N/A'}",
+        # Preview Summary / Features / Visual Demo hero copy are BMV sales language
+        # for the result page — NEVER paste them into the live product UI. Use them
+        # only to understand which capabilities the product must include.
+        "NOTE: Preview Summary, Preview Features, and Visual Demo hero/CTAs are "
+        "agency pitch text for the sales page. The live app must speak as the "
+        "business product itself (storefront + owner ops), with brand-voice copy "
+        "and realistic operational data — never 'We'll build', 'demo', 'showcase', "
+        "or 'Start your plan'.",
+        f"Preview Summary (capabilities only — do not paste into UI): {req.preview_summary or 'N/A'}",
         f"MVP Blueprint:\n{req.mvp_blueprint or 'N/A'}",
-        f"\nPreview Features:\n{features_block}",
+        f"\nPreview Features (capabilities to implement as real screens — do not paste as marketing cards):\n{features_block}",
     ]
 
     if req.screenshot_analysis:

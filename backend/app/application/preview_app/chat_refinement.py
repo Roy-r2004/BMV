@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import re
+import traceback
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -10,8 +12,9 @@ from app.application.pipelines._shared import business_info, get_request
 from app.application.preview_app.assemble import write_app_tsx, write_index_css
 from app.application.preview_app.build import extract_build_errors, run_build
 from app.application.preview_app.codegen import _strip_fences, fix_build_errors
-from app.application.preview_app.pipeline import MAX_BUILD_FIX_ATTEMPTS
+from app.application.preview_app.pipeline import MAX_BUILD_FIX_ATTEMPTS, generate_preview_app
 from app.application.preview_app.safety import (
+    apply_workspace_guards,
     ensure_mock_exports,
     looks_truncated_source,
     sanitize_workspace_sources,
@@ -36,6 +39,25 @@ from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.shared.json_utils import extract_json_from_text
+
+
+_FULL_REDESIGN_RE = re.compile(
+    r"\b("
+    r"redesign\s+(everything|all|the\s+whole)|"
+    r"change\s+all\s+(the\s+)?design|"
+    r"completely\s+(new|different)\s+(look|design|ui)|"
+    r"start\s+over|"
+    r"rebuild\s+(everything|the\s+(whole\s+)?(app|preview))|"
+    r"all\s+the\s+pages\s+exist|"
+    r"ensure\s+all\s+(the\s+)?pages"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_full_redesign_request(message: str) -> bool:
+    """Broad redesigns need a full pipeline regen, not a single chat JSON patch."""
+    return bool(_FULL_REDESIGN_RE.search(message or ""))
 
 
 def _architect_from_generated(generated_pages: dict) -> dict:
@@ -75,6 +97,48 @@ def refine_preview_app_from_chat(
     workspace = get_workspace(request_id)
     if not workspace.is_dir():
         raise ValueError("Preview app workspace not found.")
+
+    # Full redesign / "make sure all pages exist" → regenerate the whole app.
+    # One-shot chat JSON can't reliably rewrite every file without truncation.
+    if _is_full_redesign_request(user_message):
+        print(f"[refine] full redesign requested for {request_id} — regenerating preview app", flush=True)
+        _emit(db, request_id, "refine", "Full redesign — regenerating the live app...", 10,
+              detail=user_message[:120])
+        try:
+            result = generate_preview_app(db, request_id, ai_provider, template_renderer)
+            pa = (result or {}).get("preview_app") or {}
+            ok = pa.get("status") == "ready"
+            _emit(
+                db, request_id,
+                "refine_done" if ok else "refine_failed",
+                "Live preview redesigned!" if ok else "Redesign finished with build issues",
+                100,
+            )
+            return {
+                "reply": (
+                    "I've fully redesigned your live preview and regenerated the pages. "
+                    "Refresh the Live Product tab to see the new look."
+                    if ok else
+                    "I tried a full redesign but the build still had issues. "
+                    "Try a smaller change, or ask me to redesign again."
+                ),
+                "changes_made": ["Full preview app regeneration"],
+                "preview_rebuild_succeeded": ok,
+                "reverted": False,
+            }
+        except Exception as exc:
+            print(f"[refine] full redesign failed: {exc}", flush=True)
+            traceback.print_exc()
+            _emit(db, request_id, "refine_failed", f"Redesign failed: {exc}", 100)
+            return {
+                "reply": (
+                    f"I couldn't complete a full redesign ({exc}). "
+                    "Try again, or ask for one specific change at a time."
+                ),
+                "changes_made": [],
+                "preview_rebuild_succeeded": False,
+                "reverted": False,
+            }
 
     # Safety net: snapshot the current working state so a bad AI edit, a
     # failed build, or any unexpected error can never leave the live
@@ -118,7 +182,11 @@ def refine_preview_app_from_chat(
             [{"role": "user", "content": prompt}],
             max_tokens=16000,
         )
+        if not (raw or "").strip():
+            raise RuntimeError("AI returned an empty response for the chat refinement")
         data = extract_json_from_text(raw)
+        if not isinstance(data, dict):
+            raise RuntimeError("AI response was not valid JSON for the chat refinement")
 
         changes_made = list(data.get("changes_made") or [])
         for item in data.get("files", []):
@@ -194,9 +262,15 @@ def refine_preview_app_from_chat(
         brand_name = req.business_name or "Brand"
 
         sanitize_workspace_sources(workspace)
-        ensure_mock_exports(workspace, architect, plan, images, brand_name)
-        write_index_css(workspace, primary, secondary, font, template_renderer)
-        write_app_tsx(workspace, architect, template_renderer)
+        try:
+            apply_workspace_guards(
+                workspace, architect, plan, images, brand_name, primary, secondary, font, template_renderer,
+            )
+        except Exception as guard_exc:
+            print(f"    refine guards skipped: {guard_exc}", flush=True)
+            ensure_mock_exports(workspace, architect, plan, images, brand_name)
+            write_index_css(workspace, primary, secondary, font, template_renderer)
+            write_app_tsx(workspace, architect, template_renderer)
 
         base_path = f"/api/preview-apps/{request_id}"
         _emit(db, request_id, "refine", "Rebuilding live preview...", 60)
@@ -212,20 +286,23 @@ def refine_preview_app_from_chat(
             errors = extract_build_errors(build_log)
             try:
                 fix_build_errors(workspace, errors, architect, ai_provider, template_renderer)
-                ensure_mock_exports(workspace, architect, plan, images, brand_name)
-                write_index_css(workspace, primary, secondary, font, template_renderer)
-                write_app_tsx(workspace, architect, template_renderer)
+                apply_workspace_guards(
+                    workspace, architect, plan, images, brand_name, primary, secondary, font, template_renderer,
+                )
             except Exception:
                 pass
             ok, build_log = run_build(workspace, base_path, template_renderer)
+        if not ok:
+            error_message = extract_build_errors(build_log)[:500] or "Build failed"
+            print(f"[refine] build failed for {request_id}: {error_message[:300]}", flush=True)
     except Exception as exc:
         ok = False
         error_message = str(exc)
+        print(f"[refine] exception for {request_id}: {exc}", flush=True)
+        traceback.print_exc()
 
     reverted = False
     if not ok and had_previous_good_build:
-        # Never leave the live app broken: roll back to exactly what was
-        # being served before this chat message.
         restore_source(workspace, source_snapshot)
         restore_dist(workspace, dist_backup)
         reverted = True
@@ -237,7 +314,7 @@ def refine_preview_app_from_chat(
         pa["url"] = f"{base_path}/"
         pa["status"] = "ready"
     elif reverted:
-        pa["status"] = "ready"  # previous working build is back and being served
+        pa["status"] = "ready"
     else:
         pa["status"] = "failed"
     generated_pages["preview_app"] = pa
@@ -259,6 +336,8 @@ def refine_preview_app_from_chat(
             "I couldn't apply that change without breaking the app, so I've kept your previous "
             "working version live. Try describing one smaller, more specific change at a time."
         )
+        if error_message:
+            reply += f" (Build issue: {error_message[:180]})"
         changes_made = ["No changes applied — reverted to previous working version"]
     else:
         reply = "I couldn't get the live preview building. Try describing one smaller, more specific change."

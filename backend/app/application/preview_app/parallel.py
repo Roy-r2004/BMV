@@ -69,7 +69,10 @@ def parallel_map(
             results[index] = (item, result, exc)
             with lock:
                 done_count += 1
-                if on_done:
-                    on_done(done_count, len(items), item, result, exc)
+                current_done = done_count
+            # Call on_done outside the counter lock so callbacks can do their own
+            # locking / DB work without nesting locks.
+            if on_done:
+                on_done(current_done, len(items), item, result, exc)
 
     return [results[i] for i in range(len(items))]

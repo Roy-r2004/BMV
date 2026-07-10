@@ -353,6 +353,146 @@ def find_empty_seed_pages(workspace) -> list[str]:
     return out
 
 
+_ALLOWED_NPM_IMPORTS = {
+    "react",
+    "react-dom",
+    "react-router-dom",
+    "react/jsx-runtime",
+}
+_IMPORT_FROM_RE = re.compile(
+    r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$""",
+    re.MULTILINE,
+)
+
+
+def _npm_package_name(spec: str) -> str:
+    if spec.startswith("@"):
+        parts = spec.split("/")
+        return "/".join(parts[:2]) if len(parts) >= 2 else spec
+    return spec.split("/")[0]
+
+
+def strip_forbidden_npm_imports(workspace) -> list[str]:
+    """Stub any source file that imports npm packages outside the allow-list.
+
+    The codegen prompt already forbids lucide/mui/headlessui/etc., but models
+    still sneak them in — and Vite then fails hard. Replacing the whole file
+    with a safe stub is deterministic and keeps the preview shipping.
+    """
+    from app.application.preview_app.fallback import write_safe_stub
+
+    stubbed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        if norm.startswith("src/data/"):
+            continue
+        content = read_file(workspace, rel)
+        bad: list[str] = []
+        for m in _IMPORT_FROM_RE.finditer(content):
+            src = m.group(1)
+            # Relative / absolute / Vite alias paths are fine.
+            if (
+                src.startswith(".")
+                or src.startswith("/")
+                or src.startswith("http")
+                or src.startswith("@/")
+                or src.startswith("~/")
+            ):
+                continue
+            pkg = _npm_package_name(src)
+            if pkg in _ALLOWED_NPM_IMPORTS or src in _ALLOWED_NPM_IMPORTS:
+                continue
+            # Scoped path aliases like `@/components/...` already skipped;
+            # real scoped packages are `@scope/name`.
+            bad.append(src)
+        if not bad:
+            continue
+        print(f"    forbidden imports in {norm}: {', '.join(sorted(set(bad)))} — stubbing", flush=True)
+        write_safe_stub(workspace, norm)
+        stubbed.append(norm)
+    return stubbed
+
+
+_ROUTER_SYMBOLS = ("Link", "NavLink", "Outlet", "Navigate", "useNavigate", "useLocation", "useParams")
+
+
+def ensure_react_default_import(workspace) -> list[str]:
+    """Add `import React` when files use runtime `React.*` (e.g. cloneElement).
+
+    Vite's automatic JSX runtime does not inject a React binding, so
+    `React.cloneElement` / `React.FC` value usage crashes with a blank page
+    (`React is not defined`) even though `vite build` succeeds.
+    """
+    fixed: list[str] = []
+    react_use = re.compile(r"\bReact\.")
+    has_default = re.compile(r"import\s+React\b|import\s*\*\s*as\s+React\b")
+    named_only = re.compile(r"import\s*\{([^}]*)\}\s*from\s*['\"]react['\"]\s*;?")
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        if not react_use.search(content) or has_default.search(content):
+            continue
+        m = named_only.search(content)
+        if m:
+            new_imp = f"import React, {{ {m.group(1).strip()} }} from 'react';"
+            content = content[: m.start()] + new_imp + content[m.end() :]
+        else:
+            content = "import React from 'react';\n" + content
+        write_file(workspace, rel, content)
+        fixed.append(norm)
+        print(f"    added React import in {norm}", flush=True)
+    return fixed
+
+
+def ensure_react_router_imports(workspace) -> list[str]:
+    """Add missing react-router-dom named imports when JSX/hooks use them.
+
+    Models often use `<Link>` in layouts/footers without importing it — that
+    builds fine under Vite (no typecheck in `vite build`) then crashes at
+    runtime with a blank white screen (`Link is not defined`).
+    """
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        needed: list[str] = []
+        for sym in _ROUTER_SYMBOLS:
+            used = bool(re.search(rf"<\s*{sym}[\s/>]", content)) or bool(
+                re.search(rf"\b{sym}\s*\(", content)
+            )
+            if not used:
+                continue
+            if re.search(
+                rf"import\s*{{[^}}]*\b{sym}\b[^}}]*}}\s*from\s*['\"]react-router-dom['\"]",
+                content,
+            ):
+                continue
+            needed.append(sym)
+        if not needed:
+            continue
+        m = re.search(
+            r"import\s*\{([^}]*)\}\s*from\s*['\"]react-router-dom['\"]\s*;?",
+            content,
+        )
+        if m:
+            existing = {p.strip() for p in m.group(1).split(",") if p.strip()}
+            merged = sorted(existing | set(needed))
+            new_imp = "import { " + ", ".join(merged) + " } from 'react-router-dom';"
+            content = content[: m.start()] + new_imp + content[m.end() :]
+        else:
+            content = "import { " + ", ".join(needed) + " } from 'react-router-dom';\n" + content
+        write_file(workspace, rel, content)
+        fixed.append(norm)
+        print(f"    added react-router imports in {norm}: {', '.join(needed)}", flush=True)
+    return fixed
+
+
 def apply_workspace_guards(
     workspace,
     architect: dict,
@@ -372,6 +512,9 @@ def apply_workspace_guards(
         (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
+        (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stubbed"),
+        (lambda: ensure_react_default_import(workspace), "React imports fixed"),
+        (lambda: ensure_react_router_imports(workspace), "react-router imports fixed"),
     ):
         try:
             result = fn()
@@ -625,9 +768,37 @@ def ensure_ui_icons(workspace) -> bool:
     if "export default UiIcon" not in content and "export function UiIcon" in content:
         content = content.rstrip() + "\n\nexport default UiIcon;\n"
         changed = True
+    # Pages sometimes do `import { UiIcon }` — expose a named export too.
+    if "export default UiIcon" in content and "export { UiIcon }" not in content:
+        content = content.rstrip() + "\nexport { UiIcon };\n"
+        changed = True
     if changed:
         write_file(workspace, target, content)
     return changed
+
+
+_NAMED_UIICON_IMPORT_RE = re.compile(
+    r"""import\s*\{\s*UiIcon\s*\}\s*from\s*(['"][^'"]*UiIcons['"])\s*;?""",
+    re.MULTILINE,
+)
+
+
+def normalize_ui_icon_imports(workspace) -> list[str]:
+    """Rewrite `import { UiIcon } from '...UiIcons'` → default import."""
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        new_content, n = _NAMED_UIICON_IMPORT_RE.subn(
+            r"import UiIcon from \1;",
+            content,
+        )
+        if n:
+            write_file(workspace, rel, new_content)
+            fixed.append(norm)
+    return fixed
 
 
 def ensure_runtime_correctness(
@@ -645,6 +816,10 @@ def ensure_runtime_correctness(
             fixed.append("src/components/UiIcons.tsx")
     except Exception as e:
         print(f"    ui icons guard skipped: {e}", flush=True)
+    try:
+        fixed.extend(normalize_ui_icon_imports(workspace))
+    except Exception as e:
+        print(f"    ui icon import normalize skipped: {e}", flush=True)
     try:
         if _ensure_tailwind_css(workspace, primary, secondary, font):
             fixed.append("src/index.css (tailwind/theme)")

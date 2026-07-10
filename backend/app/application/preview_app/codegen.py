@@ -158,14 +158,20 @@ _CHROME_CONTRACTS: dict[str, str] = {
         "`export default function Nav({ brandName = 'Brand', items = [], cta }: Props)` "
         "with Props = { brandName?: string; items?: {path,label}[]; cta?: {path,label} }. "
         "Redesign the visual style (spacing, typography, button shape) to fit THIS "
-        "brand specifically — do not default to a generic indigo/slate look."
+        "brand specifically — do not default to a generic indigo/slate look. "
+        "It must feel like a real storefront nav the customer trusts: sticky/clean, "
+        "brand name as text logo, clear active-ready links, strong CTA — never 'Demo' "
+        "or pitch wording in labels."
         + _COLOR_CONSTRAINT
     ),
     "src/layouts/publiclayout.tsx": (
         "This wraps EVERY public page — it must keep rendering <Outlet /> for page content, "
         "keep importing `brand, navigation` from '../data/mock', and keep rendering "
         "<Nav /> from '../components/Nav'. You control the footer content/structure and "
-        "overall shell styling — make it specific to this business, not a generic template."
+        "overall shell styling — make it specific to this business, not a generic template. "
+        "CRITICAL: do NOT wrap <Outlet /> in heavy vertical padding that kills full-bleed "
+        "heroes — let pages own their spacing. Footer must feel real (hours, address, "
+        "phone-style contact lines from brand context) — not a one-line copyright stub."
         + _COLOR_CONSTRAINT
     ),
     "src/layouts/adminlayout.tsx": (
@@ -173,16 +179,19 @@ _CHROME_CONTRACTS: dict[str, str] = {
         "keep importing `brand, navigation` from '../data/mock'. NEVER hardcode a business "
         "type in any label (do not assume 'Studio', 'Restaurant', 'Clinic', etc.) — use "
         "`brand.name` and neutral wording like 'Admin' or 'Dashboard'. You control the "
-        "sidebar/header styling — make it specific to this business."
+        "sidebar/header styling — make it specific to this business. Feel like a real ops "
+        "console: sidebar with clear sections, subtle active state, compact header with "
+        "today's date or 'Live' status — not a marketing shell."
         + _COLOR_CONSTRAINT
     ),
     "src/components/uiicons.tsx": (
         "This is the shared icon set used everywhere via `<UiIcon name=\"...\" />`. Keep "
         "exporting a default `UiIcon` component that accepts a `name` prop and supports at "
         "least these keys: clipboard, chart, target, clock, users, zap, shield, bell, "
-        "calendar, check, search. Design a bespoke stroke style (weight, corner rounding) "
-        "that fits this brand rather than a generic outline set — but every icon must share "
-        "the same stroke weight/rounding as each other."
+        "calendar, check, search, cart, brain, coffee, arrowRight. Design a bespoke stroke "
+        "style (weight, corner rounding) that fits this brand rather than a generic outline "
+        "set — but every icon must share the same stroke weight/rounding as each other. "
+        "Unknown names must fall back to a simple circle/dot SVG — never crash."
         + _COLOR_CONSTRAINT
     ),
 }
@@ -214,7 +223,12 @@ def generate_file(
         instructions = f"{instructions}\n\n{chrome_contract}".strip()
 
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
-    existing = summarize_files(workspace, list_source_files(workspace))
+    # Avoid re-reading the whole tree on every parallel worker (was slow + racy).
+    existing = ""
+    try:
+        existing = summarize_files(workspace, list_source_files(workspace))
+    except Exception as exc:
+        print(f"    summarize_files skip for {file_path}: {exc}", flush=True)
 
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_FILE,
@@ -230,6 +244,7 @@ def generate_file(
         existing_files_summary=existing[:8000],
     )
 
+    print(f"    ask_chat {file_path} model={settings.PREVIEW_APP_MODEL}", flush=True)
     raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
     content = _sanitize_emoji_icons(_strip_fences(raw))
     if looks_truncated_source(content):
