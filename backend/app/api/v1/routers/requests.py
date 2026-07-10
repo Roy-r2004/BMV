@@ -40,11 +40,52 @@ def _run_pipeline_in_background(request_id: int) -> None:
     """
     bg_db = SessionLocal()
     try:
+        print(f"[pipeline] starting request {request_id}", flush=True)
         GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
-    except Exception:
-        pass
+        print(f"[pipeline] finished request {request_id}", flush=True)
+    except Exception as exc:
+        # Never swallow silently — free-tier Render recycles kill threads mid-job,
+        # and OpenRouter errors must show in Logs + progress UI.
+        import traceback
+
+        print(f"[pipeline] FAILED request {request_id}: {exc}", flush=True)
+        traceback.print_exc()
+        try:
+            _emit(
+                bg_db,
+                request_id,
+                "failed",
+                f"Generation failed: {exc}",
+                0,
+                detail=str(exc)[:300],
+            )
+            req = bg_db.query(Request).filter(Request.id == request_id).first()
+            if req and req.status == "new" and not req.mvp_blueprint:
+                req.status = "failed"
+                bg_db.commit()
+        except Exception:
+            print(f"[pipeline] could not persist failure for request {request_id}", flush=True)
     finally:
         bg_db.close()
+
+
+@router.post("/{request_id}/retry-generation")
+def retry_generation(request_id: int, db: Session = Depends(get_db)):
+    """Restart AI generation for a stuck or failed request (no blueprint yet)."""
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.mvp_blueprint:
+        raise HTTPException(status_code=400, detail="Blueprint already exists — open the preview instead")
+
+    req.status = "new"
+    _emit(db, request_id, "analyze", "Restarting generation...", 1, detail="Retry requested")
+    threading.Thread(
+        target=_run_pipeline_in_background,
+        args=(request_id,),
+        daemon=True,
+    ).start()
+    return {"ok": True, "status": "restarted", "id": request_id}
 
 
 @router.post("", response_model=RequestCreateResponse)
@@ -130,7 +171,10 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         except Exception:
             pass
 
-    is_generating = not req.mvp_blueprint and req.status == "new"
+    is_generating = (
+        not req.mvp_blueprint
+        and req.status == "new"
+    )
 
     return PreviewResponse(
         id=req.id,
