@@ -16,6 +16,21 @@ services:
         value: ./app/uploads
       - key: AI_PROVIDER
         value: openrouter
+      # Match local OpenRouter model stack (not the cheap code defaults)
+      - key: TEXT_MODEL
+        value: google/gemini-2.5-flash
+      - key: PREVIEW_APP_MODEL
+        value: deepseek/deepseek-v4-pro
+      - key: ARCHITECT_MODEL
+        value: anthropic/claude-haiku-4.5
+      - key: CRITIC_MODEL
+        value: anthropic/claude-haiku-4.5
+      - key: FIX_MODEL
+        value: deepseek/deepseek-v4-pro
+      - key: PREVIEW_SKIP_CRITIC
+        value: "false"
+      - key: PREVIEW_SKIP_VISUAL_CRITIC
+        value: "true"
       - key: CORS_ORIGINS
         value: https://bmv-web.onrender.com
       - key: ADMIN_PASSWORD
