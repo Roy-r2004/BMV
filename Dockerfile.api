@@ -1,0 +1,43 @@
+# Local/API image: FastAPI + Node (Vite preview builds) + Playwright (visual critique)
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DATA_DIR=/app/data \
+    DATABASE_URL=sqlite:////app/data/buildmyversion.db \
+    UPLOAD_DIR=/app/data/uploads \
+    PREVIEW_TEMPLATE_DIR=/app/backend/preview-template \
+    PREVIEW_APPS_DIR=/app/data/preview-apps \
+    PORT=8000 \
+    PATH="/opt/node/bin:${PATH}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    xz-utils \
+    && curl -fsSL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz \
+      | tar -xJ -C /opt \
+    && mv /opt/node-v20.18.1-linux-x64 /opt/node \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/backend
+
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && playwright install --with-deps --no-shell chromium
+
+COPY backend/ ./
+COPY docker/entrypoint.api.sh /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh \
+    && mkdir -p /app/data/uploads /app/data/preview-apps \
+    && test -f preview-template/package.json
+
+VOLUME ["/app/data"]
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=20s --timeout=10s --start-period=40s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')" || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]

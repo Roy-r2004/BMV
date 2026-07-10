@@ -1,0 +1,32 @@
+# Legacy all-in-one image with embedded Ollama (heavy).
+# Prefer: docker compose up --build  (OpenRouter api + web)
+#
+#   docker compose -f docker-compose.ollama.yml up --build
+
+services:
+  buildmyversion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+    container_name: buildmyversion
+    ports:
+      - "8000:8000"
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change_this_password}
+      ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+      PULL_MODELS: ${PULL_MODELS:-true}
+      DATABASE_URL: sqlite:////app/data/buildmyversion.db
+      UPLOAD_DIR: /app/data/uploads
+      STATIC_DIR: /app/static
+      OLLAMA_URL: http://127.0.0.1:11434
+    volumes:
+      - buildmyversion-data:/app/data
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  buildmyversion-data:
+  ollama-models:
