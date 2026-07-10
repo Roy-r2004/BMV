@@ -53,9 +53,9 @@ services:
         value: "2"
       - key: PREVIEW_MAX_FIX_LOOP_SECONDS
         value: "300"
-      # Network-bound OpenRouter calls — push concurrency hard for speed
+      # Network-bound OpenRouter calls — 4 is safer than 8 (hangs/rate-limits)
       - key: PREVIEW_PARALLEL_WORKERS
-        value: "8"
+        value: "4"
       - key: CORS_ORIGINS
         value: https://bmv-web.onrender.com
       - key: ADMIN_PASSWORD

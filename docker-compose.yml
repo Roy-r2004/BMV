@@ -19,6 +19,12 @@ services:
     environment:
       # Always OpenRouter for local compose — never Ollama / local LLM
       AI_PROVIDER: openrouter
+      # Fast models (DeepSeek parallel hangs for 20+ min with no file completing)
+      TEXT_MODEL: google/gemini-2.5-flash
+      PREVIEW_APP_MODEL: google/gemini-2.5-flash
+      ARCHITECT_MODEL: google/gemini-2.5-flash
+      CRITIC_MODEL: google/gemini-2.5-flash
+      FIX_MODEL: google/gemini-2.5-flash
       # Browser hits host-mapped port; Playwright inside container uses 8000
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       INTERNAL_BASE_URL: http://127.0.0.1:8000
@@ -26,8 +32,8 @@ services:
       PREVIEW_APPS_DIR: /app/data/preview-apps
       PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
       DATABASE_URL: sqlite:////app/data/buildmyversion.db
-      # Fast parallel local test path
-      PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-8}
+      # 8 workers + slow models = stall; 4 is enough parallelism without hanging
+      PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-4}
       PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-true}
       PREVIEW_SKIP_VISUAL_CRITIC: ${PREVIEW_SKIP_VISUAL_CRITIC:-false}
       PREVIEW_MAX_BUILD_FIX_ATTEMPTS: ${PREVIEW_MAX_BUILD_FIX_ATTEMPTS:-2}
