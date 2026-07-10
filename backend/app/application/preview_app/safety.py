@@ -373,15 +373,14 @@ def _npm_package_name(spec: str) -> str:
 
 
 def strip_forbidden_npm_imports(workspace) -> list[str]:
-    """Stub any source file that imports npm packages outside the allow-list.
+    """Remove illegal npm imports without destroying the page.
 
-    The codegen prompt already forbids lucide/mui/headlessui/etc., but models
-    still sneak them in — and Vite then fails hard. Replacing the whole file
-    with a safe stub is deterministic and keeps the preview shipping.
+    Models sometimes sneak in lucide/mui/etc. Stubbing the whole file used to
+    "fix" the build but produced thin fallback pages. Instead we strip the
+    bad import lines and return the paths so the pipeline can AI-regenerate
+    those files (or the fix loop can rewrite them) while keeping product UI.
     """
-    from app.application.preview_app.fallback import write_safe_stub
-
-    stubbed: list[str] = []
+    touched: list[str] = []
     for rel in list_source_files(workspace):
         norm = rel.replace("\\", "/")
         if not norm.endswith((".tsx", ".ts")):
@@ -389,10 +388,9 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
         if norm.startswith("src/data/"):
             continue
         content = read_file(workspace, rel)
-        bad: list[str] = []
+        bad_lines: list[str] = []
         for m in _IMPORT_FROM_RE.finditer(content):
             src = m.group(1)
-            # Relative / absolute / Vite alias paths are fine.
             if (
                 src.startswith(".")
                 or src.startswith("/")
@@ -404,15 +402,22 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
             pkg = _npm_package_name(src)
             if pkg in _ALLOWED_NPM_IMPORTS or src in _ALLOWED_NPM_IMPORTS:
                 continue
-            # Scoped path aliases like `@/components/...` already skipped;
-            # real scoped packages are `@scope/name`.
-            bad.append(src)
-        if not bad:
+            bad_lines.append(m.group(0))
+        if not bad_lines:
             continue
-        print(f"    forbidden imports in {norm}: {', '.join(sorted(set(bad)))} — stubbing", flush=True)
-        write_safe_stub(workspace, norm)
-        stubbed.append(norm)
-    return stubbed
+        updated = content
+        for line in bad_lines:
+            updated = updated.replace(line, f"/* removed forbidden import */\n")
+        if updated != content:
+            write_file(workspace, norm, updated)
+            print(
+                f"    forbidden imports stripped in {norm} "
+                f"(will regenerate/fix rather than stub): "
+                f"{len(bad_lines)} import(s)",
+                flush=True,
+            )
+            touched.append(norm)
+    return touched
 
 
 _ROUTER_SYMBOLS = ("Link", "NavLink", "Outlet", "Navigate", "useNavigate", "useLocation", "useParams")
@@ -512,7 +517,7 @@ def apply_workspace_guards(
         (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
-        (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stubbed"),
+        (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_react_default_import(workspace), "React imports fixed"),
         (lambda: ensure_react_router_imports(workspace), "react-router imports fixed"),
     ):

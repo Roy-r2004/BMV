@@ -50,9 +50,9 @@ services:
       - key: PREVIEW_SKIP_VISUAL_CRITIC
         value: "false"
       - key: PREVIEW_MAX_BUILD_FIX_ATTEMPTS
-        value: "3"
+        value: "5"
       - key: PREVIEW_MAX_FIX_LOOP_SECONDS
-        value: "300"
+        value: "600"
       # Network-bound OpenRouter calls — 4 is safer than 8 (hangs/rate-limits)
       - key: PREVIEW_PARALLEL_WORKERS
         value: "4"

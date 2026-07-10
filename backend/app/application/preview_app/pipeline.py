@@ -48,6 +48,7 @@ from app.application.preview_app.safety import (
     cleanup_page_shells,
     find_empty_seed_pages,
     find_truncated_pages,
+    looks_truncated_source,
 )
 from app.application.preview_app.screenshot import capture_route_screenshot
 from app.application.preview_app.workspace import (
@@ -563,6 +564,7 @@ def generate_preview_app(
         if parallel and workers > 1 and len(batch) > 1:
             print(f"    {label}: {len(batch)} files in parallel (workers={workers})", flush=True)
             _release_pipeline_db()
+            batch_failed: list[dict] = []
 
             def _on_file_done(done: int, _total: int, spec: dict, result, exc) -> None:
                 nonlocal files_completed, generated_ok, page_ok, ok_count, page_count
@@ -573,15 +575,54 @@ def generate_preview_app(
                 _emit_codegen_progress(path, done_now)
                 if exc:
                     print(f"    FAIL {path}: {exc}", flush=True)
+                    batch_failed.append(spec)
                 else:
                     generated_ok += 1
                     ok_count += 1
                     if spec.get("kind") == "page":
                         page_ok += 1
                         page_count += 1
-                    print(f"    OK {path}", flush=True)
+                    # Queue weak outputs for an immediate AI retry.
+                    body = read_file(workspace, path) if path and path != "?" else ""
+                    if looks_truncated_source(body) or (
+                        spec.get("kind") == "page" and body and "export default" not in body
+                    ):
+                        print(f"    WEAK {path} — queued for AI retry", flush=True)
+                        batch_failed.append(spec)
+                    else:
+                        print(f"    OK {path}", flush=True)
 
             parallel_map(batch, _generate_spec, max_workers=workers, on_done=_on_file_done)
+            if batch_failed:
+                # Dedupe by path
+                seen: set[str] = set()
+                retry_specs: list[dict] = []
+                for spec in batch_failed:
+                    p = spec.get("path", "")
+                    if p and p not in seen:
+                        seen.add(p)
+                        retry_specs.append(spec)
+                print(f"    {label}: AI-retrying {len(retry_specs)} weak/failed file(s)...", flush=True)
+                for spec in retry_specs:
+                    path = spec.get("path", "?")
+                    try:
+                        generate_file(
+                            workspace, spec, full_context, architect, plan, manifest, images,
+                            ai_provider, template_renderer,
+                        )
+                        # Count only if this path wasn't already counted as OK.
+                        body = read_file(workspace, path)
+                        if body and not looks_truncated_source(body):
+                            if spec.get("kind") == "page" and "export default" in body:
+                                print(f"    OK retry {path}", flush=True)
+                            elif spec.get("kind") != "page":
+                                print(f"    OK retry {path}", flush=True)
+                            else:
+                                print(f"    retry still weak {path}", flush=True)
+                        else:
+                            print(f"    retry still weak {path}", flush=True)
+                    except Exception as e:
+                        print(f"    FAIL retry {path}: {e}", flush=True)
         else:
             for spec in batch:
                 path = spec.get("path", "?")
@@ -655,17 +696,34 @@ def generate_preview_app(
         _run_batch("missing-routes", missing_specs, parallel=True)
 
     if generated_ok == 0 or page_ok == 0:
-        # Never abort the whole request — seed every planned page with a safe
-        # stub so the build/fix loop still has something to ship.
+        # Prefer another full AI pass over stubs — fallbacks are last resort only.
+        page_specs = [f for f in files_to_gen if f.get("kind") == "page"]
         print(
             f"    codegen produced few usable files (ok={generated_ok}, pages={page_ok}) "
-            "— seeding safe stubs for all planned routes",
+            f"— AI-retrying {len(page_specs)} page(s) before any fallback",
             flush=True,
         )
-        seeded = stabilize_all_route_pages(workspace, architect)
-        print(f"    seeded {len(seeded)} fallback page(s)", flush=True)
-        generated_ok = max(generated_ok, len(seeded))
-        page_ok = max(page_ok, len(seeded))
+        _emit(db, request_id, "codegen", f"Retrying {len(page_specs)} pages with AI...", 70)
+        for spec in page_specs:
+            path = spec.get("path", "?")
+            try:
+                generate_file(
+                    workspace, spec, full_context, architect, plan, manifest, images,
+                    ai_provider, template_renderer,
+                )
+                body = read_file(workspace, path)
+                if body and not looks_truncated_source(body) and "export default" in body:
+                    generated_ok += 1
+                    page_ok += 1
+                    print(f"    OK recovery {path}", flush=True)
+            except Exception as e:
+                print(f"    FAIL recovery {path}: {e}", flush=True)
+        if page_ok == 0:
+            print("    AI recovery still empty — seeding compile-safe pages as last resort", flush=True)
+            seeded = stabilize_all_route_pages(workspace, architect)
+            print(f"    seeded {len(seeded)} fallback page(s)", flush=True)
+            generated_ok = max(generated_ok, len(seeded))
+            page_ok = max(page_ok, len(seeded))
 
     if synthesize_mock_data(
         workspace, full_context, plan, manifest, images, architect, ai_provider, template_renderer,
@@ -809,20 +867,23 @@ def generate_preview_app(
         ok, build_log = run_build(workspace, base_path, template_renderer)
 
     if not ok:
-        # Regenerate broken/truncated pages (and any broken chrome file) once
-        # before falling back to stubs/template-revert.
+        # Prefer AI regeneration (up to 2 rounds) before any stub/template fallback.
         candidate_paths = [
             f.get("path", "") for f in files_to_gen
             if f.get("kind") == "page" or is_chrome_path(f.get("path", ""))
         ]
-        errors = extract_build_errors(build_log)
-        broken = find_broken_paths(errors, candidate_paths) or find_broken_paths(build_log, candidate_paths)
-        broken = list(dict.fromkeys(broken + find_truncated_pages(workspace)))
-        if broken:
+        for regen_round in range(1, 3):
+            if ok:
+                break
+            errors = extract_build_errors(build_log)
+            broken = find_broken_paths(errors, candidate_paths) or find_broken_paths(build_log, candidate_paths)
+            broken = list(dict.fromkeys(broken + find_truncated_pages(workspace)))
+            if not broken:
+                break
             _emit(db, request_id, "build",
-                  f"Regenerating {len(broken)} broken page(s)...", 88,
-                  detail="Re-running codegen on failed pages")
-            print(f"    regenerating broken pages: {', '.join(broken)}", flush=True)
+                  f"AI regenerating {len(broken)} broken page(s) (round {regen_round}/2)...", 88,
+                  detail="Re-running codegen — prefer AI over stubs")
+            print(f"    AI regen round {regen_round}/2: {', '.join(broken)}", flush=True)
             regen_specs = [
                 specs_by_path.get(path) or {"path": path, "kind": "page", "instructions": path}
                 for path in broken
@@ -845,13 +906,11 @@ def generate_preview_app(
                         print(f"    regen FAIL {path}: {e}", flush=True)
             _pre_build_fixups()
             ok, build_log = run_build(workspace, base_path, template_renderer)
+            if ok:
+                print(f"    AI regen round {regen_round} fixed the build", flush=True)
 
     if not ok:
-        # Final safety net: stabilize only files that still fail — never wipe
-        # the whole app. Chrome files (Nav/Layout/UiIcons) revert to the known-
-        # good static template instead of a generic page stub, since a stub's
-        # shape (a centered placeholder block) would break every page that
-        # depends on them rendering a real nav/layout/icon lookup.
+        # Last resort only — after AI fix + 2 AI regen rounds still fail.
         candidate_paths = [
             f.get("path", "") for f in files_to_gen
             if f.get("kind") == "page" or is_chrome_path(f.get("path", ""))
@@ -865,7 +924,7 @@ def generate_preview_app(
                 break
             _emit(db, request_id, "build",
                   f"Stabilizing {len(broken)} page(s) (round {stub_round}/2)...", 88,
-                  detail="Applying guaranteed-safe fallback content")
+                  detail="Last-resort compile-safe content after AI retries")
             print(f"    stabilizing {len(broken)} page(s): {', '.join(broken)}", flush=True)
             for path in broken:
                 if is_chrome_path(path):

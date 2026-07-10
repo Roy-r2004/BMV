@@ -247,18 +247,42 @@ def generate_file(
     print(f"    ask_chat {file_path} model={settings.PREVIEW_APP_MODEL}", flush=True)
     raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
     content = _sanitize_emoji_icons(_strip_fences(raw))
-    if looks_truncated_source(content):
+
+    def _needs_retry(src: str) -> bool:
+        if not (src or "").strip():
+            return True
+        if looks_truncated_source(src):
+            return True
+        if file_kind in ("page", "layout", "component", "router") and "export default" not in src:
+            return True
+        return False
+
+    # Up to 2 retries on the primary path — prefer a complete AI file over any stub.
+    for attempt in range(1, 3):
+        if not _needs_retry(content):
+            break
+        reason = "empty" if not (content or "").strip() else (
+            "truncated" if looks_truncated_source(content) else "missing export default"
+        )
+        print(f"    regen {file_path} attempt {attempt}/2 ({reason})", flush=True)
         retry_prompt = (
             f"{prompt}\n\n"
-            "IMPORTANT: Your previous answer was CUT OFF mid-line. "
-            "Return the COMPLETE file from first import to the final closing brace — no truncation."
+            f"IMPORTANT: Previous answer failed ({reason}). "
+            "Return the COMPLETE TypeScript/React file only — start with imports, "
+            "end with export default. MUST compile. ONLY import from react, "
+            "react-router-dom, ../data/mock (or @/data/mock), ../components/UiIcons, "
+            "and existing local files. No npm icon/UI libraries. No markdown fences."
         )
         raw2 = ai_provider.ask_chat(
             settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=16000,
         )
         retry_content = _sanitize_emoji_icons(_strip_fences(raw2))
-        if not looks_truncated_source(retry_content):
+        if retry_content and not _needs_retry(retry_content):
             content = retry_content
+            break
+        if retry_content and len(retry_content) > len(content or ""):
+            content = retry_content
+
     write_file(workspace, file_path, content)
     return content
 

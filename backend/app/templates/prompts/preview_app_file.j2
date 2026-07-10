@@ -40,6 +40,15 @@ You are building the LIVE product the business owner already runs — not a pitc
 - Thin pages fail. Target ~180+ lines for primary pages (home, menu, dashboard, orders). Confirmation pages can be shorter but still polished.
 - NEVER ship "This section is being fine-tuned" or placeholder empty states when the plan calls for content.
 
+═══ COMPILE GUARANTEE (NON-NEGOTIABLE) ═══
+The file MUST be complete and Vite-buildable on the first try:
+- Output the FULL file — never truncate mid-line or mid-JSX
+- MUST include `export default` for page/layout/component files
+- ONLY import from: `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, and files listed in EXISTING FILES
+- NEVER import lucide-react, @mui, antd, recharts, framer-motion, or any other npm package
+- If an icon is needed and UiIcon lacks the name, use inline SVG — do not invent npm imports
+- TypeScript must parse: balanced braces/parens, closed JSX tags, no markdown fences
+
 TECH RULES:
 - React 19 functional components, TypeScript, Tailwind utility classes only
 - CRITICAL for src/index.css: it MUST start with the line `@import "tailwindcss";` then a `@theme { ... }` block defining --color-brand, --color-brand-dark, --font-sans from the design system. NEVER remove the tailwindcss import and NEVER replace Tailwind with plain custom CSS classes (no .container/.table/.button rules). Styling comes from Tailwind utilities in the components (bg-brand, text-brand, rounded-2xl, grid, etc.).
