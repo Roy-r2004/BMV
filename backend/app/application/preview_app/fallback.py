@@ -158,3 +158,37 @@ export default function {component}() {{
 }}
 """
     write_file(workspace, path, content)
+
+
+def stabilize_all_route_pages(workspace, architect: dict) -> list[str]:
+    """Last-resort: stub every planned page + revert chrome so Vite can always ship.
+
+    Used when targeted stubbing still leaves the build broken (e.g. cascading
+    import errors). Returns the list of paths rewritten.
+    """
+    rewritten: list[str] = []
+    chrome = [
+        "src/components/Nav.tsx",
+        "src/layouts/PublicLayout.tsx",
+        "src/layouts/AdminLayout.tsx",
+        "src/components/UiIcons.tsx",
+    ]
+    for path in chrome:
+        if write_template_fallback(workspace, path):
+            rewritten.append(path)
+
+    for rt in architect.get("routes") or []:
+        path = (rt.get("component_file") or "").replace("\\", "/")
+        if not path or not path.startswith("src/"):
+            continue
+        if is_chrome_path(path):
+            continue
+        write_safe_stub(workspace, path)
+        rewritten.append(path)
+
+    # Always ensure a HomePage exists for the catch-all redirect.
+    home = "src/pages/HomePage.tsx"
+    if home not in rewritten:
+        write_safe_stub(workspace, home)
+        rewritten.append(home)
+    return rewritten

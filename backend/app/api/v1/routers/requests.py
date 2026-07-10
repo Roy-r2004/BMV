@@ -31,6 +31,18 @@ from app.infrastructure.web.reference_scraper import fetch_reference_metadata
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
+_preview_gen_locks: dict[int, threading.Lock] = {}
+_preview_gen_locks_guard = threading.Lock()
+
+
+def _preview_gen_lock(request_id: int) -> threading.Lock:
+    with _preview_gen_locks_guard:
+        lock = _preview_gen_locks.get(request_id)
+        if lock is None:
+            lock = threading.Lock()
+            _preview_gen_locks[request_id] = lock
+        return lock
+
 
 def _run_pipeline_in_background(request_id: int) -> None:
     """Run the (long, blocking) AI pipeline on its own thread + DB session.
@@ -208,6 +220,12 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
 
 
 def _run_preview_app_in_background(request_id: int) -> None:
+    # One generation at a time per request — concurrent runs race on the same
+    # workspace (Playwright + Vite) and can leave a failed/partial build.
+    lock = _preview_gen_lock(request_id)
+    if not lock.acquire(blocking=False):
+        print(f"preview app generation already running for request {request_id} — skip", flush=True)
+        return
     bg_db = SessionLocal()
     try:
         generate_preview_app(bg_db, request_id, get_ai_provider(), get_template_renderer())
@@ -219,6 +237,7 @@ def _run_preview_app_in_background(request_id: int) -> None:
             pass
     finally:
         bg_db.close()
+        lock.release()
 
 
 def _run_role_pages_in_background(request_id: int) -> None:

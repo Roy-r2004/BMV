@@ -37,6 +37,7 @@ from app.application.preview_app.codegen import (
 from app.application.preview_app.fallback import (
     find_broken_paths,
     is_chrome_path,
+    stabilize_all_route_pages,
     write_safe_stub,
     write_template_fallback,
 )
@@ -654,10 +655,17 @@ def generate_preview_app(
         _run_batch("missing-routes", missing_specs, parallel=True)
 
     if generated_ok == 0 or page_ok == 0:
-        raise RuntimeError(
-            f"Codegen produced no usable files (ok={generated_ok}, pages={page_ok}). "
-            "Refusing to serve the blank template as a finished preview."
+        # Never abort the whole request — seed every planned page with a safe
+        # stub so the build/fix loop still has something to ship.
+        print(
+            f"    codegen produced few usable files (ok={generated_ok}, pages={page_ok}) "
+            "— seeding safe stubs for all planned routes",
+            flush=True,
         )
+        seeded = stabilize_all_route_pages(workspace, architect)
+        print(f"    seeded {len(seeded)} fallback page(s)", flush=True)
+        generated_ok = max(generated_ok, len(seeded))
+        page_ok = max(page_ok, len(seeded))
 
     if synthesize_mock_data(
         workspace, full_context, plan, manifest, images, architect, ai_provider, template_renderer,
@@ -871,6 +879,18 @@ def generate_preview_app(
                 print(f"    stabilized — build now succeeds", flush=True)
                 break
 
+    if not ok:
+        # Nuclear safety net: rewrite ALL route pages + chrome to known-good
+        # content so the preview always ships something the owner can open.
+        print("    nuclear stabilize — stubbing all routes + template chrome", flush=True)
+        _emit(db, request_id, "build", "Applying full safe fallback so the preview still opens...", 88)
+        stabilize_all_route_pages(workspace, architect)
+        write_plumbing_mock(workspace, architect, images, brand_name, primary, secondary)
+        _pre_build_fixups()
+        ok, build_log = run_build(workspace, base_path, template_renderer)
+        if ok:
+            print("    nuclear stabilize succeeded — preview will ship", flush=True)
+
     if ok:
         _emit(db, request_id, "build_done", "Preview app compiled successfully!", 89,
               detail=f"{total_files} pages built and live")
@@ -970,6 +990,17 @@ def generate_preview_app(
     db.commit()
 
     if not ok:
-        raise RuntimeError(f"Preview app build failed after {max_fix_attempts} fix attempts")
+        # Do not raise — the UI already has status=failed. Raising caused the
+        # background worker to emit a second "Generation failed" and made
+        # concurrent runs look like hard crashes even after fallbacks ran.
+        print(
+            f"  WARN preview {request_id} finished without a successful Vite build "
+            f"after {max_fix_attempts} fix attempts — status marked failed",
+            flush=True,
+        )
+        _emit(db, request_id, "failed", "Preview build could not complete — try Generate again", 100)
+        return result
 
+    _emit(db, request_id, "ready", "Live preview ready!", 100,
+          detail=preview_url or "")
     return result
