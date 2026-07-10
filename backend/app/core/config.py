@@ -80,9 +80,21 @@ class Settings:
     INTERNAL_BASE_URL: str
 
     def __init__(self) -> None:
-        self.PREVIEW_TEMPLATE_DIR = Path(
-            os.getenv("PREVIEW_TEMPLATE_DIR", str(self.PROJECT_ROOT / "preview-template"))
+        # Resolve preview-template from env, repo root, or next to backend/
+        # (Render used to deploy rootDir=backend only — template was missing).
+        env_tpl = (os.getenv("PREVIEW_TEMPLATE_DIR") or "").strip()
+        candidates = []
+        if env_tpl:
+            candidates.append(Path(env_tpl))
+        candidates.extend(
+            [
+                self.PROJECT_ROOT / "preview-template",
+                self.BASE_DIR.parent / "preview-template",
+                Path.cwd() / "preview-template",
+                Path.cwd().parent / "preview-template",
+            ]
         )
+        self.PREVIEW_TEMPLATE_DIR = next((p for p in candidates if p.is_dir()), candidates[0])
         self.PREVIEW_APPS_DIR = Path(
             os.getenv("PREVIEW_APPS_DIR", str(Path(self.UPLOAD_DIR) / "preview-apps"))
         )

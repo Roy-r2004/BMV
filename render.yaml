@@ -2,10 +2,22 @@ services:
   - type: web
     name: bmv-api
     runtime: python
-    rootDir: backend
+    # Repo root so preview-template/ is available (codegen needs it)
+    rootDir: .
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: |
+      set -e
+      pip install -r backend/requirements.txt
+      # Node/npm required for Vite preview-app builds at runtime
+      NODE_DIR="$HOME/node"
+      if [ ! -x "$NODE_DIR/bin/node" ]; then
+        curl -fsSL https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz -o /tmp/node.tar.xz
+        mkdir -p "$NODE_DIR"
+        tar -xJf /tmp/node.tar.xz -C "$NODE_DIR" --strip-components=1
+      fi
+      "$NODE_DIR/bin/node" -v
+      "$NODE_DIR/bin/npm" -v
+    startCommand: export PATH="$HOME/node/bin:$PATH" && cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.4
@@ -14,6 +26,9 @@ services:
         value: sqlite:///./buildmyversion.db
       - key: UPLOAD_DIR
         value: ./app/uploads
+      - key: PREVIEW_TEMPLATE_DIR
+        # startCommand cds into backend/, so template is one level up
+        value: ../preview-template
       - key: AI_PROVIDER
         value: openrouter
       # Match local OpenRouter model stack (not the cheap code defaults)
