@@ -1,27 +1,61 @@
+# Local full stack: API (OpenRouter) + Vite frontend
+# Usage:
+#   docker compose up --build
+# Frontend: http://localhost:5173
+# API:      http://localhost:8001
+
+name: bmv-local
+
 services:
-  buildmyversion:
+  api:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: ""
-        VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
-    container_name: buildmyversion
+      dockerfile: Dockerfile.api
+    container_name: bmv-api
     ports:
-      - "8000:8000"
+      - "8001:8000"
+    env_file:
+      - ./backend/.env
     environment:
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change_this_password}
-      ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
-      PULL_MODELS: ${PULL_MODELS:-true}
-      DATABASE_URL: sqlite:////app/data/buildmyversion.db
+      # Always OpenRouter for local compose — never Ollama / local LLM
+      AI_PROVIDER: openrouter
+      # Browser hits host-mapped port; Playwright inside container uses 8000
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      INTERNAL_BASE_URL: http://127.0.0.1:8000
       UPLOAD_DIR: /app/data/uploads
-      STATIC_DIR: /app/static
-      OLLAMA_URL: http://127.0.0.1:11434
+      PREVIEW_APPS_DIR: /app/data/preview-apps
+      PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
+      DATABASE_URL: sqlite:////app/data/buildmyversion.db
+      # Fast parallel local test path
+      PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-8}
+      PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-true}
+      PREVIEW_SKIP_VISUAL_CRITIC: ${PREVIEW_SKIP_VISUAL_CRITIC:-false}
+      PREVIEW_MAX_BUILD_FIX_ATTEMPTS: ${PREVIEW_MAX_BUILD_FIX_ATTEMPTS:-2}
+      PREVIEW_MAX_FIX_LOOP_SECONDS: ${PREVIEW_MAX_FIX_LOOP_SECONDS:-300}
     volumes:
-      - buildmyversion-data:/app/data
-      - ollama-models:/root/.ollama
+      - bmv-api-data:/app/data
+      # Live-edit backend without rebuild (optional; comment out for pure image test)
+      - ./backend/app:/app/backend/app
+      - ./backend/data:/app/backend/data
+      - ./backend/preview-template:/app/backend/preview-template
+    restart: unless-stopped
+
+  web:
+    image: node:20-alpine
+    container_name: bmv-web
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8001
+    volumes:
+      - ./frontend:/app
+      - bmv-web-node-modules:/app/node_modules
+    depends_on:
+      - api
     restart: unless-stopped
 
 volumes:
-  buildmyversion-data:
-  ollama-models:
+  bmv-api-data:
+  bmv-web-node-modules:

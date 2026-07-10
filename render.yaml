@@ -19,8 +19,8 @@ services:
       "$NODE_DIR/bin/npm" -v
       test -f preview-template/package.json
       echo "preview-template OK"
-      # Chromium for post-build visual critique screenshots
-      playwright install --with-deps chromium
+      # Chromium only — do NOT use --with-deps on Render (needs root `su` and fails)
+      playwright install chromium
     startCommand: export PATH="$HOME/node/bin:$PATH" && export INTERNAL_BASE_URL="http://127.0.0.1:${PORT}" && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
