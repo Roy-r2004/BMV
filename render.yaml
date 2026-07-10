@@ -19,7 +19,9 @@ services:
       "$NODE_DIR/bin/npm" -v
       test -f preview-template/package.json
       echo "preview-template OK"
-    startCommand: export PATH="$HOME/node/bin:$PATH" && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      # Chromium for post-build visual critique screenshots
+      playwright install --with-deps chromium
+    startCommand: export PATH="$HOME/node/bin:$PATH" && export INTERNAL_BASE_URL="http://127.0.0.1:${PORT}" && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.4
@@ -32,7 +34,7 @@ services:
         value: ./preview-template
       - key: AI_PROVIDER
         value: openrouter
-      # Fast live path — target ~8–15 min, not 40+
+      # Fast live path — Flash for speed; visual critique stays on
       - key: TEXT_MODEL
         value: google/gemini-2.5-flash
       - key: PREVIEW_APP_MODEL
