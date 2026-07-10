@@ -76,6 +76,9 @@ class Settings:
     FIX_MODEL: str
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
+    PREVIEW_MAX_FILES: int
+    PREVIEW_MAX_BUILD_FIX_ATTEMPTS: int
+    PREVIEW_MAX_FIX_LOOP_SECONDS: int
     PREVIEW_SKIP_VISUAL_CRITIC: bool
     INTERNAL_BASE_URL: str
 
@@ -123,6 +126,19 @@ class Settings:
             self.PREVIEW_PARALLEL_WORKERS = max(1, int(os.getenv("PREVIEW_PARALLEL_WORKERS", "4")))
         except ValueError:
             self.PREVIEW_PARALLEL_WORKERS = 4
+        try:
+            # Cap how many AI-authored files we generate (keeps live demos under ~10–15 min).
+            self.PREVIEW_MAX_FILES = max(6, int(os.getenv("PREVIEW_MAX_FILES", "40")))
+        except ValueError:
+            self.PREVIEW_MAX_FILES = 40
+        try:
+            self.PREVIEW_MAX_BUILD_FIX_ATTEMPTS = max(1, int(os.getenv("PREVIEW_MAX_BUILD_FIX_ATTEMPTS", "6")))
+        except ValueError:
+            self.PREVIEW_MAX_BUILD_FIX_ATTEMPTS = 6
+        try:
+            self.PREVIEW_MAX_FIX_LOOP_SECONDS = max(60, int(os.getenv("PREVIEW_MAX_FIX_LOOP_SECONDS", "900")))
+        except ValueError:
+            self.PREVIEW_MAX_FIX_LOOP_SECONDS = 900
 
         # Post-build visual critique (screenshot + vision critic) is the most
         # expensive/slowest stage in the pipeline (headless Chromium launch +

@@ -32,24 +32,29 @@ services:
         value: ./preview-template
       - key: AI_PROVIDER
         value: openrouter
-      # Match local OpenRouter model stack (not the cheap code defaults)
+      # Fast live path — target ~8–15 min, not 40+
       - key: TEXT_MODEL
         value: google/gemini-2.5-flash
       - key: PREVIEW_APP_MODEL
-        value: deepseek/deepseek-v4-pro
+        value: google/gemini-2.5-flash
       - key: ARCHITECT_MODEL
-        value: anthropic/claude-haiku-4.5
+        value: google/gemini-2.5-flash
       - key: CRITIC_MODEL
-        value: anthropic/claude-haiku-4.5
+        value: google/gemini-2.5-flash
       - key: FIX_MODEL
-        value: deepseek/deepseek-v4-pro
+        value: google/gemini-2.5-flash
       - key: PREVIEW_SKIP_CRITIC
-        value: "false"
+        value: "true"
       - key: PREVIEW_SKIP_VISUAL_CRITIC
         value: "true"
-      # Free tier OOM risk — generate files one at a time
+      - key: PREVIEW_MAX_FILES
+        value: "10"
+      - key: PREVIEW_MAX_BUILD_FIX_ATTEMPTS
+        value: "2"
+      - key: PREVIEW_MAX_FIX_LOOP_SECONDS
+        value: "300"
       - key: PREVIEW_PARALLEL_WORKERS
-        value: "1"
+        value: "2"
       - key: CORS_ORIGINS
         value: https://bmv-web.onrender.com
       - key: ADMIN_PASSWORD

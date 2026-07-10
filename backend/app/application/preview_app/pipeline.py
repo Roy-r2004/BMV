@@ -60,8 +60,8 @@ from app.core.config import settings
 from app.infrastructure.db.session import SessionLocal
 
 MAX_BUILD_FIX_ATTEMPTS = 6
-MAX_FILES = 40  # No artificial cap — build every page the architect plans
-MAX_FIX_LOOP_SECONDS = 900  # 15 min ceiling on the AI fix-loop specifically —
+MAX_FILES = 40  # Overridden at runtime by settings.PREVIEW_MAX_FILES
+MAX_FIX_LOOP_SECONDS = 900  # Overridden at runtime by settings.PREVIEW_MAX_FIX_LOOP_SECONDS
 # beyond this, stop paying for more AI-fix attempts and drop straight to the
 # deterministic regen-once-then-stub/revert safety net, which always finishes.
 MAX_VISUAL_CRITIQUE_PAGES = 6  # Screenshotting + vision-critiquing every route
@@ -452,10 +452,16 @@ def generate_preview_app(
         f for f in architect.get("files_to_generate", [])
         if (f.get("path") or "").lower().replace("\\", "/") not in _skip
     ]
-    files_to_gen = _sort_gen_order(all_files[:MAX_FILES])
+    files_to_gen = _sort_gen_order(all_files[: settings.PREVIEW_MAX_FILES])
     total_files = len(files_to_gen)
     workers = settings.PREVIEW_PARALLEL_WORKERS
-    print(f"  [4/6] Codegen agent — {total_files} files (parallel workers={workers})...", flush=True)
+    max_fix_attempts = settings.PREVIEW_MAX_BUILD_FIX_ATTEMPTS
+    max_fix_seconds = settings.PREVIEW_MAX_FIX_LOOP_SECONDS
+    print(
+        f"  [4/6] Codegen agent — {total_files} files "
+        f"(cap={settings.PREVIEW_MAX_FILES}, workers={workers})...",
+        flush=True,
+    )
     _emit(
         db,
         request_id,
@@ -895,6 +901,6 @@ def generate_preview_app(
     db.commit()
 
     if not ok:
-        raise RuntimeError(f"Preview app build failed after {MAX_BUILD_FIX_ATTEMPTS} fix attempts")
+        raise RuntimeError(f"Preview app build failed after {max_fix_attempts} fix attempts")
 
     return result
