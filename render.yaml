@@ -46,7 +46,7 @@ services:
       - key: PREVIEW_SKIP_CRITIC
         value: "true"
       - key: PREVIEW_SKIP_VISUAL_CRITIC
-        value: "true"
+        value: "false"
       - key: PREVIEW_MAX_BUILD_FIX_ATTEMPTS
         value: "2"
       - key: PREVIEW_MAX_FIX_LOOP_SECONDS
