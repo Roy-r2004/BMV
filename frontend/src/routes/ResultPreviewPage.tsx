@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getPreview, requestBuild } from '../api/requests';
 import type { PreviewResponse } from '../types/request';
@@ -7,6 +7,7 @@ import PreviewRefineChat from '../components/PreviewRefineChat';
 import BuildRequestCTA from '../components/BuildRequestCTA';
 import AiModelsBanner from '../components/AiModelsBanner';
 import Logo from '../components/Logo';
+import ShareDemoButton from '../components/ShareDemoButton';
 import GenerationCinematic from '../components/preview/GenerationCinematic';
 import VisualDemoPreview from '../components/VisualDemoPreview';
 import PreviewExplainer from '../components/preview/PreviewExplainer';
@@ -23,6 +24,7 @@ const ease = [0.22, 1, 0.36, 1] as const;
 export default function ResultPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -63,7 +65,8 @@ export default function ResultPreviewPage() {
   };
 
   const requestId = id ? Number(id) : 0;
-  const isDemoView = searchParams.get('from') === 'demo';
+  const isShareRoute = location.pathname.startsWith('/share/');
+  const isDemoView = searchParams.get('from') === 'demo' || isShareRoute;
   const showRefineChat = !isDemoView;
   const chatGutter = showRefineChat ? 'result-with-chat-gutter' : '';
 
@@ -117,10 +120,14 @@ export default function ResultPreviewPage() {
       <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto flex items-center justify-between py-3.5 px-4 sm:px-6">
           <Logo />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-sm text-slate-500 hidden sm:inline">{preview.business_name}</span>
+            <ShareDemoButton
+              requestId={preview.id}
+              conceptName={preview.concept_name}
+            />
             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100">
-              Full package
+              {isShareRoute ? 'Shared demo' : 'Full package'}
             </span>
           </div>
         </div>
@@ -138,7 +145,11 @@ export default function ResultPreviewPage() {
           >
             <div className="text-center mb-2">
               <p className="text-xs font-semibold text-indigo-600 mb-0.5">
-                {isDemoView ? 'Example demo' : 'Built exclusively for you'}
+                {isShareRoute
+                  ? 'Live product preview'
+                  : isDemoView
+                    ? 'Example demo'
+                    : 'Built exclusively for you'}
               </p>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                 {preview.concept_name}
@@ -154,7 +165,6 @@ export default function ResultPreviewPage() {
           </motion.div>
         )}
 
-        {/* First screen: nav + full-width product window (fits in viewport) */}
         <section id="live-product" className="result-first-screen scroll-mt-28">
           <div className={`sticky top-14 z-30 shrink-0 w-full px-2 sm:px-3 pt-1 pb-2 bg-[#f8fafc]/95 backdrop-blur-xl ${chatGutter}`}>
             <DeliveryNavigator items={buildDeliveryNavItems(preview, true)} embedded compact />
@@ -199,7 +209,6 @@ export default function ResultPreviewPage() {
         </section>
       </div>
 
-      {/* Full delivery details */}
       <section className="border-t border-slate-200/80 bg-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
           <FullDeliveryPackage preview={preview} liveSiteAbove hideNavigator />

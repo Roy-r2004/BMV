@@ -30,6 +30,7 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/submit" element={<SubmitPage />} />
           <Route path="/result/:id" element={<ResultPreviewPage />} />
+          <Route path="/share/:id" element={<ResultPreviewPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />

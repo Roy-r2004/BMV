@@ -218,7 +218,9 @@ Runtime enforcement so demos feel like real products — not just “build succe
 | Refine recoverability | Failed chat rebuilds keep the last good `dist` + `url`, set `last_refinement_error`, and show a banner — iframe does not disappear |
 | Shared npm | Deps install once into `PREVIEW_APPS_DIR/_shared_npm/<lock-hash>/` and are junctioned/symlinked into each workspace — no full `npm install` per demo |
 
-**Roadmap (deferred):** role walkthrough mode and one-click share — after this quality bar is solid.
+**Share demo:** Owners use **Share demo** on `/result/{id}` to copy `/share/{id}` — a clean viewer (no refine chat). Same preview API; no token required yet.
+
+**Roadmap (later):** private share tokens / expiry; role walkthrough mode.
 
 ## Config and runtime paths
 
