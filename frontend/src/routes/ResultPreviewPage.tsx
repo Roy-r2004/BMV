@@ -110,9 +110,7 @@ export default function ResultPreviewPage() {
   }
 
   const previewAppInfo = preview.generated_pages?.preview_app;
-  const showLivePreviewApp =
-    Boolean(previewAppInfo?.url) &&
-    (previewAppInfo?.status === 'ready' || previewAppInfo?.status === 'rebuilding');
+  const showLivePreviewApp = Boolean(previewAppInfo?.url);
 
   return (
     <div className={`min-h-screen bg-[#f8fafc] ${showRefineChat ? 'result-page--with-chat' : ''}`}>

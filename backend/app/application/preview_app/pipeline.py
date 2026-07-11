@@ -22,7 +22,7 @@ from app.application.services.page_experience import (
     build_experience_plan,
     gather_full_context,
 )
-from app.application.preview_app.assemble import find_missing_route_pages, write_app_tsx, write_index_css, write_plumbing_mock
+from app.application.preview_app.assemble import find_missing_route_pages, find_unresolved_routes, write_app_tsx, write_index_css, write_plumbing_mock
 from app.application.preview_app.build import extract_build_errors, run_build
 from app.application.preview_app.codegen import (
     call_architect,
@@ -35,6 +35,8 @@ from app.application.preview_app.codegen import (
     synthesize_mock_data,
 )
 from app.application.preview_app.fallback import (
+    clear_stubbed_paths,
+    consume_stubbed_paths,
     find_broken_paths,
     is_chrome_path,
     stabilize_all_route_pages,
@@ -245,6 +247,13 @@ def _sort_gen_order(files: list[dict]) -> list[dict]:
     """Generate foundational files first so later files can import them."""
     kind_order = {"theme": 0, "data": 1, "component": 2, "layout": 3, "page": 4, "router": 5}
     return sorted(files, key=lambda f: (kind_order.get(f.get("kind", ""), 4), f.get("path", "")))
+
+
+def _prioritize_for_file_cap(files: list[dict]) -> list[dict]:
+    """Keep pages first when slicing to PREVIEW_MAX_FILES so routes aren't dropped."""
+    pages = [f for f in files if (f.get("kind") or "") == "page"]
+    rest = [f for f in files if (f.get("kind") or "") != "page"]
+    return pages + rest
 
 
 def _attach_plan_sections(files: list[dict], plan: dict, architect: dict | None = None) -> list[dict]:
@@ -484,7 +493,25 @@ def generate_preview_app(
         f for f in architect.get("files_to_generate", [])
         if (f.get("path") or "").lower().replace("\\", "/") not in _skip
     ]
-    files_to_gen = _sort_gen_order(all_files[: settings.PREVIEW_MAX_FILES])
+    prioritized = _prioritize_for_file_cap(all_files)
+    capped = prioritized[: settings.PREVIEW_MAX_FILES]
+    skipped_files = prioritized[settings.PREVIEW_MAX_FILES :]
+    if skipped_files:
+        skip_paths = [f.get("path", "?") for f in skipped_files]
+        print(
+            f"    file cap: skipping {len(skipped_files)} non-priority file(s): "
+            f"{', '.join(skip_paths[:8])}{'…' if len(skip_paths) > 8 else ''}",
+            flush=True,
+        )
+        _emit(
+            db, request_id, "codegen",
+            f"Capped to {len(capped)} files — prioritizing pages",
+            41,
+            detail=f"Skipped {len(skipped_files)}: {', '.join(skip_paths[:5])}",
+        )
+    files_to_gen = _sort_gen_order(capped)
+    clear_stubbed_paths()
+    industry = req.industry or ""
     total_files = len(files_to_gen)
     workers = settings.PREVIEW_PARALLEL_WORKERS
     max_fix_attempts = settings.PREVIEW_MAX_BUILD_FIX_ATTEMPTS
@@ -695,6 +722,42 @@ def generate_preview_app(
         print(f"    generating {len(missing_specs)} missing route page(s)...", flush=True)
         _run_batch("missing-routes", missing_specs, parallel=True)
 
+    unresolved = find_unresolved_routes(workspace, architect)
+    if unresolved:
+        print(f"    {len(unresolved)} route(s) still unresolved — AI regen then stub+wire", flush=True)
+        _emit(db, request_id, "codegen", f"Filling {len(unresolved)} missing routes...", 72)
+        for rt in unresolved:
+            cf = (rt.get("component_file") or "").replace("\\", "/")
+            if not cf:
+                continue
+            spec = specs_by_path.get(cf) or {
+                "path": cf,
+                "kind": "page",
+                "instructions": (
+                    f"{rt.get('title', '')} — {rt.get('purpose', '')}. "
+                    f"Role: {rt.get('role_id', '')}."
+                ),
+            }
+            try:
+                generate_file(
+                    workspace, spec, full_context, architect, plan, manifest, images,
+                    ai_provider, template_renderer,
+                )
+            except Exception as e:
+                print(f"    unresolved regen FAIL {cf}: {e}", flush=True)
+            if not read_file(workspace, cf).strip():
+                write_safe_stub(
+                    workspace, cf,
+                    brand_name=brand_name,
+                    industry=industry,
+                    page_title=rt.get("title"),
+                )
+                print(f"    stubbed unresolved route page: {cf}", flush=True)
+        still = find_unresolved_routes(workspace, architect)
+        if still:
+            print(f"    WARN {len(still)} route(s) still unresolved after fill", flush=True)
+        write_app_tsx(workspace, architect, template_renderer)
+
     if generated_ok == 0 or page_ok == 0:
         # Prefer another full AI pass over stubs — fallbacks are last resort only.
         page_specs = [f for f in files_to_gen if f.get("kind") == "page"]
@@ -720,7 +783,9 @@ def generate_preview_app(
                 print(f"    FAIL recovery {path}: {e}", flush=True)
         if page_ok == 0:
             print("    AI recovery still empty — seeding compile-safe pages as last resort", flush=True)
-            seeded = stabilize_all_route_pages(workspace, architect)
+            seeded = stabilize_all_route_pages(
+                workspace, architect, brand_name=brand_name, industry=industry,
+            )
             print(f"    seeded {len(seeded)} fallback page(s)", flush=True)
             generated_ok = max(generated_ok, len(seeded))
             page_ok = max(page_ok, len(seeded))
@@ -929,9 +994,9 @@ def generate_preview_app(
             for path in broken:
                 if is_chrome_path(path):
                     if not write_template_fallback(workspace, path):
-                        write_safe_stub(workspace, path)
+                        write_safe_stub(workspace, path, brand_name=brand_name, industry=industry)
                 else:
-                    write_safe_stub(workspace, path)
+                    write_safe_stub(workspace, path, brand_name=brand_name, industry=industry)
             _pre_build_fixups()
             ok, build_log = run_build(workspace, base_path, template_renderer)
             if ok:
@@ -943,7 +1008,9 @@ def generate_preview_app(
         # content so the preview always ships something the owner can open.
         print("    nuclear stabilize — stubbing all routes + template chrome", flush=True)
         _emit(db, request_id, "build", "Applying full safe fallback so the preview still opens...", 88)
-        stabilize_all_route_pages(workspace, architect)
+        stabilize_all_route_pages(
+            workspace, architect, brand_name=brand_name, industry=industry,
+        )
         write_plumbing_mock(workspace, architect, images, brand_name, primary, secondary)
         _pre_build_fixups()
         ok, build_log = run_build(workspace, base_path, template_renderer)
@@ -1019,6 +1086,7 @@ def generate_preview_app(
             "roles": roles_out,
             "routes": route_list,
             "design_direction": architect.get("design_direction", ""),
+            "fallback_pages": consume_stubbed_paths(),
         },
         "experience_plan": plan,
     }

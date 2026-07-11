@@ -26,6 +26,21 @@ export async function getPreview(id: number): Promise<PreviewResponse> {
   return normalizePreview(data);
 }
 
+export interface GenerationProgress {
+  stage?: string;
+  label?: string;
+  pct?: number;
+  detail?: string;
+  files_done?: number;
+  files_total?: number;
+  log?: Array<{ t: number; msg: string }>;
+}
+
+export async function getGenerationProgress(id: number): Promise<GenerationProgress> {
+  const { data } = await apiClient.get(`/api/requests/${id}/progress`);
+  return data;
+}
+
 export async function requestBuild(id: number, contact: BuildRequestContact): Promise<{ id: number; build_requested: boolean; status: string }> {
   const { data } = await apiClient.post(`/api/requests/${id}/request-build`, contact);
   return data;

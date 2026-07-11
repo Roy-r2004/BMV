@@ -119,7 +119,9 @@ class Settings:
         self.CRITIC_MODEL = os.getenv("CRITIC_MODEL", taste_default)
         # Fix loop uses the codegen model by default — Flash often returns empty JSON.
         self.FIX_MODEL = os.getenv("FIX_MODEL", self.PREVIEW_APP_MODEL)
-        self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "true").strip().lower() in (
+        # Quality bar: critics ON by default so thin/placeholder pages get refined.
+        # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
+        self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (
             "1", "true", "yes", "on",
         )
         try:
@@ -140,12 +142,10 @@ class Settings:
         except ValueError:
             self.PREVIEW_MAX_FIX_LOOP_SECONDS = 900
 
-        # Post-build visual critique (screenshot + vision critic) is the most
-        # expensive/slowest stage in the pipeline (headless Chromium launch +
-        # render wait + a vision model call per page) — default OFF so it
-        # never turns on unannounced; toggle in .env without a redeploy.
+        # Post-build visual critique (screenshot + vision) — ON by default for
+        # demo quality. Skip with PREVIEW_SKIP_VISUAL_CRITIC=true for speed.
         self.PREVIEW_SKIP_VISUAL_CRITIC = os.getenv(
-            "PREVIEW_SKIP_VISUAL_CRITIC", "true"
+            "PREVIEW_SKIP_VISUAL_CRITIC", "false"
         ).strip().lower() in ("1", "true", "yes", "on")
         # Internal-only address Playwright uses to reach this same server's
         # already-running preview-app route — never exposed to end users,

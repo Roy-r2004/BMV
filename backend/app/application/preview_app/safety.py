@@ -164,6 +164,27 @@ def _roles_from(architect: dict, plan: dict) -> list:
     ]
 
 
+def _seeded_list_export(name: str, brand_name: str) -> str:
+    """3–6 realistic rows so pages never render empty lists from auto-exports."""
+    brand = brand_name or "Brand"
+    label = re.sub(r"([A-Z])", r" \1", name).strip() or name
+    rows = []
+    for i in range(1, 5):
+        rows.append(
+            {
+                "id": f"{name.lower()}-{i}",
+                "name": f"{label} {i}",
+                "title": f"{label} {i}",
+                "label": f"{label} {i}",
+                "status": ["Open", "In progress", "Done", "Scheduled"][i % 4],
+                "detail": f"Sample {brand} record for demo lists",
+                "amount": 40 + i * 12,
+                "count": 3 + i,
+            }
+        )
+    return json.dumps(rows, ensure_ascii=False)
+
+
 def _default_export_value(name: str, architect: dict, plan: dict, images: dict, brand_name: str) -> str:
     low = name.lower()
     if low == "images":
@@ -174,8 +195,34 @@ def _default_export_value(name: str, architect: dict, plan: dict, images: dict, 
         return json.dumps(_nav_from_architect(architect), ensure_ascii=False)
     if low == "roles":
         return json.dumps(_roles_from(architect, plan), ensure_ascii=False)
-    # Unknown symbols: default to an empty array (safe for .map / iteration).
-    return "[]"
+    # Never default to [] — empty arrays compile but show blank UIs.
+    return _seeded_list_export(name, brand_name or "Brand")
+
+
+_EMPTY_ARRAY_EXPORT_RE = re.compile(
+    r"export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*\[\s*\]\s*;",
+)
+
+
+def enrich_empty_mock_exports(workspace, brand_name: str) -> list[str]:
+    """Replace `export const X = []` with seeded rows for any mock export."""
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return []
+    filled: list[str] = []
+
+    def _repl(m: re.Match) -> str:
+        name = m.group(1)
+        if name.lower() in ("roles", "navigation", "images", "brand"):
+            return m.group(0)
+        filled.append(name)
+        return f"export const {name} = {_seeded_list_export(name, brand_name)};"
+
+    updated = _EMPTY_ARRAY_EXPORT_RE.sub(_repl, mock)
+    if updated != mock:
+        write_file(workspace, mock_path, updated)
+    return filled
 
 
 _MOCK_SELF_IMPORT_RE = re.compile(
@@ -541,6 +588,13 @@ def apply_workspace_guards(
         actions.extend(added)
     except Exception as e:
         print(f"    mock exports guard skipped: {e}", flush=True)
+    try:
+        filled = enrich_empty_mock_exports(workspace, brand_name)
+        if filled:
+            actions.extend([f"mock:{n}" for n in filled])
+            print(f"    filled empty mock exports: {', '.join(filled)}", flush=True)
+    except Exception as e:
+        print(f"    empty mock enrich skipped: {e}", flush=True)
     try:
         write_index_css(workspace, primary, secondary, font, template_renderer)
         write_app_tsx(workspace, architect, template_renderer)

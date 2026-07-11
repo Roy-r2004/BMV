@@ -1,6 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getChatHistory, getPreview, sendChatMessage } from '../api/requests';
+import {
+  getChatHistory,
+  getGenerationProgress,
+  getPreview,
+  sendChatMessage,
+  type GenerationProgress,
+} from '../api/requests';
 import type { ChatMessage, ChatSendResponse, PreviewResponse } from '../types/request';
 import { useAiStatus } from '../hooks/useAiStatus';
 
@@ -8,10 +14,10 @@ const WELCOME_MESSAGE =
   "You can change anything here: the live preview app (pages, roles, colors, navigation), the experience plan, feature list, product name, summary, and marketing copy. Describe what you want — I'll rebuild the app and keep the plan in sync.";
 
 const SUGGESTIONS = [
-  'Visitor role should show the dashboard, not login',
-  'Add a pipeline status page to the plan and app',
-  'Use purple colors and update the feature list',
-  'Rename the product and change the headline',
+  'Make the colors darker and more premium',
+  'Add denser sample data on every list',
+  'Add online booking to the customer flow',
+  'Rename the product and refresh the headline',
 ];
 
 interface Props {
@@ -31,35 +37,16 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [error, setError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
+  const [progress, setProgress] = useState<GenerationProgress | null>(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState('');
   const aiStatus = useAiStatus(12000);
   const modelsPulling = aiStatus?.provider === 'ollama' && !aiStatus.ready;
   const modelsReady = !modelsPulling;
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pollActiveRef = useRef(false);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const history = await getChatHistory(requestId);
-        if (!active) return;
-        setMessages(history);
-      } catch {
-        if (active) setError('Could not load chat history.');
-      } finally {
-        if (active) setLoadingHistory(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [requestId]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading, open, expanded]);
-
-  const applyPreviewUpdate = (result: ChatSendResponse) => {
+  const applyPreviewUpdate = useCallback((result: ChatSendResponse) => {
     if (!result.preview_updated && !result.preview_rebuild_started) return;
     onPreviewUpdate({
       concept_name: result.concept_name ?? undefined,
@@ -68,13 +55,22 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
       business_fit_score: result.business_fit_score ?? undefined,
       visual_demo: result.visual_demo ?? undefined,
     });
-  };
+  }, [onPreviewUpdate]);
 
-  const pollUntilRebuildDone = async () => {
+  const pollUntilRebuildDone = useCallback(async () => {
+    if (pollActiveRef.current) return;
+    pollActiveRef.current = true;
     setRebuilding(true);
+    setError('');
     try {
-      for (let i = 0; i < 120; i += 1) {
-        await new Promise((r) => setTimeout(r, 5000));
+      for (let i = 0; i < 180; i += 1) {
+        try {
+          const snap = await getGenerationProgress(requestId);
+          setProgress(snap);
+        } catch {
+          /* progress is best-effort */
+        }
+        await new Promise((r) => setTimeout(r, 2000));
         const preview = await getPreview(requestId);
         onPreviewUpdate({
           generated_pages: preview.generated_pages,
@@ -85,24 +81,68 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
           visual_demo: preview.visual_demo ?? undefined,
         });
         const status = preview.generated_pages?.preview_app?.status;
+        const refineErr = preview.generated_pages?.preview_app?.last_refinement_error;
         if (status === 'ready' || status === 'failed') {
           const history = await getChatHistory(requestId);
           setMessages(history);
           await onRefetchPreview?.();
+          if (status === 'failed' || refineErr) {
+            setError(
+              refineErr
+                ? `Edit issue: ${refineErr}`
+                : 'Rebuild failed. Try a smaller change, or tap Retry.',
+            );
+          }
           break;
         }
+        if (i === 179) {
+          setError('Rebuild is taking longer than expected. Refresh the page or try again with a smaller change.');
+        }
       }
+    } catch {
+      setError('Lost connection while rebuilding. Refresh to check status, or Retry.');
     } finally {
       setRebuilding(false);
+      setProgress(null);
+      pollActiveRef.current = false;
     }
-  };
+  }, [onPreviewUpdate, onRefetchPreview, requestId]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const history = await getChatHistory(requestId);
+        if (!active) return;
+        setMessages(history);
+        const preview = await getPreview(requestId);
+        if (!active) return;
+        if (preview.generated_pages?.preview_app?.status === 'rebuilding') {
+          onPreviewUpdate({ generated_pages: preview.generated_pages });
+          void pollUntilRebuildDone();
+        }
+      } catch {
+        if (active) setError('Could not load chat history.');
+      } finally {
+        if (active) setLoadingHistory(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [requestId, onPreviewUpdate, pollUntilRebuildDone]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading, rebuilding, open, expanded, progress]);
 
   const handleSend = async (text?: string) => {
     const message = (text ?? input).trim();
-    if (!message || loading) return;
+    if (!message || loading || rebuilding) return;
 
     setInput('');
     setError('');
+    setLastFailedMessage(message);
     setLoading(true);
 
     const optimistic: ChatMessage = {
@@ -118,6 +158,7 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
       const history = await getChatHistory(requestId);
       setMessages(history);
       applyPreviewUpdate(result);
+      setLastFailedMessage('');
       if (result.preview_rebuild_started) {
         const preview = await getPreview(requestId);
         onPreviewUpdate({ generated_pages: preview.generated_pages });
@@ -125,9 +166,13 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
       } else if (result.preview_updated) {
         await onRefetchPreview?.();
       }
-    } catch {
+    } catch (err: unknown) {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setError('Something went wrong. Please try again.');
+      const detail =
+        typeof err === 'object' && err && 'response' in err
+          ? String((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || '')
+          : '';
+      setError(detail || 'Something went wrong. Please try again.');
       setInput(message);
     } finally {
       setLoading(false);
@@ -141,6 +186,12 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
       handleSend();
     }
   };
+
+  const busy = loading || rebuilding;
+  const progressLabel =
+    progress?.label ||
+    (rebuilding ? 'Rebuilding your live preview…' : loading ? 'Updating your preview...' : '');
+  const progressPct = typeof progress?.pct === 'number' ? progress.pct : null;
 
   const panelClass = expanded
     ? 'fixed inset-4 sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[min(520px,calc(100vw-3rem))] sm:h-[min(720px,calc(100dvh-6rem))]'
@@ -160,6 +211,7 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
           >
             <ChatIcon />
             Refine with AI
+            {rebuilding && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
           </motion.button>
         )}
       </AnimatePresence>
@@ -222,10 +274,26 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
                   {messages.map((msg) => (
                     <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
                   ))}
-                  {loading && (
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                      <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-                      {rebuilding ? 'Rebuilding your live preview…' : 'Updating your preview...'}
+                  {busy && (
+                    <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-cyan-100">
+                        <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin shrink-0" />
+                        <span className="min-w-0 truncate">{progressLabel}</span>
+                        {progressPct != null && (
+                          <span className="ml-auto text-xs text-cyan-200/80 tabular-nums">{progressPct}%</span>
+                        )}
+                      </div>
+                      {progress?.detail && (
+                        <p className="text-[11px] text-cyan-200/70 truncate pl-6">{progress.detail}</p>
+                      )}
+                      {progressPct != null && (
+                        <div className="h-1 rounded-full bg-white/10 overflow-hidden ml-6">
+                          <div
+                            className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                            style={{ width: `${Math.max(4, Math.min(100, progressPct))}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -233,15 +301,15 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
               <div ref={bottomRef} />
             </div>
 
-            {messages.length === 0 && !loadingHistory && (
+            {!loadingHistory && (
               <div className="px-4 pb-2 flex flex-wrap gap-2">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => handleSend(s)}
-                    disabled={loading}
-                    className="text-xs px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:border-cyan-400/40 hover:bg-cyan-500/10 transition-colors"
+                    disabled={busy || !modelsReady}
+                    className="text-xs px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:border-cyan-400/40 hover:bg-cyan-500/10 transition-colors disabled:opacity-40"
                   >
                     {s}
                   </button>
@@ -250,8 +318,17 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
             )}
 
             {error && (
-              <div className="px-4 pb-2">
+              <div className="px-4 pb-2 space-y-2">
                 <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+                {lastFailedMessage && !busy && (
+                  <button
+                    type="button"
+                    onClick={() => handleSend(lastFailedMessage)}
+                    className="text-xs font-semibold text-cyan-300 hover:text-white transition-colors"
+                  >
+                    Retry last message
+                  </button>
+                )}
               </div>
             )}
 
@@ -263,10 +340,10 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
                   rows={2}
-                  disabled={loading || loadingHistory || rebuilding || !modelsReady}
+                  disabled={busy || loadingHistory || !modelsReady}
                   placeholder={
                     rebuilding
-                      ? 'Rebuilding live preview…'
+                      ? progressLabel || 'Rebuilding live preview…'
                       : modelsReady
                         ? "Describe what you'd like to change..."
                         : 'Waiting for AI models to finish downloading...'
@@ -276,7 +353,7 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
                 <button
                   type="button"
                   onClick={() => handleSend()}
-                  disabled={loading || loadingHistory || rebuilding || !input.trim() || !modelsReady}
+                  disabled={busy || loadingHistory || !input.trim() || !modelsReady}
                   className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center justify-center disabled:opacity-40 hover:shadow-lg hover:shadow-cyan-500/20 transition-all"
                   aria-label="Send message"
                 >

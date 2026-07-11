@@ -22,6 +22,7 @@ from app.application.preview_app.safety import (
 from app.application.preview_app.workspace import (
     backup_dist,
     discard_backup,
+    get_dist_dir,
     get_workspace,
     list_source_files,
     read_file,
@@ -309,14 +310,32 @@ def refine_preview_app_from_chat(
     discard_backup(dist_backup)
 
     pa = generated_pages.setdefault("preview_app", {})
+    base_path = f"/api/preview-apps/{request_id}"
+    # Always keep a serveable URL when dist exists so the iframe never disappears.
+    dist_ok = (get_dist_dir(request_id) / "index.html").is_file()
     if ok:
-        base_path = f"/api/preview-apps/{request_id}"
         pa["url"] = f"{base_path}/"
         pa["status"] = "ready"
+        pa.pop("last_refinement_error", None)
     elif reverted:
+        pa["url"] = pa.get("url") or (f"{base_path}/" if dist_ok else None)
         pa["status"] = "ready"
+        pa["last_refinement_error"] = (
+            error_message[:300] if error_message else "Change reverted to previous working version"
+        )
     else:
-        pa["status"] = "failed"
+        # Prefer last good dist over hiding the preview.
+        if dist_ok:
+            pa["url"] = pa.get("url") or f"{base_path}/"
+            pa["status"] = "ready"
+            pa["last_refinement_error"] = (
+                error_message[:300] if error_message else "Rebuild failed — showing previous version"
+            )
+        else:
+            pa["status"] = "failed"
+            pa["last_refinement_error"] = (
+                error_message[:300] if error_message else "Rebuild failed"
+            )
     generated_pages["preview_app"] = pa
     req.generated_pages = json.dumps(generated_pages)
     req.updated_at = datetime.utcnow()

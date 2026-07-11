@@ -30,7 +30,9 @@ function siteUrl(concept: string, path: string): string {
 
 function resolvePreviewUrl(previewApp?: PreviewAppInfo | null): string | null {
   if (!previewApp?.url) return null;
-  if (previewApp.status !== 'ready' && previewApp.status !== 'rebuilding') return null;
+  // Keep iframe up whenever we have a URL — including after refine errors that
+  // leave status ready with last_refinement_error, or legacy failed+url cases.
+  if (previewApp.status === 'failed' && !previewApp.url) return null;
   const path = previewApp.url.startsWith('/') ? previewApp.url : `/${previewApp.url}`;
   return `${API_BASE}${path}`;
 }
@@ -46,6 +48,7 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
 
   const iframeSrc = resolvePreviewUrl(previewApp);
   const isRebuilding = previewApp?.status === 'rebuilding';
+  const refineError = previewApp?.last_refinement_error?.trim() || '';
   const activeRole = roles.find((r) => r.id === activeRoleId) ?? roles[0];
   const accent = activeRole?.accent ?? '#6366f1';
 
@@ -143,6 +146,14 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
         </div>
 
         <div className="rbp-viewport rbp-viewport--site relative">
+          {refineError && !isRebuilding && (
+            <div className="absolute top-0 inset-x-0 z-20 px-3 pt-3 pointer-events-none">
+              <div className="mx-auto max-w-xl rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm pointer-events-auto">
+                Last edit couldn&apos;t be applied safely — showing your previous version.
+                <span className="block mt-0.5 text-amber-800/80 truncate">{refineError}</span>
+              </div>
+            </div>
+          )}
           {isRebuilding && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
               <div className="text-center text-white px-4">

@@ -7,7 +7,7 @@ A lead-generation web app where business owners describe their business, share a
 ## Stack
 
 - **Frontend:** React, Vite, TypeScript, Tailwind CSS, React Router, Axios
-- **Backend:** Python, FastAPI, SQLite, SQLAlchemy, Pydantic, Jinja2
+- **Backend:** Python, FastAPI, SQLite, SQLAlchemy, Pydantic, Jinja2 — see [`backend/ARCHITECTURE.md`](backend/ARCHITECTURE.md) for folder layout and request flow
 - **AI:** **OpenRouter** (cloud API — default for local dev) or **Ollama** (self-hosted local models). Switch with `AI_PROVIDER` in `backend/.env`.
 
 ## Quick Start (Docker — recommended)

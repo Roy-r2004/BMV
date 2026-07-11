@@ -269,6 +269,8 @@ export interface PreviewAppInfo {
   roles?: PreviewAppRole[];
   routes?: { path: string; title: string; role_id?: string }[];
   design_direction?: string;
+  fallback_pages?: string[];
+  last_refinement_error?: string | null;
 }
 
 export interface GeneratedPages {

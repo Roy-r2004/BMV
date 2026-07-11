@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from app.domain.interfaces.template_renderer import TemplateRenderer
+from app.application.preview_app.npm_shared import attach_shared_node_modules
 
 
 def _npm_cmd() -> str:
@@ -19,32 +20,41 @@ def run_build(
     template_renderer: TemplateRenderer,
     timeout: int = 300,
 ) -> tuple[bool, str]:
-    """npm install + vite build. Returns (success, combined output)."""
+    """Link shared node_modules + vite build. Returns (success, combined output).
+
+    Dependencies are installed once into PREVIEW_APPS_DIR/_shared_npm/<lock-hash>/
+    and junctioned/symlinked into each workspace — so generation time goes to AI
+    quality, not repeated npm downloads.
+    """
     npm = _npm_cmd()
     env = os.environ.copy()
-    # Must install devDependencies (vite, tailwind) — do not set NODE_ENV=production for install
+    # Must install/use devDependencies (vite, tailwind) — do not set NODE_ENV=production
     install_env = {k: v for k, v in env.items() if k != "NODE_ENV"}
 
     logs: list[str] = []
 
-    install = subprocess.run(
-        [npm, "install", "--no-audit", "--no-fund"],
-        cwd=str(workspace),
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=install_env,
-        shell=(os.name == "nt"),
-    )
-    logs.append("=== npm install ===")
-    logs.append(install.stdout or "")
-    logs.append(install.stderr or "")
-    if install.returncode != 0:
-        return False, "\n".join(logs)
+    try:
+        logs.append(attach_shared_node_modules(workspace, timeout=timeout))
+    except Exception as exc:
+        logs.append(f"=== shared npm failed ({exc}) — falling back to local npm install ===")
+        install = subprocess.run(
+            [npm, "install", "--no-audit", "--no-fund"],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=install_env,
+            shell=(os.name == "nt"),
+        )
+        logs.append("=== npm install (local fallback) ===")
+        logs.append(install.stdout or "")
+        logs.append(install.stderr or "")
+        if install.returncode != 0:
+            return False, "\n".join(logs)
 
     vite_pkg = workspace / "node_modules" / "vite" / "package.json"
     if not vite_pkg.is_file():
-        logs.append("=== ERROR: vite not installed after npm install ===")
+        logs.append("=== ERROR: vite not installed after shared/local npm setup ===")
         return False, "\n".join(logs)
 
     # Patch vite base for subdirectory hosting

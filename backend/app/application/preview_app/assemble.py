@@ -154,7 +154,15 @@ def find_missing_route_pages(workspace, architect: dict) -> list[dict]:
     for rt in architect.get("routes") or []:
         cf = (rt.get("component_file") or "").replace("\\", "/")
         if not cf:
-            continue
+            # Still need a file — invent a path from route title/path so codegen can fill it.
+            title = (rt.get("title") or rt.get("path") or "Page").strip()
+            stem = re.sub(r"[^A-Za-z0-9]+", "", title) or "Page"
+            if not stem.endswith("Page"):
+                stem = f"{stem}Page"
+            role = (rt.get("role_id") or "").lower()
+            folder = "src/pages/admin" if role in ("owner", "admin", "staff", "manager") else "src/pages"
+            cf = f"{folder}/{stem}.tsx"
+            rt["component_file"] = cf
         if not read_file(workspace, cf).strip():
             missing.append({
                 "path": cf,
@@ -168,6 +176,22 @@ def find_missing_route_pages(workspace, architect: dict) -> list[dict]:
                 "_route": rt,
             })
     return missing
+
+
+def find_unresolved_routes(workspace, architect: dict) -> list[dict]:
+    """Routes that would be dropped from App.tsx because no page file resolves."""
+    catalog = _pages_catalog(workspace)
+    used: set[str] = set()
+    unresolved: list[dict] = []
+    for rt in architect.get("routes") or []:
+        if not rt.get("path"):
+            continue
+        rel = _resolve_page(workspace, rt, catalog, used)
+        if not rel:
+            unresolved.append(rt)
+        else:
+            used.add(rel)
+    return unresolved
 
 
 def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
