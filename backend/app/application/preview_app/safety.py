@@ -7,7 +7,9 @@ catch these because a missing basename or Tailwind import still compiles fine.
 from __future__ import annotations
 
 import json
+import os
 import re
+from pathlib import Path, PurePosixPath
 
 from app.core.config import settings
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -185,12 +187,46 @@ def _seeded_list_export(name: str, brand_name: str) -> str:
     return json.dumps(rows, ensure_ascii=False)
 
 
-def _default_export_value(name: str, architect: dict, plan: dict, images: dict, brand_name: str) -> str:
+def _design_system_dict(primary: str, secondary: str, font: str) -> dict:
+    primary = primary or "#6366f1"
+    secondary = secondary or primary
+    font_token = (font or "Inter").split(",")[0].strip().strip('"').strip("'") or "Inter"
+    font_class = re.sub(r"[^a-z0-9]+", "", font_token.lower()) or "sans"
+    slug = re.sub(r"[^a-z0-9]+", "+", font_token.lower())
+    return {
+        "primary_color": primary,
+        "secondary_color": secondary,
+        "accent": primary,
+        "text_color": "#0f172a",
+        "muted_text_color": "#475569",
+        "background_color": "#fafafa",
+        "font_family": font_class,
+        "font_import_url": f"https://fonts.googleapis.com/css2?family={slug}:wght@400;500;600;700&display=swap",
+        "section_spacing": "4rem",
+        "border_radius": "1rem",
+        "card_style": "shadow (rgba(0,0,0,0.05))",
+    }
+
+
+def _default_export_value(
+    name: str,
+    architect: dict,
+    plan: dict,
+    images: dict,
+    brand_name: str,
+    primary: str = "#6366f1",
+    secondary: str = "#0d9488",
+    font: str = "Inter",
+) -> str:
     low = name.lower()
     if low == "images":
         return json.dumps(images or {}, ensure_ascii=False)
     if low == "brand":
         return json.dumps({"name": brand_name or "Brand", "tagline": ""}, ensure_ascii=False)
+    if low in ("brand_name", "brandname", "owner_name", "ownername"):
+        return json.dumps(brand_name or "Brand", ensure_ascii=False)
+    if low in ("design_system", "designsystem"):
+        return json.dumps(_design_system_dict(primary, secondary, font), ensure_ascii=False)
     if low == "navigation":
         return json.dumps(_nav_from_architect(architect), ensure_ascii=False)
     if low == "roles":
@@ -223,6 +259,240 @@ def enrich_empty_mock_exports(workspace, brand_name: str) -> list[str]:
     if updated != mock:
         write_file(workspace, mock_path, updated)
     return filled
+
+
+_BRAND_EXPORT_RE = re.compile(r"export\s+const\s+brand\s*=\s*\{", re.MULTILINE)
+
+
+def _brand_object_span(mock: str) -> tuple[int, int] | None:
+    """Return (body_start, close_brace_index) for `export const brand = { ... }`."""
+    m = _BRAND_EXPORT_RE.search(mock)
+    if not m:
+        return None
+    start = m.end()
+    depth = 1
+    i = start
+    while i < len(mock) and depth:
+        ch = mock[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        i += 1
+    if depth != 0:
+        return None
+    return start, i - 1
+
+
+def _brand_completeness_patch(
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+) -> str:
+    """TS snippet merged into brand so pages that expect design_system don't white-screen."""
+    name = brand_name or "Brand"
+    services = [
+        {
+            "name": f"{name} Signature",
+            "title": f"{name} Signature",
+            "description": "Flagship service with clear results and a calm, premium feel.",
+            "image": "",
+            "badge": "Popular",
+            "price": 280,
+            "duration": "60 min",
+        },
+        {
+            "name": "AI-guided consult",
+            "title": "AI-guided consult",
+            "description": "Personalized recommendations from your goals — then book in minutes.",
+            "image": "",
+            "badge": "AI",
+            "price": 0,
+            "duration": "15 min",
+        },
+        {
+            "name": "Member aftercare",
+            "title": "Member aftercare",
+            "description": "Recovery tips and check-ins so results last and WhatsApp stays quiet.",
+            "image": "",
+            "price": 0,
+            "duration": "Ongoing",
+        },
+    ]
+    testimonials = [
+        {
+            "name": "Maya R.",
+            "quote": f"Finally a {name} experience that feels personal — the AI consult nailed what I needed.",
+            "text": f"Finally a {name} experience that feels personal — the AI consult nailed what I needed.",
+            "role": "Client",
+            "rating": 5,
+        },
+        {
+            "name": "Jordan K.",
+            "quote": "Booking and aftercare in one place. No more chasing answers on chat.",
+            "text": "Booking and aftercare in one place. No more chasing answers on chat.",
+            "role": "Member",
+            "rating": 5,
+        },
+        {
+            "name": "Sam T.",
+            "quote": "The owner hub's no-show risk view alone paid for itself in a week.",
+            "text": "The owner hub's no-show risk view alone paid for itself in a week.",
+            "role": "Owner",
+            "rating": 5,
+        },
+    ]
+    design = _design_system_dict(primary, secondary, font)
+    return (
+        f"design_system: {json.dumps(design, ensure_ascii=False)},\n"
+        f"  services: {json.dumps(services, ensure_ascii=False)},\n"
+        f"  testimonials: {json.dumps(testimonials, ensure_ascii=False)},\n"
+        f"  social_proof: {json.dumps(f'Trusted by over 2,400 delighted {name} clients.', ensure_ascii=False)}"
+    )
+
+
+def ensure_brand_shape(
+    workspace,
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+) -> bool:
+    """Guarantee `brand.design_system` (+ services/testimonials) so home pages don't crash white.
+
+    AI pages often read `brand.design_system.primary_color` and `brand.services.map(...)`.
+    Mock synthesis frequently ships a flat brand `{ name, accent }` — that throws at runtime
+    and the iframe stays blank until someone hand-patches mock.ts.
+
+    Detection MUST inspect the brand object body only: top-level `export const design_system`
+    / path strings like `/owner/services` must not count as completeness.
+    """
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return False
+    span = _brand_object_span(mock)
+    if not span:
+        return False
+    body_start, close_at = span
+    body = mock[body_start:close_at]
+
+    needs_ds = "design_system" not in body or "primary_color" not in body
+    needs_services = not re.search(r"\bservices\s*:", body)
+    needs_testimonials = not re.search(r"\btestimonials\s*:", body)
+    needs_proof = "social_proof" not in body
+    if not (needs_ds or needs_services or needs_testimonials or needs_proof):
+        return False
+
+    patch = _brand_completeness_patch(brand_name, primary, secondary, font)
+    before = mock[:close_at].rstrip()
+    if before.endswith(","):
+        injection = f"\n  {patch},\n"
+    else:
+        injection = f",\n  {patch},\n"
+    updated = mock[:close_at] + injection + mock[close_at:]
+    write_file(workspace, mock_path, updated)
+    return True
+
+
+_TYPED_MOCK_EXPORT_RE = re.compile(
+    r"export\s+const\s+(brand_name|brandName|owner_name|ownerName|design_system|designSystem)\s*=\s*",
+    re.MULTILINE,
+)
+
+
+def repair_typed_mock_exports(
+    workspace,
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+) -> list[str]:
+    """Replace auto-seeded array stubs for brand_name / design_system with real shapes.
+
+    `ensure_mock_exports` used to fill unknown imports with list rows. Pages treat
+    `design_system.primary_color` and `brand_name` as object/string — arrays white-screen.
+    """
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return []
+
+    replaced: list[str] = []
+    ds_value = _default_export_value(
+        "design_system", {}, {}, {}, brand_name, primary, secondary, font
+    )
+    name_value = json.dumps(brand_name or "Brand", ensure_ascii=False)
+
+    def _export_value_end(src: str, start: int) -> int:
+        i = start
+        while i < len(src) and src[i] in " \t\n\r":
+            i += 1
+        if i >= len(src):
+            return start
+        if src[i] in "\"'":
+            quote = src[i]
+            i += 1
+            while i < len(src):
+                if src[i] == "\\":
+                    i += 2
+                    continue
+                if src[i] == quote:
+                    i += 1
+                    break
+                i += 1
+        elif src[i] in "[{":
+            open_ch = src[i]
+            close_ch = "]" if open_ch == "[" else "}"
+            depth = 0
+            in_str: str | None = None
+            while i < len(src):
+                ch = src[i]
+                if in_str:
+                    if ch == "\\":
+                        i += 1
+                    elif ch == in_str:
+                        in_str = None
+                elif ch in "\"'`":
+                    in_str = ch
+                elif ch == open_ch:
+                    depth += 1
+                elif ch == close_ch:
+                    depth -= 1
+                    if depth == 0:
+                        i += 1
+                        break
+                i += 1
+        else:
+            while i < len(src) and src[i] not in ";\n":
+                i += 1
+        while i < len(src) and src[i] in " \t":
+            i += 1
+        if i < len(src) and src[i] == ";":
+            i += 1
+        return i
+
+    # Walk matches right-to-left so offsets stay valid.
+    matches = list(_TYPED_MOCK_EXPORT_RE.finditer(mock))
+    for m in reversed(matches):
+        name = m.group(1)
+        val_start = m.end()
+        val_end = _export_value_end(mock, val_start)
+        current = mock[val_start:val_end].strip().rstrip(";").strip()
+        low = name.lower().replace("_", "")
+        if low in ("brandname", "ownername"):
+            if current.startswith("[") or not (current.startswith('"') or current.startswith("'")):
+                mock = mock[:val_start] + f"{name_value};" + mock[val_end:]
+                replaced.append(name)
+        elif low == "designsystem":
+            if current.startswith("[") or "primary_color" not in current:
+                mock = mock[:val_start] + f"{ds_value};" + mock[val_end:]
+                replaced.append(name)
+
+    if replaced:
+        write_file(workspace, mock_path, mock)
+    return replaced
 
 
 _MOCK_SELF_IMPORT_RE = re.compile(
@@ -406,9 +676,34 @@ _ALLOWED_NPM_IMPORTS = {
     "react-router-dom",
     "react/jsx-runtime",
 }
+# Packages we cannot install in preview apps — rewrite imports to local stubs
+# instead of deleting them (deleting left Transition/Dialog undefined → white screen).
+_STUBBED_NPM_IMPORTS = {
+    "@headlessui/react": "src/components/UiHeadless",
+    "@headlessui/react/dist": "src/components/UiHeadless",
+    "framer-motion": "src/components/UiHeadless",
+    "motion": "src/components/UiHeadless",
+    "motion/react": "src/components/UiHeadless",
+}
 _IMPORT_FROM_RE = re.compile(
     r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$""",
     re.MULTILINE,
+)
+_HEADLESS_SYMBOLS = (
+    "Transition",
+    "Dialog",
+    "Menu",
+    "Disclosure",
+    "Listbox",
+    "Combobox",
+    "Popover",
+    "Tab",
+    "Switch",
+    "RadioGroup",
+    "Portal",
+    "AnimatePresence",
+    "motion",
+    "useAnimation",
 )
 
 
@@ -419,24 +714,50 @@ def _npm_package_name(spec: str) -> str:
     return spec.split("/")[0]
 
 
-def strip_forbidden_npm_imports(workspace) -> list[str]:
-    """Remove illegal npm imports without destroying the page.
+def _rel_to_stub(from_file: str, stub_abs: str = "src/components/UiHeadless") -> str:
+    """Relative import path from a source file to the UiHeadless stub (no extension)."""
+    start = PurePosixPath(from_file.replace("\\", "/")).parent
+    target = PurePosixPath(stub_abs)
+    rel = PurePosixPath(os.path.relpath(str(target), str(start))).as_posix()
+    if not rel.startswith("."):
+        rel = "./" + rel
+    return rel
 
-    Models sometimes sneak in lucide/mui/etc. Stubbing the whole file used to
-    "fix" the build but produced thin fallback pages. Instead we strip the
-    bad import lines and return the paths so the pipeline can AI-regenerate
-    those files (or the fix loop can rewrite them) while keeping product UI.
+
+def ensure_ui_headless_file(workspace) -> bool:
+    """Copy UiHeadless.tsx from the preview template into the workspace."""
+    source = settings.PREVIEW_TEMPLATE_DIR / "src" / "components" / "UiHeadless.tsx"
+    dest = Path(workspace) / "src" / "components" / "UiHeadless.tsx"
+    if not source.is_file():
+        return False
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    text = source.read_text(encoding="utf-8")
+    if dest.is_file() and dest.read_text(encoding="utf-8") == text:
+        return False
+    dest.write_text(text, encoding="utf-8")
+    return True
+
+
+def strip_forbidden_npm_imports(workspace) -> list[str]:
+    """Rewrite stubbable illegal imports; strip the rest.
+
+    Models often import @headlessui/react / framer-motion. Deleting those lines
+    used to leave `<Transition>` / `<Dialog>` unbound → runtime white screen
+    even though `vite build` succeeded. Stubbable packages are rewritten to
+    `src/components/UiHeadless`; unknown packages are still stripped.
     """
+    ensure_ui_headless_file(workspace)
     touched: list[str] = []
     for rel in list_source_files(workspace):
         norm = rel.replace("\\", "/")
         if not norm.endswith((".tsx", ".ts")):
             continue
-        if norm.startswith("src/data/"):
+        if norm.startswith("src/data/") or norm.endswith("UiHeadless.tsx"):
             continue
         content = read_file(workspace, rel)
-        bad_lines: list[str] = []
-        for m in _IMPORT_FROM_RE.finditer(content):
+        updated = content
+        changed = False
+        for m in list(_IMPORT_FROM_RE.finditer(content)):
             src = m.group(1)
             if (
                 src.startswith(".")
@@ -449,22 +770,90 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
             pkg = _npm_package_name(src)
             if pkg in _ALLOWED_NPM_IMPORTS or src in _ALLOWED_NPM_IMPORTS:
                 continue
-            bad_lines.append(m.group(0))
-        if not bad_lines:
-            continue
-        updated = content
-        for line in bad_lines:
-            updated = updated.replace(line, f"/* removed forbidden import */\n")
-        if updated != content:
+            # Exact or package-level stub match
+            stub_target = _STUBBED_NPM_IMPORTS.get(src) or _STUBBED_NPM_IMPORTS.get(pkg)
+            if stub_target:
+                rel_imp = _rel_to_stub(norm, stub_target)
+                old = m.group(0)
+                new = re.sub(
+                    r"""from\s+['"][^'"]+['"]""",
+                    f"from '{rel_imp}'",
+                    old,
+                )
+                if new != old and old in updated:
+                    updated = updated.replace(old, new, 1)
+                    changed = True
+                continue
+            # Unknown forbidden package — strip the import line
+            old = m.group(0)
+            if old in updated:
+                updated = updated.replace(old, "/* removed forbidden import */\n", 1)
+                changed = True
+        if changed and updated != content:
             write_file(workspace, norm, updated)
-            print(
-                f"    forbidden imports stripped in {norm} "
-                f"(will regenerate/fix rather than stub): "
-                f"{len(bad_lines)} import(s)",
-                flush=True,
-            )
+            print(f"    npm imports rewritten/stripped in {norm}", flush=True)
             touched.append(norm)
     return touched
+
+
+def ensure_headless_stub_imports(workspace) -> list[str]:
+    """Inject UiHeadless imports when Transition/Dialog/motion are used unbound.
+
+    Covers the case where a prior build already stripped the headless import
+    (comment left behind) and the page still references the symbols.
+    """
+    ensure_ui_headless_file(workspace)
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        if norm.startswith("src/data/") or norm.endswith("UiHeadless.tsx"):
+            continue
+        content = read_file(workspace, rel)
+        needed: list[str] = []
+        for sym in _HEADLESS_SYMBOLS:
+            # JSX tag or compound API (Dialog.Panel) — not prose like "Member Portal."
+            used = bool(
+                re.search(rf"<{sym}\b", content)
+                or re.search(rf"\b{sym}\.[A-Za-z]", content)
+                or (sym == "motion" and re.search(r"\bmotion\.[a-z]", content))
+                or (sym == "useAnimation" and re.search(r"\buseAnimation\s*\(", content))
+            )
+            if not used:
+                continue
+            imported = bool(
+                re.search(
+                    rf"import\s+[^;]*\b{sym}\b[^;]*from\s+['\"][^'\"]+['\"]",
+                    content,
+                )
+            )
+            if not imported:
+                needed.append(sym)
+        if not needed:
+            continue
+        # Deduplicate while preserving order
+        ordered: list[str] = []
+        for s in needed:
+            if s not in ordered:
+                ordered.append(s)
+        rel_imp = _rel_to_stub(norm)
+        inject = f"import {{ {', '.join(ordered)} }} from '{rel_imp}';\n"
+        # Prefer after the last import; else top of file
+        last_imp = None
+        for m in re.finditer(r"^(?:import\s.+?;|/\* removed forbidden import \*/)\s*$", content, re.MULTILINE):
+            last_imp = m
+        if last_imp:
+            at = last_imp.end()
+            if not content[at:].startswith("\n"):
+                inject = "\n" + inject
+            updated = content[:at] + "\n" + inject + content[at:].lstrip("\n")
+        else:
+            updated = inject + content
+        write_file(workspace, norm, updated)
+        fixed.append(norm)
+        print(f"    injected UiHeadless imports in {norm}: {', '.join(ordered)}", flush=True)
+    return fixed
 
 
 _ROUTER_SYMBOLS = ("Link", "NavLink", "Outlet", "Navigate", "useNavigate", "useLocation", "useParams")
@@ -565,6 +954,7 @@ def apply_workspace_guards(
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
+        (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),
         (lambda: ensure_react_default_import(workspace), "React imports fixed"),
         (lambda: ensure_react_router_imports(workspace), "react-router imports fixed"),
     ):
@@ -595,6 +985,31 @@ def apply_workspace_guards(
             print(f"    filled empty mock exports: {', '.join(filled)}", flush=True)
     except Exception as e:
         print(f"    empty mock enrich skipped: {e}", flush=True)
+    try:
+        repaired = repair_typed_mock_exports(workspace, brand_name, primary, secondary, font)
+        if repaired:
+            actions.extend([f"mock-typed:{n}" for n in repaired])
+            print(f"    repaired typed mock exports: {', '.join(repaired)}", flush=True)
+    except Exception as e:
+        print(f"    typed mock repair skipped: {e}", flush=True)
+    try:
+        if ensure_brand_shape(workspace, brand_name, primary, secondary, font):
+            actions.append("src/data/mock.ts (brand shape)")
+            print("    brand.design_system + services/testimonials ensured", flush=True)
+    except Exception as e:
+        print(f"    brand shape guard skipped: {e}", flush=True)
+    try:
+        src_main = settings.PREVIEW_TEMPLATE_DIR / "src" / "main.tsx"
+        dst_main = Path(workspace) / "src" / "main.tsx"
+        if src_main.is_file():
+            text = src_main.read_text(encoding="utf-8")
+            if "PreviewErrorBoundary" in text and (
+                not dst_main.is_file() or "PreviewErrorBoundary" not in dst_main.read_text(encoding="utf-8")
+            ):
+                dst_main.write_text(text, encoding="utf-8")
+                actions.append("src/main.tsx (error boundary)")
+    except Exception as e:
+        print(f"    main.tsx sync skipped: {e}", flush=True)
     try:
         write_index_css(workspace, primary, secondary, font, template_renderer)
         write_app_tsx(workspace, architect, template_renderer)
@@ -657,6 +1072,8 @@ def ensure_mock_exports(
         f"export const {n} = {_default_export_value(n, architect, plan, images, brand_name)};"
         for n in missing
     )
+    # Note: brand_name / design_system get correct shapes via _default_export_value;
+    # repair_typed_mock_exports also rewrites any older array stubs before build.
     mock = mock.rstrip() + "\n\n// build-correctness guard: auto-added missing exports\n" + additions + "\n"
     write_file(workspace, "src/data/mock.ts", mock)
     return missing

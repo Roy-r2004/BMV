@@ -7,7 +7,7 @@ sys.path.insert(0, ".")
 from app.application.preview_app.build import extract_build_errors, run_build
 from app.application.preview_app.codegen import _strip_fences, fix_build_errors
 from app.application.preview_app.assemble import write_app_tsx, write_index_css
-from app.application.preview_app.safety import ensure_mock_exports
+from app.application.preview_app.safety import apply_workspace_guards, ensure_mock_exports
 from app.application.preview_app.workspace import get_workspace, list_source_files, read_file, write_file
 from app.application.preview_app.pipeline import MAX_BUILD_FIX_ATTEMPTS
 from app.application.services.industry_images import get_images_for_industry
@@ -74,8 +74,10 @@ def main(request_id: int) -> None:
         images = get_images_for_industry(req.industry or "")
         brand_name = req.business_name or "Brand"
 
-        write_index_css(workspace, primary, secondary, font, renderer)
-        write_app_tsx(workspace, architect, renderer)
+        guarded = apply_workspace_guards(
+            workspace, architect, plan, images, brand_name, primary, secondary, font, renderer,
+        )
+        print(f"Guards: {', '.join(guarded) or 'none'}")
 
         base_path = f"/api/preview-apps/{request_id}"
         ok, build_log = run_build(workspace, base_path, renderer)

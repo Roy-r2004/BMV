@@ -194,8 +194,8 @@ export default function PreviewRefineChat({ requestId, onPreviewUpdate, onRefetc
   const progressPct = typeof progress?.pct === 'number' ? progress.pct : null;
 
   const panelClass = expanded
-    ? 'fixed inset-4 sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[min(520px,calc(100vw-3rem))] sm:h-[min(720px,calc(100dvh-6rem))]'
-    : 'fixed right-4 bottom-4 w-[min(420px,calc(100vw-2rem))] h-[min(560px,calc(100dvh-6rem))]';
+    ? 'fixed inset-4 sm:inset-auto sm:right-3 sm:bottom-3 sm:w-[min(280px,calc(100vw-1.5rem))] sm:h-[min(640px,calc(100dvh-4rem))]'
+    : 'fixed right-3 bottom-3 w-[min(280px,calc(100vw-1.5rem))] h-[min(480px,calc(100dvh-4rem))]';
 
   return (
     <>

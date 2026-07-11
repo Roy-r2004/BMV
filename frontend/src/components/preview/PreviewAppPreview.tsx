@@ -37,7 +37,7 @@ function resolvePreviewUrl(previewApp?: PreviewAppInfo | null): string | null {
   return `${API_BASE}${path}`;
 }
 
-export default function PreviewAppPreview({ pages, requestId: _requestId, conceptName, features }: Props) {
+export default function PreviewAppPreview({ pages, requestId: _requestId, conceptName }: Props) {
   const previewApp = pages.preview_app;
   const roles = previewApp?.roles?.length ? previewApp.roles : pages.roles ?? [];
   const [activeRoleId, setActiveRoleId] = useState<string>(roles[0]?.id ?? '');
@@ -173,16 +173,8 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
         </div>
       </div>
 
-      {features && features.length > 0 && (
-        <div className="rbp-features">
-          <span className="rbp-features__label">Included in this MVP</span>
-          <div className="rbp-features__list">
-            {features.map((f) => (
-              <span key={f} className="rbp-feature-chip">{f}</span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Features live in the delivery package below — keep the iframe tall */}
     </div>
   );
 }
+

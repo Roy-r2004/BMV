@@ -10,7 +10,6 @@ import Logo from '../components/Logo';
 import ShareDemoButton from '../components/ShareDemoButton';
 import GenerationCinematic from '../components/preview/GenerationCinematic';
 import VisualDemoPreview from '../components/VisualDemoPreview';
-import PreviewExplainer from '../components/preview/PreviewExplainer';
 import PreviewAppPreview from '../components/preview/PreviewAppPreview';
 import RoleBasedPreview from '../components/preview/rolePages/RoleBasedPreview';
 import DeliveryNavigator from '../components/delivery/DeliveryNavigator';
@@ -141,32 +140,18 @@ export default function ResultPreviewPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease }}
-            className="result-hero-intro shrink-0 w-full px-3 sm:px-4 pt-3 pb-0"
+            className="result-hero-intro shrink-0 w-full px-2 sm:px-3 pt-1 pb-0"
           >
-            <div className="text-center mb-2">
-              <p className="text-xs font-semibold text-indigo-600 mb-0.5">
-                {isShareRoute
-                  ? 'Live product preview'
-                  : isDemoView
-                    ? 'Example demo'
-                    : 'Built exclusively for you'}
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+            <div className="text-center">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                 {preview.concept_name}
               </h1>
             </div>
-            {!isDemoView && (
-              <PreviewExplainer
-                businessName={preview.business_name}
-                industry={preview.industry}
-                conceptName={preview.concept_name}
-              />
-            )}
           </motion.div>
         )}
 
         <section id="live-product" className="result-first-screen scroll-mt-28">
-          <div className={`sticky top-14 z-30 shrink-0 w-full px-2 sm:px-3 pt-1 pb-2 bg-[#f8fafc]/95 backdrop-blur-xl ${chatGutter}`}>
+          <div className={`sticky top-14 z-30 shrink-0 w-full px-2 sm:px-3 pt-0.5 pb-1 bg-[#f8fafc]/95 backdrop-blur-xl ${chatGutter}`}>
             <DeliveryNavigator items={buildDeliveryNavItems(preview, true)} embedded compact />
           </div>
 
