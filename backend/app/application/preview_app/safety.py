@@ -231,8 +231,201 @@ def _default_export_value(
         return json.dumps(_nav_from_architect(architect), ensure_ascii=False)
     if low == "roles":
         return json.dumps(_roles_from(architect, plan), ensure_ascii=False)
+    if low in ("ownerdailybriefing",):
+        return json.dumps(_default_owner_daily_briefing(brand_name), ensure_ascii=False)
+    if low in ("appointmentsoverview",):
+        return json.dumps(_default_appointments_overview(), ensure_ascii=False)
+    if low in ("newclientsignups",):
+        return json.dumps(_default_new_client_signups(), ensure_ascii=False)
     # Never default to [] — empty arrays compile but show blank UIs.
     return _seeded_list_export(name, brand_name or "Brand")
+
+
+def _default_owner_daily_briefing(brand_name: str) -> dict:
+    name = brand_name or "Brand"
+    return {
+        "highValueClients": [
+            f"VIP consult at 10:00 — prepare {name} protocol notes",
+            "Returning member booked injectables — confirm consent packet",
+            "High LTV client requesting same-day add-on",
+        ],
+        "specialCases": [
+            "Patch-test follow-up mid-afternoon",
+            "Sensitivity flag on laser renewal — brief the room early",
+            "Aftercare escalation awaiting clinical review",
+        ],
+    }
+
+
+def _default_appointments_overview() -> dict:
+    return {"confirmed": 12, "pending": 3, "cancelled": 1, "total": 16}
+
+
+def _default_new_client_signups() -> dict:
+    return {"today": 4, "thisWeek": 18, "thisMonth": 42}
+
+
+def _ts_export_value_end(src: str, start: int) -> int:
+    """Return index just past a TS export value (string/array/object/primitive + optional `;`)."""
+    i = start
+    while i < len(src) and src[i] in " \t\n\r":
+        i += 1
+    if i >= len(src):
+        return start
+    if src[i] in "\"'":
+        quote = src[i]
+        i += 1
+        while i < len(src):
+            if src[i] == "\\":
+                i += 2
+                continue
+            if src[i] == quote:
+                i += 1
+                break
+            i += 1
+    elif src[i] in "[{":
+        open_ch = src[i]
+        close_ch = "]" if open_ch == "[" else "}"
+        depth = 0
+        in_str: str | None = None
+        while i < len(src):
+            ch = src[i]
+            if in_str:
+                if ch == "\\":
+                    i += 1
+                elif ch == in_str:
+                    in_str = None
+            elif ch in "\"'`":
+                in_str = ch
+            elif ch == open_ch:
+                depth += 1
+            elif ch == close_ch:
+                depth -= 1
+                if depth == 0:
+                    i += 1
+                    break
+            i += 1
+    else:
+        while i < len(src) and src[i] not in ";\n":
+            i += 1
+    while i < len(src) and src[i] in " \t":
+        i += 1
+    if i < len(src) and src[i] == ";":
+        i += 1
+    return i
+
+
+def _replace_named_export(mock: str, name: str, value_src: str) -> tuple[str, bool]:
+    """Replace `export const name = ...;` value, or append if missing."""
+    pat = re.compile(rf"export\s+const\s+{re.escape(name)}\s*=\s*", re.MULTILINE)
+    m = pat.search(mock)
+    if not m:
+        addition = f"\nexport const {name} = {value_src};\n"
+        return mock.rstrip() + addition, True
+    end = _ts_export_value_end(mock, m.end())
+    return mock[: m.end()] + f"{value_src};" + mock[end:], True
+
+
+def _pages_reference_prop(workspace, export_name: str, prop: str) -> bool:
+    needle = f"{export_name}.{prop}"
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".ts")):
+            continue
+        if needle in read_file(workspace, rel):
+            return True
+    return False
+
+
+def repair_ops_mock_object_shapes(workspace, brand_name: str) -> list[str]:
+    """Fix mock exports that pages treat as objects but were seeded as arrays.
+
+    Classic crash: `ownerDailyBriefing.highValueClients.map` when the export is a list.
+    """
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return []
+    repaired: list[str] = []
+
+    checks: list[tuple[str, list[str], str]] = [
+        (
+            "ownerDailyBriefing",
+            ["highValueClients", "specialCases"],
+            json.dumps(_default_owner_daily_briefing(brand_name), ensure_ascii=False),
+        ),
+        (
+            "appointmentsOverview",
+            ["confirmed", "pending"],
+            json.dumps(_default_appointments_overview(), ensure_ascii=False),
+        ),
+        (
+            "newClientSignups",
+            ["today", "thisWeek"],
+            json.dumps(_default_new_client_signups(), ensure_ascii=False),
+        ),
+    ]
+    for export_name, props, value_src in checks:
+        if not any(_pages_reference_prop(workspace, export_name, p) for p in props):
+            continue
+        m = re.search(rf"export\s+const\s+{re.escape(export_name)}\s*=\s*", mock)
+        if not m:
+            mock, _ = _replace_named_export(mock, export_name, value_src)
+            repaired.append(export_name)
+            continue
+        current = mock[m.end() : _ts_export_value_end(mock, m.end())].strip().rstrip(";").strip()
+        needs = current.startswith("[") or not all(p in current for p in props)
+        if needs:
+            mock, _ = _replace_named_export(mock, export_name, value_src)
+            repaired.append(export_name)
+
+    # OpsShell navItems: rewrite stale /admin and /ops-hub paths; prefer href.
+    # AI mocks often use unquoted JS keys, so avoid json.loads — regex rewrite.
+    nav_m = re.search(r"export\s+const\s+adminNavigation\s*=\s*", mock)
+    if nav_m:
+        end = _ts_export_value_end(mock, nav_m.end())
+        current = mock[nav_m.end() : end]
+        body = current
+        body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body)
+        body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
+        body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
+        body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
+        # Mirror path → href when href missing on an entry (best-effort per object)
+        if "href" not in body2 and re.search(r"\bpath\s*:", body2):
+            body2 = re.sub(
+                r'(path\s*:\s*)(["\'])([^"\']+)\2',
+                r'\1\2\3\2, href: \2\3\2',
+                body2,
+            )
+        elif re.search(r"\bpath\s*:", body2):
+            # Mixed: still mirror path values into href when a row has path but the
+            # literal already mentions href somewhere else — add href alongside path.
+            def _add_href(m: re.Match) -> str:
+                full = m.group(0)
+                if "href" in full:
+                    return full
+                return re.sub(
+                    r'(path\s*:\s*)(["\'])([^"\']+)\2',
+                    r'\1\2\3\2, href: \2\3\2',
+                    full,
+                    count=1,
+                )
+
+            body2 = re.sub(r"\{[^{}]*\bpath\s*:[^{}]*\}", _add_href, body2)
+        if body2 != body:
+            # Keep trailing semicolon from original end slice if present
+            suffix = ""
+            stripped = body2.rstrip()
+            if not stripped.endswith(";"):
+                # _ts_export_value_end includes optional `;` in `end` but not in current
+                pass
+            mock = mock[: nav_m.end()] + body2.rstrip().rstrip(";") + ";" + mock[end:]
+            repaired.append("adminNavigation")
+
+    if repaired:
+        write_file(workspace, mock_path, mock)
+        print(f"    ops mock object shapes repaired: {', '.join(repaired)}", flush=True)
+    return repaired
 
 
 _EMPTY_ARRAY_EXPORT_RE = re.compile(
@@ -489,60 +682,12 @@ def repair_typed_mock_exports(
     )
     name_value = json.dumps(brand_name or "Brand", ensure_ascii=False)
 
-    def _export_value_end(src: str, start: int) -> int:
-        i = start
-        while i < len(src) and src[i] in " \t\n\r":
-            i += 1
-        if i >= len(src):
-            return start
-        if src[i] in "\"'":
-            quote = src[i]
-            i += 1
-            while i < len(src):
-                if src[i] == "\\":
-                    i += 2
-                    continue
-                if src[i] == quote:
-                    i += 1
-                    break
-                i += 1
-        elif src[i] in "[{":
-            open_ch = src[i]
-            close_ch = "]" if open_ch == "[" else "}"
-            depth = 0
-            in_str: str | None = None
-            while i < len(src):
-                ch = src[i]
-                if in_str:
-                    if ch == "\\":
-                        i += 1
-                    elif ch == in_str:
-                        in_str = None
-                elif ch in "\"'`":
-                    in_str = ch
-                elif ch == open_ch:
-                    depth += 1
-                elif ch == close_ch:
-                    depth -= 1
-                    if depth == 0:
-                        i += 1
-                        break
-                i += 1
-        else:
-            while i < len(src) and src[i] not in ";\n":
-                i += 1
-        while i < len(src) and src[i] in " \t":
-            i += 1
-        if i < len(src) and src[i] == ";":
-            i += 1
-        return i
-
     # Walk matches right-to-left so offsets stay valid.
     matches = list(_TYPED_MOCK_EXPORT_RE.finditer(mock))
     for m in reversed(matches):
         name = m.group(1)
         val_start = m.end()
-        val_end = _export_value_end(mock, val_start)
+        val_end = _ts_export_value_end(mock, val_start)
         current = mock[val_start:val_end].strip().rstrip(";").strip()
         low = name.lower().replace("_", "")
         if low in ("brandname", "ownername"):
@@ -1161,6 +1306,27 @@ def sanitize_ui_component_apis(workspace) -> list[str]:
         # StatCard title= → label= (contract is label/value)
         updated = re.sub(r"<StatCard(\s[^>]*)\btitle=", r"<StatCard\1label=", updated)
         updated = re.sub(r"<StatCard(\s[^>]*)\btitle=\{", r"<StatCard\1label={", updated)
+        # Drop unsupported StatCard Icon= prop (balanced braces)
+        while True:
+            m_icon = re.search(r"\s+Icon=\{", updated)
+            if not m_icon:
+                break
+            start = m_icon.start()
+            i = m_icon.end()
+            depth = 1
+            while i < len(updated) and depth:
+                ch = updated[i]
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                i += 1
+            updated = updated[:start] + updated[i:]
+
+        # Button size only sm|md
+        updated = re.sub(r'size=["\']lg["\']', 'size="md"', updated, flags=re.IGNORECASE)
+        updated = re.sub(r'size=["\']large["\']', 'size="md"', updated, flags=re.IGNORECASE)
+        updated = re.sub(r"size=\{['\"]lg['\"]\}", 'size="md"', updated, flags=re.IGNORECASE)
 
         # MarketingHero wrong prop names
         updated = re.sub(r"\bsubheadline=", "subcopy=", updated)
@@ -1173,6 +1339,118 @@ def sanitize_ui_component_apis(workspace) -> list[str]:
             write_file(workspace, norm, updated)
             touched.append(norm)
             print(f"    ui API sanitized in {norm}", flush=True)
+    return touched
+
+
+_LAYOUT_IMPORT_RE = re.compile(
+    r"""^\s*import\s+(\w+)\s+from\s+['"][^'"]*layouts/(PublicLayout|AdminLayout)(?:\.tsx)?['"]\s*;?\s*\n""",
+    re.MULTILINE,
+)
+_LAYOUT_NAMED_IMPORT_RE = re.compile(
+    r"""^\s*import\s+\{\s*(PublicLayout|AdminLayout)\s*\}\s+from\s+['"][^'"]+['"]\s*;?\s*\n""",
+    re.MULTILINE,
+)
+
+
+def _ensure_named_or_default_import(content: str, symbol: str, module: str) -> str:
+    """Ensure `symbol` is imported from module (named merge or default import)."""
+    if re.search(rf"\bimport\s+{re.escape(symbol)}\s+from\s+['\"]{re.escape(module)}['\"]", content):
+        return content
+    named = re.search(
+        rf"""import\s+\{{([^}}]*)}}\s+from\s+['\"]{re.escape(module)}['\"]""",
+        content,
+    )
+    if named:
+        if symbol in named.group(1):
+            return content
+        return (
+            content[: named.start(1)]
+            + f" {symbol}, "
+            + named.group(1)
+            + content[named.end(1) :]
+        )
+    # Prefer default import path for shell components
+    default_mod = f"{module}/{symbol}" if module == "@/ui" else module
+    if re.search(rf"\bimport\s+{re.escape(symbol)}\s+from\s+['\"]{re.escape(default_mod)}['\"]", content):
+        return content
+    return f"import {symbol} from '{default_mod}';\n" + content
+
+
+def _ensure_mock_symbol_import(content: str, symbol: str) -> str:
+    if re.search(rf"\b{re.escape(symbol)}\b", content) and re.search(
+        r"""from\s+['"](?:@/data/mock|\.\./(?:\.\./)*data/mock)['"]""", content
+    ):
+        m_imp = re.search(
+            r"""import\s+\{([^}]*)\}\s+from\s+['"](?:@/data/mock|\.\./(?:\.\./)*data/mock)['"]""",
+            content,
+        )
+        if m_imp:
+            if symbol in m_imp.group(1):
+                return content
+            return (
+                content[: m_imp.start(1)]
+                + f" {symbol}, "
+                + m_imp.group(1)
+                + content[m_imp.end(1) :]
+            )
+    return f"import {{ {symbol} }} from '@/data/mock';\n" + content
+
+
+def unwrap_route_layout_wrappers(workspace, brand_name: str = "Brand") -> list[str]:
+    """Strip page-level PublicLayout/AdminLayout wrappers.
+
+    Those layouts are thin `<Outlet />` only. Nesting them inside a routed page
+    renders an empty Outlet and blanks the screen.
+    """
+    touched: list[str] = []
+    name_lit = json.dumps(brand_name or "Brand", ensure_ascii=False)
+    brand_expr = (
+        "{(typeof brand !== 'undefined' && (brand as any)?.name) "
+        f"|| (typeof brand_name !== 'undefined' ? brand_name : {name_lit})}}"
+    )
+
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".jsx")):
+            continue
+        content = read_file(workspace, rel)
+        if "PublicLayout" not in content and "AdminLayout" not in content:
+            continue
+        updated = content
+        updated = _LAYOUT_IMPORT_RE.sub("", updated)
+        updated = _LAYOUT_NAMED_IMPORT_RE.sub("", updated)
+
+        if re.search(r"<PublicLayout\b", updated):
+            if re.search(r"<PublicShell\b", updated):
+                updated = re.sub(r"<PublicLayout\b[^>]*>", "<>", updated)
+                updated = updated.replace("</PublicLayout>", "</>")
+            else:
+                updated = re.sub(
+                    r"<PublicLayout\b[^>]*>",
+                    f"<PublicShell brandName={brand_expr}>",
+                    updated,
+                )
+                updated = updated.replace("</PublicLayout>", "</PublicShell>")
+                updated = _ensure_named_or_default_import(updated, "PublicShell", "@/ui")
+
+        if re.search(r"<AdminLayout\b", updated):
+            if re.search(r"<OpsShell\b", updated):
+                updated = re.sub(r"<AdminLayout\b[^>]*>", "<>", updated)
+                updated = updated.replace("</AdminLayout>", "</>")
+            else:
+                updated = re.sub(
+                    r"<AdminLayout\b[^>]*>",
+                    f"<OpsShell brandName={brand_expr} navItems={{(typeof adminNavigation !== 'undefined' ? adminNavigation : []) as any}}>",
+                    updated,
+                )
+                updated = updated.replace("</AdminLayout>", "</OpsShell>")
+                updated = _ensure_named_or_default_import(updated, "OpsShell", "@/ui")
+                updated = _ensure_mock_symbol_import(updated, "adminNavigation")
+
+        if updated != content:
+            write_file(workspace, norm, updated)
+            touched.append(norm)
+            print(f"    unwrapped route layout wrappers in {norm}", flush=True)
     return touched
 
 
@@ -1298,6 +1576,14 @@ def ensure_mock_runtime_contracts(
             "navigation.customer.links",
             "(navigation as any).customer?.links ?? (navigation as any).public ?? []",
         )
+        new = new.replace(
+            "ownerDailyBriefing.highValueClients.map",
+            "((ownerDailyBriefing as any)?.highValueClients ?? []).map",
+        )
+        new = new.replace(
+            "ownerDailyBriefing.specialCases.map",
+            "((ownerDailyBriefing as any)?.specialCases ?? []).map",
+        )
         if new != text:
             write_file(workspace, norm, new)
             actions.append(norm)
@@ -1346,6 +1632,7 @@ def apply_workspace_guards(
         (lambda: normalize_ui_kit_imports(workspace), "ui kit imports normalized"),
         (lambda: rewrite_invented_component_imports(workspace), "invented component imports rewritten"),
         (lambda: sanitize_ui_component_apis(workspace), "ui component APIs sanitized"),
+        (lambda: unwrap_route_layout_wrappers(workspace, brand_name), "route layout wrappers unwrapped"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),
         # Restore curated kit AFTER headless injection so kit files are never
@@ -1400,6 +1687,11 @@ def apply_workspace_guards(
         actions.extend(mock_actions)
     except Exception as e:
         print(f"    mock runtime contracts skipped: {e}", flush=True)
+    try:
+        ops_shapes = repair_ops_mock_object_shapes(workspace, brand_name)
+        actions.extend([f"mock-ops:{n}" for n in ops_shapes])
+    except Exception as e:
+        print(f"    ops mock shape repair skipped: {e}", flush=True)
     try:
         src_main = settings.PREVIEW_TEMPLATE_DIR / "src" / "main.tsx"
         dst_main = Path(workspace) / "src" / "main.tsx"

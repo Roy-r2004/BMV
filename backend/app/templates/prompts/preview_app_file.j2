@@ -119,6 +119,8 @@ Implement EVERY section from the plan with rich, business-specific UI. If the pl
 - Each section in the plan should be visually distinct (not copy-paste the same card grid everywhere)
 - Pages must feel dense and production-ready — thin placeholder pages fail
 - NEVER wrap AdminLayout or PublicLayout inside page components — App.tsx applies layouts via routes
+- If you need chrome, compose `PublicShell` / `OpsShell` directly — wrapping `<PublicLayout>` or `<AdminLayout>` blanks the page (those files are Outlet-only)
+- Prefer object-shaped mocks when reading nested fields: `ownerDailyBriefing.highValueClients`, `appointmentsOverview.confirmed`, `newClientSignups.today` (not array stubs)
 - Micro-details that sell realism: last-updated times, staff initials, order #s, table numbers, allergen tags, "Ready in 12 min", occupancy dots, unread counts
 
 For page components (kind=page):
