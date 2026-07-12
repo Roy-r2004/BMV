@@ -29,3 +29,9 @@ export * from './TestimonialRail.js';
 export * from './TextArea.js';
 export * from './Toast.js';
 export * from './Tooltip.js';
+
+// AI-friendly aliases (models invent these names constantly)
+export { Input as TextInput } from './Input.js';
+export { TextArea as Textarea } from './TextArea.js';
+export { Switch as ToggleSwitch } from './Switch.js';
+export { Checkbox as CheckBox } from './Checkbox.js';

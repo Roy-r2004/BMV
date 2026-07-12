@@ -2,13 +2,65 @@ import * as React from 'react';
 
 import { cn } from '../lib/cn.js';
 
+type NavItem = {
+  label?: React.ReactNode;
+  path?: string;
+  href?: string;
+  to?: string;
+};
+
 export interface PublicShellProps extends React.HTMLAttributes<HTMLDivElement> {
   brandName: string;
-  nav?: React.ReactNode;
+  /** React node OR AI-friendly `[{ path, label }]` list */
+  nav?: React.ReactNode | NavItem[];
   footer?: React.ReactNode;
   mainClassName?: string;
   footerClassName?: string;
   backgroundClassName?: string;
+  /** AI often invents this — accepted and rendered as a header CTA when present */
+  cta?: NavItem | React.ReactNode;
+}
+
+function renderNav(nav: PublicShellProps['nav']) {
+  if (nav == null) return null;
+  if (Array.isArray(nav)) {
+    return (
+      <nav className="flex flex-wrap items-center justify-end gap-4 text-sm text-white/75">
+        {nav.map((item, i) => {
+          const href = item.href || item.to || item.path || '#';
+          return (
+            <a key={`${href}-${i}`} href={href} className="transition hover:text-white">
+              {item.label ?? href}
+            </a>
+          );
+        })}
+      </nav>
+    );
+  }
+  if (React.isValidElement(nav) || typeof nav === 'string' || typeof nav === 'number') {
+    return nav;
+  }
+  return null;
+}
+
+function renderCta(cta: PublicShellProps['cta']) {
+  if (cta == null) return null;
+  if (React.isValidElement(cta) || typeof cta === 'string' || typeof cta === 'number') {
+    return cta;
+  }
+  if (typeof cta === 'object' && cta !== null) {
+    const item = cta as NavItem;
+    const href = item.href || item.to || item.path || '#';
+    return (
+      <a
+        href={href}
+        className="inline-flex h-9 items-center rounded-xl bg-brand px-3.5 text-sm font-semibold text-white"
+      >
+        {item.label ?? 'Get started'}
+      </a>
+    );
+  }
+  return null;
 }
 
 export function PublicShell({
@@ -16,12 +68,16 @@ export function PublicShell({
   brandName,
   children,
   className,
+  cta,
   footer,
   footerClassName,
   mainClassName,
   nav,
   ...props
 }: PublicShellProps) {
+  const navNode = renderNav(nav);
+  const ctaNode = renderCta(cta);
+
   return (
     <div
       className={cn(
@@ -44,7 +100,10 @@ export function PublicShell({
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold uppercase tracking-[0.28em] text-white/55">{brandName}</p>
             </div>
-            <div className="flex min-w-0 flex-1 justify-end">{nav}</div>
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-4">
+              {navNode}
+              {ctaNode}
+            </div>
           </div>
         </header>
 

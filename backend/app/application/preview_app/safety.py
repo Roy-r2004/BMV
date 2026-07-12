@@ -1769,6 +1769,43 @@ def ensure_shell_required_props(workspace, brand_name: str = "Brand") -> list[st
     return touched
 
 
+def rewrite_motion_imports_from_cn(workspace) -> list[str]:
+    """AI often imports fadeUp/staggerChildren/pageFade from `@/lib/cn` — move to `@/ui`."""
+    motion_names = {"fadeUp", "staggerChildren", "pageFade", "MotionDiv"}
+    touched: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        lines: list[str] = []
+        changed = False
+        for line in content.splitlines(keepends=True):
+            m = _NAMED_IMPORT_RE.match(line if line.endswith("\n") else line + "\n")
+            if not m:
+                lines.append(line)
+                continue
+            src = m.group(5)
+            if "lib/cn" not in src and src not in ("@/lib/cn", "../lib/cn", "../../lib/cn"):
+                lines.append(line)
+                continue
+            names = _parse_import_names(m.group(2))
+            motion = [n for n in names if n in motion_names]
+            other = [n for n in names if n not in motion_names]
+            if not motion:
+                lines.append(line)
+                continue
+            if other:
+                lines.append(f"import {{ {', '.join(other)} }} from '{src}';\n")
+            lines.append(f"import {{ {', '.join(motion)} }} from '@/ui';\n")
+            changed = True
+        if changed:
+            write_file(workspace, norm, "".join(lines))
+            touched.append(norm)
+            print(f"    motion imports rewritten from cn in {norm}", flush=True)
+    return touched
+
+
 def ensure_mock_runtime_contracts(
     workspace,
     brand_name: str,
@@ -1921,6 +1958,7 @@ def apply_workspace_guards(
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
         (lambda: normalize_ui_kit_imports(workspace), "ui kit imports normalized"),
         (lambda: rewrite_invented_component_imports(workspace), "invented component imports rewritten"),
+        (lambda: rewrite_motion_imports_from_cn(workspace), "motion imports rewritten"),
         (lambda: sanitize_ui_component_apis(workspace), "ui component APIs sanitized"),
         (lambda: unwrap_route_layout_wrappers(workspace, brand_name), "route layout wrappers unwrapped"),
         (lambda: fix_shell_imports_pointing_at_layouts(workspace), "shell layout aliases fixed"),

@@ -3,15 +3,51 @@ import * as React from 'react';
 import { MotionDiv, fadeUp } from './Motion.js';
 import { cn } from '../lib/cn.js';
 
+type ActionObject = {
+  label?: React.ReactNode;
+  href?: string;
+  to?: string;
+  path?: string;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+};
+
 export interface MarketingHeroProps extends React.HTMLAttributes<HTMLElement> {
   eyebrow?: React.ReactNode;
   headline: React.ReactNode;
   subcopy: React.ReactNode;
-  primaryAction?: React.ReactNode;
-  secondaryAction?: React.ReactNode;
+  /** React node OR AI-friendly `{ label, href }` object */
+  primaryAction?: React.ReactNode | ActionObject;
+  secondaryAction?: React.ReactNode | ActionObject;
   media?: React.ReactNode;
   contentClassName?: string;
   mediaClassName?: string;
+}
+
+function isActionObject(value: unknown): value is ActionObject {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !React.isValidElement(value) &&
+    ('label' in (value as object) || 'href' in (value as object) || 'to' in (value as object))
+  );
+}
+
+function renderAction(action: React.ReactNode | ActionObject | undefined, tone: 'primary' | 'secondary') {
+  if (action == null || action === false) return null;
+  if (React.isValidElement(action) || typeof action === 'string' || typeof action === 'number') {
+    return action;
+  }
+  if (!isActionObject(action)) return null;
+  const href = action.href || action.to || action.path || '#';
+  const className =
+    tone === 'primary'
+      ? 'inline-flex h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-lg shadow-brand/25 transition hover:brightness-110'
+      : 'inline-flex h-11 items-center justify-center rounded-xl border border-white/20 bg-white/5 px-5 text-sm font-semibold text-white transition hover:bg-white/10';
+  return (
+    <a href={href} onClick={action.onClick} className={className}>
+      {action.label ?? 'Continue'}
+    </a>
+  );
 }
 
 export function MarketingHero({
@@ -26,6 +62,9 @@ export function MarketingHero({
   subcopy,
   ...props
 }: MarketingHeroProps) {
+  const primary = renderAction(primaryAction, 'primary');
+  const secondary = renderAction(secondaryAction, 'secondary');
+
   return (
     <section className={cn('relative isolate overflow-hidden px-6 py-20 lg:px-10 lg:py-28', className)} {...props}>
       <div
@@ -48,10 +87,10 @@ export function MarketingHero({
             {headline}
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-white/70 sm:text-xl">{subcopy}</p>
-          {(primaryAction || secondaryAction) && (
+          {(primary || secondary) && (
             <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              {primaryAction}
-              {secondaryAction}
+              {primary}
+              {secondary}
             </div>
           )}
         </MotionDiv>
