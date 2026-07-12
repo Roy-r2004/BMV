@@ -264,8 +264,28 @@ def _default_export_value(
         return json.dumps(_default_appointments_overview(), ensure_ascii=False)
     if low in ("newclientsignups",):
         return json.dumps(_default_new_client_signups(), ensure_ascii=False)
+    if low in ("client_names", "clientnames"):
+        return json.dumps(_default_client_names(), ensure_ascii=False)
+    if low in ("ownerstats",):
+        return json.dumps(_default_owner_stats(), ensure_ascii=False)
     # Never default to [] — empty arrays compile but show blank UIs.
     return _seeded_list_export(name, brand_name or "Brand")
+
+
+def _default_owner_stats() -> dict:
+    return {
+        "todayRevenue": 18400,
+        "todayRevenueDelta": "+8%",
+        "appointmentsToday": 18,
+        "appointmentsTodayDelta": "+3",
+        "newClientsThisWeek": 7,
+        "newClientsThisWeekDelta": "+2",
+        "pendingAftercareEscalations": 4,
+        "totalRevenueMonth": 78500,
+        "appointmentsBookedMonth": 124,
+        "noShowRateMonth": "8%",
+        "avgClientRating": "4.9",
+    }
 
 
 def _default_owner_daily_briefing(brand_name: str) -> dict:
@@ -538,6 +558,15 @@ def repair_ops_mock_object_shapes(workspace, brand_name: str) -> list[str]:
                 "promotionsReminder",
             ],
             json.dumps(_default_daily_ai_staff_briefing(brand_name), ensure_ascii=False),
+        ),
+        (
+            "ownerStats",
+            [
+                "todayRevenue",
+                "appointmentsToday",
+                "newClientsThisWeek",
+            ],
+            json.dumps(_default_owner_stats(), ensure_ascii=False),
         ),
     ]
     # Preload page sources once for nested prop checks like export.parent.leaf
@@ -908,7 +937,7 @@ def ensure_brand_shape(
 
 
 _TYPED_MOCK_EXPORT_RE = re.compile(
-    r"export\s+const\s+(brand_name|brandName|owner_name|ownerName|design_system|designSystem)\s*=\s*",
+    r"export\s+const\s+(brand_name|brandName|owner_name|ownerName|design_system|designSystem|client_names|clientNames)\s*=\s*",
     re.MULTILINE,
 )
 
@@ -924,6 +953,7 @@ def repair_typed_mock_exports(
 
     `ensure_mock_exports` used to fill unknown imports with list rows. Pages treat
     `design_system.primary_color` and `brand_name` as object/string — arrays white-screen.
+    `client_names[0].split(...)` also white-screens when rows are objects.
     """
     mock_path = "src/data/mock.ts"
     mock = read_file(workspace, mock_path)
@@ -935,6 +965,7 @@ def repair_typed_mock_exports(
         "design_system", {}, {}, {}, brand_name, primary, secondary, font
     )
     name_value = json.dumps(brand_name or "Brand", ensure_ascii=False)
+    client_names_value = json.dumps(_default_client_names(), ensure_ascii=False)
 
     # Walk matches right-to-left so offsets stay valid.
     matches = list(_TYPED_MOCK_EXPORT_RE.finditer(mock))
@@ -951,6 +982,13 @@ def repair_typed_mock_exports(
         elif low == "designsystem":
             if current.startswith("[") or "primary_color" not in current:
                 mock = mock[:val_start] + f"{ds_value};" + mock[val_end:]
+                replaced.append(name)
+        elif low == "clientnames":
+            # Must be string[]; object rows from _seeded_list_export crash `.split`.
+            looks_object_rows = bool(re.search(r"\{\s*['\"]?id['\"]?\s*:", current))
+            looks_string_rows = bool(re.search(r"^\s*\[\s*['\"]", current))
+            if not current.startswith("[") or looks_object_rows or not looks_string_rows:
+                mock = mock[:val_start] + f"{client_names_value};" + mock[val_end:]
                 replaced.append(name)
 
     if replaced:
@@ -2062,6 +2100,18 @@ def ensure_mock_runtime_contracts(
         new = new.replace(
             "brand.client_names[0]",
             "(brand as any).client_names?.[0] ?? 'Sofia'",
+        )
+        new = new.replace(
+            "client_names[0].split",
+            "String((client_names as any)?.[0] ?? 'Sofia Chen').split",
+        )
+        new = new.replace(
+            "clientNames[0]?.split",
+            "String((clientNames as any)?.[0] ?? 'Sofia Chen').split",
+        )
+        new = new.replace(
+            "clientNames[0].split",
+            "String((clientNames as any)?.[0] ?? 'Sofia Chen').split",
         )
         new = new.replace(
             "M.manifest.brand_name",
