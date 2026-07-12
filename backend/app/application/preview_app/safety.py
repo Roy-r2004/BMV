@@ -1559,8 +1559,50 @@ _UI_COMPONENT_NAMES = {
     "StatCard", "DataTable", "FilterBar", "ChartCard", "EmptyState", "ConfirmDialog",
     "Button", "Card", "Badge", "Input", "Textarea", "TextArea", "Select", "Dialog",
     "Modal", "Tabs", "Checkbox", "Switch", "Tooltip", "SectionHeader", "MultiSelect",
-    "Toast",
+    "Toast", "BrandFooter", "TestimonialRail", "MarqueeStrip",
 }
+
+
+def ensure_used_ui_kit_imports(workspace) -> list[str]:
+    """Add missing `@/ui` imports for kit components used in JSX (e.g. bare `<Badge>`)."""
+    touched: list[str] = []
+    tag_re = re.compile(
+        r"<(?P<name>" + "|".join(sorted(_UI_COMPONENT_NAMES, key=len, reverse=True)) + r")\b"
+    )
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".jsx")):
+            continue
+        if "/ui/" in norm or norm.startswith("src/ui/"):
+            continue
+        content = read_file(workspace, rel)
+        used = set(tag_re.findall(content))
+        if not used:
+            continue
+        missing = []
+        for sym in sorted(used):
+            # Already imported from anywhere (named or default) — don't redeclare.
+            if re.search(
+                rf"""import\s+\{{[^}}]*\b{re.escape(sym)}\b[^}}]*}}\s+from\s+['\"][^'\"]+['\"]""",
+                content,
+            ):
+                continue
+            if re.search(
+                rf"""import\s+{re.escape(sym)}\s+from\s+['\"][^'\"]+['\"]""",
+                content,
+            ):
+                continue
+            missing.append(sym)
+        if not missing:
+            continue
+        updated = content
+        for sym in missing:
+            updated = _ensure_named_or_default_import(updated, sym, "@/ui")
+        if updated != content:
+            write_file(workspace, rel, updated)
+            touched.append(norm)
+            print(f"    ui kit imports ensured in {norm}: {', '.join(missing)}", flush=True)
+    return touched
 
 
 def sanitize_ui_component_apis(workspace) -> list[str]:
@@ -1627,6 +1669,8 @@ def sanitize_ui_component_apis(workspace) -> list[str]:
         updated = re.sub(r"\bcta2=", "secondaryAction=", updated)
         # image= on MarketingHero → media= with img wrapper is hard; map prop name at least
         updated = re.sub(r"(<MarketingHero\b[^>]*?)\bimage=", r"\1media=", updated)
+        # PageHeader contract is description=, not subtitle=
+        updated = re.sub(r"(<PageHeader\b[^>]*?)\bsubtitle=", r"\1description=", updated)
 
         if updated != content:
             write_file(workspace, norm, updated)
@@ -2202,6 +2246,7 @@ def apply_workspace_guards(
         (lambda: rewrite_invented_component_imports(workspace), "invented component imports rewritten"),
         (lambda: rewrite_motion_imports_from_cn(workspace), "motion imports rewritten"),
         (lambda: sanitize_ui_component_apis(workspace), "ui component APIs sanitized"),
+        (lambda: ensure_used_ui_kit_imports(workspace), "used ui kit imports ensured"),
         (lambda: unwrap_route_layout_wrappers(workspace, brand_name), "route layout wrappers unwrapped"),
         (lambda: fix_shell_imports_pointing_at_layouts(workspace), "shell layout aliases fixed"),
         (lambda: ensure_shell_required_props(workspace, brand_name), "shell required props ensured"),
