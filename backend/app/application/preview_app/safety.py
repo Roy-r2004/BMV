@@ -284,11 +284,37 @@ def _brand_object_span(mock: str) -> tuple[int, int] | None:
     return start, i - 1
 
 
+def _toplevel_string_array(mock: str, name: str) -> list[str] | None:
+    """Parse `export const name = ["a", "b"]` if present; else None."""
+    m = re.search(
+        rf"export\s+const\s+{re.escape(name)}\s*=\s*\[([\s\S]*?)\];",
+        mock,
+    )
+    if not m:
+        return None
+    vals = re.findall(r"""["']([^"']+)["']""", m.group(1))
+    return vals or None
+
+
+def _default_client_names(brand_name: str) -> list[str]:
+    label = (brand_name or "Brand").split()[0]
+    return [
+        f"Maya {label}",
+        "Jordan Cohen",
+        "Sam Levi",
+        "Noa Ben-David",
+        "Alex Mizrahi",
+        "Dana Peretz",
+    ]
+
+
 def _brand_completeness_patch(
     brand_name: str,
     primary: str,
     secondary: str,
     font: str,
+    *,
+    client_names: list[str] | None = None,
 ) -> str:
     """TS snippet merged into brand so pages that expect design_system don't white-screen."""
     name = brand_name or "Brand"
@@ -323,6 +349,7 @@ def _brand_completeness_patch(
     testimonials = [
         {
             "name": "Maya R.",
+            "initials": "MR",
             "quote": f"Finally a {name} experience that feels personal — the AI consult nailed what I needed.",
             "text": f"Finally a {name} experience that feels personal — the AI consult nailed what I needed.",
             "role": "Client",
@@ -330,6 +357,7 @@ def _brand_completeness_patch(
         },
         {
             "name": "Jordan K.",
+            "initials": "JK",
             "quote": "Booking and aftercare in one place. No more chasing answers on chat.",
             "text": "Booking and aftercare in one place. No more chasing answers on chat.",
             "role": "Member",
@@ -337,6 +365,7 @@ def _brand_completeness_patch(
         },
         {
             "name": "Sam T.",
+            "initials": "ST",
             "quote": "The owner hub's no-show risk view alone paid for itself in a week.",
             "text": "The owner hub's no-show risk view alone paid for itself in a week.",
             "role": "Owner",
@@ -344,10 +373,12 @@ def _brand_completeness_patch(
         },
     ]
     design = _design_system_dict(primary, secondary, font)
+    names = client_names or _default_client_names(name)
     return (
         f"design_system: {json.dumps(design, ensure_ascii=False)},\n"
         f"  services: {json.dumps(services, ensure_ascii=False)},\n"
         f"  testimonials: {json.dumps(testimonials, ensure_ascii=False)},\n"
+        f"  client_names: {json.dumps(names, ensure_ascii=False)},\n"
         f"  social_proof: {json.dumps(f'Trusted by over 2,400 delighted {name} clients.', ensure_ascii=False)}"
     )
 
@@ -359,11 +390,12 @@ def ensure_brand_shape(
     secondary: str,
     font: str,
 ) -> bool:
-    """Guarantee `brand.design_system` (+ services/testimonials) so home pages don't crash white.
+    """Guarantee `brand.design_system` (+ services/testimonials/client_names) so home pages don't crash.
 
-    AI pages often read `brand.design_system.primary_color` and `brand.services.map(...)`.
-    Mock synthesis frequently ships a flat brand `{ name, accent }` — that throws at runtime
-    and the iframe stays blank until someone hand-patches mock.ts.
+    AI pages often read `brand.design_system.primary_color`, `brand.services.map(...)`,
+    and `brand.client_names[i]` — missing nested arrays throw
+    `Cannot read properties of undefined (reading '0')` and the Live Product iframe
+    shows PreviewErrorBoundary.
 
     Detection MUST inspect the brand object body only: top-level `export const design_system`
     / path strings like `/owner/services` must not count as completeness.
@@ -382,10 +414,23 @@ def ensure_brand_shape(
     needs_services = not re.search(r"\bservices\s*:", body)
     needs_testimonials = not re.search(r"\btestimonials\s*:", body)
     needs_proof = "social_proof" not in body
-    if not (needs_ds or needs_services or needs_testimonials or needs_proof):
+    needs_client_names = not re.search(r"\bclient_names\s*:", body)
+    if not (needs_ds or needs_services or needs_testimonials or needs_proof or needs_client_names):
         return False
 
-    patch = _brand_completeness_patch(brand_name, primary, secondary, font)
+    names = _toplevel_string_array(mock, "client_names") or _default_client_names(brand_name)
+    # Home often does brand.client_names[i] while mapping brand.testimonials — pad so index stays valid.
+    testimonial_count = len(re.findall(r"\binitials\s*:|\bquote\s*:|\btext\s*:", body))
+    while len(names) < max(8, testimonial_count, 3):
+        names.append(f"Client {len(names) + 1}")
+
+    if needs_client_names and not (needs_ds or needs_services or needs_testimonials or needs_proof):
+        patch = f"client_names: {json.dumps(names, ensure_ascii=False)}"
+    else:
+        patch = _brand_completeness_patch(
+            brand_name, primary, secondary, font, client_names=names,
+        )
+
     before = mock[:close_at].rstrip()
     if before.endswith(","):
         injection = f"\n  {patch},\n"
