@@ -26,7 +26,7 @@ export function PublicShell({
     <div
       className={cn(
         'relative min-h-screen overflow-hidden bg-slate-950 text-white',
-        'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[34rem] before:bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.25),transparent_55%)] before:content-[""]',
+        'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[34rem] before:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_55%)] before:content-[""]',
         className
       )}
       {...props}
@@ -34,7 +34,7 @@ export function PublicShell({
       <div
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.12)_0%,rgba(2,6,23,0.8)_52%,rgba(2,6,23,1)_100%)]',
+          'pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04)_0%,rgba(2,6,23,0.75)_48%,rgba(2,6,23,1)_100%)]',
           backgroundClassName
         )}
       />

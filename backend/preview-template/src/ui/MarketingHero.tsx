@@ -30,7 +30,7 @@ export function MarketingHero({
     <section className={cn('relative isolate overflow-hidden px-6 py-20 lg:px-10 lg:py-28', className)} {...props}>
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(circle_at_top,rgba(129,140,248,0.3),transparent_55%)]"
+        className="absolute inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_55%)]"
       />
       <div className="mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] lg:gap-16">
         <MotionDiv

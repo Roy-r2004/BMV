@@ -44,9 +44,9 @@ You are building the LIVE product the business owner already runs — not a pitc
 The file MUST be complete and Vite-buildable on the first try:
 - Output the FULL file — never truncate mid-line or mid-JSX
 - MUST include `export default` for page/layout/component files
-- ONLY import from: `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, and files listed in EXISTING FILES
-- NEVER import lucide-react, @mui, antd, recharts, framer-motion, or any other npm package
-- If an icon is needed and UiIcon lacks the name, use inline SVG — do not invent npm imports
+- ONLY import from this curated allowlist: `react`, `react-dom`, `react-router-dom`, `react/jsx-runtime`, `framer-motion`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`, `lucide-react` (prefer via UiIcon), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, `../ui` or `../ui/...`, `../lib/cn`, and files listed in EXISTING FILES
+- FORBIDDEN imports: `@mui/*`, `antd`, `@chakra-ui/*`, `@mantine/*`, `bootstrap`, `chart.js`, `three`, bulk `react-icons/*`, and invented local paths like `../hooks/*` unless they already exist in EXISTING FILES
+- If an icon is needed, prefer `UiIcon`; direct `lucide-react` is a fallback, not the default
 - TypeScript must parse: balanced braces/parens, closed JSX tags, no markdown fences
 
 TECH RULES:
@@ -61,12 +61,21 @@ TECH RULES:
 - Export default for page/layout components; named exports OK for data
 - Keep imports consistent: only import names you actually export from mock.ts. If a page imports `services` from mock, mock.ts MUST export `services`.
 - IMPORTS ALLOW-LIST — you may ONLY import from these, nothing else:
-  * `react`, `react-router-dom`
-  * `../data/mock` (or `@/data/mock`) and files that already exist in EXISTING FILES above
-  * `../components/UiIcons` for icons (`<UiIcon name="chart" />`)
-  NEVER import ANY npm package (no lucide-react, no @mantine, no @mui, no antd, no react-icons, no recharts, no chart.js, etc.). NEVER import invented local paths like `../lib/aiUtils`, `../hooks/*`, `../utils/*`. Put ALL helper logic INLINE.
-- Icons: use `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield, bell, calendar, check, search, cart, brain, coffee) OR inline SVG (24x24, stroke-current) — NEVER emoji
-- Charts/graphs: build with styled divs or inline <svg> (e.g. bar heights via Tailwind h-*) — never a chart library.
+  * `react`, `react-dom`, `react-router-dom`, `react/jsx-runtime`
+  * `framer-motion`
+  * `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`
+  * `lucide-react` (prefer via `UiIcon`), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`
+  * `../data/mock` (or `@/data/mock`), `../components/UiIcons`, `../ui` or `../ui/...`, `../lib/cn`, and files that already exist in EXISTING FILES above
+  NEVER import forbidden packages (`@mui/*`, `antd`, `@chakra-ui/*`, `@mantine/*`, `bootstrap`, `chart.js`, `three`, bulk `react-icons/*`) or invented local paths like `../hooks/*` unless they already exist in EXISTING FILES. Put helper logic INLINE unless an allowed existing file already provides it.
+- Prefer importing from `../ui` for shared building blocks: `PublicShell`, `MarketingHero`, `FeatureBento`, `CTABand`, `OpsShell`, `PageHeader`, `StatCard`, `DataTable`, `FilterBar`, `ChartCard`, `EmptyState`, `ConfirmDialog`, `Button`, `Card`, `Badge`, motion presets `fadeUp` / `staggerChildren` / `pageFade`, and `Toast`
+- Public home pages and public role landing pages MUST use `PublicShell` + `MarketingHero` composition, real `framer-motion`, and a bold premium AI-native 2026 atmosphere driven by brand tokens and imagery — not flat white empty pages, and not weak equal card grids as the only idea
+- Ops role landing pages and dashboards MUST use `OpsShell` (via `AdminLayout` or directly, per file instructions) + `PageHeader` + `StatCard` + `ChartCard` and/or `DataTable`, plus `FilterBar` where lists exist
+- Focused flow pages (checkout, wizard, onboarding, payment, confirmation, single-purpose forms) may omit the full shell, but must stay polished and rely on `Button`, `Input`, `Card`, and the existing ui kit
+- Charts: use `ChartCard` / `recharts` for real charts — NEVER fake main charts with div bars, except tiny decorative sparklines
+- Icons: use `UiIcon` (lucide-backed) as the default icon path — NEVER emoji
+- Do NOT reinvent nav/header/footer inside page files when a layout or shell already provides that chrome
+- Layouts own chrome, pages export main content, and layouts must compose the existing ui shells
+- Weak flat layouts, placeholder density, or equal-card-only landings will fail critic on this elevation bar
 
 For App.tsx:
 - MUST import RouteBridge and RoleBridge pattern from template's App (BrowserRouter, RouteBridge, RoleBridge)
@@ -79,7 +88,7 @@ For App.tsx:
 For page components (kind=page):
 - Import from `../data/mock` ONLY the symbols this page needs (e.g. `inventory`, `leads`, `stats`). Choose names that match the business — mock.ts is generated later to match your imports.
 - You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
-- PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
+- PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts and must compose the existing ui shells — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
 - Pages export ONLY their main content (sections inside a fragment or single div).
 - Home/landing: full-bleed hero is OK (negative margins or full-width sections). Do not nest a second site header.
 

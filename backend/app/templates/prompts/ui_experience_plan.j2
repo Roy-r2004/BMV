@@ -43,6 +43,8 @@ Return ONLY valid JSON:
     "card_style": "describe borders, shadows, padding",
     "section_spacing": "e.g. 96px vertical",
     "style_keywords": "3-5 words describing the visual feel for THIS business",
+    "public_direction": "bold premium AI-native 2026 marketing look for THIS brand",
+    "ops_direction": "polished calm SaaS ops look for THIS brand",
     "public_shell": "describe nav bar style for customer pages",
     "admin_shell": "describe sidebar/dashboard shell for owner pages"
   },
@@ -68,6 +70,7 @@ Return ONLY valid JSON:
         {
           "id": "unique-page-id",
           "title": "Page Title",
+          "surface": "\"public\" | \"ops\"",
           "page_type": "descriptive type",
           "purpose": "why this page exists for THIS business",
           "sections": [
@@ -86,8 +89,11 @@ CRITICAL:
 - Do NOT use generic page sets — derive everything from the blueprint and business context
 - Every preview feature and blueprint module MUST appear in feature_coverage
 - Navigation links must only point to pages that exist in that role's pages array
+- Every page MUST declare `surface` as `public` or `ops`
 - Section descriptions must be detailed enough for a developer to build without guessing
 - Design system must reflect THIS industry (luxury spa ≠ gym ≠ law firm)
+- Public home/landing pages must feel bold, premium, and AI-native for THIS brand — not a flat generic SaaS grid
+- Ops landing/dashboard pages must feel structured, calm, and operationally dense like a polished SaaS console
 - YOU decide how many roles and pages — no fixed template. A simple product may need 1 role and 3 pages; a complex one may need 3 roles and 15 pages. Match the blueprint, not a checklist.
 
 ═══ LIVE PRODUCT, NOT A PITCH ═══

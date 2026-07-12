@@ -153,33 +153,40 @@ _COLOR_CONSTRAINT = (
 
 _CHROME_CONTRACTS: dict[str, str] = {
     "src/components/nav.tsx": (
-        "This is the shared top navigation bar, rendered once by PublicLayout on every "
-        "public page. Keep the exact signature: "
+        "This is the shared top navigation bar, rendered once by PublicLayout on public "
+        "routes. The primary path is to compose the existing `src/ui/*` kit instead of "
+        "inventing a brand-new chrome system from scratch. Keep the exact signature: "
         "`export default function Nav({ brandName = 'Brand', items = [], cta }: Props)` "
         "with Props = { brandName?: string; items?: {path,label}[]; cta?: {path,label} }. "
-        "Redesign the visual style (spacing, typography, button shape) to fit THIS "
-        "brand specifically — do not default to a generic indigo/slate look. "
+        "Use router-matching paths with plain `<a href>` links. Redesign the visual style "
+        "(spacing, typography, button shape) to fit THIS brand specifically — do not "
+        "default to a generic indigo/slate look. "
         "It must feel like a real storefront nav the customer trusts: sticky/clean, "
         "brand name as text logo, clear active-ready links, strong CTA — never 'Demo' "
-        "or pitch wording in labels."
+        "or pitch wording in labels. Prefer existing template buttons/badges/layout "
+        "primitives where useful rather than rebuilding the chrome system."
         + _COLOR_CONSTRAINT
     ),
     "src/layouts/publiclayout.tsx": (
         "This wraps EVERY public page — it must keep rendering <Outlet /> for page content, "
-        "keep importing `brand, navigation` from '../data/mock', and keep rendering "
-        "<Nav /> from '../components/Nav'. You control the footer content/structure and "
-        "overall shell styling — make it specific to this business, not a generic template. "
-        "CRITICAL: do NOT wrap <Outlet /> in heavy vertical padding that kills full-bleed "
-        "heroes — let pages own their spacing. Footer must feel real (hours, address, "
+        "keep importing `brand, navigation` from '../data/mock', keep rendering <Nav /> "
+        "from '../components/Nav', and compose `PublicShell` from `../ui` (or a local "
+        "re-export backed by `../ui`) as the primary chrome wrapper. You control the "
+        "footer content/structure and overall shell styling — make it specific to this "
+        "business, not a generic template. CRITICAL: do NOT wrap <Outlet /> in heavy "
+        "vertical padding that kills full-bleed heroes — let pages own their spacing. "
+        "Public home and role landing routes should feel bold, premium, and AI-native "
+        "through this shell composition. Footer must feel real (hours, address, "
         "phone-style contact lines from brand context) — not a one-line copyright stub."
         + _COLOR_CONSTRAINT
     ),
     "src/layouts/adminlayout.tsx": (
         "This wraps EVERY admin page — it must keep rendering <Outlet /> for page content and "
-        "keep importing `brand, navigation` from '../data/mock'. NEVER hardcode a business "
-        "type in any label (do not assume 'Studio', 'Restaurant', 'Clinic', etc.) — use "
-        "`brand.name` and neutral wording like 'Admin' or 'Dashboard'. You control the "
-        "sidebar/header styling — make it specific to this business. Feel like a real ops "
+        "keep importing `brand, navigation` from '../data/mock', and compose `OpsShell` "
+        "from `../ui` as the primary chrome wrapper. NEVER hardcode a business type in any "
+        "label (do not assume 'Studio', 'Restaurant', 'Clinic', etc.) — use `brand.name` "
+        "and neutral wording like 'Admin' or 'Dashboard'. You control the sidebar/header "
+        "styling — make it specific to this business. Feel like a polished calm SaaS ops "
         "console: sidebar with clear sections, subtle active state, compact header with "
         "today's date or 'Live' status — not a marketing shell."
         + _COLOR_CONSTRAINT
@@ -188,10 +195,10 @@ _CHROME_CONTRACTS: dict[str, str] = {
         "This is the shared icon set used everywhere via `<UiIcon name=\"...\" />`. Keep "
         "exporting a default `UiIcon` component that accepts a `name` prop and supports at "
         "least these keys: clipboard, chart, target, clock, users, zap, shield, bell, "
-        "calendar, check, search, cart, brain, coffee, arrowRight. Design a bespoke stroke "
-        "style (weight, corner rounding) that fits this brand rather than a generic outline "
-        "set — but every icon must share the same stroke weight/rounding as each other. "
-        "Unknown names must fall back to a simple circle/dot SVG — never crash."
+        "calendar, check, search, cart, brain, coffee, arrowRight. Keep the default export "
+        "name/API as `UiIcon`, stay lucide-backed, and limit changes to light brand tweaks "
+        "(stroke weight, sizing, corner rounding) instead of rewriting the icon system "
+        "from scratch. Unknown names must fall back to a simple circle/dot SVG — never crash."
         + _COLOR_CONSTRAINT
     ),
 }
@@ -269,9 +276,15 @@ def generate_file(
             f"{prompt}\n\n"
             f"IMPORTANT: Previous answer failed ({reason}). "
             "Return the COMPLETE TypeScript/React file only — start with imports, "
-            "end with export default. MUST compile. ONLY import from react, "
-            "react-router-dom, ../data/mock (or @/data/mock), ../components/UiIcons, "
-            "and existing local files. No npm icon/UI libraries. No markdown fences."
+            "end with export default. MUST compile. ONLY import from the curated allowlist: "
+            "react, react-dom, react-router-dom, react/jsx-runtime, framer-motion, "
+            "@radix-ui/react-dialog, @radix-ui/react-dropdown-menu, @radix-ui/react-tabs, "
+            "@radix-ui/react-select, @radix-ui/react-switch, @radix-ui/react-tooltip, "
+            "@radix-ui/react-slot, lucide-react, recharts, clsx, tailwind-merge, "
+            "date-fns, sonner, ../data/mock (or @/data/mock), ../components/UiIcons, "
+            "../ui or ../ui/..., ../lib/cn, and existing local files. Do not use MUI, "
+            "Ant, Chakra, Mantine, Bootstrap, Chart.js, Three, react-icons dumps, "
+            "or invented local hook paths. No markdown fences."
         )
         raw2 = ai_provider.ask_chat(
             settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=16000,
