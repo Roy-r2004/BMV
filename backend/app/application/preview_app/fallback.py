@@ -16,7 +16,7 @@ import json
 import re
 
 from app.core.config import settings
-from app.application.preview_app.workspace import write_file
+from app.application.preview_app.workspace import read_file, write_file
 
 _TITLE_SPLIT_RE = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -131,7 +131,7 @@ def _industry_copy(industry: str | None, brand: str, title: str) -> tuple[str, l
         )
     if any(k in ind for k in ("clinic", "health", "dental", "medical", "doctor", "medspa", "aesthetic")):
         return (
-            f"{title} at {brand} — sample schedule so patients and staff can explore the flow.",
+            f"Live {brand} operations — today's appointments, risk signals, and aftercare in one calm hub.",
             [
                 {"k": "Today", "v": "18"},
                 {"k": "Checked in", "v": "7"},
@@ -181,6 +181,43 @@ def find_broken_paths(build_log: str, candidate_paths: list[str]) -> list[str]:
         if norm in build_log or rel in build_log:
             broken.append(path)
     return broken
+
+
+def _is_primary_page(path: str) -> bool:
+    low = path.replace("\\", "/").lower()
+    if "homepage" in low or low.endswith("/home.tsx") or low.endswith("/home/page.tsx"):
+        return True
+    compact = low.replace("_", "").replace("-", "")
+    if "/owner/" in low and "dashboard" in compact:
+        return True
+    if "opsdashboard" in compact:
+        return True
+    return False
+
+
+_STUB_MARKERS = (
+    "sample schedule so patients",
+    "sample activity so you can click",
+    "Guided next step",
+    "Sample operational volume",
+)
+
+
+def _looks_like_fallback_stub(content: str) -> bool:
+    if not content or not content.strip():
+        return True
+    hits = sum(1 for m in _STUB_MARKERS if m in content)
+    return hits >= 2 or ("sample schedule so patients" in content and "MarketingHero" in content)
+
+
+def _looks_rich_primary_page(content: str) -> bool:
+    """True when a primary page should NOT be overwritten by fallback stubs."""
+    if not content or len(content) < 800:
+        return False
+    if _looks_like_fallback_stub(content):
+        return False
+    has_shell = "PublicShell" in content or "OpsShell" in content or "MarketingHero" in content
+    return has_shell and "export default" in content and content.count("\n") >= 40
 
 
 def write_safe_stub(
@@ -272,7 +309,7 @@ export default function {component}() {{
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ChartCard
           title="This week"
-          description="Sample operational volume"
+          description="Appointments and utilization this week"
           data={{chartData}}
           dataKey="value"
           xKey="day"
@@ -407,8 +444,15 @@ def stabilize_broken_pages(
             if write_template_fallback(workspace, norm):
                 rewritten.append(norm)
             continue
-        # Never stub a page that already looks critic-passed/rich unless it is listed
-        # as broken (caller already decided). Keep stub quality high for primary surfaces.
+        # Never overwrite a rich critic-passed primary page with a stub.
+        if _is_primary_page(norm):
+            existing = read_file(workspace, norm)
+            if _looks_rich_primary_page(existing):
+                print(
+                    f"    preserving rich primary page (refusing stub overwrite): {norm}",
+                    flush=True,
+                )
+                continue
         meta = route_meta.get(norm) or {}
         surface = meta.get("surface")
         low = norm.lower()
@@ -482,6 +526,9 @@ def stabilize_all_route_pages(
             continue
         if is_chrome_path(path):
             continue
+        if _is_primary_page(path) and _looks_rich_primary_page(read_file(workspace, path)):
+            print(f"    preserving rich primary page in full stabilize: {path}", flush=True)
+            continue
         write_safe_stub(
             workspace,
             path,
@@ -494,13 +541,16 @@ def stabilize_all_route_pages(
 
     home = "src/pages/HomePage.tsx"
     if home not in rewritten:
-        write_safe_stub(
-            workspace,
-            home,
-            brand_name=brand_name,
-            industry=industry,
-            page_title="Home",
-            surface="public",
-        )
-        rewritten.append(home)
+        if _looks_rich_primary_page(read_file(workspace, home)):
+            print(f"    preserving rich HomePage in full stabilize", flush=True)
+        else:
+            write_safe_stub(
+                workspace,
+                home,
+                brand_name=brand_name,
+                industry=industry,
+                page_title="Home",
+                surface="public",
+            )
+            rewritten.append(home)
     return rewritten

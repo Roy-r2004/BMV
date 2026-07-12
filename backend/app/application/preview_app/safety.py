@@ -120,10 +120,37 @@ def _collect_mock_imports(workspace) -> set[str]:
             continue
         for m in _MOCK_IMPORT_RE.finditer(read_file(workspace, rel)):
             for part in m.group(1).split(","):
-                n = part.strip().split(" as ")[0].strip()
-                if n and n != "type":
+                token = part.strip()
+                if not token:
+                    continue
+                # `import { type Foo }` / `import type { Foo }` residue
+                bits = token.split()
+                if bits and bits[0] == "type":
+                    bits = bits[1:]
+                token = " ".join(bits)
+                n = token.split(" as ")[0].strip()
+                if n and re.match(r"^[A-Za-z_$][\w$]*$", n):
                     names.add(n)
     return names
+
+
+def scrub_invalid_mock_exports(workspace) -> list[str]:
+    """Remove illegal `export const type Foo` / spaced names from mock auto-exports."""
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return []
+    updated, n = re.subn(
+        r"^export\s+const\s+type\s+[A-Za-z_$][\w$]*\s*=\s*[\s\S]*?;\s*\n?",
+        "",
+        mock,
+        flags=re.MULTILINE,
+    )
+    if n:
+        write_file(workspace, mock_path, updated)
+        print(f"    scrubbed {n} invalid type-export(s) from mock.ts", flush=True)
+        return [f"type-export-x{n}"]
+    return []
 
 
 def _mock_exported_names(mock: str) -> set[str]:
@@ -379,48 +406,68 @@ def repair_ops_mock_object_shapes(workspace, brand_name: str) -> list[str]:
             mock, _ = _replace_named_export(mock, export_name, value_src)
             repaired.append(export_name)
 
-    # OpsShell navItems: rewrite stale /admin and /ops-hub paths; prefer href.
-    # AI mocks often use unquoted JS keys, so avoid json.loads — regex rewrite.
+    # OpsShell navItems must be an array. AI often emits
+    # `adminNavigation = { type: "sidebar", links: [...] }`.
     nav_m = re.search(r"export\s+const\s+adminNavigation\s*=\s*", mock)
     if nav_m:
         end = _ts_export_value_end(mock, nav_m.end())
         current = mock[nav_m.end() : end]
-        body = current
-        body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body)
-        body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
-        body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
-        body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
-        # Mirror path → href when href missing on an entry (best-effort per object)
-        if "href" not in body2 and re.search(r"\bpath\s*:", body2):
-            body2 = re.sub(
-                r'(path\s*:\s*)(["\'])([^"\']+)\2',
-                r'\1\2\3\2, href: \2\3\2',
-                body2,
-            )
-        elif re.search(r"\bpath\s*:", body2):
-            # Mixed: still mirror path values into href when a row has path but the
-            # literal already mentions href somewhere else — add href alongside path.
-            def _add_href(m: re.Match) -> str:
-                full = m.group(0)
-                if "href" in full:
-                    return full
-                return re.sub(
+        body = current.strip().rstrip(";").strip()
+        if body.startswith("{"):
+            links_m = re.search(r"\blinks\s*:\s*(\[[\s\S]*\])\s*,?\s*\}", body)
+            if links_m:
+                links_src = links_m.group(1)
+                # Still rewrite stale paths inside the extracted links
+                links_src = re.sub(r'(["\'])/admin/', r"\1/owner/", links_src)
+                links_src = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", links_src)
+                links_src = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", links_src)
+                links_src = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", links_src)
+                if "href" not in links_src and re.search(r"\bpath\s*:", links_src):
+                    links_src = re.sub(
+                        r'(path\s*:\s*)(["\'])([^"\']+)\2',
+                        r"\1\2\3\2, href: \2\3\2",
+                        links_src,
+                    )
+                mock = mock[: nav_m.end()] + links_src + ";" + mock[end:]
+                repaired.append("adminNavigation")
+            else:
+                body2 = body
+                body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body2)
+                body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
+                body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
+                body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
+                if body2 != body:
+                    mock = mock[: nav_m.end()] + body2 + ";" + mock[end:]
+                    repaired.append("adminNavigation")
+        elif body.startswith("["):
+            body2 = body
+            body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body2)
+            body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
+            body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
+            body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
+            if "href" not in body2 and re.search(r"\bpath\s*:", body2):
+                body2 = re.sub(
                     r'(path\s*:\s*)(["\'])([^"\']+)\2',
-                    r'\1\2\3\2, href: \2\3\2',
-                    full,
-                    count=1,
+                    r"\1\2\3\2, href: \2\3\2",
+                    body2,
                 )
+            elif re.search(r"\bpath\s*:", body2):
 
-            body2 = re.sub(r"\{[^{}]*\bpath\s*:[^{}]*\}", _add_href, body2)
-        if body2 != body:
-            # Keep trailing semicolon from original end slice if present
-            suffix = ""
-            stripped = body2.rstrip()
-            if not stripped.endswith(";"):
-                # _ts_export_value_end includes optional `;` in `end` but not in current
-                pass
-            mock = mock[: nav_m.end()] + body2.rstrip().rstrip(";") + ";" + mock[end:]
-            repaired.append("adminNavigation")
+                def _add_href(m: re.Match) -> str:
+                    full = m.group(0)
+                    if "href" in full:
+                        return full
+                    return re.sub(
+                        r'(path\s*:\s*)(["\'])([^"\']+)\2',
+                        r"\1\2\3\2, href: \2\3\2",
+                        full,
+                        count=1,
+                    )
+
+                body2 = re.sub(r"\{[^{}]*\bpath\s*:[^{}]*\}", _add_href, body2)
+            if body2 != body:
+                mock = mock[: nav_m.end()] + body2 + ";" + mock[end:]
+                repaired.append("adminNavigation")
 
     if repaired:
         write_file(workspace, mock_path, mock)
@@ -1454,6 +1501,72 @@ def unwrap_route_layout_wrappers(workspace, brand_name: str = "Brand") -> list[s
     return touched
 
 
+def fix_shell_imports_pointing_at_layouts(workspace) -> list[str]:
+    """AI sometimes aliases PublicShell → layouts/PublicLayout (Outlet) — blank pages."""
+    touched: list[str] = []
+    patterns = (
+        (
+            re.compile(
+                r"""import\s+PublicShell\s+from\s+['"][^'"]*layouts/PublicLayout(?:\.tsx)?['"]\s*;?"""
+            ),
+            "import PublicShell from '@/ui/PublicShell';",
+        ),
+        (
+            re.compile(
+                r"""import\s+OpsShell\s+from\s+['"][^'"]*layouts/AdminLayout(?:\.tsx)?['"]\s*;?"""
+            ),
+            "import OpsShell from '@/ui/OpsShell';",
+        ),
+        (
+            re.compile(
+                r"""import\s+\{\s*PublicShell\s*\}\s+from\s+['"][^'"]*layouts/PublicLayout(?:\.tsx)?['"]\s*;?"""
+            ),
+            "import PublicShell from '@/ui/PublicShell';",
+        ),
+        (
+            re.compile(
+                r"""import\s+\{\s*OpsShell\s*\}\s+from\s+['"][^'"]*layouts/AdminLayout(?:\.tsx)?['"]\s*;?"""
+            ),
+            "import OpsShell from '@/ui/OpsShell';",
+        ),
+    )
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        updated = content
+        for pat, repl in patterns:
+            updated = pat.sub(repl, updated)
+        if updated != content:
+            write_file(workspace, norm, updated)
+            touched.append(norm)
+            print(f"    fixed shell→layout import alias in {norm}", flush=True)
+    return touched
+
+
+_JSX_ATTR_COMMENT_RE = re.compile(
+    r"(\s*)\{\/\*[^*]*\*\/\}(?=\s*>)",
+    re.MULTILINE,
+)
+
+
+def strip_illegal_jsx_attribute_comments(workspace) -> list[str]:
+    """Remove `{/* ... */}` between JSX attributes and the tag's closing `>`."""
+    touched: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".jsx")):
+            continue
+        content = read_file(workspace, rel)
+        updated = _JSX_ATTR_COMMENT_RE.sub("", content)
+        if updated != content:
+            write_file(workspace, norm, updated)
+            touched.append(norm)
+            print(f"    stripped illegal JSX attribute comments in {norm}", flush=True)
+    return touched
+
+
 def rewrite_invented_component_imports(workspace) -> list[str]:
     """Block invented `@/components/*` (except UiIcons) — rewrite known ui names to `@/ui`."""
     touched: list[str] = []
@@ -1470,7 +1583,7 @@ def rewrite_invented_component_imports(workspace) -> list[str]:
                 lines.append(line)
                 continue
             src = m.group(1)
-            if src.startswith("@/components/") and "UiIcons" not in src:
+            if src.startswith("@/components/") and "UiIcons" not in src and "UiHeadless" not in src:
                 base = src.rsplit("/", 1)[-1].replace(".tsx", "").replace(".ts", "")
                 if base in _UI_COMPONENT_NAMES:
                     lines.append(line.replace(src, f"@/ui/{base}"))
@@ -1478,6 +1591,14 @@ def rewrite_invented_component_imports(workspace) -> list[str]:
                 else:
                     lines.append(f"/* removed invented import: {src} */\n")
                     changed = True
+                continue
+            if "UiHeadless" in src and ("/ui/" in src or src.startswith("@/ui")):
+                lines.append(line.replace(src, "@/components/UiHeadless"))
+                changed = True
+                continue
+            if re.search(r"(?:^|/)manifest(?:\.ts)?$", src) and "mock" not in src:
+                lines.append(line.replace(src, "@/data/mock"))
+                changed = True
                 continue
             if (
                 re.search(r"(?:\.\./)+components/", src)
@@ -1633,6 +1754,8 @@ def apply_workspace_guards(
         (lambda: rewrite_invented_component_imports(workspace), "invented component imports rewritten"),
         (lambda: sanitize_ui_component_apis(workspace), "ui component APIs sanitized"),
         (lambda: unwrap_route_layout_wrappers(workspace, brand_name), "route layout wrappers unwrapped"),
+        (lambda: fix_shell_imports_pointing_at_layouts(workspace), "shell layout aliases fixed"),
+        (lambda: strip_illegal_jsx_attribute_comments(workspace), "jsx attribute comments stripped"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),
         # Restore curated kit AFTER headless injection so kit files are never
@@ -1669,6 +1792,11 @@ def apply_workspace_guards(
             print(f"    filled empty mock exports: {', '.join(filled)}", flush=True)
     except Exception as e:
         print(f"    empty mock enrich skipped: {e}", flush=True)
+    try:
+        scrubbed = scrub_invalid_mock_exports(workspace)
+        actions.extend(scrubbed)
+    except Exception as e:
+        print(f"    invalid mock export scrub skipped: {e}", flush=True)
     try:
         repaired = repair_typed_mock_exports(workspace, brand_name, primary, secondary, font)
         if repaired:
