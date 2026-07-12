@@ -345,6 +345,15 @@ def _brand_completeness_patch(
             "price": 0,
             "duration": "Ongoing",
         },
+        {
+            "name": "Follow-up visit",
+            "title": "Follow-up visit",
+            "description": "Quick check-in to fine-tune results and keep your plan on track.",
+            "image": "",
+            "badge": "Care",
+            "price": 120,
+            "duration": "30 min",
+        },
     ]
     testimonials = [
         {
@@ -390,15 +399,13 @@ def ensure_brand_shape(
     secondary: str,
     font: str,
 ) -> bool:
-    """Guarantee `brand.design_system` (+ services/testimonials/client_names) so home pages don't crash.
+    """Guarantee missing brand nested fields so home/ops pages don't crash white.
 
-    AI pages often read `brand.design_system.primary_color`, `brand.services.map(...)`,
-    and `brand.client_names[i]` — missing nested arrays throw
-    `Cannot read properties of undefined (reading '0')` and the Live Product iframe
-    shows PreviewErrorBoundary.
-
-    Detection MUST inspect the brand object body only: top-level `export const design_system`
-    / path strings like `/owner/services` must not count as completeness.
+    AI pages often read `brand.design_system.primary_color`, `brand.services[i].name`,
+    and `brand.client_names[i]`. Only inject fields that are actually missing —
+    re-injecting `services` when it already exists creates duplicate object keys
+    (last wins) and can shrink a 4-item AI list to a 3-item stub, crashing on
+    `brand.services[3].name`.
     """
     mock_path = "src/data/mock.ts"
     mock = read_file(workspace, mock_path)
@@ -419,18 +426,42 @@ def ensure_brand_shape(
         return False
 
     names = _toplevel_string_array(mock, "client_names") or _default_client_names(brand_name)
-    # Home often does brand.client_names[i] while mapping brand.testimonials — pad so index stays valid.
     testimonial_count = len(re.findall(r"\binitials\s*:|\bquote\s*:|\btext\s*:", body))
     while len(names) < max(8, testimonial_count, 3):
         names.append(f"Client {len(names) + 1}")
 
-    if needs_client_names and not (needs_ds or needs_services or needs_testimonials or needs_proof):
-        patch = f"client_names: {json.dumps(names, ensure_ascii=False)}"
-    else:
-        patch = _brand_completeness_patch(
-            brand_name, primary, secondary, font, client_names=names,
-        )
+    # Build a full patch once, then keep only the missing keys (avoids duplicate-key overwrite).
+    full = _brand_completeness_patch(
+        brand_name, primary, secondary, font, client_names=names,
+    )
+    keep: list[str] = []
+    if needs_ds:
+        keep.append("design_system")
+    if needs_services:
+        keep.append("services")
+    if needs_testimonials:
+        keep.append("testimonials")
+    if needs_client_names:
+        keep.append("client_names")
+    if needs_proof:
+        keep.append("social_proof")
 
+    pieces: list[str] = []
+    for key in keep:
+        # Match `key: <value>` through the next top-level key or end.
+        m = re.search(
+            rf"(?:^|\n)\s*({re.escape(key)}\s*:\s*)([\s\S]*?)(?=(?:\n\s*(?:design_system|services|testimonials|client_names|social_proof)\s*:)|$)",
+            "\n" + full,
+        )
+        if m:
+            pieces.append(m.group(1) + m.group(2).rstrip().rstrip(","))
+        elif key == "client_names":
+            pieces.append(f"client_names: {json.dumps(names, ensure_ascii=False)}")
+
+    if not pieces:
+        return False
+
+    patch = ",\n  ".join(pieces)
     before = mock[:close_at].rstrip()
     if before.endswith(","):
         injection = f"\n  {patch},\n"
