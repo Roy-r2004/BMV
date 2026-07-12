@@ -686,7 +686,11 @@ _STUBBED_NPM_IMPORTS = {
     "motion/react": "src/components/UiHeadless",
 }
 _IMPORT_FROM_RE = re.compile(
-    r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$""",
+    r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*(?://.*)?$""",
+    re.MULTILINE,
+)
+_SIDE_EFFECT_IMPORT_RE = re.compile(
+    r"""^\s*import\s+['"]([^'"]+)['"]\s*;?\s*(?://.*)?$""",
     re.MULTILINE,
 )
 _HEADLESS_SYMBOLS = (
@@ -745,6 +749,9 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
     used to leave `<Transition>` / `<Dialog>` unbound → runtime white screen
     even though `vite build` succeeded. Stubbable packages are rewritten to
     `src/components/UiHeadless`; unknown packages are still stripped.
+
+    Also strips side-effect CSS/JS imports (`import 'pkg/dist/x.css'`) which
+    `_IMPORT_FROM_RE` does not match and which otherwise fail Vite resolve.
     """
     ensure_ui_headless_file(workspace)
     touched: list[str] = []
@@ -757,8 +764,8 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
         content = read_file(workspace, rel)
         updated = content
         changed = False
-        for m in list(_IMPORT_FROM_RE.finditer(content)):
-            src = m.group(1)
+
+        def _should_keep(src: str) -> bool:
             if (
                 src.startswith(".")
                 or src.startswith("/")
@@ -766,11 +773,15 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
                 or src.startswith("@/")
                 or src.startswith("~/")
             ):
+                return True
+            pkg = _npm_package_name(src)
+            return pkg in _ALLOWED_NPM_IMPORTS or src in _ALLOWED_NPM_IMPORTS
+
+        for m in list(_IMPORT_FROM_RE.finditer(content)):
+            src = m.group(1)
+            if _should_keep(src):
                 continue
             pkg = _npm_package_name(src)
-            if pkg in _ALLOWED_NPM_IMPORTS or src in _ALLOWED_NPM_IMPORTS:
-                continue
-            # Exact or package-level stub match
             stub_target = _STUBBED_NPM_IMPORTS.get(src) or _STUBBED_NPM_IMPORTS.get(pkg)
             if stub_target:
                 rel_imp = _rel_to_stub(norm, stub_target)
@@ -784,11 +795,20 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
                     updated = updated.replace(old, new, 1)
                     changed = True
                 continue
-            # Unknown forbidden package — strip the import line
             old = m.group(0)
             if old in updated:
                 updated = updated.replace(old, "/* removed forbidden import */\n", 1)
                 changed = True
+
+        for m in list(_SIDE_EFFECT_IMPORT_RE.finditer(updated)):
+            src = m.group(1)
+            if _should_keep(src):
+                continue
+            old = m.group(0)
+            if old in updated:
+                updated = updated.replace(old, "/* removed forbidden side-effect import */\n", 1)
+                changed = True
+
         if changed and updated != content:
             write_file(workspace, norm, updated)
             print(f"    npm imports rewritten/stripped in {norm}", flush=True)
@@ -973,6 +993,13 @@ def apply_workspace_guards(
         actions.extend(ensure_ui_icon_coverage(workspace))
     except Exception as e:
         print(f"    ui icon coverage guard skipped: {e}", flush=True)
+    try:
+        named = ensure_named_ui_icon_exports(workspace)
+        if named:
+            actions.extend(named)
+            print(f"    {named[0]}", flush=True)
+    except Exception as e:
+        print(f"    named ui icon exports guard skipped: {e}", flush=True)
     try:
         added = ensure_mock_exports(workspace, architect, plan, images, brand_name)
         actions.extend(added)
@@ -1257,6 +1284,90 @@ _NAMED_UIICON_IMPORT_RE = re.compile(
     r"""import\s*\{\s*UiIcon\s*\}\s*from\s*(['"][^'"]*UiIcons['"])\s*;?""",
     re.MULTILINE,
 )
+
+# `import { CalendarIcon, ClockIcon } from '...UiIcons'` — common AI mistake;
+# template only ships default `UiIcon`, so these become MISSING_EXPORT without shims.
+_NAMED_ICONS_IMPORT_RE = re.compile(
+    r"""import\s*\{([^}]+)\}\s*from\s*['"][^'"]*UiIcons['"]""",
+    re.MULTILINE,
+)
+
+
+def _icon_export_to_key(name: str) -> str:
+    base = re.sub(r"Icon$", "", name.strip())
+    if not base:
+        return "default"
+    return re.sub(r"(?<!^)(?=[A-Z])", "-", base).lower().replace("_", "-")
+
+
+def _collect_named_ui_icon_imports(workspace) -> set[str]:
+    names: set[str] = set()
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts", ".jsx", ".js")):
+            continue
+        if norm.endswith("components/UiIcons.tsx"):
+            continue
+        for m in _NAMED_ICONS_IMPORT_RE.finditer(read_file(workspace, rel)):
+            for part in m.group(1).split(","):
+                token = part.strip()
+                if not token or token.startswith("type ") or token.startswith("typeof "):
+                    continue
+                ident = token.split()[0]
+                if " as " in f" {token} ":
+                    # `Foo as Bar` — export name used in file is the alias (Bar)
+                    bits = re.split(r"\s+as\s+", token, maxsplit=1)
+                    ident = bits[-1].strip().split()[0] if bits else ident
+                if ident == "UiIcon":
+                    continue
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", ident):
+                    names.add(ident)
+    return names
+
+
+def ensure_named_ui_icon_exports(workspace) -> list[str]:
+    """Add missing named `*Icon` re-exports wrapping default `UiIcon`.
+
+    Prevents Vite MISSING_EXPORT when pages import `{ CalendarIcon }` etc.
+    """
+    needed = sorted(_collect_named_ui_icon_imports(workspace))
+    if not needed:
+        return []
+
+    target = "src/components/UiIcons.tsx"
+    content = read_file(workspace, target)
+    if not content.strip():
+        if not ensure_ui_icons(workspace):
+            return []
+        content = read_file(workspace, target)
+
+    missing = [
+        n for n in needed
+        if not re.search(rf"export\s+(?:function|const)\s+{re.escape(n)}\b", content)
+        and f"export {{ {n}" not in content
+        and f"export {{{n}" not in content
+    ]
+    if not missing:
+        return []
+
+    if "function UiIcon" not in content and "UiIcon =" not in content:
+        ensure_ui_icons(workspace)
+        content = read_file(workspace, target)
+
+    additions = []
+    for name in missing:
+        key = _icon_export_to_key(name)
+        additions.append(
+            f"\nexport function {name}({{ className = 'w-5 h-5' }}: {{ className?: string }}) {{\n"
+            f"  return <UiIcon name={{'{key}'}} className={{className}} />;\n"
+            f"}}\n"
+        )
+    write_file(workspace, target, content.rstrip() + "\n" + "".join(additions))
+    try:
+        ensure_ui_icon_coverage(workspace)
+    except Exception:
+        pass
+    return [f"UiIcons.tsx (named exports: {', '.join(missing)})"]
 
 
 def normalize_ui_icon_imports(workspace) -> list[str]:

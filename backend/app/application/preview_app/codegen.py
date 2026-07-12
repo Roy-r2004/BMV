@@ -106,8 +106,14 @@ def _parse_json(raw: str) -> dict:
         raise ValueError("Empty response from model")
     try:
         return extract_json_from_text(raw)
-    except Exception:
-        return json.loads(raw)
+    except Exception as first:
+        # Second chance: single fence strip + loads (clearer than bare Expecting value).
+        from app.shared.json_utils import _strip_markdown_fence_once
+
+        try:
+            return json.loads(_strip_markdown_fence_once(raw))
+        except Exception:
+            raise ValueError(f"Could not parse model JSON: {first}") from first
 
 
 def call_architect(
@@ -432,8 +438,36 @@ def fix_build_errors(
         raw2 = _ask(strict_prompt)
         data = _try_parse(raw2, "strict-retry")
 
+    def _deterministic_local_repair() -> list[str]:
+        from app.application.preview_app.safety import (
+            ensure_named_ui_icon_exports,
+            ensure_ui_icon_coverage,
+            ensure_ui_icons,
+            normalize_ui_icon_imports,
+            strip_forbidden_npm_imports,
+        )
+
+        repaired: list[str] = []
+        try:
+            repaired.extend(scan_and_repair_double_brace_literals(workspace))
+        except ValueError as e:
+            print(f"    double-brace deterministic repair failed: {e}", flush=True)
+        try:
+            repaired.extend(strip_forbidden_npm_imports(workspace))
+        except Exception as e:
+            print(f"    npm-import deterministic repair failed: {e}", flush=True)
+        try:
+            if ensure_ui_icons(workspace):
+                repaired.append("src/components/UiIcons.tsx")
+            repaired.extend(normalize_ui_icon_imports(workspace))
+            repaired.extend(ensure_named_ui_icon_exports(workspace))
+            repaired.extend(ensure_ui_icon_coverage(workspace))
+        except Exception as e:
+            print(f"    icon deterministic repair failed: {e}", flush=True)
+        return list(dict.fromkeys(repaired))
+
     if data is None:
-        repaired = scan_and_repair_double_brace_literals(workspace)
+        repaired = _deterministic_local_repair()
         print(
             f"    fix agent fell back to deterministic local repair: "
             f"{', '.join(repaired) or 'none'}",
@@ -453,14 +487,10 @@ def fix_build_errors(
         write_file(workspace, path, _strip_fences(content))
         fixed_paths.append(path)
 
-    # Always scrub known double-brace stub corruption after AI patches.
-    try:
-        scrubbed = scan_and_repair_double_brace_literals(workspace)
-        for path in scrubbed:
-            if path not in fixed_paths:
-                fixed_paths.append(path)
-    except ValueError as e:
-        print(f"    double-brace scan after fix failed: {e}", flush=True)
+    # Always scrub known corruption / missing icon exports after AI patches.
+    for path in _deterministic_local_repair():
+        if path not in fixed_paths:
+            fixed_paths.append(path)
 
     return fixed_paths
 

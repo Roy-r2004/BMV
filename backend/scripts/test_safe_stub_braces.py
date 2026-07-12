@@ -92,6 +92,26 @@ def main() -> None:
         if "{{ label:" in after:
             raise AssertionError("workspace scan left `{{ label:`")
 
+    # Named icon key helper + trailing-comment import stripping stay in safety.py;
+    # smoke-check the helpers without a full workspace.
+    from app.application.preview_app.safety import (  # noqa: E402
+        _icon_export_to_key,
+        _IMPORT_FROM_RE,
+        _SIDE_EFFECT_IMPORT_RE,
+    )
+
+    if _icon_export_to_key("CalendarIcon") != "calendar":
+        raise AssertionError("CalendarIcon key mapping broken")
+    if _icon_export_to_key("DollarSignIcon") != "dollar-sign":
+        raise AssertionError("DollarSignIcon key mapping broken")
+
+    commented = "import { Dialog } from '@headlessui/react'; // modal shell\n"
+    if not _IMPORT_FROM_RE.search(commented):
+        raise AssertionError("import regex must match trailing // comments")
+    side = "import 'react-datepicker/dist/react-datepicker.css';\n"
+    if not _SIDE_EFFECT_IMPORT_RE.search(side):
+        raise AssertionError("side-effect CSS import regex must match")
+
     print("OK: safe stub braces + double-brace repair regression passed")
 
 
