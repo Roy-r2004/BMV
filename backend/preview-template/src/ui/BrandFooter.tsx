@@ -37,3 +37,5 @@ export function BrandFooter({
     </footer>
   );
 }
+
+export default BrandFooter;

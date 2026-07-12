@@ -19,3 +19,5 @@ export function PageHeader({ actions, className, description, title, ...props }:
     </div>
   );
 }
+
+export default PageHeader;

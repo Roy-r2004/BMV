@@ -75,3 +75,5 @@ export function MarketingHero({
     </section>
   );
 }
+
+export default MarketingHero;

@@ -53,3 +53,5 @@ export const DialogDescription = React.forwardRef<
 });
 
 DialogDescription.displayName = 'DialogDescription';
+
+export default Dialog;

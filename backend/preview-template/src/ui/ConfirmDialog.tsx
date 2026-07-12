@@ -51,3 +51,5 @@ export function ConfirmDialog({
     </Dialog>
   );
 }
+
+export default ConfirmDialog;

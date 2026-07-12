@@ -105,3 +105,5 @@ export function ChartCard({
     </Card>
   );
 }
+
+export default ChartCard;

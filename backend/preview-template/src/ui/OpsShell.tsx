@@ -68,3 +68,5 @@ export function OpsShell({ brandName, children, className, navItems, topbar, ...
     </div>
   );
 }
+
+export default OpsShell;

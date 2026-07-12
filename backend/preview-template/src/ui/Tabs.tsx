@@ -46,3 +46,5 @@ export const TabsContent = React.forwardRef<
 });
 
 TabsContent.displayName = 'TabsContent';
+
+export default Tabs;

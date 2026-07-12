@@ -45,3 +45,5 @@ export function TestimonialRail({ className, eyebrow, heading, items, ...props }
     </section>
   );
 }
+
+export default TestimonialRail;

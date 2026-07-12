@@ -604,6 +604,7 @@ _UI_KIT_IMPORT_LINE_RE = re.compile(
     r"""(^\s*import\s+(?:type\s+)?[\s\S]*?\s+from\s+)(['"])([^'"]+)(\2\s*;?\s*$)""",
     re.MULTILINE,
 )
+_UI_HEADLESS_MOTION_SYMBOLS = {"motion", "AnimatePresence"}
 
 
 def _normalize_ui_kit_specifier(spec: str) -> str | None:
@@ -622,6 +623,29 @@ def _normalize_ui_kit_specifier(spec: str) -> str | None:
     return f"@/ui{suffix}"
 
 
+def _rewrite_ui_headless_motion_imports(content: str) -> str:
+    """Point pure motion imports at `framer-motion` instead of `UiHeadless`."""
+
+    def _replace(match: re.Match[str]) -> str:
+        spec = match.group(3).replace("\\", "/")
+        if "UiHeadless" not in spec:
+            return match.group(0)
+        named = re.match(r"^\s*import\s*(?:type\s+)?\{([^}]*)\}\s+from\s+$", match.group(1))
+        if not named:
+            return match.group(0)
+        symbols = []
+        for part in named.group(1).split(","):
+            symbol = re.sub(r"\s+as\s+\w+$", "", part.strip())
+            symbol = re.sub(r"^type\s+", "", symbol).strip()
+            if symbol:
+                symbols.append(symbol)
+        if not symbols or any(symbol not in _UI_HEADLESS_MOTION_SYMBOLS for symbol in symbols):
+            return match.group(0)
+        return f"{match.group(1)}{match.group(2)}framer-motion{match.group(4)}"
+
+    return _UI_KIT_IMPORT_LINE_RE.sub(_replace, content)
+
+
 def normalize_ui_kit_imports(workspace) -> list[str]:
     """Rewrite clearly-relative `src/ui` imports to the `@/ui` alias."""
     fixed: list[str] = []
@@ -638,6 +662,7 @@ def normalize_ui_kit_imports(workspace) -> list[str]:
             return f"{match.group(1)}{match.group(2)}{alias}{match.group(4)}"
 
         updated = _UI_KIT_IMPORT_LINE_RE.sub(_replace, content)
+        updated = _rewrite_ui_headless_motion_imports(updated)
         if updated != content:
             write_file(workspace, rel, updated)
             fixed.append(norm)

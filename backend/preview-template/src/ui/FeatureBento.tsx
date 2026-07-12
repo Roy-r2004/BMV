@@ -83,3 +83,5 @@ export function FeatureBento({
     </section>
   );
 }
+
+export default FeatureBento;

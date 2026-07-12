@@ -45,3 +45,5 @@ export function CTABand({
     </section>
   );
 }
+
+export default CTABand;

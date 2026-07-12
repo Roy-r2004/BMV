@@ -26,3 +26,5 @@ export function EmptyState({ action, className, description, icon, title, ...pro
     </Card>
   );
 }
+
+export default EmptyState;

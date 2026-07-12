@@ -66,3 +66,5 @@ export function PublicShell({
     </div>
   );
 }
+
+export default PublicShell;

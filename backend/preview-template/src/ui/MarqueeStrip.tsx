@@ -30,3 +30,5 @@ export function MarqueeStrip({ className, items, label, ...props }: MarqueeStrip
     </div>
   );
 }
+
+export default MarqueeStrip;

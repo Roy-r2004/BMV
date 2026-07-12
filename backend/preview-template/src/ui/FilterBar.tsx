@@ -43,3 +43,5 @@ export function FilterBar({
     </Card>
   );
 }
+
+export default FilterBar;

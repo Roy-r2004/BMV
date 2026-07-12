@@ -26,3 +26,5 @@ export function Badge({ className, tone = 'neutral', ...props }: BadgeProps) {
     />
   );
 }
+
+export default Badge;

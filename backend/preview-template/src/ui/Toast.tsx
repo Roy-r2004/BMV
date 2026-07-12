@@ -28,3 +28,5 @@ export function Toaster({ toastOptions, ...props }: ToasterProps) {
 }
 
 export { toast };
+
+export default Toaster;

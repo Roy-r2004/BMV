@@ -86,3 +86,5 @@ export function DataTable<Row extends DataTableRow>({
     </Card>
   );
 }
+
+export default DataTable;
