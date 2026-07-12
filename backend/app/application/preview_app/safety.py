@@ -1059,9 +1059,10 @@ _ALLOWED_NPM_IMPORTS = {
 _STUBBED_NPM_IMPORTS = {
     "@headlessui/react": "src/components/UiHeadless",
     "@headlessui/react/dist": "src/components/UiHeadless",
+    "@radix-ui/react-popover": "src/components/UiHeadless",
 }
 _IMPORT_FROM_RE = re.compile(
-    r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$""",
+    r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*(?://[^\n]*)?$""",
     re.MULTILINE,
 )
 _HEADLESS_SYMBOLS = (
@@ -1600,6 +1601,22 @@ def rewrite_invented_component_imports(workspace) -> list[str]:
                 lines.append(line.replace(src, "@/data/mock"))
                 changed = True
                 continue
+            if re.search(r"(?:^|/)mock-[A-Za-z0-9_-]+$", src) or "/data/mock-" in src:
+                lines.append(line.replace(src, "@/data/mock"))
+                changed = True
+                continue
+            if re.search(r"(?:^|[./])assets/[^'\"]+\.(?:png|jpe?g|webp|gif|svg)$", src, re.I):
+                # Prefer shared mock images map — drop local asset file imports
+                lines.append("/* removed invented asset import — use images from @/data/mock */\n")
+                changed = True
+                continue
+            # Invented @/ui/* not in the curated kit (Label, Carousel, Calendar, …)
+            if src.startswith("@/ui/") or re.search(r"(?:\.\./)+ui/", src):
+                base = src.rsplit("/", 1)[-1].replace(".tsx", "").replace(".ts", "")
+                if base and base[0].isupper() and base not in _UI_COMPONENT_NAMES and base != "index":
+                    lines.append(f"/* removed invented ui import: {src} */\n")
+                    changed = True
+                    continue
             if (
                 re.search(r"(?:\.\./)+components/", src)
                 and "UiIcons" not in src
