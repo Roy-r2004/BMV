@@ -712,9 +712,6 @@ _HEADLESS_SYMBOLS = (
     "Switch",
     "RadioGroup",
     "Portal",
-    "AnimatePresence",
-    "motion",
-    "useAnimation",
 )
 
 
@@ -808,7 +805,7 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
 
 
 def ensure_headless_stub_imports(workspace) -> list[str]:
-    """Inject UiHeadless imports when Transition/Dialog/motion are used unbound.
+    """Inject UiHeadless imports when Headless UI symbols are used unbound.
 
     Covers the case where a prior build already stripped the headless import
     (comment left behind) and the page still references the symbols.
