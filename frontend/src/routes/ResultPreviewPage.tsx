@@ -162,7 +162,7 @@ export default function ResultPreviewPage() {
             className={`result-window-stage flex-1 min-h-0 w-full ${chatGutter}`}
           >
             {showLivePreviewApp && preview.generated_pages ? (
-              <div className="h-full w-full">
+              <div className="flex h-full min-h-0 w-full flex-1 flex-col">
                 <PreviewAppPreview
                   pages={preview.generated_pages}
                   requestId={preview.id}
@@ -171,7 +171,7 @@ export default function ResultPreviewPage() {
                 />
               </div>
             ) : preview.generated_pages?.roles?.length ? (
-              <div className="h-full w-full">
+              <div className="flex h-full min-h-0 w-full flex-1 flex-col">
                 <RoleBasedPreview
                   pages={preview.generated_pages}
                   conceptName={preview.concept_name ?? undefined}

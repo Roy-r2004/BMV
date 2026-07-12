@@ -37,19 +37,30 @@ function resolvePreviewUrl(previewApp?: PreviewAppInfo | null): string | null {
   return `${API_BASE}${path}`;
 }
 
+/** Join preview base (`…/5/` or `…/5`) with an in-app path (`/owner/dashboard`). */
+function previewSrcForPath(base: string, appPath: string): string {
+  const root = base.endsWith('/') ? base.slice(0, -1) : base;
+  if (!appPath || appPath === '/') return `${root}/`;
+  return `${root}${appPath.startsWith('/') ? appPath : `/${appPath}`}`;
+}
+
 export default function PreviewAppPreview({ pages, requestId: _requestId, conceptName }: Props) {
   const previewApp = pages.preview_app;
   const roles = previewApp?.roles?.length ? previewApp.roles : pages.roles ?? [];
   const [activeRoleId, setActiveRoleId] = useState<string>(roles[0]?.id ?? '');
-  const [currentPath, setCurrentPath] = useState('');
+  const [currentPath, setCurrentPath] = useState(roles[0]?.defaultPath ?? '/');
   const rootRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const iframeSrc = resolvePreviewUrl(previewApp);
+  const previewBase = resolvePreviewUrl(previewApp);
+  const activeRole = roles.find((r) => r.id === activeRoleId) ?? roles[0];
+  // Only the role entry URL is baked into iframe src. In-app navigation stays
+  // client-side via the preview bridge (changing src on every path would remount).
+  const [iframeEntryPath, setIframeEntryPath] = useState(roles[0]?.defaultPath ?? '/');
+  const iframeSrc = previewBase ? previewSrcForPath(previewBase, iframeEntryPath) : null;
   const isRebuilding = previewApp?.status === 'rebuilding';
   const refineError = previewApp?.last_refinement_error?.trim() || '';
-  const activeRole = roles.find((r) => r.id === activeRoleId) ?? roles[0];
   const accent = activeRole?.accent ?? '#6366f1';
 
   const postToApp = useCallback((msg: object) => {
@@ -60,7 +71,12 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
     if (roleId === activeRoleId) return;
     setActiveRoleId(roleId);
     const role = roles.find((r) => r.id === roleId);
-    postToApp({ type: 'preview-set-role', roleId, path: role?.defaultPath });
+    const nextPath = role?.defaultPath || '/';
+    // Load under /api/preview-apps/{id}/… — never bare /owner/… on the API host
+    // (that returns {"detail":"Not Found"} JSON).
+    setIframeEntryPath(nextPath);
+    setCurrentPath(nextPath);
+    postToApp({ type: 'preview-set-role', roleId, path: nextPath });
   };
 
   useEffect(() => {
@@ -145,7 +161,7 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
           </div>
         </div>
 
-        <div className="rbp-viewport rbp-viewport--site relative">
+        <div className="rbp-viewport rbp-viewport--site relative min-h-[420px]">
           {refineError && !isRebuilding && (
             <div className="absolute top-0 inset-x-0 z-20 px-3 pt-3 pointer-events-none">
               <div className="mx-auto max-w-xl rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm pointer-events-auto">
@@ -167,7 +183,7 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
             key={`${iframeSrc}-${previewApp?.status ?? 'idle'}`}
             title={`${activeRole?.label ?? 'Preview'} — ${conceptName ?? 'Preview'}`}
             src={iframeSrc}
-            className="rbp-iframe"
+            className="rbp-iframe min-h-[420px]"
             allow="fullscreen"
           />
         </div>
