@@ -600,6 +600,50 @@ def fix_nested_import_paths(workspace) -> list[str]:
     return fixed
 
 
+_UI_KIT_IMPORT_LINE_RE = re.compile(
+    r"""(^\s*import\s+(?:type\s+)?[\s\S]*?\s+from\s+)(['"])([^'"]+)(\2\s*;?\s*$)""",
+    re.MULTILINE,
+)
+
+
+def _normalize_ui_kit_specifier(spec: str) -> str | None:
+    """Return an `@/ui...` alias for specifiers that clearly target `src/ui`."""
+    norm = spec.replace("\\", "/")
+    if norm.startswith("@/ui"):
+        return None
+    match = re.fullmatch(r"(?:\./|\.\./)+(?:src/)?ui(?P<suffix>(?:/[^'\"\\]+)?)", norm)
+    if not match:
+        match = re.fullmatch(r"/?src/ui(?P<suffix>(?:/[^'\"\\]+)?)", norm)
+    if not match:
+        return None
+    suffix = match.group("suffix") or ""
+    if suffix in {"/index", "/index.ts", "/index.tsx", "/index.js", "/index.jsx"}:
+        suffix = ""
+    return f"@/ui{suffix}"
+
+
+def normalize_ui_kit_imports(workspace) -> list[str]:
+    """Rewrite clearly-relative `src/ui` imports to the `@/ui` alias."""
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+
+        def _replace(match: re.Match[str]) -> str:
+            alias = _normalize_ui_kit_specifier(match.group(3))
+            if not alias:
+                return match.group(0)
+            return f"{match.group(1)}{match.group(2)}{alias}{match.group(4)}"
+
+        updated = _UI_KIT_IMPORT_LINE_RE.sub(_replace, content)
+        if updated != content:
+            write_file(workspace, rel, updated)
+            fixed.append(norm)
+    return fixed
+
+
 def find_truncated_pages(workspace) -> list[str]:
     """Return page source paths that look cut off mid-generation."""
     out: list[str] = []
@@ -961,6 +1005,7 @@ def apply_workspace_guards(
         (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
+        (lambda: normalize_ui_kit_imports(workspace), "ui kit imports normalized"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),
         (lambda: ensure_react_default_import(workspace), "React imports fixed"),

@@ -44,7 +44,7 @@ You are building the LIVE product the business owner already runs — not a pitc
 The file MUST be complete and Vite-buildable on the first try:
 - Output the FULL file — never truncate mid-line or mid-JSX
 - MUST include `export default` for page/layout/component files
-- ONLY import from this curated allowlist: `react`, `react-dom`, `react-router-dom`, `react/jsx-runtime`, `framer-motion`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`, `lucide-react` (prefer via UiIcon), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, `../ui` or `../ui/...`, `../lib/cn`, and files listed in EXISTING FILES
+- ONLY import from this curated allowlist: `react`, `react-dom`, `react-router-dom`, `react/jsx-runtime`, `framer-motion`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`, `lucide-react` (prefer via UiIcon), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`, `@/data/mock` (preferred) or `../data/mock`, `@/components/UiIcons` (preferred) or `../components/UiIcons`, `@/ui` or `@/ui/...` (preferred) or `../ui` / `../ui/...`, `@/lib/cn` (preferred) or `../lib/cn`, and files listed in EXISTING FILES
 - FORBIDDEN imports: `@mui/*`, `antd`, `@chakra-ui/*`, `@mantine/*`, `bootstrap`, `chart.js`, `three`, bulk `react-icons/*`, and invented local paths like `../hooks/*` unless they already exist in EXISTING FILES
 - If an icon is needed, prefer `UiIcon`; direct `lucide-react` is a fallback, not the default
 - TypeScript must parse: balanced braces/parens, closed JSX tags, no markdown fences
@@ -52,7 +52,7 @@ The file MUST be complete and Vite-buildable on the first try:
 TECH RULES:
 - React 19 functional components, TypeScript, Tailwind utility classes only
 - CRITICAL for src/index.css: it MUST start with the line `@import "tailwindcss";` then a `@theme { ... }` block defining --color-brand, --color-brand-dark, --font-sans from the design system. NEVER remove the tailwindcss import and NEVER replace Tailwind with plain custom CSS classes (no .container/.table/.button rules). Styling comes from Tailwind utilities in the components (bg-brand, text-brand, rounded-2xl, grid, etc.).
-- Import mock data from ../data/mock or @/data/mock
+- Import mock data from @/data/mock when possible; `../data/mock` is still allowed
 - Text over photos: dark gradient overlay + white text — NEVER gray boxes on images
 - Cards: rounded-2xl border border-slate-100 bg-white shadow-sm
 - Logo is TEXT (brand name) — never img logo
@@ -65,9 +65,10 @@ TECH RULES:
   * `framer-motion`
   * `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`
   * `lucide-react` (prefer via `UiIcon`), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`
-  * `../data/mock` (or `@/data/mock`), `../components/UiIcons`, `../ui` or `../ui/...`, `../lib/cn`, and files that already exist in EXISTING FILES above
+  * `@/data/mock` (preferred) or `../data/mock`, `@/components/UiIcons` (preferred) or `../components/UiIcons`, `@/ui` or `@/ui/...` (preferred) or `../ui` / `../ui/...`, `@/lib/cn` (preferred) or `../lib/cn`, and files that already exist in EXISTING FILES above
   NEVER import forbidden packages (`@mui/*`, `antd`, `@chakra-ui/*`, `@mantine/*`, `bootstrap`, `chart.js`, `three`, bulk `react-icons/*`) or invented local paths like `../hooks/*` unless they already exist in EXISTING FILES. Put helper logic INLINE unless an allowed existing file already provides it.
-- Prefer importing from `../ui` for shared building blocks: `PublicShell`, `MarketingHero`, `FeatureBento`, `CTABand`, `OpsShell`, `PageHeader`, `StatCard`, `DataTable`, `FilterBar`, `ChartCard`, `EmptyState`, `ConfirmDialog`, `Button`, `Card`, `Badge`, motion presets `fadeUp` / `staggerChildren` / `pageFade`, and `Toast`
+- Prefer alias imports for shared kit files: `@/ui`, `@/components/UiIcons`, `@/lib/cn`, `@/data/mock`. Relative imports are allowed, but the alias path is the default/preferred path because the template already maps `@` to `src`.
+- Prefer importing from `@/ui` for shared building blocks: `PublicShell`, `MarketingHero`, `FeatureBento`, `CTABand`, `OpsShell`, `PageHeader`, `StatCard`, `DataTable`, `FilterBar`, `ChartCard`, `EmptyState`, `ConfirmDialog`, `Button`, `Card`, `Badge`, motion presets `fadeUp` / `staggerChildren` / `pageFade`, and `Toast`
 - Public home pages and public role landing pages MUST use `PublicShell` + `MarketingHero` composition, real `framer-motion`, and a bold premium AI-native 2026 atmosphere driven by brand tokens and imagery — not flat white empty pages, and not weak equal card grids as the only idea
 - Ops role landing pages and dashboards MUST use `OpsShell` (via `AdminLayout` or directly, per file instructions) + `PageHeader` + `StatCard` + `ChartCard` and/or `DataTable`, plus `FilterBar` where lists exist
 - Focused flow pages (checkout, wizard, onboarding, payment, confirmation, single-purpose forms) may omit the full shell, but must stay polished and rely on `Button`, `Input`, `Card`, and the existing ui kit

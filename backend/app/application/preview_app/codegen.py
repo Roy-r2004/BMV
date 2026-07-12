@@ -154,7 +154,8 @@ _COLOR_CONSTRAINT = (
 _CHROME_CONTRACTS: dict[str, str] = {
     "src/components/nav.tsx": (
         "This is the shared top navigation bar, rendered once by PublicLayout on public "
-        "routes. The primary path is to compose the existing `src/ui/*` kit instead of "
+        "routes. The primary path is to compose the existing `src/ui/*` kit via `@/ui` "
+        "(relative `../ui` is allowed but secondary) instead of "
         "inventing a brand-new chrome system from scratch. Keep the exact signature: "
         "`export default function Nav({ brandName = 'Brand', items = [], cta }: Props)` "
         "with Props = { brandName?: string; items?: {path,label}[]; cta?: {path,label} }. "
@@ -169,9 +170,9 @@ _CHROME_CONTRACTS: dict[str, str] = {
     ),
     "src/layouts/publiclayout.tsx": (
         "This wraps EVERY public page — it must keep rendering <Outlet /> for page content, "
-        "keep importing `brand, navigation` from '../data/mock', keep rendering <Nav /> "
-        "from '../components/Nav', and compose `PublicShell` from `../ui` (or a local "
-        "re-export backed by `../ui`) as the primary chrome wrapper. You control the "
+        "keep importing `brand, navigation` from '@/data/mock' (or '../data/mock'), keep rendering <Nav /> "
+        "from '../components/Nav', and compose `PublicShell` from `@/ui` (or a local "
+        "re-export backed by the template ui kit) as the primary chrome wrapper. You control the "
         "footer content/structure and overall shell styling — make it specific to this "
         "business, not a generic template. CRITICAL: do NOT wrap <Outlet /> in heavy "
         "vertical padding that kills full-bleed heroes — let pages own their spacing. "
@@ -182,8 +183,8 @@ _CHROME_CONTRACTS: dict[str, str] = {
     ),
     "src/layouts/adminlayout.tsx": (
         "This wraps EVERY admin page — it must keep rendering <Outlet /> for page content and "
-        "keep importing `brand, navigation` from '../data/mock', and compose `OpsShell` "
-        "from `../ui` as the primary chrome wrapper. NEVER hardcode a business type in any "
+        "keep importing `brand, navigation` from '@/data/mock' (or '../data/mock'), and compose `OpsShell` "
+        "from `@/ui` as the primary chrome wrapper. NEVER hardcode a business type in any "
         "label (do not assume 'Studio', 'Restaurant', 'Clinic', etc.) — use `brand.name` "
         "and neutral wording like 'Admin' or 'Dashboard'. You control the sidebar/header "
         "styling — make it specific to this business. Feel like a polished calm SaaS ops "
@@ -281,8 +282,10 @@ def generate_file(
             "@radix-ui/react-dialog, @radix-ui/react-dropdown-menu, @radix-ui/react-tabs, "
             "@radix-ui/react-select, @radix-ui/react-switch, @radix-ui/react-tooltip, "
             "@radix-ui/react-slot, lucide-react, recharts, clsx, tailwind-merge, "
-            "date-fns, sonner, ../data/mock (or @/data/mock), ../components/UiIcons, "
-            "../ui or ../ui/..., ../lib/cn, and existing local files. Do not use MUI, "
+            "date-fns, sonner, @/data/mock (preferred) or ../data/mock, "
+            "@/components/UiIcons (preferred) or ../components/UiIcons, "
+            "@/ui or @/ui/... (preferred) or ../ui / ../ui/..., "
+            "@/lib/cn (preferred) or ../lib/cn, and existing local files. Do not use MUI, "
             "Ant, Chakra, Mantine, Bootstrap, Chart.js, Three, react-icons dumps, "
             "or invented local hook paths. No markdown fences."
         )

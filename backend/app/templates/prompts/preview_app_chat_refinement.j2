@@ -25,8 +25,8 @@ Rules:
 - If the user wants a role (e.g. Visitor) to show real product pages instead of a login wall: wire that role's defaultPath to the main dashboard/home route, make login optional/demo (auto-enter or skip), and ensure RoleBridge + routes match.
 - If the user wants new pages, tabs, colors, copy, or layout: patch the matching `.tsx` files and `src/data/mock.ts` if needed.
 - Update `architect` routes/roles when navigation structure changes.
-- Import only from react, react-router-dom, existing local files, and `../data/mock`.
-- Do NOT add npm dependencies. Use inline SVG or UiIcons — no emoji.
+- Import only from this curated allowlist: `react`, `react-dom`, `react-router-dom`, `react/jsx-runtime`, `framer-motion`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`, `lucide-react` (prefer via UiIcon), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`, existing local files, `@/data/mock` (preferred) or `../data/mock`, `@/components/UiIcons` (preferred) or `../components/UiIcons`, `@/ui` or `@/ui/...` (preferred) or `../ui` / `../ui/...`, and `@/lib/cn` (preferred) or `../lib/cn`.
+- Do NOT add npm dependencies or import random packages outside that curated allowlist. Use UiIcon/Lucide or inline SVG — no emoji.
 - Return FULL file contents for every file you change — never truncate mid-line.
 - Never add `import ... from './mock'` or `from '../data/mock'` inside `src/data/mock.ts` itself.
 - Prefer changing only the files needed (often `src/data/mock.ts` for roles/routes, or one page file for copy/layout).

@@ -23,7 +23,8 @@ RULES:
 - Build ONLY the sections described in the page plan — do not add generic marketing blocks the plan did not request
 - Replace any generic data with realistic business-specific content from the plan
 - Use the provided Unsplash URLs in <img> with object-cover where imagery is needed
-- IMPORTS ALLOW-LIST: ONLY `react`, `react-router-dom`, `../data/mock`, `../components/UiIcons`, and local files listed in EXISTING FILES. NEVER import npm packages or invented modules. Icons = UiIcon or inline SVG — NEVER emoji.
+- IMPORTS ALLOW-LIST: ONLY `react`, `react-dom`, `react-router-dom`, `react/jsx-runtime`, `framer-motion`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-switch`, `@radix-ui/react-tooltip`, `@radix-ui/react-slot`, `lucide-react` (prefer via UiIcon), `recharts`, `clsx`, `tailwind-merge`, `date-fns`, `sonner`, `@/data/mock` (preferred) or `../data/mock`, `@/components/UiIcons` (preferred) or `../components/UiIcons`, `@/ui` or `@/ui/...` (preferred) or `../ui` / `../ui/...`, `@/lib/cn` (preferred) or `../lib/cn`, and local files listed in EXISTING FILES. NEVER import random npm packages, forbidden UI kits, or invented modules. Icons = UiIcon or inline SVG — NEVER emoji.
+- Prefer the template alias paths when using shared kit files: `@/ui`, `@/components/UiIcons`, `@/lib/cn`, `@/data/mock`
 - Do NOT wrap in AdminLayout/PublicLayout (App.tsx applies layouts)
 - PRODUCT IMMERSION: rewrite any meta/demo speak into live brand copy. The page must feel like the finished product the owner uses — dense, specific, interactive-looking. No stubs, no "fine-tuned", no BMV pitch language.
 - Output ONLY the complete rewritten file — no markdown fences, no commentary
