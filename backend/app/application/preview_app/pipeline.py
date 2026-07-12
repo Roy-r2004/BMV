@@ -40,7 +40,6 @@ from app.application.preview_app.fallback import (
     find_broken_paths,
     is_chrome_path,
     stabilize_all_route_pages,
-    stabilize_broken_pages,
     write_safe_stub,
     write_template_fallback,
 )
@@ -342,11 +341,13 @@ _CHROME_DEFAULTS: dict[str, tuple[str, str]] = {
     ),
     "src/layouts/PublicLayout.tsx": (
         "layout",
-        "THIN LAYOUT: return only <Outlet />. Pages own PublicShell — do not wrap chrome here.",
+        "Public site shell (header + main + footer) wrapping every public page. "
+        "Footer copy and structure should suit this business.",
     ),
     "src/layouts/AdminLayout.tsx": (
         "layout",
-        "THIN LAYOUT: return only <Outlet />. Owner pages own OpsShell — do not wrap chrome here.",
+        "Admin dashboard shell (sidebar + header) wrapping every admin page. Never "
+        "hardcode a business type in labels (e.g. do not assume 'Studio').",
     ),
     "src/components/UiIcons.tsx": (
         "component",
@@ -356,50 +357,10 @@ _CHROME_DEFAULTS: dict[str, tuple[str, str]] = {
 }
 
 
-def _rewrite_ops_hub_path(path: str) -> str:
-    """Lock owner routes to /owner/* — rewrite stale /ops-hub/* paths."""
-    if not path:
-        return path
-    p = path.strip()
-    if p == "/ops-hub" or p.startswith("/ops-hub/"):
-        rest = p[len("/ops-hub") :] or "/dashboard"
-        if not rest.startswith("/"):
-            rest = "/" + rest
-        return "/owner" + rest
-    return p
-
-
 def _normalize_architect(architect: dict, plan: dict) -> dict:
     files = architect.get("files_to_generate") or []
     if not files:
         files = _files_from_plan(architect)
-
-    # Lock owner/ops route contract to /owner/*
-    for route in architect.get("routes") or []:
-        if route.get("path"):
-            route["path"] = _rewrite_ops_hub_path(str(route["path"]))
-        surface = (route.get("surface") or "").lower()
-        layout = (route.get("layout") or "").lower()
-        role = (route.get("role_id") or "").lower()
-        path = route.get("path") or ""
-        if surface == "ops" or layout == "admin" or role in ("owner", "admin", "manager", "staff"):
-            if path.startswith("/ops-hub"):
-                route["path"] = _rewrite_ops_hub_path(path)
-            elif path and not path.startswith("/owner") and role in ("owner", "manager", "admin"):
-                # Keep non-/owner paths only if already under /admin; otherwise prefer /owner
-                if not path.startswith("/admin"):
-                    stem = path.strip("/").split("/")[-1] or "dashboard"
-                    route["path"] = f"/owner/{stem}"
-        if route.get("path", "").startswith("/owner"):
-            route["layout"] = "admin"
-            route["surface"] = route.get("surface") or "ops"
-
-    for role in architect.get("roles") or []:
-        if role.get("defaultPath"):
-            role["defaultPath"] = _rewrite_ops_hub_path(str(role["defaultPath"]))
-        rid = (role.get("id") or "").lower()
-        if rid in ("owner", "manager", "admin") and not str(role.get("defaultPath") or "").startswith("/owner"):
-            role["defaultPath"] = "/owner/dashboard"
 
     # Merge shared_components (Nav, layouts, icon set) into the same generation
     # list — the architect prompt plans them as a separate field, but everything
@@ -447,7 +408,7 @@ def _normalize_architect(architect: dict, plan: dict) -> dict:
             {
                 "id": r.get("id"),
                 "label": r.get("label"),
-                "defaultPath": _rewrite_ops_hub_path(r.get("defaultPath", "/")),
+                "defaultPath": r.get("defaultPath", "/"),
                 "icon": r.get("icon", "users"),
             }
             for r in plan.get("roles", [])
@@ -790,7 +751,6 @@ def generate_preview_app(
                     brand_name=brand_name,
                     industry=industry,
                     page_title=rt.get("title"),
-                    surface=rt.get("surface"),
                 )
                 print(f"    stubbed unresolved route page: {cf}", flush=True)
         still = find_unresolved_routes(workspace, architect)
@@ -1031,13 +991,12 @@ def generate_preview_app(
                   f"Stabilizing {len(broken)} page(s) (round {stub_round}/2)...", 88,
                   detail="Last-resort compile-safe content after AI retries")
             print(f"    stabilizing {len(broken)} page(s): {', '.join(broken)}", flush=True)
-            stabilize_broken_pages(
-                workspace,
-                broken,
-                architect,
-                brand_name=brand_name,
-                industry=industry,
-            )
+            for path in broken:
+                if is_chrome_path(path):
+                    if not write_template_fallback(workspace, path):
+                        write_safe_stub(workspace, path, brand_name=brand_name, industry=industry)
+                else:
+                    write_safe_stub(workspace, path, brand_name=brand_name, industry=industry)
             _pre_build_fixups()
             ok, build_log = run_build(workspace, base_path, template_renderer)
             if ok:
@@ -1045,36 +1004,13 @@ def generate_preview_app(
                 break
 
     if not ok:
-        # Nuclear safety net: only rewrite pages still broken in the log /
-        # truncated sources. Never wipe critic-passed healthy pages.
-        candidate_paths = [
-            f.get("path", "") for f in files_to_gen
-            if f.get("kind") == "page" or is_chrome_path(f.get("path", ""))
-        ]
-        errors = extract_build_errors(build_log)
-        still_broken = (
-            find_broken_paths(errors, candidate_paths)
-            or find_broken_paths(build_log, candidate_paths)
-            or [p for p in find_truncated_pages(workspace) if p in candidate_paths]
+        # Nuclear safety net: rewrite ALL route pages + chrome to known-good
+        # content so the preview always ships something the owner can open.
+        print("    nuclear stabilize — stubbing all routes + template chrome", flush=True)
+        _emit(db, request_id, "build", "Applying full safe fallback so the preview still opens...", 88)
+        stabilize_all_route_pages(
+            workspace, architect, brand_name=brand_name, industry=industry,
         )
-        print(
-            f"    nuclear stabilize — stubbing {len(still_broken) or 'ALL'} broken path(s) only",
-            flush=True,
-        )
-        _emit(db, request_id, "build", "Applying safe fallback for remaining broken pages...", 88)
-        if still_broken:
-            stabilize_all_route_pages(
-                workspace,
-                architect,
-                brand_name=brand_name,
-                industry=industry,
-                only_paths=still_broken,
-            )
-        else:
-            # No path attribution — last resort full wipe
-            stabilize_all_route_pages(
-                workspace, architect, brand_name=brand_name, industry=industry,
-            )
         write_plumbing_mock(workspace, architect, images, brand_name, primary, secondary)
         _pre_build_fixups()
         ok, build_log = run_build(workspace, base_path, template_renderer)

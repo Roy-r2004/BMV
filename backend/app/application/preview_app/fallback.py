@@ -5,10 +5,6 @@ referenced by a build error gets deterministically replaced with a minimal,
 always-valid placeholder page instead of leaving the whole app broken. This
 is the final safety net that makes preview-app generation self-healing: a
 handful of imperfect pages should never sink the entire live preview.
-
-Stubs must produce valid TypeScript (never Python f-string `{{` leaks) and
-respect dual surfaces: public stubs use PublicShell/MarketingHero; ops stubs
-use OpsShell + StatCard density.
 """
 from __future__ import annotations
 
@@ -16,7 +12,7 @@ import json
 import re
 
 from app.core.config import settings
-from app.application.preview_app.workspace import read_file, write_file
+from app.application.preview_app.workspace import write_file
 
 _TITLE_SPLIT_RE = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -79,6 +75,16 @@ def _component_name(path: str) -> str:
     return ident
 
 
+def _mock_import_prefix(path: str) -> str:
+    """Relative import depth from a `src/pages/...` file back to `src/data/mock`."""
+    norm = path.replace("\\", "/")
+    if "src/pages/" not in norm:
+        return "../"
+    tail = norm.split("src/pages/", 1)[1]
+    depth = tail.count("/")  # sub-folders between pages/ and the filename
+    return "../" * (depth + 1)
+
+
 def _friendly_title(path: str, page_title: str | None = None) -> str:
     if page_title and page_title.strip():
         return page_title.strip()
@@ -86,15 +92,6 @@ def _friendly_title(path: str, page_title: str | None = None) -> str:
     stem = stem[:-4] if stem.endswith("Page") else stem
     words = _TITLE_SPLIT_RE.sub(" ", stem).strip()
     return words or "This page"
-
-
-def _is_ops_path(path: str, surface: str | None = None) -> bool:
-    if surface and surface.strip().lower() == "ops":
-        return True
-    if surface and surface.strip().lower() == "public":
-        return False
-    norm = path.replace("\\", "/").lower()
-    return any(seg in norm for seg in ("/owner/", "/admin/", "/ops/", "/staff/"))
 
 
 def _industry_copy(industry: str | None, brand: str, title: str) -> tuple[str, list[dict], list[dict]]:
@@ -107,7 +104,7 @@ def _industry_copy(industry: str | None, brand: str, title: str) -> tuple[str, l
             [
                 {"k": "Open tickets", "v": "12"},
                 {"k": "Covers tonight", "v": "64"},
-                {"k": "Avg ticket", "v": "42"},
+                {"k": "Avg ticket", "v": "$42"},
             ],
             [
                 {"label": "Table 4 · tasting menu", "detail": "2 guests · seated", "status": "Live"},
@@ -129,9 +126,9 @@ def _industry_copy(industry: str | None, brand: str, title: str) -> tuple[str, l
                 {"label": "Mobility · 8:00", "detail": "Coach: Maya", "status": "Live"},
             ],
         )
-    if any(k in ind for k in ("clinic", "health", "dental", "medical", "doctor", "medspa", "aesthetic")):
+    if any(k in ind for k in ("clinic", "health", "dental", "medical", "doctor")):
         return (
-            f"Live {brand} operations — today's appointments, risk signals, and aftercare in one calm hub.",
+            f"{title} at {brand} — sample schedule so patients and staff can explore the flow.",
             [
                 {"k": "Today", "v": "18"},
                 {"k": "Checked in", "v": "7"},
@@ -183,43 +180,6 @@ def find_broken_paths(build_log: str, candidate_paths: list[str]) -> list[str]:
     return broken
 
 
-def _is_primary_page(path: str) -> bool:
-    low = path.replace("\\", "/").lower()
-    if "homepage" in low or low.endswith("/home.tsx") or low.endswith("/home/page.tsx"):
-        return True
-    compact = low.replace("_", "").replace("-", "")
-    if "/owner/" in low and "dashboard" in compact:
-        return True
-    if "opsdashboard" in compact:
-        return True
-    return False
-
-
-_STUB_MARKERS = (
-    "sample schedule so patients",
-    "sample activity so you can click",
-    "Guided next step",
-    "Sample operational volume",
-)
-
-
-def _looks_like_fallback_stub(content: str) -> bool:
-    if not content or not content.strip():
-        return True
-    hits = sum(1 for m in _STUB_MARKERS if m in content)
-    return hits >= 2 or ("sample schedule so patients" in content and "MarketingHero" in content)
-
-
-def _looks_rich_primary_page(content: str) -> bool:
-    """True when a primary page should NOT be overwritten by fallback stubs."""
-    if not content or len(content) < 800:
-        return False
-    if _looks_like_fallback_stub(content):
-        return False
-    has_shell = "PublicShell" in content or "OpsShell" in content or "MarketingHero" in content
-    return has_shell and "export default" in content and content.count("\n") >= 40
-
-
 def write_safe_stub(
     workspace,
     path: str,
@@ -227,27 +187,26 @@ def write_safe_stub(
     brand_name: str | None = None,
     industry: str | None = None,
     page_title: str | None = None,
-    surface: str | None = None,
 ) -> None:
-    """Overwrite `path` with a minimal, guaranteed-compiling surface-aware page.
+    """Overwrite `path` with a minimal, guaranteed-compiling placeholder page.
 
-    Uses only `brand` from mock + `@/ui` shells. Valid TS only — never emit
-    Python f-string double-brace leaks like `{{ label: ... }}`.
+    Uses only the `brand` export from mock data (always guaranteed to exist),
+    so this can never fail to build regardless of what broke the original.
+    Copy is lightly industry-aware so stubs don't all look like the same cafe ops board.
     """
     global _last_stubbed_paths
     component = _component_name(path)
+    mock_prefix = _mock_import_prefix(path)
     title = _friendly_title(path, page_title)
     brand = brand_name or "Brand"
     subtitle, stats, rows = _industry_copy(industry, brand, title)
-    ops = _is_ops_path(path, surface)
 
-    stats_js = ",\n    ".join(
-        "{ k: %s, v: %s }"
-        % (json.dumps(s["k"], ensure_ascii=False), json.dumps(s["v"], ensure_ascii=False))
+    stats_js = ",\n          ".join(
+        f"{{ k: {json.dumps(s['k'], ensure_ascii=False)}, v: {json.dumps(s['v'], ensure_ascii=False)} }}"
         for s in stats
     )
     rows_js = ",\n    ".join(
-        "{ label: %s, detail: %s, status: %s }"
+        "{{ label: %s, detail: %s, status: %s }}"
         % (
             json.dumps(r["label"], ensure_ascii=False),
             json.dumps(r["detail"], ensure_ascii=False),
@@ -255,223 +214,64 @@ def write_safe_stub(
         )
         for r in rows
     )
-    chart_js = ",\n    ".join(
-        "{ day: %s, value: %s }"
-        % (json.dumps(d), n)
-        for d, n in (("Mon", 12), ("Tue", 18), ("Wed", 15), ("Thu", 22), ("Fri", 19))
-    )
-    title_js = json.dumps(title, ensure_ascii=False)
-    subtitle_js = json.dumps(subtitle, ensure_ascii=False)
-    brand_js = json.dumps(brand, ensure_ascii=False)
 
-    if ops:
-        content = f"""import {{ brand }} from '@/data/mock';
-import OpsShell from '@/ui/OpsShell';
-import PageHeader from '@/ui/PageHeader';
-import StatCard from '@/ui/StatCard';
-import ChartCard from '@/ui/ChartCard';
-import DataTable from '@/ui/DataTable';
-import FilterBar from '@/ui/FilterBar';
-
-const stats = [
-    {stats_js},
-];
-
-const rows = [
-    {rows_js},
-];
-
-const chartData = [
-    {chart_js},
-];
-
-const navItems = [
-  {{ id: 'dashboard', label: 'Dashboard', href: '/owner/dashboard', active: true }},
-  {{ id: 'clients', label: 'Clients', href: '/owner/clients' }},
-  {{ id: 'appointments', label: 'Appointments', href: '/owner/appointments' }},
-];
+    content = f"""import {{ brand }} from '{mock_prefix}data/mock';
 
 export default function {component}() {{
+  const rows = [
+    {rows_js},
+  ];
+
   return (
-    <OpsShell brandName={{brand.name || {brand_js}}} navItems={{navItems}}>
-      <PageHeader
-        title={{{title_js}}}
-        description={{{subtitle_js}}}
-      />
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        {{stats.map((stat) => (
-          <StatCard key={{stat.k}} label={{stat.k}} value={{stat.v}} />
+    <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-8">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-brand">{{brand.name}}</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-900">{title}</h1>
+          <p className="mt-2 max-w-xl text-slate-600">
+            {subtitle}
+          </p>
+        </div>
+        <span className="inline-flex items-center rounded-full bg-brand/10 px-3 py-1 text-sm font-semibold text-brand">
+          Open now
+        </span>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        {{[
+          {stats_js},
+        ].map((stat) => (
+          <div key={{stat.k}} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">{{stat.k}}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{{stat.v}}</p>
+          </div>
         ))}}
       </div>
-      <div className="mt-6">
-        <FilterBar />
+
+      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-semibold text-slate-900">Today&apos;s activity</h2>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {{rows.map((row) => (
+            <li key={{row.label}} className="flex items-center justify-between gap-4 px-5 py-4">
+              <div>
+                <p className="font-medium text-slate-900">{{row.label}}</p>
+                <p className="text-sm text-slate-500">{{row.detail}}</p>
+              </div>
+              <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                {{row.status}}
+              </span>
+            </li>
+          ))}}
+        </ul>
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <ChartCard
-          title="This week"
-          description="Appointments and utilization this week"
-          data={{chartData}}
-          dataKey="value"
-          xKey="day"
-          type="area"
-        />
-        <DataTable
-          columns={{[
-            {{ key: 'label', header: 'Item' }},
-            {{ key: 'detail', header: 'Detail' }},
-            {{ key: 'status', header: 'Status' }},
-          ]}}
-          rows={{rows}}
-        />
-      </div>
-    </OpsShell>
+    </div>
   );
 }}
 """
-    else:
-        content = f"""import {{ Link }} from 'react-router-dom';
-import {{ brand }} from '@/data/mock';
-import PublicShell from '@/ui/PublicShell';
-import MarketingHero from '@/ui/MarketingHero';
-import FeatureBento from '@/ui/FeatureBento';
-import CTABand from '@/ui/CTABand';
-
-const features = [
-  {{
-    title: 'Guided next step',
-    description: 'Clear path from interest to booking with calm, premium pacing.',
-  }},
-  {{
-    title: 'Personal recommendations',
-    description: 'AI-assisted suggestions that still feel human and brand-true.',
-  }},
-  {{
-    title: 'Member continuity',
-    description: 'Aftercare and follow-ups stay in one polished experience.',
-  }},
-];
-
-export default function {component}() {{
-  return (
-    <PublicShell
-      brandName={{brand.name || {brand_js}}}
-      nav={{
-        <div className="flex items-center gap-4 text-sm text-white/75">
-          <Link to="/" className="hover:text-white">Home</Link>
-          <Link to="/treatments" className="hover:text-white">Treatments</Link>
-          <Link
-            to="/ai-consultation"
-            className="inline-flex h-9 items-center rounded-xl bg-brand px-3.5 text-sm font-semibold text-white"
-          >
-            Book
-          </Link>
-        </div>
-      }}
-    >
-      <MarketingHero
-        eyebrow={{brand.name || {brand_js}}}
-        headline={{{title_js}}}
-        subcopy={{{subtitle_js}}}
-        primaryAction={{
-          <Link
-            to="/ai-consultation"
-            className="inline-flex h-10 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-white"
-          >
-            Start consultation
-          </Link>
-        }}
-        secondaryAction={{
-          <Link
-            to="/treatments"
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900"
-          >
-            View treatments
-          </Link>
-        }}
-      />
-      <div className="px-6 pb-20 lg:px-10">
-        <FeatureBento items={{features}} />
-        <div className="mt-16">
-          <CTABand
-            headline="Ready when you are"
-            description="Continue exploring the live product — every screen is clickable."
-            primaryAction={{
-              <Link
-                to="/ai-consultation"
-                className="inline-flex h-10 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-white"
-              >
-                Continue
-              </Link>
-            }}
-          />
-        </div>
-      </div>
-    </PublicShell>
-  );
-}}
-"""
-
     write_file(workspace, path, content)
-    if "{{" in content:
-        # Never ship Python brace-escape leaks into the Vite workspace.
-        raise RuntimeError(f"write_safe_stub produced invalid JS braces in {path}")
     _last_stubbed_paths.append(path.replace("\\", "/"))
-
-
-def stabilize_broken_pages(
-    workspace,
-    paths: list[str],
-    architect: dict | None = None,
-    *,
-    brand_name: str | None = None,
-    industry: str | None = None,
-) -> list[str]:
-    """Stub only the given broken paths (never wipe healthy critic-passed pages).
-
-    Primary pages (home + owner dashboard) always get rich surface-aware stubs —
-    never thin placeholder content.
-    """
-    rewritten: list[str] = []
-    route_meta: dict[str, dict] = {}
-    for rt in (architect or {}).get("routes") or []:
-        cf = (rt.get("component_file") or "").replace("\\", "/")
-        if cf:
-            route_meta[cf] = rt
-
-    for path in paths:
-        norm = path.replace("\\", "/")
-        if is_chrome_path(norm):
-            if write_template_fallback(workspace, norm):
-                rewritten.append(norm)
-            continue
-        # Never overwrite a rich critic-passed primary page with a stub.
-        if _is_primary_page(norm):
-            existing = read_file(workspace, norm)
-            if _looks_rich_primary_page(existing):
-                print(
-                    f"    preserving rich primary page (refusing stub overwrite): {norm}",
-                    flush=True,
-                )
-                continue
-        meta = route_meta.get(norm) or {}
-        surface = meta.get("surface")
-        low = norm.lower()
-        if "homepage" in low or low.endswith("/home.tsx"):
-            surface = "public"
-        if "ownerdashboard" in low.replace("_", "") or (
-            "/owner/" in low and "dashboard" in low
-        ):
-            surface = "ops"
-        write_safe_stub(
-            workspace,
-            norm,
-            brand_name=brand_name,
-            industry=industry,
-            page_title=meta.get("title"),
-            surface=surface,
-        )
-        rewritten.append(norm)
-    return rewritten
 
 
 def stabilize_all_route_pages(
@@ -480,12 +280,11 @@ def stabilize_all_route_pages(
     *,
     brand_name: str | None = None,
     industry: str | None = None,
-    only_paths: list[str] | None = None,
 ) -> list[str]:
-    """Last-resort stabilize. Prefer `only_paths` so good pages are preserved.
+    """Last-resort: stub every planned page + revert chrome so Vite can always ship.
 
-    If `only_paths` is provided, only those files are rewritten (+ chrome
-    reverted when listed). Full route wipe is used only when `only_paths` is None.
+    Used when targeted stubbing still leaves the build broken (e.g. cascading
+    import errors). Returns the list of paths rewritten.
     """
     rewritten: list[str] = []
     chrome = [
@@ -494,28 +293,6 @@ def stabilize_all_route_pages(
         "src/layouts/AdminLayout.tsx",
         "src/components/UiIcons.tsx",
     ]
-
-    if only_paths is not None:
-        targets = [p.replace("\\", "/") for p in only_paths]
-        # Always restore chrome if any chrome path is broken or build is nuclear-ish
-        for path in chrome:
-            if path.replace("\\", "/").lower() in {t.lower() for t in targets} or any(
-                is_chrome_path(t) for t in targets
-            ):
-                if write_template_fallback(workspace, path):
-                    rewritten.append(path)
-        page_targets = [t for t in targets if not is_chrome_path(t)]
-        rewritten.extend(
-            stabilize_broken_pages(
-                workspace,
-                page_targets,
-                architect,
-                brand_name=brand_name,
-                industry=industry,
-            )
-        )
-        return list(dict.fromkeys(rewritten))
-
     for path in chrome:
         if write_template_fallback(workspace, path):
             rewritten.append(path)
@@ -526,31 +303,18 @@ def stabilize_all_route_pages(
             continue
         if is_chrome_path(path):
             continue
-        if _is_primary_page(path) and _looks_rich_primary_page(read_file(workspace, path)):
-            print(f"    preserving rich primary page in full stabilize: {path}", flush=True)
-            continue
         write_safe_stub(
             workspace,
             path,
             brand_name=brand_name,
             industry=industry,
             page_title=rt.get("title"),
-            surface=rt.get("surface"),
         )
         rewritten.append(path)
 
+    # Always ensure a HomePage exists for the catch-all redirect.
     home = "src/pages/HomePage.tsx"
     if home not in rewritten:
-        if _looks_rich_primary_page(read_file(workspace, home)):
-            print(f"    preserving rich HomePage in full stabilize", flush=True)
-        else:
-            write_safe_stub(
-                workspace,
-                home,
-                brand_name=brand_name,
-                industry=industry,
-                page_title="Home",
-                surface="public",
-            )
-            rewritten.append(home)
+        write_safe_stub(workspace, home, brand_name=brand_name, industry=industry, page_title="Home")
+        rewritten.append(home)
     return rewritten

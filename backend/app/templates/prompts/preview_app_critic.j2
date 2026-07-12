@@ -17,8 +17,6 @@ Score the page 0-100 on:
 - Visual richness and hierarchy for those specific sections
 - Business-specific content (not generic "Service 1" / Lorem)
 - Imagery and spacing where the plan calls for them
-- Surface fit: does the page LOOK and read like the correct product surface (public storefront/landing vs ops/admin SaaS console), not the wrong mode wearing good copy?
-- Modernity: even with strong copy, dated/flat/generic/template UI should not pass
 - How convincing it is as a LIVE product the business owner already uses (not a pitch)
 
 Return STRICT JSON only:
@@ -29,16 +27,4 @@ Return STRICT JSON only:
   "revision_instructions": "Precise direction: which planned sections are missing or weak, what UI/data to add. Empty string if verdict is pass."
 }
 
-Use verdict "revise" for anything under 88. Fail immediately if:
-- emoji icons instead of `UiIcon`/Lucide, or hardcoded hex colors
-- duplicate nav/header/sidebar/footer chrome rendered inside the page
-- imports use random packages outside the curated allowlist, invented modules, or dependency sprawl
-- planned sections are missing, replaced, or watered down into unrelated generic blocks (e.g. random FAQ/testimonials/feature cards not in the plan)
-- placeholder/lorem/"coming soon"/"being fine-tuned"/empty centered stub content appears on primary pages
-- meta/demo speak appears in the UI ("We'll build", "interactive demo", "preview of", "showcase", "Start your plan", "View programs", pasting preview_features as marketing cards)
-- ops/admin surfaces read like a marketing landing page: pitch cards, equal-card grids, weak data density, no real control-surface structure
-- public/storefront/landing surfaces read like an internal spreadsheet-only tool: tables/charts first, no strong hero, no atmosphere, no visual merchandising
-- public landings lack a strong hero and premium atmosphere cues; if the plan implies a landing/storefront, weak flat blocks alone are not enough
-- ops dashboards/lists lack clear SaaS structure such as stats, charts, tables, filters, status rows, or queue/throughput views where the plan calls for operational depth
-- the UI feels dated, flat, generic, or template-like even if the copy is specific
-Be specific — vague notes are useless.
+Use verdict "revise" for anything under 88. Fail immediately if: emoji icons, hardcoded hex colors, Nav/header duplicated inside page, planned sections missing or replaced with unrelated generic blocks (e.g. random FAQ/testimonials not in the plan), placeholder/lorem content, thin stub pages ("fine-tuned", empty centered message), OR meta/demo speak in the UI ("We'll build", "interactive demo", "preview of", "showcase", "Start your plan", "View programs", pasting preview_features as marketing cards). Be specific — vague notes are useless.

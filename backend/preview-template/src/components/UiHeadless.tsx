@@ -65,8 +65,6 @@ export const Dialog = Object.assign(DialogRoot, {
   Title: DialogTitle,
   Description: DialogDescription,
 });
-// Headless UI / Radix-style named imports the AI prefers over Dialog.Panel
-export { DialogPanel, DialogTitle, DialogDescription };
 
 function MenuRoot(props: AnyProps) {
   return Pass({ ...props, as: props.as || 'div' });
@@ -126,9 +124,6 @@ export const Listbox = Object.assign(ListboxRoot, {
 
 export const Combobox = Listbox;
 export const Popover = Disclosure;
-export const PopoverTrigger = (props: AnyProps) => Pass({ ...props, as: props.as || 'button' });
-export const PopoverContent = Pass;
-export const PopoverClose = Pass;
 export const Tab = Object.assign(Pass, {
   Group: Pass,
   List: Pass,
@@ -138,7 +133,6 @@ export const Tab = Object.assign(Pass, {
 export const Switch = (props: AnyProps) => Pass({ ...props, as: props.as || 'button', role: 'switch' });
 export const RadioGroup = Object.assign(Pass, { Label: Pass, Option: Pass, Description: Pass });
 export const Portal = ({ children }: { children?: ReactNode }) => createElement(ReactFragment, null, children);
-export const PopoverPortal = Portal;
 
 /** Framer-motion-compatible motion.* tags — no animation, just DOM. */
 function motionTag(tag: string) {

@@ -36,8 +36,3 @@ RULES:
 - Data must feel like a busy real business day: named customers, concrete menu/service items, statuses (Ready, Seated, Preparing), times, staff initials, order/reservation IDs. Prefer 10–20 items for catalogs and 8–12 rows for ops lists.
 - Navigation labels and role labels must be in-product language (Menu, Orders, Reservations) — never "Preview", "Demo", or pitch wording
 - Output ONLY the complete mock.ts file — no markdown fences
-
-RICH DATA:
-- If a page imports chart data, export chart-ready series arrays with numeric values (for example `revenueByDay: [{ day: "Mon", value: 42 }, ... ]`)
-- Ops dashboards and tables should default to dense operational data: 8+ rows for active lists, multiple statuses, realistic timestamps, and totals that support filters/cards/charts together
-- When routes imply dashboard storytelling, provide both summary metrics and supporting trend/table data so charts and tables can render without inventing filler

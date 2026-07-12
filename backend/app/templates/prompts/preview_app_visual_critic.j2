@@ -17,17 +17,10 @@ Look specifically for defects that ONLY a rendered screenshot can reveal (a text
 - Broken or missing images (broken-image icon, alt text showing instead of a picture)
 - Visually cramped, overlapping, or misaligned elements
 - Text that is unreadable against its background (contrast), or that overflows its container
-- A layout that looks dated, flat, generic, templated, or too weak to sell as a 2026-quality product
+- A layout that looks generic/templated rather than specific to this business
 - Obvious empty states ("No items found", empty tables/lists, "being fine-tuned") where the plan calls for populated sample data
 - Pitch/demo marketing copy visible on screen instead of a real storefront or ops UI (feature-list cards that sell the MVP rather than the business's product)
 - Sparse pages that would not convince a business owner this product is ready to use today
-- Wrong surface language that is visually obvious:
-  * ops/admin screens presented like marketing pitch cards instead of a structured SaaS control surface
-  * public/storefront pages presented like spreadsheet-only backoffice screens
-- Public landing/storefront screens without a strong hero, atmosphere, layered imagery, or visible motion-rich composition cues
-- Ops/admin pages missing visible stats, charts, tables, filters, queues, or other obvious operational structure when the plan calls for them
-- Duplicate page chrome visible on screen (second nav/header/sidebar/footer inside the page body)
-- Emoji used as visible icons
 
 Do NOT flag things you cannot actually see in the image. Do NOT invent issues about code structure — you only have the screenshot.
 
@@ -39,4 +32,4 @@ Return STRICT JSON only:
   "revision_instructions": "Precise direction for what to fix, based only on what's visibly wrong in the screenshot. Empty string if verdict is pass."
 }
 
-Use verdict "revise" for anything under 80. Be specific — vague notes are useless. If the page looks clean, populated, modern, on-brand, and like a finished product the owner would open every morning, pass it. If the screenshot looks template-ish, flat, weak, or mismatched to the page's surface, it should not pass on copy alone.
+Use verdict "revise" for anything under 80. Be specific — vague notes are useless. If the page looks clean, populated, on-brand, and like a finished product the owner would open every morning, pass it.

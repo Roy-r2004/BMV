@@ -105,69 +105,9 @@ def _parse_json(raw: str) -> dict:
     if not raw or not raw.strip():
         raise ValueError("Empty response from model")
     try:
-        data = extract_json_from_text(raw)
+        return extract_json_from_text(raw)
     except Exception:
-        data = json.loads(raw)
-    if isinstance(data, dict):
-        return data
-    if isinstance(data, list) and data:
-        # Models sometimes return [obj] or [obj, ...] — take first object.
-        for item in data:
-            if isinstance(item, dict):
-                return item
-    raise ValueError(f"Expected JSON object, got {type(data).__name__}")
-
-
-def _normalize_critic_review(data) -> dict:
-    """Coerce any critic payload into a safe {score, verdict, issues, revision_instructions} dict.
-
-    Malformed model output (list/tuple/str) must never crash refine — that used to abort
-    the entire critic pass with `'tuple' object has no attribute 'get'`.
-    """
-    if isinstance(data, (list, tuple)):
-        for item in data:
-            if isinstance(item, dict):
-                data = item
-                break
-        else:
-            data = {}
-    if not isinstance(data, dict):
-        return {"score": 100, "verdict": "pass", "issues": [], "revision_instructions": ""}
-
-    score_raw = data.get("score", 100)
-    try:
-        score = int(float(score_raw))
-    except (TypeError, ValueError):
-        score = 100
-    score = max(0, min(100, score))
-
-    verdict = str(data.get("verdict") or "").strip().lower()
-    if verdict not in ("pass", "revise"):
-        verdict = "revise" if score < 88 else "pass"
-
-    issues = data.get("issues") or []
-    if isinstance(issues, str):
-        issues = [issues] if issues.strip() else []
-    elif isinstance(issues, (list, tuple)):
-        issues = [str(x).strip() for x in issues if str(x).strip()]
-    else:
-        issues = []
-
-    notes = data.get("revision_instructions")
-    if notes is None:
-        notes = ""
-    elif isinstance(notes, (list, tuple)):
-        notes = "; ".join(str(x).strip() for x in notes if str(x).strip())
-    else:
-        notes = str(notes).strip()
-
-    return {
-        "score": score,
-        "verdict": verdict,
-        "issues": issues,
-        "revision_instructions": notes,
-    }
-
+        return json.loads(raw)
 
 
 def call_architect(
@@ -213,41 +153,45 @@ _COLOR_CONSTRAINT = (
 
 _CHROME_CONTRACTS: dict[str, str] = {
     "src/components/nav.tsx": (
-        "This is the shared top navigation bar, rendered once by PublicLayout on public "
-        "routes. The primary path is to compose the existing `src/ui/*` kit via `@/ui` "
-        "(relative `../ui` is allowed but secondary) instead of "
-        "inventing a brand-new chrome system from scratch. Keep the exact signature: "
+        "This is the shared top navigation bar, rendered once by PublicLayout on every "
+        "public page. Keep the exact signature: "
         "`export default function Nav({ brandName = 'Brand', items = [], cta }: Props)` "
         "with Props = { brandName?: string; items?: {path,label}[]; cta?: {path,label} }. "
-        "Use router-matching paths with plain `<a href>` links. Redesign the visual style "
-        "(spacing, typography, button shape) to fit THIS brand specifically — do not "
-        "default to a generic indigo/slate look. "
+        "Redesign the visual style (spacing, typography, button shape) to fit THIS "
+        "brand specifically — do not default to a generic indigo/slate look. "
         "It must feel like a real storefront nav the customer trusts: sticky/clean, "
         "brand name as text logo, clear active-ready links, strong CTA — never 'Demo' "
-        "or pitch wording in labels. Prefer existing template buttons/badges/layout "
-        "primitives where useful rather than rebuilding the chrome system."
+        "or pitch wording in labels."
         + _COLOR_CONSTRAINT
     ),
     "src/layouts/publiclayout.tsx": (
-        "THIN LAYOUT ONLY: export default that returns exactly `<Outlet />` from react-router-dom. "
-        "Do NOT import Nav, PublicShell, brand, or navigation. Do NOT render header/footer/chrome. "
-        "Public pages compose PublicShell themselves — double-wrapping causes blank screens."
+        "This wraps EVERY public page — it must keep rendering <Outlet /> for page content, "
+        "keep importing `brand, navigation` from '../data/mock', and keep rendering "
+        "<Nav /> from '../components/Nav'. You control the footer content/structure and "
+        "overall shell styling — make it specific to this business, not a generic template. "
+        "CRITICAL: do NOT wrap <Outlet /> in heavy vertical padding that kills full-bleed "
+        "heroes — let pages own their spacing. Footer must feel real (hours, address, "
+        "phone-style contact lines from brand context) — not a one-line copyright stub."
         + _COLOR_CONSTRAINT
     ),
     "src/layouts/adminlayout.tsx": (
-        "THIN LAYOUT ONLY: export default that returns exactly `<Outlet />` from react-router-dom. "
-        "Do NOT import OpsShell, Nav, brand, or navigation. Do NOT render sidebar/header chrome. "
-        "Owner/ops pages compose OpsShell themselves — double-wrapping causes blank screens."
+        "This wraps EVERY admin page — it must keep rendering <Outlet /> for page content and "
+        "keep importing `brand, navigation` from '../data/mock'. NEVER hardcode a business "
+        "type in any label (do not assume 'Studio', 'Restaurant', 'Clinic', etc.) — use "
+        "`brand.name` and neutral wording like 'Admin' or 'Dashboard'. You control the "
+        "sidebar/header styling — make it specific to this business. Feel like a real ops "
+        "console: sidebar with clear sections, subtle active state, compact header with "
+        "today's date or 'Live' status — not a marketing shell."
         + _COLOR_CONSTRAINT
     ),
     "src/components/uiicons.tsx": (
         "This is the shared icon set used everywhere via `<UiIcon name=\"...\" />`. Keep "
         "exporting a default `UiIcon` component that accepts a `name` prop and supports at "
         "least these keys: clipboard, chart, target, clock, users, zap, shield, bell, "
-        "calendar, check, search, cart, brain, coffee, arrowRight. Keep the default export "
-        "name/API as `UiIcon`, stay lucide-backed, and limit changes to light brand tweaks "
-        "(stroke weight, sizing, corner rounding) instead of rewriting the icon system "
-        "from scratch. Unknown names must fall back to a simple circle/dot SVG — never crash."
+        "calendar, check, search, cart, brain, coffee, arrowRight. Design a bespoke stroke "
+        "style (weight, corner rounding) that fits this brand rather than a generic outline "
+        "set — but every icon must share the same stroke weight/rounding as each other. "
+        "Unknown names must fall back to a simple circle/dot SVG — never crash."
         + _COLOR_CONSTRAINT
     ),
 }
@@ -325,17 +269,9 @@ def generate_file(
             f"{prompt}\n\n"
             f"IMPORTANT: Previous answer failed ({reason}). "
             "Return the COMPLETE TypeScript/React file only — start with imports, "
-            "end with export default. MUST compile. ONLY import from the curated allowlist: "
-            "react, react-dom, react-router-dom, react/jsx-runtime, framer-motion, "
-            "@radix-ui/react-dialog, @radix-ui/react-dropdown-menu, @radix-ui/react-tabs, "
-            "@radix-ui/react-select, @radix-ui/react-switch, @radix-ui/react-tooltip, "
-            "@radix-ui/react-slot, lucide-react, recharts, clsx, tailwind-merge, "
-            "date-fns, sonner, @/data/mock (preferred) or ../data/mock, "
-            "@/components/UiIcons (preferred) or ../components/UiIcons, "
-            "@/ui or @/ui/... (preferred) or ../ui / ../ui/..., "
-            "@/lib/cn (preferred) or ../lib/cn, and existing local files. Do not use MUI, "
-            "Ant, Chakra, Mantine, Bootstrap, Chart.js, Three, react-icons dumps, "
-            "or invented local hook paths. No markdown fences."
+            "end with export default. MUST compile. ONLY import from react, "
+            "react-router-dom, ../data/mock (or @/data/mock), ../components/UiIcons, "
+            "and existing local files. No npm icon/UI libraries. No markdown fences."
         )
         raw2 = ai_provider.ask_chat(
             settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=16000,
@@ -493,7 +429,7 @@ def critique_file(
     )
     raw = ai_provider.ask_chat(settings.CRITIC_MODEL, [{"role": "user", "content": prompt}], max_tokens=2000)
     try:
-        return _normalize_critic_review(_parse_json(raw))
+        return _parse_json(raw)
     except Exception:
         return {"score": 100, "verdict": "pass", "issues": [], "revision_instructions": ""}
 
@@ -525,7 +461,7 @@ def critique_file_visual(
     )
     raw = ai_provider.ask_vision(settings.CRITIC_MODEL, prompt, screenshot_path)
     try:
-        return _normalize_critic_review(_parse_json(raw))
+        return _parse_json(raw)
     except Exception:
         return {"score": 100, "verdict": "pass", "issues": [], "revision_instructions": ""}
 
@@ -598,11 +534,9 @@ def critique_and_refine(
 
     def _critique_spec(spec: dict) -> tuple[str, dict]:
         path = spec.get("path", "")
-        review = _normalize_critic_review(
-            critique_file(
-                workspace, path, spec.get("instructions", ""), full_context, design_direction,
-                ai_provider, template_renderer,
-            )
+        review = critique_file(
+            workspace, path, spec.get("instructions", ""), full_context, design_direction,
+            ai_provider, template_renderer,
         )
         return path, review
 
@@ -636,7 +570,6 @@ def critique_and_refine(
                 print(f"    critic skip {path}: {exc}", flush=True)
             elif result:
                 path, review = result
-                review = _normalize_critic_review(review)
                 print(f"    critic {path}: {review.get('score', 100)} ({review.get('verdict', 'pass')})", flush=True)
 
         for spec, result, exc in parallel_map(
@@ -644,13 +577,13 @@ def critique_and_refine(
         ):
             if result:
                 path, review = result
-                reviews[path] = _normalize_critic_review(review)
+                reviews[path] = review
 
     to_refine: list[tuple[dict, dict]] = []
     for spec in pages:
         path = spec.get("path", "")
-        review = _normalize_critic_review(reviews.get(path))
-        if review.get("verdict") != "revise":
+        review = reviews.get(path)
+        if not review or review.get("verdict") != "revise":
             continue
         notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
         if notes:
@@ -661,7 +594,6 @@ def critique_and_refine(
     def _refine_item(item: tuple[dict, dict]) -> str:
         spec, review = item
         path = spec.get("path", "")
-        review = _normalize_critic_review(review)
         notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
         refine_file(
             workspace,
@@ -685,11 +617,9 @@ def critique_and_refine(
                     refined.append(path)
                     print(f"    refined {path}", flush=True)
                     if review.get("score", 100) < 55:
-                        review2 = _normalize_critic_review(
-                            critique_file(
-                                workspace, path, spec.get("instructions", ""), full_context, design_direction,
-                                ai_provider, template_renderer,
-                            )
+                        review2 = critique_file(
+                            workspace, path, spec.get("instructions", ""), full_context, design_direction,
+                            ai_provider, template_renderer,
                         )
                         if review2.get("verdict") == "revise":
                             notes2 = review2.get("revision_instructions") or "; ".join(review2.get("issues", []))
@@ -703,26 +633,22 @@ def critique_and_refine(
                 except Exception as e:
                     print(f"    refine FAIL {path}: {e}", flush=True)
         else:
-            # to_refine items are (spec, review) tuples — unpack carefully.
-            for item, result, exc in parallel_map(to_refine, _refine_item, max_workers=workers):
-                spec, _review = item
-                path = spec.get("path", "") if isinstance(spec, dict) else ""
+            for spec, result, exc in parallel_map(to_refine, _refine_item, max_workers=workers):
+                path = spec.get("path", "")
                 if exc:
                     print(f"    refine FAIL {path}: {exc}", flush=True)
                     continue
-                refined.append(result or path)
+                refined.append(path)
                 print(f"    refined {path}", flush=True)
 
-            poor = [(s, r) for s, r in to_refine if _normalize_critic_review(r).get("score", 100) < 55]
+            poor = [(s, r) for s, r in to_refine if r.get("score", 100) < 55]
             if poor:
                 def _second_pass(item: tuple[dict, dict]) -> str | None:
                     spec, _ = item
                     path = spec.get("path", "")
-                    review2 = _normalize_critic_review(
-                        critique_file(
-                            workspace, path, spec.get("instructions", ""), full_context, design_direction,
-                            ai_provider, template_renderer,
-                        )
+                    review2 = critique_file(
+                        workspace, path, spec.get("instructions", ""), full_context, design_direction,
+                        ai_provider, template_renderer,
                     )
                     if review2.get("verdict") != "revise":
                         return None

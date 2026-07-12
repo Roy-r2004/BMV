@@ -35,7 +35,6 @@ Output ONLY valid JSON:
       "title": "Page Title",
       "component_file": "src/pages/YourPage.tsx",
       "layout": "public or admin",
-      "surface": "\"public\" | \"ops\"",
       "purpose": "what this page shows",
       "features": ["feature names visible here"]
     }
@@ -63,20 +62,17 @@ Output ONLY valid JSON:
     }
   ],
   "shared_components": [
-    { "path": "src/components/Nav.tsx", "kind": "component", "instructions": "Route-matching nav that keeps plain <a href> links and composes the existing template src/ui kit instead of inventing a new chrome system" },
-    { "path": "src/layouts/PublicLayout.tsx", "kind": "layout", "instructions": "THIN layout only: return <Outlet />. Do not wrap PublicShell here — pages own shells." },
-    { "path": "src/layouts/AdminLayout.tsx", "kind": "layout", "instructions": "THIN layout only: return <Outlet />. Do not wrap OpsShell here — owner pages own shells." },
-    { "path": "src/components/UiIcons.tsx", "kind": "component", "instructions": "Keep the default export UiIcon name API, stay lucide-backed, and only apply light brand tweaks instead of rewriting the icon system" }
+    { "path": "src/components/Nav.tsx", "kind": "component", "instructions": "Public top nav, bespoke to this brand — not a generic default" },
+    { "path": "src/layouts/PublicLayout.tsx", "kind": "layout", "instructions": "Public shell (header/main/footer) bespoke to this brand" },
+    { "path": "src/layouts/AdminLayout.tsx", "kind": "layout", "instructions": "Admin sidebar shell matching admin routes, bespoke to this brand" },
+    { "path": "src/components/UiIcons.tsx", "kind": "component", "instructions": "Bespoke icon set matching this brand's style" }
   ]
 }
 
 RULES:
 - Derive roles, routes, and page count ENTIRELY from the experience plan — build EVERY feature the plan describes
 - CRITICAL: Each role MUST have visually DISTINCT pages — derive page types and sections from the plan, not from a fixed template
-- CRITICAL: Owner/ops routes MUST use `/owner/*` paths (example: `/owner/dashboard`, `/owner/appointments`). NEVER use `/ops-hub/*`. Owner role `defaultPath` MUST be `/owner/dashboard`.
 - CRITICAL: component_file paths MUST reflect role folders: public pages in src/pages/, owner pages in src/pages/owner/, admin pages in src/pages/admin/
-- CRITICAL: Every route MUST include `surface` = `public` or `ops`, matching the page experience from the plan
-- PublicLayout/AdminLayout MUST be thin `<Outlet />` only — pages compose PublicShell/OpsShell themselves
 - Each route's files_to_generate instructions MUST copy the section list from the matching page in the experience plan
 - CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.
 - CRITICAL: MUST include at least ONE public marketing landing route (path "/" or "/home", layout "public", component HomePage.tsx). Client always lands on a rich homepage first.
@@ -85,12 +81,6 @@ RULES:
 - component_file paths must start with src/
 - Do NOT include main.tsx or preview-bridge.ts (already in template)
 - Quality bar: if a feature exists in the plan, there is a DEDICATED PAGE for it. Do not cram 3 features into one generic page.
-- Nav, PublicLayout, AdminLayout, and UiIcons MUST always appear in shared_components, but the primary path is to compose the EXISTING template `src/ui/*` kit — do NOT tell the model to invent an entirely new chrome system from scratch.
-- The template UI kit already exists in `src/ui/*`. Do NOT list regenerating the whole ui kit in files_to_generate.
-- `Nav.tsx` should use router-matching paths with plain `<a href>` links.
-- `UiIcons.tsx` should stay lucide-backed with the default export name `UiIcon`; light brand tweaks are fine, full icon-system rewrites are not.
+- Nav, PublicLayout, AdminLayout, and UiIcons are NOT shared defaults anymore — they are generated fresh for every business and MUST always appear in shared_components. Give them real instructions tailored to this brand's visual style, not the placeholder text above.
 - Page instructions must describe the LIVE product UX (what the customer/owner does on screen), never "demo this feature" or BMV pitch language. HomePage instructions must specify brand-voice hero + real storefront sections — not a list of preview_features as marketing cards.
 - Every page instruction should demand production density: concrete widgets, realistic sample rows, and zero placeholder empty states.
-- For `/` home and every role `defaultPath` landing route: if `surface` is `public`, instructions MUST explicitly require `MarketingHero` + `PublicShell` composition and a bold premium AI-native 2026 storefront feel for THIS brand.
-- For `/` home and every role `defaultPath` landing route: if `surface` is `ops`, instructions MUST explicitly require `OpsShell` + `PageHeader` + `StatCard` + (`ChartCard` and/or `DataTable`) composition in a polished calm SaaS ops style.
-- Focused flow pages (checkout, consult wizard, onboarding, payment, confirmation, single-purpose forms) may be exceptions to the full shell requirement, but must still feel premium, polished, and built from the existing ui kit.
