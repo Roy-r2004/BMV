@@ -675,15 +675,26 @@ _ALLOWED_NPM_IMPORTS = {
     "react-dom",
     "react-router-dom",
     "react/jsx-runtime",
+    "framer-motion",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-select",
+    "@radix-ui/react-switch",
+    "@radix-ui/react-tooltip",
+    "@radix-ui/react-slot",
+    "lucide-react",
+    "recharts",
+    "clsx",
+    "tailwind-merge",
+    "date-fns",
+    "sonner",
 }
 # Packages we cannot install in preview apps — rewrite imports to local stubs
 # instead of deleting them (deleting left Transition/Dialog undefined → white screen).
 _STUBBED_NPM_IMPORTS = {
     "@headlessui/react": "src/components/UiHeadless",
     "@headlessui/react/dist": "src/components/UiHeadless",
-    "framer-motion": "src/components/UiHeadless",
-    "motion": "src/components/UiHeadless",
-    "motion/react": "src/components/UiHeadless",
 }
 _IMPORT_FROM_RE = re.compile(
     r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$""",
