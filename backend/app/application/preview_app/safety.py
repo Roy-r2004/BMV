@@ -387,6 +387,21 @@ def repair_ops_mock_object_shapes(workspace, brand_name: str) -> list[str]:
             json.dumps(_default_appointments_overview(), ensure_ascii=False),
         ),
         (
+            "appointmentsToday",
+            ["total", "confirmed", "projectedRevenue", "newClientsThisWeek"],
+            json.dumps(
+                {
+                    "total": 18,
+                    "confirmed": 14,
+                    "pending": 4,
+                    "projectedRevenue": "₪18,400",
+                    "actualRevenue": "₪12,200",
+                    "newClientsThisWeek": 7,
+                },
+                ensure_ascii=False,
+            ),
+        ),
+        (
             "newClientSignups",
             ["today", "thisWeek"],
             json.dumps(_default_new_client_signups(), ensure_ascii=False),
@@ -1568,8 +1583,59 @@ def strip_illegal_jsx_attribute_comments(workspace) -> list[str]:
     return touched
 
 
+_NAMED_IMPORT_RE = re.compile(
+    r"""^(\s*import\s+)\{([^}]*)\}(\s+from\s+)(['"])([^'"]+)\4(\s*;?\s*(?://[^\n]*)?\n?)$"""
+)
+
+
+def _parse_import_names(inner: str) -> list[str]:
+    names: list[str] = []
+    for part in inner.split(","):
+        token = part.strip()
+        if not token:
+            continue
+        bits = token.split()
+        if bits and bits[0] == "type":
+            bits = bits[1:]
+        token = " ".join(bits).split(" as ")[0].strip()
+        if token:
+            names.append(token)
+    return names
+
+
+def _rewrite_mixed_uiicons_import(line: str, src: str) -> list[str] | None:
+    """Split `import { PublicShell, Button, UiIcon } from '...UiIcons'` into kit + icons."""
+    if "UiIcons" not in src:
+        return None
+    m = _NAMED_IMPORT_RE.match(line if line.endswith("\n") else line + "\n")
+    if not m:
+        # default import of UiIcons is fine
+        return None
+    names = _parse_import_names(m.group(2))
+    if not names:
+        return None
+    kit = [n for n in names if n in _UI_COMPONENT_NAMES]
+    icons = [n for n in names if n not in _UI_COMPONENT_NAMES]
+    if not kit:
+        return None
+    out: list[str] = []
+    out.append(f"import {{ {', '.join(kit)} }} from '@/ui';\n")
+    if icons:
+        # Keep remaining symbols on UiIcons (usually UiIcon as named — prefer default)
+        if icons == ["UiIcon"]:
+            out.append(f"import UiIcon from '{src}';\n")
+        else:
+            out.append(f"import {{ {', '.join(icons)} }} from '{src}';\n")
+    return out
+
+
 def rewrite_invented_component_imports(workspace) -> list[str]:
-    """Block invented `@/components/*` (except UiIcons) — rewrite known ui names to `@/ui`."""
+    """Block invented `@/components/*` (except UiIcons) — rewrite known ui names to `@/ui`.
+
+    Critical old→new migration: AI often does
+    `import { PublicShell, Button, Card, UiIcon } from '@/components/UiIcons'`
+    which must become `@/ui` + UiIcons default.
+    """
     touched: list[str] = []
     for rel in list_source_files(workspace):
         norm = rel.replace("\\", "/")
@@ -1584,6 +1650,14 @@ def rewrite_invented_component_imports(workspace) -> list[str]:
                 lines.append(line)
                 continue
             src = m.group(1)
+
+            # Mixed kit symbols imported from UiIcons (the #1 2026 elevation failure mode)
+            split = _rewrite_mixed_uiicons_import(line, src)
+            if split is not None:
+                lines.extend(split)
+                changed = True
+                continue
+
             if src.startswith("@/components/") and "UiIcons" not in src and "UiHeadless" not in src:
                 base = src.rsplit("/", 1)[-1].replace(".tsx", "").replace(".ts", "")
                 if base in _UI_COMPONENT_NAMES:
@@ -1606,14 +1680,23 @@ def rewrite_invented_component_imports(workspace) -> list[str]:
                 changed = True
                 continue
             if re.search(r"(?:^|[./])assets/[^'\"]+\.(?:png|jpe?g|webp|gif|svg)$", src, re.I):
-                # Prefer shared mock images map — drop local asset file imports
                 lines.append("/* removed invented asset import — use images from @/data/mock */\n")
                 changed = True
                 continue
-            # Invented @/ui/* not in the curated kit (Label, Carousel, Calendar, …)
+            # Invented or nested @/ui/* — map known kit names to `@/ui/{Name}`
             if src.startswith("@/ui/") or re.search(r"(?:\.\./)+ui/", src):
                 base = src.rsplit("/", 1)[-1].replace(".tsx", "").replace(".ts", "")
-                if base and base[0].isupper() and base not in _UI_COMPONENT_NAMES and base != "index":
+                if base in _UI_COMPONENT_NAMES:
+                    target = f"@/ui/{base}"
+                    if src.replace("\\", "/") != target and not src.rstrip("/").endswith(
+                        f"/ui/{base}"
+                    ):
+                        lines.append(line.replace(src, target))
+                        changed = True
+                        continue
+                    lines.append(line)
+                    continue
+                if base and base[0].isupper() and base != "index":
                     lines.append(f"/* removed invented ui import: {src} */\n")
                     changed = True
                     continue
@@ -1638,6 +1721,51 @@ def rewrite_invented_component_imports(workspace) -> list[str]:
             write_file(workspace, norm, "".join(lines))
             touched.append(norm)
             print(f"    invented component imports rewritten in {norm}", flush=True)
+    return touched
+
+
+def ensure_shell_required_props(workspace, brand_name: str = "Brand") -> list[str]:
+    """Guarantee PublicShell/OpsShell required props so pages don't type/runtime-fail."""
+    touched: list[str] = []
+    name_lit = json.dumps(brand_name or "Brand", ensure_ascii=False)
+    brand_expr = (
+        "{(typeof brand !== 'undefined' && (brand as any)?.name) "
+        f"|| (typeof brand_name !== 'undefined' ? brand_name : {name_lit})}}"
+    )
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".jsx")):
+            continue
+        content = read_file(workspace, rel)
+        updated = content
+
+        def _add_brand(m: re.Match) -> str:
+            tag = m.group(0)
+            if "brandName=" in tag:
+                return tag
+            return tag[:-1] + f" brandName={brand_expr}>"
+
+        updated = re.sub(r"<PublicShell\b([^>]*?)>", _add_brand, updated)
+        # OpsShell needs brandName + navItems
+        def _add_ops(m: re.Match) -> str:
+            tag = m.group(0)
+            out = tag
+            if "brandName=" not in out:
+                out = out[:-1] + f" brandName={brand_expr}>"
+            if "navItems=" not in out:
+                out = out[:-1] + " navItems={(typeof adminNavigation !== 'undefined' ? adminNavigation : []) as any}>"
+            return out
+
+        updated = re.sub(r"<OpsShell\b([^>]*?)>", _add_ops, updated)
+        if updated != content:
+            if "adminNavigation" in updated and "adminNavigation" not in content:
+                updated = _ensure_mock_symbol_import(updated, "adminNavigation")
+            if ("brand" in updated or "brand_name" in updated) and "from '@/data/mock'" not in updated and 'from "@/data/mock"' not in updated:
+                if not re.search(r"""from\s+['"].*data/mock['"]""", updated):
+                    updated = "import { brand } from '@/data/mock';\n" + updated
+            write_file(workspace, norm, updated)
+            touched.append(norm)
+            print(f"    shell required props ensured in {norm}", flush=True)
     return touched
 
 
@@ -1722,6 +1850,30 @@ def ensure_mock_runtime_contracts(
             "ownerDailyBriefing.specialCases.map",
             "((ownerDailyBriefing as any)?.specialCases ?? []).map",
         )
+        # Object-shaped overview mocks that auto-seed often fill as arrays
+        for expr, safe in (
+            (
+                "appointmentsToday.total.toString()",
+                "String((appointmentsToday as any)?.total ?? 0)",
+            ),
+            (
+                "appointmentsToday.confirmed.toString()",
+                "String((appointmentsToday as any)?.confirmed ?? 0)",
+            ),
+            (
+                "appointmentsToday.projectedRevenue.toString()",
+                "String((appointmentsToday as any)?.projectedRevenue ?? 0)",
+            ),
+            (
+                "appointmentsToday.actualRevenue.toString()",
+                "String((appointmentsToday as any)?.actualRevenue ?? 0)",
+            ),
+            (
+                "appointmentsToday.newClientsThisWeek.toString()",
+                "String((appointmentsToday as any)?.newClientsThisWeek ?? 0)",
+            ),
+        ):
+            new = new.replace(expr, safe)
         if new != text:
             write_file(workspace, norm, new)
             actions.append(norm)
@@ -1772,6 +1924,7 @@ def apply_workspace_guards(
         (lambda: sanitize_ui_component_apis(workspace), "ui component APIs sanitized"),
         (lambda: unwrap_route_layout_wrappers(workspace, brand_name), "route layout wrappers unwrapped"),
         (lambda: fix_shell_imports_pointing_at_layouts(workspace), "shell layout aliases fixed"),
+        (lambda: ensure_shell_required_props(workspace, brand_name), "shell required props ensured"),
         (lambda: strip_illegal_jsx_attribute_comments(workspace), "jsx attribute comments stripped"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),

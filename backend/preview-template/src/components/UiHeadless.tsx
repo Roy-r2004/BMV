@@ -65,6 +65,8 @@ export const Dialog = Object.assign(DialogRoot, {
   Title: DialogTitle,
   Description: DialogDescription,
 });
+// Headless UI / Radix-style named imports the AI prefers over Dialog.Panel
+export { DialogPanel, DialogTitle, DialogDescription };
 
 function MenuRoot(props: AnyProps) {
   return Pass({ ...props, as: props.as || 'div' });

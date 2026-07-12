@@ -69,6 +69,8 @@ TECH RULES:
   NEVER import forbidden packages (`@mui/*`, `antd`, `@chakra-ui/*`, `@mantine/*`, `bootstrap`, `chart.js`, `three`, bulk `react-icons/*`) or invented local paths like `../hooks/*` unless they already exist in EXISTING FILES. Put helper logic INLINE unless an allowed existing file already provides it.
 - Prefer alias imports for shared kit files: `@/ui`, `@/components/UiIcons`, `@/lib/cn`, `@/data/mock`. Relative imports are allowed, but the alias path is the default/preferred path because the template already maps `@` to `src`.
 - Prefer importing from `@/ui` for shared building blocks: `PublicShell`, `MarketingHero`, `FeatureBento`, `CTABand`, `OpsShell`, `PageHeader`, `StatCard`, `DataTable`, `FilterBar`, `ChartCard`, `EmptyState`, `ConfirmDialog`, `Button`, `Card`, `Badge`, motion presets `fadeUp` / `staggerChildren` / `pageFade`, and `Toast`
+- NEVER import PublicShell, OpsShell, Button, Card, StatCard, PageHeader, or other kit components from `@/components/UiIcons` — that file is icons only (`import UiIcon from '@/components/UiIcons'`)
+- NEVER invent nested kit paths like `@/ui/admin/StatCard` — use `@/ui/StatCard` (or `from '@/ui'`)
 - UI COMPONENT CONTRACTS (NON-NEGOTIABLE — invented props break runtime):
   * `Button`: props are `variant` = `primary|secondary|ghost|danger`, `size` = `sm|md`, standard button attrs. NEVER use `as={Link}`, NEVER use `asChild`, NEVER invent variants (`gradient`, `outline`, `tertiary`). For navigation CTAs use `<Link className="...">` or wrap Link text inside a normal Button without asChild/as.
   * `StatCard`: props are `label`, `value`, optional `delta`, `deltaTone`, `hint`. NEVER use `title=` or `icon=` on StatCard.
