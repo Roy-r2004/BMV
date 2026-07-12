@@ -69,8 +69,16 @@ TECH RULES:
   NEVER import forbidden packages (`@mui/*`, `antd`, `@chakra-ui/*`, `@mantine/*`, `bootstrap`, `chart.js`, `three`, bulk `react-icons/*`) or invented local paths like `../hooks/*` unless they already exist in EXISTING FILES. Put helper logic INLINE unless an allowed existing file already provides it.
 - Prefer alias imports for shared kit files: `@/ui`, `@/components/UiIcons`, `@/lib/cn`, `@/data/mock`. Relative imports are allowed, but the alias path is the default/preferred path because the template already maps `@` to `src`.
 - Prefer importing from `@/ui` for shared building blocks: `PublicShell`, `MarketingHero`, `FeatureBento`, `CTABand`, `OpsShell`, `PageHeader`, `StatCard`, `DataTable`, `FilterBar`, `ChartCard`, `EmptyState`, `ConfirmDialog`, `Button`, `Card`, `Badge`, motion presets `fadeUp` / `staggerChildren` / `pageFade`, and `Toast`
+- UI COMPONENT CONTRACTS (NON-NEGOTIABLE — invented props break runtime):
+  * `Button`: props are `variant` = `primary|secondary|ghost|danger`, `size` = `sm|md`, standard button attrs. NEVER use `as={Link}`, NEVER use `asChild`, NEVER invent variants (`gradient`, `outline`, `tertiary`). For navigation CTAs use `<Link className="...">` or wrap Link text inside a normal Button without asChild/as.
+  * `StatCard`: props are `label`, `value`, optional `delta`, `deltaTone`, `hint`. NEVER use `title=` or `icon=` on StatCard.
+  * `MarketingHero`: props are `eyebrow`, `headline`, `subcopy`, `primaryAction`, `secondaryAction`, `media`. NEVER use `subheadline`, `cta1`, `cta2`, or bare `image=` (use `media={<img .../>}`).
+  * `OpsShell`: required `brandName: string` and `navItems` array of `{id, label, href?, active?}`. NEVER render `<OpsShell>` with no props.
+  * `PublicShell`: required `brandName: string`; optional `nav`, `footer`.
+- NEVER import invented modules under `@/components/*` except `@/components/UiIcons`. PageHeader/StatCard/Button/etc. live under `@/ui` or `@/ui/Name`.
 - Public home pages and public role landing pages MUST use `PublicShell` + `MarketingHero` composition, real `framer-motion`, and a bold premium AI-native 2026 atmosphere driven by brand tokens and imagery — not flat white empty pages, and not weak equal card grids as the only idea
-- Ops role landing pages and dashboards MUST use `OpsShell` (via `AdminLayout` or directly, per file instructions) + `PageHeader` + `StatCard` + `ChartCard` and/or `DataTable`, plus `FilterBar` where lists exist
+- Ops role landing pages and dashboards MUST use `OpsShell` (pages compose it directly; AdminLayout is a thin `<Outlet />` only) + `PageHeader` + `StatCard` + `ChartCard` and/or `DataTable`, plus `FilterBar` where lists exist
+- Owner/ops routes MUST use `/owner/*` paths (e.g. `/owner/dashboard`). NEVER invent `/ops-hub/*`.
 - Focused flow pages (checkout, wizard, onboarding, payment, confirmation, single-purpose forms) may omit the full shell, but must stay polished and rely on `Button`, `Input`, `Card`, and the existing ui kit
 - Charts: use `ChartCard` / `recharts` for real charts — NEVER fake main charts with div bars, except tiny decorative sparklines
 - Icons: use `UiIcon` (lucide-backed) as the default icon path — NEVER emoji
@@ -89,7 +97,7 @@ For App.tsx:
 For page components (kind=page):
 - Import from `../data/mock` ONLY the symbols this page needs (e.g. `inventory`, `leads`, `stats`). Choose names that match the business — mock.ts is generated later to match your imports.
 - You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
-- PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts and must compose the existing ui shells — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
+- PublicLayout and AdminLayout are THIN `<Outlet />` wrappers only — pages compose PublicShell/OpsShell themselves. Pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate layout chrome.
 - Pages export ONLY their main content (sections inside a fragment or single div).
 - Home/landing: full-bleed hero is OK (negative margins or full-width sections). Do not nest a second site header.
 

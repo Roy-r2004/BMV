@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
+  Brain,
   Calendar,
   Check,
   Circle,
@@ -30,6 +31,7 @@ import { cn } from '../lib/cn.js';
 const icons: Record<string, LucideIcon> = {
   'arrow-right': ArrowRight,
   bell: Bell,
+  brain: Brain,
   chart: BarChart3,
   check: Check,
   checkmark: Check,

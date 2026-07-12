@@ -9,10 +9,30 @@ from app.application.preview_app.workspace import list_source_files, read_file, 
 
 
 def _ident(stem: str) -> str:
-    s = re.sub(r"[^0-9A-Za-z_]", "", stem)
-    if not s or s[0].isdigit():
+    """Build a PascalCase React component identifier.
+
+    Path-derived names like ``src_pages_owner_DashboardPage_tsx`` must start
+    with an uppercase letter — lowercase JSX tags are treated as HTML strings
+    and the matched route renders blank.
+    """
+    parts = re.findall(r"[A-Za-z0-9]+", stem)
+    if not parts:
+        return "Page"
+    s = "".join(p[:1].upper() + p[1:] for p in parts)
+    if s[0].isdigit():
         s = "Page" + s
     return s
+
+
+def _component_name_for_page(rel: str, *, prefer_parent: bool = False) -> str:
+    """Stable component name from a page file path."""
+    norm = rel.replace("\\", "/")
+    stem = norm.split("/")[-1].rsplit(".", 1)[0]
+    if prefer_parent:
+        parts = [p for p in norm.split("/") if p and p != "src"]
+        parent = parts[-2] if len(parts) >= 2 else "Alt"
+        return _ident(f"{parent}_{stem}")
+    return _ident(stem)
 
 
 def _stem(rel: str) -> str:
@@ -233,7 +253,13 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
     ]
 
     roles_json = json.dumps(roles_data, indent=2, ensure_ascii=False)
-    nav_json = json.dumps({"public": public_nav, "admin": admin_nav}, indent=2, ensure_ascii=False)
+    nav_obj = {
+        "public": public_nav,
+        "admin": admin_nav,
+        "customer": {"links": public_nav},
+        "owner": {"links": admin_nav},
+    }
+    nav_json = json.dumps(nav_obj, indent=2, ensure_ascii=False)
 
     updated = mock
     if re.search(r"export const roles\s*=", mock):
@@ -296,7 +322,7 @@ def write_plumbing_mock(
         f"export const brand = {json.dumps({'name': brand_name or 'Brand', 'tagline': ''}, ensure_ascii=False)};\n\n"
         f"export const images = {json.dumps(img, indent=2, ensure_ascii=False)};\n\n"
         f"export const roles = {json.dumps(roles_data, indent=2, ensure_ascii=False)};\n\n"
-        f"export const navigation = {json.dumps({'public': public_nav, 'admin': admin_nav}, indent=2, ensure_ascii=False)};\n"
+        f"export const navigation = {json.dumps({'public': public_nav, 'admin': admin_nav, 'customer': {'links': public_nav}, 'owner': {'links': admin_nav}}, indent=2, ensure_ascii=False)};\n"
     )
     write_file(workspace, "src/data/mock.ts", content)
 
@@ -322,11 +348,17 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     used_components: dict[str, str] = {}  # component -> path (detect duplicates)
 
     def _register(rel: str) -> str:
-        stem = rel.split("/")[-1].rsplit(".", 1)[0]
-        comp = _ident(stem)
-        if comp in imports and imports[comp] != "./" + rel[len("src/"):].rsplit(".", 1)[0]:
+        imp = (
+            "./" + rel[len("src/"):].rsplit(".", 1)[0]
+            if rel.startswith("src/")
+            else "./" + rel.rsplit(".", 1)[0]
+        )
+        comp = _component_name_for_page(rel)
+        if comp in imports and imports[comp] != imp:
+            # member/DashboardPage vs owner/DashboardPage → OwnerDashboardPage
+            comp = _component_name_for_page(rel, prefer_parent=True)
+        if comp in imports and imports[comp] != imp:
             comp = _ident(rel.replace("/", "_").replace(".", "_"))
-        imp = "./" + rel[len("src/"):].rsplit(".", 1)[0] if rel.startswith("src/") else "./" + rel.rsplit(".", 1)[0]
         imports[comp] = imp
         return comp
 
@@ -340,8 +372,13 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
         comp = _register(rel)
         if comp in used_components and used_components[comp] != path:
             stem = rel.split("/")[-1].rsplit(".", 1)[0]
-            comp = _ident(f"{rt.get('role_id', 'role')}_{stem}")
-            imp = "./" + rel[len("src/"):].rsplit(".", 1)[0] if rel.startswith("src/") else "./" + rel.rsplit(".", 1)[0]
+            role = str(rt.get("role_id") or "role")
+            comp = _ident(f"{role}_{stem}")
+            imp = (
+                "./" + rel[len("src/"):].rsplit(".", 1)[0]
+                if rel.startswith("src/")
+                else "./" + rel.rsplit(".", 1)[0]
+            )
             imports[comp] = imp
         used_files.add(rel)
         used_components[comp] = path

@@ -291,8 +291,22 @@ def _brand_completeness_patch(
     font: str,
 ) -> str:
     """TS snippet merged into brand so pages that expect design_system don't white-screen."""
-    name = brand_name or "Brand"
-    services = [
+    pieces = _brand_missing_field_pieces(
+        brand_name,
+        primary,
+        secondary,
+        font,
+        needs_ds=True,
+        needs_services=True,
+        needs_testimonials=True,
+        needs_client_names=True,
+        needs_proof=True,
+    )
+    return ",\n  ".join(pieces)
+
+
+def _default_brand_services(name: str) -> list[dict]:
+    return [
         {
             "name": f"{name} Signature",
             "title": f"{name} Signature",
@@ -320,7 +334,10 @@ def _brand_completeness_patch(
             "duration": "Ongoing",
         },
     ]
-    testimonials = [
+
+
+def _default_brand_testimonials(name: str) -> list[dict]:
+    return [
         {
             "name": "Maya R.",
             "quote": f"Finally a {name} experience that feels personal — the AI consult nailed what I needed.",
@@ -343,13 +360,51 @@ def _brand_completeness_patch(
             "rating": 5,
         },
     ]
-    design = _design_system_dict(primary, secondary, font)
-    return (
-        f"design_system: {json.dumps(design, ensure_ascii=False)},\n"
-        f"  services: {json.dumps(services, ensure_ascii=False)},\n"
-        f"  testimonials: {json.dumps(testimonials, ensure_ascii=False)},\n"
-        f"  social_proof: {json.dumps(f'Trusted by over 2,400 delighted {name} clients.', ensure_ascii=False)}"
-    )
+
+
+def _default_client_names() -> list[str]:
+    return [
+        "Sofia Chen",
+        "Amelia Brooks",
+        "Noah Patel",
+        "Ava Martinez",
+        "Liam Okonkwo",
+        "Mia Laurent",
+    ]
+
+
+def _brand_missing_field_pieces(
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+    *,
+    needs_ds: bool,
+    needs_services: bool,
+    needs_testimonials: bool,
+    needs_client_names: bool,
+    needs_proof: bool,
+) -> list[str]:
+    name = brand_name or "Brand"
+    pieces: list[str] = []
+    if needs_ds:
+        pieces.append(
+            f"design_system: {json.dumps(_design_system_dict(primary, secondary, font), ensure_ascii=False)}"
+        )
+    if needs_services:
+        pieces.append(f"services: {json.dumps(_default_brand_services(name), ensure_ascii=False)}")
+    if needs_testimonials:
+        pieces.append(
+            f"testimonials: {json.dumps(_default_brand_testimonials(name), ensure_ascii=False)}"
+        )
+    if needs_client_names:
+        pieces.append(f"client_names: {json.dumps(_default_client_names(), ensure_ascii=False)}")
+    if needs_proof:
+        pieces.append(
+            "social_proof: "
+            + json.dumps(f"Trusted by over 2,400 delighted {name} clients.", ensure_ascii=False)
+        )
+    return pieces
 
 
 def ensure_brand_shape(
@@ -359,14 +414,16 @@ def ensure_brand_shape(
     secondary: str,
     font: str,
 ) -> bool:
-    """Guarantee `brand.design_system` (+ services/testimonials) so home pages don't crash white.
+    """Guarantee `brand.design_system` (+ services/testimonials/client_names) so pages don't crash white.
 
-    AI pages often read `brand.design_system.primary_color` and `brand.services.map(...)`.
-    Mock synthesis frequently ships a flat brand `{ name, accent }` — that throws at runtime
-    and the iframe stays blank until someone hand-patches mock.ts.
+    AI pages often read `brand.design_system.primary_color`, `brand.services.map(...)`,
+    and `brand.client_names[0]`. Missing nested keys throw at *module import* time and
+    blank the entire SPA (not just that route).
 
     Detection MUST inspect the brand object body only: top-level `export const design_system`
     / path strings like `/owner/services` must not count as completeness.
+
+    Only missing fields are injected — never re-copy services/testimonials that already exist.
     """
     mock_path = "src/data/mock.ts"
     mock = read_file(workspace, mock_path)
@@ -378,14 +435,21 @@ def ensure_brand_shape(
     body_start, close_at = span
     body = mock[body_start:close_at]
 
-    needs_ds = "design_system" not in body or "primary_color" not in body
-    needs_services = not re.search(r"\bservices\s*:", body)
-    needs_testimonials = not re.search(r"\btestimonials\s*:", body)
-    needs_proof = "social_proof" not in body
-    if not (needs_ds or needs_services or needs_testimonials or needs_proof):
+    pieces = _brand_missing_field_pieces(
+        brand_name,
+        primary,
+        secondary,
+        font,
+        needs_ds="design_system" not in body or "primary_color" not in body,
+        needs_services=not bool(re.search(r"\bservices\s*:", body)),
+        needs_testimonials=not bool(re.search(r"\btestimonials\s*:", body)),
+        needs_client_names=not bool(re.search(r"\bclient_names\s*:", body)),
+        needs_proof="social_proof" not in body,
+    )
+    if not pieces:
         return False
 
-    patch = _brand_completeness_patch(brand_name, primary, secondary, font)
+    patch = ",\n  ".join(pieces)
     before = mock[:close_at].rstrip()
     if before.endswith(","):
         injection = f"\n  {patch},\n"
@@ -663,10 +727,49 @@ def normalize_ui_kit_imports(workspace) -> list[str]:
 
         updated = _UI_KIT_IMPORT_LINE_RE.sub(_replace, content)
         updated = _rewrite_ui_headless_motion_imports(updated)
+        # Models invent `UiIcon` on `@/ui`; the real helper lives in components.
+        updated = re.sub(
+            r"""(import\s*\{[^}]*\bUiIcon\b[^}]*\}\s*from\s*)(['"])@/ui(?:/index)?\2""",
+            r"\1\2@/components/UiIcons\2",
+            updated,
+        )
+        updated = re.sub(
+            r"""(import\s+UiIcon\s+from\s*)(['"])@/ui(?:/UiIcon|/index)?\2""",
+            r"\1\2@/components/UiIcons\2",
+            updated,
+        )
+        updated = re.sub(
+            r"""(import\s+UiIcon\s+from\s*)(['"])@/ui\2""",
+            r"\1\2@/components/UiIcons\2",
+            updated,
+        )
         if updated != content:
             write_file(workspace, rel, updated)
             fixed.append(norm)
     return fixed
+
+
+def restore_curated_ui_kit(workspace) -> list[str]:
+    """Overwrite `src/ui/*` with the curated template kit.
+
+    Codegen sometimes invents incomplete helpers (default-only Checkbox,
+    ProgressBar, etc.) that break named imports. Always restore the known-good
+    kit before build so pages keep their AI content while the surface API stays
+    stable.
+    """
+    template_ui = settings.PREVIEW_TEMPLATE_DIR / "src" / "ui"
+    if not template_ui.is_dir():
+        return []
+    restored: list[str] = []
+    for src in sorted(template_ui.rglob("*")):
+        if not src.is_file():
+            continue
+        rel = ("src/ui/" + src.relative_to(template_ui).as_posix()).replace("\\", "/")
+        write_file(workspace, rel, src.read_text(encoding="utf-8"))
+        restored.append(rel)
+    if restored:
+        print(f"    restored curated ui kit ({len(restored)} files)", flush=True)
+    return restored
 
 
 def find_truncated_pages(workspace) -> list[str]:
@@ -885,15 +988,15 @@ def ensure_headless_stub_imports(workspace) -> list[str]:
         norm = rel.replace("\\", "/")
         if not norm.endswith((".tsx", ".ts")):
             continue
-        if norm.startswith("src/data/") or norm.endswith("UiHeadless.tsx"):
+        if norm.startswith("src/data/") or norm.startswith("src/ui/") or norm.endswith("UiHeadless.tsx"):
             continue
         content = read_file(workspace, rel)
         needed: list[str] = []
         for sym in _HEADLESS_SYMBOLS:
-            # JSX tag or compound API (Dialog.Panel) — not prose like "Member Portal."
+            # JSX tag or compound API (Dialog.Panel) — not prose / file paths like Switch.js
             used = bool(
                 re.search(rf"<{sym}\b", content)
-                or re.search(rf"\b{sym}\.[A-Za-z]", content)
+                or re.search(rf"\b{sym}\.[A-Z]", content)
                 or (sym == "motion" and re.search(r"\bmotion\.[a-z]", content))
                 or (sym == "useAnimation" and re.search(r"\buseAnimation\s*\(", content))
             )
@@ -1011,6 +1114,216 @@ def ensure_react_router_imports(workspace) -> list[str]:
     return fixed
 
 
+_ALLOWED_BUTTON_VARIANTS = {"primary", "secondary", "ghost", "danger"}
+_FORBIDDEN_BUTTON_VARIANTS = {"gradient", "outline", "tertiary", "link", "default", "destructive"}
+_UI_COMPONENT_NAMES = {
+    "PublicShell", "MarketingHero", "FeatureBento", "CTABand", "OpsShell", "PageHeader",
+    "StatCard", "DataTable", "FilterBar", "ChartCard", "EmptyState", "ConfirmDialog",
+    "Button", "Card", "Badge", "Input", "Textarea", "TextArea", "Select", "Dialog",
+    "Modal", "Tabs", "Checkbox", "Switch", "Tooltip", "SectionHeader", "MultiSelect",
+    "Toast",
+}
+
+
+def sanitize_ui_component_apis(workspace) -> list[str]:
+    """Rewrite invented Button/StatCard/MarketingHero props to match curated kit contracts."""
+    touched: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        if norm.startswith("src/ui/"):
+            continue
+        content = read_file(workspace, rel)
+        updated = content
+
+        # Button as={Link} / as={...} → drop invalid prop
+        updated = re.sub(r"\s+as=\{[^}]+\}", "", updated)
+        # asChild on generated pages (curated kit ConfirmDialog may keep it; pages must not)
+        if not norm.endswith("ConfirmDialog.tsx"):
+            updated = re.sub(r"\s+asChild(?:=\{[^}]*\})?", "", updated)
+
+        for bad in _FORBIDDEN_BUTTON_VARIANTS:
+            replacement = "secondary" if bad in ("outline", "tertiary", "link", "default") else "primary"
+            updated = re.sub(
+                rf'variant=["\']{bad}["\']',
+                f'variant="{replacement}"',
+                updated,
+                flags=re.IGNORECASE,
+            )
+            updated = re.sub(
+                rf'variant=\{{["\']{bad}["\']\}}',
+                f'variant="{replacement}"',
+                updated,
+                flags=re.IGNORECASE,
+            )
+
+        # StatCard title= → label= (contract is label/value)
+        updated = re.sub(r"<StatCard(\s[^>]*)\btitle=", r"<StatCard\1label=", updated)
+        updated = re.sub(r"<StatCard(\s[^>]*)\btitle=\{", r"<StatCard\1label={", updated)
+
+        # MarketingHero wrong prop names
+        updated = re.sub(r"\bsubheadline=", "subcopy=", updated)
+        updated = re.sub(r"\bcta1=", "primaryAction=", updated)
+        updated = re.sub(r"\bcta2=", "secondaryAction=", updated)
+        # image= on MarketingHero → media= with img wrapper is hard; map prop name at least
+        updated = re.sub(r"(<MarketingHero\b[^>]*?)\bimage=", r"\1media=", updated)
+
+        if updated != content:
+            write_file(workspace, norm, updated)
+            touched.append(norm)
+            print(f"    ui API sanitized in {norm}", flush=True)
+    return touched
+
+
+def rewrite_invented_component_imports(workspace) -> list[str]:
+    """Block invented `@/components/*` (except UiIcons) — rewrite known ui names to `@/ui`."""
+    touched: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")):
+            continue
+        content = read_file(workspace, rel)
+        lines: list[str] = []
+        changed = False
+        for line in content.splitlines(keepends=True):
+            m = re.search(r"""from\s+['"]([^'"]+)['"]""", line)
+            if not m or "import" not in line:
+                lines.append(line)
+                continue
+            src = m.group(1)
+            if src.startswith("@/components/") and "UiIcons" not in src:
+                base = src.rsplit("/", 1)[-1].replace(".tsx", "").replace(".ts", "")
+                if base in _UI_COMPONENT_NAMES:
+                    lines.append(line.replace(src, f"@/ui/{base}"))
+                    changed = True
+                else:
+                    lines.append(f"/* removed invented import: {src} */\n")
+                    changed = True
+                continue
+            if (
+                re.search(r"(?:\.\./)+components/", src)
+                and "UiIcons" not in src
+                and "UiHeadless" not in src
+                and "/Nav" not in src
+            ):
+                base = src.rsplit("/", 1)[-1].replace(".tsx", "").replace(".ts", "")
+                if base in _UI_COMPONENT_NAMES:
+                    lines.append(line.replace(src, f"@/ui/{base}"))
+                    changed = True
+                elif base and base[0].isupper() and base not in ("Nav",):
+                    lines.append(f"/* removed invented import: {src} */\n")
+                    changed = True
+                else:
+                    lines.append(line)
+                continue
+            lines.append(line)
+        if changed:
+            write_file(workspace, norm, "".join(lines))
+            touched.append(norm)
+            print(f"    invented component imports rewritten in {norm}", flush=True)
+    return touched
+
+
+def ensure_mock_runtime_contracts(
+    workspace,
+    brand_name: str,
+    primary: str,
+    secondary: str,
+    font: str,
+) -> list[str]:
+    """Guarantee manifest + navigation link aliases for runtime safety."""
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return []
+    actions: list[str] = []
+    name = brand_name or "Brand"
+
+    if "export const manifest" not in mock:
+        mock = (
+            mock.rstrip()
+            + "\n\n"
+            + "export const manifest = {\n"
+            + f"  brand_name: {json.dumps(name, ensure_ascii=False)},\n"
+            + f"  accent: {json.dumps(primary or '#be185d', ensure_ascii=False)},\n"
+            + f"  accent_dark: {json.dumps(secondary or primary or '#9f1239', ensure_ascii=False)},\n"
+            + "  accent_light: '#fce7f3',\n"
+            + f"  font: {json.dumps(font or 'system-ui', ensure_ascii=False)},\n"
+            + "  owner_name: 'Studio Lead',\n"
+            + "  client_names: ['Sofia Chen', 'Amelia Brooks', 'Noah Patel', 'Ava Martinez', 'Liam Okonkwo', 'Mia Laurent'],\n"
+            + "  services: [] as any[],\n"
+            + "  testimonials: [] as any[],\n"
+            + "  design_system: {} as Record<string, unknown>,\n"
+            + "};\n"
+        )
+        actions.append("manifest")
+
+    m = re.search(r"export const navigation\s*=\s*(\{[\s\S]*?\n\});", mock)
+    if m:
+        try:
+            nav = json.loads(m.group(1))
+        except Exception:
+            nav = None
+        if isinstance(nav, dict):
+            public = nav.get("public") or []
+            admin = nav.get("admin") or []
+            changed = False
+            if "customer" not in nav:
+                nav["customer"] = {"links": public}
+                changed = True
+            if "owner" not in nav:
+                nav["owner"] = {"links": admin}
+                changed = True
+            if changed:
+                nav_json = json.dumps(nav, indent=2, ensure_ascii=False)
+                mock = mock[: m.start()] + f"export const navigation = {nav_json};" + mock[m.end() :]
+                actions.append("navigation aliases")
+
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".jsx")) or "/pages/" not in norm:
+            continue
+        text = read_file(workspace, norm)
+        new = text
+        new = new.replace(
+            "brand.client_names[0]",
+            "(brand as any).client_names?.[0] ?? 'Sofia'",
+        )
+        new = new.replace(
+            "M.manifest.brand_name",
+            "(M as any).manifest?.brand_name ?? (M as any).brand?.name ?? 'Brand'",
+        )
+        new = new.replace(
+            "navigation.customer.links",
+            "(navigation as any).customer?.links ?? (navigation as any).public ?? []",
+        )
+        if new != text:
+            write_file(workspace, norm, new)
+            actions.append(norm)
+
+    if actions:
+        write_file(workspace, mock_path, mock)
+        print(f"    mock runtime contracts: {', '.join(actions[:8])}", flush=True)
+    return actions
+
+
+def force_thin_layouts(workspace) -> list[str]:
+    """Always restore thin Outlet layouts so pages own PublicShell/OpsShell."""
+    fixed: list[str] = []
+    for name in ("PublicLayout.tsx", "AdminLayout.tsx"):
+        src = settings.PREVIEW_TEMPLATE_DIR / "src" / "layouts" / name
+        dst = Path(workspace) / "src" / "layouts" / name
+        if not src.is_file():
+            continue
+        text = src.read_text(encoding="utf-8")
+        if not dst.is_file() or dst.read_text(encoding="utf-8") != text:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_text(text, encoding="utf-8")
+            fixed.append(f"src/layouts/{name}")
+    return fixed
+
+
 def apply_workspace_guards(
     workspace,
     architect: dict,
@@ -1031,8 +1344,14 @@ def apply_workspace_guards(
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
         (lambda: normalize_ui_kit_imports(workspace), "ui kit imports normalized"),
+        (lambda: rewrite_invented_component_imports(workspace), "invented component imports rewritten"),
+        (lambda: sanitize_ui_component_apis(workspace), "ui component APIs sanitized"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),
+        # Restore curated kit AFTER headless injection so kit files are never
+        # polluted by UiHeadless symbol heuristics (Switch.js / Dialog.js).
+        (lambda: restore_curated_ui_kit(workspace), "ui kit restored"),
+        (lambda: force_thin_layouts(workspace), "thin layouts forced"),
         (lambda: ensure_react_default_import(workspace), "React imports fixed"),
         (lambda: ensure_react_router_imports(workspace), "react-router imports fixed"),
     ):
@@ -1076,6 +1395,11 @@ def apply_workspace_guards(
             print("    brand.design_system + services/testimonials ensured", flush=True)
     except Exception as e:
         print(f"    brand shape guard skipped: {e}", flush=True)
+    try:
+        mock_actions = ensure_mock_runtime_contracts(workspace, brand_name, primary, secondary, font)
+        actions.extend(mock_actions)
+    except Exception as e:
+        print(f"    mock runtime contracts skipped: {e}", flush=True)
     try:
         src_main = settings.PREVIEW_TEMPLATE_DIR / "src" / "main.tsx"
         dst_main = Path(workspace) / "src" / "main.tsx"
@@ -1322,8 +1646,14 @@ def ensure_ui_icons(workspace) -> bool:
     if "export default UiIcon" not in content and "export function UiIcon" in content:
         content = content.rstrip() + "\n\nexport default UiIcon;\n"
         changed = True
-    # Pages sometimes do `import { UiIcon }` — expose a named export too.
-    if "export default UiIcon" in content and "export { UiIcon }" not in content:
+    # Pages sometimes do `import { UiIcon }` — expose a named export too,
+    # but only when UiIcon is not already a named export (function/const).
+    has_named = bool(
+        re.search(r"export\s+(?:async\s+)?function\s+UiIcon\b", content)
+        or re.search(r"export\s+const\s+UiIcon\b", content)
+        or "export { UiIcon }" in content
+    )
+    if "export default UiIcon" in content and not has_named:
         content = content.rstrip() + "\nexport { UiIcon };\n"
         changed = True
     if changed:
