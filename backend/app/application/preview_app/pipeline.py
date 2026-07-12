@@ -39,6 +39,7 @@ from app.application.preview_app.fallback import (
     consume_stubbed_paths,
     find_broken_paths,
     is_chrome_path,
+    scan_and_repair_double_brace_literals,
     stabilize_all_route_pages,
     write_safe_stub,
     write_template_fallback,
@@ -885,6 +886,18 @@ def generate_preview_app(
         )
         if actions:
             print(f"    guards: {', '.join(actions[:8])}{'...' if len(actions) > 8 else ''}", flush=True)
+        try:
+            scrubbed = scan_and_repair_double_brace_literals(workspace)
+            if scrubbed:
+                print(
+                    f"    double-brace scrub: {', '.join(scrubbed[:8])}"
+                    f"{'...' if len(scrubbed) > 8 else ''}",
+                    flush=True,
+                )
+        except ValueError as e:
+            # Fail early with a clear error instead of opaque Vite transform noise.
+            print(f"    double-brace scan FAILED: {e}", flush=True)
+            raise
 
     _pre_build_fixups()
     print("    assembled router + theme", flush=True)

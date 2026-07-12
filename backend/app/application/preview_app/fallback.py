@@ -32,6 +32,25 @@ _CHROME_TEMPLATE_PATHS = {
 # Paths rewritten by write_safe_stub / stabilize — cleared by callers each run.
 _last_stubbed_paths: list[str] = []
 
+# Invalid TS object literals emitted when `{{` was used with %-format (not f-strings).
+# Do NOT match valid JSX attribute objects like style={{ color: "red" }}.
+_DOUBLE_BRACE_OBJECT_START_RE = re.compile(
+    r"\{\{\s*(?:label|detail|status|k|v)\s*:"
+)
+_DOUBLE_BRACE_ROW_OBJECT_RE = re.compile(
+    r"\{\{\s*"
+    r"label:\s*(?P<label>(?:\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'))\s*,\s*"
+    r"detail:\s*(?P<detail>(?:\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'))\s*,\s*"
+    r"status:\s*(?P<status>(?:\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'))\s*"
+    r"\}\}"
+)
+_DOUBLE_BRACE_STAT_OBJECT_RE = re.compile(
+    r"\{\{\s*"
+    r"k:\s*(?P<k>(?:\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'))\s*,\s*"
+    r"v:\s*(?P<v>(?:\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'))\s*"
+    r"\}\}"
+)
+
 
 def consume_stubbed_paths() -> list[str]:
     """Return and clear paths stubbed since the last consume."""
@@ -48,6 +67,89 @@ def clear_stubbed_paths() -> None:
 
 def is_chrome_path(path: str) -> bool:
     return path.replace("\\", "/").lower() in _CHROME_TEMPLATE_PATHS
+
+
+def find_double_brace_object_literals(content: str) -> list[str]:
+    """Return snippets of invalid `{{ label: ... }}` / `{{ k: ... }}` object literals."""
+    return [m.group(0) for m in _DOUBLE_BRACE_OBJECT_START_RE.finditer(content or "")]
+
+
+def repair_double_brace_object_literals_in_text(content: str) -> tuple[str, int]:
+    """Rewrite invalid double-brace row/stat objects to single-brace TS literals."""
+    if not content:
+        return content, 0
+    repaired = 0
+
+    def _row(m: re.Match[str]) -> str:
+        nonlocal repaired
+        repaired += 1
+        return (
+            f"{{ label: {m.group('label')}, "
+            f"detail: {m.group('detail')}, "
+            f"status: {m.group('status')} }}"
+        )
+
+    def _stat(m: re.Match[str]) -> str:
+        nonlocal repaired
+        repaired += 1
+        return f"{{ k: {m.group('k')}, v: {m.group('v')} }}"
+
+    out = _DOUBLE_BRACE_ROW_OBJECT_RE.sub(_row, content)
+    out = _DOUBLE_BRACE_STAT_OBJECT_RE.sub(_stat, out)
+    return out, repaired
+
+
+def _assert_no_double_brace_object_literals(content: str, path: str = "<memory>") -> None:
+    hits = find_double_brace_object_literals(content)
+    if hits:
+        raise ValueError(
+            f"{path}: refusing to write invalid double-brace object literal(s): "
+            f"{hits[0][:80]}"
+        )
+
+
+def scan_and_repair_double_brace_literals(workspace) -> list[str]:
+    """Scan workspace TS/TSX and repair invalid `{{ label: ... }}` object literals.
+
+    Returns paths that were rewritten. Raises ValueError if suspicious double-brace
+    object starts remain after repair (so Vite is not fed known-bad syntax).
+    """
+    root = workspace if hasattr(workspace, "joinpath") else None
+    if root is None:
+        return []
+    src = root / "src"
+    if not src.is_dir():
+        return []
+
+    repaired_paths: list[str] = []
+    remaining: list[str] = []
+    for path in sorted(src.rglob("*")):
+        if path.suffix.lower() not in {".ts", ".tsx", ".js", ".jsx"}:
+            continue
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not find_double_brace_object_literals(text):
+            continue
+        fixed, n = repair_double_brace_object_literals_in_text(text)
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        if n and fixed != text:
+            path.write_text(fixed, encoding="utf-8")
+            repaired_paths.append(rel)
+            text = fixed
+        leftovers = find_double_brace_object_literals(text)
+        if leftovers:
+            remaining.append(f"{rel}: {leftovers[0][:80]}")
+
+    if remaining:
+        raise ValueError(
+            "Suspicious double-brace object literals remain after repair:\n  "
+            + "\n  ".join(remaining[:12])
+        )
+    return repaired_paths
 
 
 def write_template_fallback(workspace, path: str) -> bool:
@@ -201,17 +303,16 @@ def write_safe_stub(
     brand = brand_name or "Brand"
     subtitle, stats, rows = _industry_copy(industry, brand, title)
 
+    # Use f-strings (not %-format) so `{{` / `}}` escape to a single brace in
+    # the emitted TS — matching stats_js. %-format left `{{` literal and broke Vite.
     stats_js = ",\n          ".join(
         f"{{ k: {json.dumps(s['k'], ensure_ascii=False)}, v: {json.dumps(s['v'], ensure_ascii=False)} }}"
         for s in stats
     )
     rows_js = ",\n    ".join(
-        "{{ label: %s, detail: %s, status: %s }}"
-        % (
-            json.dumps(r["label"], ensure_ascii=False),
-            json.dumps(r["detail"], ensure_ascii=False),
-            json.dumps(r["status"], ensure_ascii=False),
-        )
+        f"{{ label: {json.dumps(r['label'], ensure_ascii=False)}, "
+        f"detail: {json.dumps(r['detail'], ensure_ascii=False)}, "
+        f"status: {json.dumps(r['status'], ensure_ascii=False)} }}"
         for r in rows
     )
 
@@ -270,6 +371,7 @@ export default function {component}() {{
   );
 }}
 """
+    _assert_no_double_brace_object_literals(content, path)
     write_file(workspace, path, content)
     _last_stubbed_paths.append(path.replace("\\", "/"))
 

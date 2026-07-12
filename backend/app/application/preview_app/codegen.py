@@ -362,6 +362,8 @@ def fix_build_errors(
     template_renderer: TemplateRenderer,
     max_files: int = 16,
 ) -> list[str]:
+    from app.application.preview_app.fallback import scan_and_repair_double_brace_literals
+
     paths = list_source_files(workspace)
     # Prioritise files explicitly named in the build errors, then App/pages/mock.
     errored = [p for p in paths if p.split("/")[-1] in build_log or p in build_log]
@@ -388,12 +390,57 @@ def fix_build_errors(
         files_content=files_content[:40000],
     )
 
-    raw = ai_provider.ask_chat(settings.FIX_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
-    if not raw or not raw.strip():
-        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
-    if not raw or not raw.strip():
-        raw = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
-    data = _parse_json(raw)
+    def _ask(prompt_text: str) -> str:
+        for model in (settings.FIX_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL):
+            try:
+                raw = ai_provider.ask_chat(
+                    model, [{"role": "user", "content": prompt_text}], max_tokens=16000,
+                )
+            except Exception as e:
+                print(f"    fix agent model {model} failed: {e}", flush=True)
+                continue
+            if raw and str(raw).strip():
+                return str(raw)
+        return ""
+
+    def _try_parse(raw: str, label: str) -> dict | None:
+        if not raw or not raw.strip():
+            print(f"    fix agent {label}: empty response", flush=True)
+            return None
+        try:
+            parsed = _parse_json(raw)
+            if isinstance(parsed, dict):
+                return parsed
+            print(f"    fix agent {label}: JSON was {type(parsed).__name__}, expected object", flush=True)
+            return None
+        except Exception as e:
+            preview = raw[:800].replace("\n", "\\n")
+            print(f"    fix agent {label} JSON parse failed: {e}", flush=True)
+            print(f"    fix agent {label} raw preview: {preview!r}", flush=True)
+            return None
+
+    raw = _ask(prompt)
+    data = _try_parse(raw, "primary")
+
+    if data is None:
+        strict_prompt = (
+            prompt
+            + "\n\nSTRICT SCHEMA RETRY: Respond with ONLY a JSON object of shape "
+            '{"files":[{"path":"src/pages/Example.tsx","content":"...full file..."}]}. '
+            "No markdown fences, no prose, no empty body."
+        )
+        raw2 = _ask(strict_prompt)
+        data = _try_parse(raw2, "strict-retry")
+
+    if data is None:
+        repaired = scan_and_repair_double_brace_literals(workspace)
+        print(
+            f"    fix agent fell back to deterministic local repair: "
+            f"{', '.join(repaired) or 'none'}",
+            flush=True,
+        )
+        return repaired
+
     fixed_paths: list[str] = []
     protected = {"package.json", "package-lock.json", "App.tsx", "index.css"}
     for item in data.get("files", []):
@@ -405,6 +452,16 @@ def fix_build_errors(
             continue
         write_file(workspace, path, _strip_fences(content))
         fixed_paths.append(path)
+
+    # Always scrub known double-brace stub corruption after AI patches.
+    try:
+        scrubbed = scan_and_repair_double_brace_literals(workspace)
+        for path in scrubbed:
+            if path not in fixed_paths:
+                fixed_paths.append(path)
+    except ValueError as e:
+        print(f"    double-brace scan after fix failed: {e}", flush=True)
+
     return fixed_paths
 
 
