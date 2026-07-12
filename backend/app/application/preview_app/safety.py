@@ -281,7 +281,96 @@ def _default_owner_daily_briefing(brand_name: str) -> dict:
             "Sensitivity flag on laser renewal — brief the room early",
             "Aftercare escalation awaiting clinical review",
         ],
+        # OwnerDashboard often reads this richer staff-briefing shape:
+        "vipClientsToday": [
+            {"name": "Sofia Chen", "note": "VIP injectables at 10:00"},
+            {"name": "Amelia Brooks", "note": "Laser renewal follow-up"},
+        ],
+        "newClients": [
+            {
+                "name": "Noa Levi",
+                "service": "Lumina Glow Facial",
+                "aiRecommendation": "Hydration protocol + SPF ritual",
+            }
+        ],
+        "priorityAftercare": {
+            "client": "Esther Peretz",
+            "treatment": "Advanced Laser Resurfacing",
+            "concern": "Post-treatment redness check-in",
+        },
+        "staffNotes": f"Keep {name} rooms stocked for injectables and laser renewal kits.",
+        "promotionsReminder": "Mention membership aftercare add-on to returning clients today.",
     }
+
+
+def _default_daily_ai_staff_briefing(brand_name: str) -> dict:
+    return _default_owner_daily_briefing(brand_name)
+
+
+def _default_at_risk_bookings() -> list[dict]:
+    return [
+        {
+            "id": "B-00123",
+            "clientName": "Sara Gold",
+            "service": "Laser Hair Removal (Full Leg)",
+            "treatment": "Laser Hair Removal (Full Leg)",
+            "dateTime": "Today · 2:00 PM",
+            "date": "2024-07-17",
+            "time": "2:00 PM",
+            "practitioner": "Lea Mizrachi",
+            "riskScore": "High",
+            "status": "Confirmed",
+            "action": "Send re-confirmation SMS",
+        },
+        {
+            "id": "B-00129",
+            "clientName": "Yossi Friedman",
+            "service": "Bespoke Chemical Peel",
+            "treatment": "Bespoke Chemical Peel",
+            "dateTime": "Today · 4:30 PM",
+            "date": "2024-07-17",
+            "time": "4:30 PM",
+            "practitioner": "Dr. Elara Ben-David",
+            "riskScore": "Medium",
+            "status": "Pending Confirmation",
+            "action": "Call client to confirm",
+        },
+    ]
+
+
+def _default_aftercare_escalations() -> list[dict]:
+    return [
+        {
+            "id": "AE-001",
+            "clientName": "Esther Peretz",
+            "concern": "Unusual redness and swelling 2 days post-treatment",
+            "query": "Unusual redness and swelling 2 days post-treatment",
+            "treatment": "Advanced Laser Resurfacing",
+            "status": "New",
+            "date": "2024-07-15",
+            "severity": "High",
+        },
+        {
+            "id": "AE-002",
+            "clientName": "David Solomon",
+            "concern": "Unsure about post-procedure cream application",
+            "query": "Unsure about post-procedure cream application",
+            "treatment": "Youthful Lift Injectables",
+            "status": "In Progress",
+            "date": "2024-07-16",
+            "severity": "Medium",
+        },
+        {
+            "id": "AE-003",
+            "clientName": "Miriam Segal",
+            "concern": "Mild tightness after peel — confirm aftercare pack",
+            "query": "Mild tightness after peel — confirm aftercare pack",
+            "treatment": "Bespoke Chemical Peel",
+            "status": "Resolved",
+            "date": "2024-07-14",
+            "severity": "Low",
+        },
+    ]
 
 
 def _default_appointments_overview() -> dict:
@@ -406,9 +495,68 @@ def repair_ops_mock_object_shapes(workspace, brand_name: str) -> list[str]:
             ["today", "thisWeek"],
             json.dumps(_default_new_client_signups(), ensure_ascii=False),
         ),
+        (
+            "ownerDashboardStats",
+            [
+                "appointmentsToday.value",
+                "projectedRevenueToday.value",
+                "newClientsThisWeek.value",
+            ],
+            json.dumps(
+                {
+                    "appointmentsToday": {
+                        "value": "18",
+                        "delta": "+3",
+                        "deltaTone": "positive",
+                    },
+                    "projectedRevenueToday": {
+                        "value": "₪18,400",
+                        "delta": "+8%",
+                        "deltaTone": "positive",
+                    },
+                    "pendingAftercareEscalations": {
+                        "value": "4",
+                        "delta": "-1",
+                        "deltaTone": "positive",
+                    },
+                    "newClientsThisWeek": {
+                        "value": "7",
+                        "delta": "+2",
+                        "deltaTone": "positive",
+                    },
+                },
+                ensure_ascii=False,
+            ),
+        ),
+        (
+            "dailyAIStaffBriefing",
+            [
+                "vipClientsToday",
+                "newClients",
+                "priorityAftercare",
+                "staffNotes",
+                "promotionsReminder",
+            ],
+            json.dumps(_default_daily_ai_staff_briefing(brand_name), ensure_ascii=False),
+        ),
     ]
+    # Preload page sources once for nested prop checks like export.parent.leaf
+    page_blob = "\n".join(
+        read_file(workspace, rel)
+        for rel in list_source_files(workspace)
+        if "/pages/" in rel.replace("\\", "/") and rel.endswith((".tsx", ".ts"))
+    )
     for export_name, props, value_src in checks:
-        if not any(_pages_reference_prop(workspace, export_name, p) for p in props):
+        referenced = False
+        for p in props:
+            if "." in p:
+                if f"{export_name}.{p}" in page_blob:
+                    referenced = True
+                    break
+            elif _pages_reference_prop(workspace, export_name, p):
+                referenced = True
+                break
+        if not referenced:
             continue
         m = re.search(rf"export\s+const\s+{re.escape(export_name)}\s*=\s*", mock)
         if not m:
@@ -416,73 +564,117 @@ def repair_ops_mock_object_shapes(workspace, brand_name: str) -> list[str]:
             repaired.append(export_name)
             continue
         current = mock[m.end() : _ts_export_value_end(mock, m.end())].strip().rstrip(";").strip()
-        needs = current.startswith("[") or not all(p in current for p in props)
+
+        def _prop_ok(prop: str) -> bool:
+            if "." not in prop:
+                # Property key only — avoid "newClients" matching "newClientsThisWeek".
+                return bool(
+                    re.search(
+                        rf"['\"]?{re.escape(prop)}['\"]?\s*:",
+                        current,
+                    )
+                )
+            parent, leaf = prop.split(".", 1)
+            return bool(
+                re.search(
+                    rf"['\"]?{re.escape(parent)}['\"]?\s*:\s*\{{[^}}]*['\"]?{re.escape(leaf)}['\"]?\s*:",
+                    current,
+                )
+            )
+
+        needs = current.startswith("[") or not all(_prop_ok(p) for p in props)
+        if needs:
+            mock, _ = _replace_named_export(mock, export_name, value_src)
+            repaired.append(export_name)
+
+    # Ops list rows often use wrong field names (treatment vs service, query vs concern,
+    # numeric riskScore vs "High"). Rewrite when pages expect the richer row shape.
+    list_checks: list[tuple[str, list[str], str]] = [
+        (
+            "atRiskBookings",
+            ["service", "dateTime", "riskScore"],
+            json.dumps(_default_at_risk_bookings(), ensure_ascii=False),
+        ),
+        (
+            "aftercareEscalations",
+            ["concern", "clientName", "status"],
+            json.dumps(_default_aftercare_escalations(), ensure_ascii=False),
+        ),
+    ]
+    for export_name, required_keys, value_src in list_checks:
+        if export_name not in page_blob:
+            continue
+        m = re.search(rf"export\s+const\s+{re.escape(export_name)}\s*=\s*", mock)
+        if not m:
+            # Only seed when pages clearly read item fields we can satisfy.
+            if any(k in page_blob for k in required_keys):
+                mock, _ = _replace_named_export(mock, export_name, value_src)
+                repaired.append(export_name)
+            continue
+        current = mock[m.end() : _ts_export_value_end(mock, m.end())].strip().rstrip(";").strip()
+        needs = not current.startswith("[")
+        if not needs:
+            for key in required_keys:
+                # Pages compare riskScore to 'High'/'Medium' — numeric scores are wrong shape.
+                if key == "riskScore" and re.search(
+                    r"riskScore\s*===\s*['\"]High['\"]", page_blob
+                ):
+                    if re.search(r"riskScore\s*:\s*\d+", current):
+                        needs = True
+                        break
+                # Match property keys only (avoid "concern" matching "concerned").
+                if not re.search(rf"(?:['\"]|\b){re.escape(key)}(?:['\"])?\s*:", current):
+                    needs = True
+                    break
         if needs:
             mock, _ = _replace_named_export(mock, export_name, value_src)
             repaired.append(export_name)
 
     # OpsShell navItems must be an array. AI often emits
     # `adminNavigation = { type: "sidebar", links: [...] }`.
-    nav_m = re.search(r"export\s+const\s+adminNavigation\s*=\s*", mock)
-    if nav_m:
+    for nav_name in ("adminNavigation", "staffNavItems", "ownerNavigation"):
+        nav_m = re.search(rf"export\s+const\s+{re.escape(nav_name)}\s*=\s*", mock)
+        if not nav_m:
+            continue
         end = _ts_export_value_end(mock, nav_m.end())
         current = mock[nav_m.end() : end]
         body = current.strip().rstrip(";").strip()
         if body.startswith("{"):
             links_m = re.search(r"\blinks\s*:\s*(\[[\s\S]*\])\s*,?\s*\}", body)
             if links_m:
-                links_src = links_m.group(1)
-                # Still rewrite stale paths inside the extracted links
-                links_src = re.sub(r'(["\'])/admin/', r"\1/owner/", links_src)
-                links_src = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", links_src)
-                links_src = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", links_src)
-                links_src = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", links_src)
-                if "href" not in links_src and re.search(r"\bpath\s*:", links_src):
-                    links_src = re.sub(
-                        r'(path\s*:\s*)(["\'])([^"\']+)\2',
-                        r"\1\2\3\2, href: \2\3\2",
-                        links_src,
-                    )
-                mock = mock[: nav_m.end()] + links_src + ";" + mock[end:]
-                repaired.append("adminNavigation")
+                body = links_m.group(1)
             else:
-                body2 = body
-                body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body2)
-                body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
-                body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
-                body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
-                if body2 != body:
-                    mock = mock[: nav_m.end()] + body2 + ";" + mock[end:]
-                    repaired.append("adminNavigation")
-        elif body.startswith("["):
-            body2 = body
-            body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body2)
-            body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
-            body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
-            body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
-            if "href" not in body2 and re.search(r"\bpath\s*:", body2):
-                body2 = re.sub(
+                continue
+        if not body.startswith("["):
+            continue
+        body2 = body
+        body2 = re.sub(r'(["\'])/admin/', r"\1/owner/", body2)
+        body2 = re.sub(r'(["\'])/admin(["\'])', r"\1/owner/dashboard\2", body2)
+        body2 = re.sub(r'(["\'])/ops-hub/', r"\1/owner/", body2)
+        body2 = re.sub(r'(["\'])/ops-hub(["\'])', r"\1/owner/dashboard\2", body2)
+        if "href" not in body2 and re.search(r"\bpath\s*:", body2):
+            body2 = re.sub(
+                r'(path\s*:\s*)(["\'])([^"\']+)\2',
+                r"\1\2\3\2, href: \2\3\2",
+                body2,
+            )
+        elif re.search(r"\bpath\s*:", body2):
+
+            def _add_href(m: re.Match) -> str:
+                full = m.group(0)
+                if "href" in full:
+                    return full
+                return re.sub(
                     r'(path\s*:\s*)(["\'])([^"\']+)\2',
                     r"\1\2\3\2, href: \2\3\2",
-                    body2,
+                    full,
+                    count=1,
                 )
-            elif re.search(r"\bpath\s*:", body2):
 
-                def _add_href(m: re.Match) -> str:
-                    full = m.group(0)
-                    if "href" in full:
-                        return full
-                    return re.sub(
-                        r'(path\s*:\s*)(["\'])([^"\']+)\2',
-                        r"\1\2\3\2, href: \2\3\2",
-                        full,
-                        count=1,
-                    )
-
-                body2 = re.sub(r"\{[^{}]*\bpath\s*:[^{}]*\}", _add_href, body2)
-            if body2 != body:
-                mock = mock[: nav_m.end()] + body2 + ";" + mock[end:]
-                repaired.append("adminNavigation")
+            body2 = re.sub(r"\{[^{}]*\bpath\s*:[^{}]*\}", _add_href, body2)
+        if body2 != body:
+            mock = mock[: nav_m.end()] + body2 + ";" + mock[end:]
+            repaired.append(nav_name)
 
     if repaired:
         write_file(workspace, mock_path, mock)
