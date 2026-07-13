@@ -1,0 +1,790 @@
+{
+  "version": 1,
+  "import": "@/ui",
+  "generatedFrom": "src/ui/registry.ts",
+  "rule": "Generated pages must import UI only from @/ui. Do not invent props or import Radix/Recharts/TanStack directly.",
+  "components": [
+    {
+      "name": "Button",
+      "surface": "core",
+      "path": "core/Button.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "variant",
+        "size",
+        "href",
+        "type",
+        "disabled",
+        "onClick",
+        "className",
+        "aria-label"
+      ],
+      "variants": {
+        "variant": [
+          "default",
+          "secondary",
+          "outline",
+          "ghost",
+          "destructive"
+        ],
+        "size": [
+          "default",
+          "sm",
+          "lg"
+        ]
+      }
+    },
+    {
+      "name": "Input",
+      "surface": "core",
+      "path": "core/Input.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "type",
+        "value",
+        "defaultValue",
+        "placeholder",
+        "disabled",
+        "id",
+        "name",
+        "onChange",
+        "className",
+        "aria-label"
+      ]
+    },
+    {
+      "name": "Select",
+      "surface": "core",
+      "path": "core/Select.tsx",
+      "requiredProps": [
+        "options"
+      ],
+      "optionalProps": [
+        "value",
+        "defaultValue",
+        "onValueChange",
+        "placeholder",
+        "disabled",
+        "className",
+        "aria-label"
+      ]
+    },
+    {
+      "name": "Dialog",
+      "surface": "core",
+      "path": "core/Dialog.tsx",
+      "requiredProps": [
+        "title",
+        "children"
+      ],
+      "optionalProps": [
+        "description",
+        "triggerLabel",
+        "footer",
+        "open",
+        "defaultOpen",
+        "onOpenChange",
+        "className"
+      ]
+    },
+    {
+      "name": "Tabs",
+      "surface": "core",
+      "path": "core/Tabs.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "defaultValue",
+        "value",
+        "onValueChange",
+        "className"
+      ]
+    },
+    {
+      "name": "Card",
+      "surface": "core",
+      "path": "core/Card.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "title",
+        "description",
+        "className"
+      ]
+    },
+    {
+      "name": "Badge",
+      "surface": "core",
+      "path": "core/Badge.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "variant",
+        "className"
+      ],
+      "variants": {
+        "variant": [
+          "default",
+          "secondary",
+          "outline",
+          "destructive"
+        ]
+      }
+    },
+    {
+      "name": "Tooltip",
+      "surface": "core",
+      "path": "core/Tooltip.tsx",
+      "requiredProps": [
+        "content",
+        "children"
+      ],
+      "optionalProps": [
+        "side"
+      ],
+      "variants": {
+        "side": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ]
+      }
+    },
+    {
+      "name": "Table",
+      "surface": "core",
+      "path": "core/Table.tsx",
+      "requiredProps": [
+        "columns",
+        "rows"
+      ],
+      "optionalProps": [
+        "caption",
+        "className"
+      ]
+    },
+    {
+      "name": "PublicShell",
+      "surface": "public",
+      "path": "public/PublicShell.tsx",
+      "requiredProps": [
+        "brandName",
+        "children"
+      ],
+      "optionalProps": [
+        "nav",
+        "footer",
+        "className"
+      ]
+    },
+    {
+      "name": "MarketingHero",
+      "surface": "public",
+      "path": "public/MarketingHero.tsx",
+      "requiredProps": [
+        "brandName",
+        "headline",
+        "subcopy",
+        "primaryCta",
+        "imageSrc"
+      ],
+      "optionalProps": [
+        "secondaryCta",
+        "imageAlt",
+        "variant",
+        "className"
+      ],
+      "variants": {
+        "variant": [
+          "cinematic",
+          "split",
+          "editorial",
+          "product"
+        ]
+      }
+    },
+    {
+      "name": "FeatureBento",
+      "surface": "public",
+      "path": "public/FeatureBento.tsx",
+      "requiredProps": [
+        "heading",
+        "items"
+      ],
+      "optionalProps": [
+        "description",
+        "variant",
+        "className"
+      ],
+      "variants": {
+        "variant": [
+          "bento",
+          "grid",
+          "alternating"
+        ]
+      }
+    },
+    {
+      "name": "ProductShowcase",
+      "surface": "public",
+      "path": "public/ProductShowcase.tsx",
+      "requiredProps": [
+        "heading",
+        "items"
+      ],
+      "optionalProps": [
+        "description",
+        "className"
+      ]
+    },
+    {
+      "name": "TestimonialRail",
+      "surface": "public",
+      "path": "public/TestimonialRail.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "heading",
+        "className"
+      ]
+    },
+    {
+      "name": "ProcessSection",
+      "surface": "public",
+      "path": "public/ProcessSection.tsx",
+      "requiredProps": [
+        "heading",
+        "steps"
+      ],
+      "optionalProps": [
+        "description",
+        "className"
+      ]
+    },
+    {
+      "name": "CTABand",
+      "surface": "public",
+      "path": "public/CTABand.tsx",
+      "requiredProps": [
+        "heading",
+        "primaryCta"
+      ],
+      "optionalProps": [
+        "description",
+        "secondaryCta",
+        "className"
+      ]
+    },
+    {
+      "name": "BrandFooter",
+      "surface": "public",
+      "path": "public/BrandFooter.tsx",
+      "requiredProps": [
+        "brandName"
+      ],
+      "optionalProps": [
+        "description",
+        "links",
+        "meta",
+        "className"
+      ]
+    },
+    {
+      "name": "OpsShell",
+      "surface": "ops",
+      "path": "ops/OpsShell.tsx",
+      "requiredProps": [
+        "brandName",
+        "navItems",
+        "children"
+      ],
+      "optionalProps": [
+        "topbar",
+        "className"
+      ]
+    },
+    {
+      "name": "PageHeader",
+      "surface": "ops",
+      "path": "ops/PageHeader.tsx",
+      "requiredProps": [
+        "title"
+      ],
+      "optionalProps": [
+        "description",
+        "actions",
+        "className"
+      ]
+    },
+    {
+      "name": "StatCard",
+      "surface": "ops",
+      "path": "ops/StatCard.tsx",
+      "requiredProps": [
+        "label",
+        "value"
+      ],
+      "optionalProps": [
+        "delta",
+        "hint",
+        "className"
+      ]
+    },
+    {
+      "name": "ChartCard",
+      "surface": "ops",
+      "path": "ops/ChartCard.tsx",
+      "requiredProps": [
+        "title",
+        "data",
+        "dataKey",
+        "xKey"
+      ],
+      "optionalProps": [
+        "description",
+        "type",
+        "className"
+      ],
+      "variants": {
+        "type": [
+          "area",
+          "bar"
+        ]
+      }
+    },
+    {
+      "name": "DataTable",
+      "surface": "ops",
+      "path": "ops/DataTable.tsx",
+      "requiredProps": [
+        "columns",
+        "rows"
+      ],
+      "optionalProps": [
+        "emptyMessage",
+        "className"
+      ]
+    },
+    {
+      "name": "FilterBar",
+      "surface": "ops",
+      "path": "ops/FilterBar.tsx",
+      "requiredProps": [
+        "searchPlaceholder"
+      ],
+      "optionalProps": [
+        "searchValue",
+        "onSearchChange",
+        "filters",
+        "actions",
+        "className"
+      ]
+    },
+    {
+      "name": "ActivityFeed",
+      "surface": "ops",
+      "path": "ops/ActivityFeed.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "heading",
+        "className"
+      ]
+    },
+    {
+      "name": "EmptyState",
+      "surface": "ops",
+      "path": "ops/EmptyState.tsx",
+      "requiredProps": [
+        "title"
+      ],
+      "optionalProps": [
+        "description",
+        "action",
+        "className"
+      ]
+    }
+  ],
+  "skeletons": [
+    {
+      "id": "public-home",
+      "surface": "public",
+      "shell": "PublicShell",
+      "purpose": "Marketing landing with cinematic hero and varied section hierarchy.",
+      "requiredSections": [
+        "shell",
+        "hero",
+        "features",
+        "showcase",
+        "process",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
+      "optionalSections": [
+        "trust"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "hero",
+        "trust",
+        "features",
+        "showcase",
+        "process",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
+      "allowedComponents": [
+        "PublicShell",
+        "MarketingHero",
+        "FeatureBento",
+        "ProductShowcase",
+        "TestimonialRail",
+        "ProcessSection",
+        "CTABand",
+        "BrandFooter",
+        "Button",
+        "Badge"
+      ],
+      "supportedVariants": {
+        "MarketingHero": [
+          "cinematic",
+          "split",
+          "editorial",
+          "product"
+        ],
+        "FeatureBento": [
+          "bento",
+          "grid",
+          "alternating"
+        ]
+      }
+    },
+    {
+      "id": "public-service",
+      "surface": "public",
+      "shell": "PublicShell",
+      "purpose": "Service listing / category page.",
+      "requiredSections": [
+        "shell",
+        "hero",
+        "features",
+        "process",
+        "cta",
+        "footer"
+      ],
+      "optionalSections": [
+        "testimonials",
+        "showcase"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "hero",
+        "features",
+        "showcase",
+        "process",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
+      "allowedComponents": [
+        "PublicShell",
+        "MarketingHero",
+        "FeatureBento",
+        "ProductShowcase",
+        "TestimonialRail",
+        "ProcessSection",
+        "CTABand",
+        "BrandFooter",
+        "Button",
+        "Badge"
+      ],
+      "supportedVariants": {
+        "MarketingHero": [
+          "editorial",
+          "split",
+          "cinematic"
+        ],
+        "FeatureBento": [
+          "grid",
+          "alternating",
+          "bento"
+        ]
+      }
+    },
+    {
+      "id": "public-detail",
+      "surface": "public",
+      "shell": "PublicShell",
+      "purpose": "Single product or treatment detail.",
+      "requiredSections": [
+        "shell",
+        "hero",
+        "showcase",
+        "process",
+        "cta",
+        "footer"
+      ],
+      "optionalSections": [
+        "features",
+        "testimonials"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "hero",
+        "showcase",
+        "features",
+        "process",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
+      "allowedComponents": [
+        "PublicShell",
+        "MarketingHero",
+        "FeatureBento",
+        "ProductShowcase",
+        "TestimonialRail",
+        "ProcessSection",
+        "CTABand",
+        "BrandFooter",
+        "Button",
+        "Badge"
+      ],
+      "supportedVariants": {
+        "MarketingHero": [
+          "product",
+          "split",
+          "editorial"
+        ],
+        "FeatureBento": [
+          "alternating",
+          "grid"
+        ]
+      }
+    },
+    {
+      "id": "public-booking",
+      "surface": "public",
+      "shell": "PublicShell",
+      "purpose": "Booking / intake conversion flow surface.",
+      "requiredSections": [
+        "shell",
+        "hero",
+        "process",
+        "cta",
+        "footer"
+      ],
+      "optionalSections": [
+        "features",
+        "testimonials"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "hero",
+        "process",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
+      "allowedComponents": [
+        "PublicShell",
+        "MarketingHero",
+        "FeatureBento",
+        "ProductShowcase",
+        "TestimonialRail",
+        "ProcessSection",
+        "CTABand",
+        "BrandFooter",
+        "Button",
+        "Badge",
+        "Input",
+        "Select",
+        "Dialog"
+      ],
+      "supportedVariants": {
+        "MarketingHero": [
+          "split",
+          "editorial"
+        ],
+        "FeatureBento": [
+          "grid"
+        ]
+      }
+    },
+    {
+      "id": "ops-dashboard",
+      "surface": "ops",
+      "shell": "OpsShell",
+      "purpose": "Operations overview with KPIs, chart, table, and activity.",
+      "requiredSections": [
+        "shell",
+        "header",
+        "kpis",
+        "chart",
+        "filters",
+        "table",
+        "activity"
+      ],
+      "optionalSections": [],
+      "recommendedOrder": [
+        "shell",
+        "header",
+        "kpis",
+        "chart",
+        "filters",
+        "table",
+        "activity"
+      ],
+      "allowedComponents": [
+        "OpsShell",
+        "PageHeader",
+        "StatCard",
+        "ChartCard",
+        "DataTable",
+        "FilterBar",
+        "ActivityFeed",
+        "EmptyState",
+        "Button",
+        "Input",
+        "Select",
+        "Badge",
+        "Tabs",
+        "Dialog"
+      ],
+      "supportedVariants": {
+        "ChartCard": [
+          "area",
+          "bar"
+        ]
+      }
+    },
+    {
+      "id": "ops-list",
+      "surface": "ops",
+      "shell": "OpsShell",
+      "purpose": "Searchable operational list view.",
+      "requiredSections": [
+        "shell",
+        "header",
+        "filters",
+        "table"
+      ],
+      "optionalSections": [
+        "empty"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "header",
+        "filters",
+        "table",
+        "empty"
+      ],
+      "allowedComponents": [
+        "OpsShell",
+        "PageHeader",
+        "StatCard",
+        "ChartCard",
+        "DataTable",
+        "FilterBar",
+        "ActivityFeed",
+        "EmptyState",
+        "Button",
+        "Input",
+        "Select",
+        "Badge",
+        "Tabs",
+        "Dialog"
+      ],
+      "supportedVariants": {}
+    },
+    {
+      "id": "ops-detail",
+      "surface": "ops",
+      "shell": "OpsShell",
+      "purpose": "Single record detail with activity context.",
+      "requiredSections": [
+        "shell",
+        "header",
+        "table",
+        "activity"
+      ],
+      "optionalSections": [
+        "kpis"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "header",
+        "kpis",
+        "table",
+        "activity"
+      ],
+      "allowedComponents": [
+        "OpsShell",
+        "PageHeader",
+        "StatCard",
+        "ChartCard",
+        "DataTable",
+        "FilterBar",
+        "ActivityFeed",
+        "EmptyState",
+        "Button",
+        "Input",
+        "Select",
+        "Badge",
+        "Tabs",
+        "Dialog"
+      ],
+      "supportedVariants": {}
+    },
+    {
+      "id": "ops-settings",
+      "surface": "ops",
+      "shell": "OpsShell",
+      "purpose": "Settings / configuration surface.",
+      "requiredSections": [
+        "shell",
+        "header"
+      ],
+      "optionalSections": [
+        "filters",
+        "table",
+        "empty"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "header",
+        "filters",
+        "table",
+        "empty"
+      ],
+      "allowedComponents": [
+        "OpsShell",
+        "PageHeader",
+        "StatCard",
+        "ChartCard",
+        "DataTable",
+        "FilterBar",
+        "ActivityFeed",
+        "EmptyState",
+        "Button",
+        "Input",
+        "Select",
+        "Badge",
+        "Tabs",
+        "Dialog"
+      ],
+      "supportedVariants": {}
+    }
+  ]
+}
