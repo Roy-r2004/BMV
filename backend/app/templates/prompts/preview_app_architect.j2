@@ -14,6 +14,11 @@ This is NOT a template — the file structure, routes, components, and visual st
 === ALLOWED IMAGE URLS (only these in img src) ===
 {{ images_json }}
 
+=== COMPACT TEMPLATE-OWNED SKELETON CONTRACT ===
+{{ catalogue_contract_json }}
+
+The template UI kit already exists, is immutable, and is not part of `files_to_generate`. Treat its skeleton IDs, slot IDs, components, props, and `@/ui` barrel as a fixed API.
+
 Output ONLY valid JSON:
 {
   "app_name": "slug-safe app name",
@@ -35,52 +40,35 @@ Output ONLY valid JSON:
       "title": "Page Title",
       "component_file": "src/pages/YourPage.tsx",
       "layout": "public or admin",
+      "surface": "copy public or ops from the matching plan page",
+      "skeleton_id": "copy the exact skeleton_id from the matching plan page",
+      "section_slots": ["copy the exact validated non-shell slot IDs from the matching plan page"],
       "purpose": "what this page shows",
       "features": ["feature names visible here"]
     }
   ],
   "files_to_generate": [
     {
-      "path": "src/index.css",
-      "kind": "theme",
-      "instructions": "Tailwind v4 @theme with brand colors and font from design system"
-    },
-    {
-      "path": "src/data/mock.ts",
-      "kind": "data",
-      "instructions": "realistic sample data for this business"
-    },
-    {
-      "path": "src/App.tsx",
-      "kind": "router",
-      "instructions": "React Router routes for ALL pages in routes array; keep RouteBridge and RoleBridge imports"
-    },
-    {
       "path": "<one entry per route, path = that route's component_file>",
       "kind": "page",
       "instructions": "detailed spec for THIS specific page"
     }
-  ],
-  "shared_components": [
-    { "path": "src/components/Nav.tsx", "kind": "component", "instructions": "Public top nav, bespoke to this brand — not a generic default" },
-    { "path": "src/layouts/PublicLayout.tsx", "kind": "layout", "instructions": "Public shell (header/main/footer) bespoke to this brand" },
-    { "path": "src/layouts/AdminLayout.tsx", "kind": "layout", "instructions": "Admin sidebar shell matching admin routes, bespoke to this brand" },
-    { "path": "src/components/UiIcons.tsx", "kind": "component", "instructions": "Bespoke icon set matching this brand's style" }
   ]
 }
 
 RULES:
 - Derive roles, routes, and page count ENTIRELY from the experience plan — build EVERY feature the plan describes
 - CRITICAL: Each role MUST have visually DISTINCT pages — derive page types and sections from the plan, not from a fixed template
+- Every route MUST retain surface and skeleton_id from its matching experience-plan page
+- Every route MUST retain section_slots too; they must belong to the chosen skeleton contract, include its non-shell required slots, and exclude `shell`
 - CRITICAL: component_file paths MUST reflect role folders: public pages in src/pages/, owner pages in src/pages/owner/, admin pages in src/pages/admin/
 - Each route's files_to_generate instructions MUST copy the section list from the matching page in the experience plan
 - CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.
+- `files_to_generate` is only the AI-owned page worklist. Include page entries and nothing else; router, theme, plumbing data, synthesized mock data, bridges, and the UI kit are written by later deterministic pipeline stages.
 - CRITICAL: MUST include at least ONE public marketing landing route (path "/" or "/home", layout "public", component HomePage.tsx). Client always lands on a rich homepage first.
-- Always include src/index.css (theme) and src/App.tsx (router) in files_to_generate
-- Do NOT include src/data/mock.ts — the pipeline writes plumbing data, then synthesizes exports after pages exist based on what they import
 - component_file paths must start with src/
 - Do NOT include main.tsx or preview-bridge.ts (already in template)
 - Quality bar: if a feature exists in the plan, there is a DEDICATED PAGE for it. Do not cram 3 features into one generic page.
-- Nav, PublicLayout, AdminLayout, and UiIcons are NOT shared defaults anymore — they are generated fresh for every business and MUST always appear in shared_components. Give them real instructions tailored to this brand's visual style, not the placeholder text above.
+- Nav, PublicLayout, AdminLayout, UiIcons, and every path under `src/ui/` are legacy or template-owned forbidden outputs. Catalogue pages own their single shell and use the immutable kit through `@/ui`.
 - Page instructions must describe the LIVE product UX (what the customer/owner does on screen), never "demo this feature" or BMV pitch language. HomePage instructions must specify brand-voice hero + real storefront sections — not a list of preview_features as marketing cards.
 - Every page instruction should demand production density: concrete widgets, realistic sample rows, and zero placeholder empty states.

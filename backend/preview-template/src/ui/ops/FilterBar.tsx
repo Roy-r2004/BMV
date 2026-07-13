@@ -8,6 +8,8 @@ export interface FilterBarFilter {
   label: string;
   active?: boolean;
   onSelect?: () => void;
+  /** Accepted as an alias for onSelect since generated pages commonly use onClick. */
+  onClick?: () => void;
 }
 
 export interface FilterBarProps {
@@ -47,7 +49,7 @@ export function FilterBar({
             <button
               key={filter.id}
               type="button"
-              onClick={filter.onSelect}
+              onClick={filter.onSelect ?? filter.onClick}
               className={cn(
                 'rounded-full border px-3 py-1.5 text-xs font-semibold',
                 filter.active

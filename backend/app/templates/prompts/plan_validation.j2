@@ -9,14 +9,21 @@ You are a product QA architect. Review this UI experience plan against the requi
 === MVP BLUEPRINT EXCERPT ===
 {{ mvp_blueprint }}
 
+=== COMPACT TEMPLATE-OWNED SKELETON CONTRACT ===
+{{ catalogue_contract_json }}
+
 Check:
 1. Is every preview feature mapped in feature_coverage with a page_id and ui_element?
 2. Are any blueprint modules missing pages or sections?
 3. Are page sections detailed enough to build (not empty stubs)?
 4. Does each role have navigation linking only to existing pages?
 5. Do roles and page counts fit THIS product (not a generic template)?
+6. Does every page retain or infer a valid surface and skeleton_id from the compact contract?
+7. Does each page include every non-shell requiredSections ID and use section_slots keyed ONLY by its skeleton's requiredSections/optionalSections, in recommendedOrder, with `shell` excluded?
+8. Are public_direction and ops_direction both distinct and specific to this business, its customer journey, and its daily operations?
 
 If ANY requirement fails, return the FULL expanded plan JSON fixing ALL gaps.
 If the plan is already complete, return it unchanged.
+Never invent a skeleton or slot ID and never replace public_direction/ops_direction with generic surface language.
 
 Return ONLY valid JSON — the complete plan object.

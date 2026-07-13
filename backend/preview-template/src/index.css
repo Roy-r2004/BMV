@@ -1,20 +1,23 @@
 @import "tailwindcss";
 
+/* Daylight atelier — porcelain + ink. Chart/ops use graphite, not teal. */
 @theme {
-  --color-background: #f2f4f6;
-  --color-foreground: #14181d;
-  --color-muted: #5c6773;
+  --color-background: #f4f1ec;
+  --color-foreground: #1c1916;
+  --color-muted: #6b645c;
   --color-card: #ffffff;
-  --color-border-subtle: #d8dee5;
-  --color-brand: #2f6f6a;
-  --color-brand-dark: #245853;
-  --color-accent: #9a5b4a;
-  --color-ring: #2f6f6a;
-  --font-sans: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Cormorant Garamond", "Georgia", serif;
-  --radius-ui: 0.85rem;
-  --shadow-ui: 0 22px 60px -32px rgb(20 24 29 / 0.42);
-  --glow-atmosphere: rgb(47 111 106 / 0.22);
+  --color-border-subtle: #ddd6cc;
+  --color-brand: #3a342e;
+  --color-brand-dark: #2a251f;
+  --color-accent: #8a8176;
+  --color-ring: #3a342e;
+  --color-chart: #2f2a26;
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Instrument Serif", "Georgia", serif;
+  --radius-ui: 0.5rem;
+  --shadow-ui: 0 24px 50px -36px rgb(28 25 22 / 0.45);
+  --glow-atmosphere: rgb(58 52 46 / 0.1);
+  --treatment-light: #3a342e;
 }
 
 @layer base {
@@ -27,6 +30,20 @@
     margin: 0;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  [id] {
+    scroll-margin-top: 5.5rem;
   }
 
   :focus-visible {
@@ -46,23 +63,12 @@
   }
 }
 
-@keyframes ui-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes ui-kenburns {
   from {
-    transform: scale(1.04);
+    transform: scale(1.02);
   }
   to {
-    transform: scale(1.12);
+    transform: scale(1.07);
   }
 }
 
@@ -71,28 +77,22 @@
     transform: translateX(0);
   }
   to {
+    /* Exactly one copy of the duplicated track — keeps the seam invisible. */
     transform: translateX(-50%);
   }
 }
 
-.ui-fade-up {
-  animation: ui-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.ui-fade-up-delay {
-  animation: ui-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
-}
-
-.ui-fade-up-delay-2 {
-  animation: ui-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both;
-}
-
 .ui-kenburns {
-  animation: ui-kenburns 18s ease-out both;
+  animation: ui-kenburns 26s ease-out both;
 }
 
 .ui-marquee-track {
-  animation: ui-marquee 48s linear infinite;
+  animation: ui-marquee 56s linear infinite;
+}
+
+.ui-treatment-light {
+  background: linear-gradient(180deg, transparent 0%, var(--treatment-light) 22%, var(--treatment-light) 78%, transparent 100%);
+  opacity: 0.55;
 }
 
 @media (prefers-reduced-motion: reduce) {

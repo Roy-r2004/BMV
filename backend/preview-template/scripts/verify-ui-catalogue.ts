@@ -7,6 +7,14 @@ import { CATALOGUE_COMPONENTS, SKELETONS, getCatalogueComponentNames } from '../
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const uiRoot = join(root, 'src', 'ui');
 const errors: string[] = [];
+const opsShellSource = readFileSync(join(uiRoot, 'ops', 'OpsShell.tsx'), 'utf8');
+if (
+  !/return\s*\(\)\s*=>\s*\{[\s\S]*dragging\.current = false;[\s\S]*document\.body\.style\.cursor = '';[\s\S]*document\.body\.style\.userSelect = '';/.test(
+    opsShellSource
+  )
+) {
+  errors.push('OpsShell must restore body drag styles during effect cleanup');
+}
 
 const cataloguePath = join(uiRoot, 'catalogue.json');
 if (!existsSync(cataloguePath)) {
@@ -51,7 +59,18 @@ const pageFiles = [
   join(uiRoot, 'examples', 'OpsReferencePage.tsx'),
 ];
 
-const forbidden = ['@radix-ui/', 'recharts', '@tanstack/react-table', 'magicui', '@tremor', 'framer-motion'];
+const forbidden = [
+  '@radix-ui/',
+  'recharts',
+  '@tanstack/react-table',
+  'magicui',
+  '@tremor',
+  'framer-motion',
+  'motion/react',
+  'lucide-react',
+  'sonner',
+  'date-fns',
+];
 
 for (const page of pageFiles) {
   if (!existsSync(page)) {
@@ -88,6 +107,10 @@ const allowedDeps = new Set([
   '@radix-ui/react-select',
   '@radix-ui/react-tabs',
   '@radix-ui/react-tooltip',
+  'motion',
+  'lucide-react',
+  'sonner',
+  'date-fns',
 ]);
 for (const dep of Object.keys(pkg.dependencies)) {
   if (!allowedDeps.has(dep)) {

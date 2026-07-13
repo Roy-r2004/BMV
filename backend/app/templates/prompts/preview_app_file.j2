@@ -23,8 +23,25 @@ Kind: {{ file_kind }}
 Instructions: {{ file_instructions }}
 
 {% if page_plan_json is defined and page_plan_json and page_plan_json != "{}" %}
-=== PAGE PLAN FROM USER'S EXPERIENCE (SOURCE OF TRUTH — build ONLY what is listed here) ===
+=== PAGE PLAN FROM USER'S EXPERIENCE ({% if catalogue_page %}CONTENT BRIEFS — map into the authoritative assigned skeleton slots{% else %}SOURCE OF TRUTH — build ONLY what is listed here{% endif %}) ===
 {{ page_plan_json }}
+{% endif %}
+{% if catalogue_page %}
+=== MATCHED COMPACT SKELETON CONTRACT ===
+Assigned skeleton: {{ skeleton_id }}
+{{ skeleton_contract_json }}
+
+CATALOGUE PAGE CONTRACT (NON-NEGOTIABLE):
+- Import page UI exclusively from `@/ui`. Imports outside `@/ui` are limited to React, router APIs, and `@/data/mock`.
+- Declare exactly `const SKELETON_ID = '{{ skeleton_id }}' as const;`.
+- Call `getSkeleton(SKELETON_ID)` so the assignment is validated and available to the page.
+- Build a `slots` object keyed only by the matched contract's section ids.
+- Use exactly the assigned `section_slots` from the compact contract: include every assigned slot once, add no arbitrary or invented slot key, and never include `shell`.
+- Render those slots with `<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />`.
+- The page owns its chrome: wrap the composer with `{{ shell_component }}` and provide its required shell props.
+- All visual components, including icons, charts, motion, primitives, sections, and the shell, come from `@/ui`.
+- Do not import any third-party UI package directly and do not import legacy Nav, PublicLayout, AdminLayout, or UiIcons files.
+- Render one page-owned shell only. Never create parallel chrome: no second nav, sidebar, header shell, mobile dock, or footer outside the assigned shell/slots.
 {% endif %}
 
 === EXISTING FILES (for imports/reference) ===
@@ -44,9 +61,14 @@ You are building the LIVE product the business owner already runs — not a pitc
 The file MUST be complete and Vite-buildable on the first try:
 - Output the FULL file — never truncate mid-line or mid-JSX
 - MUST include `export default` for page/layout/component files
-- ONLY import from: `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, and files listed in EXISTING FILES
+{% if catalogue_page %}
+- For this page, UI imports MUST come only from `@/ui`; the only other allowed sources are `react`, `react-router-dom`, and `@/data/mock`
+- Never bypass `@/ui` with direct package imports or deep imports into `@/ui/*`
+{% else %}
+- ONLY import from: `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), and files listed in EXISTING FILES
 - NEVER import lucide-react, @mui, antd, recharts, framer-motion, or any other npm package
-- If an icon is needed and UiIcon lacks the name, use inline SVG — do not invent npm imports
+- Never import legacy Nav, PublicLayout, AdminLayout, or UiIcons modules
+{% endif %}
 - TypeScript must parse: balanced braces/parens, closed JSX tags, no markdown fences
 
 TECH RULES:
@@ -60,47 +82,73 @@ TECH RULES:
 - No dollar/currency symbols
 - Export default for page/layout components; named exports OK for data
 - Keep imports consistent: only import names you actually export from mock.ts. If a page imports `services` from mock, mock.ts MUST export `services`.
+{% if catalogue_page %}
+- IMPORTS ALLOW-LIST: `@/ui`, `react`, `react-router-dom`, and `@/data/mock` only. Put page-specific helper logic inline.
+- Use only components and props present in the matched compact skeleton contract.
+{% else %}
 - IMPORTS ALLOW-LIST — you may ONLY import from these, nothing else:
   * `react`, `react-router-dom`
   * `../data/mock` (or `@/data/mock`) and files that already exist in EXISTING FILES above
-  * `../components/UiIcons` for icons (`<UiIcon name="chart" />`)
   NEVER import ANY npm package (no lucide-react, no @mantine, no @mui, no antd, no react-icons, no recharts, no chart.js, etc.). NEVER import invented local paths like `../lib/aiUtils`, `../hooks/*`, `../utils/*`. Put ALL helper logic INLINE.
-- Icons: use `UiIcon` from `../components/UiIcons` with string keys (chart, clipboard, target, clock, users, zap, shield, bell, calendar, check, search, cart, brain, coffee) OR inline SVG (24x24, stroke-current) — NEVER emoji
+- Legacy UiIcons/Nav/layout imports are forbidden; non-catalogue infrastructure files should not add visual UI
 - Charts/graphs: build with styled divs or inline <svg> (e.g. bar heights via Tailwind h-*) — never a chart library.
+{% endif %}
 
 For App.tsx:
 - MUST import RouteBridge and RoleBridge pattern from template's App (BrowserRouter, RouteBridge, RoleBridge)
 - Import roles from ./data/mock for RoleBridge defaultPath lookup
 - BrowserRouter, Routes, Route, Navigate from react-router-dom
 - CRITICAL: the app is served under a sub-path, so BrowserRouter MUST set basename to import.meta.env.BASE_URL — output exactly: <BrowserRouter basename={import.meta.env.BASE_URL}>
+- CRITICAL: RoleBridge MUST call registerPreviewNavigate((path) => navigate(path)) before setupPreviewBridge so absolute in-app links stay under the preview mount
+- CRITICAL: never use raw <a href="/owner/..."> or <a href="/staff/..."> for in-app routes — that escapes the preview basename and returns {"detail":"Not Found"}. Prefer OpsShell/PublicNav/Button (they use AppLink) or react-router-dom Link/NavLink.
 - CRITICAL: include an index route that redirects the root to the first real page, and a catch-all
 - Wire every route from architect plan; wrap routes in the correct layout per route.layout
 
 For page components (kind=page):
 - Import from `../data/mock` ONLY the symbols this page needs (e.g. `inventory`, `leads`, `stats`). Choose names that match the business — mock.ts is generated later to match your imports.
 - You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
+{% if catalogue_page %}
+- The page itself renders `{{ shell_component }}` around `SkeletonComposer`; App.tsx does not add a layout wrapper.
+{% else %}
 - PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
 - Pages export ONLY their main content (sections inside a fragment or single div).
 - Home/landing: full-bleed hero is OK (negative margins or full-width sections). Do not nest a second site header.
+{% endif %}
 
 ═══ CONTENT RULE (MOST IMPORTANT) ═══
 Do NOT invent a generic SaaS/marketing template. The user's experience plan (in Instructions and PAGE PLAN above) defines:
+{% if catalogue_page %}
+- the business-specific content and intent to map into every authoritative assigned skeleton slot
+{% else %}
 - which sections exist on this page
+{% endif %}
 - what each section shows
 - which features are visible
 - what sample data to use
 
+{% if catalogue_page %}
+Implement EVERY assigned skeleton slot with rich, business-specific UI. Legacy plan section names are briefs, not permission to omit required assigned slots or invent extra slot keys.
+{% else %}
 Implement EVERY section from the plan with rich, business-specific UI. If the plan has 3 sections, build 3 — deeply. If it has 10, build 10. Never add sections that are not in the plan (no default FAQ, testimonials, or logo strip unless the plan asks for them).
+{% endif %}
 
 ═══ QUALITY BAR (how to implement the plan well) ═══
-- NEVER use emoji as icons — use UiIcon or inline SVG
+{% if not catalogue_page %}
+- NEVER use emoji as icons
+{% else %}
+- NEVER use emoji or hand-drawn inline UI; use the matched catalogue components from `@/ui`
+{% endif %}
 - NEVER hardcode hex colors — use text-brand, bg-brand, bg-brand/10, text-slate-600, border-slate-100
 - Typography: clear hierarchy (page titles text-3xl+ font-bold; body text-slate-600)
 - Spacing: generous section padding (py-16 lg:py-24); containers max-w-7xl mx-auto px-6
 - Use images from mock where the plan calls for imagery — object-cover, rounded-2xl
 - Each section in the plan should be visually distinct (not copy-paste the same card grid everywhere)
 - Pages must feel dense and production-ready — thin placeholder pages fail
+{% if catalogue_page %}
+- Never render legacy AdminLayout or PublicLayout; use `{{ shell_component }}` as the sole shell
+{% else %}
 - NEVER wrap AdminLayout or PublicLayout inside page components — App.tsx applies layouts via routes
+{% endif %}
 - Micro-details that sell realism: last-updated times, staff initials, order #s, table numbers, allergen tags, "Ready in 12 min", occupancy dots, unread counts
 
 For page components (kind=page):

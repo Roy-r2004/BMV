@@ -56,26 +56,71 @@ export default function Home() {
 """,
         )
 
+        complex_imports = workspace / "src" / "pages" / "Complex.tsx"
+        write(
+            complex_imports,
+            """import DefaultButton, {
+  type ButtonProps,
+  Button as NamedButton,
+} from '../ui/core/Button';
+import type {
+  MarketingHeroProps as HeroProps,
+} from '@/ui/public/MarketingHero';
+import * as DeepCard from '@/ui/core/Card';
+import UnknownDefault from '@/ui/made-up/UnknownDefault';
+import * as Ui from '@/ui';
+import * as RelativeUi from '../ui';
+import { brand as brandAlias } from '@/data/mock';
+import helperAlias from '@/lib/helper';
+
+export const aliases = { Ui, RelativeUi, brandAlias, helperAlias };
+""",
+        )
+
         touched = normalize_ui_kit_imports(workspace)
 
         if "src/pages/owner/Dashboard.tsx" not in touched:
             raise AssertionError("Nested owner page should be rewritten to @/ui imports")
         if "src/layouts/PublicLayout.tsx" not in touched:
             raise AssertionError("Layout ui-kit imports should be rewritten to @/ui imports")
-        if "src/pages/Home.tsx" in touched:
-            raise AssertionError("Already-aliased imports should not be rewritten")
+        if "src/pages/Home.tsx" not in touched:
+            raise AssertionError("Deep aliased imports should be collapsed to the barrel")
+        if "src/pages/Complex.tsx" not in touched:
+            raise AssertionError("Mixed multiline UI imports should be normalized")
 
         owner_text = owner_page.read_text(encoding="utf-8")
-        if "from '@/ui/Button'" not in owner_text or "from '@/ui/Card'" not in owner_text:
-            raise AssertionError("Nested page ui imports were not normalized to @/ui/*")
+        if "import { Button, Card } from '@/ui';" not in owner_text:
+            raise AssertionError("Nested page ui imports were not combined at the @/ui barrel")
         if "from '../../lib/cn'" not in owner_text:
             raise AssertionError("Non-ui imports must remain untouched")
 
         layout_text = public_layout.read_text(encoding="utf-8")
-        if "from '@/ui/PublicShell'" not in layout_text:
-            raise AssertionError("Layout ui import was not normalized to @/ui/*")
+        if "from '@/ui'" not in layout_text or "PublicShell" not in layout_text:
+            raise AssertionError("Layout ui import was not normalized to the @/ui barrel")
         if "from '../components/UiIcons'" not in layout_text:
             raise AssertionError("UiIcons import must remain untouched")
+
+        home_text = already_aliased.read_text(encoding="utf-8")
+        if "import { MarketingHero } from '@/ui';" not in home_text:
+            raise AssertionError("Deep @/ui import was not collapsed to the public barrel")
+
+        complex_text = complex_imports.read_text(encoding="utf-8")
+        if "Button as DefaultButton" not in complex_text:
+            raise AssertionError("Representable deep default import was not converted to a named barrel alias")
+        if "Button as NamedButton" not in complex_text:
+            raise AssertionError("Named alias was not preserved")
+        if "import type { ButtonProps, MarketingHeroProps as HeroProps } from '@/ui';" not in complex_text:
+            raise AssertionError("Type-only and inline type imports were not preserved")
+        if "import * as Ui from '@/ui';" not in complex_text:
+            raise AssertionError("Valid barrel namespace import must remain intact")
+        if "import * as RelativeUi from '@/ui';" not in complex_text:
+            raise AssertionError("Relative barrel namespace import should normalize safely")
+        if "DeepCard from" in complex_text or "UnknownDefault from" in complex_text:
+            raise AssertionError("Unsupported deep namespace/default imports must be removed")
+        if "@/ui/" in complex_text or "../ui/" in complex_text:
+            raise AssertionError("No deep or relative UI import path may remain")
+        if "brand as brandAlias" not in complex_text or "helperAlias from '@/lib/helper'" not in complex_text:
+            raise AssertionError("Non-UI aliases must remain untouched")
 
 
 if __name__ == "__main__":

@@ -14,6 +14,11 @@ The user is viewing the built app in an iframe. Apply their request by editing t
 === ARCHITECT (routes, roles, component files) ===
 {{ architect_json }}
 
+{% if catalogue_mode %}
+=== CATALOGUE PAGE CONTRACTS ===
+{{ catalogue_routes_json }}
+{% endif %}
+
 === FILE TREE ===
 {{ file_tree }}
 
@@ -25,8 +30,18 @@ Rules:
 - If the user wants a role (e.g. Visitor) to show real product pages instead of a login wall: wire that role's defaultPath to the main dashboard/home route, make login optional/demo (auto-enter or skip), and ensure RoleBridge + routes match.
 - If the user wants new pages, tabs, colors, copy, or layout: patch the matching `.tsx` files and `src/data/mock.ts` if needed.
 - Update `architect` routes/roles when navigation structure changes.
+{% if catalogue_mode %}
+- Files under `src/ui/` and `src/components/UiIcons.tsx` are template-owned and MUST NOT be returned in `files`.
+- The `@/ui` kit and catalogue contracts are immutable; never create, edit, replace, or bypass kit modules.
+- Assigned catalogue surface, skeleton, page-owned shell, and section slot keys are authoritative; recreate `getSkeleton` and `SkeletonComposer` if current code is invalid.
+- Replace invalid legacy imports and map freeform plan briefs into the assigned slots; never preserve either over the authoritative contract.
+- Import catalogue page UI exclusively from `@/ui`; other imports are limited to React, router APIs, and `@/data/mock`.
+- Do not add direct third-party UI imports or replace catalogue components with inline substitutes.
+- Never regress to Nav, PublicLayout, AdminLayout, UiIcons, deep `@/ui/*` imports, invented slots, or duplicate/parallel chrome.
+{% else %}
 - Import only from react, react-router-dom, existing local files, and `../data/mock`.
 - Do NOT add npm dependencies. Use inline SVG or UiIcons — no emoji.
+{% endif %}
 - Return FULL file contents for every file you change — never truncate mid-line.
 - Never add `import ... from './mock'` or `from '../data/mock'` inside `src/data/mock.ts` itself.
 - Prefer changing only the files needed (often `src/data/mock.ts` for roles/routes, or one page file for copy/layout).

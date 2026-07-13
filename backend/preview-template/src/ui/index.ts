@@ -1,6 +1,6 @@
 /**
  * Public surface for pages. Import only from "@/ui".
- * Never import Radix, Recharts, or TanStack from page code.
+ * Never import Radix, Recharts, TanStack, motion, lucide, sonner, or date-fns from page code.
  */
 export {
   Badge,
@@ -11,7 +11,9 @@ export {
   Select,
   Table,
   Tabs,
+  ToastHost,
   Tooltip,
+  toast,
   type BadgeProps,
   type ButtonProps,
   type CardProps,
@@ -23,25 +25,42 @@ export {
   type TableProps,
   type TabsItem,
   type TabsProps,
+  type ToastOptions,
+  type ToastTone,
   type TooltipProps,
 } from './core';
 
 export {
+  AccentBeam,
+  BookingPanel,
   BrandFooter,
+  CredentialStrip,
   CTABand,
   FeatureBento,
+  LogoMarquee,
   MarketingHero,
   ProcessSection,
   ProductShowcase,
+  PublicNav,
   PublicShell,
+  ResultRail,
+  SpotlightCard,
   TestimonialRail,
+  type AccentBeamProps,
+  type BookingPanelProps,
+  type BookingSlot,
+  type BookingTreatment,
   type BrandFooterLink,
   type BrandFooterProps,
+  type CredentialStripItem,
+  type CredentialStripProps,
   type CTABandProps,
   type CTALink,
   type FeatureBentoItem,
   type FeatureBentoProps,
   type FeatureBentoVariant,
+  type LogoMarqueeItem,
+  type LogoMarqueeProps,
   type MarketingCta,
   type MarketingHeroProps,
   type MarketingHeroVariant,
@@ -49,7 +68,13 @@ export {
   type ProcessStep,
   type ProductShowcaseItem,
   type ProductShowcaseProps,
+  type PublicNavCta,
+  type PublicNavItem,
+  type PublicNavProps,
   type PublicShellProps,
+  type ResultRailItem,
+  type ResultRailProps,
+  type SpotlightCardProps,
   type TestimonialRailItem,
   type TestimonialRailProps,
 } from './public';
@@ -62,12 +87,15 @@ export {
   FilterBar,
   OpsShell,
   PageHeader,
+  RiskQueue,
   StatCard,
   type ActivityFeedItem,
   type ActivityFeedProps,
   type ChartCardProps,
   type ChartCardRow,
   type ChartCardType,
+  type ChartCardDensity,
+  type ChartCardValueFormat,
   type DataTableColumn,
   type DataTableProps,
   type EmptyStateProps,
@@ -76,8 +104,22 @@ export {
   type OpsShellNavItem,
   type OpsShellProps,
   type PageHeaderProps,
+  type RiskQueueItem,
+  type RiskQueueProps,
+  type RiskSeverity,
   type StatCardProps,
 } from './ops';
+
+export {
+  MotionHeroItem,
+  MotionHover,
+  MotionPage,
+  MotionReveal,
+  MotionStagger,
+  MotionStaggerItem,
+} from './motion';
+
+export { formatDate, formatRelative, formatTime } from './lib/format';
 
 export { SkeletonComposer, getSkeleton, type SkeletonComposerProps, type SkeletonId, type SkeletonSlots } from './compose/SkeletonComposer';
 export {

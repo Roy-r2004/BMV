@@ -10,9 +10,23 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from pathlib import Path
 
 from app.core.config import settings
-from app.application.preview_app.workspace import write_file
+from app.application.preview_app.catalogue_contract import (
+    minimal_catalogue_page_scaffold,
+    validate_catalogue_page_content,
+)
+from app.application.preview_app.protected_paths import (
+    has_catalogue_routes,
+    is_template_owned_path,
+    safe_source_path,
+)
+from app.application.preview_app.workspace import (
+    write_file,
+    write_trusted_contained_file,
+)
 
 _TITLE_SPLIT_RE = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -29,8 +43,9 @@ _CHROME_TEMPLATE_PATHS = {
     "src/components/uiicons.tsx",
 }
 
-# Paths rewritten by write_safe_stub / stabilize — cleared by callers each run.
-_last_stubbed_paths: list[str] = []
+# Paths rewritten by write_safe_stub / stabilize, isolated per workspace.
+_stubbed_paths_by_workspace: dict[str, list[str]] = {}
+_stubbed_paths_lock = threading.RLock()
 
 # Invalid TS object literals emitted when `{{` was used with %-format (not f-strings).
 # Do NOT match valid JSX attribute objects like style={{ color: "red" }}.
@@ -52,17 +67,67 @@ _DOUBLE_BRACE_STAT_OBJECT_RE = re.compile(
 )
 
 
-def consume_stubbed_paths() -> list[str]:
-    """Return and clear paths stubbed since the last consume."""
-    global _last_stubbed_paths
-    out = list(dict.fromkeys(_last_stubbed_paths))
-    _last_stubbed_paths = []
+def _is_jsx_attribute_object(content: str, start: int) -> bool:
+    """Return True when ``{{`` starts an object-valued JSX attribute."""
+    line_start = content.rfind("\n", 0, start) + 1
+    line_prefix = content[line_start:start]
+    attribute_suffix = r"[A-Za-z_][\w:.-]*\s*=\s*$"
+    if re.fullmatch(rf"\s*{attribute_suffix}", line_prefix):
+        return True
+    return "<" in line_prefix and bool(re.search(rf"\b{attribute_suffix}", line_prefix))
+
+
+def _workspace_tracking_key(workspace) -> str:
+    return str(Path(workspace).resolve(strict=False)).casefold()
+
+
+def active_fallback_tracker_count() -> int:
+    with _stubbed_paths_lock:
+        return len(_stubbed_paths_by_workspace)
+
+
+def consume_stubbed_paths(workspace) -> list[str]:
+    """Return and clear paths stubbed for one workspace only."""
+    key = _workspace_tracking_key(workspace)
+    with _stubbed_paths_lock:
+        out = list(dict.fromkeys(_stubbed_paths_by_workspace.pop(key, [])))
     return out
 
 
-def clear_stubbed_paths() -> None:
-    global _last_stubbed_paths
-    _last_stubbed_paths = []
+def clear_stubbed_paths(workspace) -> None:
+    key = _workspace_tracking_key(workspace)
+    with _stubbed_paths_lock:
+        _stubbed_paths_by_workspace.pop(key, None)
+
+
+def record_stubbed_path(workspace, path: str) -> None:
+    """Record any deterministic page scaffold, regardless of which path created it."""
+    key = _workspace_tracking_key(workspace)
+    normalized = path.replace("\\", "/")
+    with _stubbed_paths_lock:
+        paths = _stubbed_paths_by_workspace.setdefault(key, [])
+        if normalized not in paths:
+            paths.append(normalized)
+
+
+def clear_stubbed_path(workspace, path: str) -> None:
+    """Remove tracking after a valid AI-authored rewrite replaces a scaffold."""
+    key = _workspace_tracking_key(workspace)
+    normalized = path.replace("\\", "/")
+    with _stubbed_paths_lock:
+        paths = _stubbed_paths_by_workspace.get(key, [])
+        remaining = [item for item in paths if item != normalized]
+        if remaining:
+            _stubbed_paths_by_workspace[key] = remaining
+        else:
+            _stubbed_paths_by_workspace.pop(key, None)
+
+
+def is_stubbed_path(workspace, path: str) -> bool:
+    key = _workspace_tracking_key(workspace)
+    normalized = path.replace("\\", "/")
+    with _stubbed_paths_lock:
+        return normalized in _stubbed_paths_by_workspace.get(key, [])
 
 
 def is_chrome_path(path: str) -> bool:
@@ -71,7 +136,12 @@ def is_chrome_path(path: str) -> bool:
 
 def find_double_brace_object_literals(content: str) -> list[str]:
     """Return snippets of invalid `{{ label: ... }}` / `{{ k: ... }}` object literals."""
-    return [m.group(0) for m in _DOUBLE_BRACE_OBJECT_START_RE.finditer(content or "")]
+    source = content or ""
+    return [
+        m.group(0)
+        for m in _DOUBLE_BRACE_OBJECT_START_RE.finditer(source)
+        if not _is_jsx_attribute_object(source, m.start())
+    ]
 
 
 def repair_double_brace_object_literals_in_text(content: str) -> tuple[str, int]:
@@ -82,6 +152,8 @@ def repair_double_brace_object_literals_in_text(content: str) -> tuple[str, int]
 
     def _row(m: re.Match[str]) -> str:
         nonlocal repaired
+        if _is_jsx_attribute_object(content, m.start()):
+            return m.group(0)
         repaired += 1
         return (
             f"{{ label: {m.group('label')}, "
@@ -91,6 +163,8 @@ def repair_double_brace_object_literals_in_text(content: str) -> tuple[str, int]
 
     def _stat(m: re.Match[str]) -> str:
         nonlocal repaired
+        if _is_jsx_attribute_object(content, m.start()):
+            return m.group(0)
         repaired += 1
         return f"{{ k: {m.group('k')}, v: {m.group('v')} }}"
 
@@ -108,7 +182,7 @@ def _assert_no_double_brace_object_literals(content: str, path: str = "<memory>"
         )
 
 
-def scan_and_repair_double_brace_literals(workspace) -> list[str]:
+def scan_and_repair_double_brace_literals(workspace, *, architect: dict | None = None) -> list[str]:
     """Scan workspace TS/TSX and repair invalid `{{ label: ... }}` object literals.
 
     Returns paths that were rewritten. Raises ValueError if suspicious double-brace
@@ -128,6 +202,17 @@ def scan_and_repair_double_brace_literals(workspace) -> list[str]:
             continue
         if not path.is_file():
             continue
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        if is_template_owned_path(rel, architect, workspace):
+            continue
+        if path.is_symlink():
+            write_trusted_contained_file(
+                workspace,
+                rel,
+                "// replaced unsafe source symlink\nexport {};\n",
+            )
+            repaired_paths.append(rel)
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except OSError:
@@ -135,9 +220,8 @@ def scan_and_repair_double_brace_literals(workspace) -> list[str]:
         if not find_double_brace_object_literals(text):
             continue
         fixed, n = repair_double_brace_object_literals_in_text(text)
-        rel = str(path.relative_to(root)).replace("\\", "/")
         if n and fixed != text:
-            path.write_text(fixed, encoding="utf-8")
+            write_trusted_contained_file(workspace, rel, fixed)
             repaired_paths.append(rel)
             text = fixed
         leftovers = find_double_brace_object_literals(text)
@@ -161,7 +245,9 @@ def write_template_fallback(workspace, path: str) -> bool:
     request. Returns False (caller should fall back to `write_safe_stub`) if
     no template source exists for the path.
     """
-    rel = path.replace("\\", "/")
+    rel = safe_source_path(path, workspace)
+    if not rel:
+        return False
     source = settings.PREVIEW_TEMPLATE_DIR / rel
     if not source.is_file():
         return False
@@ -289,6 +375,7 @@ def write_safe_stub(
     brand_name: str | None = None,
     industry: str | None = None,
     page_title: str | None = None,
+    route: dict | None = None,
 ) -> None:
     """Overwrite `path` with a minimal, guaranteed-compiling placeholder page.
 
@@ -297,6 +384,21 @@ def write_safe_stub(
     Copy is lightly industry-aware so stubs don't all look like the same cafe ops board.
     """
     global _last_stubbed_paths
+    if (route or {}).get("skeleton_id"):
+        content = minimal_catalogue_page_scaffold(
+            path,
+            route or {},
+            brand_name=brand_name,
+        )
+        errors = validate_catalogue_page_content(content, route or {})
+        if errors:
+            raise ValueError(
+                f"{path}: generated catalogue fallback violated contract: "
+                + ", ".join(errors)
+            )
+        write_file(workspace, path, content)
+        record_stubbed_path(workspace, path)
+        return
     component = _component_name(path)
     mock_prefix = _mock_import_prefix(path)
     title = _friendly_title(path, page_title)
@@ -373,7 +475,7 @@ export default function {component}() {{
 """
     _assert_no_double_brace_object_literals(content, path)
     write_file(workspace, path, content)
-    _last_stubbed_paths.append(path.replace("\\", "/"))
+    record_stubbed_path(workspace, path)
 
 
 def stabilize_all_route_pages(
@@ -396,6 +498,8 @@ def stabilize_all_route_pages(
         "src/components/UiIcons.tsx",
     ]
     for path in chrome:
+        if is_template_owned_path(path, architect):
+            continue
         if write_template_fallback(workspace, path):
             rewritten.append(path)
 
@@ -411,12 +515,13 @@ def stabilize_all_route_pages(
             brand_name=brand_name,
             industry=industry,
             page_title=rt.get("title"),
+            route=rt,
         )
         rewritten.append(path)
 
     # Always ensure a HomePage exists for the catch-all redirect.
     home = "src/pages/HomePage.tsx"
-    if home not in rewritten:
+    if not has_catalogue_routes(architect) and home not in rewritten:
         write_safe_stub(workspace, home, brand_name=brand_name, industry=industry, page_title="Home")
         rewritten.append(home)
     return rewritten

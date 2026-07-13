@@ -12,6 +12,13 @@ You are a ruthless senior product designer reviewing ONE page of a client-facing
 === FILE ({{ file_path }}) ===
 {{ current_content }}
 
+{% if catalogue_page %}
+=== ASSIGNED COMPACT CATALOGUE CONTRACT ===
+Surface: {{ surface }}
+Skeleton: {{ skeleton_id }}
+{{ skeleton_contract_json }}
+{% endif %}
+
 Score the page 0-100 on:
 - Did it implement EVERY section from the page plan (not missing, not stubbed)?
 - Visual richness and hierarchy for those specific sections
@@ -19,12 +26,16 @@ Score the page 0-100 on:
 - Imagery and spacing where the plan calls for them
 - How convincing it is as a LIVE product the business owner already uses (not a pitch)
 
-Return STRICT JSON only:
+Return STRICT JSON only. `score` must be an integer from 0 through 100; `verdict` must be exactly `"pass"` or `"revise"`; `issues` must be an array of strings; `revision_instructions` must be a string. Example shape:
 {
-  "score": <0-100>,
-  "verdict": "pass" | "revise",
-  "issues": ["specific problems vs the planned sections"],
-  "revision_instructions": "Precise direction: which planned sections are missing or weak, what UI/data to add. Empty string if verdict is pass."
+  "score": 72,
+  "verdict": "revise",
+  "issues": ["The assigned results section is missing."],
+  "revision_instructions": "Add the assigned results section with business-specific proof data."
 }
 
-Use verdict "revise" for anything under 88. Fail immediately if: emoji icons, hardcoded hex colors, Nav/header duplicated inside page, planned sections missing or replaced with unrelated generic blocks (e.g. random FAQ/testimonials not in the plan), placeholder/lorem content, thin stub pages ("fine-tuned", empty centered message), OR meta/demo speak in the UI ("We'll build", "interactive demo", "preview of", "showcase", "Start your plan", "View programs", pasting preview_features as marketing cards). Be specific — vague notes are useless.
+Use verdict "revise" for anything under 88.
+
+For catalogue pages, fail immediately for any contract breach: missing skeleton declaration/getSkeleton/SkeletonComposer; missing assigned slot or an invented slot; a non-@/ui visual UI import or deep `@/ui/*` import; legacy Nav/PublicLayout/AdminLayout/UiIcons; duplicate chrome or parallel nav/sidebar/header/footer outside the page-owned shell; or edits/substitutes for the immutable kit.
+
+For every page, fail immediately for: emoji icons; hardcoded color chaos (raw hex colors or multiple arbitrary color systems); planned sections missing; placeholder/lorem/"fine-tuned" content; wrong surface language (customer storefront copy on ops, admin/KPI language on public); unrelated generic blocks; or meta/demo speak. A flat public home made from repetitive feature cards fails. An ops page without concrete KPIs plus a populated chart or table fails. Be specific — vague notes are useless.

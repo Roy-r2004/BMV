@@ -7,6 +7,7 @@ Pipeline (no hardcoded UI — the model designs and writes everything):
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from datetime import datetime
@@ -22,9 +23,16 @@ from app.application.services.page_experience import (
     build_experience_plan,
     gather_full_context,
 )
+from app.application.ui_catalogue import (
+    compact_skeleton_contract,
+    infer_page_contract,
+    infer_section_slots,
+)
 from app.application.preview_app.assemble import find_missing_route_pages, find_unresolved_routes, write_app_tsx, write_index_css, write_plumbing_mock
+from app.application.preview_app.ai_budget import request_mutation_boundary
 from app.application.preview_app.build import extract_build_errors, run_build
 from app.application.preview_app.codegen import (
+    _bounded_json,
     call_architect,
     critique_and_refine,
     critique_file_visual,
@@ -35,16 +43,24 @@ from app.application.preview_app.codegen import (
     synthesize_mock_data,
 )
 from app.application.preview_app.fallback import (
+    clear_stubbed_path,
     clear_stubbed_paths,
     consume_stubbed_paths,
     find_broken_paths,
     is_chrome_path,
     scan_and_repair_double_brace_literals,
     stabilize_all_route_pages,
+    record_stubbed_path,
     write_safe_stub,
     write_template_fallback,
 )
 from app.application.preview_app.parallel import parallel_map, split_codegen_phases
+from app.application.preview_app.catalogue_contract import catalogue_route_for_file
+from app.application.preview_app.protected_paths import (
+    is_template_owned_path,
+    safe_generated_route_path,
+    safe_source_path,
+)
 from app.application.preview_app.safety import (
     _empty_seed_state_vars,
     apply_workspace_guards,
@@ -154,7 +170,7 @@ def _run_visual_critique(
             review = critique_file_visual(
                 workspace, component_file, str(shot_path),
                 spec.get("instructions", ""), full_context, design_direction,
-                ai_provider, template_renderer,
+                ai_provider, template_renderer, architect,
             )
         except Exception as e:
             print(f"    visual critic skip {component_file}: {e}", flush=True)
@@ -220,6 +236,7 @@ def _run_visual_critique(
             refine_file(
                 workspace, component_file, spec.get("instructions", ""), notes,
                 full_context, manifest, images, ai_provider, template_renderer,
+                architect,
             )
             return component_file
 
@@ -259,20 +276,32 @@ def _prioritize_for_file_cap(files: list[dict]) -> list[dict]:
 
 def _attach_plan_sections(files: list[dict], plan: dict, architect: dict | None = None) -> list[dict]:
     """Feed each page's plan spec (sections + features) into its codegen instructions."""
-    page_specs: dict[str, dict] = {}
+    page_specs: dict[tuple[str, str], dict] = {}
+    pages_by_id: dict[str, list[dict]] = {}
     path_to_page: dict[str, dict] = {}
     for role in plan.get("roles", []):
         for page in role.get("pages", []):
             pid = page.get("id", "")
             if pid:
                 enriched = {**page, "role_id": role.get("id"), "role_label": role.get("label")}
-                page_specs[pid] = enriched
+                key = (str(role.get("id") or ""), str(pid))
+                page_specs[key] = enriched
+                pages_by_id.setdefault(str(pid), []).append(enriched)
     if architect:
         for rt in architect.get("routes") or []:
-            pid = rt.get("page_id") or ""
+            pid = str(rt.get("page_id") or "")
+            role_id = str(rt.get("role_id") or "")
             cf = (rt.get("component_file") or "").replace("\\", "/")
-            if pid and pid in page_specs and cf:
-                path_to_page[cf.lower()] = page_specs[pid]
+            if cf:
+                page = page_specs.get((role_id, pid)) or {}
+                if not page and len(pages_by_id.get(pid, [])) == 1:
+                    page = pages_by_id[pid][0]
+                path_to_page[cf.lower()] = {
+                    **page,
+                    **rt,
+                    "role_id": rt.get("role_id") or page.get("role_id"),
+                    "role_label": page.get("role_label"),
+                }
 
     out: list[dict] = []
     for f in files:
@@ -280,32 +309,82 @@ def _attach_plan_sections(files: list[dict], plan: dict, architect: dict | None 
         fpath = (spec.get("path") or "").replace("\\", "/").lower()
         page = path_to_page.get(fpath)
         if not page:
-            for pid, pg in page_specs.items():
+            for pid, matches in pages_by_id.items():
+                if len(matches) != 1:
+                    continue
                 path = fpath.replace("-", "").replace("_", "")
                 if pid and pid.replace("-", "").replace("_", "") in path:
-                    page = pg
+                    page = matches[0]
                     break
         if page:
             sections = page.get("sections") or []
-            sec_text = json.dumps(sections[:20], ensure_ascii=False)[:4000]
+            sec_text = _bounded_json(sections[:20], 4000)
+            inferred = infer_page_contract(page)
+            skeleton_id = inferred["skeleton_id"]
+            section_slots = infer_section_slots(page, skeleton_id)
+            slot_briefs: dict[str, list] = {slot: [] for slot in section_slots}
+            contextual_briefs: list = []
+            for section in sections[:20]:
+                section_name = (
+                    section.get("name") or section.get("id") or section.get("title") or ""
+                    if isinstance(section, dict)
+                    else str(section)
+                )
+                normalized_name = re.sub(r"[^a-z0-9]+", "", str(section_name).lower())
+                matched_slot = next(
+                    (
+                        slot for slot in section_slots
+                        if re.sub(r"[^a-z0-9]+", "", slot.lower()) in normalized_name
+                        or normalized_name in re.sub(r"[^a-z0-9]+", "", slot.lower())
+                    ),
+                    None,
+                )
+                if matched_slot:
+                    slot_briefs[matched_slot].append(section)
+                else:
+                    contextual_briefs.append(section)
+            mapped_sections_text = _bounded_json(
+                {
+                    "assigned_slots": [
+                        {
+                            "slot": slot,
+                            "plan_briefs": slot_briefs[slot],
+                            "required_without_legacy_name_match": not bool(slot_briefs[slot]),
+                        }
+                        for slot in section_slots
+                    ],
+                    "contextual_legacy_briefs": contextual_briefs,
+                },
+                4000,
+            )
+            skeleton_contract = compact_skeleton_contract(skeleton_id, section_slots)
+            contract_text = json.dumps(
+                skeleton_contract,
+                ensure_ascii=False,
+                separators=(", ", ": "),
+            )
             spec["instructions"] = (
                 f"{spec.get('instructions', '')}\n\n"
                 f"Role: {page.get('role_label') or page.get('role_id', '')}\n"
                 f"Page: {page.get('title')} — {page.get('purpose', '')}\n"
-                f"Sections to implement (build EVERY one — do not add sections not listed here):\n{sec_text}\n"
+                "Assigned skeleton slots are authoritative: implement every assigned slot, "
+                "including required skeleton slots without a direct legacy section-name match. "
+                "Use the legacy plan sections as content briefs mapped into those slots; they "
+                "do not restrict or remove required slots.\n"
+                f"Mapped slot briefs:\n{mapped_sections_text}\n"
+                f"Original legacy section briefs (context only):\n{sec_text}\n"
                 f"Features to showcase: {', '.join(page.get('features_to_showcase', []))}\n"
-                f"Sample data notes: {page.get('sample_data_notes', '')}"
+                f"Sample data notes: {page.get('sample_data_notes', '')}\n"
+                f"Skeleton/slot contract (use only these catalogue components and props):\n"
+                f"{contract_text}"
             )
         out.append(spec)
     return out
 
 
 def _files_from_plan(architect: dict) -> list[dict]:
-    """If the architect didn't return a file list, derive it from its routes."""
-    files: list[dict] = [
-        {"path": "src/index.css", "kind": "theme",
-         "instructions": "Tailwind v4 @theme with brand colors + font from the design system"},
-    ]
+    """Derive only AI-owned route pages and explicit shared components."""
+    files: list[dict] = []
     for route in architect.get("routes", []):
         comp = route.get("component_file")
         if comp:
@@ -321,19 +400,11 @@ def _files_from_plan(architect: dict) -> list[dict]:
                 "kind": comp.get("kind", "component"),
                 "instructions": comp.get("instructions", ""),
             })
-    files.append({
-        "path": "src/App.tsx",
-        "kind": "router",
-        "instructions": "React Router wiring every route from the plan; keep RouteBridge + RoleBridge",
-    })
     return files
 
 
-# Nav/Layout/icon-set were previously excluded from generation entirely and
-# copied verbatim from the static template for every business. They're now
-# AI-authored per brand (contracts enforced in codegen.py's _CHROME_CONTRACTS
-# and reverted-to-template on repeated build failure — see fallback.py), so
-# every architect run must always plan them, even if the model forgets to.
+# Legacy stored previews can still depend on these layout files. Catalogue
+# pages own their shell and must never schedule AI-authored legacy chrome.
 _CHROME_DEFAULTS: dict[str, tuple[str, str]] = {
     "src/components/Nav.tsx": (
         "component",
@@ -357,33 +428,98 @@ _CHROME_DEFAULTS: dict[str, tuple[str, str]] = {
     ),
 }
 
+_LEGACY_CHROME_PATHS = {
+    "src/components/nav.tsx",
+    "src/layouts/publiclayout.tsx",
+    "src/layouts/adminlayout.tsx",
+    "src/components/uiicons.tsx",
+}
+
 
 def _normalize_architect(architect: dict, plan: dict) -> dict:
+    plan_pages: dict[tuple[str, str], dict] = {}
+    pages_by_id: dict[str, list[dict]] = {}
+    for role in plan.get("roles") or []:
+        for page in role.get("pages") or []:
+            if page.get("id"):
+                role_id = str(role.get("id") or "")
+                page_id = str(page["id"])
+                plan_pages[(role_id, page_id)] = page
+                pages_by_id.setdefault(page_id, []).append(page)
+
+    for route_index, route in enumerate(architect.get("routes") or []):
+        component_file = safe_generated_route_path(
+            route.get("component_file", ""),
+            architect,
+        )
+        if not component_file:
+            raw_name = str(
+                route.get("page_id")
+                or route.get("title")
+                or f"route-{route_index + 1}"
+            )
+            stem = "".join(
+                part[:1].upper() + part[1:]
+                for part in re.findall(r"[A-Za-z0-9]+", raw_name)
+            ) or f"Route{route_index + 1}"
+            component_file = f"src/pages/{stem}Page.tsx"
+        route["component_file"] = component_file
+        page_id = str(route.get("page_id") or "")
+        role_id = str(route.get("role_id") or "")
+        page = plan_pages.get((role_id, page_id)) or {}
+        if not page and len(pages_by_id.get(page_id, [])) == 1:
+            page = pages_by_id[page_id][0]
+        source = {**page, **route}
+        inferred = infer_page_contract(source)
+        route["surface"] = inferred["surface"]
+        route["skeleton_id"] = inferred["skeleton_id"]
+        route["section_slots"] = infer_section_slots(
+            source,
+            inferred["skeleton_id"],
+        )
+
     files = architect.get("files_to_generate") or []
     if not files:
         files = _files_from_plan(architect)
+    safe_files: list[dict] = []
+    for file_spec in files:
+        safe_path = safe_source_path(file_spec.get("path", ""))
+        if not safe_path or is_template_owned_path(safe_path, architect):
+            continue
+        safe_files.append({**file_spec, "path": safe_path})
+    files = safe_files
+    catalogue_routes = any(route.get("skeleton_id") for route in architect.get("routes") or [])
+    if catalogue_routes:
+        files = [
+            file_spec
+            for file_spec in files
+            if (file_spec.get("path") or "").replace("\\", "/").lower()
+            not in _LEGACY_CHROME_PATHS
+        ]
 
-    # Merge shared_components (Nav, layouts, icon set) into the same generation
-    # list — the architect prompt plans them as a separate field, but everything
-    # needs to flow through the one AI-authored files_to_generate pipeline.
     existing_paths = {(f.get("path") or "").lower().replace("\\", "/") for f in files}
     for comp in architect.get("shared_components") or []:
-        cp = (comp.get("path") or "").lower().replace("\\", "/")
-        if cp and cp not in existing_paths:
+        safe_path = safe_source_path(comp.get("path", ""))
+        cp = (safe_path or "").lower()
+        if (
+            cp
+            and cp not in existing_paths
+            and not is_template_owned_path(cp, architect)
+            and not (catalogue_routes and cp in _LEGACY_CHROME_PATHS)
+        ):
             files.append({
-                "path": comp["path"],
+                "path": safe_path,
                 "kind": comp.get("kind", "component"),
                 "instructions": comp.get("instructions", ""),
             })
             existing_paths.add(cp)
 
-    # Guarantee the shared chrome always gets AI-authored, even if the
-    # architect's own plan omitted it.
-    for path, (kind, instr) in _CHROME_DEFAULTS.items():
-        norm = path.lower()
-        if norm not in existing_paths:
-            files.append({"path": path, "kind": kind, "instructions": instr})
-            existing_paths.add(norm)
+    if not catalogue_routes:
+        for path, (kind, instr) in _CHROME_DEFAULTS.items():
+            norm = path.lower()
+            if norm not in existing_paths and not is_template_owned_path(path, architect):
+                files.append({"path": path, "kind": kind, "instructions": instr})
+                existing_paths.add(norm)
 
     # Guarantee every route has a matching file entry — no page ever skipped
     for route in architect.get("routes", []):
@@ -417,6 +553,7 @@ def _normalize_architect(architect: dict, plan: dict) -> dict:
     return architect
 
 
+@request_mutation_boundary
 def generate_preview_app(
     db: Session,
     request_id: int,
@@ -484,15 +621,12 @@ def generate_preview_app(
     write_plumbing_mock(workspace, architect, images, brand_name, primary, secondary)
     print("    plumbing mock (brand, roles, nav) ready", flush=True)
 
-    # App.tsx/index.css/mock.ts stay assembler-owned (routing + theme wiring +
-    # data plumbing are deterministic). Nav/Layouts/UiIcons are NOT skipped
-    # anymore — they're AI-authored per brand now (see _CHROME_DEFAULTS above
-    # and _CHROME_CONTRACTS in codegen.py), with a template-revert safety net
-    # in the final build-stabilization step below if they keep breaking.
+    # Router/theme/data and the catalogue kit are template/assembler-owned.
     _skip = {"src/app.tsx", "src/index.css", "src/data/mock.ts"}
     all_files = [
         f for f in architect.get("files_to_generate", [])
         if (f.get("path") or "").lower().replace("\\", "/") not in _skip
+        and not is_template_owned_path(f.get("path", ""), architect)
     ]
     prioritized = _prioritize_for_file_cap(all_files)
     capped = prioritized[: settings.PREVIEW_MAX_FILES]
@@ -511,7 +645,7 @@ def generate_preview_app(
             detail=f"Skipped {len(skipped_files)}: {', '.join(skip_paths[:5])}",
         )
     files_to_gen = _sort_gen_order(capped)
-    clear_stubbed_paths()
+    clear_stubbed_paths(workspace)
     industry = req.industry or ""
     total_files = len(files_to_gen)
     workers = settings.PREVIEW_PARALLEL_WORKERS
@@ -752,6 +886,7 @@ def generate_preview_app(
                     brand_name=brand_name,
                     industry=industry,
                     page_title=rt.get("title"),
+                    route=rt,
                 )
                 print(f"    stubbed unresolved route page: {cf}", flush=True)
         still = find_unresolved_routes(workspace, architect)
@@ -816,6 +951,7 @@ def generate_preview_app(
             refined = critique_and_refine(
                 workspace, files_to_gen, full_context, design_direction, manifest, images,
                 ai_provider, template_renderer, on_progress=_critic_heartbeat,
+                architect=architect,
             )
             print(f"    refined {len(refined)} page(s)", flush=True)
             _emit(db, request_id, "critic",
@@ -887,7 +1023,10 @@ def generate_preview_app(
         if actions:
             print(f"    guards: {', '.join(actions[:8])}{'...' if len(actions) > 8 else ''}", flush=True)
         try:
-            scrubbed = scan_and_repair_double_brace_literals(workspace)
+            scrubbed = scan_and_repair_double_brace_literals(
+                workspace,
+                architect=architect,
+            )
             if scrubbed:
                 print(
                     f"    double-brace scrub: {', '.join(scrubbed[:8])}"
@@ -1005,11 +1144,18 @@ def generate_preview_app(
                   detail="Last-resort compile-safe content after AI retries")
             print(f"    stabilizing {len(broken)} page(s): {', '.join(broken)}", flush=True)
             for path in broken:
+                route = catalogue_route_for_file(path, architect)
                 if is_chrome_path(path):
                     if not write_template_fallback(workspace, path):
-                        write_safe_stub(workspace, path, brand_name=brand_name, industry=industry)
+                        write_safe_stub(
+                            workspace, path, brand_name=brand_name, industry=industry,
+                            route=route,
+                        )
                 else:
-                    write_safe_stub(workspace, path, brand_name=brand_name, industry=industry)
+                    write_safe_stub(
+                        workspace, path, brand_name=brand_name, industry=industry,
+                        route=route,
+                    )
             _pre_build_fixups()
             ok, build_log = run_build(workspace, base_path, template_renderer)
             if ok:
@@ -1062,6 +1208,14 @@ def generate_preview_app(
     accent = design_system.get("primary_color") or manifest.get("accent") or primary
     architect_roles = architect.get("roles") or []
     route_list = architect.get("routes") or []
+    for route in route_list:
+        component_file = (route.get("component_file") or "").replace("\\", "/")
+        if not component_file or not route.get("skeleton_id"):
+            continue
+        if "deterministic catalogue contract scaffold" in read_file(workspace, component_file):
+            record_stubbed_path(workspace, component_file)
+        else:
+            clear_stubbed_path(workspace, component_file)
 
     def _default_path(role_id: str) -> str:
         for rt in route_list:
@@ -1099,7 +1253,7 @@ def generate_preview_app(
             "roles": roles_out,
             "routes": route_list,
             "design_direction": architect.get("design_direction", ""),
-            "fallback_pages": consume_stubbed_paths(),
+            "fallback_pages": consume_stubbed_paths(workspace),
         },
         "experience_plan": plan,
     }

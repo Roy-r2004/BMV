@@ -9,11 +9,27 @@ Fix the React preview app build errors.
 === ARCHITECT PLAN ===
 {{ architect_json }}
 
+{% if catalogue_mode %}
+=== CATALOGUE PAGE CONTRACTS ===
+{{ catalogue_routes_json }}
+{% endif %}
+
 === FILES (current content) ===
 {{ files_content }}
 
 Fix ONLY what is needed to make `vite build` succeed. Follow these rules strictly:
+{% if catalogue_mode %}
+- Files under `src/ui/` and `src/components/UiIcons.tsx` are template-owned. NEVER return edits for them.
+- The `@/ui` kit and catalogue contract are immutable; never create, edit, replace, or bypass kit modules.
+- For every catalogue page listed above, its assigned surface, skeleton id, page-owned shell, and section slot keys are authoritative. Recreate `getSkeleton` and `SkeletonComposer` exactly when current code is invalid.
+- Replace invalid legacy imports or unaligned freeform sections; never preserve them over the assigned contract.
+- Catalogue pages import all visual UI exclusively from `@/ui`. Other page imports are limited to React, router APIs, and `@/data/mock`.
+- Never replace catalogue components with inline substitutes and never add direct third-party UI imports.
+- Never regress to Nav, PublicLayout, AdminLayout, UiIcons, deep `@/ui/*` imports, duplicate chrome, or invented slot IDs.
+- Fix existing imports or page code only. Do not add dependencies or create missing kit modules.
+{% else %}
 - For an UNRESOLVED_IMPORT or MISSING_EXPORT from ANY npm package (e.g. `lucide-react`, `@mantine/*`, `@mui/*`, `antd`, `react-icons`, `recharts`, `chart.js`) or an invented local module (`../lib/*`, `../hooks/*`, `../utils/*`): DELETE that import and inline the logic. Replace icons with inline SVG or `UiIcon` from `../components/UiIcons` — NEVER emoji. The ONLY allowed imports are `react`, `react-router-dom`, `../data/mock` (or `@/data/mock`), `../components/UiIcons`, and existing local files. Do NOT add dependencies or create missing modules.
+{% endif %}
 - For an import of a page/component that doesn't match a real file (e.g. importing `HomePage` when the file is `Home.tsx`): fix the IMPORT to point to the real existing file. Do NOT create a duplicate file.
 - Only import names that mock.ts actually exports; if missing, add the export to mock.ts.
 - Do NOT create new files unless a real, referenced file is genuinely absent from the file tree above.

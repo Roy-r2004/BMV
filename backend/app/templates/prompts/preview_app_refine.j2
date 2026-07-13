@@ -1,4 +1,4 @@
-You are a senior React + Tailwind developer. Rewrite this file to fully address the design critic's notes and implement every section from the page plan. Keep the same imports/exports contract (only import names that exist in mock.ts).
+You are a senior React + Tailwind developer. Rewrite this file to fully address the design critic's notes. For catalogue pages, the assigned skeleton and section_slots are authoritative: map business-specific plan briefs into those slots, and replace any invalid legacy imports or freeform section structure.
 
 === BUSINESS CONTEXT ===
 {{ full_context }}
@@ -15,15 +15,38 @@ You are a senior React + Tailwind developer. Rewrite this file to fully address 
 === CRITIC NOTES (address ALL of these) ===
 {{ critic_notes }}
 
+{% if catalogue_page %}
+=== MATCHED COMPACT SKELETON CONTRACT ===
+Assigned skeleton: {{ skeleton_id }}
+{{ catalogue_contract_json }}
+
+CATALOGUE PAGE CONTRACT:
+- Import page UI exclusively from `@/ui`; other imports are limited to React, router APIs, and `@/data/mock`.
+- Recreate exactly `const SKELETON_ID = '{{ skeleton_id }}' as const`, `getSkeleton(SKELETON_ID)`, every assigned section slot key, and `SkeletonComposer`, even when the current file is invalid.
+- Keep `{{ shell_component }}` as the page-owned shell. App.tsx does not wrap this route.
+- The template-owned UI kit and matched compact contract are immutable. Never edit or bypass them and never substitute direct package imports or hand-drawn UI.
+- Never regress to Nav, PublicLayout, AdminLayout, UiIcons, deep `@/ui/*` imports, invented slots, or duplicate/parallel chrome.
+{% endif %}
+
 === CURRENT FILE ({{ file_path }}) — REWRITE COMPLETELY ===
 {{ current_content }}
 
 RULES:
 - React 19 + TypeScript, Tailwind utility classes only, text-brand/bg-brand for accents
+{% if catalogue_page %}
+- Treat freeform page-plan sections as content briefs only. They never override, remove, or add keys beyond the assigned section_slots.
+- Replace invalid legacy imports; do not preserve them. The authoritative import contract is `@/ui` plus only the explicitly allowed non-UI sources below.
+{% else %}
 - Build ONLY the sections described in the page plan — do not add generic marketing blocks the plan did not request
+{% endif %}
 - Replace any generic data with realistic business-specific content from the plan
 - Use the provided Unsplash URLs in <img> with object-cover where imagery is needed
+{% if catalogue_page %}
+- Use only the components and props in the matched compact contract, imported through `@/ui`
+- The only non-UI import sources allowed are `react`, `react-router-dom`, and `@/data/mock`
+{% else %}
 - IMPORTS ALLOW-LIST: ONLY `react`, `react-router-dom`, `../data/mock`, `../components/UiIcons`, and local files listed in EXISTING FILES. NEVER import npm packages or invented modules. Icons = UiIcon or inline SVG — NEVER emoji.
 - Do NOT wrap in AdminLayout/PublicLayout (App.tsx applies layouts)
+{% endif %}
 - PRODUCT IMMERSION: rewrite any meta/demo speak into live brand copy. The page must feel like the finished product the owner uses — dense, specific, interactive-looking. No stubs, no "fine-tuned", no BMV pitch language.
 - Output ONLY the complete rewritten file — no markdown fences, no commentary

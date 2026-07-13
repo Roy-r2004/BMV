@@ -4,7 +4,7 @@ import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/AdminLayout';
 import HomePage from './pages/HomePage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
-import { notifyParent, setupPreviewBridge } from './lib/preview-bridge';
+import { notifyParent, registerPreviewNavigate, setupPreviewBridge } from './lib/preview-bridge';
 import { roles } from './data/mock';
 
 const PublicReferencePage = lazy(() => import('./ui/examples/PublicReferencePage'));
@@ -21,6 +21,7 @@ function RouteBridge() {
 function RoleBridge() {
   const navigate = useNavigate();
   useEffect(() => {
+    registerPreviewNavigate((path) => navigate(path));
     setupPreviewBridge((roleId, path) => {
       if (path) {
         navigate(path);

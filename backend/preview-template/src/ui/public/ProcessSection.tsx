@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { MotionReveal, MotionStagger, MotionStaggerItem } from '../motion';
 import { cn } from '../lib/cn';
 
 export interface ProcessStep {
@@ -16,23 +17,27 @@ export interface ProcessSectionProps {
 
 export function ProcessSection({ className, description, heading, steps }: ProcessSectionProps) {
   return (
-    <section className={cn('px-6 py-24 lg:px-10 lg:py-28', className)}>
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="max-w-2xl">
-          <h2 className="font-display text-[clamp(2.25rem,4vw,3.4rem)] leading-[1.05] tracking-[-0.03em] text-foreground">
+    <section className={cn('px-6 py-28 lg:px-12 lg:py-36', className)}>
+      <div className="mx-auto w-full max-w-[92rem]">
+        <MotionReveal className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <h2 className="font-display text-[clamp(3rem,6vw,5.5rem)] italic leading-[0.92] tracking-[-0.04em] text-foreground">
             {heading}
           </h2>
-          {description ? <p className="mt-5 text-base leading-7 text-muted sm:text-lg">{description}</p> : null}
-        </div>
-        <ol className="mt-14 grid gap-8 md:grid-cols-3 md:gap-6">
+          {description ? <p className="max-w-md text-base leading-8 text-muted lg:justify-self-end">{description}</p> : null}
+        </MotionReveal>
+        <MotionStagger className="mt-16 border-t border-foreground/12" role="list">
           {steps.map((step, index) => (
-            <li key={step.title} className="relative rounded-[1.5rem] border border-border-subtle bg-card p-7 shadow-[var(--shadow-ui)]">
-              <p className="font-display text-5xl leading-none text-brand/35">{String(index + 1).padStart(2, '0')}</p>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-foreground">{step.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-muted">{step.description}</p>
-            </li>
+            <MotionStaggerItem key={step.title} role="listitem">
+              <div className="grid gap-4 border-b border-foreground/12 py-10 md:grid-cols-[7rem_1fr_1.3fr] md:items-baseline md:gap-10">
+                <p className="font-display text-5xl italic leading-none text-brand/40">
+                  {String(index + 1).padStart(2, '0')}
+                </p>
+                <h3 className="font-display text-3xl italic tracking-tight text-foreground">{step.title}</h3>
+                <p className="text-base leading-8 text-muted">{step.description}</p>
+              </div>
+            </MotionStaggerItem>
           ))}
-        </ol>
+        </MotionStagger>
       </div>
     </section>
   );

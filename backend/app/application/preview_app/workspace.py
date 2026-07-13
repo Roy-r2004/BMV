@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from pathlib import PureWindowsPath
 
 from app.core.config import settings
 
@@ -47,14 +48,98 @@ def prepare_workspace(request_id: int) -> Path:
     return workspace
 
 
+def _safe_workspace_target(
+    workspace: Path,
+    rel_path: str,
+    *,
+    source_only: bool,
+    replace_target_symlink: bool = False,
+) -> Path:
+    raw = str(rel_path or "")
+    normalized = raw.replace("\\", "/")
+    parts = tuple(part for part in normalized.split("/") if part not in {"", "."})
+    if (
+        not raw
+        or Path(raw).is_absolute()
+        or PureWindowsPath(raw).is_absolute()
+        or normalized.startswith("/")
+        or ".." in parts
+    ):
+        raise ValueError(f"Unsafe workspace path: {rel_path}")
+    if source_only and (not parts or parts[0] != "src" or len(parts) < 2):
+        raise ValueError(f"Generated source writes must stay under src/: {rel_path}")
+
+    root = Path(workspace).resolve()
+    target = root.joinpath(*parts)
+    allowed_root = root / "src" if source_only else root
+    resolved_parent = target.parent.resolve(strict=False)
+    try:
+        resolved_parent.relative_to(allowed_root)
+    except ValueError as exc:
+        raise ValueError(f"Workspace parent escapes allowed root: {rel_path}") from exc
+    if target.is_symlink():
+        if not replace_target_symlink:
+            raise ValueError(f"Workspace path targets a symlink: {rel_path}")
+        target.unlink()
+    elif target.exists():
+        try:
+            target.resolve().relative_to(allowed_root)
+        except ValueError as exc:
+            raise ValueError(f"Workspace path escapes allowed root: {rel_path}") from exc
+    return target
+
+
 def write_file(workspace: Path, rel_path: str, content: str) -> None:
-    target = workspace / rel_path.replace("\\", "/")
+    """Write generated source only, rejecting absolute, traversal, and symlink escapes."""
+    write_trusted_contained_file(workspace, rel_path, content)
+
+
+def write_trusted_workspace_file(workspace: Path, rel_path: str, content: str) -> None:
+    """Explicit trusted API for repository-root workspace files such as package.json."""
+    target = _safe_workspace_target(
+        workspace,
+        rel_path,
+        source_only=False,
+        replace_target_symlink=True,
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
+    target = _safe_workspace_target(
+        workspace,
+        rel_path,
+        source_only=False,
+        replace_target_symlink=True,
+    )
     target.write_text(content, encoding="utf-8")
 
 
+def write_trusted_contained_file(
+    workspace: Path,
+    rel_path: str,
+    content: str | bytes,
+) -> None:
+    """Write trusted source bytes/text while replacing only the final symlink entry."""
+    target = _safe_workspace_target(
+        workspace,
+        rel_path,
+        source_only=True,
+        replace_target_symlink=True,
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Re-check after mkdir to close a missing-parent path gap.
+    target = _safe_workspace_target(
+        workspace,
+        rel_path,
+        source_only=True,
+        replace_target_symlink=True,
+    )
+    if isinstance(content, bytes):
+        target.write_bytes(content)
+    else:
+        target.write_text(content, encoding="utf-8")
+
+
 def read_file(workspace: Path, rel_path: str) -> str:
-    target = workspace / rel_path.replace("\\", "/")
+    target = _safe_workspace_target(workspace, rel_path, source_only=True)
     return target.read_text(encoding="utf-8") if target.is_file() else ""
 
 

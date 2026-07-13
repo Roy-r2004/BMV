@@ -1,9 +1,31 @@
 @import "tailwindcss";
 
 @theme {
+  --color-background: color-mix(in srgb, {{ primary }} 4%, white);
+  --color-foreground: color-mix(in srgb, {{ primary }} 32%, black);
+  --color-muted: color-mix(in srgb, {{ primary }} 30%, #64748b);
+  --color-card: white;
+  --color-border-subtle: color-mix(in srgb, {{ primary }} 16%, #e2e8f0);
   --color-brand: {{ primary }};
   --color-brand-dark: {{ secondary }};
+  --color-accent: {{ secondary }};
+  --color-ring: {{ primary }};
+  --color-chart: {{ secondary }};
   --font-sans: {{ font_family }};
+  --font-display: {{ font_family }};
+  --radius-ui: 0.75rem;
+  --shadow-ui: 0 24px 50px -36px color-mix(in srgb, {{ primary }} 35%, transparent);
+  --glow-atmosphere: color-mix(in srgb, {{ primary }} 12%, transparent);
+  --treatment-light: {{ primary }};
 }
 
-body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+@layer base {
+  :root { color: var(--color-foreground); background: var(--color-background); }
+  body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  html { scroll-behavior: smooth; }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+}
+
+.ui-treatment-light {
+  background: linear-gradient(180deg, transparent 0%, var(--treatment-light) 22%, var(--treatment-light) 78%, transparent 100%);
+}

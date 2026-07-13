@@ -28,11 +28,17 @@ RULES:
 - Plain data module — NO imports
 - Export EVERY symbol in REQUIRED EXPORTS with rich, realistic data for THIS business
 - Choose data shapes that match how each page uses them (tables need 8+ rows, charts need numeric series, etc.)
+- Match the immutable catalogue component shapes visible in IMPORT CONTEXT:
+  - ChartCard data: a business-specific series of `{ label, value }` numeric points with enough periods to show a real trend
+  - DataTable data: 8–12 records with stable ids plus the exact typed fields used by page columns, including realistic names, times, statuses, owners, and amounts/counts
+  - BookingPanel data: selectable business-specific services/resources, available dates/time slots, durations, capacity or party size, customer details, and a realistic selected/default booking state
+  - Public proof components such as ResultRail, TestimonialRail, CredentialStrip, or LogoMarquee: named customers/results/credentials with concrete outcomes, quotes, roles, before/after image references when used, and no anonymous filler
 - Derive content from the experience plan and business context — NOT a generic spa/salon template
 - Do NOT export symbols nobody imports
 - roles and navigation must match architect routes
 - brand.name and images.* must be populated
 - NO placeholder comments, NO "Service 1", NO empty arrays for required exports
 - Data must feel like a busy real business day: named customers, concrete menu/service items, statuses (Ready, Seated, Preparing), times, staff initials, order/reservation IDs. Prefer 10–20 items for catalogs and 8–12 rows for ops lists.
+- Preserve each importing page's exact expected property names and value types; do not force unrelated businesses into restaurant or salon terminology
 - Navigation labels and role labels must be in-product language (Menu, Orders, Reservations) — never "Preview", "Demo", or pitch wording
 - Output ONLY the complete mock.ts file — no markdown fences

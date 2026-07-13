@@ -7,3 +7,4 @@ export { Card, type CardProps } from './Card';
 export { Badge, type BadgeProps } from './Badge';
 export { Tooltip, type TooltipProps } from './Tooltip';
 export { Table, type TableProps, type TableColumn } from './Table';
+export { ToastHost, toast, type ToastOptions, type ToastTone } from './Toast';

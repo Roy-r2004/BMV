@@ -6,6 +6,11 @@ import json
 from typing import Any
 
 from app.application.prompts import PromptTemplate
+from app.application.ui_catalogue import (
+    compact_catalogue_plan_contract,
+    infer_page_contract,
+    infer_section_slots,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -107,6 +112,9 @@ def _call_planner(
         secondary_color=secondary,
         concept_name=req.concept_name or req.business_name,
         industry=req.industry or "general business",
+        catalogue_contract_json=json.dumps(
+            compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
+        ),
     )
     raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
     plan = _parse_json_from_response(raw)
@@ -203,6 +211,9 @@ def _expand_plan(
         preview_features="\n".join(f"- {f}" for f in features) if features else "- all blueprint features",
         mvp_blueprint=(req.mvp_blueprint or "")[:8000],
         full_context=full_context[:8000],
+        catalogue_contract_json=json.dumps(
+            compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
+        ),
     )
     for model in (settings.ARCHITECT_MODEL, settings.TEXT_MODEL):
         try:
@@ -232,6 +243,9 @@ def validate_and_expand_plan(
         plan_json=json.dumps(plan, ensure_ascii=False)[:12000],
         preview_features="\n".join(f"- {f}" for f in features) if features else "- all blueprint features",
         mvp_blueprint=(req.mvp_blueprint or "")[:8000],
+        catalogue_contract_json=json.dumps(
+            compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
+        ),
     )
     for model in (settings.ARCHITECT_MODEL, settings.TEXT_MODEL):
         try:
@@ -373,5 +387,14 @@ def _normalize_plan(plan: dict, primary: str, secondary: str) -> dict:
             page.setdefault("features_to_showcase", [])
             page.setdefault("layout_notes", "")
             page.setdefault("sample_data_notes", "")
+            inference_source = {
+                **page,
+                "role_id": role.get("id"),
+                "role_label": role.get("label"),
+            }
+            inferred = infer_page_contract(inference_source)
+            page["surface"] = inferred["surface"]
+            page["skeleton_id"] = inferred["skeleton_id"]
+            page["section_slots"] = infer_section_slots(page, page["skeleton_id"])
 
     return plan

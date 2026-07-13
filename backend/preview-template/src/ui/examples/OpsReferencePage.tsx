@@ -7,20 +7,25 @@ import {
   DataTable,
   Dialog,
   FilterBar,
+  MotionPage,
   OpsShell,
   PageHeader,
+  RiskQueue,
   SkeletonComposer,
   StatCard,
+  ToastHost,
   getSkeleton,
+  toast,
 } from '@/ui';
 
 const SKELETON_ID = 'ops-dashboard' as const;
 
-/** Reference ops dashboard — structure driven by skeleton registry. */
+/** Reference ops dashboard — risk-first glance + row drill. */
 export default function OpsReferencePage() {
   const skeleton = getSkeleton(SKELETON_ID);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | 'confirmed' | 'risk'>('all');
+  const [selected, setSelected] = useState<Record<string, string> | null>(null);
 
   const rows = useMemo(
     () =>
@@ -55,22 +60,64 @@ export default function OpsReferencePage() {
         <PageHeader
           title="Today on the floor"
           description="Live bookings, chair utilization, and risk flags for all three studios."
-          actions={<Button size="sm" variant="secondary">Refresh</Button>}
+          actions={
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => toast.success('Floor refreshed', 'Bookings and risk flags are up to date.')}
+            >
+              Refresh
+            </Button>
+          }
         />
       ),
       kpis: (
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-4 rounded-[var(--radius-ui)] border border-border-subtle bg-card px-5 py-4 sm:grid-cols-3 sm:gap-0">
           <StatCard label="Bookings today" value="28" delta="+12%" hint="vs last Monday" />
-          <StatCard label="Utilization" value="81%" delta="+4%" hint="Chair hours filled" />
-          <StatCard label="No-show risk" value="3" hint="Needs confirmation SMS" />
+          <StatCard label="Utilization" value="81%" delta="+4%" hint="Chair hours filled" className="sm:pl-5" />
+          <StatCard label="No-show risk" value="3" hint="Needs confirmation SMS" className="sm:pl-5" />
+        </div>
+      ),
+      risk: (
+        <div className="mt-4">
+          <RiskQueue
+            heading="Needs attention"
+            items={[
+              {
+                id: 'r1',
+                title: 'Chris L. · Hydrafacial 13:30',
+                detail: 'No confirmation in 41 minutes. Chair B1 still held.',
+                severity: 'high',
+                actionLabel: 'Send SMS',
+              },
+              {
+                id: 'r2',
+                title: 'Elena V. · Membership 11:15',
+                detail: 'Pending SMS — reminder queued but not acknowledged.',
+                severity: 'medium',
+                actionLabel: 'Resend',
+              },
+              {
+                id: 'r3',
+                title: 'Owen D. · Membership 16:30',
+                detail: 'Second reminder window opens in 90 minutes.',
+                severity: 'low',
+                actionLabel: 'Watch',
+              },
+            ]}
+            onAction={(id) => toast.success('Action queued', `Risk item ${id} handed to floor SMS.`)}
+          />
         </div>
       ),
       chart: (
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1.5fr_0.9fr]">
           <ChartCard
             title="Weekly bookings"
             description="Confirmed appointments across studios"
+            insight="Friday is pacing +27% vs last week — protect two overflow chairs after 15:00."
             type="area"
+            adjustable
+            valueFormat="compact"
             xKey="day"
             dataKey="bookings"
             data={[
@@ -82,52 +129,6 @@ export default function OpsReferencePage() {
               { day: 'Sat', bookings: 16 },
             ]}
           />
-          <ChartCard
-            title="Revenue by treatment"
-            description="This week’s closed revenue"
-            type="bar"
-            xKey="name"
-            dataKey="revenue"
-            data={[
-              { name: 'Facial', revenue: 4200 },
-              { name: 'Injectables', revenue: 6100 },
-              { name: 'Laser', revenue: 3800 },
-              { name: 'Membership', revenue: 2500 },
-            ]}
-          />
-        </div>
-      ),
-      filters: (
-        <div className="mt-6">
-          <FilterBar
-            searchPlaceholder="Search client or service"
-            searchValue={query}
-            onSearchChange={setQuery}
-            filters={[
-              { id: 'all', label: 'All', active: status === 'all', onSelect: () => setStatus('all') },
-              { id: 'confirmed', label: 'Confirmed', active: status === 'confirmed', onSelect: () => setStatus('confirmed') },
-              { id: 'risk', label: 'Risk', active: status === 'risk', onSelect: () => setStatus('risk') },
-            ]}
-            actions={<Dialog title="Export day sheet" description="Fixed Dialog contract." triggerLabel="Export" footer={<Button size="sm">Download CSV</Button>}>Includes confirmed bookings and no-show risk flags.</Dialog>}
-          />
-        </div>
-      ),
-      table: (
-        <div className="mt-4">
-          <DataTable
-            columns={[
-              { key: 'time', header: 'Time' },
-              { key: 'client', header: 'Client' },
-              { key: 'service', header: 'Service' },
-              { key: 'status', header: 'Status' },
-              { key: 'chair', header: 'Chair' },
-            ]}
-            rows={rows}
-          />
-        </div>
-      ),
-      activity: (
-        <div className="mt-6">
           <ActivityFeed
             heading="Floor activity"
             items={[
@@ -139,26 +140,132 @@ export default function OpsReferencePage() {
           />
         </div>
       ),
+      filters: (
+        <div className="mt-4">
+          <FilterBar
+            searchPlaceholder="Search client or service"
+            searchValue={query}
+            onSearchChange={setQuery}
+            filters={[
+              { id: 'all', label: 'All', active: status === 'all', onSelect: () => setStatus('all') },
+              { id: 'confirmed', label: 'Confirmed', active: status === 'confirmed', onSelect: () => setStatus('confirmed') },
+              { id: 'risk', label: 'Risk', active: status === 'risk', onSelect: () => setStatus('risk') },
+            ]}
+            actions={
+              <Dialog
+                title="Export day sheet"
+                description="Fixed Dialog contract."
+                triggerLabel="Export"
+                footer={
+                  <Button size="sm" onClick={() => toast.show('Export queued')}>
+                    Download CSV
+                  </Button>
+                }
+              >
+                Includes confirmed bookings and no-show risk flags.
+              </Dialog>
+            }
+          />
+        </div>
+      ),
+      table: (
+        <div className="mt-3">
+          <DataTable
+            columns={[
+              { key: 'time', header: 'Time' },
+              { key: 'client', header: 'Client' },
+              { key: 'service', header: 'Service' },
+              { key: 'status', header: 'Status' },
+              { key: 'chair', header: 'Chair' },
+            ]}
+            rows={rows}
+            onRowSelect={setSelected}
+          />
+        </div>
+      ),
+      activity: (
+        <div className="mt-4">
+          <ChartCard
+            title="Revenue by treatment"
+            description="This week’s closed revenue"
+            insight="Injectables lead the week; membership renewals lag Tuesday — nudge at 10:00."
+            type="bar"
+            adjustable
+            valueFormat="currency"
+            xKey="name"
+            dataKey="revenue"
+            data={[
+              { name: 'Facial', revenue: 4200 },
+              { name: 'Injectables', revenue: 6100 },
+              { name: 'Laser', revenue: 3800 },
+              { name: 'Membership', revenue: 2500 },
+            ]}
+          />
+        </div>
+      ),
     }),
     [query, rows, skeleton.id, status]
   );
 
   return (
-    <OpsShell
-      brandName="Lumina Ops"
-      navItems={[
-        { id: 'overview', label: 'Overview', href: '/_catalogue/ops', active: true },
-        { id: 'bookings', label: 'Bookings', href: '/_catalogue/ops' },
-        { id: 'clients', label: 'Clients', href: '/_catalogue/ops' },
-      ]}
-      topbar={
-        <>
-          <p className="text-sm font-medium text-muted">Today · clinic floor</p>
-          <p className="text-xs text-muted xl:hidden">Open sidebar on desktop for full nav</p>
-        </>
-      }
-    >
-      <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />
-    </OpsShell>
+    <MotionPage>
+      <ToastHost />
+      <OpsShell
+        brandName="Lumina Ops"
+        adjustableSidebar
+        navItems={[
+          { id: 'overview', label: 'Overview', href: '/_catalogue/ops', active: true },
+          { id: 'bookings', label: 'Bookings', href: '/_catalogue/ops' },
+          { id: 'clients', label: 'Clients', href: '/_catalogue/ops' },
+        ]}
+        topbar={
+          <>
+            <p className="text-sm font-medium text-muted">Today · clinic floor</p>
+            <p className="text-xs text-muted hidden xl:block">Sidebar: collapse or drag the right edge to resize</p>
+            <p className="text-xs text-muted xl:hidden">Open sidebar on desktop for full nav</p>
+          </>
+        }
+      >
+        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />
+      </OpsShell>
+
+      <Dialog
+        showTrigger={false}
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+        title={selected ? `${selected.client} · ${selected.time}` : 'Booking detail'}
+        description="Row drill — fixed Dialog contract."
+        footer={
+          <Button
+            size="sm"
+            onClick={() => {
+              toast.success('Note saved', 'Floor note attached to booking.');
+              setSelected(null);
+            }}
+          >
+            Save note
+          </Button>
+        }
+      >
+        {selected ? (
+          <dl className="space-y-3">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Service</dt>
+              <dd className="font-medium">{selected.service}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Status</dt>
+              <dd className="font-medium">{selected.status}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Chair</dt>
+              <dd className="font-mono">{selected.chair}</dd>
+            </div>
+          </dl>
+        ) : null}
+      </Dialog>
+    </MotionPage>
   );
 }

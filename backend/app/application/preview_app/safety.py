@@ -9,11 +9,29 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from pathlib import Path, PurePosixPath
 
 from app.core.config import settings
 from app.domain.interfaces.template_renderer import TemplateRenderer
-from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.preview_app.protected_paths import (
+    has_catalogue_routes,
+    is_template_owned_path,
+    restore_template_owned_files,
+    snapshot_template_owned_files,
+)
+from app.application.preview_app.catalogue_contract import (
+    catalogue_route_for_file,
+    enforce_catalogue_page_contract,
+)
+from app.application.preview_app.workspace import (
+    list_source_files,
+    read_file,
+    write_file,
+    write_trusted_contained_file,
+)
+from app.application.preview_app.theme import sanitize_theme_inputs
+from app.application.ui_catalogue import load_catalogue
 
 _MOCK_IMPORT_RE = re.compile(
     r"import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['\"][^'\"]*data/mock['\"]"
@@ -44,16 +62,33 @@ def _ensure_tailwind_css(workspace, primary: str, secondary: str, font: str) -> 
         css = '@import "tailwindcss";\n\n' + css
         changed = True
 
-    # Pages use bg-brand/text-brand -> the @theme must define --color-brand.
-    if "--color-brand" not in css:
-        font_family = f'"{font}", system-ui, sans-serif' if font else "system-ui, sans-serif"
-        theme_block = (
-            "\n@theme {\n"
-            f"  --color-brand: {primary};\n"
-            f"  --color-brand-dark: {secondary or primary};\n"
-            f"  --font-sans: {font_family};\n"
-            "}\n"
+    brand, accent, font_family = sanitize_theme_inputs(primary, secondary, font)
+    catalogue_tokens = {
+        "--color-background": f"color-mix(in srgb, {brand} 4%, white)",
+        "--color-foreground": f"color-mix(in srgb, {brand} 32%, black)",
+        "--color-muted": f"color-mix(in srgb, {brand} 30%, #64748b)",
+        "--color-card": "white",
+        "--color-border-subtle": f"color-mix(in srgb, {brand} 16%, #e2e8f0)",
+        "--color-brand": brand,
+        "--color-brand-dark": accent,
+        "--color-accent": accent,
+        "--color-ring": brand,
+        "--color-chart": accent,
+        "--font-sans": font_family,
+        "--font-display": font_family,
+        "--radius-ui": "0.75rem",
+        "--shadow-ui": f"0 24px 50px -36px color-mix(in srgb, {brand} 35%, transparent)",
+        "--glow-atmosphere": f"color-mix(in srgb, {brand} 12%, transparent)",
+        "--treatment-light": brand,
+    }
+    missing_tokens = {
+        token: value for token, value in catalogue_tokens.items() if token not in css
+    }
+    if missing_tokens:
+        declarations = "".join(
+            f"  {token}: {value};\n" for token, value in missing_tokens.items()
         )
+        theme_block = f"\n@theme {{\n{declarations}}}\n"
         # insert after the tailwind import line
         lines = css.splitlines()
         insert_at = 0
@@ -87,6 +122,47 @@ def _ensure_router(workspace, architect: dict, plan: dict, template_renderer: Te
             count=1,
         )
         changed = True
+
+    # 1b) registerPreviewNavigate so absolute in-app <a href="/..."> clicks stay mounted
+    if "registerPreviewNavigate" not in app:
+        if "setupPreviewBridge" in app:
+            app = app.replace(
+                "import { notifyParent, setupPreviewBridge }",
+                "import { notifyParent, registerPreviewNavigate, setupPreviewBridge }",
+            )
+            app = app.replace(
+                "import { notifyParent,setupPreviewBridge }",
+                "import { notifyParent, registerPreviewNavigate, setupPreviewBridge }",
+            )
+            if "registerPreviewNavigate" not in app and "from './lib/preview-bridge'" in app:
+                app = re.sub(
+                    r"import\s*\{([^}]+)\}\s*from\s*['\"]\./lib/preview-bridge['\"]",
+                    lambda m: (
+                        m.group(0)
+                        if "registerPreviewNavigate" in m.group(1)
+                        else (
+                            "import { "
+                            + ", ".join(
+                                sorted(
+                                    {
+                                        *(p.strip() for p in m.group(1).split(",") if p.strip()),
+                                        "registerPreviewNavigate",
+                                    }
+                                )
+                            )
+                            + " } from './lib/preview-bridge'"
+                        )
+                    ),
+                    app,
+                    count=1,
+                )
+            if "registerPreviewNavigate((path)" not in app and "setupPreviewBridge(" in app:
+                app = app.replace(
+                    "setupPreviewBridge(",
+                    "registerPreviewNavigate((path) => navigate(path));\n    setupPreviewBridge(",
+                    1,
+                )
+            changed = True
 
     # 2) ensure a root ("/") route exists so the served root renders something
     if 'path="/"' not in app and "path='/'" not in app:
@@ -1280,14 +1356,29 @@ _ALLOWED_NPM_IMPORTS = {
     "react-router-dom",
     "react/jsx-runtime",
 }
+_CURATED_UI_NPM_IMPORTS = {
+    "react",
+    "react-dom",
+    "react-router-dom",
+    "clsx",
+    "tailwind-merge",
+    "class-variance-authority",
+    "recharts",
+    "@tanstack/react-table",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-select",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-tooltip",
+    "motion",
+    "lucide-react",
+    "sonner",
+    "date-fns",
+}
 # Packages we cannot install in preview apps — rewrite imports to local stubs
 # instead of deleting them (deleting left Transition/Dialog undefined → white screen).
 _STUBBED_NPM_IMPORTS = {
     "@headlessui/react": "src/components/UiHeadless",
     "@headlessui/react/dist": "src/components/UiHeadless",
-    "framer-motion": "src/components/UiHeadless",
-    "motion": "src/components/UiHeadless",
-    "motion/react": "src/components/UiHeadless",
 }
 _IMPORT_FROM_RE = re.compile(
     r"""^\s*import\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*(?://.*)?$""",
@@ -1295,6 +1386,12 @@ _IMPORT_FROM_RE = re.compile(
 )
 _SIDE_EFFECT_IMPORT_RE = re.compile(
     r"""^\s*import\s+['"]([^'"]+)['"]\s*;?\s*(?://.*)?$""",
+    re.MULTILINE,
+)
+_FORBIDDEN_RUNTIME_IMPORT_LINE_RE = re.compile(
+    r"""^[^\S\r\n]*(?:[^\r\n]*\b(?:require|import)\s*\([^\r\n]*"""
+    r"""|import\s+[A-Za-z_$][\w$]*\s*=[^\r\n]*)"""
+    r"""[^\r\n]*(?:\r?\n|$)""",
     re.MULTILINE,
 )
 _HEADLESS_SYMBOLS = (
@@ -1309,9 +1406,6 @@ _HEADLESS_SYMBOLS = (
     "Switch",
     "RadioGroup",
     "Portal",
-    "AnimatePresence",
-    "motion",
-    "useAnimation",
 )
 
 
@@ -1338,12 +1432,409 @@ def ensure_ui_headless_file(workspace) -> bool:
     dest = Path(workspace) / "src" / "components" / "UiHeadless.tsx"
     if not source.is_file():
         return False
-    dest.parent.mkdir(parents=True, exist_ok=True)
     text = source.read_text(encoding="utf-8")
-    if dest.is_file() and dest.read_text(encoding="utf-8") == text:
+    if (
+        dest.is_file()
+        and not dest.is_symlink()
+        and dest.read_text(encoding="utf-8") == text
+    ):
         return False
-    dest.write_text(text, encoding="utf-8")
+    write_trusted_contained_file(
+        workspace,
+        "src/components/UiHeadless.tsx",
+        text,
+    )
     return True
+
+
+def _safe_workspace_destination(workspace, rel: str) -> Path:
+    """Resolve an approved source destination without following escapes/symlink parents."""
+    root = Path(workspace).resolve()
+    normalized = rel.replace("\\", "/")
+    if not (
+        normalized.startswith("src/ui/")
+        or normalized == "src/components/UiIcons.tsx"
+        or normalized == "src/lib/preview-bridge.ts"
+    ):
+        raise ValueError(f"Refusing non-kit restore path: {rel}")
+    target = root.joinpath(*normalized.split("/"))
+    parent = target.parent
+    existing = parent
+    while not existing.exists() and existing != root:
+        existing = existing.parent
+    if existing.is_symlink():
+        raise ValueError(f"Refusing kit restore through symlink: {rel}")
+    resolved_parent = existing.resolve()
+    try:
+        resolved_parent.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"Refusing kit restore outside workspace: {rel}") from exc
+    return target
+
+
+def restore_curated_ui_kit(workspace) -> list[str]:
+    """Restore the canonical template UI barrel and icon set into a workspace."""
+    template_root = settings.PREVIEW_TEMPLATE_DIR.resolve()
+    source_ui = template_root / "src" / "ui"
+    source_icons = template_root / "src" / "components" / "UiIcons.tsx"
+    required_files = (
+        source_ui / "catalogue.json",
+        source_ui / "registry.ts",
+        source_ui / "index.ts",
+        source_ui / "compose" / "SkeletonComposer.tsx",
+        source_ui / "lib" / "AppLink.tsx",
+        source_icons,
+    )
+    required_dirs = tuple(
+        source_ui / name for name in ("core", "public", "ops", "motion", "lib")
+    )
+    missing = [
+        str(path)
+        for path in required_files
+        if not path.is_file()
+    ] + [
+        str(path)
+        for path in required_dirs
+        if not path.is_dir()
+    ]
+    if missing:
+        raise FileNotFoundError(
+            "Canonical curated UI kit is incomplete; missing: "
+            + ", ".join(missing)
+        )
+
+    root = Path(workspace).resolve()
+    destination_ui = _safe_workspace_destination(root, "src/ui/index.ts").parent
+    destination_icons = _safe_workspace_destination(root, "src/components/UiIcons.tsx")
+    changed: list[str] = []
+
+    canonical: dict[str, Path] = {}
+    for source in sorted(path for path in source_ui.rglob("*") if path.is_file()):
+        rel = "src/ui/" + source.relative_to(source_ui).as_posix()
+        canonical[rel] = source
+
+    if destination_ui.exists():
+        for current in sorted(
+            (path for path in destination_ui.rglob("*") if path.is_file() or path.is_symlink()),
+            reverse=True,
+        ):
+            rel = "src/ui/" + current.relative_to(destination_ui).as_posix()
+            if rel not in canonical:
+                try:
+                    if current.is_dir() and not current.is_symlink():
+                        shutil.rmtree(current)
+                    else:
+                        current.unlink()
+                except OSError as exc:
+                    raise RuntimeError(
+                        f"Failed to remove drifted curated UI path {rel}"
+                    ) from exc
+                changed.append(rel)
+
+    for rel, source in canonical.items():
+        try:
+            destination = _safe_workspace_destination(root, rel)
+            payload = source.read_bytes()
+            if (
+                destination.is_symlink()
+                or not destination.is_file()
+                or destination.read_bytes() != payload
+            ):
+                write_trusted_contained_file(root, rel, payload)
+                changed.append(rel)
+        except OSError as exc:
+            raise RuntimeError(f"Failed to restore curated UI path {rel}") from exc
+
+    try:
+        icon_text = source_icons.read_text(encoding="utf-8")
+        if (
+            destination_icons.is_symlink()
+            or not destination_icons.is_file()
+            or destination_icons.read_text(encoding="utf-8") != icon_text
+        ):
+            write_trusted_contained_file(
+                root,
+                "src/components/UiIcons.tsx",
+                icon_text,
+            )
+            changed.append("src/components/UiIcons.tsx")
+    except OSError as exc:
+        raise RuntimeError("Failed to restore curated UI icon set") from exc
+
+    source_bridge = template_root / "src" / "lib" / "preview-bridge.ts"
+    if not source_bridge.is_file():
+        raise FileNotFoundError(
+            f"Canonical preview bridge missing: {source_bridge}"
+        )
+    try:
+        bridge_text = source_bridge.read_text(encoding="utf-8")
+        destination_bridge = _safe_workspace_destination(
+            root, "src/lib/preview-bridge.ts"
+        )
+        if (
+            destination_bridge.is_symlink()
+            or not destination_bridge.is_file()
+            or destination_bridge.read_text(encoding="utf-8") != bridge_text
+        ):
+            write_trusted_contained_file(
+                root,
+                "src/lib/preview-bridge.ts",
+                bridge_text,
+            )
+            changed.append("src/lib/preview-bridge.ts")
+    except OSError as exc:
+        raise RuntimeError("Failed to restore preview bridge") from exc
+
+    return list(dict.fromkeys(changed))
+
+
+_STATIC_UI_IMPORT_RE = re.compile(
+    r"""^[ \t]*import[ \t]+(?P<clause>[^;'"`]+?)[ \t]+from[ \t]*"""
+    r"""(?P<quote>['"])(?P<source>[^'"]+)(?P=quote)[ \t]*;?[ \t]*(?:\r?\n|$)""",
+    re.MULTILINE,
+)
+
+
+def _is_ui_kit_source(source: str, from_file: str) -> bool:
+    if source == "@/ui" or source.startswith("@/ui/"):
+        return True
+    component_names = {
+        str(item.get("name") or "").lower()
+        for item in load_catalogue().get("components") or []
+    }
+    source_stem = PurePosixPath(source).name.lower()
+    if (
+        source_stem in component_names
+        and (
+            source.startswith("@/components/ui/")
+            or source.startswith("@/components/")
+            or source.startswith("@/ui-components/")
+        )
+    ):
+        return True
+    if not source.startswith("."):
+        return False
+    base = PurePosixPath(from_file.replace("\\", "/")).parent
+    joined = PurePosixPath(os.path.normpath(str(base / source)).replace("\\", "/")).as_posix()
+    return (
+        joined == "src/ui"
+        or joined.startswith("src/ui/")
+        or (
+            source_stem in component_names
+            and (
+                joined.startswith("src/components/ui/")
+                or joined.startswith("src/ui-components/")
+            )
+        )
+    )
+
+
+def _is_ui_barrel_source(source: str, from_file: str) -> bool:
+    if source in {"@/ui", "@/ui/index"}:
+        return True
+    if not source.startswith("."):
+        return False
+    base = PurePosixPath(from_file.replace("\\", "/")).parent
+    joined = PurePosixPath(os.path.normpath(str(base / source)).replace("\\", "/")).as_posix()
+    return joined in {"src/ui", "src/ui/index"}
+
+
+def _ui_barrel_exports() -> set[str]:
+    """Read the canonical barrel's named exports for safe deep-import conversion."""
+    source = settings.PREVIEW_TEMPLATE_DIR / "src" / "ui" / "index.ts"
+    content = source.read_text(encoding="utf-8") if source.is_file() else ""
+    exported: set[str] = {
+        str(item.get("name") or "")
+        for item in load_catalogue().get("components") or []
+        if item.get("name")
+    }
+    for match in re.finditer(r"export\s*\{([\s\S]*?)\}\s*from\s*['\"]", content):
+        for item in match.group(1).split(","):
+            token = re.sub(r"^\s*type\s+", "", item.strip())
+            if not token:
+                continue
+            exported_name = re.split(r"\s+as\s+", token)[-1].strip()
+            if re.match(r"^[A-Za-z_$][\w$]*$", exported_name):
+                exported.add(exported_name)
+    return exported
+
+
+def _split_ui_import_clause(
+    clause: str,
+    source: str,
+    exports: set[str],
+    *,
+    barrel_source: bool,
+) -> tuple[list[str], list[str], bool, bool, str]:
+    """Return value/type specs, unsupported/preserve flags, and namespace alias."""
+    raw = clause.strip()
+    whole_type = raw.startswith("type ")
+    if whole_type:
+        raw = raw[5:].strip()
+
+    namespace = re.fullmatch(r"\*\s+as\s+([A-Za-z_$][\w$]*)", raw)
+    if namespace:
+        if barrel_source and not whole_type:
+            preserve = source == "@/ui"
+            return [], [], False, preserve, "" if preserve else namespace.group(1)
+        return [], [], True, False, ""
+
+    default_name = ""
+    named_body = ""
+    if "{" in raw and "}" in raw:
+        before, remainder = raw.split("{", 1)
+        named_body = remainder.rsplit("}", 1)[0]
+        default_name = before.strip().rstrip(",").strip()
+    else:
+        default_name = raw
+
+    values: list[str] = []
+    types: list[str] = []
+    unsupported = False
+
+    if default_name:
+        if (
+            whole_type
+            or not re.match(r"^[A-Za-z_$][\w$]*$", default_name)
+        ):
+            unsupported = True
+        else:
+            exported_name = PurePosixPath(source).name.rsplit(".", 1)[0]
+            if exported_name in exports:
+                spec = (
+                    exported_name
+                    if default_name == exported_name
+                    else f"{exported_name} as {default_name}"
+                )
+                values.append(spec)
+            else:
+                unsupported = True
+
+    if named_body:
+        for raw_item in named_body.split(","):
+            item = raw_item.strip()
+            if not item:
+                continue
+            item_type = whole_type or item.startswith("type ")
+            if item.startswith("type "):
+                item = item[5:].strip()
+            parts = re.split(r"\s+as\s+", item, maxsplit=1)
+            imported = parts[0].strip()
+            local = parts[1].strip() if len(parts) == 2 else imported
+            if (
+                imported not in exports
+                or not re.match(r"^[A-Za-z_$][\w$]*$", local)
+            ):
+                unsupported = True
+                continue
+            spec = imported if imported == local else f"{imported} as {local}"
+            (types if item_type else values).append(spec)
+    return values, types, unsupported, False, ""
+
+
+def normalize_ui_kit_imports(workspace) -> list[str]:
+    """Collapse representable UI imports to the barrel and remove unsafe deep forms."""
+    touched: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")) or norm.startswith("src/ui/"):
+            continue
+        content = read_file(workspace, norm)
+        matches = [
+            match
+            for match in _STATIC_UI_IMPORT_RE.finditer(content)
+            if _is_ui_kit_source(match.group("source"), norm)
+        ]
+        if not matches:
+            continue
+
+        exports = _ui_barrel_exports()
+        mergeable: list[tuple[re.Match, list[str], list[str], bool, str]] = []
+        for match in matches:
+            values, types, unsupported, root_namespace, namespace_alias = _split_ui_import_clause(
+                match.group("clause"),
+                match.group("source"),
+                exports,
+                barrel_source=_is_ui_barrel_source(match.group("source"), norm),
+            )
+            if root_namespace:
+                continue
+            mergeable.append((match, values, types, unsupported, namespace_alias))
+        if not mergeable:
+            continue
+
+        value_names: list[str] = []
+        type_names: list[str] = []
+        namespace_names: list[str] = []
+        unsupported = False
+        for _match, values, types, invalid, namespace_alias in mergeable:
+            unsupported = unsupported or invalid
+            if namespace_alias and namespace_alias not in namespace_names:
+                namespace_names.append(namespace_alias)
+            for name in values:
+                if name not in value_names:
+                    value_names.append(name)
+            for name in types:
+                if name not in type_names:
+                    type_names.append(name)
+
+        if (
+            len(mergeable) == 1
+            and mergeable[0][0].group("source") == "@/ui"
+            and not unsupported
+        ):
+            continue
+
+        replacement_lines: list[str] = []
+        replacement_lines.extend(
+            f"import * as {name} from '@/ui';" for name in namespace_names
+        )
+        if value_names:
+            replacement_lines.append(f"import {{ {', '.join(value_names)} }} from '@/ui';")
+        if type_names:
+            replacement_lines.append(f"import type {{ {', '.join(type_names)} }} from '@/ui';")
+        if unsupported:
+            replacement_lines.append("/* removed unsupported deep UI import */")
+        replacement = "\n".join(replacement_lines)
+        if replacement:
+            replacement += "\n"
+
+        pieces: list[str] = []
+        cursor = 0
+        for index, (match, _values, _types, _invalid, _namespace) in enumerate(mergeable):
+            pieces.append(content[cursor:match.start()])
+            if index == 0:
+                pieces.append(replacement)
+            cursor = match.end()
+        pieces.append(content[cursor:])
+        updated = "".join(pieces)
+        write_file(workspace, norm, updated)
+        touched.append(norm)
+    return touched
+
+
+def enforce_catalogue_workspace_contracts(
+    workspace,
+    architect: dict,
+    brand_name: str,
+) -> list[str]:
+    """Replace only invalid assigned catalogue pages with deterministic scaffolds."""
+    repaired: list[str] = []
+    for rel in list_source_files(workspace):
+        route = catalogue_route_for_file(rel, architect)
+        if not route.get("skeleton_id"):
+            continue
+        content = read_file(workspace, rel)
+        updated, changed = enforce_catalogue_page_contract(
+            rel,
+            content,
+            architect,
+            brand_name=brand_name,
+        )
+        if changed:
+            write_file(workspace, rel, updated)
+            repaired.append(rel)
+    return repaired
 
 
 def strip_forbidden_npm_imports(workspace) -> list[str]:
@@ -1363,22 +1854,30 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
         norm = rel.replace("\\", "/")
         if not norm.endswith((".tsx", ".ts")):
             continue
-        if norm.startswith("src/data/") or norm.endswith("UiHeadless.tsx"):
+        if norm.endswith("UiHeadless.tsx"):
             continue
         content = read_file(workspace, rel)
         updated = content
         changed = False
 
+        template_ui = (
+            norm.startswith("src/ui/")
+            or norm.lower() == "src/components/uiicons.tsx"
+        )
+
         def _should_keep(src: str) -> bool:
             if (
                 src.startswith(".")
                 or src.startswith("/")
-                or src.startswith("http")
                 or src.startswith("@/")
                 or src.startswith("~/")
             ):
                 return True
+            if src.startswith(("http://", "https://")):
+                return False
             pkg = _npm_package_name(src)
+            if template_ui:
+                return pkg in _CURATED_UI_NPM_IMPORTS
             return pkg in _ALLOWED_NPM_IMPORTS or src in _ALLOWED_NPM_IMPORTS
 
         for m in list(_IMPORT_FROM_RE.finditer(content)):
@@ -1413,6 +1912,22 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
                 updated = updated.replace(old, "/* removed forbidden side-effect import */\n", 1)
                 changed = True
 
+        if not template_ui:
+            scrubbed = _strip_ts_comments_and_strings(updated)
+            spans = [
+                (match.start(), match.end())
+                for match in _FORBIDDEN_RUNTIME_IMPORT_LINE_RE.finditer(scrubbed)
+            ]
+            for start, end in reversed(spans):
+                newline = "\n" if updated[start:end].endswith(("\n", "\r\n")) else ""
+                updated = (
+                    updated[:start]
+                    + "/* removed forbidden runtime import */"
+                    + newline
+                    + updated[end:]
+                )
+                changed = True
+
         if changed and updated != content:
             write_file(workspace, norm, updated)
             print(f"    npm imports rewritten/stripped in {norm}", flush=True)
@@ -1432,7 +1947,12 @@ def ensure_headless_stub_imports(workspace) -> list[str]:
         norm = rel.replace("\\", "/")
         if not norm.endswith((".tsx", ".ts")):
             continue
-        if norm.startswith("src/data/") or norm.endswith("UiHeadless.tsx"):
+        if (
+            norm.startswith("src/data/")
+            or norm.startswith("src/ui/")
+            or norm.endswith("UiHeadless.tsx")
+            or norm.lower() == "src/components/uiicons.tsx"
+        ):
             continue
         content = read_file(workspace, rel)
         needed: list[str] = []
@@ -1558,6 +2078,78 @@ def ensure_react_router_imports(workspace) -> list[str]:
     return fixed
 
 
+def rewrite_invented_component_imports(workspace) -> list[str]:
+    """Route generated deep UI imports through the curated public barrel."""
+    return normalize_ui_kit_imports(workspace)
+
+
+def sanitize_ui_component_apis(workspace) -> list[str]:
+    """Remove a small set of known invented props without reshaping page content."""
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith(".tsx") or norm.startswith("src/ui/"):
+            continue
+        content = read_file(workspace, norm)
+        updated = re.sub(r"\s+Icon=\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", "", content)
+        updated = re.sub(r'\bsize=(["\'])(?:xs|md|xl)\1', 'size="default"', updated)
+        if updated != content:
+            write_file(workspace, norm, updated)
+            fixed.append(norm)
+    return fixed
+
+
+def unwrap_route_layout_wrappers(workspace, brand_name: str = "Brand") -> list[str]:
+    """Replace page-local legacy layout wrappers with their matching kit shell."""
+    fixed: list[str] = []
+    wrapper_specs = {
+        "PublicLayout": ("PublicShell", f'brandName={{{json.dumps(brand_name or "Brand")}}}'),
+        "AdminLayout": (
+            "OpsShell",
+            f'brandName={{{json.dumps(brand_name or "Brand")}}} navItems={{[]}}',
+        ),
+    }
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith(".tsx"):
+            continue
+        content = read_file(workspace, norm)
+        updated = content
+        added_shells: list[str] = []
+        for wrapper, (shell, props) in wrapper_specs.items():
+            if not re.search(rf"<{wrapper}\b", updated):
+                continue
+            updated = re.sub(
+                rf"^\s*import\s+{wrapper}\s+from\s+['\"][^'\"]+['\"]\s*;?\s*\n",
+                "",
+                updated,
+                flags=re.MULTILINE,
+            )
+            updated = re.sub(rf"<{wrapper}(?:\s[^>]*)?>", f"<{shell} {props}>", updated)
+            updated = updated.replace(f"</{wrapper}>", f"</{shell}>")
+            added_shells.append(shell)
+        if added_shells:
+            existing = re.search(
+                r"import\s*\{([^}]*)\}\s*from\s*['\"]@/ui['\"]\s*;?",
+                updated,
+            )
+            if existing:
+                names = [part.strip() for part in existing.group(1).split(",") if part.strip()]
+                for shell in added_shells:
+                    if shell not in names:
+                        names.append(shell)
+                replacement = "import { " + ", ".join(names) + " } from '@/ui';"
+                updated = updated[:existing.start()] + replacement + updated[existing.end():]
+            else:
+                updated = (
+                    "import { " + ", ".join(added_shells) + " } from '@/ui';\n" + updated
+                )
+        if updated != content:
+            write_file(workspace, norm, updated)
+            fixed.append(norm)
+    return fixed
+
+
 def apply_workspace_guards(
     workspace,
     architect: dict,
@@ -1573,10 +2165,15 @@ def apply_workspace_guards(
     from app.application.preview_app.assemble import write_app_tsx, write_index_css
 
     actions: list[str] = []
+    catalogue_workspace = has_catalogue_routes(architect)
+    if catalogue_workspace:
+        actions.extend(restore_curated_ui_kit(workspace))
+    protected_snapshot = snapshot_template_owned_files(workspace, architect)
     for fn, label in (
         (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
+        (lambda: normalize_ui_kit_imports(workspace), "UI imports normalized"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),
         (lambda: ensure_react_default_import(workspace), "React imports fixed"),
@@ -1588,22 +2185,36 @@ def apply_workspace_guards(
                 actions.extend(result if isinstance(result, list) else [label])
         except Exception as e:
             print(f"    guard {label} skipped: {e}", flush=True)
-    try:
-        if ensure_ui_icons(workspace):
-            actions.append("src/components/UiIcons.tsx")
-    except Exception as e:
-        print(f"    ui icons guard skipped: {e}", flush=True)
-    try:
-        actions.extend(ensure_ui_icon_coverage(workspace))
-    except Exception as e:
-        print(f"    ui icon coverage guard skipped: {e}", flush=True)
-    try:
-        named = ensure_named_ui_icon_exports(workspace)
-        if named:
-            actions.extend(named)
-            print(f"    {named[0]}", flush=True)
-    except Exception as e:
-        print(f"    named ui icon exports guard skipped: {e}", flush=True)
+    if catalogue_workspace:
+        try:
+            repaired = enforce_catalogue_workspace_contracts(
+                workspace,
+                architect,
+                brand_name,
+            )
+            actions.extend(repaired)
+        except Exception as e:
+            restore_template_owned_files(workspace, architect, protected_snapshot)
+            raise RuntimeError(
+                f"Catalogue contract enforcement failed before build: {e}"
+            ) from e
+    if not has_catalogue_routes(architect):
+        try:
+            if ensure_ui_icons(workspace):
+                actions.append("src/components/UiIcons.tsx")
+        except Exception as e:
+            print(f"    ui icons guard skipped: {e}", flush=True)
+        try:
+            actions.extend(ensure_ui_icon_coverage(workspace))
+        except Exception as e:
+            print(f"    ui icon coverage guard skipped: {e}", flush=True)
+        try:
+            named = ensure_named_ui_icon_exports(workspace)
+            if named:
+                actions.extend(named)
+                print(f"    {named[0]}", flush=True)
+        except Exception as e:
+            print(f"    named ui icon exports guard skipped: {e}", flush=True)
     try:
         added = ensure_mock_exports(workspace, architect, plan, images, brand_name)
         actions.extend(added)
@@ -1645,15 +2256,22 @@ def apply_workspace_guards(
         if src_main.is_file():
             text = src_main.read_text(encoding="utf-8")
             if "PreviewErrorBoundary" in text and (
-                not dst_main.is_file() or "PreviewErrorBoundary" not in dst_main.read_text(encoding="utf-8")
+                dst_main.is_symlink()
+                or not dst_main.is_file()
+                or "PreviewErrorBoundary" not in dst_main.read_text(encoding="utf-8")
             ):
-                dst_main.write_text(text, encoding="utf-8")
+                write_trusted_contained_file(workspace, "src/main.tsx", text)
                 actions.append("src/main.tsx (error boundary)")
     except Exception as e:
         print(f"    main.tsx sync skipped: {e}", flush=True)
     try:
         write_index_css(workspace, primary, secondary, font, template_renderer)
         write_app_tsx(workspace, architect, template_renderer)
+        # App.tsx can introduce mock imports after the earlier contract pass.
+        # Close that deterministic gap in the same guard invocation.
+        actions.extend(
+            ensure_mock_exports(workspace, architect, plan, images, brand_name)
+        )
     except Exception as e:
         print(f"    assemble skipped: {e}", flush=True)
     try:
@@ -1662,7 +2280,11 @@ def apply_workspace_guards(
         ))
     except Exception as e:
         print(f"    runtime correctness skipped: {e}", flush=True)
-    return actions
+    restore_template_owned_files(workspace, architect, protected_snapshot)
+    return [
+        action for action in actions
+        if not is_template_owned_path(action.split(" (", 1)[0], architect)
+    ]
 
 
 def sanitize_data_files(workspace) -> list[str]:
@@ -1709,9 +2331,24 @@ def ensure_mock_exports(
     missing = [n for n in sorted(needed) if n not in have]
     if not missing:
         return []
+    brand_span = _brand_object_span(mock)
+    brand_body = (
+        mock[brand_span[0] : brand_span[1]]
+        if brand_span
+        else ""
+    )
+
+    def _missing_export(name: str) -> str:
+        if re.search(rf"(?m)^\s*{re.escape(name)}\s*:", brand_body):
+            return f"export const {name} = brand.{name};"
+        return (
+            f"export const {name} = "
+            f"{_default_export_value(name, architect, plan, images, brand_name)};"
+        )
+
     additions = "\n".join(
-        f"export const {n} = {_default_export_value(n, architect, plan, images, brand_name)};"
-        for n in missing
+        _missing_export(name)
+        for name in missing
     )
     # Note: brand_name / design_system get correct shapes via _default_export_value;
     # repair_typed_mock_exports also rewrites any older array stubs before build.

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import type { GeneratedPages, PreviewAppInfo } from '../../types/request';
 import { API_BASE } from '../../api/client';
@@ -63,20 +63,16 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
   const refineError = previewApp?.last_refinement_error?.trim() || '';
   const accent = activeRole?.accent ?? '#6366f1';
 
-  const postToApp = useCallback((msg: object) => {
-    iframeRef.current?.contentWindow?.postMessage(msg, '*');
-  }, []);
-
   const handleRoleChange = (roleId: string) => {
     if (roleId === activeRoleId) return;
     setActiveRoleId(roleId);
     const role = roles.find((r) => r.id === roleId);
     const nextPath = role?.defaultPath || '/';
-    // Load under /api/preview-apps/{id}/… — never bare /owner/… on the API host
-    // (that returns {"detail":"Not Found"} JSON).
+    // Remount iframe under /api/preview-apps/{id}/… — never bare /owner/… on the
+    // API host (that returns {"detail":"Not Found"} JSON). Do not also postMessage
+    // into the outgoing iframe; that race can navigate it off the preview mount.
     setIframeEntryPath(nextPath);
     setCurrentPath(nextPath);
-    postToApp({ type: 'preview-set-role', roleId, path: nextPath });
   };
 
   useEffect(() => {

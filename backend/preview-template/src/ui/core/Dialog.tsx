@@ -8,6 +8,8 @@ export interface DialogProps {
   children: React.ReactNode;
   description?: string;
   triggerLabel?: string;
+  /** When false, dialog is opened only via controlled `open` (row drill, etc.). */
+  showTrigger?: boolean;
   footer?: React.ReactNode;
   open?: boolean;
   defaultOpen?: boolean;
@@ -23,14 +25,17 @@ export function Dialog({
   footer,
   onOpenChange,
   open,
+  showTrigger = true,
   title,
   triggerLabel = 'Open',
 }: DialogProps) {
   return (
     <DialogPrimitive.Root open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Trigger className="inline-flex h-9 items-center justify-center rounded-[var(--radius-ui)] border border-border-subtle bg-card px-3 text-sm font-semibold text-foreground hover:bg-background">
-        {triggerLabel}
-      </DialogPrimitive.Trigger>
+      {showTrigger ? (
+        <DialogPrimitive.Trigger className="inline-flex h-9 items-center justify-center rounded-[var(--radius-ui)] border border-border-subtle bg-card px-3 text-sm font-semibold text-foreground hover:bg-background">
+          {triggerLabel}
+        </DialogPrimitive.Trigger>
+      ) : null}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
         <DialogPrimitive.Content

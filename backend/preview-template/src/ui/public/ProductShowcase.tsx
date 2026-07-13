@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { MotionReveal, MotionStagger, MotionStaggerItem } from '../motion';
 import { cn } from '../lib/cn';
 
 export interface ProductShowcaseItem {
@@ -17,44 +18,49 @@ export interface ProductShowcaseProps {
 }
 
 export function ProductShowcase({ className, description, heading, items }: ProductShowcaseProps) {
-  const [featured, ...rest] = items;
+  const [featured, secondary, tertiary] = items;
   return (
-    <section className={cn('bg-foreground px-6 py-24 text-background lg:px-10 lg:py-28', className)}>
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="max-w-2xl">
-          <h2 className="font-display text-[clamp(2.25rem,4vw,3.4rem)] leading-[1.05] tracking-[-0.03em]">{heading}</h2>
-          {description ? <p className="mt-5 text-base leading-7 text-background/65 sm:text-lg">{description}</p> : null}
-        </div>
+    <section className={cn('bg-[#12161a] px-6 py-28 text-[#f3f5f4] lg:px-12 lg:py-36', className)}>
+      <div className="mx-auto w-full max-w-[92rem]">
+        <MotionReveal className="grid gap-8 border-b border-white/10 pb-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+          <h2 className="font-display text-[clamp(3rem,6vw,5.5rem)] italic leading-[0.92] tracking-[-0.04em]">
+            {heading}
+          </h2>
+          {description ? <p className="max-w-md text-base leading-8 text-white/55 lg:justify-self-end">{description}</p> : null}
+        </MotionReveal>
+
         {featured ? (
-          <article className="mt-14 grid gap-10 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
-            <img
-              src={featured.imageSrc}
-              alt={featured.imageAlt ?? ''}
-              className="aspect-[16/10] w-full rounded-[1.75rem] object-cover shadow-[var(--shadow-ui)]"
-            />
-            <div className="pb-2">
-              <p className="text-xs font-semibold tracking-[0.22em] text-brand uppercase">Signature</p>
-              <h3 className="mt-3 font-display text-4xl tracking-tight">{featured.title}</h3>
-              <p className="mt-4 text-base leading-8 text-background/70">{featured.description}</p>
+          <MotionReveal className="mt-12 grid gap-6 lg:grid-cols-12 lg:gap-5">
+            <figure className="relative overflow-hidden lg:col-span-8">
+              <img src={featured.imageSrc} alt={featured.imageAlt ?? ''} className="aspect-[16/11] w-full object-cover" />
+              <figcaption className="mt-5 max-w-xl">
+                <p className="text-[11px] font-semibold tracking-[0.2em] text-brand uppercase">Lead ritual</p>
+                <h3 className="mt-2 font-display text-4xl italic tracking-tight">{featured.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-white/60">{featured.description}</p>
+              </figcaption>
+            </figure>
+            <div className="flex flex-col gap-5 lg:col-span-4">
+              {secondary ? (
+                <figure className="overflow-hidden">
+                  <img src={secondary.imageSrc} alt={secondary.imageAlt ?? ''} className="aspect-[4/5] w-full object-cover" />
+                  <figcaption className="mt-4">
+                    <h3 className="font-display text-2xl italic">{secondary.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-white/55">{secondary.description}</p>
+                  </figcaption>
+                </figure>
+              ) : null}
+              {tertiary ? (
+                <MotionStagger>
+                  <MotionStaggerItem>
+                    <figure className="overflow-hidden border-t border-white/10 pt-5">
+                      <h3 className="font-display text-2xl italic">{tertiary.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-white/55">{tertiary.description}</p>
+                    </figure>
+                  </MotionStaggerItem>
+                </MotionStagger>
+              ) : null}
             </div>
-          </article>
-        ) : null}
-        {rest.length > 0 ? (
-          <div className="mt-12 grid gap-8 border-t border-white/10 pt-10 md:grid-cols-2">
-            {rest.map((item) => (
-              <article key={item.title} className="grid gap-5 sm:grid-cols-[9rem_1fr] sm:items-center">
-                <img
-                  src={item.imageSrc}
-                  alt={item.imageAlt ?? ''}
-                  className="aspect-square w-full rounded-[1.15rem] object-cover sm:h-36 sm:w-36"
-                />
-                <div>
-                  <h3 className="text-xl font-semibold tracking-tight">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-7 text-background/65">{item.description}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          </MotionReveal>
         ) : null}
       </div>
     </section>

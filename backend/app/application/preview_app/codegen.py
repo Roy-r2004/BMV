@@ -2,11 +2,32 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import logging
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 from app.application.prompts import PromptTemplate
 from app.application.preview_app.parallel import parallel_map
+from app.application.preview_app.catalogue_contract import (
+    _source_tokens,
+    enforce_catalogue_page_contract,
+    validate_catalogue_page_content,
+)
+from app.application.preview_app.fallback import (
+    clear_stubbed_path,
+    is_stubbed_path,
+    record_stubbed_path,
+)
+from app.application.preview_app.protected_paths import (
+    has_catalogue_routes,
+    is_template_owned_path,
+    restore_template_owned_files,
+    safe_source_path,
+    snapshot_template_owned_files,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -23,24 +44,44 @@ from app.application.preview_app.safety import (
     looks_truncated_source,
 )
 from app.application.services.page_experience import page_required_sections
+from app.application.ui_catalogue import (
+    compact_catalogue_plan_contract,
+    compact_skeleton_contract,
+    infer_section_slots,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def page_plan_for_file(file_path: str, plan: dict, architect: dict) -> dict:
     """Find the experience-plan page spec for a generated file path."""
     norm = file_path.replace("\\", "/").lower()
+    pages_by_key: dict[tuple[str, str], dict] = {}
+    pages_by_id: dict[str, list[dict]] = {}
+    for role in plan.get("roles") or []:
+        role_id = str(role.get("id") or "")
+        for page in role.get("pages") or []:
+            page_id = str(page.get("id") or "")
+            if not page_id:
+                continue
+            enriched = {
+                **page,
+                "role_id": role_id,
+                "role_label": role.get("label"),
+            }
+            pages_by_key[(role_id, page_id)] = enriched
+            pages_by_id.setdefault(page_id, []).append(enriched)
+
     for rt in architect.get("routes") or []:
         cf = (rt.get("component_file") or "").replace("\\", "/").lower()
         if cf and cf == norm:
-            pid = rt.get("page_id") or ""
-            for role in plan.get("roles") or []:
-                for page in role.get("pages") or []:
-                    if page.get("id") == pid:
-                        return {
-                            **page,
-                            "role_id": role.get("id"),
-                            "role_label": role.get("label"),
-                            "route_path": rt.get("path"),
-                        }
+            page_id = str(rt.get("page_id") or "")
+            role_id = str(rt.get("role_id") or "")
+            page = pages_by_key.get((role_id, page_id))
+            if not page and len(pages_by_id.get(page_id, [])) == 1:
+                page = pages_by_id[page_id][0]
+            if page:
+                return {**page, "route_path": rt.get("path")}
             return {
                 "title": rt.get("title"),
                 "purpose": rt.get("purpose"),
@@ -48,11 +89,14 @@ def page_plan_for_file(file_path: str, plan: dict, architect: dict) -> dict:
                 "role_id": rt.get("role_id"),
                 "route_path": rt.get("path"),
             }
-    for role in plan.get("roles") or []:
-        for page in role.get("pages") or []:
-            pid = (page.get("id") or "").replace("-", "").replace("_", "")
-            if pid and pid in norm.replace("-", "").replace("_", ""):
-                return {**page, "role_id": role.get("id"), "role_label": role.get("label")}
+    normalized_path = norm.replace("-", "").replace("_", "")
+    candidates: list[dict] = []
+    for page_id, matches in pages_by_id.items():
+        normalized_id = page_id.replace("-", "").replace("_", "")
+        if len(matches) == 1 and normalized_id and normalized_id in normalized_path:
+            candidates.append(matches[0])
+    if len(candidates) == 1:
+        return candidates[0]
     return {}
 
 _FENCE_RE = re.compile(r"^```(?:tsx?|typescript|javascript|css)?\s*\n?", re.MULTILINE)
@@ -116,6 +160,72 @@ def _parse_json(raw: str) -> dict:
             raise ValueError(f"Could not parse model JSON: {first}") from first
 
 
+def _normalize_critic_result(value, *, threshold: int) -> dict:
+    """Validate critic JSON without turning parser failure into rewrite instructions."""
+    failure = {
+        "score": None,
+        "verdict": "unavailable",
+        "issues": ["Critic response unavailable or malformed; preserve current page."],
+        "revision_instructions": "",
+        "preserve": True,
+    }
+    if not isinstance(value, dict):
+        return failure
+
+    required = {"score", "verdict", "issues", "revision_instructions"}
+    if not required.issubset(value):
+        return failure
+    score = value.get("score")
+    verdict = value.get("verdict")
+    issues = value.get("issues")
+    instructions = value.get("revision_instructions")
+    if (
+        isinstance(score, bool)
+        or not isinstance(score, (int, float))
+        or not 0 <= score <= 100
+        or verdict not in {"pass", "revise"}
+        or not isinstance(issues, list)
+        or not all(isinstance(issue, str) for issue in issues)
+        or not isinstance(instructions, str)
+    ):
+        return failure
+
+    normalized_issues = [issue.strip() for issue in issues if issue.strip()]
+    normalized_score = int(score)
+    normalized_verdict = verdict
+    normalized_instructions = instructions.strip()
+
+    inconsistent_pass = (
+        normalized_verdict == "pass"
+        and (
+            normalized_score < threshold
+            or bool(normalized_issues)
+            or bool(normalized_instructions)
+        )
+    )
+    if inconsistent_pass:
+        normalized_verdict = "revise"
+        if not normalized_issues:
+            normalized_issues.append(
+                f"Critic score is below the required {threshold} pass threshold."
+            )
+
+    if normalized_verdict == "revise" and normalized_score >= threshold:
+        normalized_score = threshold - 1
+    if normalized_verdict == "revise":
+        if not normalized_issues:
+            normalized_issues.append("Critic requested revision without identifying an issue.")
+        if not normalized_instructions:
+            normalized_instructions = "; ".join(normalized_issues)
+
+    return {
+        "score": normalized_score,
+        "verdict": normalized_verdict,
+        "issues": normalized_issues,
+        "revision_instructions": normalized_instructions,
+    }
+
+
 def call_architect(
     full_context: str,
     plan: dict,
@@ -130,6 +240,7 @@ def call_architect(
         plan_json=json.dumps(plan, ensure_ascii=False, indent=2)[:14000],
         manifest_json=json.dumps(manifest, ensure_ascii=False, indent=2),
         images_json=json.dumps(images, ensure_ascii=False, indent=2),
+        catalogue_contract_json=_bounded_json(compact_catalogue_plan_contract(), 8000),
     )
     for model in (settings.ARCHITECT_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL):
         try:
@@ -203,6 +314,176 @@ _CHROME_CONTRACTS: dict[str, str] = {
 }
 
 
+def _route_for_file(file_path: str, architect: dict) -> dict:
+    norm = (file_path or "").replace("\\", "/").lower()
+    for route in architect.get("routes") or []:
+        component_file = (route.get("component_file") or "").replace("\\", "/").lower()
+        if component_file == norm:
+            return route
+    return {}
+
+
+def _catalogue_routes_context(architect: dict) -> str:
+    routes = []
+    for route in architect.get("routes") or []:
+        skeleton_id = route.get("skeleton_id")
+        if not skeleton_id:
+            continue
+        slots = infer_section_slots(route, skeleton_id)
+        routes.append({
+            "path": route.get("path"),
+            "component_file": route.get("component_file"),
+            "surface": route.get("surface"),
+            "skeleton_id": skeleton_id,
+            "contract": compact_skeleton_contract(skeleton_id, slots),
+        })
+    return _bounded_json(routes, 10000)
+
+
+def _bounded_json(value, max_chars: int) -> str:
+    """Serialize as valid JSON within a hard character budget."""
+    raw = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if len(raw) <= max_chars:
+        return raw
+
+    def _compact(item, depth: int = 0):
+        if isinstance(item, str):
+            return item[:500]
+        if isinstance(item, list):
+            return [_compact(child, depth + 1) for child in item[:12]]
+        if isinstance(item, dict):
+            return {
+                str(key): _compact(child, depth + 1)
+                for key, child in item.items()
+            }
+        return item
+
+    compact = json.dumps(_compact(value), ensure_ascii=False, separators=(",", ":"))
+    if len(compact) <= max_chars:
+        return compact
+
+    low, high = 0, len(compact)
+    best = json.dumps({"truncated": True, "preview": ""}, separators=(",", ":"))
+    while low <= high:
+        middle = (low + high) // 2
+        candidate = json.dumps(
+            {"truncated": True, "preview": compact[:middle]},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        if len(candidate) <= max_chars:
+            best = candidate
+            low = middle + 1
+        else:
+            high = middle - 1
+    return best
+
+
+def _architect_prompt_context(architect: dict) -> str:
+    """Serialize bounded architecture context without repeated file instructions."""
+    context = {
+        key: architect.get(key)
+        for key in ("app_name", "design_direction")
+        if architect.get(key) is not None
+    }
+    context["roles"] = [
+        {
+            key: role.get(key)
+            for key in ("id", "label", "defaultPath", "route_prefix", "icon")
+            if role.get(key) is not None
+        }
+        for role in architect.get("roles") or []
+    ]
+    context["routes"] = [
+        {
+            key: route.get(key)
+            for key in (
+                "path",
+                "page_id",
+                "role_id",
+                "title",
+                "component_file",
+                "layout",
+                "surface",
+                "skeleton_id",
+            )
+            if route.get(key) is not None
+        }
+        for route in architect.get("routes") or []
+    ]
+    context["shared_components"] = [
+        {
+            key: component.get(key)
+            for key in ("path", "kind")
+            if component.get(key) is not None
+        }
+        for component in architect.get("shared_components") or []
+    ]
+    return _bounded_json(context, 8000)
+
+
+def _catalogue_contract_errors(
+    file_path: str,
+    content: str,
+    route: dict,
+) -> list[str]:
+    if not route.get("skeleton_id"):
+        return []
+    errors = validate_catalogue_page_content(content, route)
+    if errors:
+        logger.warning(
+            "Catalogue page contract rejected path=%s errors=%s",
+            file_path,
+            errors,
+        )
+    return errors
+
+
+def _catalogue_retry_context(
+    *,
+    errors: list[str],
+    contract_json: str,
+    rejected_source: str,
+    build_context: str = "",
+) -> str:
+    source = (rejected_source or "").strip()
+    if len(source) <= 3600:
+        excerpt = source
+    else:
+        regions = [f"[HEAD]\n{source[:1000]}"]
+        relevant_index = -1
+        for error in errors:
+            candidates = [error]
+            if error.startswith("slot:"):
+                candidates.insert(0, error.split(":", 1)[1])
+            candidates.extend(["const slots", "SkeletonComposer", "SKELETON_ID"])
+            for candidate in candidates:
+                relevant_index = source.lower().find(candidate.lower())
+                if relevant_index >= 0:
+                    break
+            if relevant_index >= 0:
+                break
+        if relevant_index >= 0:
+            start = max(0, relevant_index - 700)
+            regions.append(f"[RELEVANT]\n{source[start:start + 1600]}")
+        regions.append(f"[TAIL]\n{source[-1000:]}")
+        excerpt = "\n".join(regions)
+    build_section = (
+        f"Available build context:\n{build_context[:1200]}\n"
+        if build_context
+        else ""
+    )
+    return (
+        "CATALOGUE CONTRACT RETRY. The previous complete source was rejected.\n"
+        f"Exact validator errors: {json.dumps(errors, ensure_ascii=False)}\n"
+        f"Assigned compact contract: {contract_json}\n"
+        f"{build_section}"
+        "Rejected source excerpt (repair these issues; do not copy invalid structure):\n"
+        f"{excerpt}\n"
+        "Return the complete corrected file only, with no markdown fences."
+    )
+
+
 def generate_file(
     workspace: Path,
     file_spec: dict,
@@ -214,17 +495,36 @@ def generate_file(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
 ) -> str:
-    file_path = file_spec.get("path", "")
+    raw_file_path = file_spec.get("path", "")
+    file_path = safe_source_path(raw_file_path, workspace)
+    if not file_path:
+        raise ValueError(f"Unsafe generated source path: {raw_file_path}")
+    if is_template_owned_path(file_path, architect, workspace):
+        return read_file(workspace, file_path)
     file_kind = file_spec.get("kind", "page")
     instructions = file_spec.get("instructions", "")
     page_plan = page_plan_for_file(file_path, plan, architect)
-    page_plan_json = json.dumps(page_plan, ensure_ascii=False, indent=2) if page_plan else "{}"
+    page_plan_json = _bounded_json(page_plan, 6000) if page_plan else "{}"
+    route = _route_for_file(file_path, architect)
+    skeleton_id = str(route.get("skeleton_id") or page_plan.get("skeleton_id") or "")
+    catalogue_page = file_kind == "page" and bool(skeleton_id)
+    skeleton_contract_json = "{}"
+    shell_component = ""
+    if catalogue_page:
+        slots = infer_section_slots({**page_plan, **route}, skeleton_id)
+        skeleton_contract_json = _bounded_json(
+            compact_skeleton_contract(skeleton_id, slots),
+            5000,
+        )
+        shell_component = "OpsShell" if (route.get("surface") or page_plan.get("surface")) == "ops" else "PublicShell"
     if page_plan and file_kind == "page":
         required = page_required_sections(page_plan)
         if required:
             instructions += "\n\nRequired sections:\n" + "\n".join(f"- {s}" for s in required)
 
-    chrome_contract = _CHROME_CONTRACTS.get(file_path.replace("\\", "/").lower())
+    chrome_contract = None
+    if not any(item.get("skeleton_id") for item in architect.get("routes") or []):
+        chrome_contract = _CHROME_CONTRACTS.get(file_path.replace("\\", "/").lower())
     if chrome_contract:
         instructions = f"{instructions}\n\n{chrome_contract}".strip()
 
@@ -239,14 +539,18 @@ def generate_file(
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_FILE,
         full_context=full_context[:10000],
-        architect_json=json.dumps(architect, ensure_ascii=False, indent=2)[:8000],
+        architect_json=_architect_prompt_context(architect),
         design_system_json=json.dumps(design_system, ensure_ascii=False, indent=2),
         manifest_json=json.dumps(manifest, ensure_ascii=False, indent=2),
         images_json=json.dumps(images, ensure_ascii=False, indent=2),
         file_path=file_path,
         file_kind=file_kind,
         file_instructions=instructions,
-        page_plan_json=page_plan_json[:6000],
+        page_plan_json=page_plan_json,
+        catalogue_page=catalogue_page,
+        skeleton_id=skeleton_id,
+        skeleton_contract_json=skeleton_contract_json,
+        shell_component=shell_component,
         existing_files_summary=existing[:8000],
     )
 
@@ -263,32 +567,83 @@ def generate_file(
             return True
         return False
 
-    # Up to 2 retries on the primary path — prefer a complete AI file over any stub.
+    # Up to 2 retries on the primary path — completeness and the catalogue
+    # contract are both required before deterministic scaffolding is considered.
     for attempt in range(1, 3):
-        if not _needs_retry(content):
+        contract_errors = (
+            _catalogue_contract_errors(file_path, content, route)
+            if catalogue_page and not _needs_retry(content)
+            else []
+        )
+        if not _needs_retry(content) and not contract_errors:
             break
-        reason = "empty" if not (content or "").strip() else (
-            "truncated" if looks_truncated_source(content) else "missing export default"
+        reason = (
+            "catalogue contract: " + ", ".join(contract_errors)
+            if contract_errors
+            else "empty" if not (content or "").strip() else (
+                "truncated" if looks_truncated_source(content) else "missing export default"
+            )
         )
         print(f"    regen {file_path} attempt {attempt}/2 ({reason})", flush=True)
-        retry_prompt = (
-            f"{prompt}\n\n"
-            f"IMPORTANT: Previous answer failed ({reason}). "
-            "Return the COMPLETE TypeScript/React file only — start with imports, "
-            "end with export default. MUST compile. ONLY import from react, "
-            "react-router-dom, ../data/mock (or @/data/mock), ../components/UiIcons, "
-            "and existing local files. No npm icon/UI libraries. No markdown fences."
+        import_rule = (
+            "MUST import all page UI from `@/ui`; only React, router, and `@/data/mock` "
+            "may be imported elsewhere."
+            if catalogue_page
+            else
+            "ONLY import from react, react-router-dom, ../data/mock (or @/data/mock), "
+            "../components/UiIcons, and existing local files. No npm icon/UI libraries."
         )
+        if contract_errors:
+            retry_prompt = (
+                f"{prompt}\n\n"
+                + _catalogue_retry_context(
+                    errors=contract_errors,
+                    contract_json=skeleton_contract_json,
+                    rejected_source=content,
+                )
+            )
+        else:
+            retry_prompt = (
+                f"{prompt}\n\n"
+                f"IMPORTANT: Previous answer failed ({reason}). "
+                "Return the COMPLETE TypeScript/React file only — start with imports, "
+                f"end with export default. MUST compile. {import_rule} No markdown fences."
+            )
         raw2 = ai_provider.ask_chat(
             settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=16000,
         )
         retry_content = _sanitize_emoji_icons(_strip_fences(raw2))
-        if retry_content and not _needs_retry(retry_content):
+        retry_contract_errors = (
+            _catalogue_contract_errors(file_path, retry_content, route)
+            if catalogue_page and not _needs_retry(retry_content)
+            else []
+        )
+        if retry_content and not _needs_retry(retry_content) and not retry_contract_errors:
             content = retry_content
             break
-        if retry_content and len(retry_content) > len(content or ""):
+        if retry_content:
             content = retry_content
 
+    if catalogue_page:
+        _catalogue_contract_errors(file_path, content, route)
+    content, replaced = enforce_catalogue_page_contract(
+        file_path,
+        content,
+        architect,
+        brand_name=(
+            (manifest.get("brand") or {}).get("name")
+            if isinstance(manifest.get("brand"), dict)
+            else manifest.get("brand_name")
+        ),
+    )
+    if replaced:
+        print(f"    catalogue contract scaffolded {file_path}", flush=True)
+        record_stubbed_path(workspace, file_path)
+    elif catalogue_page:
+        if "deterministic catalogue contract scaffold" in content:
+            record_stubbed_path(workspace, file_path)
+        else:
+            clear_stubbed_path(workspace, file_path)
     write_file(workspace, file_path, content)
     return content
 
@@ -301,6 +656,150 @@ def mock_needs_enrichment(content: str) -> bool:
     if "export const brand" not in content or "export const roles" not in content:
         return True
     return False
+
+
+_MAX_SYNTHESIZED_MOCK_BYTES = 256_000
+_TYPESCRIPT_MOCK_VALIDATOR = r"""
+const ts = require(process.argv[1]);
+const needed = new Set(JSON.parse(process.argv[2]));
+let source = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", chunk => { source += chunk; });
+process.stdin.on("end", () => {
+  const file = ts.createSourceFile(
+    "mock.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  if (file.parseDiagnostics.length) process.exit(2);
+
+  const locals = new Set();
+  const exported = new Set();
+  const bindingNames = (name, target) => {
+    if (ts.isIdentifier(name)) {
+      target.add(name.text);
+      return;
+    }
+    for (const element of name.elements || []) {
+      if (element && element.name) bindingNames(element.name, target);
+    }
+  };
+  const declarationNames = (statement, target) => {
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        bindingNames(declaration.name, target);
+      }
+    } else if (
+      (ts.isFunctionDeclaration(statement)
+        || ts.isClassDeclaration(statement)
+        || ts.isInterfaceDeclaration(statement)
+        || ts.isTypeAliasDeclaration(statement)
+        || ts.isEnumDeclaration(statement)
+        || ts.isModuleDeclaration(statement))
+      && statement.name
+      && ts.isIdentifier(statement.name)
+    ) {
+      target.add(statement.name.text);
+    }
+  };
+  const hasExport = statement =>
+    (ts.getCombinedModifierFlags(statement) & ts.ModifierFlags.Export) !== 0;
+
+  for (const statement of file.statements) declarationNames(statement, locals);
+  for (const statement of file.statements) {
+    if (hasExport(statement)) declarationNames(statement, exported);
+    if (
+      ts.isExportDeclaration(statement)
+      && !statement.moduleSpecifier
+      && statement.exportClause
+      && ts.isNamedExports(statement.exportClause)
+    ) {
+      for (const element of statement.exportClause.elements) {
+        const localName = (element.propertyName || element.name).text;
+        if (locals.has(localName)) exported.add(element.name.text);
+      }
+    }
+  }
+  for (const name of needed) {
+    if (!exported.has(name)) process.exit(3);
+  }
+  process.stdout.write("ok");
+});
+"""
+
+
+def _typescript_candidate_defines(
+    content: str,
+    needed: list[str],
+) -> bool:
+    """Parse candidate TypeScript and verify its locally-defined named exports."""
+    encoded = content.encode("utf-8", errors="strict")
+    if len(encoded) > _MAX_SYNTHESIZED_MOCK_BYTES:
+        return False
+    node = shutil.which("node")
+    compiler = (
+        Path(settings.PREVIEW_TEMPLATE_DIR)
+        / "node_modules"
+        / "typescript"
+        / "lib"
+        / "typescript.js"
+    )
+    if not node or not compiler.is_file():
+        return False
+    try:
+        result = subprocess.run(
+            [
+                node,
+                "-e",
+                _TYPESCRIPT_MOCK_VALIDATOR,
+                str(compiler.resolve()),
+                json.dumps(needed),
+            ],
+            input=content,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+            cwd=Path(settings.PREVIEW_TEMPLATE_DIR),
+        )
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        return False
+    return result.returncode == 0 and result.stdout == "ok"
+
+
+def _valid_synthesized_mock_source(content: str, needed: list[str]) -> bool:
+    """Fail closed unless a safe candidate parses and defines every needed export."""
+    if not content.strip() or looks_truncated_source(content):
+        return False
+    tokens = _source_tokens(content)
+    if not tokens:
+        return False
+    for index, token in enumerate(tokens):
+        if token == "require":
+            return False
+        if token == "import" and index + 1 < len(tokens):
+            if tokens[index + 1] == "(":
+                return False
+            if (
+                index + 2 < len(tokens)
+                and re.match(r"^[A-Za-z_$][\w$]*$", tokens[index + 1])
+                and tokens[index + 2] == "="
+            ):
+                return False
+            if (
+                tokens[index + 1].startswith("\0http://")
+                or tokens[index + 1].startswith("\0https://")
+            ):
+                return False
+        if (
+            token == "from"
+            and index + 1 < len(tokens)
+            and tokens[index + 1].startswith(("\0http://", "\0https://"))
+        ):
+            return False
+    return _typescript_candidate_defines(content, needed)
 
 
 def synthesize_mock_data(
@@ -340,6 +839,8 @@ def synthesize_mock_data(
     )
     raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
     content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
+    if not _valid_synthesized_mock_source(content, needed):
+        return False
     write_file(workspace, mock_path, content)
     return True
 
@@ -370,7 +871,11 @@ def fix_build_errors(
 ) -> list[str]:
     from app.application.preview_app.fallback import scan_and_repair_double_brace_literals
 
-    paths = list_source_files(workspace)
+    paths = [
+        path
+        for path in list_source_files(workspace)
+        if not is_template_owned_path(path, architect)
+    ]
     # Prioritise files explicitly named in the build errors, then App/pages/mock.
     errored = [p for p in paths if p.split("/")[-1] in build_log or p in build_log]
 
@@ -392,8 +897,10 @@ def fix_build_errors(
         PromptTemplate.PREVIEW_APP_FIX,
         build_errors=build_log[:7000],
         file_tree=file_tree[:4000],
-        architect_json=json.dumps(architect, ensure_ascii=False, indent=2)[:3000],
+        architect_json=_architect_prompt_context(architect),
         files_content=files_content[:40000],
+        catalogue_mode=has_catalogue_routes(architect),
+        catalogue_routes_json=_catalogue_routes_context(architect),
     )
 
     def _ask(prompt_text: str) -> str:
@@ -420,9 +927,13 @@ def fix_build_errors(
             print(f"    fix agent {label}: JSON was {type(parsed).__name__}, expected object", flush=True)
             return None
         except Exception as e:
-            preview = raw[:800].replace("\n", "\\n")
             print(f"    fix agent {label} JSON parse failed: {e}", flush=True)
-            print(f"    fix agent {label} raw preview: {preview!r}", flush=True)
+            digest = hashlib.sha256(raw.encode("utf-8", errors="replace")).hexdigest()[:16]
+            print(
+                f"    fix agent {label} response metadata: "
+                f"length={len(raw)} sha256={digest}",
+                flush=True,
+            )
             return None
 
     raw = _ask(prompt)
@@ -448,26 +959,59 @@ def fix_build_errors(
         )
 
         repaired: list[str] = []
+        protected_snapshot = snapshot_template_owned_files(workspace, architect)
         try:
-            repaired.extend(scan_and_repair_double_brace_literals(workspace))
-        except ValueError as e:
-            print(f"    double-brace deterministic repair failed: {e}", flush=True)
-        try:
-            repaired.extend(strip_forbidden_npm_imports(workspace))
-        except Exception as e:
-            print(f"    npm-import deterministic repair failed: {e}", flush=True)
-        try:
-            if ensure_ui_icons(workspace):
-                repaired.append("src/components/UiIcons.tsx")
-            repaired.extend(normalize_ui_icon_imports(workspace))
-            repaired.extend(ensure_named_ui_icon_exports(workspace))
-            repaired.extend(ensure_ui_icon_coverage(workspace))
-        except Exception as e:
-            print(f"    icon deterministic repair failed: {e}", flush=True)
+            try:
+                repaired.extend(
+                    scan_and_repair_double_brace_literals(
+                        workspace,
+                        architect=architect,
+                    )
+                )
+            except ValueError as e:
+                print(f"    double-brace deterministic repair failed: {e}", flush=True)
+            try:
+                repaired.extend(strip_forbidden_npm_imports(workspace))
+            except Exception as e:
+                print(f"    npm-import deterministic repair failed: {e}", flush=True)
+            if not has_catalogue_routes(architect):
+                try:
+                    if ensure_ui_icons(workspace):
+                        repaired.append("src/components/UiIcons.tsx")
+                    repaired.extend(normalize_ui_icon_imports(workspace))
+                    repaired.extend(ensure_named_ui_icon_exports(workspace))
+                    repaired.extend(ensure_ui_icon_coverage(workspace))
+                except Exception as e:
+                    print(f"    icon deterministic repair failed: {e}", flush=True)
+        finally:
+            restore_template_owned_files(workspace, architect, protected_snapshot)
+        repaired = [
+            path for path in repaired
+            if not is_template_owned_path(path, architect)
+        ]
         return list(dict.fromkeys(repaired))
 
+    def _enforce_all_catalogue_pages(paths: list[str]) -> list[str]:
+        enforced = list(paths)
+        for route in architect.get("routes") or []:
+            path = safe_source_path(route.get("component_file") or "", workspace)
+            if not path or not route.get("skeleton_id"):
+                continue
+            current = read_file(workspace, path)
+            guarded, replaced = enforce_catalogue_page_contract(path, current, architect)
+            if replaced:
+                write_file(workspace, path, guarded)
+                record_stubbed_path(workspace, path)
+                if path not in enforced:
+                    enforced.append(path)
+            elif "deterministic catalogue contract scaffold" in guarded:
+                record_stubbed_path(workspace, path)
+            else:
+                clear_stubbed_path(workspace, path)
+        return enforced
+
     if data is None:
-        repaired = _deterministic_local_repair()
+        repaired = _enforce_all_catalogue_pages(_deterministic_local_repair())
         print(
             f"    fix agent fell back to deterministic local repair: "
             f"{', '.join(repaired) or 'none'}",
@@ -478,13 +1022,72 @@ def fix_build_errors(
     fixed_paths: list[str] = []
     protected = {"package.json", "package-lock.json", "App.tsx", "index.css"}
     for item in data.get("files", []):
-        path = item.get("path", "")
+        path = safe_source_path(item.get("path", ""), workspace)
         content = item.get("content", "")
         if not path or not content:
             continue
-        if path.replace("\\", "/").split("/")[-1] in protected:
+        if (
+            path.replace("\\", "/").split("/")[-1] in protected
+            or is_template_owned_path(path, architect, workspace)
+        ):
             continue
-        write_file(workspace, path, _strip_fences(content))
+        route = _route_for_file(path, architect)
+        candidate = _strip_fences(content)
+        errors = _catalogue_contract_errors(path, candidate, route)
+        if errors:
+            contract_json = _bounded_json(
+                compact_skeleton_contract(
+                    str(route.get("skeleton_id") or ""),
+                    infer_section_slots(route, str(route.get("skeleton_id") or "")),
+                ),
+                5000,
+            )
+            for retry_number in range(1, 3):
+                contract_retry_prompt = (
+                    _catalogue_retry_context(
+                        errors=errors,
+                        contract_json=contract_json,
+                        rejected_source=candidate,
+                        build_context=build_log,
+                    )
+                    + "\nRespond as JSON only with shape "
+                    '{"files":[{"path":'
+                    + json.dumps(path)
+                    + ',"content":"...complete corrected file..."}]}.'
+                )
+                retry_data = _try_parse(
+                    _ask(contract_retry_prompt),
+                    f"catalogue-contract-retry-{retry_number}",
+                )
+                if not retry_data:
+                    continue
+                replacement = next(
+                    (
+                        value.get("content", "")
+                        for value in retry_data.get("files", [])
+                        if safe_source_path(value.get("path", ""), workspace) == path
+                    ),
+                    "",
+                )
+                if not replacement:
+                    continue
+                candidate = _strip_fences(replacement)
+                errors = _catalogue_contract_errors(path, candidate, route)
+                if not errors:
+                    break
+        fixed_content, replaced = enforce_catalogue_page_contract(
+            path,
+            candidate,
+            architect,
+        )
+        write_file(workspace, path, fixed_content)
+        if replaced:
+            record_stubbed_path(workspace, path)
+        elif route.get("skeleton_id"):
+            if "deterministic catalogue contract scaffold" in fixed_content:
+                record_stubbed_path(workspace, path)
+            else:
+                clear_stubbed_path(workspace, path)
         fixed_paths.append(path)
 
     # Always scrub known corruption / missing icon exports after AI patches.
@@ -492,7 +1095,7 @@ def fix_build_errors(
         if path not in fixed_paths:
             fixed_paths.append(path)
 
-    return fixed_paths
+    return _enforce_all_catalogue_pages(fixed_paths)
 
 
 def critique_file(
@@ -503,9 +1106,33 @@ def critique_file(
     design_direction: str,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    architect: dict | None = None,
 ) -> dict:
     """Design-critic agent: score one page and return revision notes."""
     current = read_file(workspace, file_path)
+    if is_stubbed_path(workspace, file_path) or "deterministic catalogue contract scaffold" in current:
+        return {
+            "score": 0,
+            "verdict": "revise",
+            "issues": ["Page is a deterministic catalogue contract scaffold."],
+            "revision_instructions": (
+                "Replace the deterministic scaffold with a valid, business-specific "
+                "AI-authored implementation of every assigned skeleton slot."
+            ),
+        }
+    route = _route_for_file(file_path, architect or {})
+    skeleton_id = str(route.get("skeleton_id") or "")
+    skeleton_contract_json = (
+        _bounded_json(
+            compact_skeleton_contract(
+                skeleton_id,
+                infer_section_slots(route, skeleton_id),
+            ),
+            5000,
+        )
+        if skeleton_id
+        else "{}"
+    )
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_CRITIC,
         full_context=full_context[:8000],
@@ -513,12 +1140,35 @@ def critique_file(
         file_instructions=file_instructions or "Client-facing product page",
         file_path=file_path,
         current_content=current[:14000],
+        catalogue_page=bool(skeleton_id),
+        surface=route.get("surface") or "",
+        skeleton_id=skeleton_id,
+        skeleton_contract_json=skeleton_contract_json,
     )
     raw = ai_provider.ask_chat(settings.CRITIC_MODEL, [{"role": "user", "content": prompt}], max_tokens=2000)
     try:
-        return _parse_json(raw)
+        parsed = _parse_json(raw)
     except Exception:
-        return {"score": 100, "verdict": "pass", "issues": [], "revision_instructions": ""}
+        parsed = None
+    normalized = _normalize_critic_result(parsed, threshold=88)
+    if normalized.get("verdict") == "unavailable":
+        retry_prompt = (
+            prompt
+            + "\n\nCRITIC JSON RETRY: The prior response was malformed. Return ONLY "
+            "the required JSON object. Do not propose a rewrite unless you can provide "
+            "specific, evidence-based issues."
+        )
+        raw_retry = ai_provider.ask_chat(
+            settings.CRITIC_MODEL,
+            [{"role": "user", "content": retry_prompt}],
+            max_tokens=2000,
+        )
+        try:
+            parsed_retry = _parse_json(raw_retry)
+        except Exception:
+            parsed_retry = None
+        normalized = _normalize_critic_result(parsed_retry, threshold=88)
+    return normalized
 
 
 def critique_file_visual(
@@ -530,6 +1180,7 @@ def critique_file_visual(
     design_direction: str,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    architect: dict | None = None,
 ) -> dict:
     """Visual-critic agent: score one page from its rendered screenshot.
 
@@ -539,18 +1190,66 @@ def critique_file_visual(
     catch rendering defects (blank icon slots, broken images, empty-looking
     lists, overlap) that a text-only read of the source can never see.
     """
+    if is_stubbed_path(workspace, file_path) or (
+        "deterministic catalogue contract scaffold" in read_file(workspace, file_path)
+    ):
+        return {
+            "score": 0,
+            "verdict": "revise",
+            "issues": ["Page is a deterministic catalogue contract scaffold."],
+            "revision_instructions": (
+                "Replace the deterministic scaffold with a valid, business-specific "
+                "AI-authored implementation of every assigned skeleton slot."
+            ),
+        }
+    route = _route_for_file(file_path, architect or {})
+    skeleton_id = str(route.get("skeleton_id") or "")
+    skeleton_contract_json = (
+        _bounded_json(
+            compact_skeleton_contract(
+                skeleton_id,
+                infer_section_slots(route, skeleton_id),
+            ),
+            5000,
+        )
+        if skeleton_id
+        else "{}"
+    )
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_VISUAL_CRITIC,
         full_context=full_context[:8000],
         design_direction=design_direction or "Modern, premium, conversion-focused",
         file_instructions=file_instructions or "Client-facing product page",
         file_path=file_path,
+        catalogue_page=bool(skeleton_id),
+        surface=route.get("surface") or "",
+        skeleton_id=skeleton_id,
+        skeleton_contract_json=skeleton_contract_json,
     )
     raw = ai_provider.ask_vision(settings.CRITIC_MODEL, prompt, screenshot_path)
     try:
-        return _parse_json(raw)
+        parsed = _parse_json(raw)
     except Exception:
-        return {"score": 100, "verdict": "pass", "issues": [], "revision_instructions": ""}
+        parsed = None
+    normalized = _normalize_critic_result(parsed, threshold=80)
+    if normalized.get("verdict") == "unavailable":
+        retry_prompt = (
+            prompt
+            + "\n\nCRITIC JSON RETRY: The prior response was malformed. Return ONLY "
+            "the required JSON object. Preserve the page unless specific visual issues "
+            "can be stated in the required schema."
+        )
+        raw_retry = ai_provider.ask_vision(
+            settings.CRITIC_MODEL,
+            retry_prompt,
+            screenshot_path,
+        )
+        try:
+            parsed_retry = _parse_json(raw_retry)
+        except Exception:
+            parsed_retry = None
+        normalized = _normalize_critic_result(parsed_retry, threshold=80)
+    return normalized
 
 
 def refine_file(
@@ -563,9 +1262,30 @@ def refine_file(
     images: dict,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    architect: dict | None = None,
 ) -> str:
+    safe_file_path = safe_source_path(file_path, workspace)
+    if not safe_file_path:
+        raise ValueError(f"Unsafe generated source path: {file_path}")
+    file_path = safe_file_path
     """Rewrite a page to satisfy the critic's notes."""
     current = read_file(workspace, file_path)
+    if is_template_owned_path(file_path, architect, workspace):
+        return current
+    route = _route_for_file(file_path, architect or {})
+    skeleton_id = str(route.get("skeleton_id") or "")
+    catalogue_page = bool(skeleton_id)
+    catalogue_contract_json = (
+        _bounded_json(
+            compact_skeleton_contract(
+                skeleton_id,
+                infer_section_slots(route, skeleton_id),
+            ),
+            5000,
+        )
+        if catalogue_page
+        else "{}"
+    )
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_REFINE,
         full_context=full_context[:9000],
@@ -575,22 +1295,64 @@ def refine_file(
         critic_notes=critic_notes,
         file_path=file_path,
         current_content=current[:14000],
+        catalogue_page=catalogue_page,
+        skeleton_id=skeleton_id,
+        shell_component="OpsShell" if route.get("surface") == "ops" else "PublicShell",
+        catalogue_contract_json=catalogue_contract_json,
     )
     raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
     content = _strip_fences(raw)
-    if looks_truncated_source(content):
+    for attempt in range(1, 3):
+        incomplete = looks_truncated_source(content) or not (content or "").strip()
+        contract_errors = (
+            _catalogue_contract_errors(file_path, content, route)
+            if catalogue_page and not incomplete
+            else []
+        )
+        if not incomplete and not contract_errors:
+            break
         retry_prompt = (
             f"{prompt}\n\n"
-            "IMPORTANT: Your previous rewrite was CUT OFF. Return the COMPLETE page file."
+            + (
+                _catalogue_retry_context(
+                    errors=contract_errors,
+                    contract_json=catalogue_contract_json,
+                    rejected_source=content,
+                )
+                if contract_errors
+                else
+                "IMPORTANT: Your previous rewrite was CUT OFF or empty. "
+                "Return the COMPLETE page file."
+            )
         )
         raw2 = ai_provider.ask_chat(
             settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=14000,
         )
         retry_content = _strip_fences(raw2)
-        if not looks_truncated_source(retry_content):
+        if retry_content:
             content = retry_content
+    if looks_truncated_source(content) or not (content or "").strip():
+        content = current
+    if catalogue_page:
+        _catalogue_contract_errors(file_path, content, route)
+    content, replaced = enforce_catalogue_page_contract(
+        file_path,
+        content,
+        architect,
+        brand_name=(
+            (manifest.get("brand") or {}).get("name")
+            if isinstance(manifest.get("brand"), dict)
+            else manifest.get("brand_name")
+        ),
+    )
+    if replaced:
+        print(f"    catalogue contract scaffolded {file_path} after refine", flush=True)
+        record_stubbed_path(workspace, file_path)
+    elif catalogue_page:
+        if "deterministic catalogue contract scaffold" in content:
+            record_stubbed_path(workspace, file_path)
         else:
-            content = current
+            clear_stubbed_path(workspace, file_path)
     write_file(workspace, file_path, content)
     return content
 
@@ -606,6 +1368,7 @@ def critique_and_refine(
     template_renderer: TemplateRenderer,
     on_progress=None,
     max_workers: int | None = None,
+    architect: dict | None = None,
 ) -> list[str]:
     """Run the design-critic on each page; refine any that score below the bar.
 
@@ -623,7 +1386,7 @@ def critique_and_refine(
         path = spec.get("path", "")
         review = critique_file(
             workspace, path, spec.get("instructions", ""), full_context, design_direction,
-            ai_provider, template_renderer,
+            ai_provider, template_renderer, architect,
         )
         return path, review
 
@@ -692,6 +1455,7 @@ def critique_and_refine(
             images,
             ai_provider,
             template_renderer,
+            architect,
         )
         return path
 
@@ -706,7 +1470,7 @@ def critique_and_refine(
                     if review.get("score", 100) < 55:
                         review2 = critique_file(
                             workspace, path, spec.get("instructions", ""), full_context, design_direction,
-                            ai_provider, template_renderer,
+                            ai_provider, template_renderer, architect,
                         )
                         if review2.get("verdict") == "revise":
                             notes2 = review2.get("revision_instructions") or "; ".join(review2.get("issues", []))
@@ -715,12 +1479,13 @@ def critique_and_refine(
                                 refine_file(
                                     workspace, path, spec.get("instructions", ""),
                                     notes2, full_context, manifest, images,
-                                    ai_provider, template_renderer,
+                                    ai_provider, template_renderer, architect,
                                 )
                 except Exception as e:
                     print(f"    refine FAIL {path}: {e}", flush=True)
         else:
-            for spec, result, exc in parallel_map(to_refine, _refine_item, max_workers=workers):
+            for item, result, exc in parallel_map(to_refine, _refine_item, max_workers=workers):
+                spec, _review = item
                 path = spec.get("path", "")
                 if exc:
                     print(f"    refine FAIL {path}: {exc}", flush=True)
@@ -735,7 +1500,7 @@ def critique_and_refine(
                     path = spec.get("path", "")
                     review2 = critique_file(
                         workspace, path, spec.get("instructions", ""), full_context, design_direction,
-                        ai_provider, template_renderer,
+                        ai_provider, template_renderer, architect,
                     )
                     if review2.get("verdict") != "revise":
                         return None
@@ -746,7 +1511,7 @@ def critique_and_refine(
                     refine_file(
                         workspace, path, spec.get("instructions", ""),
                         notes2, full_context, manifest, images,
-                        ai_provider, template_renderer,
+                        ai_provider, template_renderer, architect,
                     )
                     return path
 

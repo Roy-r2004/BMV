@@ -14,6 +14,9 @@ Read ALL input below. Output a plan that is 100% specific to THIS business — n
 === VISUAL DEMO CONCEPT ===
 {{ visual_demo_summary }}
 
+=== COMPACT TEMPLATE-OWNED SKELETON CONTRACT ===
+{{ catalogue_contract_json }}
+
 === STARTING COLORS (adapt to fit this business — explain your choices) ===
 Primary: {{ primary_color }}
 Secondary: {{ secondary_color }}
@@ -46,7 +49,9 @@ Return ONLY valid JSON:
     "public_shell": "describe nav bar style for customer pages",
     "admin_shell": "describe sidebar/dashboard shell for owner pages"
   },
-  "design_direction": "2-3 sentences on the overall visual direction for THIS business",
+  "design_direction": "shared 1-2 sentence brand foundation for THIS business",
+  "public_direction": "business-specific customer-facing visual and interaction direction",
+  "ops_direction": "business-specific operational visual and information-density direction",
   "consistency_rules": ["specific rules for keeping all pages cohesive"],
   "feature_coverage": [
     {"feature": "exact feature from blueprint", "role_id": "customer", "page_id": "page-id", "ui_element": "what the user sees"}
@@ -69,6 +74,9 @@ Return ONLY valid JSON:
           "id": "unique-page-id",
           "title": "Page Title",
           "page_type": "descriptive type",
+          "surface": "public or ops",
+          "skeleton_id": "one of: public-home, public-service, public-detail, public-booking, ops-dashboard, ops-list, ops-detail, ops-settings",
+          "section_slots": ["canonical content slot ids in render order, such as hero, features, cta, footer — never shell"],
           "purpose": "why this page exists for THIS business",
           "sections": [
             {"name": "Section Name", "description": "Exact UI: layout, components, labels, interactions, sample data — be very specific", "priority": "required"}
@@ -86,6 +94,10 @@ CRITICAL:
 - Do NOT use generic page sets — derive everything from the blueprint and business context
 - Every preview feature and blueprint module MUST appear in feature_coverage
 - Navigation links must only point to pages that exist in that role's pages array
+- The compact skeleton contract is authoritative. Every page must choose a listed skeleton_id whose `surface` matches the page.
+- `section_slots` may contain ONLY IDs from that chosen skeleton's `requiredSections` or `optionalSections`, ordered by `recommendedOrder`; include every non-shell required ID, choose only relevant optional IDs, and NEVER include `shell`
+- Infer `surface`, `skeleton_id`, and `section_slots` when the business context does not state them explicitly; do not invent skeletons or slot IDs
+- `public_direction` and `ops_direction` must describe distinct, business-specific customer and operator experiences, not generic "modern/premium dashboard" language
 - Section descriptions must be detailed enough for a developer to build without guessing
 - Design system must reflect THIS industry (luxury spa ≠ gym ≠ law firm)
 - YOU decide how many roles and pages — no fixed template. A simple product may need 1 role and 3 pages; a complex one may need 3 roles and 15 pages. Match the blueprint, not a checklist.

@@ -73,6 +73,20 @@ def main() -> None:
         if find_double_brace_object_literals('const style = {{ color: "red" }};'):
             raise AssertionError("detector falsely flagged style={{ color }}")
 
+        # Catalogue components legitimately pass object-valued JSX props with
+        # two braces: one JSX expression brace plus one object literal brace.
+        catalogue_jsx = (
+            '<MarketingHero\n'
+            '  primaryCta={{ label: "Get started", onClick: () => navigate("/start") }}\n'
+            '  secondaryCta={{ label: "Learn more", href: "#details" }}\n'
+            '/>\n'
+        )
+        if find_double_brace_object_literals(catalogue_jsx):
+            raise AssertionError("detector falsely flagged a JSX object-valued prop")
+        unchanged, jsx_repairs = repair_double_brace_object_literals_in_text(catalogue_jsx)
+        if unchanged != catalogue_jsx or jsx_repairs:
+            raise AssertionError("repair corrupted a valid JSX object-valued prop")
+
         fixed, n = repair_double_brace_object_literals_in_text(bad)
         if n != 2:
             raise AssertionError(f"expected 2 row repairs, got {n}")

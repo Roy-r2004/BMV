@@ -5,7 +5,15 @@ import json
 import re
 
 from app.domain.interfaces.template_renderer import TemplateRenderer
+from app.application.ui_catalogue import (
+    compact_skeleton_contract,
+    infer_page_contract,
+    infer_section_slots,
+)
+from app.application.preview_app.codegen import _bounded_json
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.preview_app.theme import sanitize_theme_inputs
+from app.application.preview_app.protected_paths import safe_generated_route_path
 
 
 def _ident(stem: str) -> str:
@@ -30,25 +38,68 @@ def _pages_catalog(workspace) -> list[str]:
 def architect_from_stored(generated_pages: dict, plan: dict | None = None) -> dict:
     """Rebuild architect dict from persisted preview_app metadata (no LLM call)."""
     pa = generated_pages.get("preview_app") or {}
-    routes = pa.get("routes") or []
+    stored_routes = pa.get("routes") or []
     roles = pa.get("roles") or []
+    plan_pages: dict[tuple[str, str], dict] = {}
+    pages_by_id: dict[str, list[dict]] = {}
+    for role in (plan or {}).get("roles", []):
+        for page in role.get("pages", []):
+            if not page.get("id"):
+                continue
+            role_id = str(role.get("id") or "")
+            page_id = str(page["id"])
+            enriched = {**page, "role_id": role_id, "role_label": role.get("label")}
+            plan_pages[(role_id, page_id)] = enriched
+            pages_by_id.setdefault(page_id, []).append(enriched)
+    routes: list[dict] = []
     files: list[dict] = []
-    for rt in routes:
+    for stored_route in stored_routes:
+        rt = dict(stored_route)
+        raw_component_file = rt.get("component_file")
+        if raw_component_file:
+            safe_component_file = safe_generated_route_path(
+                raw_component_file,
+                {"routes": stored_routes},
+            )
+            if safe_component_file:
+                rt["component_file"] = safe_component_file
+            else:
+                rt.pop("component_file", None)
+        page_id = str(rt.get("page_id") or "")
+        role_id = str(rt.get("role_id") or "")
+        page = plan_pages.get((role_id, page_id)) or {}
+        if not page and len(pages_by_id.get(page_id, [])) == 1:
+            page = pages_by_id[page_id][0]
+        is_catalogue_route = bool(rt.get("skeleton_id"))
+        if is_catalogue_route:
+            inferred = infer_page_contract({**page, **rt})
+            rt["surface"] = rt.get("surface") or inferred["surface"]
+            rt["section_slots"] = infer_section_slots(
+                {**page, **rt},
+                rt["skeleton_id"],
+            )
+        routes.append(rt)
         cf = rt.get("component_file")
         if not cf:
             continue
+        sections = page.get("sections") or []
+        instruction_payload = {
+            "title": rt.get("title") or page.get("title") or "",
+            "purpose": rt.get("purpose") or page.get("purpose") or "",
+            "role_id": rt.get("role_id") or page.get("role_id") or "",
+            "sections": sections[:10],
+        }
+        if is_catalogue_route:
+            slots = rt["section_slots"]
+            instruction_payload["catalogue_contract"] = compact_skeleton_contract(
+                rt["skeleton_id"],
+                slots,
+            )
         files.append({
             "path": cf,
             "kind": "page",
-            "instructions": f"{rt.get('title', '')} — {rt.get('purpose', '')}. Role: {rt.get('role_id', '')}",
+            "instructions": _bounded_json(instruction_payload, 8000),
         })
-    if plan:
-        for role in plan.get("roles", []):
-            for page in role.get("pages", []):
-                for f in files:
-                    if page.get("id") and page["id"].replace("-", "") in (f.get("path") or "").lower().replace("-", ""):
-                        sections = page.get("sections") or []
-                        f["instructions"] += f"\nSections: {json.dumps(sections[:10], ensure_ascii=False)[:2000]}"
     return {
         "routes": routes,
         "roles": roles,
@@ -231,9 +282,19 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
         for rt in routes
         if rt.get("path") and _layout_for(rt) == "admin"
     ]
+    navigation_data = {"public": public_nav, "admin": admin_nav}
+    for role in roles_src:
+        role_id = role.get("id")
+        if not role_id:
+            continue
+        navigation_data[role_id] = [
+            {"path": rt["path"], "label": rt.get("title") or rt["path"]}
+            for rt in routes
+            if rt.get("path") and rt.get("role_id") == role_id
+        ]
 
     roles_json = json.dumps(roles_data, indent=2, ensure_ascii=False)
-    nav_json = json.dumps({"public": public_nav, "admin": admin_nav}, indent=2, ensure_ascii=False)
+    nav_json = json.dumps(navigation_data, indent=2, ensure_ascii=False)
 
     updated = mock
     if re.search(r"export const roles\s*=", mock):
@@ -302,11 +363,11 @@ def write_plumbing_mock(
 
 
 def write_index_css(workspace, primary: str, secondary: str, font: str, template_renderer: TemplateRenderer) -> None:
-    font_family = f'"{font}", system-ui, sans-serif' if font else "system-ui, sans-serif"
+    primary, secondary, font_family = sanitize_theme_inputs(primary, secondary, font)
     css = template_renderer.render(
         "codegen/index_css.j2",
-        primary=primary or "#6366f1",
-        secondary=secondary or primary or "#4f46e5",
+        primary=primary,
+        secondary=secondary,
         font_family=font_family,
     )
     write_file(workspace, "src/index.css", css)
@@ -316,7 +377,7 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     routes = architect.get("routes") or []
     catalog = _pages_catalog(workspace)
 
-    resolved: list[tuple[str, str, str, str]] = []  # path, component, layout, file
+    resolved: list[tuple[str, str, str, str, bool]] = []  # path, component, layout, file, catalogue
     imports: dict[str, str] = {}
     used_files: set[str] = set()
     used_components: dict[str, str] = {}  # component -> path (detect duplicates)
@@ -345,7 +406,7 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
             imports[comp] = imp
         used_files.add(rel)
         used_components[comp] = path
-        resolved.append((path, comp, _layout_for(rt), rel))
+        resolved.append((path, comp, _layout_for(rt), rel, bool(rt.get("skeleton_id"))))
 
     if not resolved and catalog:
         for rel in catalog:
@@ -353,10 +414,10 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
             layout = "admin" if "/admin/" in rel or "/owner/" in rel else "public"
             path = f"/{stem.replace('page', '')}" if layout == "public" else f"/admin/{stem.replace('page', '')}"
             comp = _register(rel)
-            resolved.append((path, comp, layout, rel))
+            resolved.append((path, comp, layout, rel, False))
 
     seen_paths: set[str] = set()
-    uniq: list[tuple[str, str, str, str]] = []
+    uniq: list[tuple[str, str, str, str, bool]] = []
     for item in resolved:
         if item[0] in seen_paths:
             continue
@@ -364,19 +425,20 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
         uniq.append(item)
     resolved = uniq
 
-    public_paths = [p for p, _, l, _ in resolved if l == "public"]
+    public_paths = [p for p, _, l, _, _ in resolved if l == "public"]
     if not any(p in ("/", "/home") for p in public_paths):
         for rel in catalog:
             if _stem(rel) in ("homepage", "home") and rel not in used_files:
                 comp = _register(rel)
-                resolved.insert(0, ("/", comp, "public", rel))
+                resolved.insert(0, ("/", comp, "public", rel, False))
                 break
 
     sync_mock_roles_navigation(workspace, architect)
 
-    public = [(p, c) for p, c, l, _ in resolved if l == "public"]
-    admin = [(p, c) for p, c, l, _ in resolved if l == "admin"]
-    has_root = any(p == "/" for p, _, _, _ in resolved)
+    catalogue = [(p, c) for p, c, _, _, owns_shell in resolved if owns_shell]
+    public = [(p, c) for p, c, l, _, owns_shell in resolved if l == "public" and not owns_shell]
+    admin = [(p, c) for p, c, l, _, owns_shell in resolved if l == "admin" and not owns_shell]
+    has_root = any(p == "/" for p, _, _, _, _ in resolved)
     first_path = (public[0][0] if public else resolved[0][0]) if resolved else "/"
 
     import_lines = "\n".join(f"import {c} from '{imp}';" for c, imp in sorted(imports.items()))
@@ -387,6 +449,8 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     blocks: list[str] = []
     if not has_root and first_path != "/":
         blocks.append(f'        <Route path="/" element={{<Navigate to="{first_path}" replace />}} />')
+    if catalogue:
+        blocks.append(_routes_block(catalogue))
     if public:
         blocks.append(
             "        <Route element={<PublicLayout />}>\n"
@@ -405,8 +469,16 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     app = template_renderer.render(
         "codegen/app_tsx.j2",
         import_lines=import_lines,
+        layout_import_lines="\n".join(
+            line
+            for enabled, line in (
+                (bool(public), "import PublicLayout from './layouts/PublicLayout';"),
+                (bool(admin), "import AdminLayout from './layouts/AdminLayout';"),
+            )
+            if enabled
+        ),
         first_path=first_path,
         routes_jsx=routes_jsx,
     )
     write_file(workspace, "src/App.tsx", app)
-    return [p for p, _, _, _ in resolved]
+    return [p for p, _, _, _, _ in resolved]

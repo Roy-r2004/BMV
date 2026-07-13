@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import PublicLayout from './layouts/PublicLayout';
-import AdminLayout from './layouts/AdminLayout';
+{{ layout_import_lines }}
 {{ import_lines }}
 import { roles } from './data/mock';
-import { notifyParent, setupPreviewBridge } from './lib/preview-bridge';
+import { notifyParent, registerPreviewNavigate, setupPreviewBridge } from './lib/preview-bridge';
 
 type Role = { id: string; defaultPath?: string };
 
@@ -17,6 +16,7 @@ function RouteBridge() {
 function RoleBridge() {
   const navigate = useNavigate();
   useEffect(() => {
+    registerPreviewNavigate((path) => navigate(path));
     setupPreviewBridge((roleId, path) => {
       if (path) { navigate(path); return; }
       const list = (roles as Role[]) || [];

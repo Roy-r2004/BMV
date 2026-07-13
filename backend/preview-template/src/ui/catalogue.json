@@ -82,6 +82,7 @@
       "optionalProps": [
         "description",
         "triggerLabel",
+        "showTrigger",
         "footer",
         "open",
         "defaultOpen",
@@ -180,6 +181,27 @@
       "optionalProps": [
         "nav",
         "footer",
+        "mobileDock",
+        "className",
+        "chrome"
+      ],
+      "variants": {
+        "chrome": [
+          "solid",
+          "immersive"
+        ]
+      }
+    },
+    {
+      "name": "PublicNav",
+      "surface": "public",
+      "path": "public/PublicNav.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "cta",
+        "inverted",
         "className"
       ]
     },
@@ -297,6 +319,83 @@
       ]
     },
     {
+      "name": "LogoMarquee",
+      "surface": "public",
+      "path": "public/LogoMarquee.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "heading",
+        "className"
+      ]
+    },
+    {
+      "name": "SpotlightCard",
+      "surface": "public",
+      "path": "public/SpotlightCard.tsx",
+      "requiredProps": [
+        "title",
+        "description"
+      ],
+      "optionalProps": [
+        "icon",
+        "className"
+      ]
+    },
+    {
+      "name": "AccentBeam",
+      "surface": "public",
+      "path": "public/AccentBeam.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "className"
+      ]
+    },
+    {
+      "name": "CredentialStrip",
+      "surface": "public",
+      "path": "public/CredentialStrip.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "heading",
+        "className"
+      ]
+    },
+    {
+      "name": "ResultRail",
+      "surface": "public",
+      "path": "public/ResultRail.tsx",
+      "requiredProps": [
+        "heading",
+        "items"
+      ],
+      "optionalProps": [
+        "description",
+        "className"
+      ]
+    },
+    {
+      "name": "BookingPanel",
+      "surface": "public",
+      "path": "public/BookingPanel.tsx",
+      "requiredProps": [
+        "heading",
+        "treatments",
+        "slots"
+      ],
+      "optionalProps": [
+        "description",
+        "confirmLabel",
+        "onConfirm",
+        "className"
+      ]
+    },
+    {
       "name": "OpsShell",
       "surface": "ops",
       "path": "ops/OpsShell.tsx",
@@ -307,7 +406,10 @@
       ],
       "optionalProps": [
         "topbar",
-        "className"
+        "className",
+        "adjustableSidebar",
+        "defaultSidebarWidth",
+        "defaultSidebarCollapsed"
       ]
     },
     {
@@ -349,13 +451,26 @@
       ],
       "optionalProps": [
         "description",
+        "insight",
         "type",
+        "adjustable",
+        "density",
+        "valueFormat",
         "className"
       ],
       "variants": {
         "type": [
           "area",
           "bar"
+        ],
+        "density": [
+          "compact",
+          "comfortable"
+        ],
+        "valueFormat": [
+          "number",
+          "currency",
+          "compact"
         ]
       }
     },
@@ -369,6 +484,7 @@
       ],
       "optionalProps": [
         "emptyMessage",
+        "onRowSelect",
         "className"
       ]
     },
@@ -411,6 +527,19 @@
         "action",
         "className"
       ]
+    },
+    {
+      "name": "RiskQueue",
+      "surface": "ops",
+      "path": "ops/RiskQueue.tsx",
+      "requiredProps": [
+        "heading",
+        "items"
+      ],
+      "optionalProps": [
+        "onAction",
+        "className"
+      ]
     }
   ],
   "skeletons": [
@@ -430,21 +559,30 @@
         "footer"
       ],
       "optionalSections": [
-        "trust"
+        "trust",
+        "credentials",
+        "spotlight",
+        "results",
+        "booking"
       ],
       "recommendedOrder": [
         "shell",
         "hero",
         "trust",
+        "credentials",
         "features",
+        "spotlight",
         "showcase",
+        "results",
         "process",
         "testimonials",
+        "booking",
         "cta",
         "footer"
       ],
       "allowedComponents": [
         "PublicShell",
+        "PublicNav",
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
@@ -452,6 +590,12 @@
         "ProcessSection",
         "CTABand",
         "BrandFooter",
+        "LogoMarquee",
+        "SpotlightCard",
+        "AccentBeam",
+        "CredentialStrip",
+        "ResultRail",
+        "BookingPanel",
         "Button",
         "Badge"
       ],
@@ -498,6 +642,7 @@
       ],
       "allowedComponents": [
         "PublicShell",
+        "PublicNav",
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
@@ -505,6 +650,12 @@
         "ProcessSection",
         "CTABand",
         "BrandFooter",
+        "LogoMarquee",
+        "SpotlightCard",
+        "AccentBeam",
+        "CredentialStrip",
+        "ResultRail",
+        "BookingPanel",
         "Button",
         "Badge"
       ],
@@ -550,6 +701,7 @@
       ],
       "allowedComponents": [
         "PublicShell",
+        "PublicNav",
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
@@ -557,6 +709,12 @@
         "ProcessSection",
         "CTABand",
         "BrandFooter",
+        "LogoMarquee",
+        "SpotlightCard",
+        "AccentBeam",
+        "CredentialStrip",
+        "ResultRail",
+        "BookingPanel",
         "Button",
         "Badge"
       ],
@@ -581,24 +739,29 @@
         "shell",
         "hero",
         "process",
-        "cta",
+        "booking",
         "footer"
       ],
       "optionalSections": [
         "features",
-        "testimonials"
+        "testimonials",
+        "cta",
+        "credentials"
       ],
       "recommendedOrder": [
         "shell",
         "hero",
+        "credentials",
         "process",
         "features",
         "testimonials",
+        "booking",
         "cta",
         "footer"
       ],
       "allowedComponents": [
         "PublicShell",
+        "PublicNav",
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
@@ -606,6 +769,12 @@
         "ProcessSection",
         "CTABand",
         "BrandFooter",
+        "LogoMarquee",
+        "SpotlightCard",
+        "AccentBeam",
+        "CredentialStrip",
+        "ResultRail",
+        "BookingPanel",
         "Button",
         "Badge",
         "Input",
@@ -636,11 +805,14 @@
         "table",
         "activity"
       ],
-      "optionalSections": [],
+      "optionalSections": [
+        "risk"
+      ],
       "recommendedOrder": [
         "shell",
         "header",
         "kpis",
+        "risk",
         "chart",
         "filters",
         "table",
@@ -655,6 +827,7 @@
         "FilterBar",
         "ActivityFeed",
         "EmptyState",
+        "RiskQueue",
         "Button",
         "Input",
         "Select",
@@ -699,6 +872,7 @@
         "FilterBar",
         "ActivityFeed",
         "EmptyState",
+        "RiskQueue",
         "Button",
         "Input",
         "Select",
@@ -738,6 +912,7 @@
         "FilterBar",
         "ActivityFeed",
         "EmptyState",
+        "RiskQueue",
         "Button",
         "Input",
         "Select",
@@ -777,6 +952,7 @@
         "FilterBar",
         "ActivityFeed",
         "EmptyState",
+        "RiskQueue",
         "Button",
         "Input",
         "Select",
