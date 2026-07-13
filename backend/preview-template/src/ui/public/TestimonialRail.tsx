@@ -17,22 +17,26 @@ export interface TestimonialRailProps {
 export function TestimonialRail({ className, heading, items }: TestimonialRailProps) {
   const loop = [...items, ...items];
   return (
-    <section className={cn('overflow-hidden px-6 py-20 text-background lg:px-10 lg:py-24', className)}>
+    <section className={cn('overflow-hidden bg-card px-6 py-24 lg:px-10 lg:py-28', className)}>
       <div className="mx-auto w-full max-w-7xl">
-        {heading ? <h2 className="mb-10 max-w-2xl font-display text-3xl tracking-[-0.03em] sm:text-4xl">{heading}</h2> : null}
+        {heading ? (
+          <h2 className="mb-12 max-w-2xl font-display text-[clamp(2.25rem,4vw,3.4rem)] leading-[1.05] tracking-[-0.03em] text-foreground">
+            {heading}
+          </h2>
+        ) : null}
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-foreground to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-foreground to-transparent" />
-          <div className="ui-marquee-track flex w-max gap-4">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-card to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-card to-transparent" />
+          <div className="ui-marquee-track flex w-max gap-5">
             {loop.map((item, index) => (
               <article
                 key={`${item.author}-${index}`}
-                className="w-[22rem] shrink-0 rounded-[calc(var(--radius-ui)+0.5rem)] border border-white/10 bg-white/5 p-6"
+                className="w-[24rem] shrink-0 rounded-[1.5rem] border border-border-subtle bg-background p-7 shadow-[var(--shadow-ui)]"
               >
-                <p className="text-base leading-7 text-background/80">“{item.quote}”</p>
-                <div className="mt-8">
-                  <p className="font-semibold">{item.author}</p>
-                  {item.role ? <p className="mt-1 text-sm text-background/50">{item.role}</p> : null}
+                <p className="font-display text-2xl leading-snug text-foreground">“{item.quote}”</p>
+                <div className="mt-8 border-t border-border-subtle pt-5">
+                  <p className="font-semibold text-foreground">{item.author}</p>
+                  {item.role ? <p className="mt-1 text-sm text-muted">{item.role}</p> : null}
                 </div>
               </article>
             ))}

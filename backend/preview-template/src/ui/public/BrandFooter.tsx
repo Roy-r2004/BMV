@@ -23,23 +23,23 @@ export function BrandFooter({
   meta,
 }: BrandFooterProps) {
   return (
-    <footer className={cn('border-t border-white/10 px-6 py-12 text-background lg:px-10', className)}>
-      <div className="mx-auto grid w-full max-w-7xl gap-10 md:grid-cols-[1.2fr_0.8fr]">
+    <footer className={cn('border-t border-border-subtle px-6 py-14 lg:px-10', className)}>
+      <div className="mx-auto grid w-full max-w-7xl gap-10 md:grid-cols-[1.3fr_0.7fr]">
         <div>
-          <p className="font-display text-lg tracking-tight">{brandName}</p>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-background/58">{description}</p>
+          <p className="font-display text-3xl tracking-tight text-foreground">{brandName}</p>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-muted">{description}</p>
         </div>
         {links.length > 0 ? (
-          <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-background/72" aria-label="Footer">
+          <nav className="flex flex-wrap content-start gap-x-6 gap-y-3 text-sm text-foreground" aria-label="Footer">
             {links.map((link) => (
-              <a key={link.href} href={link.href} className="hover:text-background">
+              <a key={link.href} href={link.href} className="hover:text-brand">
                 {link.label}
               </a>
             ))}
           </nav>
         ) : null}
       </div>
-      {meta ? <p className="mx-auto mt-8 w-full max-w-7xl text-xs text-background/40">{meta}</p> : null}
+      {meta ? <p className="mx-auto mt-10 w-full max-w-7xl text-xs text-muted">{meta}</p> : null}
     </footer>
   );
 }

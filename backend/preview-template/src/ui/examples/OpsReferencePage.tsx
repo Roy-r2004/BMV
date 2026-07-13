@@ -53,8 +53,8 @@ export default function OpsReferencePage() {
     () => ({
       header: (
         <PageHeader
-          title="Operations overview"
-          description={`Skeleton ${skeleton.id}: KPIs, chart, filters, dense table, activity — no marketing hero.`}
+          title="Today on the floor"
+          description="Live bookings, chair utilization, and risk flags for all three studios."
           actions={<Button size="sm" variant="secondary">Refresh</Button>}
         />
       ),
@@ -69,7 +69,7 @@ export default function OpsReferencePage() {
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Weekly bookings"
-            description="Area chart via ChartCard only"
+            description="Confirmed appointments across studios"
             type="area"
             xKey="day"
             dataKey="bookings"
@@ -84,7 +84,7 @@ export default function OpsReferencePage() {
           />
           <ChartCard
             title="Revenue by treatment"
-            description="Bar chart via ChartCard only"
+            description="This week’s closed revenue"
             type="bar"
             xKey="name"
             dataKey="revenue"
