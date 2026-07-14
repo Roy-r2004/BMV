@@ -19,15 +19,17 @@ export interface CTABandProps {
 
 export function CTABand({ className, description, heading, primaryCta, secondaryCta }: CTABandProps) {
   return (
-    <section className={cn('bg-foreground px-6 py-24 text-background lg:px-12 lg:py-28', className)}>
+    <section className={cn('relative isolate overflow-hidden bg-[#0b0d10] px-6 py-28 text-white lg:px-12 lg:py-32', className)}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_80%_at_80%_20%,color-mix(in_srgb,var(--color-brand)_35%,transparent),transparent_60%)]" />
+      <div className="ui-film-grain opacity-[0.12]" />
       <MotionReveal>
-        <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
+        <div className="relative mx-auto flex w-full max-w-[92rem] flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
-            <p className="text-[11px] font-semibold tracking-[0.22em] text-brand uppercase">Book</p>
-            <h2 className="mt-4 font-display text-[clamp(2.75rem,5.5vw,5rem)] italic leading-[0.95] tracking-[-0.04em]">
+            <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">Next move</p>
+            <h2 className="mt-4 font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.92] tracking-[-0.04em]">
               {heading}
             </h2>
-            {description ? <p className="mt-5 max-w-lg text-base leading-8 text-background/60">{description}</p> : null}
+            {description ? <p className="mt-5 max-w-lg text-base leading-8 text-white/55">{description}</p> : null}
           </div>
           <div className="flex flex-wrap gap-3">
             <Button href={primaryCta.href} size="lg">
@@ -38,7 +40,7 @@ export function CTABand({ className, description, heading, primaryCta, secondary
                 href={secondaryCta.href}
                 size="lg"
                 variant="outline"
-                className="border-white/30 text-background hover:bg-white/10"
+                className="border-white/35 bg-white/5 text-white hover:bg-white/12"
               >
                 {secondaryCta.label}
               </Button>

@@ -65,10 +65,10 @@
 
 @keyframes ui-kenburns {
   from {
-    transform: scale(1.02);
+    transform: scale(1.04);
   }
   to {
-    transform: scale(1.07);
+    transform: scale(1.14);
   }
 }
 
@@ -82,8 +82,19 @@
   }
 }
 
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .ui-kenburns {
-  animation: ui-kenburns 26s ease-out both;
+  animation: ui-kenburns 32s ease-out both;
 }
 
 .ui-marquee-track {
@@ -95,9 +106,40 @@
   opacity: 0.55;
 }
 
+/* Cinematic overlays for marketing heroes / showcases */
+.ui-film-grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+.ui-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, rgb(0 0 0 / 0.55) 100%);
+}
+
+.ui-hero-sheen {
+  pointer-events: none;
+  position: absolute;
+  inset: -20% -10%;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgb(255 255 255 / 0.12) 48%,
+    transparent 62%
+  );
+  animation: ui-fade-up 1.4s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ui-marquee-track,
-  .ui-kenburns {
+  .ui-kenburns,
+  .ui-hero-sheen {
     animation: none;
   }
 }

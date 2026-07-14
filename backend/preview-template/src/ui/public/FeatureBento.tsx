@@ -7,6 +7,9 @@ import { currentRecipeId, recipeFeatureVariant } from '../../lib/recipe';
 export interface FeatureBentoItem {
   title: string;
   description: string;
+  imageSrc?: string;
+  imageAlt?: string;
+  href?: string;
 }
 
 export type FeatureBentoVariant = 'bento' | 'grid' | 'alternating';
@@ -96,23 +99,67 @@ export function FeatureBento({
         ) : null}
 
         {resolved === 'bento' ? (
-          <MotionStagger className="mt-20">
-            {items.map((item, index) => (
-              <MotionStaggerItem key={item.title}>
-                <article className="grid gap-4 border-t border-foreground/12 py-12 md:grid-cols-12 md:gap-10 md:py-14">
-                  <p className="font-display text-4xl italic text-foreground/25 md:col-span-2">
-                    {String(index + 1).padStart(2, '0')}
-                  </p>
-                  <div className="md:col-span-5">
-                    <h3 className="font-display text-[clamp(1.85rem,3vw,2.75rem)] italic leading-[1.05] tracking-tight text-foreground">
-                      {item.title}
-                    </h3>
-                  </div>
-                  <p className="text-base leading-8 text-muted md:col-span-5 md:pt-2">{item.description}</p>
-                </article>
-              </MotionStaggerItem>
-            ))}
-          </MotionStagger>
+          items.some((item) => item.imageSrc) ? (
+            <MotionStagger className="mt-16 grid gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+              {items.map((item, index) => {
+                const body = (
+                  <article
+                    className={cn(
+                      'group relative isolate min-h-[22rem] overflow-hidden bg-[#12161a] text-white',
+                      index === 0 && 'md:col-span-2 md:min-h-[28rem]'
+                    )}
+                  >
+                    {item.imageSrc ? (
+                      <img
+                        src={item.imageSrc}
+                        alt={item.imageAlt ?? ''}
+                        className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                      />
+                    ) : null}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+                    <div className="relative z-10 flex h-full flex-col justify-end p-7 lg:p-9">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/50">
+                        {String(index + 1).padStart(2, '0')}
+                      </p>
+                      <h3 className="mt-3 font-display text-[clamp(1.75rem,3vw,2.6rem)] leading-[1.02] tracking-tight">
+                        {item.title}
+                      </h3>
+                      <p className="mt-3 max-w-md text-sm leading-7 text-white/70">{item.description}</p>
+                    </div>
+                  </article>
+                );
+                return (
+                  <MotionStaggerItem key={item.title}>
+                    {item.href ? (
+                      <a href={item.href} className="block outline-none focus-visible:ring-2 focus-visible:ring-brand">
+                        {body}
+                      </a>
+                    ) : (
+                      body
+                    )}
+                  </MotionStaggerItem>
+                );
+              })}
+            </MotionStagger>
+          ) : (
+            <MotionStagger className="mt-20">
+              {items.map((item, index) => (
+                <MotionStaggerItem key={item.title}>
+                  <article className="grid gap-4 border-t border-foreground/12 py-12 md:grid-cols-12 md:gap-10 md:py-14">
+                    <p className="font-display text-4xl italic text-foreground/25 md:col-span-2">
+                      {String(index + 1).padStart(2, '0')}
+                    </p>
+                    <div className="md:col-span-5">
+                      <h3 className="font-display text-[clamp(1.85rem,3vw,2.75rem)] italic leading-[1.05] tracking-tight text-foreground">
+                        {item.title}
+                      </h3>
+                    </div>
+                    <p className="text-base leading-8 text-muted md:col-span-5 md:pt-2">{item.description}</p>
+                  </article>
+                </MotionStaggerItem>
+              ))}
+            </MotionStagger>
+          )
         ) : null}
 
         {resolved === 'alternating' ? (
