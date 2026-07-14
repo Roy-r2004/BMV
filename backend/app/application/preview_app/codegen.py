@@ -17,6 +17,13 @@ from app.application.preview_app.catalogue_contract import (
     enforce_catalogue_page_contract,
     validate_catalogue_page_content,
 )
+from app.application.preview_app.utility_compositor import (
+    compose_utility_page_tsx,
+    default_utility_content,
+    infer_utility_workspace_type,
+    is_utility_catalogue_route,
+    normalize_utility_content,
+)
 from app.application.preview_app.fallback import (
     clear_stubbed_path,
     is_stubbed_path,
@@ -485,6 +492,109 @@ def _catalogue_retry_context(
     )
 
 
+def _brand_name_from_manifest(manifest: dict) -> str:
+    brand = manifest.get("brand")
+    if isinstance(brand, dict) and brand.get("name"):
+        return str(brand["name"])
+    if manifest.get("brand_name"):
+        return str(manifest["brand_name"])
+    return "Brand"
+
+
+def _generate_utility_composed_file(
+    workspace: Path,
+    file_path: str,
+    *,
+    route: dict,
+    page_plan: dict,
+    full_context: str,
+    manifest: dict,
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+) -> str:
+    """Content-JSON → deterministic TSX for public-utility pages."""
+    brand_name = _brand_name_from_manifest(manifest)
+    path = str(route.get("path") or page_plan.get("path") or "")
+    title = str(route.get("title") or page_plan.get("title") or file_path)
+    page_type = str(route.get("page_type") or page_plan.get("page_type") or "")
+    workspace_type = infer_utility_workspace_type(path, title, page_type)
+
+    prompt = template_renderer.render(
+        PromptTemplate.PREVIEW_APP_UTILITY_CONTENT,
+        full_context=full_context[:8000],
+        route_path=path or "/",
+        page_title=title,
+        workspace_type=workspace_type,
+        brand_name=brand_name,
+        page_plan_json=_bounded_json(page_plan, 4000) if page_plan else "{}",
+    )
+
+    content_payload: dict = {}
+    print(
+        f"    compose_utility {file_path} type={workspace_type} model={settings.PREVIEW_APP_MODEL}",
+        flush=True,
+    )
+    try:
+        raw = ai_provider.ask_chat(
+            settings.PREVIEW_APP_MODEL,
+            [{"role": "user", "content": prompt}],
+            max_tokens=6000,
+        )
+        parsed = _parse_json(_strip_fences(raw))
+        if isinstance(parsed, dict):
+            content_payload = parsed
+        else:
+            print(f"    utility JSON not an object for {file_path}; using defaults", flush=True)
+    except Exception as exc:
+        print(f"    utility content ask failed for {file_path}: {exc}; using defaults", flush=True)
+
+    if not content_payload:
+        content_payload = default_utility_content(
+            workspace_type, brand_name=brand_name, title=title, path=path
+        )
+    else:
+        content_payload = normalize_utility_content(
+            content_payload,
+            workspace_type,
+            brand_name=brand_name,
+            title=title,
+            path=path,
+        )
+
+    composed = compose_utility_page_tsx(
+        file_path=file_path,
+        route={**route, "path": path, "title": title, "skeleton_id": "public-utility"},
+        content=content_payload,
+        brand_name=brand_name,
+        workspace_type=workspace_type,
+    )
+
+    composed, replaced = enforce_catalogue_page_contract(
+        file_path,
+        composed,
+        {"routes": [{**route, "path": path, "title": title, "skeleton_id": "public-utility", "component_file": file_path}]},
+        brand_name=brand_name,
+    )
+    if replaced:
+        # Last resort: compose again from defaults (never leave a blank scaffold).
+        print(f"    utility compose re-emit defaults for {file_path}", flush=True)
+        composed = compose_utility_page_tsx(
+            file_path=file_path,
+            route={**route, "path": path, "title": title, "skeleton_id": "public-utility"},
+            content=default_utility_content(
+                workspace_type, brand_name=brand_name, title=title, path=path
+            ),
+            brand_name=brand_name,
+            workspace_type=workspace_type,
+        )
+        clear_stubbed_path(workspace, file_path)
+    else:
+        clear_stubbed_path(workspace, file_path)
+
+    write_file(workspace, file_path, composed)
+    return composed
+
+
 def generate_file(
     workspace: Path,
     file_spec: dict,
@@ -509,6 +619,31 @@ def generate_file(
     route = _route_for_file(file_path, architect)
     skeleton_id = str(route.get("skeleton_id") or page_plan.get("skeleton_id") or "")
     catalogue_page = file_kind == "page" and bool(skeleton_id)
+
+    # Contract compositor: utility pages never go through freeform React codegen.
+    if catalogue_page and is_utility_catalogue_route(route, skeleton_id):
+        merged_route = {
+            **route,
+            "skeleton_id": "public-utility",
+            "path": route.get("path") or page_plan.get("path") or "",
+            "title": route.get("title") or page_plan.get("title") or file_path,
+            "page_type": route.get("page_type") or page_plan.get("page_type") or "",
+            "section_slots": route.get("section_slots")
+            or page_plan.get("section_slots")
+            or ["header", "workspace", "summary", "footer"],
+            "component_file": file_path,
+        }
+        return _generate_utility_composed_file(
+            workspace,
+            file_path,
+            route=merged_route,
+            page_plan=page_plan or {},
+            full_context=full_context,
+            manifest=manifest,
+            ai_provider=ai_provider,
+            template_renderer=template_renderer,
+        )
+
     skeleton_contract_json = "{}"
     shell_component = ""
     if catalogue_page:

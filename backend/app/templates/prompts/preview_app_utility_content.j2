@@ -1,0 +1,83 @@
+You fill CONTENT only for a transactional utility page. Output ONE JSON object — no markdown fences, no TypeScript, no JSX.
+
+=== BUSINESS CONTEXT ===
+{{ full_context }}
+
+=== PAGE ===
+Path: {{ route_path }}
+Title: {{ page_title }}
+Workspace type (FIXED — do not invent another layout): {{ workspace_type }}
+Brand: {{ brand_name }}
+
+=== EXPERIENCE BRIEFS (copy inspiration only) ===
+{{ page_plan_json }}
+
+=== RULES ===
+- Return valid JSON only.
+- Match the schema for workspace_type={{ workspace_type }} exactly.
+- Use realistic business-specific names, prices as plain numbers (no $), statuses, and addresses.
+- Never invent CSS classes, React components, imports, or layout structure.
+- Keep strings concise and production-real (speak as the brand).
+
+{% if workspace_type == "cart" %}
+Schema:
+{
+  "header": { "title": string, "description": string },
+  "workspace": {
+    "lines": [ { "name": string, "detail": string, "qty": string|number, "price": number|string } ]
+  },
+  "summary": {
+    "title": string,
+    "rows": [ { "label": string, "value": number|string } ],
+    "primary_cta": { "label": string, "href": string }
+  },
+  "footer": { "description": string }
+}
+Include 2–5 cart lines. Summary rows should include Subtotal / Shipping / Total.
+{% elif workspace_type == "checkout" %}
+Schema:
+{
+  "header": { "title": string, "description": string },
+  "workspace": {
+    "fields": [ { "label": string, "placeholder": string, "type": "text"|"email"|"tel"|"number" } ],
+    "note": string
+  },
+  "summary": {
+    "title": string,
+    "rows": [ { "label": string, "value": number|string } ],
+    "primary_cta": { "label": string, "href": string }
+  },
+  "footer": { "description": string }
+}
+Include 4–6 checkout fields.
+{% elif workspace_type == "tracking" %}
+Schema:
+{
+  "header": { "title": string, "description": string },
+  "workspace": {
+    "order_id": string,
+    "status": string,
+    "carrier": string,
+    "steps": [ { "label": string, "done": boolean } ]
+  },
+  "summary": {
+    "title": string,
+    "rows": [ { "label": string, "value": string } ],
+    "primary_cta": { "label": string, "href": string }
+  },
+  "footer": { "description": string }
+}
+Include 3–5 timeline steps with realistic done flags.
+{% else %}
+Schema:
+{
+  "header": { "title": string, "description": string },
+  "workspace": {
+    "cards": [ { "title": string, "description": string, "cta_label": string, "cta_href": string } ]
+  },
+  "footer": { "description": string }
+}
+Include 2–4 actionable cards.
+{% endif %}
+
+Output the JSON object now.
