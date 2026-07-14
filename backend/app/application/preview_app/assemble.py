@@ -17,10 +17,24 @@ from app.application.preview_app.protected_paths import safe_generated_route_pat
 
 
 def _ident(stem: str) -> str:
+    """Build a React component identifier (must be PascalCase for JSX)."""
     s = re.sub(r"[^0-9A-Za-z_]", "", stem)
     if not s or s[0].isdigit():
         s = "Page" + s
+    # Lowercase-first names (e.g. src_pages_admin_DropsPage_tsx) render as
+    # unknown HTML tags in JSX and produce blank routes.
+    if s[0].islower():
+        s = s[0].upper() + s[1:]
     return s
+
+
+def _collision_component_name(rel: str, stem: str) -> str:
+    """Prefer AdminDropsPage over path-slug aliases when stems collide."""
+    parts = rel.replace("\\", "/").split("/")
+    parent = parts[-2] if len(parts) >= 2 else ""
+    if parent and parent.lower() not in {"pages", "src", "."}:
+        return _ident(f"{parent}_{stem}")
+    return _ident(f"Alt_{stem}")
 
 
 def _stem(rel: str) -> str:
@@ -414,15 +428,55 @@ def write_plumbing_mock(
     write_file(workspace, "src/data/mock.ts", content)
 
 
-def write_index_css(workspace, primary: str, secondary: str, font: str, template_renderer: TemplateRenderer) -> None:
+def write_recipe_id(workspace, recipe: dict | None = None) -> None:
+    from app.application.preview_app.design_recipes import get_recipe
+
+    resolved = recipe or get_recipe(None)
+    recipe_id = resolved.get("id") or "warm-service"
+    write_file(
+        workspace,
+        "src/lib/recipe-id.ts",
+        f'export const RECIPE_ID = "{recipe_id}" as const;\n',
+    )
+
+
+def write_index_css(
+    workspace,
+    primary: str,
+    secondary: str,
+    font: str,
+    template_renderer: TemplateRenderer,
+    recipe: dict | None = None,
+) -> None:
+    from app.application.preview_app.design_recipes import get_recipe, recipe_font_import_css
+
     primary, secondary, font_family = sanitize_theme_inputs(primary, secondary, font)
+    resolved = recipe or get_recipe(None)
+    tokens = resolved.get("tokens") or {}
+    fonts = resolved.get("fonts") or {}
     css = template_renderer.render(
         "codegen/index_css.j2",
         primary=primary,
         secondary=secondary,
         font_family=font_family,
+        font_sans=fonts.get("sans") or font_family,
+        font_display=fonts.get("display") or fonts.get("sans") or font_family,
+        font_import=recipe_font_import_css(resolved),
+        radius_ui=tokens.get("radius_ui") or "0.75rem",
+        bg_mix=tokens.get("bg_mix") or "4%",
+        fg_mix=tokens.get("fg_mix") or "32%",
+        muted_mix=tokens.get("muted_mix") or "30%",
+        border_mix=tokens.get("border_mix") or "16%",
+        shadow_ui=tokens.get("shadow") or "0 24px 50px -36px",
+        shadow_alpha=tokens.get("shadow_alpha") or "35%",
+        glow=tokens.get("glow") or "12%",
+        card_color=tokens.get("card") or "white",
+        atmosphere=tokens.get("atmosphere")
+        or "radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 50%)",
+        recipe_id=resolved.get("id") or "warm-service",
     )
     write_file(workspace, "src/index.css", css)
+    write_recipe_id(workspace, resolved)
 
 
 def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRenderer) -> list[str]:
@@ -437,9 +491,9 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     def _register(rel: str) -> str:
         stem = rel.split("/")[-1].rsplit(".", 1)[0]
         comp = _ident(stem)
-        if comp in imports and imports[comp] != "./" + rel[len("src/"):].rsplit(".", 1)[0]:
-            comp = _ident(rel.replace("/", "_").replace(".", "_"))
         imp = "./" + rel[len("src/"):].rsplit(".", 1)[0] if rel.startswith("src/") else "./" + rel.rsplit(".", 1)[0]
+        if comp in imports and imports[comp] != imp:
+            comp = _collision_component_name(rel, stem)
         imports[comp] = imp
         return comp
 
@@ -453,7 +507,8 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
         comp = _register(rel)
         if comp in used_components and used_components[comp] != path:
             stem = rel.split("/")[-1].rsplit(".", 1)[0]
-            comp = _ident(f"{rt.get('role_id', 'role')}_{stem}")
+            role = str(rt.get("role_id") or "role")
+            comp = _ident(f"{role}_{stem}")
             imp = "./" + rel[len("src/"):].rsplit(".", 1)[0] if rel.startswith("src/") else "./" + rel.rsplit(".", 1)[0]
             imports[comp] = imp
         used_files.add(rel)

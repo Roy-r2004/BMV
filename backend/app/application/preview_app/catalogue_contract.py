@@ -654,7 +654,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             f'<MarketingHero brandName={{{brand_js}}} headline={{{title_js}}} '
             'subcopy="A clear, considered experience built around your next step." '
             'primaryCta={{ label: "Get started", href: "#details" }} '
-            'imageSrc="catalogue-hero.jpg" imageAlt="" variant="split" />'
+            'imageSrc="catalogue-hero.jpg" imageAlt="" />'
         ),
         "features": (
             '<FeatureBento heading="What you can expect" items={['
@@ -709,8 +709,15 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         ),
         "filters": '<FilterBar searchPlaceholder="Search records" filters={[{ id: "all", label: "All", active: true }]} />',
         "table": (
-            '<DataTable columns={[{ key: "name", header: "Name" }, { key: "status", header: "Status" }]} '
-            'rows={[{ name: "Sample record", status: "Active" }]} />'
+            '<DataTable columns={['
+            '{ key: "name", header: "Name" }, '
+            '{ key: "status", header: "Status" }, '
+            '{ key: "updated", header: "Updated" }'
+            ']} rows={['
+            '{ name: "Primary record", status: "Active", updated: "Today" }, '
+            '{ name: "Follow-up item", status: "Pending", updated: "Yesterday" }, '
+            '{ name: "Archived item", status: "Closed", updated: "Last week" }'
+            ']} />'
         ),
         "activity": (
             '<ActivityFeed heading="Recent activity" items={['

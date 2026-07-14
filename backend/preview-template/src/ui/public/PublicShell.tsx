@@ -63,7 +63,7 @@ export function PublicShell({
           <div className="mx-auto flex min-h-[4.25rem] w-full max-w-[92rem] items-center justify-between gap-6 px-6 py-2.5 lg:px-12">
             <a
               href="#top"
-              className="font-display text-[1.7rem] italic leading-none tracking-[-0.03em] text-foreground transition-opacity hover:opacity-80"
+              className="font-display text-[1.7rem] leading-none tracking-[-0.03em] text-foreground transition-opacity hover:opacity-80"
             >
               {brandName}
             </a>

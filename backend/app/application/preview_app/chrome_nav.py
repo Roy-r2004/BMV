@@ -235,6 +235,33 @@ def rewrite_page_shared_chrome(file_path: str, content: str, route: dict) -> str
     return content
 
 
+def enforce_recipe_component_variants(workspace, architect: dict | None = None) -> list[str]:
+    """
+    Drop hardcoded MarketingHero/FeatureBento variant props so the active
+    design recipe can choose the layout (split vs cinematic, bento vs grid).
+    """
+    if architect is not None and not has_catalogue_routes(architect):
+        return []
+    # Avoid [^>]* matching — pages often have JSX comments with `/>` inside the
+    # opening tag (e.g. `{/* <UiIcon … /> */}`), which breaks tag-scoped regex.
+    variant_prop_re = re.compile(
+        r"""\s+variant=\{?['"](?:cinematic|split|editorial|product|service|compact|bento|grid|alternating)['"]\}?"""
+    )
+    changed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if "/pages/" not in norm or not norm.endswith((".tsx", ".jsx")):
+            continue
+        original = read_file(workspace, norm)
+        if "MarketingHero" not in original and "FeatureBento" not in original:
+            continue
+        updated = variant_prop_re.sub("", original)
+        if updated != original:
+            write_file(workspace, norm, updated)
+            changed.append(norm)
+    return changed
+
+
 def enforce_shared_chrome_nav(workspace, architect: dict | None) -> list[str]:
     """
     Make sidebar/navbar consistent across every catalogue page automatically.
@@ -258,4 +285,5 @@ def enforce_shared_chrome_nav(workspace, architect: dict | None) -> list[str]:
         if updated != original:
             write_file(workspace, norm, updated)
             changed.append(norm)
-    return changed
+    changed.extend(enforce_recipe_component_variants(workspace, architect))
+    return list(dict.fromkeys(changed))

@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { MotionReveal, MotionStagger, MotionStaggerItem, useMotionSafe } from '../motion';
 import { cn } from '../lib/cn';
+import { currentRecipeId, recipeFeatureVariant } from '../../lib/recipe';
 
 export interface FeatureBentoItem {
   title: string;
@@ -18,15 +19,16 @@ export interface FeatureBentoProps {
   className?: string;
 }
 
-/** Editorial feature section — alternating is a snap-scroll chapter rail. */
+/** Feature section — default variant comes from the active design recipe. */
 export function FeatureBento({
   className,
   description,
   heading,
   items,
-  variant = 'bento',
+  variant,
 }: FeatureBentoProps) {
   const safe = useMotionSafe();
+  const resolved = variant ?? recipeFeatureVariant(currentRecipeId());
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(0);
 
@@ -50,7 +52,7 @@ export function FeatureBento({
   }, []);
 
   React.useEffect(() => {
-    if (variant !== 'alternating') return;
+    if (resolved !== 'alternating') return;
     const node = scrollerRef.current;
     if (!node) return;
     updateActive();
@@ -60,7 +62,7 @@ export function FeatureBento({
       node.removeEventListener('scroll', updateActive);
       window.removeEventListener('resize', updateActive);
     };
-  }, [updateActive, variant, items.length]);
+  }, [updateActive, resolved, items.length]);
 
   const scrollTo = (index: number) => {
     const node = scrollerRef.current;
@@ -80,7 +82,7 @@ export function FeatureBento({
           ) : null}
         </MotionReveal>
 
-        {variant === 'grid' ? (
+        {resolved === 'grid' ? (
           <MotionStagger className="mt-16 grid gap-px bg-border-subtle md:grid-cols-2 lg:grid-cols-3">
             {items.map((item) => (
               <MotionStaggerItem key={item.title}>
@@ -93,7 +95,7 @@ export function FeatureBento({
           </MotionStagger>
         ) : null}
 
-        {variant === 'bento' ? (
+        {resolved === 'bento' ? (
           <MotionStagger className="mt-20">
             {items.map((item, index) => (
               <MotionStaggerItem key={item.title}>
@@ -113,7 +115,7 @@ export function FeatureBento({
           </MotionStagger>
         ) : null}
 
-        {variant === 'alternating' ? (
+        {resolved === 'alternating' ? (
           <div className="mt-14 lg:mt-20">
             <div className="mb-7 flex items-center justify-between gap-4">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-muted uppercase">

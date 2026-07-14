@@ -10,6 +10,14 @@ Generate ONE file for a unique business preview app. Output ONLY the file conten
 
 === DESIGN SYSTEM ===
 {{ design_system_json }}
+{% if recipe_prompt is defined and recipe_prompt %}
+
+=== DESIGN RECIPE (NON-NEGOTIABLE LOOK) ===
+Recipe: {{ recipe_id | default('') }} · hub_variant={{ hub_variant | default('') }}
+{{ recipe_prompt }}
+- Prefer `font-display` on H1/H2 headlines; body uses the recipe sans stack from CSS tokens.
+- Match recipe density (air vs compact). Do not invent a conflicting visual theme.
+{% endif %}
 
 === BRAND MANIFEST ===
 {{ manifest_json }}

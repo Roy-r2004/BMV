@@ -30,3 +30,13 @@ Thumbs.db
 
 # Separate project — never commit into BMV
 bmv-core/
+
+# Local one-off debug / repair scripts (never commit)
+/_*.py
+/_*/
+/backend/app/_[^_]*.py
+!/backend/app/__init__.py
+
+# Editor / agent local state
+.agents/
+.cursor/

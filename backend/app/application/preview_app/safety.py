@@ -1456,6 +1456,8 @@ def _safe_workspace_destination(workspace, rel: str) -> Path:
         or normalized == "src/components/UiIcons.tsx"
         or normalized == "src/lib/preview-bridge.ts"
         or normalized == "src/lib/app-nav.ts"
+        or normalized == "src/lib/recipe-id.ts"
+        or normalized == "src/lib/recipe.ts"
     ):
         raise ValueError(f"Refusing non-kit restore path: {rel}")
     target = root.joinpath(*normalized.split("/"))
@@ -1606,6 +1608,35 @@ def restore_curated_ui_kit(workspace) -> list[str]:
                 changed.append("src/lib/app-nav.ts")
         except OSError as exc:
             raise RuntimeError("Failed to restore shared app-nav helpers") from exc
+
+    source_recipe_id = template_root / "src" / "lib" / "recipe-id.ts"
+    if source_recipe_id.is_file():
+        try:
+            destination_recipe = _safe_workspace_destination(root, "src/lib/recipe-id.ts")
+            if destination_recipe.is_symlink() or not destination_recipe.is_file():
+                write_trusted_contained_file(
+                    root,
+                    "src/lib/recipe-id.ts",
+                    source_recipe_id.read_text(encoding="utf-8"),
+                )
+                changed.append("src/lib/recipe-id.ts")
+        except OSError as exc:
+            raise RuntimeError("Failed to restore recipe-id bootstrap") from exc
+
+    source_recipe = template_root / "src" / "lib" / "recipe.ts"
+    if source_recipe.is_file():
+        try:
+            recipe_text = source_recipe.read_text(encoding="utf-8")
+            destination_recipe_helpers = _safe_workspace_destination(root, "src/lib/recipe.ts")
+            if (
+                destination_recipe_helpers.is_symlink()
+                or not destination_recipe_helpers.is_file()
+                or destination_recipe_helpers.read_text(encoding="utf-8") != recipe_text
+            ):
+                write_trusted_contained_file(root, "src/lib/recipe.ts", recipe_text)
+                changed.append("src/lib/recipe.ts")
+        except OSError as exc:
+            raise RuntimeError("Failed to restore recipe helpers") from exc
 
     return list(dict.fromkeys(changed))
 
@@ -2185,12 +2216,18 @@ def apply_workspace_guards(
 ) -> list[str]:
     """Run every deterministic build guard. Safe to call before every `vite build`."""
     from app.application.preview_app.assemble import write_app_tsx, write_index_css
+    from app.application.preview_app.design_recipes import get_recipe
 
     actions: list[str] = []
     catalogue_workspace = has_catalogue_routes(architect)
     if catalogue_workspace:
         actions.extend(restore_curated_ui_kit(workspace))
     protected_snapshot = snapshot_template_owned_files(workspace, architect)
+    recipe = get_recipe(
+        (plan or {}).get("recipe_id")
+        or ((plan or {}).get("design_system") or {}).get("recipe_id")
+        or (architect or {}).get("recipe_id")
+    )
     for fn, label in (
         (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
@@ -2287,7 +2324,7 @@ def apply_workspace_guards(
     except Exception as e:
         print(f"    main.tsx sync skipped: {e}", flush=True)
     try:
-        write_index_css(workspace, primary, secondary, font, template_renderer)
+        write_index_css(workspace, primary, secondary, font, template_renderer, recipe=recipe)
         write_app_tsx(workspace, architect, template_renderer)
         # App.tsx can introduce mock imports after the earlier contract pass.
         # Close that deterministic gap in the same guard invocation.

@@ -529,6 +529,19 @@ def generate_file(
         instructions = f"{instructions}\n\n{chrome_contract}".strip()
 
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
+    recipe_id = (
+        plan.get("recipe_id")
+        or design_system.get("recipe_id")
+        or architect.get("recipe_id")
+        or ""
+    )
+    recipe_prompt = design_system.get("recipe_prompt") or ""
+    hub_variant = (
+        plan.get("hub_variant")
+        or design_system.get("hub_variant")
+        or architect.get("hub_variant")
+        or ""
+    )
     # Avoid re-reading the whole tree on every parallel worker (was slow + racy).
     existing = ""
     try:
@@ -541,6 +554,9 @@ def generate_file(
         full_context=full_context[:10000],
         architect_json=_architect_prompt_context(architect),
         design_system_json=json.dumps(design_system, ensure_ascii=False, indent=2),
+        recipe_id=recipe_id,
+        recipe_prompt=recipe_prompt,
+        hub_variant=hub_variant,
         manifest_json=json.dumps(manifest, ensure_ascii=False, indent=2),
         images_json=json.dumps(images, ensure_ascii=False, indent=2),
         file_path=file_path,

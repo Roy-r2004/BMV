@@ -1477,6 +1477,62 @@ def main() -> None:
     for field in ('"surface"', '"skeleton_id"'):
         assert field in architect_prompt
 
+    # Duplicate page stems (public + admin DropsPage) must stay PascalCase in JSX.
+    # Lowercase aliases render as HTML tags and blank the route.
+    from app.application.preview_app.assemble import _collision_component_name, _ident
+
+    assert _ident("src_pages_admin_DropsPage_tsx")[0].isupper()
+    assert _collision_component_name("src/pages/admin/DropsPage.tsx", "DropsPage") == "Admin_DropsPage"
+    collision_architect = {
+        "routes": [
+            {
+                "path": "/drops",
+                "page_id": "drops",
+                "role_id": "public",
+                "layout": "public",
+                "component_file": "src/pages/DropsPage.tsx",
+                "skeleton_id": "marketing-landing",
+            },
+            {
+                "path": "/admin/drops",
+                "page_id": "admin_drops",
+                "role_id": "admin",
+                "layout": "admin",
+                "component_file": "src/pages/admin/DropsPage.tsx",
+                "skeleton_id": "ops-list",
+            },
+        ],
+        "roles": [
+            {"id": "public", "defaultPath": "/drops"},
+            {"id": "admin", "defaultPath": "/admin/drops"},
+        ],
+        "files_to_generate": [],
+        "shared_components": [],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        workspace = Path(tmp)
+        for rel in ("src/pages/DropsPage.tsx", "src/pages/admin/DropsPage.tsx"):
+            page_path = workspace / rel
+            page_path.parent.mkdir(parents=True, exist_ok=True)
+            page_path.write_text(
+                "export default function DropsPage() { return <div />; }\n",
+                encoding="utf-8",
+            )
+        (workspace / "src" / "data").mkdir(parents=True)
+        (workspace / "src" / "data" / "mock.ts").write_text(
+            "export const roles = [];\n",
+            encoding="utf-8",
+        )
+        write_app_tsx(workspace, collision_architect, renderer)
+        collision_app = (workspace / "src" / "App.tsx").read_text(encoding="utf-8")
+        assert "import DropsPage from './pages/DropsPage';" in collision_app
+        assert "import Admin_DropsPage from './pages/admin/DropsPage';" in collision_app
+        assert '<Route path="/drops" element={<DropsPage />} />' in collision_app
+        assert '<Route path="/admin/drops" element={<Admin_DropsPage />} />' in collision_app
+        assert "src_pages_admin" not in collision_app
+        for match in re.findall(r"element=\{<([A-Za-z_][A-Za-z0-9_]*)", collision_app):
+            assert match[0].isupper(), f"JSX component must be PascalCase, got {match}"
+
 
 if __name__ == "__main__":
     main()

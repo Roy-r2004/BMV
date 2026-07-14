@@ -2,6 +2,9 @@ import { Component, type ErrorInfo, type ReactNode, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { RECIPE_ID } from './lib/recipe-id';
+
+document.documentElement.dataset.recipe = RECIPE_ID;
 
 /** Catch render crashes so the iframe never stays a silent white screen. */
 class PreviewErrorBoundary extends Component<

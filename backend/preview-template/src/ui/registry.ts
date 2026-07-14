@@ -125,7 +125,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     path: 'public/MarketingHero.tsx',
     requiredProps: ['brandName', 'headline', 'subcopy', 'primaryCta', 'imageSrc'],
     optionalProps: ['secondaryCta', 'imageAlt', 'variant', 'className'],
-    variants: { variant: ['cinematic', 'split', 'editorial', 'product'] },
+    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'split'] },
   },
   {
     name: 'FeatureBento',
@@ -341,7 +341,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     ],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['cinematic', 'split', 'editorial', 'product'],
+      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'split'],
       FeatureBento: ['bento', 'grid', 'alternating'],
     },
   },
@@ -355,7 +355,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     recommendedOrder: ['shell', 'hero', 'features', 'showcase', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['editorial', 'split', 'cinematic'],
+      MarketingHero: ['service', 'editorial', 'cinematic', 'compact', 'split'],
       FeatureBento: ['grid', 'alternating', 'bento'],
     },
   },
@@ -369,7 +369,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     recommendedOrder: ['shell', 'hero', 'showcase', 'features', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['product', 'split', 'editorial'],
+      MarketingHero: ['product', 'service', 'editorial', 'compact', 'split'],
       FeatureBento: ['alternating', 'grid'],
     },
   },

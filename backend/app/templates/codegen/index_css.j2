@@ -1,31 +1,76 @@
+{{ font_import | default('') }}
 @import "tailwindcss";
 
 @theme {
-  --color-background: color-mix(in srgb, {{ primary }} 4%, white);
-  --color-foreground: color-mix(in srgb, {{ primary }} 32%, black);
-  --color-muted: color-mix(in srgb, {{ primary }} 30%, #64748b);
-  --color-card: white;
-  --color-border-subtle: color-mix(in srgb, {{ primary }} 16%, #e2e8f0);
+  --color-background: color-mix(in srgb, {{ primary }} {{ bg_mix }}, white);
+  --color-foreground: color-mix(in srgb, {{ primary }} {{ fg_mix }}, black);
+  --color-muted: color-mix(in srgb, {{ primary }} {{ muted_mix }}, #64748b);
+  --color-card: {{ card_color }};
+  --color-border-subtle: color-mix(in srgb, {{ primary }} {{ border_mix }}, #e2e8f0);
   --color-brand: {{ primary }};
   --color-brand-dark: {{ secondary }};
   --color-accent: {{ secondary }};
   --color-ring: {{ primary }};
   --color-chart: {{ secondary }};
-  --font-sans: {{ font_family }};
-  --font-display: {{ font_family }};
-  --radius-ui: 0.75rem;
-  --shadow-ui: 0 24px 50px -36px color-mix(in srgb, {{ primary }} 35%, transparent);
-  --glow-atmosphere: color-mix(in srgb, {{ primary }} 12%, transparent);
+  --font-sans: {{ font_sans }};
+  --font-display: {{ font_display }};
+  --radius-ui: {{ radius_ui }};
+  --shadow-ui: {{ shadow_ui }} color-mix(in srgb, {{ primary }} {{ shadow_alpha }}, transparent);
+  --glow-atmosphere: color-mix(in srgb, {{ primary }} {{ glow }}, transparent);
   --treatment-light: {{ primary }};
+  --recipe-atmosphere: {{ atmosphere }};
 }
 
 @layer base {
-  :root { color: var(--color-foreground); background: var(--color-background); }
-  body { margin: 0; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  :root {
+    color: var(--color-foreground);
+    background:
+      var(--recipe-atmosphere),
+      var(--color-background);
+    background-attachment: fixed;
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
   html { scroll-behavior: smooth; }
   :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
 }
 
 .ui-treatment-light {
   background: linear-gradient(180deg, transparent 0%, var(--treatment-light) 22%, var(--treatment-light) 78%, transparent 100%);
+}
+
+[data-recipe="editorial"] .font-display,
+[data-recipe="warm-service"] .font-display {
+  font-style: italic;
+  letter-spacing: -0.03em;
+}
+
+[data-recipe="dense-ops"] .font-display,
+[data-recipe="bold-retail"] .font-display {
+  font-style: normal !important;
+  letter-spacing: -0.02em;
+}
+
+[data-recipe="dense-ops"] .font-display {
+  font-family: var(--font-sans) !important;
+  font-weight: 600;
+}
+
+[data-recipe="dense-ops"] section {
+  padding-block: clamp(2rem, 3.5vw, 3.25rem) !important;
+}
+
+[data-recipe="bold-retail"] .font-display {
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+}
+
+[data-recipe="warm-service"] section:not([data-hero]) {
+  padding-block: clamp(3.5rem, 7vw, 6.5rem);
 }

@@ -588,7 +588,13 @@ def refine_preview_app_from_chat(
         except Exception as guard_exc:
             print(f"    refine guards skipped: {guard_exc}", flush=True)
             ensure_mock_exports(workspace, architect, plan, images, brand_name)
-            write_index_css(workspace, primary, secondary, font, template_renderer)
+            from app.application.preview_app.design_recipes import get_recipe
+
+            recipe = get_recipe(
+                plan.get("recipe_id")
+                or (plan.get("design_system") or {}).get("recipe_id")
+            )
+            write_index_css(workspace, primary, secondary, font, template_renderer, recipe=recipe)
             write_app_tsx(workspace, architect, template_renderer)
 
         base_path = f"/api/preview-apps/{request_id}"

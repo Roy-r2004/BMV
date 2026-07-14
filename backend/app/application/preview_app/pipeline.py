@@ -592,17 +592,39 @@ def generate_preview_app(
     _emit(db, request_id, "codegen", "Planning agent — mapping roles and user journeys...", 30)
     full_context = gather_full_context(req, demo)
     plan = build_experience_plan(req, demo, primary, secondary, ai_provider, template_renderer)
+    from app.application.preview_app.design_recipes import (
+        apply_recipe_to_architect,
+        apply_recipe_to_plan,
+        get_recipe,
+    )
+
+    plan = apply_recipe_to_plan(
+        plan,
+        industry=req.industry,
+        business_description=getattr(req, "description", None)
+        or getattr(req, "business_description", None)
+        or full_context[:800],
+        concept_name=req.business_name,
+        seed=request_id,
+    )
+    recipe = get_recipe(plan.get("recipe_id"))
+    print(
+        f"    design recipe: {recipe.get('id')} ({recipe.get('label')}) "
+        f"hub={plan.get('hub_variant')}",
+        flush=True,
+    )
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
     roles_count = len(plan.get("roles", []))
     _emit(db, request_id, "codegen",
-          f"Plan ready — {roles_count} role{'s' if roles_count != 1 else ''} defined", 33,
+          f"Plan ready — {roles_count} role{'s' if roles_count != 1 else ''} · recipe {recipe.get('id')}", 33,
           detail="Architect designing component structure")
 
     print("  [2/5] Architect agent...", flush=True)
     _emit(db, request_id, "codegen", "Architect agent — designing pages and components...", 35)
     architect = call_architect(full_context, plan, manifest, images, ai_provider, template_renderer)
     architect = _normalize_architect(architect, plan)
+    architect = apply_recipe_to_architect(architect, plan)
     planned_files = len(architect.get("files_to_generate", []))
     _emit(db, request_id, "codegen",
           f"Architecture ready — {planned_files} files planned", 38,
