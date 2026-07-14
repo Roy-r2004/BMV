@@ -14,6 +14,8 @@ export interface SelectProps {
   onValueChange?: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  required?: boolean;
+  name?: string;
   className?: string;
   'aria-label'?: string;
 }
@@ -22,14 +24,23 @@ export function Select({
   className,
   defaultValue,
   disabled,
+  name,
   onValueChange,
   options,
   placeholder = 'Select…',
+  required,
   value,
   ...rest
 }: SelectProps) {
   return (
-    <SelectPrimitive.Root value={value} defaultValue={defaultValue} onValueChange={onValueChange} disabled={disabled}>
+    <SelectPrimitive.Root
+      value={value}
+      defaultValue={defaultValue}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      name={name}
+      required={required}
+    >
       <SelectPrimitive.Trigger
         aria-label={rest['aria-label']}
         className={cn(

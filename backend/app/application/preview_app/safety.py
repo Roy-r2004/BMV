@@ -303,6 +303,19 @@ def _default_export_value(
         return json.dumps(brand_name or "Brand", ensure_ascii=False)
     if low in ("design_system", "designsystem"):
         return json.dumps(_design_system_dict(primary, secondary, font), ensure_ascii=False)
+    if low in ("manifest", "brand_manifest", "brandmanifest"):
+        # Pages read manifest.brand_name / manifest.accent / manifest.design_system.*
+        # — an array stub white-screens the whole route.
+        return json.dumps(
+            {
+                "brand_name": brand_name or "Brand",
+                "name": brand_name or "Brand",
+                "tagline": "",
+                "accent": primary,
+                "design_system": _design_system_dict(primary, secondary, font),
+            },
+            ensure_ascii=False,
+        )
     if low == "navigation":
         return json.dumps(_nav_from_architect(architect), ensure_ascii=False)
     if low == "roles":
@@ -1077,7 +1090,7 @@ def ensure_brand_shape(
 
 
 _TYPED_MOCK_EXPORT_RE = re.compile(
-    r"export\s+const\s+(brand_name|brandName|owner_name|ownerName|design_system|designSystem)\s*=\s*",
+    r"export\s+const\s+(brand_name|brandName|owner_name|ownerName|design_system|designSystem|manifest|brandManifest|brand_manifest)\s*=\s*",
     re.MULTILINE,
 )
 
@@ -1168,6 +1181,17 @@ def repair_typed_mock_exports(
         elif low == "designsystem":
             if current.startswith("[") or "primary_color" not in current:
                 mock = mock[:val_start] + f"{ds_value};" + mock[val_end:]
+                replaced.append(name)
+        elif low in ("manifest", "brandmanifest"):
+            # A brand spread alias or an object carrying design_system is fine;
+            # only arrays / unrelated shapes get rewritten.
+            if current.startswith("[") or (
+                "design_system" not in current and "...brand" not in current
+            ):
+                manifest_value = _default_export_value(
+                    "manifest", {}, {}, {}, brand_name, primary, secondary, font
+                )
+                mock = mock[:val_start] + f"{manifest_value};" + mock[val_end:]
                 replaced.append(name)
 
     if replaced:
@@ -2478,6 +2502,11 @@ def ensure_mock_exports(
     )
 
     def _missing_export(name: str) -> str:
+        low = name.lower().replace("_", "")
+        if low in ("manifest", "brandmanifest") and brand_body:
+            # Pages that import `manifest` mean the whole brand manifest —
+            # alias it so manifest.services / manifest.design_system just work.
+            return f"export const {name} = {{ brand_name: brand.name, ...brand }};"
         if re.search(rf"(?m)^\s*{re.escape(name)}\s*:", brand_body):
             return f"export const {name} = brand.{name};"
         return (

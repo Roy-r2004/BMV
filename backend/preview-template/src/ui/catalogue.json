@@ -47,6 +47,7 @@
         "defaultValue",
         "placeholder",
         "disabled",
+        "required",
         "id",
         "name",
         "onChange",
@@ -67,6 +68,8 @@
         "onValueChange",
         "placeholder",
         "disabled",
+        "required",
+        "name",
         "className",
         "aria-label"
       ]
@@ -219,6 +222,7 @@
       "optionalProps": [
         "secondaryCta",
         "imageAlt",
+        "eyebrow",
         "variant",
         "className"
       ],
@@ -454,6 +458,7 @@
       "optionalProps": [
         "delta",
         "hint",
+        "icon",
         "variant",
         "className"
       ],

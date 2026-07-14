@@ -80,14 +80,79 @@ def gather_full_context(req: Request, demo: dict | None = None) -> str:
     return "\n".join(parts)
 
 
+def _close_truncated_json(fragment: str) -> str | None:
+    """Balance a JSON fragment cut off by a max_tokens limit.
+
+    Scans with string/escape awareness, drops any trailing incomplete string,
+    trims dangling commas/colons, then appends the missing closers.
+    """
+    stack: list[str] = []
+    in_str = False
+    esc = False
+    last_clean = 0
+    for index, ch in enumerate(fragment):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+                last_clean = index + 1
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+            last_clean = index + 1
+        elif ch in "}]":
+            if not stack or stack[-1] != ch:
+                return None
+            stack.pop()
+            last_clean = index + 1
+        elif not ch.isspace():
+            last_clean = index + 1
+    candidate = fragment[:last_clean] if in_str else fragment
+    candidate = candidate.rstrip()
+    while candidate and candidate[-1] in ",:":
+        # A dangling colon means the last key lost its value — drop the key too.
+        if candidate[-1] == ":":
+            quote_start = candidate.rfind('"', 0, candidate.rfind('"'))
+            if quote_start < 0:
+                return None
+            candidate = candidate[:quote_start]
+        else:
+            candidate = candidate[:-1]
+        candidate = candidate.rstrip()
+    return candidate + "".join(reversed(stack))
+
+
 def _parse_json_from_response(raw: str) -> dict | None:
     start = raw.find("{")
     end = raw.rfind("}") + 1
-    if start >= 0 and end > start:
+    if start < 0:
+        return None
+    if end > start:
         try:
             return json.loads(raw[start:end])
         except Exception:
             pass
+    # Truncated output (max_tokens hit): trim back object-by-object until the
+    # remainder can be balanced and parsed. Losing the tail beats losing the plan.
+    fragment = raw[start:]
+    for _ in range(60):
+        repaired = _close_truncated_json(fragment)
+        if repaired:
+            try:
+                parsed = json.loads(repaired)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        cut = max(fragment.rfind("}"), fragment.rfind("]"))
+        if cut <= 0:
+            return None
+        fragment = fragment[:cut]
     return None
 
 
@@ -116,10 +181,18 @@ def _call_planner(
             compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
         ),
     )
-    raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+    # Plans for multi-role businesses regularly overflow 14k tokens; the parser
+    # also repairs truncation, but headroom avoids losing pages in the first place.
+    raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=28000)
     plan = _parse_json_from_response(raw)
     if plan and plan.get("roles"):
         return _normalize_plan(plan, primary, secondary)
+    print(
+        f"  planner model={model} returned no usable plan: "
+        f"parsed={'yes' if plan else 'no'} roles={bool(plan and plan.get('roles'))} "
+        f"raw_len={len(raw or '')} raw_tail={(raw or '')[-400:]!r}",
+        flush=True,
+    )
     return None
 
 
@@ -171,7 +244,8 @@ def build_experience_plan(
             plan = _call_planner(req, demo, primary, secondary, model, ai_provider, template_renderer)
             if plan:
                 break
-        except Exception:
+        except Exception as exc:
+            print(f"  planner model={model} raised: {type(exc).__name__}: {exc}", flush=True)
             continue
 
     if not plan:

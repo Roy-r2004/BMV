@@ -51,14 +51,14 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'core',
     path: 'core/Input.tsx',
     requiredProps: [],
-    optionalProps: ['type', 'value', 'defaultValue', 'placeholder', 'disabled', 'id', 'name', 'onChange', 'className', 'aria-label'],
+    optionalProps: ['type', 'value', 'defaultValue', 'placeholder', 'disabled', 'required', 'id', 'name', 'onChange', 'className', 'aria-label'],
   },
   {
     name: 'Select',
     surface: 'core',
     path: 'core/Select.tsx',
     requiredProps: ['options'],
-    optionalProps: ['value', 'defaultValue', 'onValueChange', 'placeholder', 'disabled', 'className', 'aria-label'],
+    optionalProps: ['value', 'defaultValue', 'onValueChange', 'placeholder', 'disabled', 'required', 'name', 'className', 'aria-label'],
   },
   {
     name: 'Dialog',
@@ -124,7 +124,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'public',
     path: 'public/MarketingHero.tsx',
     requiredProps: ['brandName', 'headline', 'subcopy', 'primaryCta', 'imageSrc'],
-    optionalProps: ['secondaryCta', 'imageAlt', 'variant', 'className'],
+    optionalProps: ['secondaryCta', 'imageAlt', 'eyebrow', 'variant', 'className'],
     variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'split'] },
   },
   {
@@ -233,7 +233,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'ops',
     path: 'ops/StatCard.tsx',
     requiredProps: ['label', 'value'],
-    optionalProps: ['delta', 'hint', 'variant', 'className'],
+    optionalProps: ['delta', 'hint', 'icon', 'variant', 'className'],
     variants: { variant: ['card', 'strip'] },
   },
   {

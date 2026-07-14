@@ -10,6 +10,8 @@ export interface StatCardProps {
   value: string;
   delta?: string;
   hint?: string;
+  /** UiIcon name rendered in the corner chip (defaults to 'chart'). */
+  icon?: string;
   /** Soft SaaS card (default) or dense strip cell for shared KPI rows. */
   variant?: StatCardVariant;
   className?: string;
@@ -20,6 +22,7 @@ export function StatCard({
   className,
   delta,
   hint,
+  icon = 'chart',
   label,
   value,
   variant = 'card',
@@ -31,7 +34,7 @@ export function StatCard({
     return (
       <div className={cn('border-r border-border-subtle pr-5 last:border-r-0', className)}>
         <div className="flex items-center gap-2">
-          <UiIcon name="chart" className="h-3.5 w-3.5 text-brand" />
+          <UiIcon name={icon} className="h-3.5 w-3.5 text-brand" />
           <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">{label}</p>
         </div>
         <div className="mt-3 flex items-baseline gap-2">
@@ -66,7 +69,7 @@ export function StatCard({
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-muted">{label}</p>
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-brand)_12%,white)] text-brand">
-          <UiIcon name="chart" className="h-4 w-4" />
+          <UiIcon name={icon} className="h-4 w-4" />
         </span>
       </div>
       <div className="mt-4 flex items-end gap-2">

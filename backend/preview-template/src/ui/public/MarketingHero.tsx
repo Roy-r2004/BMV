@@ -25,6 +25,8 @@ export interface MarketingHeroProps {
   imageSrc: string;
   secondaryCta?: MarketingCta;
   imageAlt?: string;
+  /** Small uppercase kicker above the wordmark (business-specific, e.g. "Custom builds · Trade-ins"). */
+  eyebrow?: string;
   variant?: MarketingHeroVariant;
   className?: string;
 }
@@ -43,6 +45,7 @@ function resolveVariant(
 export function MarketingHero({
   brandName,
   className,
+  eyebrow,
   headline,
   imageAlt = '',
   imageSrc,
@@ -161,11 +164,13 @@ export function MarketingHero({
         <div className="ui-film-grain" />
         {safe ? <div className="ui-hero-sheen" /> : null}
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[92rem] flex-col justify-end px-6 pb-20 pt-32 lg:px-12 lg:pb-24">
-          <MotionHeroItem index={0}>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/65">
-              New season · trail ready
-            </p>
-          </MotionHeroItem>
+          {eyebrow ? (
+            <MotionHeroItem index={0}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/65">
+                {eyebrow}
+              </p>
+            </MotionHeroItem>
+          ) : null}
           <MotionHeroItem index={1}>
             <p
               className={cn(

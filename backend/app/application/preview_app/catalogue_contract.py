@@ -385,10 +385,14 @@ def _runtime_import_bindings(
 
 
 def _local_component_bindings(tokens: list[str]) -> set[str]:
-    """Collect simple function, class, and const declarations."""
+    """Collect simple function, class, const, interface, and type declarations.
+
+    Interface/type names must be known so generics such as
+    `useState<TradeInRequest[]>` are not misread as undefined JSX tags.
+    """
     bindings: set[str] = set()
     for index, token in enumerate(tokens):
-        if token in {"function", "class"}:
+        if token in {"function", "class", "interface", "type"}:
             cursor = index + 1
             if token == "function" and cursor < len(tokens) and tokens[cursor] == "*":
                 cursor += 1
@@ -418,17 +422,20 @@ def _uppercase_jsx_roots(tokens: list[str]) -> set[str]:
         root = tokens[cursor]
         if not _IDENTIFIER_RE.match(root) or not root[0].isupper():
             continue
-        if (
-            not closing
-            and index > 0
-            and _IDENTIFIER_RE.match(tokens[index - 1])
-            and cursor + 1 < len(tokens)
-            and tokens[cursor + 1] == ">"
-            and cursor + 2 < len(tokens)
-            and tokens[cursor + 2] in {"(", "[", ".", "?", ":", "=", ";", ",", ")"}
-        ):
-            # Type arguments such as `factory<Component>()` are not JSX tags.
-            continue
+        if not closing and index > 0 and _IDENTIFIER_RE.match(tokens[index - 1]):
+            # Type arguments such as `factory<Component>()`, `useState<Item[]>()`,
+            # or `Array<Row>` are not JSX tags. Skip past array-suffix brackets
+            # before checking for the closing angle bracket.
+            probe = cursor + 1
+            while probe + 1 < len(tokens) and tokens[probe] == "[" and tokens[probe + 1] == "]":
+                probe += 2
+            if (
+                probe < len(tokens)
+                and tokens[probe] == ">"
+                and probe + 1 < len(tokens)
+                and tokens[probe + 1] in {"(", "[", ".", "?", ":", "=", ";", ",", ")"}
+            ):
+                continue
         roots.add(root)
     return roots
 
