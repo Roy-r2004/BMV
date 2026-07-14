@@ -795,7 +795,7 @@
       "id": "ops-dashboard",
       "surface": "ops",
       "shell": "OpsShell",
-      "purpose": "Operations overview with KPIs, chart, table, and activity.",
+      "purpose": "Soft SaaS operations overview: main column (header, KPIs, chart, work list) + activity rail.",
       "requiredSections": [
         "shell",
         "header",

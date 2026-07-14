@@ -57,10 +57,15 @@ export function ActivityFeed({ className, heading = 'Activity', items }: Activit
   const rows = (items || []).map(normalizeItem);
 
   return (
-    <section className={cn('rounded-[calc(var(--radius-ui)+0.25rem)] border border-border-subtle bg-card p-5 shadow-sm', className)}>
+    <section
+      className={cn(
+        'rounded-2xl border border-[#e7edf5] bg-white p-5 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.45)]',
+        className
+      )}
+    >
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-foreground">{heading}</h3>
-        <span className="inline-flex items-center gap-1 text-xs text-muted">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#f4f7fb] px-2 py-1 text-[11px] font-medium text-muted">
           <UiIcon name="bell" className="h-3.5 w-3.5" />
           Live
         </span>
@@ -74,12 +79,18 @@ export function ActivityFeed({ className, heading = 'Activity', items }: Activit
               item.time && (item.time.includes('T') || item.time.includes('-'))
                 ? formatRelative(item.time)
                 : item.time || '';
+            const initial = (item.title || 'A').trim().charAt(0).toUpperCase();
             return (
               <li
                 key={item.id}
-                className="relative flex gap-3 border-t border-border-subtle py-3.5 first:border-t-0 first:pt-0"
+                className="relative flex gap-3 border-t border-[#eef2f7] py-3.5 first:border-t-0 first:pt-0"
               >
-                <span className="mt-1.5 flex h-2 w-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                <span
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-brand)_12%,white)] text-xs font-semibold text-brand"
+                  aria-hidden="true"
+                >
+                  {initial}
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-medium text-foreground">{item.title}</p>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import {
   ActivityFeed,
+  Badge,
   Button,
   ChartCard,
   DataTable,
@@ -11,21 +12,27 @@ import {
   OpsShell,
   PageHeader,
   RiskQueue,
-  SkeletonComposer,
   StatCard,
   ToastHost,
+  composeSkeletonLayout,
   getSkeleton,
   toast,
 } from '@/ui';
 
 const SKELETON_ID = 'ops-dashboard' as const;
 
-/** Reference ops dashboard — risk-first glance + row drill. */
+/** Reference soft SaaS ops dashboard — main column + activity rail. */
 export default function OpsReferencePage() {
   const skeleton = getSkeleton(SKELETON_ID);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'all' | 'confirmed' | 'risk'>('all');
-  const [selected, setSelected] = useState<Record<string, string> | null>(null);
+  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
+
+  const todayLabel = new Date().toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
   const rows = useMemo(
     () =>
@@ -58,8 +65,9 @@ export default function OpsReferencePage() {
     () => ({
       header: (
         <PageHeader
-          title="Today on the floor"
+          title="Hello, floor lead"
           description="Live bookings, chair utilization, and risk flags for all three studios."
+          meta={<p className="text-sm font-medium text-muted">{todayLabel}</p>}
           actions={
             <Button
               size="sm"
@@ -72,139 +80,135 @@ export default function OpsReferencePage() {
         />
       ),
       kpis: (
-        <div className="mt-4 grid grid-cols-1 gap-4 rounded-[var(--radius-ui)] border border-border-subtle bg-card px-5 py-4 sm:grid-cols-3 sm:gap-0">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard label="Bookings today" value="28" delta="+12%" hint="vs last Monday" />
-          <StatCard label="Utilization" value="81%" delta="+4%" hint="Chair hours filled" className="sm:pl-5" />
-          <StatCard label="No-show risk" value="3" hint="Needs confirmation SMS" className="sm:pl-5" />
+          <StatCard label="Utilization" value="81%" delta="+4%" hint="Chair hours filled" />
+          <StatCard label="No-show risk" value="3" delta="-1" hint="Needs confirmation SMS" />
         </div>
       ),
       risk: (
-        <div className="mt-4">
-          <RiskQueue
-            heading="Needs attention"
-            items={[
-              {
-                id: 'r1',
-                title: 'Chris L. · Hydrafacial 13:30',
-                detail: 'No confirmation in 41 minutes. Chair B1 still held.',
-                severity: 'high',
-                actionLabel: 'Send SMS',
-              },
-              {
-                id: 'r2',
-                title: 'Elena V. · Membership 11:15',
-                detail: 'Pending SMS — reminder queued but not acknowledged.',
-                severity: 'medium',
-                actionLabel: 'Resend',
-              },
-              {
-                id: 'r3',
-                title: 'Owen D. · Membership 16:30',
-                detail: 'Second reminder window opens in 90 minutes.',
-                severity: 'low',
-                actionLabel: 'Watch',
-              },
-            ]}
-            onAction={(id) => toast.success('Action queued', `Risk item ${id} handed to floor SMS.`)}
-          />
-        </div>
+        <RiskQueue
+          heading="Needs attention"
+          items={[
+            {
+              id: 'r1',
+              title: 'Chris L. · Hydrafacial 13:30',
+              detail: 'No confirmation in 41 minutes. Chair B1 still held.',
+              severity: 'high',
+              actionLabel: 'Send SMS',
+            },
+            {
+              id: 'r2',
+              title: 'Elena V. · Membership 11:15',
+              detail: 'Pending SMS — reminder queued but not acknowledged.',
+              severity: 'medium',
+              actionLabel: 'Resend',
+            },
+            {
+              id: 'r3',
+              title: 'Owen D. · Membership 16:30',
+              detail: 'Second reminder window opens in 90 minutes.',
+              severity: 'low',
+              actionLabel: 'Watch',
+            },
+          ]}
+          onAction={(id) => toast.success('Action queued', `Risk item ${id} handed to floor SMS.`)}
+        />
       ),
       chart: (
-        <div className="mt-4 grid gap-3 xl:grid-cols-[1.5fr_0.9fr]">
-          <ChartCard
-            title="Weekly bookings"
-            description="Confirmed appointments across studios"
-            insight="Friday is pacing +27% vs last week — protect two overflow chairs after 15:00."
-            type="area"
-            adjustable
-            valueFormat="compact"
-            xKey="day"
-            dataKey="bookings"
-            data={[
-              { day: 'Mon', bookings: 18 },
-              { day: 'Tue', bookings: 22 },
-              { day: 'Wed', bookings: 25 },
-              { day: 'Thu', bookings: 21 },
-              { day: 'Fri', bookings: 28 },
-              { day: 'Sat', bookings: 16 },
-            ]}
-          />
-          <ActivityFeed
-            heading="Floor activity"
-            items={[
-              { id: '1', title: 'SMS sent', detail: 'Elena V. confirmation for 11:15 Membership.', time: '2m ago' },
-              { id: '2', title: 'Checked in', detail: 'Sam T. arrived for Consult on chair B2.', time: '18m ago' },
-              { id: '3', title: 'Risk flag', detail: 'Chris L. has not confirmed Hydrafacial.', time: '41m ago' },
-              { id: '4', title: 'Inventory note', detail: 'Laser gel stock below weekly threshold.', time: '1h ago' },
-            ]}
-          />
-        </div>
+        <ChartCard
+          title="Performance"
+          description="Confirmed appointments across studios"
+          insight="Friday is pacing +27% vs last week — protect two overflow chairs after 15:00."
+          type="area"
+          adjustable
+          valueFormat="compact"
+          xKey="day"
+          dataKey="bookings"
+          data={[
+            { day: 'Mon', bookings: 18 },
+            { day: 'Tue', bookings: 22 },
+            { day: 'Wed', bookings: 25 },
+            { day: 'Thu', bookings: 21 },
+            { day: 'Fri', bookings: 28 },
+            { day: 'Sat', bookings: 16 },
+          ]}
+        />
       ),
       filters: (
-        <div className="mt-4">
-          <FilterBar
-            searchPlaceholder="Search client or service"
-            searchValue={query}
-            onSearchChange={setQuery}
-            filters={[
-              { id: 'all', label: 'All', active: status === 'all', onSelect: () => setStatus('all') },
-              { id: 'confirmed', label: 'Confirmed', active: status === 'confirmed', onSelect: () => setStatus('confirmed') },
-              { id: 'risk', label: 'Risk', active: status === 'risk', onSelect: () => setStatus('risk') },
-            ]}
-            actions={
-              <Dialog
-                title="Export day sheet"
-                description="Fixed Dialog contract."
-                triggerLabel="Export"
-                footer={
-                  <Button size="sm" onClick={() => toast.show('Export queued')}>
-                    Download CSV
-                  </Button>
-                }
-              >
-                Includes confirmed bookings and no-show risk flags.
-              </Dialog>
-            }
-          />
-        </div>
+        <FilterBar
+          searchPlaceholder="Search client or service"
+          searchValue={query}
+          onSearchChange={setQuery}
+          filters={[
+            { id: 'all', label: 'All', active: status === 'all', onSelect: () => setStatus('all') },
+            {
+              id: 'confirmed',
+              label: 'Confirmed',
+              active: status === 'confirmed',
+              onSelect: () => setStatus('confirmed'),
+            },
+            { id: 'risk', label: 'Risk', active: status === 'risk', onSelect: () => setStatus('risk') },
+          ]}
+          actions={
+            <Dialog
+              title="Export day sheet"
+              description="Fixed Dialog contract."
+              triggerLabel="Export"
+              footer={
+                <Button size="sm" onClick={() => toast.show('Export queued')}>
+                  Download CSV
+                </Button>
+              }
+            >
+              Includes confirmed bookings and no-show risk flags.
+            </Dialog>
+          }
+        />
       ),
       table: (
-        <div className="mt-3">
-          <DataTable
-            columns={[
-              { key: 'time', header: 'Time' },
-              { key: 'client', header: 'Client' },
-              { key: 'service', header: 'Service' },
-              { key: 'status', header: 'Status' },
-              { key: 'chair', header: 'Chair' },
-            ]}
-            rows={rows}
-            onRowSelect={setSelected}
-          />
-        </div>
+        <DataTable
+          columns={[
+            { key: 'time', header: 'Time' },
+            { key: 'client', header: 'Client' },
+            { key: 'service', header: 'Service' },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (row) => {
+                const value = String(row.status ?? '');
+                const tone = value.toLowerCase().includes('risk')
+                  ? 'destructive'
+                  : value === 'Confirmed'
+                    ? 'default'
+                    : 'secondary';
+                return <Badge variant={tone}>{value}</Badge>;
+              },
+            },
+            { key: 'chair', header: 'Chair' },
+          ]}
+          rows={rows}
+          onRowSelect={setSelected}
+        />
       ),
       activity: (
-        <div className="mt-4">
-          <ChartCard
-            title="Revenue by treatment"
-            description="This week’s closed revenue"
-            insight="Injectables lead the week; membership renewals lag Tuesday — nudge at 10:00."
-            type="bar"
-            adjustable
-            valueFormat="currency"
-            xKey="name"
-            dataKey="revenue"
-            data={[
-              { name: 'Facial', revenue: 4200 },
-              { name: 'Injectables', revenue: 6100 },
-              { name: 'Laser', revenue: 3800 },
-              { name: 'Membership', revenue: 2500 },
-            ]}
-          />
-        </div>
+        <ActivityFeed
+          heading="Activity"
+          items={[
+            { id: '1', title: 'SMS sent', detail: 'Elena V. confirmation for 11:15 Membership.', time: '2m ago' },
+            { id: '2', title: 'Checked in', detail: 'Sam T. arrived for Consult on chair B2.', time: '18m ago' },
+            { id: '3', title: 'Risk flag', detail: 'Chris L. has not confirmed Hydrafacial.', time: '41m ago' },
+            { id: '4', title: 'Inventory note', detail: 'Laser gel stock below weekly threshold.', time: '1h ago' },
+          ]}
+        />
       ),
     }),
-    [query, rows, skeleton.id, status]
+    [query, rows, skeleton.id, status, todayLabel]
+  );
+
+  const { main, rail } = useMemo(
+    () => composeSkeletonLayout(SKELETON_ID, slots),
+    [slots]
   );
 
   return (
@@ -212,7 +216,9 @@ export default function OpsReferencePage() {
       <ToastHost />
       <OpsShell
         brandName="Lumina Ops"
+        appearance="soft"
         adjustableSidebar
+        rail={rail}
         navItems={[
           { id: 'overview', label: 'Overview', href: '/_catalogue/ops', active: true },
           { id: 'bookings', label: 'Bookings', href: '/_catalogue/ops' },
@@ -221,12 +227,11 @@ export default function OpsReferencePage() {
         topbar={
           <>
             <p className="text-sm font-medium text-muted">Today · clinic floor</p>
-            <p className="text-xs text-muted hidden xl:block">Sidebar: collapse or drag the right edge to resize</p>
-            <p className="text-xs text-muted xl:hidden">Open sidebar on desktop for full nav</p>
+            <p className="hidden text-xs text-muted xl:block">Soft workspace · activity stays in the rail</p>
           </>
         }
       >
-        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />
+        <div data-skeleton={skeleton.id}>{main}</div>
       </OpsShell>
 
       <Dialog
@@ -235,7 +240,7 @@ export default function OpsReferencePage() {
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
-        title={selected ? `${selected.client} · ${selected.time}` : 'Booking detail'}
+        title={selected ? `${String(selected.client)} · ${String(selected.time)}` : 'Booking detail'}
         description="Row drill — fixed Dialog contract."
         footer={
           <Button
@@ -253,15 +258,15 @@ export default function OpsReferencePage() {
           <dl className="space-y-3">
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Service</dt>
-              <dd className="font-medium">{selected.service}</dd>
+              <dd className="font-medium">{String(selected.service)}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Status</dt>
-              <dd className="font-medium">{selected.status}</dd>
+              <dd className="font-medium">{String(selected.status)}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Chair</dt>
-              <dd className="font-mono">{selected.chair}</dd>
+              <dd className="font-mono">{String(selected.chair)}</dd>
             </div>
           </dl>
         ) : null}

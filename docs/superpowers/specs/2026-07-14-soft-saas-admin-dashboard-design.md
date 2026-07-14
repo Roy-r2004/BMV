@@ -1,7 +1,7 @@
 # Soft SaaS Admin Dashboard â€” Design Spec
 
 **Date:** 2026-07-14  
-**Status:** Draft for user review  
+**Status:** Approved — implemented  
 **Approach:** Kit-level elevation (OpsShell + ops components + `ops-dashboard` skeleton), validated on preview request #7  
 **Related:** `2026-07-12-preview-2026-elevation-design.md` (ops surface remains curated local UI; this spec elevates the *look* and *layout*)
 

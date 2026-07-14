@@ -701,27 +701,36 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             'treatments={[{ id: "signature", name: "Signature service", duration: "60 min" }]} '
             'slots={[{ id: "slot-1", startsAt: "2026-07-14T10:00:00" }]} />'
         ),
-        "header": f'<PageHeader title={{{title_js}}} description="A current view of the work that needs your attention." />',
-        "kpis": '<StatCard label="Active today" value="24" delta="+8%" hint="Compared with last week" />',
-        "chart": (
-            '<ChartCard title="Weekly activity" dataKey="value" xKey="day" '
-            'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }]} />'
+        "header": f'<PageHeader title={{{title_js}}} description="A current view of the work that needs your attention." meta={{<span className="text-sm text-muted">Today</span>}} />',
+        "kpis": (
+            '<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">'
+            '<StatCard label="Active today" value="24" delta="+8%" hint="Compared with last week" />'
+            '<StatCard label="In progress" value="11" delta="+2" hint="Open work items" />'
+            '<StatCard label="Resolved" value="93%" delta="-2%" hint="Rolling 7-day rate" />'
+            '</div>'
         ),
-        "filters": '<FilterBar searchPlaceholder="Search records" filters={[{ id: "all", label: "All", active: true }]} />',
+        "chart": (
+            '<ChartCard title="Weekly performance" type="area" dataKey="value" xKey="day" '
+            'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }, { day: "Wed", value: 15 }, '
+            '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />'
+        ),
+        "filters": '<FilterBar searchPlaceholder="Search records" filters={[{ id: "all", label: "All", active: true }, { id: "open", label: "Open", active: false }]} />',
         "table": (
             '<DataTable columns={['
             '{ key: "name", header: "Name" }, '
             '{ key: "status", header: "Status" }, '
             '{ key: "updated", header: "Updated" }'
             ']} rows={['
-            '{ name: "Primary record", status: "Active", updated: "Today" }, '
-            '{ name: "Follow-up item", status: "Pending", updated: "Yesterday" }, '
-            '{ name: "Archived item", status: "Closed", updated: "Last week" }'
+            '{ name: "Primary record", status: "In progress", updated: "Today" }, '
+            '{ name: "Follow-up item", status: "On hold", updated: "Yesterday" }, '
+            '{ name: "Completed item", status: "Done", updated: "2 days ago" }'
             ']} />'
         ),
         "activity": (
-            '<ActivityFeed heading="Recent activity" items={['
-            '{ id: "activity-1", title: "Record updated", detail: "The latest details are ready.", time: "Just now" }'
+            '<ActivityFeed heading="Activity" items={['
+            '{ id: "activity-1", title: "Record updated", detail: "The latest details are ready.", time: "Just now" }, '
+            '{ id: "activity-2", title: "Owner assigned", detail: "Waiting on confirmation.", time: "12m ago" }, '
+            '{ id: "activity-3", title: "Note added", detail: "Customer asked for a callback.", time: "1h ago" }'
             ']} />'
         ),
         "risk": (
@@ -752,7 +761,11 @@ def minimal_catalogue_page_scaffold(
     slots = assigned_non_shell_slots(route)
     brand = brand_name or "Brand"
     title = str(route.get("title") or component.replace("Page", "") or "Overview")
-    components = [shell, "SkeletonComposer", "getSkeleton"]
+    components = [shell, "getSkeleton"]
+    if skeleton_id == "ops-dashboard":
+        components.append("composeSkeletonLayout")
+    else:
+        components.append("SkeletonComposer")
     if shell == "PublicShell" and "PublicNav" not in components:
         components.append("PublicNav")
     for slot in slots:
@@ -768,17 +781,39 @@ def minimal_catalogue_page_scaffold(
     if shell == "OpsShell":
         nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
         nav_hook = "  const adminNavItems = useAdminNavItems();\n"
-        shell_open = (
-            f'<{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}}>'
-        )
+        if skeleton_id == "ops-dashboard":
+            body = (
+                "  const { main, rail } = composeSkeletonLayout(SKELETON_ID, slots);\n\n"
+                "  return (\n"
+                f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} rail={{rail}}>\n'
+                "      <div data-skeleton={skeleton.id}>{main}</div>\n"
+                f"    </{shell}>\n"
+                "  );"
+            )
+        else:
+            body = (
+                "  return (\n"
+                f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}}>\n'
+                "      <div data-skeleton={skeleton.id}>\n"
+                "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
+                "      </div>\n"
+                f"    </{shell}>\n"
+                "  );"
+            )
     else:
         hook = "useMemberNavItems" if is_member else "usePublicNavItems"
         cta = "memberCta" if is_member else "publicCta"
         nav_import = f"import {{ {hook}, {cta} }} from '@/lib/app-nav';\n"
         nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
-        shell_open = (
-            f'<{shell} brandName={{{json.dumps(brand)}}} '
-            f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>'
+        body = (
+            "  return (\n"
+            f'    <{shell} brandName={{{json.dumps(brand)}}} '
+            f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>\n'
+            "      <div data-skeleton={skeleton.id}>\n"
+            "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
+            "      </div>\n"
+            f"    </{shell}>\n"
+            "  );"
         )
     return f"""// deterministic catalogue contract scaffold
 {nav_import}import {{ {", ".join(components)} }} from '@/ui';
@@ -791,13 +826,7 @@ export default function {component}() {{
 {slot_lines}
   }};
 
-  return (
-    {shell_open}
-      <div data-skeleton={{skeleton.id}}>
-        <SkeletonComposer skeletonId={{SKELETON_ID}} slots={{slots}} />
-      </div>
-    </{shell}>
-  );
+{body}
 }}
 """
 

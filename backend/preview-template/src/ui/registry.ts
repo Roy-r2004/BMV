@@ -231,7 +231,8 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'ops',
     path: 'ops/StatCard.tsx',
     requiredProps: ['label', 'value'],
-    optionalProps: ['delta', 'hint', 'className'],
+    optionalProps: ['delta', 'hint', 'variant', 'className'],
+    variants: { variant: ['card', 'strip'] },
   },
   {
     name: 'ChartCard',
@@ -391,13 +392,15 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     id: 'ops-dashboard',
     surface: 'ops',
     shell: 'OpsShell',
-    purpose: 'Operations overview with KPIs, chart, table, and activity.',
+    purpose:
+      'Soft SaaS operations overview: main column (header, KPIs, chart, work list) + activity rail.',
     requiredSections: ['shell', 'header', 'kpis', 'chart', 'filters', 'table', 'activity'],
     optionalSections: ['risk'],
     recommendedOrder: ['shell', 'header', 'kpis', 'risk', 'chart', 'filters', 'table', 'activity'],
     allowedComponents: [...OPS_ALLOWED],
     supportedVariants: {
       ChartCard: ['area', 'bar'],
+      StatCard: ['card', 'strip'],
     },
   },
   {

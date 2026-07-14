@@ -103,11 +103,14 @@ export {
   type FilterBarProps,
   type OpsShellNavItem,
   type OpsShellProps,
+  type OpsShellAppearance,
   type PageHeaderProps,
+  type PageHeaderAction,
   type RiskQueueItem,
   type RiskQueueProps,
   type RiskSeverity,
   type StatCardProps,
+  type StatCardVariant,
 } from './ops';
 
 export {
@@ -121,7 +124,15 @@ export {
 
 export { formatDate, formatRelative, formatTime } from './lib/format';
 
-export { SkeletonComposer, getSkeleton, type SkeletonComposerProps, type SkeletonId, type SkeletonSlots } from './compose/SkeletonComposer';
+export {
+  SkeletonComposer,
+  composeSkeletonLayout,
+  getSkeleton,
+  type ComposedSkeletonLayout,
+  type SkeletonComposerProps,
+  type SkeletonId,
+  type SkeletonSlots,
+} from './compose/SkeletonComposer';
 export {
   CATALOGUE_COMPONENTS,
   SKELETONS,
