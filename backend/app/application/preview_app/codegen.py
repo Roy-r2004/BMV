@@ -1435,6 +1435,11 @@ def refine_file(
         return current
     route = _route_for_file(file_path, architect or {})
     skeleton_id = str(route.get("skeleton_id") or "")
+    # Composed utility pages are content-JSON driven. Freeform refine would undo
+    # the contract and reintroduce invent-React crashes — keep them intact.
+    if is_utility_catalogue_route(route, skeleton_id) or "composed public-utility page" in current:
+        print(f"    refine skip composed utility page {file_path}", flush=True)
+        return current
     catalogue_page = bool(skeleton_id)
     catalogue_contract_json = (
         _bounded_json(
