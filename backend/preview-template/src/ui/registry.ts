@@ -120,7 +120,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'public',
     path: 'public/PublicShell.tsx',
     requiredProps: ['brandName', 'children'],
-    optionalProps: ['nav', 'footer', 'mobileDock', 'className', 'chrome'],
+    optionalProps: ['nav', 'cta', 'footer', 'mobileDock', 'className', 'chrome'],
     variants: { chrome: ['solid', 'immersive'] },
   },
   {
@@ -150,8 +150,8 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     name: 'ProductShowcase',
     surface: 'public',
     path: 'public/ProductShowcase.tsx',
-    requiredProps: ['heading', 'items'],
-    optionalProps: ['description', 'className'],
+    requiredProps: ['heading'],
+    optionalProps: ['items', 'description', 'children', 'className'],
   },
   {
     name: 'TestimonialRail',
@@ -221,8 +221,8 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     name: 'BookingPanel',
     surface: 'public',
     path: 'public/BookingPanel.tsx',
-    requiredProps: ['heading', 'treatments', 'slots'],
-    optionalProps: ['description', 'confirmLabel', 'onConfirm', 'className'],
+    requiredProps: ['heading'],
+    optionalProps: ['treatments', 'slots', 'description', 'confirmLabel', 'onConfirm', 'children', 'className'],
   },
   {
     name: 'OpsShell',

@@ -217,6 +217,7 @@
       ],
       "optionalProps": [
         "nav",
+        "cta",
         "footer",
         "mobileDock",
         "className",
@@ -297,11 +298,12 @@
       "surface": "public",
       "path": "public/ProductShowcase.tsx",
       "requiredProps": [
-        "heading",
-        "items"
+        "heading"
       ],
       "optionalProps": [
+        "items",
         "description",
+        "children",
         "className"
       ]
     },
@@ -431,14 +433,15 @@
       "surface": "public",
       "path": "public/BookingPanel.tsx",
       "requiredProps": [
-        "heading",
-        "treatments",
-        "slots"
+        "heading"
       ],
       "optionalProps": [
+        "treatments",
+        "slots",
         "description",
         "confirmLabel",
         "onConfirm",
+        "children",
         "className"
       ]
     },

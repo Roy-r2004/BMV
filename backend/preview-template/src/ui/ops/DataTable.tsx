@@ -4,9 +4,15 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tan
 import { cn } from '../lib/cn';
 
 export interface DataTableColumn {
-  key: string;
+  key?: string;
+  /** Accepted as an alias for key (generated pages often use accessor). */
+  accessor?: string;
   header: string;
-  render?: (row: Record<string, unknown>) => React.ReactNode;
+  /**
+   * Preferred: `(row) => …`.
+   * Also tolerates mistaken `(value) => value.toFixed(2)` and `(value, row) => …`.
+   */
+  render?: ((row: Record<string, unknown>) => React.ReactNode) | ((value: unknown, row: Record<string, unknown>) => React.ReactNode);
 }
 
 export interface DataTableProps {
@@ -15,6 +21,48 @@ export interface DataTableProps {
   emptyMessage?: string;
   onRowSelect?: (row: Record<string, unknown>) => void;
   className?: string;
+}
+
+function cellContent(value: unknown): React.ReactNode {
+  if (value == null || value === '') return '';
+  if (React.isValidElement(value)) return value;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  // Never render raw objects — React #31. Prefer label/name/title, else hide.
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const pick = record.label ?? record.name ?? record.title ?? record.text ?? record.value;
+    if (pick != null && (typeof pick === 'string' || typeof pick === 'number')) return String(pick);
+    return '';
+  }
+  return String(value);
+}
+
+function invokeRender(
+  render: DataTableColumn['render'],
+  row: Record<string, unknown>,
+  value: unknown
+): React.ReactNode {
+  if (!render) return cellContent(value);
+  try {
+    const fn = render as (...args: unknown[]) => React.ReactNode;
+    // `(value, row) => …` — e.g. action columns from codegen.
+    if (fn.length >= 2) {
+      return fn(value, row) ?? cellContent(value);
+    }
+    // Prefer cell value for formatters like `(amount) => amount.toFixed(2)`.
+    if (value !== null && value !== undefined && typeof value !== 'object') {
+      try {
+        return fn(value) ?? cellContent(value);
+      } catch {
+        /* fall through to row API */
+      }
+    }
+    return fn(row) ?? cellContent(value);
+  } catch {
+    return cellContent(value);
+  }
 }
 
 export function DataTable({
@@ -26,12 +74,18 @@ export function DataTable({
 }: DataTableProps) {
   const columnDefs = React.useMemo<ColumnDef<Record<string, unknown>>[]>(
     () =>
-      columns.map((column) => ({
-        accessorKey: column.key,
-        header: column.header,
-        cell: (info) =>
-          column.render ? column.render(info.row.original) : String(info.getValue() ?? ''),
-      })),
+      columns.map((column, index) => {
+        const key = column.key ?? column.accessor ?? `col-${index}`;
+        return {
+          id: key,
+          accessorKey: key,
+          header: column.header,
+          cell: (info) =>
+            column.render
+              ? invokeRender(column.render, info.row.original, info.getValue())
+              : cellContent(info.getValue()),
+        };
+      }),
     [columns]
   );
 

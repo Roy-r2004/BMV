@@ -156,6 +156,13 @@ Implement EVERY section from the plan with rich, business-specific UI. If the pl
 - NEVER use emoji as icons
 {% else %}
 - NEVER use emoji or hand-drawn inline UI; use the matched catalogue components from `@/ui`
+- ProductShowcase `items` MUST be plain objects `{ title, description, imageSrc }` — NEVER React elements. For custom bodies (compare tables, wizards), pass `items={[]}` and put the UI in `children`.
+- DataTable columns use `{ key, header }` (not `accessor`). Cell values must be strings/numbers — put status chips via `render`, never stash JSX on the row object.
+- FilterBar `actions` and `filters` are descriptor objects (`{ label, onClick }` / `{ id|value, label }`), not free-form; never pass raw objects as React children anywhere.
+- BrandFooter `links` is a flat `{ label, href }[]` — never nested `{ title, items: [...] }` groups.
+- PublicShell `nav` must be `<PublicNav items={navItems} cta={navCta} />` — never pass the raw `navItems` array as `nav`.
+- DataTable `render` receives the **row** object: `render: (row) => row.totalAmount` — never `(amount) => amount.toFixed(2)`.
+- Use Tailwind semantic colors only (`text-foreground`, `text-muted`, `text-slate-600`) — never invent `text-text-color` / `text-muted-text-color`.
 {% endif %}
 - NEVER hardcode hex colors — use text-brand, bg-brand, bg-brand/10, text-slate-600, border-slate-100
 - Typography: clear hierarchy (page titles text-3xl+ font-bold; body text-slate-600)

@@ -20,32 +20,54 @@ export interface BookingSlot {
 
 export interface BookingPanelProps {
   heading: string;
-  treatments: BookingTreatment[];
-  slots: BookingSlot[];
+  /** Optional when `children` supplies a custom booking form. */
+  treatments?: BookingTreatment[];
+  /** Structured slots — or omit when using `children`. */
+  slots?: BookingSlot[] | React.ReactNode;
   description?: string;
   confirmLabel?: string;
   onConfirm?: (payload: { treatmentId: string; slotId: string }) => void;
+  /** Custom booking UI (AI often invents a free-form form). */
+  children?: React.ReactNode;
   className?: string;
 }
 
 type Step = 1 | 2 | 3;
 
-/** Three-step consult booking demo — fixed contract, toast on confirm. */
+function isSlotList(value: unknown): value is BookingSlot[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        !React.isValidElement(item) &&
+        typeof (item as BookingSlot).id === 'string'
+    )
+  );
+}
+
+/** Three-step consult booking demo — also accepts a custom children form from codegen. */
 export function BookingPanel({
+  children,
   className,
   confirmLabel = 'Confirm consult',
   description,
   heading,
   onConfirm,
   slots,
-  treatments,
+  treatments = [],
 }: BookingPanelProps) {
+  const structuredSlots = isSlotList(slots) ? slots : [];
+  const customSlots = !isSlotList(slots) && slots != null ? (slots as React.ReactNode) : null;
+  const useCustom = Boolean(children || customSlots);
+
   const [step, setStep] = React.useState<Step>(1);
   const [treatmentId, setTreatmentId] = React.useState(treatments[0]?.id ?? '');
-  const [slotId, setSlotId] = React.useState(slots[0]?.id ?? '');
+  const [slotId, setSlotId] = React.useState(structuredSlots[0]?.id ?? '');
 
   const treatment = treatments.find((t) => t.id === treatmentId);
-  const slot = slots.find((s) => s.id === slotId);
+  const slot = structuredSlots.find((s) => s.id === slotId);
 
   const slotLabel = React.useMemo(() => {
     if (!slot) return '';
@@ -58,6 +80,10 @@ export function BookingPanel({
   }, [slot]);
 
   const handleConfirm = () => {
+    if (useCustom) {
+      onConfirm?.({ treatmentId: treatmentId || 'custom', slotId: slotId || 'custom' });
+      return;
+    }
     if (!treatmentId || !slotId) return;
     onConfirm?.({ treatmentId, slotId });
     toast.success('Consult held', `${treatment?.name ?? 'Treatment'} · ${slotLabel}`);
@@ -73,17 +99,31 @@ export function BookingPanel({
             {heading}
           </h2>
           {description ? <p className="mt-5 max-w-md text-base leading-8 text-muted">{description}</p> : null}
-          <ol className="mt-10 flex gap-6 text-[11px] font-semibold tracking-[0.16em] uppercase">
-            {([1, 2, 3] as const).map((n) => (
-              <li key={n} className={cn(step === n ? 'text-foreground' : 'text-muted')}>
-                0{n}
-              </li>
-            ))}
-          </ol>
+          {!useCustom ? (
+            <ol className="mt-10 flex gap-6 text-[11px] font-semibold tracking-[0.16em] uppercase">
+              {([1, 2, 3] as const).map((n) => (
+                <li key={n} className={cn(step === n ? 'text-foreground' : 'text-muted')}>
+                  0{n}
+                </li>
+              ))}
+            </ol>
+          ) : null}
         </MotionReveal>
 
         <MotionReveal className="border border-border-subtle bg-card p-6 sm:p-8">
-          {step === 1 ? (
+          {useCustom ? (
+            <div className="space-y-6">
+              {children}
+              {customSlots}
+              {onConfirm ? (
+                <Button type="button" className="w-full sm:w-auto" onClick={handleConfirm}>
+                  {confirmLabel}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {!useCustom && step === 1 ? (
             <div className="space-y-4">
               <h3 className="font-display text-2xl italic text-foreground">Choose treatment</h3>
               <div className="space-y-2">
@@ -110,11 +150,11 @@ export function BookingPanel({
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {!useCustom && step === 2 ? (
             <div className="space-y-4">
               <h3 className="font-display text-2xl italic text-foreground">Pick a slot</h3>
               <div className="grid gap-2 sm:grid-cols-2">
-                {slots.map((s) => {
+                {structuredSlots.map((s) => {
                   let label = s.label;
                   if (!label) {
                     try {
@@ -151,7 +191,7 @@ export function BookingPanel({
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {!useCustom && step === 3 ? (
             <div className="space-y-6">
               <h3 className="font-display text-2xl italic text-foreground">Confirm</h3>
               <dl className="space-y-3 border border-border-subtle bg-background px-4 py-4 text-sm">

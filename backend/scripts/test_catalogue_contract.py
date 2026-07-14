@@ -139,7 +139,36 @@ def main() -> None:
         public_components["PublicShell"]["requiredProps"]
     )
     assert "nav" in public_components["PublicShell"]["optionalProps"]
+    assert "cta" in public_components["PublicShell"]["optionalProps"]
     assert "items" in public_components["PublicNav"]["requiredProps"]
+    assert "heading" in public_components["ProductShowcase"]["requiredProps"]
+    assert "items" not in public_components["ProductShowcase"]["requiredProps"]
+    assert "children" in public_components["ProductShowcase"]["optionalProps"]
+    assert "heading" in public_components["BookingPanel"]["requiredProps"]
+    assert "treatments" not in public_components["BookingPanel"]["requiredProps"]
+    assert "children" in public_components["BookingPanel"]["optionalProps"]
+    # Hardening remains durable: invented Tailwind color aliases ship in generated CSS.
+    backend_root = REPO_ROOT / "backend"
+    css_template = (backend_root / "app" / "templates" / "codegen" / "index_css.j2").read_text(encoding="utf-8")
+    assert ".text-muted-text-color" in css_template
+    assert ".text-text-color" in css_template
+    public_shell_src = (
+        backend_root / "preview-template" / "src" / "ui" / "public" / "PublicShell.tsx"
+    ).read_text(encoding="utf-8")
+    assert "isNavItemList" in public_shell_src
+    data_table_src = (
+        backend_root / "preview-template" / "src" / "ui" / "ops" / "DataTable.tsx"
+    ).read_text(encoding="utf-8")
+    assert "invokeRender" in data_table_src
+    filter_bar_src = (
+        backend_root / "preview-template" / "src" / "ui" / "ops" / "FilterBar.tsx"
+    ).read_text(encoding="utf-8")
+    assert "isActionDescriptorList" in filter_bar_src
+    showcase_src = (
+        backend_root / "preview-template" / "src" / "ui" / "public" / "ProductShowcase.tsx"
+    ).read_text(encoding="utf-8")
+    assert "isShowcaseItem" in showcase_src
+    assert "children" in showcase_src
 
     normalized_slots = infer_section_slots(
         {"section_slots": ["cta", "unknown", "hero", "hero"]},

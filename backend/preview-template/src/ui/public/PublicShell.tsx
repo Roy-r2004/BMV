@@ -1,11 +1,15 @@
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
+import { PublicNav, type PublicNavCta, type PublicNavItem } from './PublicNav';
 
 export interface PublicShellProps {
   brandName: string;
   children: React.ReactNode;
-  nav?: React.ReactNode;
+  /** PublicNav element, or a bare nav-item array (AI often forgets the wrapper). */
+  nav?: React.ReactNode | PublicNavItem[];
+  /** Optional CTA when `nav` is passed as a bare item array. */
+  cta?: PublicNavCta;
   footer?: React.ReactNode;
   className?: string;
   chrome?: 'solid' | 'immersive';
@@ -13,11 +17,27 @@ export interface PublicShellProps {
   mobileDock?: React.ReactNode;
 }
 
+function isNavItemList(value: unknown): value is PublicNavItem[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        !React.isValidElement(item) &&
+        typeof (item as PublicNavItem).label === 'string' &&
+        typeof (item as PublicNavItem).href === 'string'
+    )
+  );
+}
+
 export function PublicShell({
   brandName,
   children,
   className,
   chrome = 'solid',
+  cta,
   footer,
   mobileDock,
   nav,
@@ -41,12 +61,14 @@ export function PublicShell({
 
   const overHero = immersive && !scrolled;
 
+  const baseNav = isNavItemList(nav) ? <PublicNav items={nav} cta={cta} /> : nav;
+
   const resolvedNav =
-    React.isValidElement(nav) && immersive
-      ? React.cloneElement(nav as React.ReactElement<{ inverted?: boolean }>, {
+    React.isValidElement(baseNav) && immersive
+      ? React.cloneElement(baseNav as React.ReactElement<{ inverted?: boolean }>, {
           inverted: overHero,
         })
-      : nav;
+      : baseNav;
 
   return (
     <div

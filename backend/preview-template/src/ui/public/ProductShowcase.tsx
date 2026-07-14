@@ -14,14 +14,30 @@ export interface ProductShowcaseItem {
 
 export interface ProductShowcaseProps {
   heading: string;
-  items: ProductShowcaseItem[];
+  items?: ProductShowcaseItem[] | React.ReactNode[];
   description?: string;
+  /** Custom body (comparison tables, wizards) — used when items are empty or for extras under the grid. */
+  children?: React.ReactNode;
   className?: string;
 }
 
-export function ProductShowcase({ className, description, heading, items }: ProductShowcaseProps) {
+function isShowcaseItem(value: unknown): value is ProductShowcaseItem {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !React.isValidElement(value) &&
+    typeof (value as ProductShowcaseItem).title === 'string' &&
+    typeof (value as ProductShowcaseItem).imageSrc === 'string'
+  );
+}
+
+/** Editorial product mosaic — also tolerates JSX cards / custom children from codegen. */
+export function ProductShowcase({ className, children, description, heading, items = [] }: ProductShowcaseProps) {
   const safe = useMotionSafe();
-  const [featured, secondary, tertiary] = items;
+  const objectItems = items.filter(isShowcaseItem);
+  const elementItems = items.filter((item): item is React.ReactElement => React.isValidElement(item));
+  const [featured, secondary, tertiary] = objectItems;
+
   return (
     <section className={cn('relative isolate overflow-hidden bg-[#0b0d10] px-6 py-28 text-[#f3f5f4] lg:px-12 lg:py-36', className)}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_20%_0%,rgb(255_255_255_/0.08),transparent_55%)]" />
@@ -81,6 +97,18 @@ export function ProductShowcase({ className, description, heading, items }: Prod
             </div>
           </MotionReveal>
         ) : null}
+
+        {elementItems.length > 0 ? (
+          <MotionReveal className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            {elementItems.map((item, index) => (
+              <div key={item.key ?? `showcase-card-${index}`} className="min-w-0">
+                {item}
+              </div>
+            ))}
+          </MotionReveal>
+        ) : null}
+
+        {children ? <div className="mt-12 min-w-0">{children}</div> : null}
       </div>
     </section>
   );

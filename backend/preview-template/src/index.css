@@ -143,3 +143,18 @@
     animation: none;
   }
 }
+
+/* AI-invented color class aliases — keep generated pages readable. */
+.text-text-color,
+.text-text_color,
+.text-muted-text {
+  color: var(--color-foreground);
+}
+.text-muted-text-color,
+.text-muted_text_color {
+  color: var(--color-muted);
+}
+.text-danger {
+  color: #dc2626;
+}
+

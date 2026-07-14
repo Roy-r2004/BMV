@@ -38,12 +38,28 @@ export function BrandFooter({
   links = [],
   meta,
 }: BrandFooterProps) {
-  const normalizedLinks = (links || [])
-    .map((link) => ({
-      label: asText((link as { label?: string; title?: string }).label ?? (link as { title?: string }).title),
-      href: String((link as { href?: string }).href || '#'),
-    }))
-    .filter((link) => link.label);
+  // Flatten nested groups `{ title, items: [{ label, href }] }` that codegen often emits.
+  const flattened = (links || []).flatMap((link) => {
+    const record = link as {
+      label?: string;
+      title?: string;
+      href?: string;
+      items?: Array<{ label?: string; title?: string; href?: string }>;
+    };
+    if (Array.isArray(record.items) && record.items.length > 0) {
+      return record.items.map((item) => ({
+        label: asText(item.label ?? item.title),
+        href: String(item.href || '#'),
+      }));
+    }
+    return [
+      {
+        label: asText(record.label ?? record.title),
+        href: String(record.href || '#'),
+      },
+    ];
+  });
+  const normalizedLinks = flattened.filter((link) => link.label);
 
   const metaText = asText(meta);
   const year = new Date().getFullYear();
