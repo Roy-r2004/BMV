@@ -532,6 +532,12 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
         ):
             composer_valid = True
             break
+    # ops-dashboard pages may compose main/rail via composeSkeletonLayout
+    # instead of rendering <SkeletonComposer /> directly.
+    if not composer_valid and _has_token_sequence(
+        tokens, ["composeSkeletonLayout", "(", "SKELETON_ID", ",", "slots", ")"]
+    ):
+        composer_valid = True
     if not composer_valid:
         errors.append("SkeletonComposer invocation")
     shell = expected_shell(route)
@@ -591,7 +597,11 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
         for component in contract.get("components") or []
         if component.get("name")
     }
-    allowed_ui_names = set(component_metadata) | {"SkeletonComposer", "getSkeleton"}
+    allowed_ui_names = set(component_metadata) | {
+        "SkeletonComposer",
+        "composeSkeletonLayout",
+        "getSkeleton",
+    }
     ui_imports = _ui_named_imports(tokens)
     for exported in sorted(set(ui_imports.values()) - allowed_ui_names):
         errors.append(f"forbidden @/ui component:{exported}")
@@ -814,9 +824,11 @@ def minimal_catalogue_page_scaffold(
         cta = "memberCta" if is_member else "publicCta"
         nav_import = f"import {{ {hook}, {cta} }} from '@/lib/app-nav';\n"
         nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
+        # Cinematic homes get the transparent-over-hero header by default.
+        chrome_attr = ' chrome="immersive"' if skeleton_id == "public-home" else ""
         body = (
             "  return (\n"
-            f'    <{shell} brandName={{{json.dumps(brand)}}} '
+            f'    <{shell} brandName={{{json.dumps(brand)}}}{chrome_attr} '
             f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>\n'
             "      <div data-skeleton={skeleton.id}>\n"
             "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"

@@ -30,6 +30,7 @@ function asText(value: unknown): string {
   return '';
 }
 
+/** Statement footer — oversized wordmark closes the page like a film credit. */
 export function BrandFooter({
   brandName,
   className,
@@ -45,25 +46,50 @@ export function BrandFooter({
     .filter((link) => link.label);
 
   const metaText = asText(meta);
+  const year = new Date().getFullYear();
+  // Scale the wordmark to the name length so long brands still fit on one line
+  // (uppercase display glyphs average ~0.62em wide).
+  const wordmarkSize = `clamp(2.75rem, ${Math.min(14, 130 / Math.max(brandName.length, 6)).toFixed(1)}vw, 11rem)`;
 
   return (
-    <footer className={cn('border-t border-border-subtle px-6 py-14 lg:px-10', className)}>
-      <div className="mx-auto grid w-full max-w-7xl gap-10 md:grid-cols-[1.3fr_0.7fr]">
-        <div>
-          <p className="font-display text-4xl italic tracking-tight text-foreground">{brandName}</p>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-muted">{description}</p>
+    <footer className={cn('relative isolate overflow-hidden bg-[#0b0d10] px-6 pb-10 pt-20 text-white lg:px-12 lg:pt-24', className)}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_60%_at_15%_0%,color-mix(in_srgb,var(--color-brand)_28%,transparent),transparent_60%)]" />
+      <div className="relative mx-auto w-full max-w-[92rem]">
+        <div className="grid gap-10 border-b border-white/10 pb-14 md:grid-cols-[1.3fr_0.7fr]">
+          <p className="max-w-xl text-base leading-8 text-white/60">{description}</p>
+          {normalizedLinks.length > 0 ? (
+            <nav
+              className="flex flex-wrap content-start gap-x-7 gap-y-3 text-sm font-medium text-white/75 md:justify-end"
+              aria-label="Footer"
+            >
+              {normalizedLinks.map((link) => (
+                <AppLink
+                  key={`${link.label}-${link.href}`}
+                  href={link.href}
+                  className="transition-colors hover:text-white"
+                >
+                  {link.label}
+                </AppLink>
+              ))}
+            </nav>
+          ) : null}
         </div>
-        {normalizedLinks.length > 0 ? (
-          <nav className="flex flex-wrap content-start gap-x-6 gap-y-3 text-sm text-foreground" aria-label="Footer">
-            {normalizedLinks.map((link) => (
-              <AppLink key={`${link.label}-${link.href}`} href={link.href} className="hover:text-brand">
-                {link.label}
-              </AppLink>
-            ))}
-          </nav>
-        ) : null}
+
+        <p
+          aria-hidden="true"
+          className="mt-10 select-none whitespace-nowrap font-display leading-[0.85] tracking-[-0.04em] text-white/95 [mask-image:linear-gradient(to_bottom,black_55%,transparent_100%)]"
+          style={{ fontSize: wordmarkSize }}
+        >
+          {brandName}
+        </p>
+
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 text-xs text-white/40">
+          <p>
+            © {year} {brandName}
+          </p>
+          {metaText ? <p>{metaText}</p> : null}
+        </div>
       </div>
-      {metaText ? <p className="mx-auto mt-10 w-full max-w-7xl text-xs text-muted">{metaText}</p> : null}
     </footer>
   );
 }

@@ -225,9 +225,11 @@
       "variants": {
         "variant": [
           "cinematic",
-          "split",
+          "service",
+          "compact",
+          "product",
           "editorial",
-          "product"
+          "split"
         ]
       }
     },
@@ -327,8 +329,15 @@
       ],
       "optionalProps": [
         "heading",
+        "size",
         "className"
-      ]
+      ],
+      "variants": {
+        "size": [
+          "default",
+          "display"
+        ]
+      }
     },
     {
       "name": "SpotlightCard",
@@ -406,11 +415,19 @@
       ],
       "optionalProps": [
         "topbar",
+        "rail",
+        "appearance",
         "className",
         "adjustableSidebar",
         "defaultSidebarWidth",
         "defaultSidebarCollapsed"
-      ]
+      ],
+      "variants": {
+        "appearance": [
+          "soft",
+          "floor"
+        ]
+      }
     },
     {
       "name": "PageHeader",
@@ -422,6 +439,7 @@
       "optionalProps": [
         "description",
         "actions",
+        "meta",
         "className"
       ]
     },
@@ -436,8 +454,15 @@
       "optionalProps": [
         "delta",
         "hint",
+        "variant",
         "className"
-      ]
+      ],
+      "variants": {
+        "variant": [
+          "card",
+          "strip"
+        ]
+      }
     },
     {
       "name": "ChartCard",
@@ -602,9 +627,11 @@
       "supportedVariants": {
         "MarketingHero": [
           "cinematic",
-          "split",
+          "service",
+          "compact",
+          "product",
           "editorial",
-          "product"
+          "split"
         ],
         "FeatureBento": [
           "bento",
@@ -661,9 +688,11 @@
       ],
       "supportedVariants": {
         "MarketingHero": [
+          "service",
           "editorial",
-          "split",
-          "cinematic"
+          "cinematic",
+          "compact",
+          "split"
         ],
         "FeatureBento": [
           "grid",
@@ -721,8 +750,10 @@
       "supportedVariants": {
         "MarketingHero": [
           "product",
-          "split",
-          "editorial"
+          "service",
+          "editorial",
+          "compact",
+          "split"
         ],
         "FeatureBento": [
           "alternating",
@@ -839,6 +870,10 @@
         "ChartCard": [
           "area",
           "bar"
+        ],
+        "StatCard": [
+          "card",
+          "strip"
         ]
       }
     },

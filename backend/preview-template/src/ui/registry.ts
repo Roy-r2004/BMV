@@ -175,7 +175,8 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'public',
     path: 'public/LogoMarquee.tsx',
     requiredProps: ['items'],
-    optionalProps: ['heading', 'className'],
+    optionalProps: ['heading', 'size', 'className'],
+    variants: { size: ['default', 'display'] },
   },
   {
     name: 'SpotlightCard',
@@ -217,14 +218,15 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'ops',
     path: 'ops/OpsShell.tsx',
     requiredProps: ['brandName', 'navItems', 'children'],
-    optionalProps: ['topbar', 'className', 'adjustableSidebar', 'defaultSidebarWidth', 'defaultSidebarCollapsed'],
+    optionalProps: ['topbar', 'rail', 'appearance', 'className', 'adjustableSidebar', 'defaultSidebarWidth', 'defaultSidebarCollapsed'],
+    variants: { appearance: ['soft', 'floor'] },
   },
   {
     name: 'PageHeader',
     surface: 'ops',
     path: 'ops/PageHeader.tsx',
     requiredProps: ['title'],
-    optionalProps: ['description', 'actions', 'className'],
+    optionalProps: ['description', 'actions', 'meta', 'className'],
   },
   {
     name: 'StatCard',

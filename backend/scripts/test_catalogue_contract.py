@@ -99,15 +99,13 @@ def main() -> None:
 
     contract = compact_skeleton_contract("ops-dashboard")
     assert contract["skeleton"]["id"] == "ops-dashboard"
-    assert [component["name"] for component in contract["components"]] == [
-        "OpsShell",
-        "PageHeader",
-        "StatCard",
-        "ChartCard",
-        "FilterBar",
-        "DataTable",
-        "ActivityFeed",
-    ]
+    # Shell first, then every skeleton-allowed component alphabetically —
+    # the contract exposes the full allow-list so validators/prompts accept
+    # Button, Badge, Input, etc., not only slot defaults.
+    contract_names = [component["name"] for component in contract["components"]]
+    assert contract_names[0] == "OpsShell"
+    assert {"PageHeader", "StatCard", "ChartCard", "FilterBar", "DataTable", "ActivityFeed"} <= set(contract_names)
+    assert contract_names[1:] == sorted(contract_names[1:])
     assert contract["shell_component"] == "OpsShell"
     assert contract["navigation_components"] == []
     ops_shell = contract["components"][0]
@@ -149,17 +147,11 @@ def main() -> None:
     ]
     compact = compact_skeleton_contract("public-service", normalized_slots)
     compact_names = [component["name"] for component in compact["components"]]
-    assert compact_names == [
-        "PublicShell",
-        "PublicNav",
-        "MarketingHero",
-        "FeatureBento",
-        "ProcessSection",
-        "CTABand",
-        "BrandFooter",
-    ]
+    assert compact_names[:2] == ["PublicShell", "PublicNav"]
+    assert {"MarketingHero", "FeatureBento", "ProcessSection", "CTABand", "BrandFooter"} <= set(compact_names)
+    assert compact_names[2:] == sorted(compact_names[2:])
     assert "allowedComponents" not in compact["skeleton"]
-    assert len(json.dumps(compact)) < 5000
+    assert len(json.dumps(compact)) < 6000
 
     cases = [
         ({"title": "Welcome", "page_type": "landing"}, ("public", "public-home")),
@@ -422,7 +414,11 @@ def main() -> None:
             ]
         )
     )
-    assert [item["name"] for item in attached_contract["components"]] == selected_component_names
+    # Contract now carries the full skeleton allow-list; shell/nav/slot picks
+    # must all be present within it.
+    attached_names = [item["name"] for item in attached_contract["components"]]
+    assert set(selected_component_names) <= set(attached_names)
+    assert attached_names[0] == attached_contract["shell_component"]
     context_json = _architect_prompt_context(duplicate_architect)
     json.loads(context_json)
     assert "files_to_generate" not in context_json
