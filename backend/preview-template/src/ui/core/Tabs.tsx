@@ -14,19 +14,26 @@ export interface TabsProps {
   defaultValue?: string;
   value?: string;
   onValueChange?: (value: string) => void;
+  orientation?: 'horizontal' | 'vertical';
   className?: string;
 }
 
-export function Tabs({ className, defaultValue, items, onValueChange, value }: TabsProps) {
+export function Tabs({ className, defaultValue, items, onValueChange, orientation = 'horizontal', value }: TabsProps) {
   const initial = defaultValue ?? items[0]?.value;
   return (
     <TabsPrimitive.Root
-      className={cn('w-full', className)}
+      className={cn('w-full', orientation === 'vertical' && 'flex gap-6', className)}
       defaultValue={value === undefined ? initial : undefined}
       value={value}
       onValueChange={onValueChange}
+      orientation={orientation}
     >
-      <TabsPrimitive.List className="inline-flex h-11 items-center gap-1 rounded-[var(--radius-ui)] border border-border-subtle bg-background p-1">
+      <TabsPrimitive.List
+        className={cn(
+          'items-center gap-1 rounded-[var(--radius-ui)] border border-border-subtle bg-background p-1',
+          orientation === 'vertical' ? 'flex h-fit shrink-0 flex-col' : 'inline-flex h-11'
+        )}
+      >
         {items.map((item) => (
           <TabsPrimitive.Trigger
             key={item.value}
@@ -37,11 +44,17 @@ export function Tabs({ className, defaultValue, items, onValueChange, value }: T
           </TabsPrimitive.Trigger>
         ))}
       </TabsPrimitive.List>
-      {items.map((item) => (
-        <TabsPrimitive.Content key={item.value} value={item.value} className="mt-4 outline-none">
-          {item.content}
-        </TabsPrimitive.Content>
-      ))}
+      <div className={cn(orientation === 'vertical' && 'min-w-0 flex-1')}>
+        {items.map((item) => (
+          <TabsPrimitive.Content
+            key={item.value}
+            value={item.value}
+            className={cn('outline-none', orientation === 'horizontal' && 'mt-4')}
+          >
+            {item.content}
+          </TabsPrimitive.Content>
+        ))}
+      </div>
     </TabsPrimitive.Root>
   );
 }

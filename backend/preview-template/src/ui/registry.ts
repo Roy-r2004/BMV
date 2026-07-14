@@ -19,6 +19,8 @@ export type SkeletonId =
   | 'public-home'
   | 'public-service'
   | 'public-detail'
+  | 'public-catalog'
+  | 'public-utility'
   | 'public-booking'
   | 'ops-dashboard'
   | 'ops-list'
@@ -51,14 +53,15 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'core',
     path: 'core/Input.tsx',
     requiredProps: [],
-    optionalProps: ['type', 'value', 'defaultValue', 'placeholder', 'disabled', 'required', 'id', 'name', 'onChange', 'className', 'aria-label'],
+    optionalProps: ['type', 'value', 'defaultValue', 'placeholder', 'disabled', 'required', 'checked', 'defaultChecked', 'id', 'name', 'label', 'error', 'min', 'max', 'step', 'as', 'rows', 'onChange', 'className', 'aria-label'],
+    variants: { as: ['input', 'textarea'] },
   },
   {
     name: 'Select',
     surface: 'core',
     path: 'core/Select.tsx',
     requiredProps: ['options'],
-    optionalProps: ['value', 'defaultValue', 'onValueChange', 'placeholder', 'disabled', 'required', 'name', 'className', 'aria-label'],
+    optionalProps: ['value', 'defaultValue', 'onValueChange', 'placeholder', 'disabled', 'required', 'name', 'label', 'className', 'aria-label'],
   },
   {
     name: 'Dialog',
@@ -72,7 +75,8 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'core',
     path: 'core/Tabs.tsx',
     requiredProps: ['items'],
-    optionalProps: ['defaultValue', 'value', 'onValueChange', 'className'],
+    optionalProps: ['defaultValue', 'value', 'onValueChange', 'orientation', 'className'],
+    variants: { orientation: ['horizontal', 'vertical'] },
   },
   {
     name: 'Card',
@@ -88,6 +92,13 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     requiredProps: ['children'],
     optionalProps: ['variant', 'className'],
     variants: { variant: ['default', 'secondary', 'outline', 'destructive'] },
+  },
+  {
+    name: 'UiIcon',
+    surface: 'core',
+    path: '../components/UiIcons.tsx',
+    requiredProps: ['name'],
+    optionalProps: ['className'],
   },
   {
     name: 'Tooltip',
@@ -299,6 +310,7 @@ const PUBLIC_ALLOWED = [
   'BookingPanel',
   'Button',
   'Badge',
+  'UiIcon',
 ] as const;
 
 const OPS_ALLOWED = [
@@ -317,6 +329,7 @@ const OPS_ALLOWED = [
   'Badge',
   'Tabs',
   'Dialog',
+  'UiIcon',
 ] as const;
 
 export const SKELETONS: readonly SkeletonDefinition[] = [
@@ -353,8 +366,8 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     surface: 'public',
     shell: 'PublicShell',
     purpose: 'Service listing / category page.',
-    requiredSections: ['shell', 'hero', 'features', 'process', 'cta', 'footer'],
-    optionalSections: ['testimonials', 'showcase'],
+    requiredSections: ['shell', 'hero', 'features', 'cta', 'footer'],
+    optionalSections: ['process', 'testimonials', 'showcase'],
     recommendedOrder: ['shell', 'hero', 'features', 'showcase', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
@@ -367,14 +380,57 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     surface: 'public',
     shell: 'PublicShell',
     purpose: 'Single product or treatment detail.',
-    requiredSections: ['shell', 'hero', 'showcase', 'process', 'cta', 'footer'],
-    optionalSections: ['features', 'testimonials'],
+    requiredSections: ['shell', 'hero', 'showcase', 'cta', 'footer'],
+    optionalSections: ['process', 'features', 'testimonials'],
     recommendedOrder: ['shell', 'hero', 'showcase', 'features', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
       MarketingHero: ['product', 'service', 'editorial', 'compact', 'split'],
       FeatureBento: ['alternating', 'grid'],
     },
+  },
+  {
+    id: 'public-catalog',
+    surface: 'public',
+    shell: 'PublicShell',
+    purpose: 'Browsable product / plan grid with filtering — merchandising, not storytelling.',
+    requiredSections: ['shell', 'hero', 'showcase', 'footer'],
+    optionalSections: ['trust', 'features', 'spotlight', 'testimonials', 'cta'],
+    recommendedOrder: ['shell', 'hero', 'trust', 'showcase', 'features', 'spotlight', 'testimonials', 'cta', 'footer'],
+    allowedComponents: [...PUBLIC_ALLOWED, 'Input', 'Select', 'Tabs', 'Card', 'Table', 'Dialog'],
+    supportedVariants: {
+      MarketingHero: ['compact', 'editorial', 'product', 'split'],
+      FeatureBento: ['grid', 'bento'],
+    },
+  },
+  {
+    id: 'public-utility',
+    surface: 'public',
+    shell: 'PublicShell',
+    purpose:
+      'Transactional flow (cart, checkout, order tracking, account, wishlist) — compact header and a task-focused workspace, no marketing sections.',
+    requiredSections: ['shell', 'header', 'workspace', 'footer'],
+    optionalSections: ['summary', 'spotlight', 'cta'],
+    recommendedOrder: ['shell', 'header', 'workspace', 'summary', 'spotlight', 'cta', 'footer'],
+    allowedComponents: [
+      'PublicShell',
+      'PublicNav',
+      'PageHeader',
+      'Card',
+      'Table',
+      'Badge',
+      'Button',
+      'Input',
+      'Select',
+      'Tabs',
+      'Dialog',
+      'EmptyState',
+      'SpotlightCard',
+      'CTABand',
+      'BrandFooter',
+      'UiIcon',
+    ],
+    supportedVariants: {},
   },
   {
     id: 'public-booking',

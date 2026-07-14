@@ -124,6 +124,8 @@ export {
 
 export { formatDate, formatRelative, formatTime } from './lib/format';
 
+export { UiIcon } from '../components/UiIcons';
+
 export {
   SkeletonComposer,
   composeSkeletonLayout,

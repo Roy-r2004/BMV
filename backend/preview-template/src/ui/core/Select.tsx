@@ -16,6 +16,8 @@ export interface SelectProps {
   disabled?: boolean;
   required?: boolean;
   name?: string;
+  /** Renders a stacked field label above the trigger. */
+  label?: string;
   className?: string;
   'aria-label'?: string;
 }
@@ -24,6 +26,7 @@ export function Select({
   className,
   defaultValue,
   disabled,
+  label,
   name,
   onValueChange,
   options,
@@ -32,7 +35,7 @@ export function Select({
   value,
   ...rest
 }: SelectProps) {
-  return (
+  const select = (
     <SelectPrimitive.Root
       value={value}
       defaultValue={defaultValue}
@@ -67,5 +70,14 @@ export function Select({
         </SelectPrimitive.Content>
       </SelectPrimitive.Portal>
     </SelectPrimitive.Root>
+  );
+  if (!label) {
+    return select;
+  }
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-sm font-medium text-foreground">{label}</span>
+      {select}
+    </div>
   );
 }

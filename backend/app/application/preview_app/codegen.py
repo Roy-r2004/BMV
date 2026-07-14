@@ -13,6 +13,7 @@ from app.application.prompts import PromptTemplate
 from app.application.preview_app.parallel import parallel_map
 from app.application.preview_app.catalogue_contract import (
     _source_tokens,
+    blocking_contract_errors,
     enforce_catalogue_page_contract,
     validate_catalogue_page_content,
 )
@@ -591,7 +592,8 @@ def generate_file(
             if catalogue_page and not _needs_retry(content)
             else []
         )
-        if not _needs_retry(content) and not contract_errors:
+        # Prop/variant mismatches alone don't block — enforce tolerates them.
+        if not _needs_retry(content) and not blocking_contract_errors(contract_errors):
             break
         reason = (
             "catalogue contract: " + ", ".join(contract_errors)
@@ -634,7 +636,11 @@ def generate_file(
             if catalogue_page and not _needs_retry(retry_content)
             else []
         )
-        if retry_content and not _needs_retry(retry_content) and not retry_contract_errors:
+        if (
+            retry_content
+            and not _needs_retry(retry_content)
+            and not blocking_contract_errors(retry_contract_errors)
+        ):
             content = retry_content
             break
         if retry_content:
@@ -1049,7 +1055,9 @@ def fix_build_errors(
             continue
         route = _route_for_file(path, architect)
         candidate = _strip_fences(content)
-        errors = _catalogue_contract_errors(path, candidate, route)
+        errors = blocking_contract_errors(
+            _catalogue_contract_errors(path, candidate, route)
+        )
         if errors:
             contract_json = _bounded_json(
                 compact_skeleton_contract(
@@ -1088,7 +1096,9 @@ def fix_build_errors(
                 if not replacement:
                     continue
                 candidate = _strip_fences(replacement)
-                errors = _catalogue_contract_errors(path, candidate, route)
+                errors = blocking_contract_errors(
+                    _catalogue_contract_errors(path, candidate, route)
+                )
                 if not errors:
                     break
         fixed_content, replaced = enforce_catalogue_page_contract(
@@ -1325,7 +1335,7 @@ def refine_file(
             if catalogue_page and not incomplete
             else []
         )
-        if not incomplete and not contract_errors:
+        if not incomplete and not blocking_contract_errors(contract_errors):
             break
         retry_prompt = (
             f"{prompt}\n\n"
@@ -1350,7 +1360,17 @@ def refine_file(
     if looks_truncated_source(content) or not (content or "").strip():
         content = current
     if catalogue_page:
-        _catalogue_contract_errors(file_path, content, route)
+        contract_errors = _catalogue_contract_errors(file_path, content, route)
+        # A refine that breaks the contract must never cost the user a page
+        # that was valid before the critic touched it.
+        if (
+            blocking_contract_errors(contract_errors)
+            and not blocking_contract_errors(
+                validate_catalogue_page_content(current, route)
+            )
+        ):
+            print(f"    refine rejected — keeping pre-refine {file_path}", flush=True)
+            content = current
     content, replaced = enforce_catalogue_page_contract(
         file_path,
         content,

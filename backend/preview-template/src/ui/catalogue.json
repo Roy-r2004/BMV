@@ -48,12 +48,27 @@
         "placeholder",
         "disabled",
         "required",
+        "checked",
+        "defaultChecked",
         "id",
         "name",
+        "label",
+        "error",
+        "min",
+        "max",
+        "step",
+        "as",
+        "rows",
         "onChange",
         "className",
         "aria-label"
-      ]
+      ],
+      "variants": {
+        "as": [
+          "input",
+          "textarea"
+        ]
+      }
     },
     {
       "name": "Select",
@@ -70,6 +85,7 @@
         "disabled",
         "required",
         "name",
+        "label",
         "className",
         "aria-label"
       ]
@@ -104,8 +120,15 @@
         "defaultValue",
         "value",
         "onValueChange",
+        "orientation",
         "className"
-      ]
+      ],
+      "variants": {
+        "orientation": [
+          "horizontal",
+          "vertical"
+        ]
+      }
     },
     {
       "name": "Card",
@@ -139,6 +162,17 @@
           "destructive"
         ]
       }
+    },
+    {
+      "name": "UiIcon",
+      "surface": "core",
+      "path": "../components/UiIcons.tsx",
+      "requiredProps": [
+        "name"
+      ],
+      "optionalProps": [
+        "className"
+      ]
     },
     {
       "name": "Tooltip",
@@ -627,7 +661,8 @@
         "ResultRail",
         "BookingPanel",
         "Button",
-        "Badge"
+        "Badge",
+        "UiIcon"
       ],
       "supportedVariants": {
         "MarketingHero": [
@@ -654,11 +689,11 @@
         "shell",
         "hero",
         "features",
-        "process",
         "cta",
         "footer"
       ],
       "optionalSections": [
+        "process",
         "testimonials",
         "showcase"
       ],
@@ -689,7 +724,8 @@
         "ResultRail",
         "BookingPanel",
         "Button",
-        "Badge"
+        "Badge",
+        "UiIcon"
       ],
       "supportedVariants": {
         "MarketingHero": [
@@ -715,11 +751,11 @@
         "shell",
         "hero",
         "showcase",
-        "process",
         "cta",
         "footer"
       ],
       "optionalSections": [
+        "process",
         "features",
         "testimonials"
       ],
@@ -750,7 +786,8 @@
         "ResultRail",
         "BookingPanel",
         "Button",
-        "Badge"
+        "Badge",
+        "UiIcon"
       ],
       "supportedVariants": {
         "MarketingHero": [
@@ -765,6 +802,119 @@
           "grid"
         ]
       }
+    },
+    {
+      "id": "public-catalog",
+      "surface": "public",
+      "shell": "PublicShell",
+      "purpose": "Browsable product / plan grid with filtering — merchandising, not storytelling.",
+      "requiredSections": [
+        "shell",
+        "hero",
+        "showcase",
+        "footer"
+      ],
+      "optionalSections": [
+        "trust",
+        "features",
+        "spotlight",
+        "testimonials",
+        "cta"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "hero",
+        "trust",
+        "showcase",
+        "features",
+        "spotlight",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
+      "allowedComponents": [
+        "PublicShell",
+        "PublicNav",
+        "MarketingHero",
+        "FeatureBento",
+        "ProductShowcase",
+        "TestimonialRail",
+        "ProcessSection",
+        "CTABand",
+        "BrandFooter",
+        "LogoMarquee",
+        "SpotlightCard",
+        "AccentBeam",
+        "CredentialStrip",
+        "ResultRail",
+        "BookingPanel",
+        "Button",
+        "Badge",
+        "UiIcon",
+        "Input",
+        "Select",
+        "Tabs",
+        "Card",
+        "Table",
+        "Dialog"
+      ],
+      "supportedVariants": {
+        "MarketingHero": [
+          "compact",
+          "editorial",
+          "product",
+          "split"
+        ],
+        "FeatureBento": [
+          "grid",
+          "bento"
+        ]
+      }
+    },
+    {
+      "id": "public-utility",
+      "surface": "public",
+      "shell": "PublicShell",
+      "purpose": "Transactional flow (cart, checkout, order tracking, account, wishlist) — compact header and a task-focused workspace, no marketing sections.",
+      "requiredSections": [
+        "shell",
+        "header",
+        "workspace",
+        "footer"
+      ],
+      "optionalSections": [
+        "summary",
+        "spotlight",
+        "cta"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "header",
+        "workspace",
+        "summary",
+        "spotlight",
+        "cta",
+        "footer"
+      ],
+      "allowedComponents": [
+        "PublicShell",
+        "PublicNav",
+        "PageHeader",
+        "Card",
+        "Table",
+        "Badge",
+        "Button",
+        "Input",
+        "Select",
+        "Tabs",
+        "Dialog",
+        "EmptyState",
+        "SpotlightCard",
+        "CTABand",
+        "BrandFooter",
+        "UiIcon"
+      ],
+      "supportedVariants": {}
     },
     {
       "id": "public-booking",
@@ -813,6 +963,7 @@
         "BookingPanel",
         "Button",
         "Badge",
+        "UiIcon",
         "Input",
         "Select",
         "Dialog"
@@ -869,7 +1020,8 @@
         "Select",
         "Badge",
         "Tabs",
-        "Dialog"
+        "Dialog",
+        "UiIcon"
       ],
       "supportedVariants": {
         "ChartCard": [
@@ -918,7 +1070,8 @@
         "Select",
         "Badge",
         "Tabs",
-        "Dialog"
+        "Dialog",
+        "UiIcon"
       ],
       "supportedVariants": {}
     },
@@ -958,7 +1111,8 @@
         "Select",
         "Badge",
         "Tabs",
-        "Dialog"
+        "Dialog",
+        "UiIcon"
       ],
       "supportedVariants": {}
     },
@@ -998,7 +1152,8 @@
         "Select",
         "Badge",
         "Tabs",
-        "Dialog"
+        "Dialog",
+        "UiIcon"
       ],
       "supportedVariants": {}
     }

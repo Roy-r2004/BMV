@@ -75,7 +75,7 @@ Return ONLY valid JSON:
           "title": "Page Title",
           "page_type": "descriptive type",
           "surface": "public or ops",
-          "skeleton_id": "one of: public-home, public-service, public-detail, public-booking, ops-dashboard, ops-list, ops-detail, ops-settings",
+          "skeleton_id": "one of: public-home, public-service, public-detail, public-catalog, public-utility, public-booking, ops-dashboard, ops-list, ops-detail, ops-settings",
           "section_slots": ["canonical content slot ids in render order, such as hero, features, cta, footer — never shell"],
           "purpose": "why this page exists for THIS business",
           "sections": [
@@ -97,6 +97,7 @@ CRITICAL:
 - The compact skeleton contract is authoritative. Every page must choose a listed skeleton_id whose `surface` matches the page.
 - `section_slots` may contain ONLY IDs from that chosen skeleton's `requiredSections` or `optionalSections`, ordered by `recommendedOrder`; include every non-shell required ID, choose only relevant optional IDs, and NEVER include `shell`
 - Infer `surface`, `skeleton_id`, and `section_slots` when the business context does not state them explicitly; do not invent skeletons or slot IDs
+- Transactional public pages (cart, checkout, order tracking, account, wishlist, login) MUST use `public-utility` — never force hero/testimonial marketing sections onto them. Browsable grids (shop, catalog, compare) use `public-catalog`.
 - `public_direction` and `ops_direction` must describe distinct, business-specific customer and operator experiences, not generic "modern/premium dashboard" language
 - Section descriptions must be detailed enough for a developer to build without guessing
 - Design system must reflect THIS industry (luxury spa ≠ gym ≠ law firm)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from app.application.preview_app.protected_paths import canonical_workspace_path
@@ -282,9 +283,16 @@ def _ui_named_imports(tokens: list[str]) -> dict[str, str]:
         end = clause.index("}", start)
         cursor = start
         while cursor < end:
-            if clause[cursor] in {",", "type"}:
+            if clause[cursor] == ",":
                 cursor += 1
                 continue
+            # `import { type TableColumn }` is erased at runtime — exported
+            # types are not components and must not hit the component checks.
+            type_only = clause[cursor] == "type"
+            if type_only:
+                cursor += 1
+                if cursor >= end:
+                    break
             exported = clause[cursor]
             local = exported
             if cursor + 2 < end and clause[cursor + 1] == "as":
@@ -292,9 +300,10 @@ def _ui_named_imports(tokens: list[str]) -> dict[str, str]:
                 cursor += 3
             else:
                 cursor += 1
-            if re.match(r"^[A-Za-z_$][\w$]*$", exported) and re.match(
-                r"^[A-Za-z_$][\w$]*$",
-                local,
+            if (
+                not type_only
+                and re.match(r"^[A-Za-z_$][\w$]*$", exported)
+                and re.match(r"^[A-Za-z_$][\w$]*$", local)
             ):
                 imported[local] = exported
         index = from_index + 2
@@ -407,6 +416,50 @@ def _local_component_bindings(tokens: list[str]) -> set[str]:
     return bindings
 
 
+_JSX_PRECEDING_KEYWORDS = {
+    "return",
+    "default",
+    "typeof",
+    "in",
+    "of",
+    "case",
+    "await",
+    "yield",
+    "do",
+    "else",
+    "void",
+}
+_GENERIC_FOLLOW_TOKENS = {"(", "[", ".", "?", ":", "=", ";", ",", ")", ">", "&", "|", "}"}
+
+
+def _skips_generic_arguments(tokens: list[str], start: int) -> bool:
+    """True when tokens[start] opens a TypeScript generic argument list.
+
+    Handles nesting (`useState<Record<string, string>>`), unions
+    (`useState<Date | null>`), and array suffixes (`useState<Item[]>`). JSX
+    never survives the scan because props introduce strings, braces, or
+    parens, which break plausibility.
+    """
+    depth = 1
+    probe = start + 1
+    while probe < len(tokens) and depth:
+        current = tokens[probe]
+        if current == "<":
+            depth += 1
+        elif current == ">":
+            depth -= 1
+        elif current in {"(", ")", "{", "}", ";", "="} or current.startswith("\0"):
+            return False
+        if probe - start > 60:
+            return False
+        probe += 1
+    return (
+        depth == 0
+        and probe < len(tokens)
+        and tokens[probe] in _GENERIC_FOLLOW_TOKENS
+    )
+
+
 def _uppercase_jsx_roots(tokens: list[str]) -> set[str]:
     """Return uppercase roots from JSX tag names, including member expressions."""
     roots: set[str] = set()
@@ -422,20 +475,16 @@ def _uppercase_jsx_roots(tokens: list[str]) -> set[str]:
         root = tokens[cursor]
         if not _IDENTIFIER_RE.match(root) or not root[0].isupper():
             continue
-        if not closing and index > 0 and _IDENTIFIER_RE.match(tokens[index - 1]):
-            # Type arguments such as `factory<Component>()`, `useState<Item[]>()`,
-            # or `Array<Row>` are not JSX tags. Skip past array-suffix brackets
-            # before checking for the closing angle bracket.
-            probe = cursor + 1
-            while probe + 1 < len(tokens) and tokens[probe] == "[" and tokens[probe + 1] == "]":
-                probe += 2
-            if (
-                probe < len(tokens)
-                and tokens[probe] == ">"
-                and probe + 1 < len(tokens)
-                and tokens[probe + 1] in {"(", "[", ".", "?", ":", "=", ";", ",", ")"}
-            ):
-                continue
+        if (
+            not closing
+            and index > 0
+            and _IDENTIFIER_RE.match(tokens[index - 1])
+            and tokens[index - 1] not in _JSX_PRECEDING_KEYWORDS
+            and _skips_generic_arguments(tokens, index)
+        ):
+            # Type arguments such as `useState<Record<string, string>>()` or
+            # `React.ChangeEvent<HTMLInputElement>` are not JSX tags.
+            continue
         roots.add(root)
     return roots
 
@@ -516,15 +565,24 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
     if not skeleton_id:
         return []
     errors: list[str] = []
-    tokens = _source_tokens(content or "")
-    if not _has_token_sequence(
+    # Validate against normalized imports — enforce_catalogue_page_contract
+    # materializes the same rewrite before the file is written.
+    tokens = _source_tokens(normalize_catalogue_page_imports(content or "", route))
+    literal = "\0" + skeleton_id
+    has_skeleton_const = _has_token_sequence(
         tokens,
-        ["const", "SKELETON_ID", "=", "\0" + skeleton_id, "as", "const"],
-    ):
-        errors.append("assigned skeleton literal")
-    if not _has_token_sequence(tokens, ["getSkeleton", "(", "SKELETON_ID", ")"]):
-        errors.append("getSkeleton")
+        ["const", "SKELETON_ID", "=", literal, "as", "const"],
+    )
+    # The composer may reference the SKELETON_ID const or inline the assigned
+    # skeleton id literal — both pin the page to the right skeleton.
+    id_references = (
+        ["SKELETON_ID"],
+        [literal],
+        ["{", "SKELETON_ID", "}"],
+        ["{", literal, "}"],
+    )
     composer_valid = False
+    composer_uses_literal = False
     for index in range(len(tokens) - 1):
         if tokens[index:index + 2] != ["<", "SkeletonComposer"]:
             continue
@@ -533,30 +591,53 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
         except ValueError:
             continue
         invocation = tokens[index:end + 1]
-        if (
-            _has_token_sequence(invocation, ["skeletonId", "=", "{", "SKELETON_ID", "}"])
-            and _has_token_sequence(invocation, ["slots", "=", "{", "slots", "}"])
-        ):
+        id_ok = any(
+            _has_token_sequence(invocation, ["skeletonId", "=", *reference])
+            for reference in id_references
+        )
+        if id_ok and _has_token_sequence(invocation, ["slots", "=", "{", "slots", "}"]):
             composer_valid = True
+            composer_uses_literal = _has_token_sequence(
+                invocation, ["skeletonId", "=", literal]
+            ) or _has_token_sequence(invocation, ["skeletonId", "=", "{", literal, "}"])
             break
     # ops-dashboard pages may compose main/rail via composeSkeletonLayout
     # instead of rendering <SkeletonComposer /> directly.
-    if not composer_valid and _has_token_sequence(
-        tokens, ["composeSkeletonLayout", "(", "SKELETON_ID", ",", "slots", ")"]
-    ):
-        composer_valid = True
+    if not composer_valid:
+        for reference in ("SKELETON_ID", literal):
+            if _has_token_sequence(
+                tokens, ["composeSkeletonLayout", "(", reference, ",", "slots", ")"]
+            ):
+                composer_valid = True
+                composer_uses_literal = reference == literal
+                break
     if not composer_valid:
         errors.append("SkeletonComposer invocation")
+    if not has_skeleton_const and not (composer_valid and composer_uses_literal):
+        errors.append("assigned skeleton literal")
+    # Note: calling getSkeleton(SKELETON_ID) is encouraged but not required —
+    # the composer resolves and validates the skeleton internally.
     shell = expected_shell(route)
     if shell and not _has_token_sequence(tokens, ["<", shell]):
         errors.append(shell)
     assigned_slots = assigned_non_shell_slots(route)
+    skeleton = get_skeleton(skeleton_id)
+    valid_slot_ids = {
+        str(section)
+        for section in (
+            *(skeleton.get("requiredSections") or []),
+            *(skeleton.get("optionalSections") or []),
+        )
+        if section != "shell"
+    }
     slot_values = _declared_slot_values(tokens)
     actual_slots = set(slot_values)
     for slot in assigned_slots:
         if slot not in actual_slots or not _slot_value_is_present(slot_values[slot]):
             errors.append(f"slot:{slot}")
-    for slot in sorted(actual_slots - set(assigned_slots)):
+    # Unassigned-but-valid optional slots are welcome extra content; only
+    # slot keys the skeleton does not know at all are rejected.
+    for slot in sorted(actual_slots - set(assigned_slots) - valid_slot_ids):
         errors.append(f"extra slot:{slot}")
     import_sources: list[str] = []
     forbidden_import_syntax = False
@@ -585,8 +666,10 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
                 import_sources.append(tokens[index + 1][1:])
     if forbidden_import_syntax:
         errors.append("forbidden import syntax")
-    if any(source not in _ALLOWED_CATALOGUE_IMPORTS for source in import_sources):
-        errors.append("forbidden import")
+    for source in sorted({
+        source for source in import_sources if source not in _ALLOWED_CATALOGUE_IMPORTS
+    }):
+        errors.append(f"forbidden import:{source}")
     if "@/ui" not in import_sources:
         errors.append("missing @/ui import")
     bound_jsx_roots = _runtime_import_bindings(
@@ -652,6 +735,8 @@ _SLOT_COMPONENT = {
     "spotlight": "SpotlightCard",
     "results": "ResultRail",
     "booking": "BookingPanel",
+    "workspace": "Card",
+    "summary": "Card",
     "header": "PageHeader",
     "kpis": "StatCard",
     "chart": "ChartCard",
@@ -724,6 +809,16 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             '<BookingPanel heading="Choose a time" '
             'treatments={[{ id: "signature", name: "Signature service", duration: "60 min" }]} '
             'slots={[{ id: "slot-1", startsAt: "2026-07-14T10:00:00" }]} />'
+        ),
+        "workspace": (
+            '<Card title="Your details" description="Everything for this step in one place.">'
+            '<p className="text-sm text-muted">Items, totals, and confirmation details appear here.</p>'
+            '</Card>'
+        ),
+        "summary": (
+            '<Card title="Summary" description="Totals update as you make changes.">'
+            '<p className="text-sm text-muted">Review everything before you confirm.</p>'
+            '</Card>'
         ),
         "header": f'<PageHeader title={{{title_js}}} description="A current view of the work that needs your attention." meta={{<span className="text-sm text-muted">Today</span>}} />',
         "kpis": (
@@ -859,6 +954,155 @@ export default function {component}() {{
 """
 
 
+# Component prop/variant mismatches never break a Vite build (esbuild strips
+# types; unknown props are ignored at runtime). They stay in the error list as
+# retry feedback but must not cost the user the whole AI page.
+_TOLERATED_ERROR_PREFIXES = ("invalid prop:", "invalid variant:")
+
+
+def blocking_contract_errors(errors: list[str]) -> list[str]:
+    return [
+        error
+        for error in errors
+        if not error.startswith(_TOLERATED_ERROR_PREFIXES)
+    ]
+
+
+_IMPORT_SOURCE_REWRITES = (
+    # Deep/relative kit imports → the @/ui barrel (it re-exports everything).
+    (re.compile(r"(from\s*['\"])@/ui/[^'\"]+(['\"])"), r"\g<1>@/ui\g<2>"),
+    (re.compile(r"(from\s*['\"])(?:\.{1,2}/)+ui(?:/[^'\"]*)?(['\"])"), r"\g<1>@/ui\g<2>"),
+    (re.compile(r"(from\s*['\"])(?:\.{1,2}/)+data/mock(['\"])"), r"\g<1>@/data/mock\g<2>"),
+    (re.compile(r"(from\s*['\"])@/src/lib/(app-nav['\"])"), r"\g<1>@/lib/\g<2>"),
+    (re.compile(r"(from\s*['\"])(?:\.{1,2}/)+lib/app-nav(['\"])"), r"\g<1>@/lib/app-nav\g<2>"),
+    # Legacy icon module → the barrel (which re-exports UiIcon).
+    (
+        re.compile(
+            r"(import\s*\{[^}]*\}\s*from\s*['\"])(?:@/|(?:\.{1,2}/)+)components/UiIcons(['\"])"
+        ),
+        r"\g<1>@/ui\g<2>",
+    ),
+    (
+        re.compile(
+            r"import\s+([A-Za-z_$][\w$]*)\s+from\s*['\"](?:@/|(?:\.{1,2}/)+)components/UiIcons['\"];?"
+        ),
+        r"import { UiIcon as \g<1> } from '@/ui';",
+    ),
+)
+
+
+def normalize_catalogue_page_imports(content: str, route: dict) -> str:
+    """Rewrite spelling-level import mistakes the AI keeps making.
+
+    Deep kit paths and relative mock/nav imports are semantically identical to
+    the allowed sources — rejecting the whole page over them costs the user
+    real content for no build-safety gain.
+    """
+    if not route.get("skeleton_id") or not content:
+        return content
+    for pattern, replacement in _IMPORT_SOURCE_REWRITES:
+        content = pattern.sub(replacement, content)
+    return content
+
+
+_SLOTS_DECL_RE = re.compile(r"const\s+slots\s*(?::\s*[\w$<>,.\s\[\]]+?)?=\s*\{")
+_UI_IMPORT_RE = re.compile(r"import\s*\{([^}]*)\}\s*from\s*['\"]@/ui['\"]\s*;?")
+_IMAGES_IMPORT_RE = re.compile(
+    r"import\s*\{[^}]*\bimages\b[^}]*\}\s*from\s*['\"]@/data/mock['\"]"
+)
+
+
+def repair_missing_catalogue_slots(
+    content: str,
+    route: dict,
+    *,
+    brand_name: str | None = None,
+) -> tuple[str, bool]:
+    """Inject deterministic JSX for missing required slots into an AI page.
+
+    Applies only when missing slots are the page's sole contract violations —
+    a page that reasonably skipped optional-ish marketing sections keeps its
+    business-specific content instead of being replaced by a generic scaffold.
+    Structural, import, or prop errors still require regeneration.
+    """
+    errors = blocking_contract_errors(validate_catalogue_page_content(content, route))
+    if not errors:
+        return content, False
+    missing = {error.split(":", 1)[1] for error in errors if error.startswith("slot:")}
+    if not missing or any(not error.startswith("slot:") for error in errors):
+        return content, False
+
+    declaration = _SLOTS_DECL_RE.search(content)
+    ui_import = _UI_IMPORT_RE.search(content)
+    if not declaration or not ui_import:
+        return content, False
+
+    brand = brand_name or "Brand"
+    title = str(route.get("title") or "Overview")
+    ordered_missing = [
+        slot for slot in assigned_non_shell_slots(route) if slot in missing
+    ]
+    if set(ordered_missing) != missing:
+        return content, False
+    try:
+        injected = "".join(
+            f"\n    {slot}: (\n      {_safe_slot_jsx(slot, brand, title)}\n    ),"
+            for slot in ordered_missing
+        )
+    except ValueError:
+        return content, False
+    # A slot declared with an empty value (`cta: null,`) would shadow the
+    # injected default (later key wins) — drop the dead declaration first.
+    for slot in ordered_missing:
+        content = re.sub(
+            rf"\n\s*{re.escape(slot)}\s*:\s*(?:null|undefined|false|\{{\s*\}})\s*,?",
+            "",
+            content,
+            count=1,
+        )
+    declaration = _SLOTS_DECL_RE.search(content)
+    if not declaration:
+        return content, False
+    repaired = content[: declaration.end()] + injected + content[declaration.end():]
+
+    existing_named = {
+        token.strip().split(" as ")[0].replace("type ", "").strip()
+        for token in ui_import.group(1).split(",")
+        if token.strip()
+    }
+    needed = list(
+        dict.fromkeys(
+            component
+            for slot in ordered_missing
+            if (component := _SLOT_COMPONENT.get(slot))
+            and component not in existing_named
+        )
+    )
+    if needed:
+        current = ui_import.group(1).strip().rstrip(",").strip()
+        merged = ", ".join(filter(None, [current, ", ".join(needed)]))
+        repaired = repaired.replace(
+            ui_import.group(0),
+            f"import {{ {merged} }} from '@/ui';",
+            1,
+        )
+
+    needs_images = any(
+        "images." in _safe_slot_jsx(slot, brand, title) for slot in ordered_missing
+    )
+    if needs_images and not _IMAGES_IMPORT_RE.search(repaired):
+        repaired = "import { images } from '@/data/mock';\n" + repaired
+
+    if blocking_contract_errors(validate_catalogue_page_content(repaired, route)):
+        return content, False
+    logging.getLogger(__name__).info(
+        "Catalogue page healed by slot injection route=%s slots=%s",
+        route.get("path"),
+        ordered_missing,
+    )
+    return repaired, True
+
+
 def enforce_catalogue_page_contract(
     file_path: str,
     content: str,
@@ -869,8 +1113,16 @@ def enforce_catalogue_page_contract(
     route = catalogue_route_for_file(file_path, architect)
     if not route.get("skeleton_id"):
         return content, False
-    if not validate_catalogue_page_content(content, route):
+    content = normalize_catalogue_page_imports(content, route)
+    if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
         return content, False
+    repaired, healed = repair_missing_catalogue_slots(
+        content,
+        route,
+        brand_name=brand_name,
+    )
+    if healed:
+        return repaired, False
     return (
         minimal_catalogue_page_scaffold(
             file_path,

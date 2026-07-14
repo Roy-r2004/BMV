@@ -38,6 +38,8 @@ _SLOT_COMPONENT_DEFAULTS = {
     "spotlight": "SpotlightCard",
     "results": "ResultRail",
     "booking": "BookingPanel",
+    "workspace": "Card",
+    "summary": "Card",
     "header": "PageHeader",
     "kpis": "StatCard",
     "chart": "ChartCard",
@@ -163,6 +165,28 @@ def _infer_skeleton_id(page: dict[str, Any], surface: str) -> str:
             return "ops-detail"
         return "ops-list"
 
+    # Transactional flows first: judged as marketing pages they would be
+    # rejected for missing hero/testimonials and fall back to scaffolds.
+    if any(
+        word in text
+        for word in (
+            "cart",
+            "checkout",
+            "order status",
+            "track order",
+            "order tracking",
+            "tracking",
+            "wishlist",
+            "my orders",
+            "order history",
+            "account",
+            "login",
+            "sign in",
+            "sign up",
+            "register",
+        )
+    ):
+        return "public-utility"
     if any(word in text for word in ("book", "appointment", "reserve", "intake", "schedule")):
         return "public-booking"
     if path == "/" or any(word in text for word in ("home", "landing", "homepage")):
@@ -171,6 +195,11 @@ def _infer_skeleton_id(page: dict[str, Any], surface: str) -> str:
         return "public-detail"
     if path and re.search(r"/(?:services?|products?|treatments?)/[^/]+$", path):
         return "public-detail"
+    if any(
+        word in text
+        for word in ("catalog", "catalogue", "shop", "store", "browse", "collection", "compare")
+    ) or (path and re.search(r"/(?:shop|store|products|catalog)$", path)):
+        return "public-catalog"
     return "public-service"
 
 

@@ -35,7 +35,9 @@ from app.application.preview_app.codegen import (
 )
 from app.application.preview_app import chat_refinement
 from app.application.preview_app.catalogue_contract import (
+    enforce_catalogue_page_contract,
     minimal_catalogue_page_scaffold,
+    repair_missing_catalogue_slots,
     validate_catalogue_page_content,
 )
 from app.application.preview_app.fallback import (
@@ -86,6 +88,8 @@ def main() -> None:
         "public-home",
         "public-service",
         "public-detail",
+        "public-catalog",
+        "public-utility",
         "public-booking",
         "ops-dashboard",
         "ops-list",
@@ -96,6 +100,15 @@ def main() -> None:
     booking = get_skeleton("public-booking")
     assert booking["surface"] == "public"
     assert "BookingPanel" in booking["allowedComponents"]
+
+    utility = get_skeleton("public-utility")
+    assert utility["surface"] == "public"
+    assert utility["requiredSections"] == ["shell", "header", "workspace", "footer"]
+    assert {"Card", "Table", "PageHeader", "Input", "Select"} <= set(utility["allowedComponents"])
+    assert "MarketingHero" not in utility["allowedComponents"]
+    catalog = get_skeleton("public-catalog")
+    assert "showcase" in catalog["requiredSections"]
+    assert "testimonials" not in catalog["requiredSections"]
 
     contract = compact_skeleton_contract("ops-dashboard")
     assert contract["skeleton"]["id"] == "ops-dashboard"
@@ -132,14 +145,15 @@ def main() -> None:
         {"section_slots": ["cta", "unknown", "hero", "hero"]},
         "public-service",
     )
-    assert normalized_slots == ["hero", "features", "process", "cta", "footer"]
+    # "process" is optional on public-service now — only requested + required slots.
+    assert normalized_slots == ["hero", "features", "cta", "footer"]
     assert infer_section_slots({}, "public-service") == [
         "hero",
         "features",
-        "process",
         "cta",
         "footer",
     ]
+    assert infer_section_slots({}, "public-utility") == ["header", "workspace", "footer"]
     assert infer_section_slots({"section_slots": ["shell", "unknown"]}, "ops-list") == [
         "header",
         "filters",
@@ -158,6 +172,11 @@ def main() -> None:
         ({"title": "Our Services", "page_type": "service listing"}, ("public", "public-service")),
         ({"title": "Signature Facial", "page_type": "service detail"}, ("public", "public-detail")),
         ({"title": "Book an Appointment", "page_type": "booking"}, ("public", "public-booking")),
+        ({"title": "Cart", "path": "/cart"}, ("public", "public-utility")),
+        ({"title": "Checkout", "page_type": "checkout flow"}, ("public", "public-utility")),
+        ({"title": "Track Your Order", "page_type": "order tracking"}, ("public", "public-utility")),
+        ({"title": "Shop Laptops", "path": "/shop"}, ("public", "public-catalog")),
+        ({"title": "Browse Collection", "page_type": "catalog"}, ("public", "public-catalog")),
         ({"title": "Business Overview", "page_type": "dashboard"}, ("ops", "ops-dashboard")),
         ({"title": "Clients", "page_type": "operational list"}, ("ops", "ops-list")),
         ({"title": "Client Record", "page_type": "record detail"}, ("ops", "ops-detail")),
@@ -947,13 +966,29 @@ def main() -> None:
         )
         for forbidden_import in (
             "import { Camera } from 'lucide-react';\n",
-            "import { PublicShell } from '@/ui/public';\n",
             "import helper from '../utils/helper';\n",
         ):
-            assert "forbidden import" in validate_catalogue_page_content(
-                forbidden_import + stub_content,
+            assert any(
+                error.startswith("forbidden import")
+                for error in validate_catalogue_page_content(
+                    forbidden_import + stub_content,
+                    route,
+                )
+            )
+        # Deep/relative kit and mock imports are normalized to the barrel
+        # instead of rejected — the barrel re-exports everything.
+        for rewritable_import in (
+            "import { AccentBeam } from '@/ui/public';\n",
+            "import { formatDate } from '../ui';\n",
+            "import { brand } from '../data/mock';\n",
+        ):
+            rewritable_errors = validate_catalogue_page_content(
+                rewritable_import + stub_content,
                 route,
             )
+            assert not any(
+                error.startswith("forbidden import") for error in rewritable_errors
+            ), (rewritable_import, rewritable_errors)
         decoy_imports = (
             stub_content
             + "\n// import { Camera } from 'lucide-react';"
@@ -995,6 +1030,184 @@ def main() -> None:
             flags=re.DOTALL,
         ) + '\nconst slotExample = "features:";\n// features: <section />\n'
         assert "slot:features" in validate_catalogue_page_content(slot_decoy, route)
+
+        # Real failure modes from the Voltbyte run — TypeScript type syntax the
+        # validator must never mistake for JSX or forbidden components.
+        typed_page = stub_content.replace(
+            "  const slots = {",
+            "  const [when, setWhen] = React.useState<Date | null>(null);\n"
+            "  const [meta, setMeta] = React.useState<Record<string, string>>({});\n"
+            "  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => setMeta({ v: e.target.value });\n"
+            "  void when; void setWhen; void onChange;\n"
+            "  const slots = {",
+            1,
+        ).replace(
+            "import {",
+            "import * as React from 'react';\nimport {",
+            1,
+        )
+        typed_errors = validate_catalogue_page_content(typed_page, route)
+        assert not any("Date" in e or "Record" in e or "HTMLInputElement" in e for e in typed_errors), typed_errors
+
+        # `import { type TableColumn }` is a type-only import, not a component.
+        type_import_page = stub_content.replace(
+            "import {",
+            "import { type TableColumn } from '@/ui';\nimport {",
+            1,
+        )
+        assert not any(
+            "TableColumn" in e
+            for e in validate_catalogue_page_content(type_import_page, route)
+        )
+
+        # Optional-but-unassigned skeleton slots are allowed as extra content;
+        # unknown slot keys are still rejected.
+        service_route = {
+            "path": "/services",
+            "component_file": "src/pages/ServicesPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-service",
+            "section_slots": ["hero", "features", "cta", "footer"],
+        }
+        service_stub = minimal_catalogue_page_scaffold(
+            service_route["component_file"],
+            service_route,
+            brand_name="Voltbyte",
+        )
+        assert validate_catalogue_page_content(service_stub, service_route) == []
+        optional_extra = service_stub.replace(
+            "  const slots = {\n",
+            "  const slots = {\n    process: <section>How it works</section>,\n",
+        )
+        assert validate_catalogue_page_content(optional_extra, service_route) == []
+        unknown_extra = service_stub.replace(
+            "  const slots = {\n",
+            "  const slots = {\n    faq: <section>FAQ</section>,\n",
+        )
+        assert "extra slot:faq" in validate_catalogue_page_content(unknown_extra, service_route)
+
+        # Inline skeleton literal in the composer pins the assignment without
+        # a SKELETON_ID const.
+        inline_literal = (
+            stub_content.replace('const SKELETON_ID = "public-home" as const;\n', "")
+            .replace("skeletonId={SKELETON_ID}", 'skeletonId="public-home"')
+            .replace("  const skeleton = getSkeleton(SKELETON_ID);\n", "")
+            .replace("<div data-skeleton={skeleton.id}>", "<div>")
+        )
+        inline_errors = validate_catalogue_page_content(inline_literal, route)
+        assert "assigned skeleton literal" not in inline_errors, inline_errors
+        assert "SkeletonComposer invocation" not in inline_errors, inline_errors
+
+        # UiIcon is a first-class @/ui export; legacy UiIcons imports normalize.
+        uiicon_page = stub_content.replace(
+            "  const slots = {",
+            '  const icon = <UiIcon name="zap" />;\n  void icon;\n  const slots = {',
+            1,
+        ).replace("import {", "import { UiIcon } from '@/ui';\nimport {", 1)
+        assert validate_catalogue_page_content(uiicon_page, route) == []
+        legacy_icon_page = stub_content.replace(
+            "  const slots = {",
+            '  const icon = <UiIcon name="zap" />;\n  void icon;\n  const slots = {',
+            1,
+        ).replace(
+            "import {",
+            "import UiIcon from '../components/UiIcons';\nimport {",
+            1,
+        )
+        assert validate_catalogue_page_content(legacy_icon_page, route) == []
+
+        # Repair replaces empty slot declarations instead of being shadowed.
+        nulled_slot = re.sub(
+            r"    features: \(\n.*?\n    \),\n",
+            "    features: null,\n",
+            stub_content,
+            count=1,
+            flags=re.DOTALL,
+        )
+        repaired_null, healed_null = repair_missing_catalogue_slots(
+            nulled_slot,
+            route,
+            brand_name="Voltbyte",
+        )
+        assert healed_null
+        assert validate_catalogue_page_content(repaired_null, route) == []
+
+        # Missing-slot repair: a page whose ONLY violation is missing required
+        # slots gets deterministic defaults injected — the AI content survives.
+        repaired, healed = repair_missing_catalogue_slots(
+            missing_assigned,
+            route,
+            brand_name="Voltbyte",
+        )
+        assert healed
+        assert validate_catalogue_page_content(repaired, route) == []
+        assert "FeatureBento" in repaired
+
+        # Repair also restores the @/ui import for the injected component.
+        stripped_import = re.sub(
+            r"(import \{[^}]*?), FeatureBento(?=[,}])",
+            r"\1",
+            missing_assigned,
+            count=1,
+        )
+        ui_import_line = next(
+            line for line in stripped_import.split("\n") if "from '@/ui'" in line
+        )
+        assert "FeatureBento" not in ui_import_line
+        repaired_import, healed_import = repair_missing_catalogue_slots(
+            stripped_import,
+            route,
+            brand_name="Voltbyte",
+        )
+        assert healed_import
+        assert validate_catalogue_page_content(repaired_import, route) == []
+
+        # enforce keeps a repaired page (not a scaffold), but still scaffolds
+        # structurally broken pages.
+        healed_enforced, replaced_flag = enforce_catalogue_page_contract(
+            route["component_file"],
+            missing_assigned,
+            {"routes": [route]},
+            brand_name="Voltbyte",
+        )
+        assert replaced_flag is False
+        assert validate_catalogue_page_content(healed_enforced, route) == []
+        broken_enforced, broken_replaced = enforce_catalogue_page_contract(
+            route["component_file"],
+            "import { PublicShell } from '@/ui';\nexport default function X() { return <PublicShell brandName=\"B\">x</PublicShell>; }\n",
+            {"routes": [route]},
+            brand_name="Voltbyte",
+        )
+        assert broken_replaced is True
+        assert "deterministic catalogue contract scaffold" in broken_enforced
+
+        # Prop/variant mismatches are retry feedback, not grounds to discard
+        # the page — esbuild ignores them, so enforce keeps the AI content.
+        invalid_prop_page = stub_content.replace(
+            "<MarketingHero brandName=",
+            '<MarketingHero bogusProp="x" brandName=',
+            1,
+        )
+        assert "invalid prop:MarketingHero.bogusProp" in validate_catalogue_page_content(
+            invalid_prop_page,
+            route,
+        )
+        kept_content, kept_replaced = enforce_catalogue_page_contract(
+            route["component_file"],
+            invalid_prop_page,
+            {"routes": [route]},
+            brand_name="Voltbyte",
+        )
+        assert kept_replaced is False
+        assert "bogusProp" in kept_content
+
+        # Structural/import errors are never slot-repaired.
+        _, not_healed = repair_missing_catalogue_slots(
+            "import x from 'lucide-react';\n" + missing_assigned,
+            route,
+            brand_name="Voltbyte",
+        )
+        assert not_healed is False
 
         ops_route = {
             "path": "/staff",
