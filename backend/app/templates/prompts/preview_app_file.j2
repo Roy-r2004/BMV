@@ -109,6 +109,11 @@ For page components (kind=page):
 - You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
 {% if catalogue_page %}
 - The page itself renders `{{ shell_component }}` around `SkeletonComposer`; App.tsx does not add a layout wrapper.
+- CRITICAL CHROME CONSISTENCY: never invent a local ADMIN_NAV / navItems array. Import shared hooks from `@/lib/app-nav`:
+  * Ops pages: `import { useAdminNavItems } from '@/lib/app-nav'` and pass `navItems={useAdminNavItems()}` to OpsShell.
+  * Public marketing pages: `import { usePublicNavItems, publicCta } from '@/lib/app-nav'` and render `<PublicNav items={usePublicNavItems()} cta={publicCta()} />`.
+  * Member hub pages: `import { useMemberNavItems, memberCta } from '@/lib/app-nav'` and render `<PublicNav items={useMemberNavItems()} cta={memberCta()} />`.
+- Do not change sidebar/navbar labels or link sets per page — every page in a role must share the same chrome.
 {% else %}
 - PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
 - Pages export ONLY their main content (sections inside a fragment or single div).

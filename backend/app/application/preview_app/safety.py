@@ -1455,6 +1455,7 @@ def _safe_workspace_destination(workspace, rel: str) -> Path:
         normalized.startswith("src/ui/")
         or normalized == "src/components/UiIcons.tsx"
         or normalized == "src/lib/preview-bridge.ts"
+        or normalized == "src/lib/app-nav.ts"
     ):
         raise ValueError(f"Refusing non-kit restore path: {rel}")
     target = root.joinpath(*normalized.split("/"))
@@ -1584,6 +1585,27 @@ def restore_curated_ui_kit(workspace) -> list[str]:
             changed.append("src/lib/preview-bridge.ts")
     except OSError as exc:
         raise RuntimeError("Failed to restore preview bridge") from exc
+
+    source_app_nav = template_root / "src" / "lib" / "app-nav.ts"
+    if source_app_nav.is_file():
+        try:
+            app_nav_text = source_app_nav.read_text(encoding="utf-8")
+            destination_app_nav = _safe_workspace_destination(
+                root, "src/lib/app-nav.ts"
+            )
+            if (
+                destination_app_nav.is_symlink()
+                or not destination_app_nav.is_file()
+                or destination_app_nav.read_text(encoding="utf-8") != app_nav_text
+            ):
+                write_trusted_contained_file(
+                    root,
+                    "src/lib/app-nav.ts",
+                    app_nav_text,
+                )
+                changed.append("src/lib/app-nav.ts")
+        except OSError as exc:
+            raise RuntimeError("Failed to restore shared app-nav helpers") from exc
 
     return list(dict.fromkeys(changed))
 
@@ -2274,6 +2296,19 @@ def apply_workspace_guards(
         )
     except Exception as e:
         print(f"    assemble skipped: {e}", flush=True)
+    if catalogue_workspace:
+        try:
+            from app.application.preview_app.chrome_nav import enforce_shared_chrome_nav
+
+            chrome_fixed = enforce_shared_chrome_nav(workspace, architect)
+            if chrome_fixed:
+                actions.extend([f"chrome:{path}" for path in chrome_fixed])
+                print(
+                    f"    shared chrome enforced on {len(chrome_fixed)} page(s)",
+                    flush=True,
+                )
+        except Exception as e:
+            print(f"    shared chrome guard skipped: {e}", flush=True)
     try:
         actions.extend(ensure_runtime_correctness(
             workspace, architect, plan, primary, secondary, font, template_renderer,
@@ -2311,6 +2346,73 @@ def _clean_mock(mock: str) -> str:
     return _MOCK_SELF_IMPORT_RE.sub("", mock)
 
 
+# Never invent mock stubs for UI catalogue / composer APIs — pages must import
+# these from '@/ui'. Stubbing them as demo arrays causes runtime PREVIEW ERRORs.
+_MOCK_FORBIDDEN_STUB_NAMES = frozenset(
+    {
+        "SkeletonComposer",
+        "getSkeleton",
+        "PublicShell",
+        "OpsShell",
+        "PublicNav",
+        "BrandFooter",
+        "MarketingHero",
+        "FeatureBento",
+        "ProductShowcase",
+        "ProcessSection",
+        "TestimonialRail",
+        "CTABand",
+        "BookingPanel",
+        "PageHeader",
+        "StatCard",
+        "ChartCard",
+        "FilterBar",
+        "DataTable",
+        "ActivityFeed",
+        "RiskQueue",
+        "EmptyState",
+        "Button",
+        "Badge",
+        "Input",
+        "Select",
+        "Dialog",
+        "Tabs",
+        "LogoMarquee",
+        "CredentialStrip",
+        "SpotlightCard",
+        "ResultRail",
+        "AccentBeam",
+        "UiIcon",
+        "AppLink",
+        "toast",
+    }
+)
+
+
+_BAD_UI_MOCK_STUB_RE = re.compile(
+    r"(?ms)^// build-correctness guard: auto-added missing exports\n"
+    r"(?:export const (?:SkeletonComposer|getSkeleton)\s*=\s*\[[^\]]*\]\s*;\n?)+"
+)
+
+
+def _strip_forbidden_mock_stubs(mock: str) -> str:
+    """Remove accidental array stubs for UI APIs that belong in '@/ui'."""
+    updated = mock
+    for name in sorted(_MOCK_FORBIDDEN_STUB_NAMES):
+        updated = re.sub(
+            rf"(?ms)^export const {re.escape(name)}\s*=\s*\[[^\]]*\]\s*;\s*\n?",
+            "",
+            updated,
+        )
+    # Collapse duplicate guard banners left empty after removals.
+    updated = re.sub(
+        r"(?m)^// build-correctness guard: auto-added missing exports\n(?=\s*(?:// build-correctness guard: auto-added missing exports\n)?\s*$)",
+        "",
+        updated,
+    )
+    return updated
+
+
 def ensure_mock_exports(
     workspace, architect: dict, plan: dict, images: dict, brand_name: str
 ) -> list[str]:
@@ -2320,11 +2422,11 @@ def ensure_mock_exports(
     build-correctness — prevents MISSING_EXPORT failures and fix-loop thrashing.
     """
     mock = read_file(workspace, "src/data/mock.ts")
-    cleaned = _clean_mock(mock)
+    cleaned = _strip_forbidden_mock_stubs(_clean_mock(mock))
     if cleaned != mock:
         mock = cleaned
         write_file(workspace, "src/data/mock.ts", mock)
-    needed = _collect_mock_imports(workspace)
+    needed = _collect_mock_imports(workspace) - _MOCK_FORBIDDEN_STUB_NAMES
     if not needed:
         return []
     have = _mock_exported_names(mock)

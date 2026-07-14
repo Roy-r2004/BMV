@@ -247,6 +247,11 @@ def compact_skeleton_contract(
         for name in (shell_component, *navigation_components)
         if name and name in allowed
     ]
+    # Include every skeleton-allowed component so validators/prompts accept
+    # Button, Badge, Input, DataTable, etc. — not only shell/slot defaults.
+    for name in sorted(allowed):
+        if name and name not in selected_names:
+            selected_names.append(name)
     slot_components: dict[str, str] = {}
     for slot in slots:
         name = skeleton.get("shell") if slot == "shell" else _SLOT_COMPONENT_DEFAULTS.get(slot)
@@ -265,6 +270,7 @@ def compact_skeleton_contract(
             if key in components_by_name[name]
         }
         for name in selected_names
+        if name in components_by_name
     ]
     skeleton_contract = {
         key: skeleton[key] for key in _SKELETON_FIELDS if key in skeleton

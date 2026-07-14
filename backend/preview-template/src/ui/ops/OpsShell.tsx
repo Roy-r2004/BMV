@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { AppLink } from '../lib/AppLink';
 import { cn } from '../lib/cn';
@@ -8,6 +9,13 @@ export interface OpsShellNavItem {
   label: string;
   href?: string;
   active?: boolean;
+}
+
+function pathMatches(pathname: string, href?: string): boolean {
+  if (!href || !href.startsWith('/')) return false;
+  if (pathname === href) return true;
+  if (href !== '/' && pathname.startsWith(`${href}/`)) return true;
+  return false;
 }
 
 export interface OpsShellProps {
@@ -36,11 +44,23 @@ export function OpsShell({
   navItems,
   topbar,
 }: OpsShellProps) {
+  const { pathname } = useLocation();
   const [collapsed, setCollapsed] = React.useState(defaultSidebarCollapsed);
   const [width, setWidth] = React.useState(
     Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, defaultSidebarWidth))
   );
   const dragging = React.useRef(false);
+
+  // Prefer route match over page-local `active` flags so sidebar stays consistent
+  // when each catalogue page mounts its own OpsShell with different props.
+  const resolvedNav = React.useMemo(
+    () =>
+      navItems.map((item) => ({
+        ...item,
+        active: pathMatches(pathname, item.href) || Boolean(item.active && !item.href),
+      })),
+    [navItems, pathname]
+  );
 
   React.useEffect(() => {
     if (!adjustableSidebar) return;
@@ -100,7 +120,7 @@ export function OpsShell({
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 p-2.5" aria-label="Operations">
-          {navItems.map((item) => {
+          {resolvedNav.map((item) => {
             const itemClassName = cn(
               'rounded-lg px-3 py-2.5 text-sm font-medium transition',
               item.active ? 'bg-white/12 text-white' : 'text-white/55 hover:bg-white/6 hover:text-white',
@@ -151,7 +171,7 @@ export function OpsShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="border-b border-border-subtle bg-card px-4 py-2 xl:hidden">
           <nav className="flex gap-2 overflow-x-auto" aria-label="Operations mobile">
-            {navItems.map((item) => (
+            {resolvedNav.map((item) => (
               <AppLink
                 key={item.id}
                 href={item.href ?? '#'}

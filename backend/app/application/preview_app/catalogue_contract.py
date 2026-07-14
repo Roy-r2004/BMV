@@ -301,7 +301,13 @@ def _ui_named_imports(tokens: list[str]) -> dict[str, str]:
     return imported
 
 
-_ALLOWED_CATALOGUE_IMPORTS = {"@/ui", "react", "react-router-dom", "@/data/mock"}
+_ALLOWED_CATALOGUE_IMPORTS = {
+    "@/ui",
+    "react",
+    "react-router-dom",
+    "@/data/mock",
+    "@/lib/app-nav",
+}
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_$][\w$]*$")
 
 
@@ -740,6 +746,8 @@ def minimal_catalogue_page_scaffold(
     brand = brand_name or "Brand"
     title = str(route.get("title") or component.replace("Page", "") or "Overview")
     components = [shell, "SkeletonComposer", "getSkeleton"]
+    if shell == "PublicShell" and "PublicNav" not in components:
+        components.append("PublicNav")
     for slot in slots:
         slot_component = _SLOT_COMPONENT.get(slot)
         if slot_component and slot_component not in components:
@@ -748,24 +756,36 @@ def minimal_catalogue_page_scaffold(
         f"    {slot}: (\n      {_safe_slot_jsx(slot, brand, title)}\n    ),"
         for slot in slots
     )
-    shell_props = (
-        f'brandName={{{json.dumps(brand)}}} navItems={{[]}}'
-        if shell == "OpsShell"
-        else f'brandName={{{json.dumps(brand)}}}'
-    )
+    path = str(route.get("path") or "")
+    is_member = path.startswith("/member") or "/member/" in canonical_workspace_path(file_path)
+    if shell == "OpsShell":
+        nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
+        nav_hook = "  const adminNavItems = useAdminNavItems();\n"
+        shell_open = (
+            f'<{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}}>'
+        )
+    else:
+        hook = "useMemberNavItems" if is_member else "usePublicNavItems"
+        cta = "memberCta" if is_member else "publicCta"
+        nav_import = f"import {{ {hook}, {cta} }} from '@/lib/app-nav';\n"
+        nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
+        shell_open = (
+            f'<{shell} brandName={{{json.dumps(brand)}}} '
+            f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>'
+        )
     return f"""// deterministic catalogue contract scaffold
-import {{ {", ".join(components)} }} from '@/ui';
+{nav_import}import {{ {", ".join(components)} }} from '@/ui';
 
 const SKELETON_ID = {json.dumps(skeleton_id)} as const;
 
 export default function {component}() {{
-  const skeleton = getSkeleton(SKELETON_ID);
+{nav_hook}  const skeleton = getSkeleton(SKELETON_ID);
   const slots = {{
 {slot_lines}
   }};
 
   return (
-    <{shell} {shell_props}>
+    {shell_open}
       <div data-skeleton={{skeleton.id}}>
         <SkeletonComposer skeletonId={{SKELETON_ID}} slots={{slots}} />
       </div>

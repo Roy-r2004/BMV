@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { Button } from '../core/Button';
 import { AppLink } from '../lib/AppLink';
@@ -22,8 +23,16 @@ export interface PublicNavProps {
   inverted?: boolean;
 }
 
-function useActiveHash(items: PublicNavItem[]) {
-  const [active, setActive] = React.useState(items[0]?.href ?? '');
+function pathMatches(pathname: string, href: string): boolean {
+  if (!href.startsWith('/')) return false;
+  if (pathname === href) return true;
+  if (href !== '/' && pathname.startsWith(`${href}/`)) return true;
+  return false;
+}
+
+function useActiveHref(items: PublicNavItem[]) {
+  const { pathname } = useLocation();
+  const [hashActive, setHashActive] = React.useState('');
 
   React.useEffect(() => {
     const ids = items
@@ -31,14 +40,14 @@ function useActiveHash(items: PublicNavItem[]) {
       .filter(Boolean);
 
     const update = () => {
-      let current = items[0]?.href ?? '';
+      let current = '';
       for (const id of ids) {
         const el = document.getElementById(id);
         if (!el) continue;
         const top = el.getBoundingClientRect().top;
         if (top <= 120) current = `#${id}`;
       }
-      setActive(current);
+      setHashActive(current);
     };
 
     update();
@@ -50,12 +59,17 @@ function useActiveHash(items: PublicNavItem[]) {
     };
   }, [items]);
 
-  return active;
+  return React.useMemo(() => {
+    const pathHit = items.find((item) => pathMatches(pathname, item.href));
+    if (pathHit) return pathHit.href;
+    if (hashActive) return hashActive;
+    return items[0]?.href ?? '';
+  }, [items, pathname, hashActive]);
 }
 
 /** Catalogue public navigation — pages never invent nav chrome. */
 export function PublicNav({ className, cta, inverted = false, items }: PublicNavProps) {
-  const active = useActiveHash(items);
+  const active = useActiveHref(items);
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {

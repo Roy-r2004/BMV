@@ -245,6 +245,44 @@ def find_unresolved_routes(workspace, architect: dict) -> list[dict]:
     return unresolved
 
 
+def _nav_label(route: dict) -> str:
+    """Short chrome label — never dump full page titles into sidebar/nav."""
+    path = str(route.get("path") or "")
+    title = str(route.get("title") or "").strip()
+    title = re.sub(r"^(Manage|Welcome to|My Forge Flow)\s+", "", title, flags=re.I).strip()
+    if title and len(title) <= 24 and ":" not in path:
+        return title
+    seg = [p for p in path.split("/") if p and not p.startswith(":")]
+    if not seg:
+        return "Home"
+    token = seg[-1].replace("-", " ").replace("_", " ")
+    return token.title()
+
+
+def _nav_items_for(routes: list[dict], predicate) -> list[dict]:
+    items: list[dict] = []
+    seen: set[str] = set()
+    for rt in routes:
+        path = rt.get("path")
+        if not path or not predicate(rt):
+            continue
+        if ":" in path:
+            continue
+        # Keep transactional booking steps out of persistent chrome.
+        if re.match(r"^/(book|payment|confirmation)\b", path):
+            continue
+        if path in seen:
+            continue
+        seen.add(path)
+        items.append({
+            "id": path.strip("/").replace("/", "-") or "home",
+            "path": path,
+            "href": path,
+            "label": _nav_label(rt),
+        })
+    return items
+
+
 def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
     mock_path = "src/data/mock.ts"
     mock = read_file(workspace, mock_path)
@@ -272,26 +310,17 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
             "icon": ar.get("icon") or "users",
         })
 
-    public_nav = [
-        {"path": rt["path"], "label": rt.get("title") or rt["path"]}
-        for rt in routes
-        if rt.get("path") and _layout_for(rt) == "public"
-    ]
-    admin_nav = [
-        {"path": rt["path"], "label": rt.get("title") or rt["path"]}
-        for rt in routes
-        if rt.get("path") and _layout_for(rt) == "admin"
-    ]
+    public_nav = _nav_items_for(routes, lambda rt: _layout_for(rt) == "public")
+    admin_nav = _nav_items_for(routes, lambda rt: _layout_for(rt) == "admin")
     navigation_data = {"public": public_nav, "admin": admin_nav}
     for role in roles_src:
         role_id = role.get("id")
         if not role_id:
             continue
-        navigation_data[role_id] = [
-            {"path": rt["path"], "label": rt.get("title") or rt["path"]}
-            for rt in routes
-            if rt.get("path") and rt.get("role_id") == role_id
-        ]
+        navigation_data[role_id] = _nav_items_for(
+            routes,
+            lambda rt, rid=role_id: rt.get("role_id") == rid,
+        )
 
     roles_json = json.dumps(roles_data, indent=2, ensure_ascii=False)
     nav_json = json.dumps(navigation_data, indent=2, ensure_ascii=False)
@@ -311,6 +340,29 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
             updated,
             count=1,
         )
+    # Keep common aliases pointed at the same admin chrome list.
+    alias = (
+        "\nexport const navItemsAdmin = navigation.admin;\n"
+        "export const adminNavItems = navigation.admin;\n"
+    )
+    if "export const navItemsAdmin" not in updated:
+        updated = updated.rstrip() + alias
+    else:
+        updated = re.sub(
+            r"export const navItemsAdmin\s*=\s*[^;]+;",
+            "export const navItemsAdmin = navigation.admin;",
+            updated,
+            count=1,
+        )
+        if "export const adminNavItems" in updated:
+            updated = re.sub(
+                r"export const adminNavItems\s*=\s*[^;]+;",
+                "export const adminNavItems = navigation.admin;",
+                updated,
+                count=1,
+            )
+        else:
+            updated = updated.rstrip() + "\nexport const adminNavItems = navigation.admin;\n"
     if updated != mock:
         write_file(workspace, mock_path, updated)
         return True

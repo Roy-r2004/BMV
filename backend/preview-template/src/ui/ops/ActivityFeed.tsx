@@ -30,7 +30,10 @@ export function ActivityFeed({ className, heading = 'Activity', items }: Activit
       </div>
       <ul className="mt-4 space-y-0">
         {items.map((item, index) => {
-          const relative = item.time.includes('T') || item.time.includes('-') ? formatRelative(item.time) : item.time;
+          const relative =
+            item.time && (item.time.includes('T') || item.time.includes('-'))
+              ? formatRelative(item.time)
+              : item.time || '';
           return (
             <li key={item.id} className="relative flex gap-3 border-t border-border-subtle py-3.5 first:border-t-0 first:pt-0">
               <span className="mt-1.5 flex h-2 w-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
