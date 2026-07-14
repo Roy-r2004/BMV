@@ -50,7 +50,11 @@ def main(request_id: int) -> None:
         theme = demo.get("visual_theme", {})
         primary = theme.get("primary_color", "#2c7a7b")
         secondary = theme.get("secondary_color", "#f6ad55")
-        images = get_images_for_industry(req.industry or "")
+        images = get_images_for_industry(
+            req.industry or "",
+            seed=req.id,
+            business_name=req.business_name,
+        )
 
         full_context = gather_full_context(req, demo)
         plan = build_experience_plan(req, demo, primary, secondary, ai, renderer)

@@ -71,7 +71,11 @@ def main(request_id: int) -> None:
         secondary = theme.get("secondary_color", "#0d9488")
         design_system = plan.get("design_system") or {}
         font = design_system.get("font_family") or design_system.get("font") or ""
-        images = get_images_for_industry(req.industry or "")
+        images = get_images_for_industry(
+            req.industry or "",
+            seed=req.id,
+            business_name=req.business_name,
+        )
         brand_name = req.business_name or "Brand"
 
         guarded = apply_workspace_guards(

@@ -654,7 +654,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             f'<MarketingHero brandName={{{brand_js}}} headline={{{title_js}}} '
             'subcopy="A clear, considered experience built around your next step." '
             'primaryCta={{ label: "Get started", href: "#details" }} '
-            'imageSrc="catalogue-hero.jpg" imageAlt="" />'
+            'imageSrc={images.hero} imageAlt="" />'
         ),
         "features": (
             '<FeatureBento heading="What you can expect" items={['
@@ -662,9 +662,16 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             '{ title: "Thoughtful service", description: "A consistent experience from first visit to follow-up." }'
             ']} />'
         ),
+        "products": (
+            '<ProductShowcase heading="Featured picks" items={['
+            '{ title: "Signature item", description: "A dependable starting point.", imageSrc: images.card1, imageAlt: "" }, '
+            '{ title: "Everyday essential", description: "Built for daily use.", imageSrc: images.card2, imageAlt: "" }'
+            ']} />'
+        ),
         "showcase": (
             '<ProductShowcase heading="Featured experiences" items={['
-            '{ title: "Signature service", description: "A dependable starting point.", imageSrc: "catalogue-product.svg", imageAlt: "" }'
+            '{ title: "Signature service", description: "A dependable starting point.", imageSrc: images.card1, imageAlt: "" }, '
+            '{ title: "Everyday essential", description: "Built for daily use.", imageSrc: images.card2, imageAlt: "" }'
             ']} />'
         ),
         "process": (
@@ -693,7 +700,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         "spotlight": '<SpotlightCard title="A better experience" description="Focused details that make every visit easier." />',
         "results": (
             '<ResultRail heading="Representative results" items={['
-            '{ label: "Signature result", beforeSrc: "catalogue-result-before-1.jpg", afterSrc: "catalogue-result-after-1.jpg" }'
+            '{ label: "Signature result", beforeSrc: images.card2, afterSrc: images.card3 }'
             ']} />'
         ),
         "booking": (
@@ -778,6 +785,8 @@ def minimal_catalogue_page_scaffold(
     )
     path = str(route.get("path") or "")
     is_member = path.startswith("/member") or "/member/" in canonical_workspace_path(file_path)
+    needs_images = any("images." in _safe_slot_jsx(slot, brand, title) for slot in slots)
+    images_import = "import { images } from '@/data/mock';\n" if needs_images else ""
     if shell == "OpsShell":
         nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
         nav_hook = "  const adminNavItems = useAdminNavItems();\n"
@@ -816,7 +825,7 @@ def minimal_catalogue_page_scaffold(
             "  );"
         )
     return f"""// deterministic catalogue contract scaffold
-{nav_import}import {{ {", ".join(components)} }} from '@/ui';
+{nav_import}{images_import}import {{ {", ".join(components)} }} from '@/ui';
 
 const SKELETON_ID = {json.dumps(skeleton_id)} as const;
 

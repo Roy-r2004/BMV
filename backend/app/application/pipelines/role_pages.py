@@ -115,7 +115,11 @@ def generate_role_pages(
     primary = theme.get("primary_color", "#6366f1")
     secondary = theme.get("secondary_color", "#0d9488")
     concept = req.concept_name or req.business_name
-    images = get_images_for_industry(req.industry or "")
+    images = get_images_for_industry(
+        req.industry or "",
+        seed=req.id,
+        business_name=req.business_name,
+    )
 
     # ── Step 1: Planner + validator agents ──
     print("  [1/4] Planning UI experience from full business input...", flush=True)
@@ -217,7 +221,11 @@ def enhance_generated_pages(
     design_system = plan.get("design_system") or {}
     manifest = {"accent": design_system.get("primary_color", primary), "brand_name": req.concept_name or req.business_name}
 
-    images = get_images_for_industry(req.industry or "")
+    images = get_images_for_industry(
+        req.industry or "",
+        seed=req.id,
+        business_name=req.business_name,
+    )
     for role in data.get("roles", []):
         role_id = role.get("id", "")
         role_spec = next((r for r in plan.get("roles", []) if r.get("id") == role_id), {"id": role_id, "navigation": role.get("navigation")})

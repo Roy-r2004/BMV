@@ -578,6 +578,7 @@ def refine_preview_app_from_chat(
             req.industry or "",
             seed=request_id,
             hero_override=ref_meta.get("og_image") or None,
+            business_name=req.business_name,
         )
         brand_name = req.business_name or "Brand"
 

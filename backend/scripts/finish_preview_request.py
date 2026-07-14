@@ -52,7 +52,11 @@ def main(request_id: int) -> None:
         theme = demo.get("visual_theme", {})
         primary = theme.get("primary_color", "#6366f1")
         secondary = theme.get("secondary_color", "#0d9488")
-        images = get_images_for_industry(req.industry or "")
+        images = get_images_for_industry(
+            req.industry or "",
+            seed=req.id,
+            business_name=req.business_name,
+        )
 
         print("Loading stored architect + plan...", flush=True)
         full_context = gather_full_context(req, demo)

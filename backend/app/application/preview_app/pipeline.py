@@ -586,6 +586,7 @@ def generate_preview_app(
         req.industry or "",
         seed=request_id,
         hero_override=ref_meta.get("og_image") or None,
+        business_name=req.business_name,
     )
 
     print("  [1/5] Planning agent...", flush=True)

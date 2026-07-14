@@ -12,10 +12,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 _APP_DIR = Path(__file__).resolve().parent.parent  # backend/app
 _PROJECT_ROOT = _APP_DIR.parent.parent  # repo root
+# Prefer backend/.env (compose + local), then cwd
+load_dotenv(_APP_DIR.parent / ".env")
+load_dotenv()
 
 
 def _normalize_database_url(url: str | None) -> str:
@@ -60,6 +61,9 @@ class Settings:
     OPENROUTER_API_KEY: str = (os.getenv("OPENROUTER_API_KEY") or "").strip()
     OPENROUTER_BASE_URL: str = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
     OPENROUTER_APP_NAME: str = os.getenv("OPENROUTER_APP_NAME", "Build My Version")
+
+    # Pexels — per-business preview stock photos (optional; curated fallback if empty)
+    PEXELS_API_KEY: str = (os.getenv("PEXELS_API_KEY") or "").strip()
 
     # Preview app build paths
     PREVIEW_TEMPLATE_DIR: Path

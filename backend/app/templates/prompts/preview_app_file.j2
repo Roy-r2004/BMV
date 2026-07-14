@@ -123,6 +123,7 @@ For page components (kind=page):
   * Member hub pages: `import { useMemberNavItems, memberCta } from '@/lib/app-nav'` and render `<PublicNav items={useMemberNavItems()} cta={memberCta()} />`.
 - Do not change sidebar/navbar labels or link sets per page — every page in a role must share the same chrome.
 - Soft SaaS ops: default OpsShell appearance is light. For `ops-dashboard`, use `composeSkeletonLayout(SKELETON_ID, slots)` and pass `rail={rail}` to OpsShell so ActivityFeed sits in the right rail; put header/kpis/chart/filters/table in main. Prefer `StatCard` card KPIs (default), greeting-style PageHeader, and status pills in tables.
+- IMAGES: import `images` from `@/data/mock` and use `images.hero`, `images.hero2`, `images.card1`–`card3`, `images.ambient` for every photo. Never hardcode `catalogue-*.jpg` / empty `image: ""` / invented URLs.
 {% else %}
 - PublicLayout and AdminLayout ALREADY render the nav bar and sidebar from mock.ts — pages must NEVER import Nav, NEVER render <Nav>, and NEVER duplicate headers/footers.
 - Pages export ONLY their main content (sections inside a fragment or single div).
