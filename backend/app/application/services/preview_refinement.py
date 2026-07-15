@@ -4,7 +4,13 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.application.preview_app.chat_refinement import refine_preview_app_from_chat
+from app.application.preview_app.chat_refinement import (
+    _load_app_spec_refinement_context,
+    _merge_app_spec_refinement_enrichment,
+    _plan_for_persistence,
+    refine_preview_app_from_chat,
+)
+from app.application.preview_app.codegen import _bounded_json
 from app.application.preview_app.workspace import get_workspace
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import business_info, get_request
@@ -202,7 +208,31 @@ def refine_preview(
 
     visual_demo = _current_visual_demo(req)
     features = _current_features(req)
-    experience_plan = generated_pages.get("experience_plan") or {}
+    stored_experience_plan = generated_pages.get("experience_plan") or {}
+    try:
+        app_spec_context = _load_app_spec_refinement_context(
+            db,
+            request_id,
+            generated_pages,
+            experience_plan=stored_experience_plan,
+        )
+    except Exception as exc:
+        fallback_reply = (
+            "I couldn't safely change this preview because its product contract "
+            "could not be verified. No preview data was changed."
+        )
+        assistant = _save_message(db, request_id, "assistant", fallback_reply)
+        return {
+            "reply": fallback_reply,
+            "changes_made": [],
+            "message_id": assistant.id,
+            "preview_updated": False,
+            "preview_rebuild_started": False,
+            "error": str(exc),
+        }
+    experience_plan = (
+        app_spec_context.plan if app_spec_context else stored_experience_plan
+    )
 
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_REFINEMENT,
@@ -216,6 +246,14 @@ def refine_preview(
         visual_demo=json.dumps(visual_demo, indent=2) if visual_demo else "{}",
         chat_history=_format_chat_history(history[:-1]),
         user_message=user_message,
+        app_spec_enforced=bool(app_spec_context),
+        app_spec_ref_json=_bounded_json(
+            generated_pages.get("app_spec_ref") or {}, 1200
+        ),
+        app_spec_contracts_json=_bounded_json(
+            app_spec_context.selected_contracts if app_spec_context else {},
+            24000,
+        ),
     )
 
     try:
@@ -242,18 +280,19 @@ def refine_preview(
     assistant = _save_message(db, request_id, "assistant", reply)
 
     preview_updated = False
-    if result.get("concept_name"):
-        req.concept_name = result["concept_name"]
-        preview_updated = True
-    if result.get("preview_summary"):
-        req.preview_summary = result["preview_summary"]
-        preview_updated = True
-    if result.get("preview_features"):
-        req.preview_features = json.dumps(result["preview_features"])
-        preview_updated = True
-    if result.get("business_fit_score") is not None:
-        req.business_fit_score = int(result["business_fit_score"])
-        preview_updated = True
+    if not app_spec_context:
+        if result.get("concept_name"):
+            req.concept_name = result["concept_name"]
+            preview_updated = True
+        if result.get("preview_summary"):
+            req.preview_summary = result["preview_summary"]
+            preview_updated = True
+        if result.get("preview_features"):
+            req.preview_features = json.dumps(result["preview_features"])
+            preview_updated = True
+        if result.get("business_fit_score") is not None:
+            req.business_fit_score = int(result["business_fit_score"])
+            preview_updated = True
 
     if result.get("visual_demo"):
         demo = _apply_visual_demo(req, visual_demo, result["visual_demo"])
@@ -265,7 +304,15 @@ def refine_preview(
         req.visual_demo_json = json.dumps(demo)
         req.visual_demo_generated_at = datetime.utcnow()
 
-    if result.get("experience_plan"):
+    if app_spec_context and result.get("experience_plan"):
+        merged_plan, _ = _merge_app_spec_refinement_enrichment(
+            app_spec_context,
+            result,
+        )
+        generated_pages["experience_plan"] = _plan_for_persistence(merged_plan)
+        req.generated_pages = json.dumps(generated_pages)
+        preview_updated = True
+    elif result.get("experience_plan"):
         generated_pages["experience_plan"] = result["experience_plan"]
         req.generated_pages = json.dumps(generated_pages)
         preview_updated = True

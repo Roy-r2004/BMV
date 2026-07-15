@@ -45,6 +45,19 @@ services:
         value: google/gemini-2.5-flash
       - key: FIX_MODEL
         value: google/gemini-2.5-flash
+      # Canonical AppSpec rollout: change to shadow, then required_new after review.
+      - key: APPSPEC_MODE
+        value: "off"
+      - key: APPSPEC_MAX_CALLS
+        value: "6"
+      - key: APPSPEC_MAX_REPAIR_ATTEMPTS
+        value: "2"
+      - key: APPSPEC_MIN_COVERAGE_SCORE
+        value: "95"
+      - key: APPSPEC_PREVIEW_TARGET_PAGES
+        value: "6"
+      - key: APPSPEC_PREVIEW_MAX_PAGES
+        value: "8"
       - key: PREVIEW_SKIP_CRITIC
         value: "true"
       - key: PREVIEW_SKIP_VISUAL_CRITIC

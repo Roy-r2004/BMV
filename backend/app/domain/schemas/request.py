@@ -18,6 +18,7 @@ class PreviewResponse(BaseModel):
     preview_features: list[str] = []
     visual_demo: Optional[dict[str, Any]] = None
     generated_pages: Optional[dict[str, Any]] = None
+    app_spec: Optional[dict[str, Any]] = None
     status: str
     is_generating: bool = False
     industry: Optional[str] = None

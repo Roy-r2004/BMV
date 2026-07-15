@@ -146,6 +146,14 @@ MVP blueprint:
 
 Blueprint preview features (MUST use for feature_cards titles and preview_content.website.services):
 {{ preview_features }}
+{% if app_spec_projection_json is defined and app_spec_projection_json %}
+
+Accepted AppSpec product/brand projection (canonical roles and capabilities):
+{{ app_spec_projection_json }}
+
+The AppSpec projection is authoritative for product name, actors, and
+capabilities. The blueprint may add explanation but may not contradict it.
+{% endif %}
 
 Rules:
 - Make the preview specific to the client's business.

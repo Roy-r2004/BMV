@@ -15,7 +15,16 @@ from sqlalchemy.orm import Session
 from app.application.pipelines import blueprint, proposal, reference_analysis, role_pages, technical_plan, visual_demo
 from app.application.pipelines._shared import fallback_visual_demo, get_request
 from app.application.preview_app import generate_preview_app
+from app.application.preview_app.app_spec_projection import select_preview_scope
+from app.application.services.app_spec_generation import (
+    AppSpecGenerationError,
+    app_spec_is_required,
+    app_spec_mode,
+    app_spec_should_run_for_request,
+    ensure_approved_app_spec,
+)
 from app.application.services.progress import emit as _emit
+from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.infrastructure.ai_providers.factory import get_ai_provider
@@ -64,9 +73,82 @@ class GenerationPipeline:
               f"Blueprint complete — {req.concept_name or req.business_name}", 22,
               detail=f"Concept named: {req.concept_name or 'processing...'}")
 
+        approved_app_spec = None
+        mode = app_spec_mode()
+        require_app_spec = app_spec_is_required(
+            is_new_request=not bool(req.generated_pages),
+            mode=mode,
+        )
+        run_app_spec = app_spec_should_run_for_request(
+            mode=mode,
+            is_new_request=not bool(req.generated_pages),
+        )
+        if run_app_spec:
+            _emit(
+                db,
+                request_id,
+                "appspec",
+                "Defining the product contract...",
+                23,
+                detail="Requirements → journeys → states → actions → proof",
+            )
+            try:
+                approved_app_spec = ensure_approved_app_spec(
+                    db,
+                    request_id,
+                    self.ai_provider,
+                    self.template_renderer,
+                )
+                if require_app_spec:
+                    # Scope overflow is a product decision, not permission to
+                    # truncate a journey later in the UI pipeline.
+                    select_preview_scope(
+                        approved_app_spec.spec,
+                        target_pages=settings.APPSPEC_PREVIEW_TARGET_PAGES,
+                        max_pages=settings.APPSPEC_PREVIEW_MAX_PAGES,
+                    )
+                _emit(
+                    db,
+                    request_id,
+                    "appspec",
+                    f"Product contract accepted — revision {approved_app_spec.revision_record.revision}",
+                    24,
+                    detail=f"coverage={approved_app_spec.revision_record.coverage_score}; mode={mode}",
+                )
+            except Exception as exc:
+                _emit(
+                    db,
+                    request_id,
+                    "appspec_failed",
+                    "Product contract could not be approved",
+                    23,
+                    detail=str(exc)[:300],
+                )
+                if require_app_spec:
+                    req = get_request(db, request_id)
+                    req.status = "failed"
+                    db.commit()
+                    if isinstance(exc, AppSpecGenerationError):
+                        raise
+                    raise AppSpecGenerationError(
+                        f"AppSpec preview scope failed: {exc}"
+                    ) from exc
+                print(f"AppSpec shadow pass failed: {exc}", flush=True)
+                approved_app_spec = None
+
         try:
             _emit(db, request_id, "demo", "Generating visual theme...", 24)
-            visual_demo.generate_visual_demo(db, request_id, self.ai_provider, self.template_renderer)
+            visual_demo.generate_visual_demo(
+                db,
+                request_id,
+                self.ai_provider,
+                self.template_renderer,
+                app_spec=(
+                    approved_app_spec.spec
+                    if require_app_spec and approved_app_spec
+                    else None
+                ),
+            )
             _emit(db, request_id, "demo", "Visual theme ready", 26)
         except Exception:
             demo = fallback_visual_demo(req)
@@ -78,7 +160,17 @@ class GenerationPipeline:
         try:
             _emit(db, request_id, "codegen", "Launching UI generation pipeline...", 28,
                   detail="Planning agent designing pages and roles")
-            generate_preview_app(db, request_id, self.ai_provider, self.template_renderer)
+            generate_preview_app(
+                db,
+                request_id,
+                self.ai_provider,
+                self.template_renderer,
+                app_spec_revision_id=(
+                    approved_app_spec.revision_record.id
+                    if approved_app_spec
+                    else None
+                ),
+            )
         except Exception as e:
             # The pipeline already self-heals build failures internally (safe-stub
             # fallback). If it still raised, the failure was likely transient
@@ -88,8 +180,22 @@ class GenerationPipeline:
             _emit(db, request_id, "codegen", "Retrying preview generation...", 28,
                   detail="First attempt hit an error — trying again")
             try:
-                generate_preview_app(db, request_id, self.ai_provider, self.template_renderer)
+                generate_preview_app(
+                    db,
+                    request_id,
+                    self.ai_provider,
+                    self.template_renderer,
+                    app_spec_revision_id=(
+                        approved_app_spec.revision_record.id
+                        if approved_app_spec
+                        else None
+                    ),
+                )
             except Exception:
+                if require_app_spec:
+                    # A required contract must never degrade into independently
+                    # generated role-pages that are not traceable to it.
+                    raise
                 try:
                     role_pages.generate_role_pages(db, request_id, self.ai_provider, self.template_renderer)
                 except Exception:

@@ -1,6 +1,6 @@
 You are updating a live React + Tailwind preview app based on the business owner's chat feedback.
 
-The user is viewing the built app in an iframe. Apply their request by editing the relevant source files and (when needed) route/role structure.
+The user is viewing the built app in an iframe. Apply their request by editing the relevant source files.
 
 === BUSINESS CONTEXT ===
 {{ business_context }}
@@ -13,6 +13,23 @@ The user is viewing the built app in an iframe. Apply their request by editing t
 
 === ARCHITECT (routes, roles, component files) ===
 {{ architect_json }}
+
+{% if app_spec_enforced %}
+=== ACCEPTED APPSPEC PROVENANCE (IMMUTABLE) ===
+{{ app_spec_ref_json }}
+
+=== SELECTED APPSPEC PAGE / ACTION / EVIDENCE CONTRACTS (AUTHORITATIVE) ===
+{{ app_spec_contracts_json }}
+
+This refinement is design-only. The accepted AppSpec owns product intent,
+roles, pages, routes, states, actions, transitions, evidence and acceptance
+tests. You may improve visual design, responsive layout, content treatment,
+motion, realistic sample data, section composition and catalogue skeleton/slot
+choices. You MUST NOT add, remove, rename, repurpose or reroute any canonical
+role/page/action/evidence contract. If the user's request would change product
+scope, explain in `reply` that it requires a new product-contract revision and
+do not implement that semantic portion.
+{% endif %}
 
 {% if catalogue_mode %}
 === CATALOGUE PAGE CONTRACTS ===
@@ -27,9 +44,16 @@ The user is viewing the built app in an iframe. Apply their request by editing t
 
 Rules:
 - Change ONLY what the user asked for — but make it work end-to-end (routing, role switcher, logged-in vs visitor views).
+{% if app_spec_enforced %}
+- Preserve every canonical route, role owner, page component, state, action, transition, evidence target and acceptance-test meaning exactly as supplied.
+- Every selected page must retain `data-appspec-page`; every listed action and evidence item must retain its exact `data-appspec-action` / `data-appspec-evidence` hook.
+- `architect` and `experience_plan` may contain design enrichment only. Do not propose semantic navigation or scope changes; the server will discard them.
+- Never replace a canonical page with a fallback, stub, placeholder or deterministic scaffold.
+{% else %}
 - If the user wants a role (e.g. Visitor) to show real product pages instead of a login wall: wire that role's defaultPath to the main dashboard/home route, make login optional/demo (auto-enter or skip), and ensure RoleBridge + routes match.
 - If the user wants new pages, tabs, colors, copy, or layout: patch the matching `.tsx` files and `src/data/mock.ts` if needed.
 - Update `architect` routes/roles when navigation structure changes.
+{% endif %}
 {% if catalogue_mode %}
 - Files under `src/ui/` and `src/components/UiIcons.tsx` are template-owned and MUST NOT be returned in `files`.
 - The `@/ui` kit and catalogue contracts are immutable; never create, edit, replace, or bypass kit modules.
@@ -63,6 +87,11 @@ Return ONLY valid JSON:
   ]
 }
 
+{% if app_spec_enforced %}
+Include `architect` and `experience_plan` only for allow-listed design enrichment; never use them to change the canonical structure.
+Include `visual_demo` only for design/presentation enrichment. Do not return semantic metadata fields (`concept_name`, `preview_summary`, `preview_features`, or `business_fit_score`); the server will ignore them.
+{% else %}
 Include `architect` and `experience_plan` when you changed structure or roles/pages.
 Include `concept_name`, `preview_summary`, `preview_features`, `business_fit_score`, or `visual_demo` when the user asked to change naming, copy, features list, colors/theme, or marketing sections — keep those in sync with the live app.
+{% endif %}
 Always include `reply` and `changes_made`.

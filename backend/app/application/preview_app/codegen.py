@@ -616,12 +616,20 @@ def generate_file(
     instructions = file_spec.get("instructions", "")
     page_plan = page_plan_for_file(file_path, plan, architect)
     page_plan_json = _bounded_json(page_plan, 6000) if page_plan else "{}"
+    app_spec_contract = page_plan.get("app_spec_contract") or {}
+    app_spec_contract_json = (
+        _bounded_json(app_spec_contract, 12000) if app_spec_contract else "{}"
+    )
     route = _route_for_file(file_path, architect)
     skeleton_id = str(route.get("skeleton_id") or page_plan.get("skeleton_id") or "")
     catalogue_page = file_kind == "page" and bool(skeleton_id)
 
     # Contract compositor: utility pages never go through freeform React codegen.
-    if catalogue_page and is_utility_catalogue_route(route, skeleton_id):
+    if (
+        catalogue_page
+        and is_utility_catalogue_route(route, skeleton_id)
+        and not app_spec_contract
+    ):
         merged_route = {
             **route,
             "skeleton_id": "public-utility",
@@ -699,6 +707,7 @@ def generate_file(
         file_kind=file_kind,
         file_instructions=instructions,
         page_plan_json=page_plan_json,
+        app_spec_contract_json=app_spec_contract_json,
         catalogue_page=catalogue_page,
         skeleton_id=skeleton_id,
         skeleton_contract_json=skeleton_contract_json,

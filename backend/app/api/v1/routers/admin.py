@@ -7,6 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep, verify_admin
 from app.application.pipelines import blueprint, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
+from app.application.services.app_spec_generation import ensure_approved_app_spec
+from app.application.services.app_spec_repository import (
+    AppSpecRepository,
+    load_json_object,
+    revision_summary,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -119,6 +125,76 @@ def generate_blueprint(
         return GenerateResponse(success=True, message="Blueprint generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
+
+
+@router.post("/requests/{request_id}/generate-app-spec", response_model=GenerateResponse)
+def generate_app_spec(
+    request_id: int,
+    force_new_revision: bool = Query(False),
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    ai_provider: AIProvider = Depends(get_ai_provider_dep),
+    template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
+):
+    """Author/review an AppSpec independently of rollout mode."""
+
+    try:
+        result = ensure_approved_app_spec(
+            db,
+            request_id,
+            ai_provider,
+            template_renderer,
+            force_new_revision=force_new_revision,
+        )
+        return GenerateResponse(
+            success=True,
+            message="AppSpec accepted",
+            data={
+                **revision_summary(result.revision_record),
+                "reused": result.reused,
+                "calls_used": result.calls_used,
+                "repair_attempts": result.repair_attempts,
+            },
+        )
+    except Exception as e:
+        return GenerateResponse(success=False, message=str(e))
+
+
+@router.get("/requests/{request_id}/app-specs")
+def list_app_specs(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return [
+        revision_summary(row)
+        for row in AppSpecRepository(db).list_revisions(request_id)
+    ]
+
+
+@router.get("/requests/{request_id}/app-specs/{revision}")
+def get_app_spec_revision(
+    request_id: int,
+    revision: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    row = AppSpecRepository(db).get_revision(request_id, revision)
+    if not row:
+        raise HTTPException(status_code=404, detail="AppSpec revision not found")
+    return {
+        **revision_summary(row),
+        "app_spec": load_json_object(row.app_spec_json),
+        "deterministic_validation": load_json_object(
+            row.deterministic_validation_json
+        ),
+        "semantic_coverage": load_json_object(row.semantic_coverage_json),
+        "generation_metadata": load_json_object(row.generation_metadata_json),
+        "parent_revision_id": row.parent_revision_id,
+    }
 
 
 @router.post("/requests/{request_id}/generate-visual-demo", response_model=GenerateResponse)

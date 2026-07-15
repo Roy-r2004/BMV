@@ -5,15 +5,30 @@ import json
 import hashlib
 import re
 import traceback
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 
 from app.application.pipelines._shared import business_info, get_request
 from app.application.preview_app.assemble import write_app_tsx, write_index_css
 from app.application.preview_app.ai_budget import request_mutation_boundary
+from app.application.preview_app.app_spec_projection import (
+    PreviewScope,
+    browser_projection,
+    merge_architecture_enrichment,
+    merge_experience_plan_enrichment,
+    page_contract,
+    runtime_projection,
+    select_preview_scope,
+    to_architecture_seed,
+    to_experience_plan_seed,
+)
+from app.application.preview_app.app_spec_workspace import validate_app_spec_workspace
 from app.application.preview_app.build import extract_build_errors, run_build
 from app.application.preview_app.codegen import (
+    _bounded_json,
     _catalogue_routes_context,
     _catalogue_retry_context,
     _strip_fences,
@@ -24,7 +39,11 @@ from app.application.preview_app.catalogue_contract import (
     enforce_catalogue_page_contract,
     validate_catalogue_page_content,
 )
-from app.application.preview_app.fallback import clear_stubbed_path, record_stubbed_path
+from app.application.preview_app.fallback import (
+    clear_stubbed_path,
+    consume_stubbed_paths,
+    record_stubbed_path,
+)
 from app.application.preview_app.protected_paths import (
     has_catalogue_routes,
     is_template_owned_path,
@@ -51,6 +70,11 @@ from app.application.preview_app.workspace import (
 )
 from app.application.prompts import PromptTemplate
 from app.application.services.industry_images import get_images_for_industry
+from app.application.services.app_spec_generation import app_spec_mode
+from app.application.services.app_spec_repository import (
+    AppSpecRepository,
+    load_json_object,
+)
 from app.application.services.progress import emit as _emit
 from app.application.ui_catalogue import (
     compact_skeleton_contract,
@@ -63,6 +87,8 @@ from app.application.services.visual_demo_merge import merge_visual_demo
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
+from app.domain.models.app_spec import APP_SPEC_STATUS_ACCEPTED, AppSpecRevision
+from app.domain.schemas.app_spec import AppSpec
 from app.shared.json_utils import extract_json_from_text
 
 
@@ -88,6 +114,140 @@ def _is_full_redesign_request(message: str) -> bool:
 def _architect_from_generated(generated_pages: dict, experience_plan: dict) -> dict:
     from app.application.preview_app.assemble import architect_from_stored
     return architect_from_stored(generated_pages, experience_plan)
+
+
+@dataclass(frozen=True)
+class AppSpecRefinementContext:
+    """Canonical contract and deterministic projections for one refinement."""
+
+    revision: AppSpecRevision
+    spec: AppSpec
+    scope: PreviewScope
+    plan_seed: dict[str, Any]
+    plan: dict[str, Any]
+    architecture_seed: dict[str, Any]
+    architect: dict[str, Any]
+    selected_contracts: dict[str, Any]
+
+
+def _app_spec_ref_is_enforced(generated_pages: Mapping[str, Any]) -> bool:
+    """Only required rollout modes turn persisted provenance into a hard gate."""
+
+    return bool(generated_pages.get("app_spec_ref")) and app_spec_mode() in {
+        "required_new",
+        "required",
+    }
+
+
+def _plan_for_persistence(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist enrichment/provenance, never embedded canonical AppSpec slices."""
+
+    persisted = json.loads(json.dumps(dict(plan)))
+    for role in persisted.get("roles") or []:
+        for page in role.get("pages") or []:
+            page.pop("app_spec_contract", None)
+    return persisted
+
+
+def _load_app_spec_refinement_context(
+    db: Session,
+    request_id: int,
+    generated_pages: Mapping[str, Any],
+    *,
+    experience_plan: Mapping[str, Any] | None = None,
+    architect: Mapping[str, Any] | None = None,
+) -> AppSpecRefinementContext | None:
+    """Resolve an exact accepted same-request AppSpec and rebuild its seeds.
+
+    The provenance reference is treated as a capability: every persisted value
+    (row id, revision, schema and digest) must match before refinement can touch
+    the workspace. This prevents a stale or cross-request contract from being
+    used merely because its JSON happens to parse.
+    """
+
+    if not _app_spec_ref_is_enforced(generated_pages):
+        return None
+    ref = generated_pages.get("app_spec_ref")
+    if not isinstance(ref, Mapping):
+        raise ValueError("Required AppSpec provenance is malformed.")
+    try:
+        revision_number = int(ref["revision"])
+        revision_id = int(ref["id"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Required AppSpec provenance is incomplete.") from exc
+
+    row = AppSpecRepository(db).get_revision(request_id, revision_number)
+    if (
+        row is None
+        or row.id != revision_id
+        or row.request_id != request_id
+        or row.status != APP_SPEC_STATUS_ACCEPTED
+        or not row.validation_passed
+        or not row.coverage_passed
+    ):
+        raise ValueError(
+            "The preview's AppSpec reference is not an accepted revision for this request."
+        )
+    if ref.get("schema_version") and ref.get("schema_version") != row.schema_version:
+        raise ValueError("The preview's AppSpec schema reference is stale.")
+    if ref.get("sha256") and ref.get("sha256") != row.app_spec_sha256:
+        raise ValueError("The preview's AppSpec digest does not match its accepted revision.")
+
+    spec = AppSpec.model_validate(load_json_object(row.app_spec_json))
+    scope = select_preview_scope(
+        spec,
+        target_pages=settings.APPSPEC_PREVIEW_TARGET_PAGES,
+        max_pages=settings.APPSPEC_PREVIEW_MAX_PAGES,
+    )
+    plan_seed = to_experience_plan_seed(spec, scope)
+    enriched_plan = merge_experience_plan_enrichment(
+        plan_seed,
+        experience_plan or generated_pages.get("experience_plan") or {},
+    )
+    architecture_seed = to_architecture_seed(spec, scope)
+    stored_architect = architect or _architect_from_generated(
+        dict(generated_pages), enriched_plan
+    )
+    enriched_architect = merge_architecture_enrichment(
+        architecture_seed,
+        stored_architect,
+    )
+    selected_contracts = {
+        "scope": scope.as_dict(),
+        "pages": {
+            page_id: page_contract(spec, page_id)
+            for page_id in scope.selected_page_ids
+        },
+        "runtime": runtime_projection(spec, scope),
+        "browser": browser_projection(spec, scope),
+    }
+    return AppSpecRefinementContext(
+        revision=row,
+        spec=spec,
+        scope=scope,
+        plan_seed=plan_seed,
+        plan=enriched_plan,
+        architecture_seed=architecture_seed,
+        architect=enriched_architect,
+        selected_contracts=selected_contracts,
+    )
+
+
+def _merge_app_spec_refinement_enrichment(
+    context: AppSpecRefinementContext,
+    payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Discard semantic AI drift and retain only allow-listed design choices."""
+
+    plan = merge_experience_plan_enrichment(
+        context.plan_seed,
+        payload.get("experience_plan") or context.plan,
+    )
+    architect = merge_architecture_enrichment(
+        context.architecture_seed,
+        payload.get("architect") or context.architect,
+    )
+    return plan, architect
 
 
 def _rank_refinement_files(path: str) -> tuple:
@@ -379,6 +539,37 @@ def refine_preview_app_from_chat(
     if not workspace.is_dir():
         raise ValueError("Preview app workspace not found.")
 
+    stored_plan = generated_pages.get("experience_plan") or {}
+    stored_architect = _architect_from_generated(generated_pages, stored_plan)
+    try:
+        app_spec_context = _load_app_spec_refinement_context(
+            db,
+            request_id,
+            generated_pages,
+            experience_plan=stored_plan,
+            architect=stored_architect,
+        )
+    except Exception as exc:
+        # The public request marked this preview as "rebuilding" before the
+        # worker started. Contract resolution happens before any file write, so
+        # restore the prior live status immediately and fail closed.
+        restored = original_generated_pages
+        restored_preview = restored.setdefault("preview_app", {})
+        restored_preview["status"] = "ready"
+        restored_preview["last_refinement_error"] = str(exc)[:300]
+        req.generated_pages = json.dumps(restored)
+        db.commit()
+        return {
+            "reply": (
+                "I couldn't safely apply that change because the preview's "
+                "product contract could not be verified. The current preview "
+                "has been kept unchanged."
+            ),
+            "changes_made": ["No changes applied — AppSpec verification failed"],
+            "preview_rebuild_succeeded": False,
+            "reverted": True,
+        }
+
     # Full redesign / "make sure all pages exist" → regenerate the whole app.
     # One-shot chat JSON can't reliably rewrite every file without truncation.
     if _is_full_redesign_request(user_message):
@@ -393,7 +584,15 @@ def refine_preview_app_from_chat(
             detail=f"message length={len(user_message)} sha256={message_digest}",
         )
         try:
-            result = generate_preview_app(db, request_id, ai_provider, template_renderer)
+            result = generate_preview_app(
+                db,
+                request_id,
+                ai_provider,
+                template_renderer,
+                app_spec_revision_id=(
+                    app_spec_context.revision.id if app_spec_context else None
+                ),
+            )
             pa = (result or {}).get("preview_app") or {}
             ok = pa.get("status") == "ready"
             _emit(
@@ -436,8 +635,8 @@ def refine_preview_app_from_chat(
     dist_backup = backup_dist(workspace)
     had_previous_good_build = dist_backup is not None
 
-    plan = generated_pages.get("experience_plan") or {}
-    architect = _architect_from_generated(generated_pages, plan)
+    plan = app_spec_context.plan if app_spec_context else stored_plan
+    architect = app_spec_context.architect if app_spec_context else stored_architect
     if has_catalogue_routes(architect):
         architect["_catalogue_workspace"] = True
 
@@ -479,6 +678,14 @@ def refine_preview_app_from_chat(
             files_content=files_content[:45000],
             catalogue_mode=has_catalogue_routes(architect),
             catalogue_routes_json=_catalogue_routes_context(architect),
+            app_spec_enforced=bool(app_spec_context),
+            app_spec_ref_json=_bounded_json(
+                generated_pages.get("app_spec_ref") or {}, 1200
+            ),
+            app_spec_contracts_json=_bounded_json(
+                app_spec_context.selected_contracts if app_spec_context else {},
+                24000,
+            ),
         )
 
         _emit(db, request_id, "refine", "AI is updating your pages...", 25)
@@ -495,24 +702,44 @@ def refine_preview_app_from_chat(
             )
         )
 
-        if data.get("architect"):
-            arch = data["architect"]
+        if app_spec_context:
+            plan, architect = _merge_app_spec_refinement_enrichment(
+                app_spec_context,
+                data,
+            )
             pa = generated_pages.setdefault("preview_app", {})
-            if arch.get("routes"):
-                updated_routes = _merge_chat_routes(
-                    architect.get("routes") or [],
-                    arch["routes"],
-                    data.get("experience_plan") or plan,
-                    workspace,
+            pa["routes"] = architect.get("routes") or []
+            pa["roles"] = architect.get("roles") or []
+            pa["design_direction"] = architect.get("design_direction", "")
+            generated_pages["experience_plan"] = _plan_for_persistence(plan)
+            if data.get("architect") or data.get("experience_plan"):
+                changes_made.append(
+                    "Applied design enrichment while preserving the AppSpec structure"
                 )
-                pa["routes"] = updated_routes
-                architect["routes"] = updated_routes
-            if arch.get("roles"):
-                pa["roles"] = arch["roles"]
-                architect["roles"] = arch["roles"]
-            if arch.get("design_direction"):
-                pa["design_direction"] = arch["design_direction"]
-            changes_made.append("Updated navigation structure")
+        else:
+            if data.get("architect"):
+                arch = data["architect"]
+                pa = generated_pages.setdefault("preview_app", {})
+                if arch.get("routes"):
+                    updated_routes = _merge_chat_routes(
+                        architect.get("routes") or [],
+                        arch["routes"],
+                        data.get("experience_plan") or plan,
+                        workspace,
+                    )
+                    pa["routes"] = updated_routes
+                    architect["routes"] = updated_routes
+                if arch.get("roles"):
+                    pa["roles"] = arch["roles"]
+                    architect["roles"] = arch["roles"]
+                if arch.get("design_direction"):
+                    pa["design_direction"] = arch["design_direction"]
+                changes_made.append("Updated navigation structure")
+
+            if data.get("experience_plan"):
+                generated_pages["experience_plan"] = data["experience_plan"]
+                plan = data["experience_plan"]
+                changes_made.append("Updated experience plan")
 
         for route in architect.get("routes") or []:
             path = route.get("component_file") or ""
@@ -533,22 +760,20 @@ def refine_preview_app_from_chat(
             else:
                 clear_stubbed_path(workspace, path)
 
-        if data.get("experience_plan"):
-            generated_pages["experience_plan"] = data["experience_plan"]
-            plan = data["experience_plan"]
-            changes_made.append("Updated experience plan")
-
-        if data.get("concept_name"):
-            pending_metadata["concept_name"] = data["concept_name"]
-            changes_made.append(f"Renamed concept to {data['concept_name']}")
-        if data.get("preview_summary"):
-            pending_metadata["preview_summary"] = data["preview_summary"]
-            changes_made.append("Updated preview summary")
-        if data.get("preview_features"):
-            pending_metadata["preview_features"] = json.dumps(data["preview_features"])
-            changes_made.append("Updated feature list")
-        if data.get("business_fit_score") is not None:
-            pending_metadata["business_fit_score"] = int(data["business_fit_score"])
+        # These fields summarize product semantics, not visual treatment. An
+        # AppSpec-governed refinement must not create a competing contract.
+        if not app_spec_context:
+            if data.get("concept_name"):
+                pending_metadata["concept_name"] = data["concept_name"]
+                changes_made.append(f"Renamed concept to {data['concept_name']}")
+            if data.get("preview_summary"):
+                pending_metadata["preview_summary"] = data["preview_summary"]
+                changes_made.append("Updated preview summary")
+            if data.get("preview_features"):
+                pending_metadata["preview_features"] = json.dumps(data["preview_features"])
+                changes_made.append("Updated feature list")
+            if data.get("business_fit_score") is not None:
+                pending_metadata["business_fit_score"] = int(data["business_fit_score"])
 
         demo: dict = {}
         if req.visual_demo_json:
@@ -618,8 +843,36 @@ def refine_preview_app_from_chat(
             except Exception:
                 pass
             ok, build_log = run_build(workspace, base_path, template_renderer)
+        if ok and app_spec_context:
+            workspace_issues = validate_app_spec_workspace(
+                workspace,
+                app_spec_context.spec,
+                app_spec_context.scope,
+                architect,
+            )
+            scaffold_pages = _catalogue_fallback_paths(workspace, architect)
+            stubbed_pages = consume_stubbed_paths(workspace)
+            contract_fallback_pages = list(
+                dict.fromkeys([*scaffold_pages, *stubbed_pages])
+            )
+            if workspace_issues or contract_fallback_pages:
+                ok = False
+                parts: list[str] = []
+                if workspace_issues:
+                    parts.append(
+                        "missing AppSpec hooks: " + "; ".join(workspace_issues[:6])
+                    )
+                if contract_fallback_pages:
+                    parts.append(
+                        "fallback/stub pages: " + ", ".join(contract_fallback_pages[:8])
+                    )
+                error_message = "AppSpec refinement rejected — " + " | ".join(parts)
         if not ok:
-            error_message = extract_build_errors(build_log)[:500] or "Build failed"
+            error_message = (
+                error_message
+                or extract_build_errors(build_log)[:500]
+                or "Build failed"
+            )
             error_digest = hashlib.sha256(error_message.encode("utf-8")).hexdigest()[:16]
             print(
                 f"[refine] build failed for {request_id}: "
@@ -659,6 +912,11 @@ def refine_preview_app_from_chat(
         pa["fallback_pages"] = _catalogue_fallback_paths(workspace, architect)
         pa.pop("last_refinement_error", None)
         generated_pages["preview_app"] = pa
+        if app_spec_context:
+            generated_pages["experience_plan"] = _plan_for_persistence(plan)
+            generated_pages["app_spec_ref"] = original_generated_pages.get(
+                "app_spec_ref"
+            )
         req.generated_pages = json.dumps(generated_pages)
         req.updated_at = datetime.utcnow()
     else:

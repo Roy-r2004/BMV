@@ -19,6 +19,22 @@ Current business-fit score: {{ business_fit_score }}
 Current experience plan (roles, pages, journeys — update when user asks to change structure):
 {{ experience_plan }}
 
+{% if app_spec_enforced %}
+Accepted AppSpec provenance (immutable):
+{{ app_spec_ref_json }}
+
+Selected AppSpec page/action/evidence contracts (authoritative):
+{{ app_spec_contracts_json }}
+
+This preview is governed by an accepted AppSpec. Product intent, roles, pages,
+routes, states, actions, transitions, evidence and acceptance tests are fixed.
+Apply design enrichment only: theme, layout, responsive treatment, motion,
+section composition, realistic sample content and presentation copy. Never add,
+remove, rename, repurpose or reroute canonical product contracts. If the user
+asks for a semantic scope change, explain in `reply` that it requires a new
+product-contract revision and leave that semantic portion unchanged.
+{% endif %}
+
 MVP blueprint excerpt (for scope/plan questions):
 {{ mvp_blueprint_snippet }}
 
@@ -139,14 +155,25 @@ Return ONLY valid JSON with this shape:
 
 Rules:
 - Always include a helpful reply
+{% if app_spec_enforced %}
+- Preserve the exact canonical roles, page IDs, routes, states, action IDs, evidence IDs and meanings supplied above.
+- `experience_plan` may enrich design fields, sections, layout notes, sample data notes and catalogue skeleton/slot choices only.
+- Do not change concept_name, preview_summary, preview_features or business_fit_score to introduce a competing product scope.
+- Never remove required AppSpec hooks or suggest fallback/stub pages.
+{% else %}
 - If the user requests plan/role/page structure changes, update experience_plan (roles, pages, defaultPath, sections)
+{% endif %}
 - If the user only asks a question, answer in reply and return visual_demo identical to the current version (still include the full object)
 - If the user requests changes, update visual_demo, app_config, preview_content, and related fields accordingly
 - changes_made must list every visible change (colors, layout, tabs, copy, features)
 - Color changes: update visual_theme.primary_color, secondary_color, background_color (hex codes)
 - Layout changes: update app_config — home_sections order, enabled_modules (which tabs show), schedule_variant (progress vs calendar), header_variant (light/dark), hero_layout (split/centered), tab labels
 - Copy changes: update hero, preview_content.inbox messages, feature_cards, app_config.inbox/schedule/dashboard labels
+{% if app_spec_enforced %}
+- Feature presentation may change only within existing canonical features/pages; do not add modules, tabs, services, journeys, actions, or product capabilities.
+{% else %}
 - Adding features: add to feature_cards AND preview_features AND preview_content.website.services
+{% endif %}
 - Never include dollar amounts, currency symbols, or numeric pricing
 - Do not copy copyrighted brands or proprietary designs
 - Be specific to their business

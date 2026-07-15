@@ -34,6 +34,28 @@ Instructions: {{ file_instructions }}
 === PAGE PLAN FROM USER'S EXPERIENCE ({% if catalogue_page %}CONTENT BRIEFS — map into the authoritative assigned skeleton slots{% else %}SOURCE OF TRUTH — build ONLY what is listed here{% endif %}) ===
 {{ page_plan_json }}
 {% endif %}
+{% if app_spec_contract_json is defined and app_spec_contract_json and app_spec_contract_json != "{}" %}
+
+=== ACCEPTED APPSPEC PAGE CONTRACT (PRODUCT BEHAVIOR — NON-NEGOTIABLE) ===
+{{ app_spec_contract_json }}
+
+BEHAVIOR CONTRACT RULES:
+- The AppSpec contract overrides prose when they disagree. Implement every listed
+  state, action, transition, evidence item, and acceptance outcome on this page.
+- This must be a genuinely interactive React surface, not a static mock. Use
+  controlled inputs and local state so each action produces its declared next
+  state and visible success evidence. Include useful pending, validation, error,
+  empty, and success feedback where the contract implies it.
+- Put `data-appspec-page="<canonical page id>"` on the page root,
+  `data-appspec-action="<canonical action id>"` on the actual interactive control,
+  and `data-appspec-evidence="<canonical evidence id>"` on the observable result.
+- Never turn a required action into a decorative button, dead link, toast-only
+  illusion, or text claiming that it works. Navigation actions must use the
+  canonical route; mutation actions must visibly update the relevant UI/data.
+- Preserve realistic seeded content before interaction, then make the state
+  change visually clear through motion, status, count, progress, or layout where
+  appropriate. Dynamicity serves the workflow; it must not obscure evidence.
+{% endif %}
 {% if catalogue_page %}
 === MATCHED COMPACT SKELETON CONTRACT ===
 Assigned skeleton: {{ skeleton_id }}

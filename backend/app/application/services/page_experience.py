@@ -16,6 +16,9 @@ from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
 from app.application.services.preview_parser import parse_preview_features
+from app.application.preview_app.app_spec_projection import (
+    merge_experience_plan_enrichment,
+)
 
 
 def gather_full_context(req: Request, demo: dict | None = None) -> str:
@@ -164,6 +167,7 @@ def _call_planner(
     model: str,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    canonical_seed: dict | None = None,
 ) -> dict | None:
     full_context = gather_full_context(req, demo)
     features = parse_preview_features(req.preview_features)
@@ -180,12 +184,19 @@ def _call_planner(
         catalogue_contract_json=json.dumps(
             compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
         ),
+        app_spec_seed_json=(
+            json.dumps(canonical_seed, ensure_ascii=False, separators=(",", ":"))
+            if canonical_seed
+            else ""
+        ),
     )
     # Plans for multi-role businesses regularly overflow 14k tokens; the parser
     # also repairs truncation, but headroom avoids losing pages in the first place.
     raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=28000)
     plan = _parse_json_from_response(raw)
     if plan and plan.get("roles"):
+        if canonical_seed:
+            plan = merge_experience_plan_enrichment(canonical_seed, plan)
         return _normalize_plan(plan, primary, secondary)
     print(
         f"  planner model={model} returned no usable plan: "
@@ -234,6 +245,8 @@ def build_experience_plan(
     secondary: str,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    *,
+    canonical_seed: dict | None = None,
 ) -> dict:
     """Planner + validator + expansion when plan is empty or missing feature coverage."""
     plan: dict | None = None
@@ -241,15 +254,39 @@ def build_experience_plan(
 
     for model in (settings.TEXT_MODEL, settings.ARCHITECT_MODEL):
         try:
-            plan = _call_planner(req, demo, primary, secondary, model, ai_provider, template_renderer)
+            plan = _call_planner(
+                req,
+                demo,
+                primary,
+                secondary,
+                model,
+                ai_provider,
+                template_renderer,
+                canonical_seed,
+            )
             if plan:
                 break
         except Exception as exc:
             print(f"  planner model={model} raised: {type(exc).__name__}: {exc}", flush=True)
             continue
 
+    if not plan and canonical_seed:
+        # Product semantics are already complete. A design-model outage may
+        # reduce visual specificity, but it must not erase the accepted product
+        # contract or send required mode back through the legacy planner.
+        plan = _normalize_plan(
+            merge_experience_plan_enrichment(canonical_seed, None),
+            primary,
+            secondary,
+        )
     if not plan:
         raise ValueError("Experience planner failed — could not generate a valid plan.")
+
+    if canonical_seed:
+        # The generic validator/expander is allowed to add pages. AppSpec mode
+        # instead uses the deterministic schema + coverage gates upstream and
+        # locks the selected canonical page set here.
+        return plan
 
     plan = validate_and_expand_plan(req, plan, ai_provider, template_renderer, demo)
 

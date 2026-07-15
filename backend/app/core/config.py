@@ -78,6 +78,20 @@ class Settings:
     ARCHITECT_MODEL: str
     CRITIC_MODEL: str
     FIX_MODEL: str
+    APPSPEC_MODEL: str
+    APPSPEC_REPAIR_MODEL: str
+    APPSPEC_COVERAGE_MODEL: str
+    APPSPEC_MODE: str
+    APPSPEC_SCHEMA_VERSION: str
+    APPSPEC_PROMPT_REVISION: str
+    APPSPEC_MAX_CALLS: int
+    APPSPEC_MAX_REPAIR_ATTEMPTS: int
+    APPSPEC_MAX_TOKENS: int
+    APPSPEC_REPAIR_MAX_TOKENS: int
+    APPSPEC_COVERAGE_MAX_TOKENS: int
+    APPSPEC_MIN_COVERAGE_SCORE: int
+    APPSPEC_PREVIEW_TARGET_PAGES: int
+    APPSPEC_PREVIEW_MAX_PAGES: int
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -124,6 +138,87 @@ class Settings:
         self.CRITIC_MODEL = os.getenv("CRITIC_MODEL", taste_default)
         # Fix loop uses the codegen model by default — Flash often returns empty JSON.
         self.FIX_MODEL = os.getenv("FIX_MODEL", self.PREVIEW_APP_MODEL)
+
+        # Canonical product contract. `off` keeps the legacy pipeline untouched;
+        # orchestration may opt into `shadow`, `required_new`, then `required` as
+        # the AppSpec stages are rolled out. The generation service itself is
+        # intentionally mode-agnostic so callers can run shadow comparisons.
+        requested_appspec_mode = os.getenv("APPSPEC_MODE", "off").strip().lower()
+        self.APPSPEC_MODE = (
+            requested_appspec_mode
+            if requested_appspec_mode in {"off", "shadow", "required_new", "required"}
+            else "off"
+        )
+        self.APPSPEC_SCHEMA_VERSION = (
+            os.getenv("APPSPEC_SCHEMA_VERSION", "1.0").strip() or "1.0"
+        )
+        self.APPSPEC_PROMPT_REVISION = (
+            os.getenv("APPSPEC_PROMPT_REVISION", "2026-07-15.1").strip()
+            or "2026-07-15.1"
+        )
+        self.APPSPEC_MODEL = (
+            os.getenv("APPSPEC_MODEL", self.ARCHITECT_MODEL).strip()
+            or self.ARCHITECT_MODEL
+        )
+        self.APPSPEC_REPAIR_MODEL = (
+            os.getenv("APPSPEC_REPAIR_MODEL", self.APPSPEC_MODEL).strip()
+            or self.APPSPEC_MODEL
+        )
+        # Keep the coverage review separately configurable so production can use
+        # a different model from the authoring pass instead of self-grading.
+        self.APPSPEC_COVERAGE_MODEL = (
+            os.getenv("APPSPEC_COVERAGE_MODEL", self.CRITIC_MODEL).strip()
+            or self.CRITIC_MODEL
+        )
+        try:
+            self.APPSPEC_MAX_CALLS = max(2, int(os.getenv("APPSPEC_MAX_CALLS", "6")))
+        except ValueError:
+            self.APPSPEC_MAX_CALLS = 6
+        try:
+            self.APPSPEC_MAX_REPAIR_ATTEMPTS = max(
+                0, int(os.getenv("APPSPEC_MAX_REPAIR_ATTEMPTS", "2"))
+            )
+        except ValueError:
+            self.APPSPEC_MAX_REPAIR_ATTEMPTS = 2
+        try:
+            self.APPSPEC_MAX_TOKENS = max(
+                4000, int(os.getenv("APPSPEC_MAX_TOKENS", "24000"))
+            )
+        except ValueError:
+            self.APPSPEC_MAX_TOKENS = 24000
+        try:
+            self.APPSPEC_REPAIR_MAX_TOKENS = max(
+                4000, int(os.getenv("APPSPEC_REPAIR_MAX_TOKENS", "24000"))
+            )
+        except ValueError:
+            self.APPSPEC_REPAIR_MAX_TOKENS = 24000
+        try:
+            self.APPSPEC_COVERAGE_MAX_TOKENS = max(
+                2000, int(os.getenv("APPSPEC_COVERAGE_MAX_TOKENS", "6000"))
+            )
+        except ValueError:
+            self.APPSPEC_COVERAGE_MAX_TOKENS = 6000
+        try:
+            self.APPSPEC_MIN_COVERAGE_SCORE = min(
+                100, max(0, int(os.getenv("APPSPEC_MIN_COVERAGE_SCORE", "95")))
+            )
+        except ValueError:
+            self.APPSPEC_MIN_COVERAGE_SCORE = 95
+        try:
+            self.APPSPEC_PREVIEW_TARGET_PAGES = max(
+                1, int(os.getenv("APPSPEC_PREVIEW_TARGET_PAGES", "6"))
+            )
+        except ValueError:
+            self.APPSPEC_PREVIEW_TARGET_PAGES = 6
+        try:
+            self.APPSPEC_PREVIEW_MAX_PAGES = max(
+                self.APPSPEC_PREVIEW_TARGET_PAGES,
+                int(os.getenv("APPSPEC_PREVIEW_MAX_PAGES", "8")),
+            )
+        except ValueError:
+            self.APPSPEC_PREVIEW_MAX_PAGES = max(
+                self.APPSPEC_PREVIEW_TARGET_PAGES, 8
+            )
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

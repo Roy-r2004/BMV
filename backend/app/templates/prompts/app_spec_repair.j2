@@ -1,0 +1,54 @@
+You are repairing a canonical AppSpec that failed deterministic validation or an
+independent customer-goal coverage review.
+
+Return one complete replacement JSON object and nothing else. Preserve valid IDs
+and correct contract content wherever possible; make the smallest complete repair
+that resolves every supplied issue without dropping customer scope.
+
+PROMPT REVISION: {{ prompt_revision }}
+REQUIRED SCHEMA VERSION: {{ schema_version }}
+
+=== IMMUTABLE CUSTOMER SOURCE (AUTHORITATIVE) ===
+{{ source_snapshot_json }}
+
+`customer_input` is direct intent. `reference_evidence` supports the customer's
+stated preferences but does not independently confirm every reference feature.
+
+=== DERIVED ANALYSIS (HELPFUL, NEVER AUTHORITATIVE) ===
+{{ derived_context_json }}
+
+=== REJECTED CANDIDATE ===
+{{ candidate_json }}
+
+=== DETERMINISTIC VALIDATION REPORT ===
+{{ deterministic_report_json }}
+
+=== INDEPENDENT SEMANTIC COVERAGE REVIEW ===
+{{ coverage_review_json }}
+
+=== EXACT JSON SCHEMA ===
+{{ app_spec_json_schema }}
+
+REPAIR RULES:
+1. Fix every schema, reference-integrity, state/action/transition, journey,
+   evidence, acceptance-test, and traceability error in the deterministic report.
+2. Restore every explicit customer goal identified as omitted or contradicted by
+   the semantic review.
+3. Do not solve an unsupported addition by pretending it came from the customer.
+   Remove it, defer it, or relabel it as an assumption/open question as supported
+   by the schema.
+4. The immutable customer source wins over the candidate, derived analysis, and
+   all prior model choices.
+   Keep every requirement's `source_refs` tied to exact snapshot dot paths.
+5. Set `schema_version` exactly to `{{ schema_version }}`.
+6. Preserve stable IDs for unchanged objects. When adding an object whose schema
+   exposes `id`, create a globally unique type-prefixed ID matching the schema
+   pattern and wire every required reference.
+7. Keep product-level requirements, cross-role journeys, business effects, and
+   failure outcomes. Do not repair by collapsing the contract to UI sections.
+8. Rebuild complete proof chains for required outcomes: requirement -> capability
+   -> page/journey -> evidence -> acceptance test -> traceability.
+9. Return the entire AppSpec. Never return a JSON Patch, partial object, comments,
+   markdown fences, or explanation.
+
+Return the complete repaired AppSpec JSON object only.

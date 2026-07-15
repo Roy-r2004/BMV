@@ -12,6 +12,14 @@ from app.application.preview_app import generate_preview_app
 from app.application.services.progress import emit as _emit
 from app.application.services.preview_parser import parse_preview_features
 from app.application.services.preview_refinement import get_chat_history, refine_preview
+from app.application.services.app_spec_repository import (
+    AppSpecRepository,
+    revision_summary,
+)
+from app.application.services.app_spec_generation import (
+    app_spec_is_required,
+    app_spec_mode,
+)
 from app.application.services.reference_formatter import format_reference_analysis
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -187,6 +195,8 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         except Exception:
             pass
 
+    app_spec_revision = AppSpecRepository(db).latest_accepted(request_id)
+
     is_generating = (
         not req.mvp_blueprint
         and req.status == "new"
@@ -201,6 +211,11 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         preview_features=parse_preview_features(req.preview_features),
         visual_demo=visual_demo,
         generated_pages=generated_pages,
+        app_spec=(
+            revision_summary(app_spec_revision)
+            if app_spec_revision
+            else None
+        ),
         status=req.status,
         is_generating=is_generating,
         industry=req.industry,
@@ -273,6 +288,27 @@ def trigger_generate_pages(request_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Request not found")
     if not req.mvp_blueprint:
         raise HTTPException(status_code=400, detail="Blueprint not generated yet")
+
+    bundle: dict = {}
+    if req.generated_pages:
+        try:
+            bundle = json.loads(req.generated_pages)
+        except Exception:
+            bundle = {}
+    app_spec_ref = bundle.get("app_spec_ref") or {}
+    if app_spec_is_required(
+        mode=app_spec_mode(),
+        is_new_request=(
+            not bool(req.generated_pages) or bool(app_spec_ref.get("enforced"))
+        ),
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Legacy role-page generation is disabled for AppSpec previews. "
+                "Use generate-preview-app so routes and interactions remain traceable."
+            ),
+        )
 
     threading.Thread(
         target=_run_role_pages_in_background, args=(request_id,), daemon=True,

@@ -16,6 +16,21 @@ Read ALL input below. Output a plan that is 100% specific to THIS business — n
 
 === COMPACT TEMPLATE-OWNED SKELETON CONTRACT ===
 {{ catalogue_contract_json }}
+{% if app_spec_seed_json is defined and app_spec_seed_json %}
+
+=== ACCEPTED APPSPEC PROJECTION (PRODUCT SEMANTICS — LOCKED) ===
+{{ app_spec_seed_json }}
+
+APPSPEC ENRICHMENT RULES:
+- Keep exactly the projected role IDs, page IDs, page ownership, navigation targets,
+  purposes, capabilities, and `app_spec_contract` objects. Do not add, remove,
+  merge, rename, or repurpose a role/page.
+- Your job is design enrichment: choose the best catalogue skeleton/slots, rich
+  business-specific sections, sample data, visual direction, and design system.
+- Return the complete plan shape, but copy every locked semantic field exactly.
+- Never replace canonical evidence/actions/states with a visually convenient
+  approximation.
+{% endif %}
 
 === STARTING COLORS (adapt to fit this business — explain your choices) ===
 Primary: {{ primary_color }}

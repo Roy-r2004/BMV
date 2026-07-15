@@ -17,6 +17,9 @@ Usage:
 class PromptTemplate:
     SCREENSHOT_ANALYSIS = "prompts/screenshot_analysis.j2"
     REFERENCE_URL_ANALYSIS = "prompts/reference_url_analysis.j2"
+    APP_SPEC = "prompts/app_spec.j2"
+    APP_SPEC_REPAIR = "prompts/app_spec_repair.j2"
+    APP_SPEC_COVERAGE = "prompts/app_spec_coverage.j2"
     TECHNICAL_PLAN = "prompts/technical_plan.j2"
     MVP_BLUEPRINT = "prompts/mvp_blueprint.j2"
     VISUAL_DEMO = "prompts/visual_demo.j2"

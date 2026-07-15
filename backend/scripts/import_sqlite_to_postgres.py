@@ -10,7 +10,7 @@ Or:
   python backend/scripts/import_sqlite_to_postgres.py --sqlite backend/buildmyversion.db --postgres "postgresql://..."
 
 This copies:
-  users, user_sessions, requests, preview_chat_messages,
+  users, user_sessions, requests, app_spec_revisions, preview_chat_messages,
   solution_workspaces, solution_edit_messages
 
 Safe to re-run: clears destination tables first (in FK-safe order), then inserts.
@@ -30,6 +30,7 @@ TABLES_IN_ORDER = [
     "users",
     "user_sessions",
     "requests",
+    "app_spec_revisions",
     "preview_chat_messages",
     "solution_workspaces",
     "solution_edit_messages",
@@ -49,7 +50,12 @@ def sqlite_rows(conn: sqlite3.Connection, table: str) -> tuple[list[str], list[t
     columns = [row[1] for row in cur.fetchall()]
     if not columns:
         return [], []
-    rows = conn.execute(f"SELECT {', '.join(columns)} FROM {table}").fetchall()
+    # Stable parent-before-child order also satisfies AppSpec's self-referential
+    # parent_revision_id foreign key during the row-by-row Postgres import.
+    order_by = " ORDER BY id" if "id" in columns else ""
+    rows = conn.execute(
+        f"SELECT {', '.join(columns)} FROM {table}{order_by}"
+    ).fetchall()
     return columns, rows
 
 

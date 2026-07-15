@@ -23,6 +23,24 @@ from app.application.services.page_experience import (
     build_experience_plan,
     gather_full_context,
 )
+from app.application.services.app_spec_generation import (
+    AppSpecGenerationError,
+    app_spec_is_required,
+    app_spec_mode,
+    app_spec_should_run_for_request,
+    ensure_approved_app_spec,
+)
+from app.application.services.app_spec_repository import app_spec_provenance
+from app.application.preview_app.app_spec_projection import (
+    PreviewScopeError,
+    merge_architecture_enrichment,
+    select_preview_scope,
+    to_architecture_seed,
+    to_experience_plan_seed,
+)
+from app.application.preview_app.app_spec_workspace import (
+    validate_app_spec_workspace,
+)
 from app.application.ui_catalogue import (
     compact_skeleton_contract,
     infer_page_contract,
@@ -88,6 +106,10 @@ MAX_FIX_LOOP_SECONDS = 900  # Overridden at runtime by settings.PREVIEW_MAX_FIX_
 MAX_VISUAL_CRITIQUE_PAGES = 6  # Screenshotting + vision-critiquing every route
 # (could be 15-30+ for a bigger business) is expensive — cap to the homepage
 # plus each role's primary/landing page.
+
+
+class PreviewAppContractError(RuntimeError):
+    """A required AppSpec preview could not meet its non-fallback contract."""
 
 
 def _select_visual_critique_routes(architect: dict) -> list[dict]:
@@ -363,6 +385,12 @@ def _attach_plan_sections(files: list[dict], plan: dict, architect: dict | None 
                 ensure_ascii=False,
                 separators=(", ", ": "),
             )
+            app_spec_contract = page.get("app_spec_contract") or {}
+            behavior_contract_text = (
+                _bounded_json(app_spec_contract, 9000)
+                if app_spec_contract
+                else ""
+            )
             spec["instructions"] = (
                 f"{spec.get('instructions', '')}\n\n"
                 f"Role: {page.get('role_label') or page.get('role_id', '')}\n"
@@ -377,6 +405,13 @@ def _attach_plan_sections(files: list[dict], plan: dict, architect: dict | None 
                 f"Sample data notes: {page.get('sample_data_notes', '')}\n"
                 f"Skeleton/slot contract (use only these catalogue components and props):\n"
                 f"{contract_text}"
+                + (
+                    "\nCanonical AppSpec behavior contract (preserve every state, action, "
+                    "transition, evidence item, acceptance outcome, and data-appspec hook):\n"
+                    f"{behavior_contract_text}"
+                    if behavior_contract_text
+                    else ""
+                )
             )
         out.append(spec)
     return out
@@ -553,18 +588,106 @@ def _normalize_architect(architect: dict, plan: dict) -> dict:
     return architect
 
 
+def _plan_for_persistence(plan: dict) -> dict:
+    """Remove embedded AppSpec slices; generated_pages stores provenance only."""
+
+    persisted = json.loads(json.dumps(plan))
+    for role in persisted.get("roles") or []:
+        for page in role.get("pages") or []:
+            page.pop("app_spec_contract", None)
+    return persisted
+
+
 @request_mutation_boundary
 def generate_preview_app(
     db: Session,
     request_id: int,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    app_spec_revision_id: int | None = None,
 ) -> dict:
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req:
         raise ValueError(f"Request {request_id} not found")
     if not req.mvp_blueprint:
         raise ValueError("MVP blueprint must be generated first.")
+
+    mode = app_spec_mode()
+    prior_bundle: dict = {}
+    if req.generated_pages:
+        try:
+            prior_bundle = json.loads(req.generated_pages)
+        except Exception:
+            prior_bundle = {}
+    prior_app_spec_ref = prior_bundle.get("app_spec_ref") or {}
+    is_new_request = not bool(req.generated_pages) or bool(
+        prior_app_spec_ref.get("enforced")
+    )
+    enforce_app_spec = app_spec_is_required(
+        is_new_request=is_new_request,
+        mode=mode,
+    )
+    app_spec_result = None
+    app_spec_scope = None
+    run_app_spec = app_spec_should_run_for_request(
+        mode=mode,
+        is_new_request=is_new_request,
+    )
+    if run_app_spec:
+        _emit(
+            db,
+            request_id,
+            "appspec",
+            "Confirming the product contract...",
+            27,
+            detail="Validating requirements, journeys, states, actions, and evidence",
+        )
+        try:
+            app_spec_result = ensure_approved_app_spec(
+                db,
+                request_id,
+                ai_provider,
+                template_renderer,
+            )
+            if (
+                app_spec_revision_id is not None
+                and app_spec_result.revision_record.id != app_spec_revision_id
+                and enforce_app_spec
+            ):
+                raise AppSpecGenerationError(
+                    "The approved AppSpec changed before preview generation; retry with the current revision."
+                )
+            if enforce_app_spec:
+                app_spec_scope = select_preview_scope(
+                    app_spec_result.spec,
+                    target_pages=settings.APPSPEC_PREVIEW_TARGET_PAGES,
+                    max_pages=settings.APPSPEC_PREVIEW_MAX_PAGES,
+                )
+            _emit(
+                db,
+                request_id,
+                "appspec",
+                f"Product contract accepted — revision {app_spec_result.revision_record.revision}",
+                29,
+                detail=(
+                    f"coverage={app_spec_result.revision_record.coverage_score}; "
+                    f"mode={mode}; reused={app_spec_result.reused}"
+                ),
+            )
+        except (AppSpecGenerationError, PreviewScopeError) as exc:
+            _emit(
+                db,
+                request_id,
+                "appspec_failed",
+                "Product contract needs attention before UI generation",
+                27,
+                detail=str(exc)[:300],
+            )
+            if enforce_app_spec:
+                raise
+            print(f"  AppSpec shadow pass failed: {exc}", flush=True)
+            app_spec_result = None
+            app_spec_scope = None
 
     demo: dict = {}
     if req.visual_demo_json:
@@ -592,7 +715,20 @@ def generate_preview_app(
     print("  [1/5] Planning agent...", flush=True)
     _emit(db, request_id, "codegen", "Planning agent — mapping roles and user journeys...", 30)
     full_context = gather_full_context(req, demo)
-    plan = build_experience_plan(req, demo, primary, secondary, ai_provider, template_renderer)
+    canonical_plan_seed = (
+        to_experience_plan_seed(app_spec_result.spec, app_spec_scope)
+        if enforce_app_spec and app_spec_result and app_spec_scope
+        else None
+    )
+    plan = build_experience_plan(
+        req,
+        demo,
+        primary,
+        secondary,
+        ai_provider,
+        template_renderer,
+        canonical_seed=canonical_plan_seed,
+    )
     from app.application.preview_app.design_recipes import (
         apply_recipe_to_architect,
         apply_recipe_to_plan,
@@ -623,7 +759,24 @@ def generate_preview_app(
 
     print("  [2/5] Architect agent...", flush=True)
     _emit(db, request_id, "codegen", "Architect agent — designing pages and components...", 35)
-    architect = call_architect(full_context, plan, manifest, images, ai_provider, template_renderer)
+    try:
+        architect = call_architect(
+            full_context,
+            plan,
+            manifest,
+            images,
+            ai_provider,
+            template_renderer,
+        )
+    except Exception:
+        if not (enforce_app_spec and app_spec_result and app_spec_scope):
+            raise
+        architect = {}
+    if enforce_app_spec and app_spec_result and app_spec_scope:
+        architect = merge_architecture_enrichment(
+            to_architecture_seed(app_spec_result.spec, app_spec_scope),
+            architect,
+        )
     architect = _normalize_architect(architect, plan)
     architect = apply_recipe_to_architect(architect, plan)
     planned_files = len(architect.get("files_to_generate", []))
@@ -1225,8 +1378,24 @@ def generate_preview_app(
     elif ok:
         print("    visual critique skipped (PREVIEW_SKIP_VISUAL_CRITIC=true)", flush=True)
 
-    preview_url = f"{base_path}/" if ok else None
-    print(f"  {'OK Preview built: ' + preview_url if ok else 'FAIL build'}", flush=True)
+    app_spec_workspace_issues: list[str] = []
+    if ok and enforce_app_spec and app_spec_result and app_spec_scope:
+        app_spec_workspace_issues = validate_app_spec_workspace(
+            workspace,
+            app_spec_result.spec,
+            app_spec_scope,
+            architect,
+        )
+        if app_spec_workspace_issues:
+            ok = False
+            _emit(
+                db,
+                request_id,
+                "contract_failed",
+                "Preview is missing required AppSpec interaction evidence",
+                92,
+                detail="; ".join(app_spec_workspace_issues[:6]),
+            )
 
     accent = design_system.get("primary_color") or manifest.get("accent") or primary
     architect_roles = architect.get("roles") or []
@@ -1239,6 +1408,20 @@ def generate_preview_app(
             record_stubbed_path(workspace, component_file)
         else:
             clear_stubbed_path(workspace, component_file)
+
+    fallback_pages = consume_stubbed_paths(workspace)
+    if enforce_app_spec and fallback_pages:
+        ok = False
+        _emit(
+            db,
+            request_id,
+            "contract_failed",
+            "Preview compiled only with fallback pages",
+            92,
+            detail=", ".join(fallback_pages[:8]),
+        )
+    preview_url = f"{base_path}/" if ok else None
+    print(f"  {'OK Preview built: ' + preview_url if ok else 'FAIL build'}", flush=True)
 
     def _default_path(role_id: str) -> str:
         for rt in route_list:
@@ -1269,6 +1452,7 @@ def generate_preview_app(
         for r in plan.get("roles", [])
     ]
 
+    persisted_plan = _plan_for_persistence(plan)
     result = {
         "preview_app": {
             "url": preview_url,
@@ -1276,9 +1460,9 @@ def generate_preview_app(
             "roles": roles_out,
             "routes": route_list,
             "design_direction": architect.get("design_direction", ""),
-            "fallback_pages": consume_stubbed_paths(workspace),
+            "fallback_pages": fallback_pages,
         },
-        "experience_plan": plan,
+        "experience_plan": persisted_plan,
     }
 
     existing: dict = {}
@@ -1288,7 +1472,12 @@ def generate_preview_app(
         except Exception:
             pass
     existing["preview_app"] = result["preview_app"]
-    existing["experience_plan"] = plan
+    existing["experience_plan"] = persisted_plan
+    if app_spec_result:
+        existing["app_spec_ref"] = {
+            **app_spec_provenance(app_spec_result.revision_record),
+            "enforced": enforce_app_spec,
+        }
     if not existing.get("roles"):
         existing["roles"] = [
             {
@@ -1307,6 +1496,20 @@ def generate_preview_app(
     db.commit()
 
     if not ok:
+        if enforce_app_spec:
+            reason = (
+                "Required AppSpec preview contains fallback/stub pages: "
+                + ", ".join(fallback_pages)
+                if fallback_pages
+                else (
+                    "Required AppSpec preview is missing contract hooks: "
+                    + "; ".join(app_spec_workspace_issues)
+                    if app_spec_workspace_issues
+                    else "Required AppSpec preview did not compile successfully."
+                )
+            )
+            _emit(db, request_id, "failed", reason, 100)
+            raise PreviewAppContractError(reason)
         # Do not raise — the UI already has status=failed. Raising caused the
         # background worker to emit a second "Generation failed" and made
         # concurrent runs look like hard crashes even after fallbacks ran.

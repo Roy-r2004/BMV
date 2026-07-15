@@ -10,6 +10,8 @@ from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.application.services.preview_parser import parse_preview_features
 from app.application.services.visual_demo_enrichment import enrich_visual_demo
+from app.application.preview_app.app_spec_projection import brand_projection
+from app.domain.schemas.app_spec import AppSpec
 from app.shared.json_utils import extract_json_from_text
 
 
@@ -24,6 +26,8 @@ def generate_visual_demo(
     request_id: int,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    *,
+    app_spec: AppSpec | None = None,
 ) -> dict:
     req = get_request(db, request_id)
     if not req.mvp_blueprint:
@@ -37,6 +41,11 @@ def generate_visual_demo(
         business_information=_business_info_block(req),
         mvp_blueprint=req.mvp_blueprint,
         preview_features=features_block,
+        app_spec_projection_json=(
+            json.dumps(brand_projection(app_spec), ensure_ascii=False)
+            if app_spec
+            else ""
+        ),
     )
 
     try:
