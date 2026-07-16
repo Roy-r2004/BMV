@@ -27,6 +27,7 @@ from app.application.services.app_spec_repository import (
     AppSpecRepository,
     load_json_object,
 )
+from app.application.services.app_spec_sanitize import sanitize_app_spec_payload
 from app.application.services.app_spec_source import (
     capture_derived_context,
     capture_request_source,
@@ -194,6 +195,18 @@ def _coverage_payload(
 
 def _candidate_payload(candidate: AppSpecCandidate | None) -> dict[str, Any]:
     return dict(candidate.payload) if candidate else {}
+
+
+def _sanitize_candidate(
+    candidate: AppSpecCandidate | None,
+    source_snapshot: dict[str, Any],
+) -> AppSpecCandidate | None:
+    if candidate is None:
+        return None
+    return AppSpecCandidate(
+        payload=sanitize_app_spec_payload(candidate.payload, source_snapshot),
+        response_excerpt=candidate.response_excerpt,
+    )
 
 
 def _parse_validation_issue(exc: Exception) -> dict[str, Any]:
@@ -400,11 +413,14 @@ def ensure_approved_app_spec(
 
     try:
         try:
-            candidate = build_app_spec_candidate(
-                source_snapshot=source_snapshot,
-                derived_context=derived_context,
-                ai_provider=provider,
-                template_renderer=template_renderer,
+            candidate = _sanitize_candidate(
+                build_app_spec_candidate(
+                    source_snapshot=source_snapshot,
+                    derived_context=derived_context,
+                    ai_provider=provider,
+                    template_renderer=template_renderer,
+                ),
+                source_snapshot,
             )
         except AppSpecBuildError as exc:
             validation_payload = _validation_payload(
@@ -465,14 +481,17 @@ def ensure_approved_app_spec(
                         revision_record=rejected,
                     )
                 repairs += 1
-                candidate = repair_app_spec_candidate(
-                    source_snapshot=source_snapshot,
-                    derived_context=derived_context,
-                    candidate=candidate,
-                    deterministic_report=validation_payload,
-                    coverage_review=coverage_payload,
-                    ai_provider=provider,
-                    template_renderer=template_renderer,
+                candidate = _sanitize_candidate(
+                    repair_app_spec_candidate(
+                        source_snapshot=source_snapshot,
+                        derived_context=derived_context,
+                        candidate=candidate,
+                        deterministic_report=validation_payload,
+                        coverage_review=coverage_payload,
+                        ai_provider=provider,
+                        template_renderer=template_renderer,
+                    ),
+                    source_snapshot,
                 )
                 spec = None
                 validation = None
@@ -550,14 +569,17 @@ def ensure_approved_app_spec(
                 )
 
             repairs += 1
-            candidate = repair_app_spec_candidate(
-                source_snapshot=source_snapshot,
-                derived_context=derived_context,
-                candidate=spec,
-                deterministic_report=validation_payload,
-                coverage_review=coverage_payload,
-                ai_provider=provider,
-                template_renderer=template_renderer,
+            candidate = _sanitize_candidate(
+                repair_app_spec_candidate(
+                    source_snapshot=source_snapshot,
+                    derived_context=derived_context,
+                    candidate=spec,
+                    deterministic_report=validation_payload,
+                    coverage_review=coverage_payload,
+                    ai_provider=provider,
+                    template_renderer=template_renderer,
+                ),
+                source_snapshot,
             )
             spec = None
             validation = None

@@ -40,6 +40,9 @@ REPAIR RULES:
 4. The immutable customer source wins over the candidate, derived analysis, and
    all prior model choices.
    Keep every requirement's `source_refs` tied to exact snapshot dot paths.
+   `source_refs` may only use `customer_input.*` or `reference_evidence.*`.
+   Remove or defer blueprint-only requirements instead of citing
+   `derived_context.*`. Every page must keep at least one `evidence_id`.
 5. Set `schema_version` exactly to `{{ schema_version }}`.
 6. Preserve stable IDs for unchanged objects. When adding an object whose schema
    exposes `id`, create a globally unique type-prefixed ID matching the schema

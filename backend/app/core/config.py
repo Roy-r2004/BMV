@@ -176,10 +176,10 @@ class Settings:
             self.APPSPEC_MAX_CALLS = 6
         try:
             self.APPSPEC_MAX_REPAIR_ATTEMPTS = max(
-                0, int(os.getenv("APPSPEC_MAX_REPAIR_ATTEMPTS", "2"))
+                0, int(os.getenv("APPSPEC_MAX_REPAIR_ATTEMPTS", "3"))
             )
         except ValueError:
-            self.APPSPEC_MAX_REPAIR_ATTEMPTS = 2
+            self.APPSPEC_MAX_REPAIR_ATTEMPTS = 3
         try:
             self.APPSPEC_MAX_TOKENS = max(
                 4000, int(os.getenv("APPSPEC_MAX_TOKENS", "24000"))

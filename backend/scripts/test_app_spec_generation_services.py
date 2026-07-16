@@ -216,6 +216,57 @@ def test_builder_uses_live_schema_and_separates_source_from_derived_context() ->
     assert '"$defs"' in ai.prompts[0], "the prompt must include AppSpec.model_json_schema()"
 
 
+def test_coverage_ignores_explicitly_deferred_requirements() -> None:
+    renderer = JinjaTemplateRenderer(TEMPLATES_DIR)
+    spec_ai = _SequenceAI([json.dumps(_minimal_spec())])
+    spec = build_app_spec(
+        source_snapshot={"customer_input": {"desired_outcome": "Customers can book online"}},
+        derived_context={},
+        ai_provider=spec_ai,
+        template_renderer=renderer,
+    )
+    deferred_spec = AppSpec.model_validate(
+        {
+            **_minimal_spec(),
+            "requirements": [
+                *_minimal_spec()["requirements"],
+                {
+                    "id": "req-payment",
+                    "title": "Online payment",
+                    "description": "Pay during booking.",
+                    "priority": "should",
+                    "verification_mode": "integration",
+                    "source_refs": ["customer_input.desired_outcome"],
+                },
+            ],
+            "deferred_scope": [
+                {
+                    "id": "defer-payment",
+                    "name": "Online payment",
+                    "description": "Deferred payment integration.",
+                    "reason": "Not in MVP.",
+                    "requirement_ids": ["req-payment"],
+                    "target_release": "Later",
+                }
+            ],
+            "traceability": _minimal_spec()["traceability"],
+        }
+    )
+    coverage_payload = _coverage()
+    pass_ai = _SequenceAI([json.dumps(coverage_payload)])
+    passed = review_app_spec_coverage(
+        source_snapshot={"customer_input": {"desired_outcome": "Customers can book online"}},
+        app_spec=deferred_spec,
+        ai_provider=pass_ai,
+        template_renderer=renderer,
+    )
+    assert coverage_requires_repair(
+        passed,
+        app_spec=deferred_spec,
+        source_snapshot={"customer_input": {"desired_outcome": "Customers can book online"}},
+    ) is False
+
+
 def test_independent_coverage_review_fails_closed_on_uncovered_goal() -> None:
     renderer = JinjaTemplateRenderer(TEMPLATES_DIR)
     spec_ai = _SequenceAI([json.dumps(_minimal_spec())])
@@ -400,8 +451,9 @@ def test_invalid_contract_exhausts_repairs_and_persists_rejection() -> None:
 
 if __name__ == "__main__":
     test_builder_uses_live_schema_and_separates_source_from_derived_context()
+    test_coverage_ignores_explicitly_deferred_requirements()
     test_independent_coverage_review_fails_closed_on_uncovered_goal()
     test_stage_call_ceiling_and_rollout_policy()
     test_end_to_end_generation_accepts_persists_and_reuses()
     test_invalid_contract_exhausts_repairs_and_persists_rejection()
-    print("AppSpec generation service tests passed (5 tests)")
+    print("AppSpec generation service tests passed (6 tests)")

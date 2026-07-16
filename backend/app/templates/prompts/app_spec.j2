@@ -35,7 +35,11 @@ CONTRACT RULES:
    deferred scope. Never present an assumption as customer-confirmed.
 5. Requirements must express business/user outcomes. Populate `source_refs` with
    exact dot paths into the immutable snapshot and use the priority and
-   verification mode allowed by the JSON schema.
+   verification mode allowed by the JSON schema. `source_refs` may only use
+   `customer_input.*` or `reference_evidence.*` paths. Never cite
+   `derived_context.*` or other non-authoritative analysis in `source_refs`.
+   Blueprint-only suggestions belong in `deferred_scope` with `should` or
+   `could` priority, not as confirmed `must` requirements.
 6. Model the complete hierarchy: product intent -> requirements -> capabilities
    -> journeys -> pages -> states/actions/transitions -> evidence -> acceptance
    tests. Populate traceability so a validator can follow every required outcome
@@ -43,7 +47,8 @@ CONTRACT RULES:
 7. Roles describe real actors. Entities describe durable product information and
    business objects, not visual cards or arbitrary mock variables.
 8. Pages define product surfaces and responsibilities. Do not add generic pages
-   merely to make the product look larger.
+   merely to make the product look larger. Every page must list at least one
+   `evidence_id` that proves something observable on that surface.
 9. Every stateful page has an explicit initial state. Actions identify the actor,
    page, capability, and affected entity where applicable. Transitions identify
    the action, from-state, to-state, and business effects.

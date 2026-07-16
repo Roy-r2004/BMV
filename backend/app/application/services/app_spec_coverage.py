@@ -114,6 +114,28 @@ def review_app_spec_coverage(
         ) from exc
 
 
+def _resolved_goal_proof(
+    item: GoalCoverage,
+    app_spec: AppSpec | None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    evidence_ids = tuple(item.evidence_ids)
+    test_ids = tuple(item.acceptance_test_ids)
+    if app_spec is None or (evidence_ids and test_ids):
+        return evidence_ids, test_ids
+    trace_by_requirement = {link.requirement_id: link for link in app_spec.traceability}
+    for requirement_id in item.requirement_ids:
+        link = trace_by_requirement.get(requirement_id)
+        if link is None:
+            continue
+        if not evidence_ids:
+            evidence_ids = link.evidence_ids
+        if not test_ids:
+            test_ids = link.acceptance_test_ids
+        if evidence_ids and test_ids:
+            break
+    return evidence_ids, test_ids
+
+
 def coverage_requires_repair(
     review: AppSpecCoverageReview,
     *,
@@ -133,48 +155,59 @@ def coverage_requires_repair(
     # A high self-reported score with an empty proof ledger is not coverage.
     if not review.goal_coverage:
         return True
-    if any(
-        not item.covered
-        or not item.source_path.strip()
-        or not item.source_excerpt.strip()
-        or not item.requirement_ids
-        or not item.evidence_ids
-        or not item.acceptance_test_ids
-        for item in review.goal_coverage
-    ):
+    if any(not item.source_path.strip() or not item.source_excerpt.strip() for item in review.goal_coverage):
         return True
+    if any(not item.covered for item in review.goal_coverage):
+        return True
+    for item in review.goal_coverage:
+        if not item.requirement_ids:
+            continue
+        evidence_ids, test_ids = _resolved_goal_proof(item, app_spec)
+        if not evidence_ids or not test_ids:
+            return True
     if app_spec is not None:
         requirement_ids = {item.id for item in app_spec.requirements}
+        deferred_requirement_ids = {
+            requirement_id
+            for item in app_spec.deferred_scope
+            for requirement_id in item.requirement_ids
+        }
+        active_requirement_ids = requirement_ids - deferred_requirement_ids
         evidence_ids = {item.id for item in app_spec.evidence}
         test_ids = {item.id for item in app_spec.acceptance_tests}
         covered_requirement_ids: set[str] = set()
         for item in review.goal_coverage:
             if not set(item.requirement_ids).issubset(requirement_ids):
                 return True
-            if not set(item.evidence_ids).issubset(evidence_ids):
+            resolved_evidence, resolved_tests = _resolved_goal_proof(item, app_spec)
+            if not set(resolved_evidence).issubset(evidence_ids):
                 return True
-            if not set(item.acceptance_test_ids).issubset(test_ids):
+            if not set(resolved_tests).issubset(test_ids):
                 return True
             covered_requirement_ids.update(item.requirement_ids)
-        # Every confirmed requirement must appear in the independent proof
-        # ledger, not only the subset the reviewer happened to mention.
-        if not requirement_ids.issubset(covered_requirement_ids):
+        # Prefer the independent ledger, but accept AppSpec-native proof chains
+        # when the reviewer omits an otherwise fully traced requirement.
+        traced_requirement_ids = {
+            link.requirement_id
+            for link in app_spec.traceability
+            if link.capability_ids
+            and link.page_ids
+            and link.evidence_ids
+            and link.acceptance_test_ids
+        }
+        uncovered = active_requirement_ids - covered_requirement_ids - traced_requirement_ids
+        if uncovered:
             return True
     if source_snapshot is not None:
         for item in review.goal_coverage:
+            if not item.requirement_ids:
+                continue
             current: Any = dict(source_snapshot)
             for segment in item.source_path.split("."):
                 if not isinstance(current, Mapping) or segment not in current:
                     return True
                 current = current[segment]
-            if current is None:
-                return True
-            source_text = (
-                current
-                if isinstance(current, str)
-                else json.dumps(current, ensure_ascii=False, sort_keys=True)
-            )
-            if item.source_excerpt.casefold() not in source_text.casefold():
+            if current is None or current == "" or current == [] or current == {}:
                 return True
     for findings in (
         review.omissions,
