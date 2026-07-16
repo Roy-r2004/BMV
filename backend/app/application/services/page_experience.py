@@ -450,12 +450,27 @@ def _summarize_plan(plan: dict) -> str:
 
 def _normalize_plan(plan: dict, primary: str, secondary: str) -> dict:
     ds = plan.setdefault("design_system", {})
-    ds.setdefault("primary_color", primary)
-    ds.setdefault("secondary_color", secondary or primary)
-    ds.setdefault("background_color", "#ffffff")
-    ds.setdefault("text_color", "#1e293b")
-    ds.setdefault("muted_text_color", "#64748b")
-    ds.setdefault("font_family", "Inter")
+    # When a brand brief locked the system, keep its tokens authoritative.
+    if ds.get("brand_locked"):
+        ds["primary_color"] = ds.get("primary_color") or primary
+        ds["secondary_color"] = ds.get("secondary_color") or secondary or primary
+    else:
+        ds["primary_color"] = primary or ds.get("primary_color") or "#0f766e"
+        ds["secondary_color"] = secondary or ds.get("secondary_color") or primary or "#134e4a"
+        ds.setdefault("background_color", "#ffffff")
+        ds.setdefault("text_color", "#1e293b")
+        ds.setdefault("muted_text_color", "#64748b")
+        if not ds.get("font_family") or str(ds.get("font_family")).lower() in {
+            "inter",
+            "roboto",
+            "arial",
+            "system",
+        }:
+            ds["font_family"] = ds.get("font_family") or "Source Sans 3"
+    ds.setdefault("background_color", ds.get("background_color") or "#ffffff")
+    ds.setdefault("text_color", ds.get("text_color") or "#1e293b")
+    ds.setdefault("muted_text_color", ds.get("muted_text_color") or "#64748b")
+    ds.setdefault("font_family", ds.get("font_family") or "Source Sans 3")
     plan.setdefault("design_direction", "")
     plan.setdefault("consistency_rules", [])
     plan.setdefault("feature_coverage", [])

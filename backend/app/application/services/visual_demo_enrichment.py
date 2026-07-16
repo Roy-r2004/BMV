@@ -7,8 +7,8 @@ from app.application.services.preview_parser import parse_preview_features
 
 THEME_PALETTES = {
     "fitness": {"primary_color": "#ea580c", "secondary_color": "#16a34a", "background_color": "#fffbeb"},
-    "wellness": {"primary_color": "#be185d", "secondary_color": "#9333ea", "background_color": "#fdf2f8"},
-    "saas": {"primary_color": "#4f46e5", "secondary_color": "#0891b2", "background_color": "#f8fafc"},
+    "wellness": {"primary_color": "#0f766e", "secondary_color": "#134e4a", "background_color": "#f0fdfa"},
+    "saas": {"primary_color": "#0f172a", "secondary_color": "#0369a1", "background_color": "#f8fafc"},
     "generic": {"primary_color": "#0f766e", "secondary_color": "#0369a1", "background_color": "#f8fafc"},
 }
 

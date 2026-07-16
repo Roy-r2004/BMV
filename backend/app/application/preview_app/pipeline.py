@@ -696,9 +696,31 @@ def generate_preview_app(
         except Exception:
             pass
 
+    from app.application.preview_app.brand_brief import (
+        apply_brief_to_plan,
+        ensure_brand_brief,
+    )
+
+    demo = ensure_brand_brief(
+        demo,
+        business_name=req.business_name or req.concept_name,
+        industry=req.industry,
+        business_description=getattr(req, "business_description", None),
+        seed=request_id,
+    )
+    try:
+        req.visual_demo_json = json.dumps(demo)
+        db.commit()
+    except Exception:
+        db.rollback()
+    brand_brief = demo.get("brand_brief") or {}
     theme = demo.get("visual_theme", {})
-    primary = theme.get("primary_color", "#6366f1")
-    secondary = theme.get("secondary_color", "#0d9488")
+    primary = (brand_brief.get("palette") or {}).get("primary") or theme.get(
+        "primary_color", "#0f766e"
+    )
+    secondary = (brand_brief.get("palette") or {}).get("secondary") or theme.get(
+        "secondary_color", "#134e4a"
+    )
     ref_meta: dict = {}
     if req.reference_metadata:
         try:
@@ -735,6 +757,8 @@ def generate_preview_app(
         get_recipe,
     )
 
+    if brand_brief:
+        plan = apply_brief_to_plan(plan, brand_brief)
     plan = apply_recipe_to_plan(
         plan,
         industry=req.industry,
@@ -743,15 +767,29 @@ def generate_preview_app(
         or full_context[:800],
         concept_name=req.business_name,
         seed=request_id,
+        recipe_id=(brand_brief or {}).get("recipe_id"),
     )
+    if brand_brief:
+        plan = apply_brief_to_plan(plan, brand_brief)
     recipe = get_recipe(plan.get("recipe_id"))
     print(
         f"    design recipe: {recipe.get('id')} ({recipe.get('label')}) "
-        f"hub={plan.get('hub_variant')}",
+        f"hub={plan.get('hub_variant')} "
+        f"brand_locked={bool((plan.get('design_system') or {}).get('brand_locked'))}",
         flush=True,
     )
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
+    if brand_brief:
+        design_system = (
+            apply_brief_to_plan({"design_system": design_system}, brand_brief).get(
+                "design_system"
+            )
+            or design_system
+        )
+        plan["design_system"] = design_system
+        manifest["design_system"] = design_system
+        manifest["accent"] = design_system.get("primary_color") or primary
     roles_count = len(plan.get("roles", []))
     _emit(db, request_id, "codegen",
           f"Plan ready — {roles_count} role{'s' if roles_count != 1 else ''} · recipe {recipe.get('id')}", 33,
@@ -794,7 +832,15 @@ def generate_preview_app(
         if isinstance(manifest.get("brand"), dict)
         else None
     ) or manifest.get("brand_name") or req.business_name or "Brand"
-    write_plumbing_mock(workspace, architect, images, brand_name, primary, secondary)
+    write_plumbing_mock(
+        workspace,
+        architect,
+        images,
+        brand_name,
+        primary,
+        secondary,
+        design_system=design_system,
+    )
     print("    plumbing mock (brand, roles, nav) ready", flush=True)
 
     # Router/theme/data and the catalogue kit are template/assembler-owned.
@@ -1346,7 +1392,15 @@ def generate_preview_app(
         stabilize_all_route_pages(
             workspace, architect, brand_name=brand_name, industry=industry,
         )
-        write_plumbing_mock(workspace, architect, images, brand_name, primary, secondary)
+        write_plumbing_mock(
+        workspace,
+        architect,
+        images,
+        brand_name,
+        primary,
+        secondary,
+        design_system=design_system,
+    )
         _pre_build_fixups()
         ok, build_log = run_build(workspace, base_path, template_renderer)
         if ok:

@@ -686,6 +686,31 @@ def generate_file(
         or architect.get("hub_variant")
         or ""
     )
+    from app.application.preview_app.brand_brief import brief_prompt_block
+
+    brand_brief_block = ""
+    if design_system.get("brand_locked"):
+        brand_brief_block = brief_prompt_block(
+            {
+                "brand_name": manifest.get("brand_name") or manifest.get("name"),
+                "mood": design_system.get("mood"),
+                "voice": design_system.get("voice"),
+                "signature": design_system.get("signature"),
+                "palette": {
+                    "primary": design_system.get("primary_color"),
+                    "secondary": design_system.get("secondary_color"),
+                    "background": design_system.get("background_color"),
+                    "text": design_system.get("text_color"),
+                    "muted": design_system.get("muted_text_color"),
+                },
+                "typography": {
+                    "font_family": design_system.get("font_family"),
+                    "display_font_family": design_system.get("display_font_family"),
+                },
+                "avoid": design_system.get("avoid") or [],
+                "rules": design_system.get("rules") or [],
+            }
+        )
     # Avoid re-reading the whole tree on every parallel worker (was slow + racy).
     existing = ""
     try:
@@ -698,6 +723,7 @@ def generate_file(
         full_context=full_context[:10000],
         architect_json=_architect_prompt_context(architect),
         design_system_json=json.dumps(design_system, ensure_ascii=False, indent=2),
+        brand_brief_block=brand_brief_block,
         recipe_id=recipe_id,
         recipe_prompt=recipe_prompt,
         hub_variant=hub_variant,

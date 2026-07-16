@@ -2348,7 +2348,15 @@ def apply_workspace_guards(
     except Exception as e:
         print(f"    main.tsx sync skipped: {e}", flush=True)
     try:
-        write_index_css(workspace, primary, secondary, font, template_renderer, recipe=recipe)
+        write_index_css(
+            workspace,
+            primary,
+            secondary,
+            font,
+            template_renderer,
+            recipe=recipe,
+            design_system=(plan or {}).get("design_system") or {},
+        )
         write_app_tsx(workspace, architect, template_renderer)
         # App.tsx can introduce mock imports after the earlier contract pass.
         # Close that deterministic gap in the same guard invocation.

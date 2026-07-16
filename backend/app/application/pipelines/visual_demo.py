@@ -55,6 +55,15 @@ def generate_visual_demo(
         demo = fallback_visual_demo(req)
 
     demo = enrich_visual_demo(demo, req)
+    from app.application.preview_app.brand_brief import ensure_brand_brief
+
+    demo = ensure_brand_brief(
+        demo,
+        business_name=req.business_name or req.concept_name,
+        industry=req.industry,
+        business_description=getattr(req, "business_description", None),
+        seed=request_id,
+    )
 
     req.visual_demo_json = json.dumps(demo)
     req.visual_demo_generated_at = datetime.utcnow()

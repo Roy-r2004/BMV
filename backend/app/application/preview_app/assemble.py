@@ -390,8 +390,9 @@ def write_plumbing_mock(
     brand_name: str,
     primary: str,
     secondary: str,
+    design_system: dict | None = None,
 ) -> None:
-    """Minimal mock.ts so layouts/router work before pages exist. No business data."""
+    """Minimal mock.ts so layouts/router work before pages exist."""
     routes = architect.get("routes") or []
     roles_src = architect.get("roles") or []
     roles_data = []
@@ -419,8 +420,14 @@ def write_plumbing_mock(
         for rt in routes if rt.get("path") and _layout_for(rt) == "admin"
     ]
     img = images or {}
+    brand_payload: dict = {
+        "name": brand_name or "Brand",
+        "tagline": "",
+    }
+    if design_system:
+        brand_payload["design_system"] = design_system
     content = (
-        f"export const brand = {json.dumps({'name': brand_name or 'Brand', 'tagline': ''}, ensure_ascii=False)};\n\n"
+        f"export const brand = {json.dumps(brand_payload, ensure_ascii=False)};\n\n"
         f"export const images = {json.dumps(img, indent=2, ensure_ascii=False)};\n\n"
         f"export const roles = {json.dumps(roles_data, indent=2, ensure_ascii=False)};\n\n"
         f"export const navigation = {json.dumps({'public': public_nav, 'admin': admin_nav}, indent=2, ensure_ascii=False)};\n"
@@ -447,13 +454,34 @@ def write_index_css(
     font: str,
     template_renderer: TemplateRenderer,
     recipe: dict | None = None,
+    design_system: dict | None = None,
 ) -> None:
     from app.application.preview_app.design_recipes import get_recipe, recipe_font_import_css
 
     primary, secondary, font_family = sanitize_theme_inputs(primary, secondary, font)
-    resolved = recipe or get_recipe(None)
-    tokens = resolved.get("tokens") or {}
-    fonts = resolved.get("fonts") or {}
+    resolved = dict(recipe or get_recipe(None))
+    tokens = dict(resolved.get("tokens") or {})
+    fonts = dict(resolved.get("fonts") or {})
+    ds = design_system or {}
+    if ds.get("brand_locked"):
+        if ds.get("font_sans"):
+            fonts["sans"] = ds["font_sans"]
+        if ds.get("font_display"):
+            fonts["display"] = ds["font_display"]
+        if ds.get("font_import"):
+            fonts["import"] = ds["font_import"]
+            resolved["fonts"] = fonts
+        if ds.get("font_family"):
+            font_family = str(ds["font_family"])
+        if ds.get("primary_color"):
+            primary = str(ds["primary_color"])
+        if ds.get("secondary_color"):
+            secondary = str(ds["secondary_color"])
+    font_import = (
+        f'@import url("https://fonts.googleapis.com/css2?family={fonts.get("import")}&display=swap");'
+        if fonts.get("import")
+        else recipe_font_import_css(resolved)
+    )
     css = template_renderer.render(
         "codegen/index_css.j2",
         primary=primary,
@@ -461,7 +489,7 @@ def write_index_css(
         font_family=font_family,
         font_sans=fonts.get("sans") or font_family,
         font_display=fonts.get("display") or fonts.get("sans") or font_family,
-        font_import=recipe_font_import_css(resolved),
+        font_import=font_import,
         radius_ui=tokens.get("radius_ui") or "0.75rem",
         bg_mix=tokens.get("bg_mix") or "4%",
         fg_mix=tokens.get("fg_mix") or "32%",

@@ -262,15 +262,18 @@ def apply_recipe_to_plan(
     design = dict(updated.get("design_system") or {})
     fonts = recipe["fonts"]
     tokens = recipe["tokens"]
+    brand_locked = bool(design.get("brand_locked"))
     design["recipe_id"] = recipe["id"]
     design["hub_variant"] = recipe["hub_variant"]
-    design["font_family"] = fonts["sans"].split(",")[0].strip().strip('"')
-    design["display_font_family"] = fonts["display"].split(",")[0].strip().strip('"')
-    design["font_import_url"] = (
-        "https://fonts.googleapis.com/css2?family="
-        + fonts["import"]
-        + "&display=swap"
-    )
+    # Recipe owns composition; a locked brand brief owns palette + type.
+    if not brand_locked:
+        design["font_family"] = fonts["sans"].split(",")[0].strip().strip('"')
+        design["display_font_family"] = fonts["display"].split(",")[0].strip().strip('"')
+        design["font_import_url"] = (
+            "https://fonts.googleapis.com/css2?family="
+            + fonts["import"]
+            + "&display=swap"
+        )
     design["border_radius"] = tokens["radius_ui"]
     design["style_keywords"] = recipe["label"]
     design["hero_variant"] = recipe["hero_variant"]

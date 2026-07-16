@@ -10,6 +10,10 @@ Generate ONE file for a unique business preview app. Output ONLY the file conten
 
 === DESIGN SYSTEM ===
 {{ design_system_json }}
+{% if brand_brief_block is defined and brand_brief_block %}
+
+{{ brand_brief_block }}
+{% endif %}
 {% if recipe_prompt is defined and recipe_prompt %}
 
 === DESIGN RECIPE (NON-NEGOTIABLE LOOK) ===
@@ -17,6 +21,7 @@ Recipe: {{ recipe_id | default('') }} · hub_variant={{ hub_variant | default(''
 {{ recipe_prompt }}
 - Prefer `font-display` on H1/H2 headlines; body uses the recipe sans stack from CSS tokens.
 - Match recipe density (air vs compact). Do not invent a conflicting visual theme.
+- Brand brief palette/type win over recipe defaults when they disagree.
 {% endif %}
 
 === BRAND MANIFEST ===
