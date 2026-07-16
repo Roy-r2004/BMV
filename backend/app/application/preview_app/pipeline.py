@@ -1515,6 +1515,8 @@ def generate_preview_app(
             "routes": route_list,
             "design_direction": architect.get("design_direction", ""),
             "fallback_pages": fallback_pages,
+            # Remount host iframe past sticky error boundaries after rebuilds.
+            "built_at": int(time.time()),
         },
         "experience_plan": persisted_plan,
     }

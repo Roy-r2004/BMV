@@ -4,6 +4,14 @@ import { UiIcon } from '../../components/UiIcons';
 import { cn } from '../lib/cn';
 import { formatRelative } from '../lib/format';
 
+function safeRelative(value: string): string {
+  try {
+    return formatRelative(value);
+  } catch {
+    return value;
+  }
+}
+
 export interface ActivityFeedItem {
   id?: string;
   title?: string;
@@ -77,7 +85,7 @@ export function ActivityFeed({ className, heading = 'Activity', items }: Activit
           rows.map((item) => {
             const relative =
               item.time && (item.time.includes('T') || item.time.includes('-'))
-                ? formatRelative(item.time)
+                ? safeRelative(item.time)
                 : item.time || '';
             const initial = (item.title || 'A').trim().charAt(0).toUpperCase();
             return (

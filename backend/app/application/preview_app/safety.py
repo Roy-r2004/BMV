@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+from datetime import date, timedelta
 from pathlib import Path, PurePosixPath
 
 from app.core.config import settings
@@ -242,12 +243,42 @@ def _roles_from(architect: dict, plan: dict) -> list:
     ]
 
 
+# Marker used by auto-seeded list stubs — also detects thin stubs that need
+# date/schedule fields so pages calling `new Date(row.date)` don't throw.
+_SEEDED_STUB_DETAIL_MARKER = "record for demo lists"
+_DATE_FIELD_KEYS = (
+    "date",
+    "dropOffDate",
+    "startDate",
+    "scheduledAt",
+    "createdAt",
+    "timestamp",
+)
+
+
 def _seeded_list_export(name: str, brand_name: str) -> str:
-    """3–6 realistic rows so pages never render empty lists from auto-exports."""
+    """3–6 realistic rows so pages never render empty lists from auto-exports.
+
+    Includes ISO date/time fields — generated ops dashboards often call
+    `dateFormatter.format(new Date(session.date))` and crash on missing dates
+    with RangeError: Invalid time value.
+    """
     brand = brand_name or "Brand"
     label = re.sub(r"([A-Z])", r" \1", name).strip() or name
+    today = date.today()
+    load_types = ("Bisque", "Glaze", "Cone 6", "Raku")
+    instructors = ("Maya R.", "Jordan K.", "Sam T.", "Noa B.")
     rows = []
     for i in range(1, 5):
+        day = today + timedelta(days=i - 1)
+        iso = day.isoformat()
+        hh = 9 + (i % 8)
+        mm = "00" if i % 2 else "30"
+        hhmm = f"{hh:02d}:{mm}"
+        hhmmss = f"{hhmm}:00"
+        scheduled = f"{iso}T{hhmmss}"
+        registered = 4 + i
+        capacity = 12
         rows.append(
             {
                 "id": f"{name.lower()}-{i}",
@@ -255,12 +286,137 @@ def _seeded_list_export(name: str, brand_name: str) -> str:
                 "title": f"{label} {i}",
                 "label": f"{label} {i}",
                 "status": ["Open", "In progress", "Done", "Scheduled"][i % 4],
-                "detail": f"Sample {brand} record for demo lists",
+                "detail": f"Sample {brand} {_SEEDED_STUB_DETAIL_MARKER}",
+                "message": f"{label} update {i}",
                 "amount": 40 + i * 12,
                 "count": 3 + i,
+                # Schedule / booking fields (admin dashboards, kiln, classes)
+                "date": iso,
+                "time": hhmm,
+                "startDate": iso,
+                "endDate": iso,
+                "dropOffDate": iso,
+                "dropOffTime": hhmm,
+                "pickupDate": (day + timedelta(days=2)).isoformat(),
+                "scheduledAt": scheduled,
+                "createdAt": scheduled,
+                "timestamp": scheduled,
+                "instructor": instructors[(i - 1) % len(instructors)],
+                "memberName": f"Member {i}",
+                "loadType": load_types[(i - 1) % len(load_types)],
+                "registered": registered,
+                "capacity": capacity,
+                "isFull": registered >= capacity,
             }
         )
     return json.dumps(rows, ensure_ascii=False)
+
+
+def _mock_export_value_end(src: str, start: int) -> int:
+    """Return index just past the value (and optional `;`) of an export const."""
+    i = start
+    while i < len(src) and src[i] in " \t\n\r":
+        i += 1
+    if i >= len(src):
+        return start
+    if src[i] in "\"'":
+        quote = src[i]
+        i += 1
+        while i < len(src):
+            if src[i] == "\\":
+                i += 2
+                continue
+            if src[i] == quote:
+                i += 1
+                break
+            i += 1
+    elif src[i] in "[{":
+        open_ch = src[i]
+        close_ch = "]" if open_ch == "[" else "}"
+        depth = 0
+        in_str: str | None = None
+        while i < len(src):
+            ch = src[i]
+            if in_str:
+                if ch == "\\":
+                    i += 1
+                elif ch == in_str:
+                    in_str = None
+            elif ch in "\"'`":
+                in_str = ch
+            elif ch == open_ch:
+                depth += 1
+            elif ch == close_ch:
+                depth -= 1
+                if depth == 0:
+                    i += 1
+                    break
+            i += 1
+    else:
+        while i < len(src) and src[i] not in ";\n":
+            i += 1
+    while i < len(src) and src[i] in " \t":
+        i += 1
+    if i < len(src) and src[i] == ";":
+        i += 1
+    return i
+
+
+_LIST_EXPORT_RE = re.compile(
+    r"export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*",
+    re.MULTILINE,
+)
+
+
+def enrich_date_starved_mock_exports(workspace, brand_name: str) -> list[str]:
+    """Rewrite thin auto-seeded list stubs that lack ISO date fields.
+
+    Older stubs only had id/name/title/status/amount/count. Pages that do
+    `new Date(row.date)` then throw RangeError: Invalid time value at runtime.
+    """
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return []
+
+    skip = {
+        "roles",
+        "navigation",
+        "images",
+        "brand",
+        "design_system",
+        "designsystem",
+        "manifest",
+        "brand_manifest",
+        "brandmanifest",
+        "brand_name",
+        "brandname",
+        "owner_name",
+        "ownername",
+    }
+    replaced: list[str] = []
+    matches = list(_LIST_EXPORT_RE.finditer(mock))
+    for m in reversed(matches):
+        name = m.group(1)
+        if name.lower().replace("_", "") in skip:
+            continue
+        val_start = m.end()
+        val_end = _mock_export_value_end(mock, val_start)
+        current = mock[val_start:val_end].strip().rstrip(";").strip()
+        if not current.startswith("["):
+            continue
+        if _SEEDED_STUB_DETAIL_MARKER not in current:
+            continue
+        # Already has schedule fields — leave alone (idempotent).
+        if any(f'"{k}"' in current or f"'{k}'" in current for k in _DATE_FIELD_KEYS):
+            continue
+        seeded = _seeded_list_export(name, brand_name)
+        mock = mock[:val_start] + seeded + ";" + mock[val_end:]
+        replaced.append(name)
+
+    if replaced:
+        write_file(workspace, mock_path, mock)
+    return list(reversed(replaced))
 
 
 def _design_system_dict(primary: str, secondary: str, font: str) -> dict:
@@ -2310,6 +2466,13 @@ def apply_workspace_guards(
             print(f"    filled empty mock exports: {', '.join(filled)}", flush=True)
     except Exception as e:
         print(f"    empty mock enrich skipped: {e}", flush=True)
+    try:
+        dated = enrich_date_starved_mock_exports(workspace, brand_name)
+        if dated:
+            actions.extend([f"mock-dates:{n}" for n in dated])
+            print(f"    enriched date-starved mock exports: {', '.join(dated)}", flush=True)
+    except Exception as e:
+        print(f"    date-starved mock enrich skipped: {e}", flush=True)
     try:
         repaired = repair_typed_mock_exports(workspace, brand_name, primary, secondary, font)
         if repaired:

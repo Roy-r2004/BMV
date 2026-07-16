@@ -53,6 +53,25 @@ class PreviewErrorBoundary extends Component<
           >
             {this.state.error.message}
           </pre>
+          <button
+            type="button"
+            onClick={() => {
+              this.setState({ error: null });
+              window.location.reload();
+            }}
+            style={{
+              marginTop: '1rem',
+              padding: '0.6rem 1rem',
+              borderRadius: 8,
+              border: 'none',
+              background: '#0f172a',
+              color: '#fff',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Reload preview
+          </button>
         </div>
       );
     }

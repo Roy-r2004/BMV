@@ -1,4 +1,6 @@
-# App-only image for production (Ollama runs in a separate container)
+# Production app image: React static + FastAPI + Node (Vite preview builds) + Playwright
+# Ollama is optional (separate compose profile). Prefer AI_PROVIDER=openrouter on Hostinger.
+
 FROM node:20-alpine AS frontend-build
 
 WORKDIR /app/frontend
@@ -23,35 +25,36 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DATABASE_URL=sqlite:////app/data/buildmyversion.db \
     UPLOAD_DIR=/app/data/uploads \
     STATIC_DIR=/app/static \
+    PREVIEW_TEMPLATE_DIR=/app/backend/preview-template \
+    PREVIEW_APPS_DIR=/app/data/preview-apps \
     OLLAMA_URL=http://ollama:11434 \
     PORT=8000 \
-    PULL_MODELS=false
+    PULL_MODELS=false \
+    PATH="/opt/node/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    xz-utils \
+    && curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz \
+      | tar -xJ -C /opt \
+    && mv /opt/node-v22.14.0-linux-x64 /opt/node \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/backend
 
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-# Post-build visual critique needs a real browser to screenshot the rendered
-# app. --with-deps pulls in the OS-level libs Chromium needs on Debian slim.
-# --no-shell skips the separate chromium-headless-shell binary — screenshot.py
-# launches with channel="chromium" (Chromium's "new" headless mode), which
-# reuses the regular Chromium build instead. This is still a real size/latency
-# cost of this feature: adds ~200-300MB to the image and roughly a minute to
-# the build — not free, flagging it here rather than hiding it in a base
-# image bump.
-RUN playwright install --with-deps --no-shell chromium
+RUN pip install --no-cache-dir -r requirements.txt \
+    && playwright install --with-deps --no-shell chromium
 
-COPY backend/app ./app
+# Full backend (app + templates + preview-template for codegen/vite builds)
+COPY backend/ ./
 COPY --from=frontend-build /app/frontend/dist /app/static
 COPY docker/entrypoint.app.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh \
-    && mkdir -p /app/data/uploads
+    && mkdir -p /app/data/uploads /app/data/preview-apps \
+    && test -f preview-template/package.json
 
 VOLUME ["/app/data"]
 

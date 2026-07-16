@@ -5,21 +5,28 @@ DATA_DIR="${DATA_DIR:-/app/data}"
 export DATABASE_URL="${DATABASE_URL:-sqlite:////app/data/buildmyversion.db}"
 export UPLOAD_DIR="${UPLOAD_DIR:-/app/data/uploads}"
 export STATIC_DIR="${STATIC_DIR:-/app/static}"
+export PREVIEW_TEMPLATE_DIR="${PREVIEW_TEMPLATE_DIR:-/app/backend/preview-template}"
+export PREVIEW_APPS_DIR="${PREVIEW_APPS_DIR:-/app/data/preview-apps}"
 export OLLAMA_URL="${OLLAMA_URL:-http://ollama:11434}"
+AI_PROVIDER="${AI_PROVIDER:-openrouter}"
 
-mkdir -p "$DATA_DIR" "$UPLOAD_DIR"
+mkdir -p "$DATA_DIR" "$UPLOAD_DIR" "$PREVIEW_APPS_DIR"
 
-echo "Waiting for Ollama at ${OLLAMA_URL}..."
-for i in $(seq 1 90); do
-  if curl -sf "${OLLAMA_URL}/api/tags" >/dev/null 2>&1; then
-    echo "Ollama is ready."
-    break
-  fi
-  if [ "$i" -eq 90 ]; then
-    echo "Warning: Ollama did not become ready in time. AI features may fail until it starts."
-  fi
-  sleep 2
-done
+if [ "$AI_PROVIDER" = "ollama" ]; then
+  echo "Waiting for Ollama at ${OLLAMA_URL}..."
+  for i in $(seq 1 90); do
+    if curl -sf "${OLLAMA_URL}/api/tags" >/dev/null 2>&1; then
+      echo "Ollama is ready."
+      break
+    fi
+    if [ "$i" -eq 90 ]; then
+      echo "Warning: Ollama did not become ready in time. AI features may fail until it starts."
+    fi
+    sleep 2
+  done
+else
+  echo "AI_PROVIDER=${AI_PROVIDER} — skipping Ollama wait."
+fi
 
 echo "Starting BuildMyVersion API on port ${PORT:-8000}..."
 cd /app/backend

@@ -1,12 +1,18 @@
-# Production stack: Traefik (TLS) + App + Ollama (separate services)
+# Production stack for Hostinger VPS (or any Linux VPS):
+#   Traefik (HTTPS) + App
+#   Optional Ollama: --profile ollama
 #
-# First-time model download (good connection recommended):
-#   docker compose -f docker-compose.prod.yml --profile init run --rm ollama-init
+# Recommended on Hostinger: OpenRouter (no GPU / no 6GB model RAM).
 #
-# Run:
+# Setup:
+#   cp .env.prod.example .env
+#   # edit DOMAIN, ACME_EMAIL, ADMIN_PASSWORD, OPENROUTER_API_KEY
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Requires: .env with DOMAIN, ACME_EMAIL, ADMIN_PASSWORD, ROY_WHATSAPP_NUMBER
+# With local Ollama instead:
+#   AI_PROVIDER=ollama in .env, then:
+#   docker compose -f docker-compose.prod.yml --profile ollama --profile init run --rm ollama-init
+#   docker compose -f docker-compose.prod.yml --profile ollama up -d --build
 
 name: buildmyversion-prod
 
@@ -40,6 +46,7 @@ services:
     cpus: "0.50"
 
   ollama:
+    profiles: ["ollama"]
     image: ollama/ollama:latest
     container_name: bmv-ollama
     restart: unless-stopped
@@ -65,7 +72,7 @@ services:
     #           capabilities: [gpu]
 
   ollama-init:
-    profiles: ["init"]
+    profiles: ["ollama", "init"]
     image: ollama/ollama:latest
     container_name: bmv-ollama-init
     restart: "no"
@@ -99,20 +106,35 @@ services:
       DATABASE_URL: sqlite:////app/data/buildmyversion.db
       UPLOAD_DIR: /app/data/uploads
       STATIC_DIR: /app/static
-      OLLAMA_URL: http://ollama:11434
+      PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
+      PREVIEW_APPS_DIR: /app/data/preview-apps
       CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env}
+      INTERNAL_BASE_URL: http://127.0.0.1:8000
+      # Hostinger default: OpenRouter (set OPENROUTER_API_KEY in .env)
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-Build My Version}
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
+      PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
+      ARCHITECT_MODEL: ${ARCHITECT_MODEL:-}
+      CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
+      FIX_MODEL: ${FIX_MODEL:-google/gemini-2.5-flash}
+      VISION_MODEL: ${VISION_MODEL:-}
+      OLLAMA_URL: http://ollama:11434
       PULL_MODELS: "false"
-      APPSPEC_MODE: ${APPSPEC_MODE:-off}
+      APPSPEC_MODE: ${APPSPEC_MODE:-shadow}
       APPSPEC_MAX_CALLS: ${APPSPEC_MAX_CALLS:-6}
-      APPSPEC_MAX_REPAIR_ATTEMPTS: ${APPSPEC_MAX_REPAIR_ATTEMPTS:-2}
+      APPSPEC_MAX_REPAIR_ATTEMPTS: ${APPSPEC_MAX_REPAIR_ATTEMPTS:-3}
       APPSPEC_MIN_COVERAGE_SCORE: ${APPSPEC_MIN_COVERAGE_SCORE:-95}
       APPSPEC_PREVIEW_TARGET_PAGES: ${APPSPEC_PREVIEW_TARGET_PAGES:-6}
       APPSPEC_PREVIEW_MAX_PAGES: ${APPSPEC_PREVIEW_MAX_PAGES:-8}
+      PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-false}
+      PREVIEW_SKIP_VISUAL_CRITIC: ${PREVIEW_SKIP_VISUAL_CRITIC:-false}
+      PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-2}
     volumes:
       - buildmyversion-data:/app/data
-    depends_on:
-      ollama:
-        condition: service_healthy
     networks:
       - bmv-public
       - bmv-internal
@@ -122,8 +144,8 @@ services:
       - "traefik.http.routers.bmv.entrypoints=websecure"
       - "traefik.http.routers.bmv.tls.certresolver=letsencrypt"
       - "traefik.http.services.bmv.loadbalancer.server.port=8000"
-    mem_limit: 1g
-    cpus: "1.50"
+    mem_limit: 2g
+    cpus: "2.00"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
       interval: 30s

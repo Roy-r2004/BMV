@@ -58,7 +58,13 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
   // Only the role entry URL is baked into iframe src. In-app navigation stays
   // client-side via the preview bridge (changing src on every path would remount).
   const [iframeEntryPath, setIframeEntryPath] = useState(roles[0]?.defaultPath ?? '/');
-  const iframeSrc = previewBase ? previewSrcForPath(previewBase, iframeEntryPath) : null;
+  const iframeSrcBase = previewBase ? previewSrcForPath(previewBase, iframeEntryPath) : null;
+  // Always remount when the role entry changes; also bust cache after rebuilds.
+  // sessionMount forces a fresh load when this host page itself remounts (hard refresh).
+  const [sessionMount] = useState(() => Date.now());
+  const iframeSrc = iframeSrcBase
+    ? `${iframeSrcBase}${iframeSrcBase.includes('?') ? '&' : '?'}v=${previewApp?.built_at ?? previewApp?.status ?? '1'}&m=${sessionMount}`
+    : null;
   const isRebuilding = previewApp?.status === 'rebuilding';
   const refineError = previewApp?.last_refinement_error?.trim() || '';
   const accent = activeRole?.accent ?? '#6366f1';
@@ -176,7 +182,7 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
           )}
           <iframe
             ref={iframeRef}
-            key={`${iframeSrc}-${previewApp?.status ?? 'idle'}`}
+            key={`${iframeSrc}-${previewApp?.status ?? 'idle'}-${previewApp?.built_at ?? 0}`}
             title={`${activeRole?.label ?? 'Preview'} — ${conceptName ?? 'Preview'}`}
             src={iframeSrc}
             className="rbp-iframe min-h-[420px]"

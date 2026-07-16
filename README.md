@@ -55,57 +55,61 @@ docker compose up -d
 
 ---
 
-## Production (Docker + Traefik)
+## Production / Hostinger VPS (Docker + Traefik)
 
-For VPS deployment with **HTTPS**, **separate Ollama service**, and **resource limits**:
+Default production path uses **OpenRouter** (no GPU). Good fit for Hostinger VPS (~2–4 GB RAM).
 
 | Service | Role |
 |---------|------|
 | **Traefik** | Reverse proxy + Let's Encrypt TLS |
-| **app** | React + FastAPI (no Ollama bundled) |
-| **ollama** | AI models only, internal network |
+| **app** | React + FastAPI + Node (Vite preview builds) |
+| **ollama** | Optional (`--profile ollama`) for self-hosted models |
 
-### Requirements
+### Requirements (OpenRouter — recommended)
 
-- Linux VPS with Docker + Compose
-- Domain DNS → server IP (`A` record for `DOMAIN` and `traefik.DOMAIN`)
-- **8 GB+ RAM** (6 GB for Ollama, 1 GB app, rest for OS)
-- Good connection for first model pull (~10 GB)
+- Hostinger (or any) Linux VPS with Docker + Compose
+- Domain DNS → VPS IP (`A` for `DOMAIN` and `traefik.DOMAIN`)
+- **2 GB+ RAM** (4 GB comfortable), OpenRouter API key
 
-### Setup
+### Setup (Hostinger)
 
 ```bash
-copy .env.prod.example .env          # Windows
-# cp .env.prod.example .env          # macOS/Linux
-# Edit .env — DOMAIN, ACME_EMAIL, ADMIN_PASSWORD, ROY_WHATSAPP_NUMBER
+# On the VPS
+git clone https://github.com/Roy-r2004/BMV.git
+cd BMV
+cp .env.prod.example .env
+# Edit .env — DOMAIN, ACME_EMAIL, ADMIN_PASSWORD, OPENROUTER_API_KEY
 
-# 1) Pull AI models once (use a good connection)
-docker compose -f docker-compose.prod.yml --profile init run --rm ollama-init
-
-# 2) Start production stack
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Open **https://your-domain.com** (app) and **https://traefik.your-domain.com** (Traefik dashboard).
 
+### Optional: Ollama on a larger VPS (8 GB+)
+
+```bash
+# In .env: AI_PROVIDER=ollama (+ ollama model names)
+docker compose -f docker-compose.prod.yml --profile ollama --profile init run --rm ollama-init
+docker compose -f docker-compose.prod.yml --profile ollama up -d --build
+```
+
 ### Production notes
 
 | Item | Location |
 |------|----------|
-| SQLite DB | `buildmyversion-data` volume |
-| Ollama models | `ollama-models` volume (separate container) |
+| SQLite DB + preview apps | `buildmyversion-data` volume |
+| Ollama models (if used) | `ollama-models` volume |
 | TLS certs | `traefik-certs` volume |
 
-- Set `PULL_MODELS=false` in `.env` after models are downloaded.
-- Ollama is **not** exposed publicly — only the app talks to it on an internal network.
-- Uncomment the NVIDIA GPU block in `docker-compose.prod.yml` if your server has a GPU.
+- Never commit real `.env` / API keys.
+- Ollama (when enabled) is internal-only — not exposed publicly.
 
 ### Dev vs prod compose
 
 | File | Use case |
 |------|----------|
-| `docker-compose.yml` | Local all-in-one (Ollama inside same container) |
-| `docker-compose.prod.yml` | Production VPS with Traefik + split services |
+| `docker-compose.yml` | Local API (OpenRouter) + Vite frontend |
+| `docker-compose.prod.yml` | Hostinger/VPS with Traefik + HTTPS |
 
 ---
 

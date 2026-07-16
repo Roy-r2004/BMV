@@ -271,6 +271,8 @@ export interface PreviewAppInfo {
   design_direction?: string;
   fallback_pages?: string[];
   last_refinement_error?: string | null;
+  /** Epoch seconds — changes on rebuild so the iframe remounts past error boundaries. */
+  built_at?: number | null;
 }
 
 export interface GeneratedPages {
