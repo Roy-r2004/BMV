@@ -1,0 +1,11 @@
+{
+  "id": "member-hub",
+  "label": "Member hub",
+  "industry_tags": ["member", "membership", "portal", "account home", "bookings history"],
+  "recipe_hint": "warm-service",
+  "skeleton_id": "member-hub",
+  "section_order": ["header", "workspace", "summary", "activity"],
+  "signature_moves": ["brand-tinted cards", "upcoming bookings", "quick actions"],
+  "prompt_hints": ["Utility with warmth — next booking, history, one-tap actions; never gray admin."],
+  "mock_seed": { "tone": "member" }
+}

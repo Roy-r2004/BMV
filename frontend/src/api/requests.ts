@@ -34,6 +34,10 @@ export interface GenerationProgress {
   files_done?: number;
   files_total?: number;
   log?: Array<{ t: number; msg: string }>;
+  updated_at?: string;
+  is_generating?: boolean;
+  is_failed?: boolean;
+  request_status?: string;
 }
 
 export async function getGenerationProgress(id: number): Promise<GenerationProgress> {

@@ -1,0 +1,11 @@
+{
+  "id": "booking-calendar-ops",
+  "label": "Booking calendar ops",
+  "industry_tags": ["calendar", "bookings", "appointments", "schedule", "reservations ops"],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "chart", "activity"],
+  "signature_moves": ["day list", "fill-rate KPIs", "activity"],
+  "prompt_hints": ["Schedule ops — today's book, conflicts in risk/activity, brand chrome."],
+  "mock_seed": { "tone": "schedule" }
+}

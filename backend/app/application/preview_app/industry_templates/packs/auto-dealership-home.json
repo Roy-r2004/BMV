@@ -1,0 +1,11 @@
+{
+  "id": "auto-dealership-home",
+  "label": "Auto / dealership",
+  "industry_tags": ["auto", "car", "dealership", "automotive", "vehicles", "motors"],
+  "recipe_hint": "bold-retail",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "showcase", "features", "process", "cta", "footer"],
+  "signature_moves": ["product hero", "vehicle showcase", "sharp CTAs"],
+  "prompt_hints": ["Inventory-forward drama — full-bleed vehicles, short copy, strong CTAs."],
+  "mock_seed": { "tone": "bold" }
+}

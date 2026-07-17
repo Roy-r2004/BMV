@@ -1,0 +1,11 @@
+{
+  "id": "clinic-dental-home",
+  "label": "Clinic / dental",
+  "industry_tags": ["clinic", "dental", "dentist", "medical", "healthcare", "doctor"],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "credentials", "features", "process", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["trust credentials", "process", "booking"],
+  "prompt_hints": ["Clean clinical calm with brand warmth — never sterile gray SaaS."],
+  "mock_seed": { "tone": "reassuring" }
+}

@@ -3,6 +3,7 @@ export {
   MotionHover,
   MotionPage,
   MotionReveal,
+  MotionScaleIn,
   MotionStagger,
   MotionStaggerItem,
   heroEntrance,

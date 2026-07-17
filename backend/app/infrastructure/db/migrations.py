@@ -2,11 +2,12 @@
 
 Lightweight alternative to Alembic for this project's simple SQLite schema —
 adds columns that may be missing in databases created by older versions of
-the app. Safe to call on every startup: it only adds columns that don't
-already exist and swallows any error (e.g. non-SQLite backends).
+the app. Safe to call on every startup: it only runs on SQLite, only adds
+columns that don't already exist, and never raises.
 """
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.infrastructure.db.session import engine
 
 _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
@@ -19,6 +20,8 @@ _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
 
 def run_sqlite_migrations() -> None:
     """Add any missing columns to the `requests` table. Never raises."""
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        return
     try:
         with engine.connect() as conn:
             existing = {row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))}

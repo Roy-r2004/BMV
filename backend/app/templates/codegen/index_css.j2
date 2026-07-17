@@ -1,24 +1,25 @@
 {{ font_import | default('') }}
 @import "tailwindcss";
 
+{#- Defaults keep strict Undefined renderers and thin callsites working. -#}
 @theme {
-  --color-background: color-mix(in srgb, {{ primary }} {{ bg_mix }}, white);
-  --color-foreground: color-mix(in srgb, {{ primary }} {{ fg_mix }}, black);
-  --color-muted: color-mix(in srgb, {{ primary }} {{ muted_mix }}, #64748b);
-  --color-card: {{ card_color }};
-  --color-border-subtle: color-mix(in srgb, {{ primary }} {{ border_mix }}, #e2e8f0);
+  --color-background: color-mix(in srgb, {{ primary }} {{ bg_mix | default('4%') }}, white);
+  --color-foreground: color-mix(in srgb, {{ primary }} {{ fg_mix | default('32%') }}, black);
+  --color-muted: color-mix(in srgb, {{ primary }} {{ muted_mix | default('30%') }}, #64748b);
+  --color-card: {{ card_color | default('white') }};
+  --color-border-subtle: color-mix(in srgb, {{ primary }} {{ border_mix | default('16%') }}, #e2e8f0);
   --color-brand: {{ primary }};
   --color-brand-dark: {{ secondary }};
   --color-accent: {{ secondary }};
   --color-ring: {{ primary }};
   --color-chart: {{ secondary }};
-  --font-sans: {{ font_sans }};
-  --font-display: {{ font_display }};
-  --radius-ui: {{ radius_ui }};
-  --shadow-ui: {{ shadow_ui }} color-mix(in srgb, {{ primary }} {{ shadow_alpha }}, transparent);
-  --glow-atmosphere: color-mix(in srgb, {{ primary }} {{ glow }}, transparent);
+  --font-sans: {{ font_sans | default(font_family) }};
+  --font-display: {{ font_display | default(font_sans | default(font_family)) }};
+  --radius-ui: {{ radius_ui | default('0.75rem') }};
+  --shadow-ui: {{ shadow_ui | default('0 24px 50px -36px') }} color-mix(in srgb, {{ primary }} {{ shadow_alpha | default('35%') }}, transparent);
+  --glow-atmosphere: color-mix(in srgb, {{ primary }} {{ glow | default('12%') }}, transparent);
   --treatment-light: {{ primary }};
-  --recipe-atmosphere: {{ atmosphere }};
+  --recipe-atmosphere: {{ atmosphere | default('radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 50%)') }};
 }
 
 @layer base {
@@ -62,8 +63,55 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes ui-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+@keyframes ui-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
 .ui-kenburns { animation: ui-kenburns 32s ease-out both; }
 .ui-marquee-track { animation: ui-marquee 56s linear infinite; }
+.ui-float { animation: ui-float 5.5s ease-in-out infinite; }
+
+.ui-mesh {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
+  background:
+    radial-gradient(50% 45% at 12% 18%, var(--glow-atmosphere), transparent 60%),
+    radial-gradient(42% 38% at 88% 12%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 55%),
+    radial-gradient(55% 50% at 55% 100%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 60%);
+}
+
+.ui-noise {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+.ui-gradient-border {
+  position: relative;
+}
+.ui-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-brand) 55%, white), transparent 45%, color-mix(in srgb, var(--color-accent) 40%, white));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
 
 .ui-film-grain {
   pointer-events: none;
@@ -92,7 +140,8 @@
 @media (prefers-reduced-motion: reduce) {
   .ui-marquee-track,
   .ui-kenburns,
-  .ui-hero-sheen {
+  .ui-hero-sheen,
+  .ui-float {
     animation: none;
   }
 }
@@ -139,4 +188,30 @@
 
 [data-recipe="warm-service"] section:not([data-hero]) {
   padding-block: clamp(3.5rem, 7vw, 6.5rem);
+}
+
+[data-recipe="nocturne"] {
+  --color-background: #0a090c;
+  --color-foreground: #f4f0ea;
+  --color-muted: color-mix(in srgb, #f4f0ea 55%, transparent);
+  --color-card: #16131a;
+  --color-border-subtle: color-mix(in srgb, var(--color-brand) 28%, #2a2430);
+  color: var(--color-foreground);
+  background:
+    var(--recipe-atmosphere),
+    var(--color-background);
+  background-attachment: fixed;
+}
+[data-recipe="nocturne"] .font-display {
+  font-style: italic;
+  letter-spacing: -0.03em;
+  color: #f7f2ea;
+}
+
+[data-recipe="craft"] .font-display {
+  font-style: italic;
+  letter-spacing: -0.028em;
+}
+[data-recipe="craft"] section:not([data-hero]) {
+  padding-block: clamp(3.25rem, 6.5vw, 6rem);
 }

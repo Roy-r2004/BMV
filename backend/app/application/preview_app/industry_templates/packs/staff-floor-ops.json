@@ -1,0 +1,11 @@
+{
+  "id": "staff-floor-ops",
+  "label": "Staff floor ops",
+  "industry_tags": ["staff", "floor", "front desk", "shift", "ops floor"],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "activity", "risk"],
+  "signature_moves": ["floor OpsShell", "queue table", "risk queue"],
+  "prompt_hints": ["Shift-ready density — who is waiting, what is late, brand soft chrome."],
+  "mock_seed": { "tone": "floor" }
+}

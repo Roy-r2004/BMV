@@ -11,11 +11,6 @@ export PATH="/opt/node/bin:${PATH}"
 
 mkdir -p "$DATA_DIR" "$UPLOAD_DIR" "$PREVIEW_APPS_DIR"
 
-echo "[boot] AI_PROVIDER=${AI_PROVIDER:-unset}"
-echo "[boot] PREVIEW_TEMPLATE_DIR=${PREVIEW_TEMPLATE_DIR} exists=$(test -d "$PREVIEW_TEMPLATE_DIR" && echo yes || echo no)"
-echo "[boot] node=$(node -v 2>/dev/null || echo missing) npm=$(npm -v 2>/dev/null || echo missing)"
-echo "[boot] INTERNAL_BASE_URL=${INTERNAL_BASE_URL}"
-
 if [ "${AI_PROVIDER:-}" = "ollama" ]; then
   OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
   echo "Waiting for Ollama at ${OLLAMA_URL}..."
@@ -30,4 +25,16 @@ fi
 
 echo "Starting BuildMyVersion API on port ${PORT:-8000}..."
 cd /app/backend
-exec python -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+
+UVICORN_ARGS=(--host 0.0.0.0 --port "${PORT:-8000}")
+if [ "${UVICORN_RELOAD:-false}" = "true" ] || [ "${UVICORN_RELOAD:-false}" = "1" ]; then
+  UVICORN_ARGS+=(
+    --reload
+    --reload-dir /app/backend/app
+    --reload-dir /app/backend/preview-template
+  )
+  # Bind mounts on Docker Desktop (macOS/Windows) often miss inotify events.
+  export WATCHFILES_FORCE_POLLING="${WATCHFILES_FORCE_POLLING:-true}"
+fi
+
+exec python -m uvicorn app.main:app "${UVICORN_ARGS[@]}"

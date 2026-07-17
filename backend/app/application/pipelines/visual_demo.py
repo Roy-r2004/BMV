@@ -10,7 +10,7 @@ from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.application.services.preview_parser import parse_preview_features
 from app.application.services.visual_demo_enrichment import enrich_visual_demo
-from app.application.preview_app.app_spec_projection import brand_projection
+from app.application.appspec.projection import brand_projection
 from app.domain.schemas.app_spec import AppSpec
 from app.shared.json_utils import extract_json_from_text
 

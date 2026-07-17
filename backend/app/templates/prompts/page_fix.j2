@@ -32,9 +32,9 @@ MANDATORY TECH + QUALITY RULES:
 - Configure brand colors via inline tailwind.config (colors.brand = design system primary)
 - Text over photos: full dark gradient overlay + white text only — never gray boxes behind text
 - Hero: image absolute inset-0 + overlay, left-aligned content block (badge, text-5xl+ bold headline, subtitle, 2 rounded-full buttons, social proof row)
-- Sections: py-20+, max-w-7xl mx-auto px-6, label + title + subtitle header pattern, alternating white/gray-50
-- Cards: bg-white rounded-2xl shadow-sm border border-gray-100, hover:shadow-lg
-- Dashboards: dark slate-900 sidebar, gray-50 content, stat cards, tables with avatars + status pills
-- High contrast everywhere; realistic data everywhere; no empty stretches
+- Sections: py-20+, max-w-7xl mx-auto px-6, label + title + subtitle header pattern, alternating brand-tinted surfaces (not flat gray-50)
+- Cards: bg-card rounded-2xl shadow + border-border-subtle, hover lift — never pale white-only cards
+- Dashboards: brand-tokenized sidebar + content (never slate-900 / gray-50 defaults), StatCard KPIs, tables with status pills
+- High contrast everywhere; realistic data everywhere; no empty stretches; add atmosphere (glow/mesh/grain) so pages feel cinematic
 
 Output ONLY HTML (<!DOCTYPE html> to </html>). Zero markdown.

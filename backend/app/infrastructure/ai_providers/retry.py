@@ -13,6 +13,10 @@ from typing import Callable, TypeVar
 
 import requests
 
+from app.infrastructure.logging import get_logger
+
+retry_log = get_logger("AIRetry")
+
 T = TypeVar("T")
 
 _RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
@@ -83,12 +87,12 @@ def call_with_retry(
             last_exc = e
             if status not in _RETRYABLE_STATUS_CODES or attempt == attempts:
                 raise
-            print(f"    ...HTTP {status} on attempt {attempt}/{attempts}, retrying", flush=True)
+            retry_log.warning("HTTP %s on attempt %s/%s, retrying", status, attempt, attempts)
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             last_exc = e
             if attempt == attempts:
                 raise
-            print(f"    ...{type(e).__name__} on attempt {attempt}/{attempts}, retrying", flush=True)
+            retry_log.warning("%s on attempt %s/%s, retrying", type(e).__name__, attempt, attempts)
         time.sleep(min(base_delay * (2 ** (attempt - 1)), max_delay))
     if last_exc:
         raise last_exc

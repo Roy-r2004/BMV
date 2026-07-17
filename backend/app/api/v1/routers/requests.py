@@ -10,13 +10,14 @@ from app.application.pipelines.orchestrator import GenerationPipeline
 from app.application.pipelines.role_pages import generate_role_pages
 from app.application.preview_app import generate_preview_app
 from app.application.services.progress import emit as _emit
+from app.application.services.progress import is_request_generating, progress_payload
 from app.application.services.preview_parser import parse_preview_features
 from app.application.services.preview_refinement import get_chat_history, refine_preview
-from app.application.services.app_spec_repository import (
+from app.application.appspec.repository import (
     AppSpecRepository,
     revision_summary,
 )
-from app.application.services.app_spec_generation import (
+from app.application.appspec import (
     app_spec_is_required,
     app_spec_mode,
 )
@@ -36,12 +37,14 @@ from app.infrastructure.db.session import SessionLocal
 from app.infrastructure.storage.file_service import save_upload
 from app.infrastructure.templating.renderer import get_template_renderer
 from app.infrastructure.web.reference_scraper import fetch_reference_metadata
+from app.infrastructure.logging import get_logger
+from app.infrastructure.logging.diagnostics import dump_exception, summarize_workspace_debug
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
+pipeline_log = get_logger("RequestPipeline")
 
 _preview_gen_locks: dict[int, threading.Lock] = {}
 _preview_gen_locks_guard = threading.Lock()
-
 
 def _preview_gen_lock(request_id: int) -> threading.Lock:
     with _preview_gen_locks_guard:
@@ -51,7 +54,6 @@ def _preview_gen_lock(request_id: int) -> threading.Lock:
             _preview_gen_locks[request_id] = lock
         return lock
 
-
 def _run_pipeline_in_background(request_id: int) -> None:
     """Run the (long, blocking) AI pipeline on its own thread + DB session.
 
@@ -60,20 +62,26 @@ def _run_pipeline_in_background(request_id: int) -> None:
     """
     bg_db = SessionLocal()
     try:
-        print(f"[pipeline] starting request {request_id}", flush=True)
+        pipeline_log.info("Starting background pipeline for request %s", request_id)
         GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
-        print(f"[pipeline] finished request {request_id}", flush=True)
+        pipeline_log.info("Finished background pipeline for request %s", request_id)
     except Exception as exc:
-        # Never swallow silently — free-tier Render recycles kill threads mid-job,
-        # and OpenRouter errors must show in Logs + progress UI.
-        import traceback
-
-        # Never echo secrets (e.g. malformed Bearer tokens) into logs/progress.
         safe = str(exc)
         if "Bearer sk-" in safe or "sk-or-" in safe:
             safe = "OpenRouter API key is invalid or has whitespace — re-save OPENROUTER_API_KEY in Render (no trailing spaces/newlines)."
-        print(f"[pipeline] FAILED request {request_id}: {safe}", flush=True)
-        traceback.print_exc()
+        pipeline_log.error("Background pipeline FAILED request %s: %s", request_id, safe)
+        pipeline_log.exception("Pipeline traceback for request %s", request_id)
+        try:
+            from app.application.preview_app.workspace import get_workspace
+
+            ws = get_workspace(request_id)
+            if ws.exists():
+                dump_exception(ws, "pipeline", f"background-crash-{request_id}", exc)
+                report = summarize_workspace_debug(ws)
+                for issue in report.get("top_issues", [])[:10]:
+                    pipeline_log.error("request %s debug: %s", request_id, issue)
+        except Exception as dump_exc:
+            pipeline_log.warning("could not write crash debug artifacts: %s", dump_exc)
         try:
             _emit(
                 bg_db,
@@ -84,32 +92,104 @@ def _run_pipeline_in_background(request_id: int) -> None:
                 detail=safe[:300],
             )
             req = bg_db.query(Request).filter(Request.id == request_id).first()
-            if req and req.status == "new" and not req.mvp_blueprint:
+            if req and req.status != "failed":
+                # Always terminal-fail so the customer UI stops polling and shows error.
                 req.status = "failed"
                 bg_db.commit()
         except Exception:
-            print(f"[pipeline] could not persist failure for request {request_id}", flush=True)
+            pipeline_log.error("could not persist failure for request %s", request_id)
     finally:
         bg_db.close()
 
-
 @router.post("/{request_id}/retry-generation")
 def retry_generation(request_id: int, db: Session = Depends(get_db)):
-    """Restart AI generation for a stuck or failed request (no blueprint yet)."""
+    """Restart generation for a stuck or failed request.
+
+    Pre-blueprint: full `GenerationPipeline`.
+    Post-blueprint: re-run preview app generation so the customer can recover
+    without submitting a brand-new request.
+    """
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-    if req.mvp_blueprint:
-        raise HTTPException(status_code=400, detail="Blueprint already exists — open the preview instead")
+
+    # #region agent log
+    try:
+        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
+        from app.application.services.progress import parse_progress_snapshot
+
+        snap = parse_progress_snapshot(req.generation_log)
+        agent_dbg(
+            "A",
+            "requests.py:retry_generation:before",
+            "retry requested",
+            {
+                "request_id": request_id,
+                "status": req.status,
+                "has_blueprint": bool(req.mvp_blueprint),
+                "stage": snap.get("stage"),
+                "pct": snap.get("pct"),
+                "is_generating_before": __import__(
+                    "app.application.services.progress", fromlist=["is_request_generating"]
+                ).is_request_generating(req),
+            },
+            run_id="retry-ui",
+        )
+    except Exception:
+        pass
+    # #endregion
 
     req.status = "new"
-    _emit(db, request_id, "analyze", "Restarting generation...", 1, detail="Retry requested")
+    if not req.mvp_blueprint:
+        _emit(db, request_id, "analyze", "Restarting generation...", 1, detail="Retry requested")
+        threading.Thread(
+            target=_run_pipeline_in_background,
+            args=(request_id,),
+            daemon=True,
+        ).start()
+        return {"ok": True, "status": "restarted", "id": request_id, "mode": "full"}
+
+    _emit(
+        db,
+        request_id,
+        "codegen",
+        "Retrying live preview build...",
+        28,
+        detail="Restarting UI generation from your blueprint",
+    )
+    # #region agent log
+    try:
+        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
+        from app.application.services.progress import (
+            is_request_generating,
+            parse_progress_snapshot,
+        )
+
+        db.refresh(req)
+        snap = parse_progress_snapshot(req.generation_log)
+        agent_dbg(
+            "A",
+            "requests.py:retry_generation:after",
+            "retry after emit",
+            {
+                "request_id": request_id,
+                "status": req.status,
+                "stage": snap.get("stage"),
+                "pct": snap.get("pct"),
+                "label": snap.get("label"),
+                "is_generating_after": is_request_generating(req),
+            },
+            run_id="retry-ui",
+        )
+    except Exception:
+        pass
+    # #endregion
     threading.Thread(
-        target=_run_pipeline_in_background,
+        target=_run_preview_app_in_background,
         args=(request_id,),
         daemon=True,
     ).start()
-    return {"ok": True, "status": "restarted", "id": request_id}
+    return {"ok": True, "status": "restarted", "id": request_id, "mode": "preview_app"}
 
 
 @router.post("", response_model=RequestCreateResponse)
@@ -174,7 +254,6 @@ async def create_request(
 
     return RequestCreateResponse(id=req.id, status="created")
 
-
 @router.get("/{request_id}/preview", response_model=PreviewResponse)
 def get_preview(request_id: int, db: Session = Depends(get_db)):
     req = db.query(Request).filter(Request.id == request_id).first()
@@ -197,10 +276,32 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
 
     app_spec_revision = AppSpecRepository(db).latest_accepted(request_id)
 
-    is_generating = (
-        not req.mvp_blueprint
-        and req.status == "new"
-    )
+    is_generating = is_request_generating(req)
+
+    # #region agent log
+    try:
+        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
+        from app.application.services.progress import parse_progress_snapshot
+
+        snap = parse_progress_snapshot(req.generation_log)
+        agent_dbg(
+            "C",
+            "requests.py:get_preview",
+            "preview payload flags",
+            {
+                "request_id": request_id,
+                "status": req.status,
+                "is_generating": is_generating,
+                "stage": snap.get("stage"),
+                "pct": snap.get("pct"),
+                "has_concept": bool(req.concept_name),
+                "has_pages": bool(generated_pages),
+            },
+            run_id="retry-ui",
+        )
+    except Exception:
+        pass
+    # #endregion
 
     return PreviewResponse(
         id=req.id,
@@ -233,19 +334,18 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         build_requested=req.build_requested or False,
     )
 
-
 def _run_preview_app_in_background(request_id: int) -> None:
     # One generation at a time per request — concurrent runs race on the same
     # workspace (Playwright + Vite) and can leave a failed/partial build.
     lock = _preview_gen_lock(request_id)
     if not lock.acquire(blocking=False):
-        print(f"preview app generation already running for request {request_id} — skip", flush=True)
+        pipeline_log.debug("preview app generation already running for request %s — skip", request_id)
         return
     bg_db = SessionLocal()
     try:
         generate_preview_app(bg_db, request_id, get_ai_provider(), get_template_renderer())
     except Exception as e:
-        print(f"preview app generation failed for request {request_id}: {e}", flush=True)
+        pipeline_log.exception("preview app generation failed for request %s", request_id)
         try:
             _emit(bg_db, request_id, "failed", f"Generation failed: {e}", 0)
         except Exception:
@@ -254,16 +354,14 @@ def _run_preview_app_in_background(request_id: int) -> None:
         bg_db.close()
         lock.release()
 
-
 def _run_role_pages_in_background(request_id: int) -> None:
     bg_db = SessionLocal()
     try:
         generate_role_pages(bg_db, request_id, get_ai_provider(), get_template_renderer())
     except Exception:
-        pass
+        pipeline_log.exception("role pages generation failed for request %s", request_id)
     finally:
         bg_db.close()
-
 
 @router.post("/{request_id}/generate-preview-app")
 def trigger_generate_preview_app(request_id: int, db: Session = Depends(get_db)):
@@ -278,7 +376,6 @@ def trigger_generate_preview_app(request_id: int, db: Session = Depends(get_db))
         target=_run_preview_app_in_background, args=(request_id,), daemon=True,
     ).start()
     return {"ok": True, "status": "started"}
-
 
 @router.post("/{request_id}/generate-pages")
 def trigger_generate_pages(request_id: int, db: Session = Depends(get_db)):
@@ -315,7 +412,6 @@ def trigger_generate_pages(request_id: int, db: Session = Depends(get_db)):
     ).start()
     return {"ok": True, "status": "started"}
 
-
 @router.post("/{request_id}/request-build", response_model=BuildRequestResponse)
 def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends(get_db)):
     req = db.query(Request).filter(Request.id == request_id).first()
@@ -347,7 +443,6 @@ def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends
         status=req.status,
     )
 
-
 @router.get("/{request_id}/progress")
 def get_generation_progress(request_id: int, db: Session = Depends(get_db)):
     """Return the live generation progress snapshot for the loading screen."""
@@ -355,23 +450,7 @@ def get_generation_progress(request_id: int, db: Session = Depends(get_db)):
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    if not req.generation_log:
-        # Nothing emitted yet — just started
-        return {
-            "stage": "starting",
-            "label": "Starting generation...",
-            "pct": 0,
-            "detail": "",
-            "files_done": 0,
-            "files_total": 0,
-            "log": [],
-        }
-
-    try:
-        return json.loads(req.generation_log)
-    except Exception:
-        return {"stage": "unknown", "label": "Working...", "pct": 0, "log": []}
-
+    return progress_payload(req)
 
 @router.get("/{request_id}/chat", response_model=ChatHistoryResponse)
 def get_request_chat(request_id: int, db: Session = Depends(get_db)):
@@ -381,7 +460,6 @@ def get_request_chat(request_id: int, db: Session = Depends(get_db)):
 
     messages = get_chat_history(db, request_id)
     return ChatHistoryResponse(messages=[ChatMessage(**m) for m in messages])
-
 
 @router.post("/{request_id}/chat", response_model=ChatSendResponse)
 def send_request_chat(

@@ -1,0 +1,11 @@
+{
+  "id": "home-services-trades",
+  "label": "Home services / trades",
+  "industry_tags": ["plumbing", "hvac", "electrician", "handyman", "cleaning", "repair", "trades"],
+  "recipe_hint": "warm-service",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "trust", "features", "process", "results", "cta", "footer"],
+  "signature_moves": ["service hero", "logo marquee", "process steps"],
+  "prompt_hints": ["Practical trust — clear offers, process, proof; book/quote CTA."],
+  "mock_seed": { "tone": "dependable" }
+}

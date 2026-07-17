@@ -1,6 +1,8 @@
 # Local/API image: FastAPI + Node (Vite preview builds) + Playwright (visual critique)
 FROM python:3.12-slim-bookworm
 
+# Docker TARGETARCH: amd64 | arm64. Node.js dist uses x64 | arm64.
+ARG TARGETARCH
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DATA_DIR=/app/data \
@@ -15,9 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     xz-utils \
-    && curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz \
+    && NODE_ARCH="$(case "${TARGETARCH}" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo x64 ;; esac)" \
+    && curl -fsSL "https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${NODE_ARCH}.tar.xz" \
       | tar -xJ -C /opt \
-    && mv /opt/node-v22.14.0-linux-x64 /opt/node \
+    && mv "/opt/node-v22.14.0-linux-${NODE_ARCH}" /opt/node \
+    && /opt/node/bin/node -v \
+    && /opt/node/bin/npm -v \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

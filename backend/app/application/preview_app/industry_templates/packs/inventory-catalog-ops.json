@@ -1,0 +1,11 @@
+{
+  "id": "inventory-catalog-ops",
+  "label": "Inventory / catalog ops",
+  "industry_tags": ["inventory", "catalog", "stock", "sku", "products ops"],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "chart", "activity"],
+  "signature_moves": ["SKU table", "stock KPIs", "chart"],
+  "prompt_hints": ["Catalog ops — filters + dense table + stock KPIs; brand tokens only."],
+  "mock_seed": { "tone": "inventory" }
+}

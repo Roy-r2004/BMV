@@ -1,0 +1,11 @@
+{
+  "id": "checkout-cart",
+  "label": "Checkout / cart utility",
+  "industry_tags": ["checkout", "cart", "order", "payment", "bag"],
+  "recipe_hint": "bold-retail",
+  "skeleton_id": "utility-checkout",
+  "section_order": ["workspace", "summary"],
+  "signature_moves": ["line items", "brand totals", "confirm CTA"],
+  "prompt_hints": ["Focused transactional density — clear line items, brand total, no marketing fluff."],
+  "mock_seed": { "tone": "transactional" }
+}

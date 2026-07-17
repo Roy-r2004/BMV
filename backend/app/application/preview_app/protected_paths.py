@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import posixpath
+import re
 from pathlib import Path
 from pathlib import PureWindowsPath
 
@@ -59,6 +60,50 @@ def safe_source_path(path: str, workspace=None) -> str | None:
     return canonical
 
 
+def _pascal_token(token: str) -> str:
+    token = re.sub(r"[^A-Za-z0-9]+", "", token or "")
+    if not token:
+        return ""
+    return token[0].upper() + token[1:]
+
+
+def canonicalize_page_component_path(path: str) -> str:
+    """Force page files into PascalCase `*Page.tsx` under src/pages/.
+
+    Prevents Linux-only duplicates like Homepage.tsx + HomePage.tsx when the
+    architect and scaffold disagree on casing.
+    """
+    canonical = canonical_workspace_path(path)
+    if not canonical.startswith("src/pages/") or not canonical.lower().endswith((".tsx", ".jsx")):
+        return canonical
+    parts = canonical.split("/")
+    filename = parts[-1]
+    stem, ext = filename.rsplit(".", 1)
+    ext = ext.lower()
+    # Drop trailing Page/page so we can re-attach a canonical suffix.
+    core = re.sub(r"(?i)page$", "", stem)
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", core)
+    tokens = re.findall(r"[A-Za-z0-9]+", spaced)
+    pascal = "".join(_pascal_token(tok) for tok in tokens) or "Page"
+    if not pascal.lower().endswith("page"):
+        pascal = f"{pascal}Page"
+    elif pascal.endswith("page"):
+        pascal = pascal[:-4] + "Page"
+    # Keep role folders lowercase-stable: admin / member / role-*
+    dirs = parts[:-1]
+    normalized_dirs: list[str] = []
+    for idx, part in enumerate(dirs):
+        if idx <= 1:  # src / pages
+            normalized_dirs.append(part)
+            continue
+        low = part.lower()
+        if low in {"admin", "member"} or low.startswith("role-"):
+            normalized_dirs.append(low)
+        else:
+            normalized_dirs.append(_pascal_token(part) or part)
+    return "/".join([*normalized_dirs, f"{pascal}.{ext}"])
+
+
 def safe_generated_route_path(
     path: str,
     architect: dict | None,
@@ -70,7 +115,7 @@ def safe_generated_route_path(
         return None
     if is_template_owned_path(canonical, architect, workspace):
         return None
-    return canonical
+    return canonicalize_page_component_path(canonical)
 
 
 def is_template_owned_path(path: str, architect: dict | None, workspace=None) -> bool:

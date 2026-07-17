@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { UiIcon } from '../../components/UiIcons';
+import { MotionHover } from '../motion';
 import { cn } from '../lib/cn';
 
 export type StatCardVariant = 'card' | 'strip';
@@ -12,12 +13,12 @@ export interface StatCardProps {
   hint?: string;
   /** UiIcon name rendered in the corner chip (defaults to 'chart'). */
   icon?: string;
-  /** Soft SaaS card (default) or dense strip cell for shared KPI rows. */
+  /** Soft branded card (default) or dense strip cell for shared KPI rows. */
   variant?: StatCardVariant;
   className?: string;
 }
 
-/** KPI tile — card by default for soft ops dashboards. */
+/** KPI tile — brand-token card by default for ops dashboards. */
 export function StatCard({
   className,
   delta,
@@ -60,36 +61,42 @@ export function StatCard({
   }
 
   return (
-    <div
-      className={cn(
-        'rounded-2xl border border-[#e7edf5] bg-white p-5 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.45)]',
-        className
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-muted">{label}</p>
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--color-brand)_12%,white)] text-brand">
-          <UiIcon name={icon} className="h-4 w-4" />
-        </span>
-      </div>
-      <div className="mt-4 flex items-end gap-2">
-        <p className="text-[2rem] font-semibold leading-none tracking-tight text-foreground tabular-nums">
-          {value}
-        </p>
-        {delta ? (
-          <span
-            className={cn(
-              'mb-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
-              positive && 'bg-emerald-50 text-emerald-700',
-              negative && 'bg-rose-50 text-rose-600',
-              !positive && !negative && 'bg-[#f4f7fb] text-muted'
-            )}
-          >
-            {delta}
+    <MotionHover>
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.55rem)] border border-border-subtle bg-card p-5 shadow-[var(--shadow-ui)]',
+          className
+        )}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[color-mix(in_srgb,var(--color-brand)_14%,transparent)] blur-2xl"
+        />
+        <div className="relative flex items-start justify-between gap-3">
+          <p className="text-sm font-medium text-muted">{label}</p>
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-[calc(var(--radius-ui)+0.2rem)] bg-[color-mix(in_srgb,var(--color-brand)_14%,white)] text-brand ring-1 ring-brand/10">
+            <UiIcon name={icon} className="h-4 w-4" />
           </span>
-        ) : null}
+        </div>
+        <div className="relative mt-4 flex items-end gap-2">
+          <p className="font-display text-[2rem] font-semibold leading-none tracking-tight text-foreground tabular-nums">
+            {value}
+          </p>
+          {delta ? (
+            <span
+              className={cn(
+                'mb-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
+                positive && 'bg-emerald-50 text-emerald-700',
+                negative && 'bg-rose-50 text-rose-600',
+                !positive && !negative && 'bg-[color-mix(in_srgb,var(--color-brand)_8%,var(--color-background))] text-muted'
+              )}
+            >
+              {delta}
+            </span>
+          ) : null}
+        </div>
+        {hint ? <p className="relative mt-2 text-xs leading-5 text-muted">{hint}</p> : null}
       </div>
-      {hint ? <p className="mt-2 text-xs leading-5 text-muted">{hint}</p> : null}
-    </div>
+    </MotionHover>
   );
 }

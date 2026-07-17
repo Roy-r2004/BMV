@@ -1,0 +1,11 @@
+{
+  "id": "fashion-retail-storefront",
+  "label": "Fashion / retail storefront",
+  "industry_tags": ["fashion", "apparel", "retail", "boutique", "clothing", "shop"],
+  "recipe_hint": "bold-retail",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "showcase", "features", "trust", "testimonials", "cta", "footer"],
+  "signature_moves": ["full-bleed product hero", "bento merch", "marquee"],
+  "prompt_hints": ["Merchandise dominates — brand wordmark huge, short punchy copy."],
+  "mock_seed": { "tone": "editorial-retail" }
+}

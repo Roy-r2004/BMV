@@ -8,6 +8,9 @@ import requests
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.infrastructure.ai_providers.retry import call_with_retry
+from app.infrastructure.logging import get_logger
+
+retry_log = get_logger("AIRetry")
 
 
 class OllamaAIProvider(AIProvider):
@@ -41,7 +44,7 @@ class OllamaAIProvider(AIProvider):
             return response.json()
 
         def _heartbeat(elapsed: float) -> None:
-            print(f"    ...still waiting on ollama/{model} ({elapsed:.0f}s elapsed)", flush=True)
+            retry_log.debug("still waiting on ollama/%s (%.0fs elapsed)", model, elapsed)
 
         data = call_with_retry(
             _do_request, attempts=2, base_delay=3,

@@ -19,20 +19,26 @@ export interface CTABandProps {
 
 export function CTABand({ className, description, heading, primaryCta, secondaryCta }: CTABandProps) {
   return (
-    <section className={cn('relative isolate overflow-hidden bg-[#0b0d10] px-6 py-28 text-white lg:px-12 lg:py-32', className)}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_80%_at_80%_20%,color-mix(in_srgb,var(--color-brand)_35%,transparent),transparent_60%)]" />
-      <div className="ui-film-grain opacity-[0.12]" />
+    <section className={cn('relative isolate overflow-hidden bg-foreground px-6 py-28 text-background lg:px-12 lg:py-32', className)}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_80%_at_80%_20%,color-mix(in_srgb,var(--color-brand)_42%,transparent),transparent_60%)]" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-20 bottom-0 h-72 w-72 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_28%,transparent),transparent_70%)] blur-2xl"
+      />
+      <div className="ui-mesh opacity-40" />
+      <div className="ui-film-grain opacity-[0.14]" />
+      <div className="ui-noise opacity-30" />
       <MotionReveal>
         <div className="relative mx-auto flex w-full max-w-[92rem] flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-[11px] font-semibold tracking-[0.28em] text-white/45 uppercase">Next move</p>
-            <h2 className="mt-4 font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.92] tracking-[-0.04em]">
+            <h2 className="mt-4 font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.92] tracking-[-0.04em] text-white">
               {heading}
             </h2>
             {description ? <p className="mt-5 max-w-lg text-base leading-8 text-white/55">{description}</p> : null}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href={primaryCta.href} size="lg">
+            <Button href={primaryCta.href} size="lg" className="shadow-[0_0_40px_-8px_color-mix(in_srgb,var(--color-brand)_55%,transparent)]">
               {primaryCta.label}
             </Button>
             {secondaryCta ? (

@@ -8,6 +8,10 @@ from pathlib import Path
 
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.application.preview_app.npm_shared import attach_shared_node_modules
+from app.infrastructure.logging import get_logger
+from app.infrastructure.logging.diagnostics import dump_build_failure
+
+log = get_logger("ViteBuild")
 
 
 def _npm_cmd() -> str:
@@ -36,6 +40,7 @@ def run_build(
     try:
         logs.append(attach_shared_node_modules(workspace, timeout=timeout))
     except Exception as exc:
+        log.error("shared npm attach failed: %s", exc)
         logs.append(f"=== shared npm failed ({exc}) — falling back to local npm install ===")
         install = subprocess.run(
             [npm, "install", "--no-audit", "--no-fund"],
@@ -54,7 +59,15 @@ def run_build(
 
     vite_pkg = workspace / "node_modules" / "vite" / "package.json"
     if not vite_pkg.is_file():
-        logs.append("=== ERROR: vite not installed after shared/local npm setup ===")
+        msg = "vite not installed after shared/local npm setup"
+        log.error(msg)
+        logs.append(f"=== ERROR: {msg} ===")
+        dump_build_failure(
+            workspace,
+            label="npm-setup",
+            build_log="\n".join(logs),
+            extracted_errors=msg,
+        )
         return False, "\n".join(logs)
 
     # Patch vite base for subdirectory hosting
@@ -85,13 +98,20 @@ def run_build(
     logs.append(build.stdout or "")
     logs.append(build.stderr or "")
     if build.returncode != 0:
-        # Surface the real failure in pipeline logs (AI fix can't patch missing native bindings).
         err_tail = (build.stderr or build.stdout or "")[-1200:]
-        print(f"    vite build failed:\n{err_tail}", flush=True)
+        log.error("vite build failed (see dump in .bmv-debug/vite-build/):\n%s", err_tail)
 
     dist = workspace / "dist" / "index.html"
     ok = build.returncode == 0 and dist.is_file()
-    return ok, "\n".join(logs)
+    combined = "\n".join(logs)
+    if not ok:
+        dump_build_failure(
+            workspace,
+            label="vite-build",
+            build_log=combined,
+            extracted_errors=extract_build_errors(combined),
+        )
+    return ok, combined
 
 
 def extract_build_errors(log: str, max_chars: int = 8000) -> str:

@@ -23,7 +23,7 @@ The runtime order is:
    architect, React codegen, runtime data, and future browser checks.
 
 An accepted revision requires both deterministic validation and semantic
-coverage. In required mode, rejection, stale provenance, over-cap required
+coverage. When AppSpec is on, rejection, stale provenance, over-cap required
 journeys, missing code hooks, fallback pages, or build failure stop the pipeline;
 they cannot fall back to independent role-page generation or emit completion.
 
@@ -32,13 +32,10 @@ they cannot fall back to independent role-page generation or emit completion.
 Set `APPSPEC_MODE` to one of:
 
 - `off`: legacy behavior.
-- `shadow`: author, review, and persist AppSpec, but keep legacy UI semantics.
-- `required_new`: enforce AppSpec for new/AppSpec-origin previews; leave existing
-  legacy previews unchanged.
-- `required`: enforce AppSpec for all preview generation.
+- `on`: author, review, persist, and enforce the AppSpec for every preview.
 
-Recommended deployment progression is `shadow`, inspect revisions and coverage,
-then `required_new`, then `required`.
+Legacy rollout values (`shadow`, `required_new`, `required`) are still accepted
+and treated as `on` so existing configs keep working.
 
 ## Inspection
 
@@ -52,5 +49,5 @@ Admin endpoints:
 - `GET /api/admin/requests/{id}/app-specs/{revision}`
 
 The complete valid developer fixture is
-`scripts/fixtures/app_spec/valid_booking.json`. Focused executable checks are
-the four `scripts/test_app_spec_*.py` files.
+`tests/fixtures/app_spec/valid_booking.json`. Focused executable checks are
+the five `tests/appspec/test_app_spec_*.py` files (`pytest` from `backend/`).

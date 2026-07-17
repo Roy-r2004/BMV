@@ -1,0 +1,11 @@
+{
+  "id": "law-professional-home",
+  "label": "Law / professional services",
+  "industry_tags": ["law", "legal", "attorney", "accountant", "consulting", "professional"],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "credentials", "features", "process", "testimonials", "cta", "footer"],
+  "signature_moves": ["editorial type", "credential strip", "process timeline"],
+  "prompt_hints": ["Authoritative calm — serif display, restrained motion, trust before CTA."],
+  "mock_seed": { "tone": "authoritative" }
+}

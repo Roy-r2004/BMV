@@ -4,13 +4,13 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.application.preview_app.chat_refinement import (
+from app.application.preview_app.refinement import (
     _load_app_spec_refinement_context,
     _merge_app_spec_refinement_enrichment,
     _plan_for_persistence,
     refine_preview_app_from_chat,
 )
-from app.application.preview_app.codegen import _bounded_json
+from app.application.preview_app.text_utils import _bounded_json
 from app.application.preview_app.workspace import get_workspace
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import business_info, get_request

@@ -30,7 +30,8 @@ from app.application.preview_app.workspace import (
 
 _TITLE_SPLIT_RE = re.compile(r"(?<!^)(?=[A-Z])")
 
-# Nav/Layout/icon-set files are now AI-authored per brand (see codegen.py's
+# Nav/Layout/icon-set files are now AI-authored per brand (see codegen/
+
 # _CHROME_CONTRACTS), but they have real prop/import contracts that a generic
 # placeholder page would violate — dropping a "This section is being
 # fine-tuned" block into the site's nav bar or layout shell would break every
@@ -426,12 +427,14 @@ export default function {component}() {{
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-8">
+    <div className="relative mx-auto max-w-5xl overflow-hidden px-6 py-12">
+      <div aria-hidden className="ui-mesh opacity-70" />
+      <div className="relative">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border-subtle pb-8">
         <div>
           <p className="text-sm font-medium uppercase tracking-wide text-brand">{{brand.name}}</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">{title}</h1>
-          <p className="mt-2 max-w-xl text-slate-600">
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">{title}</h1>
+          <p className="mt-2 max-w-xl text-muted">
             {subtitle}
           </p>
         </div>
@@ -444,30 +447,31 @@ export default function {component}() {{
         {{[
           {stats_js},
         ].map((stat) => (
-          <div key={{stat.k}} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">{{stat.k}}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">{{stat.v}}</p>
+          <div key={{stat.k}} className="rounded-[calc(var(--radius-ui)+0.35rem)] border border-border-subtle bg-card p-5 shadow-[var(--shadow-ui)]">
+            <p className="text-sm text-muted">{{stat.k}}</p>
+            <p className="mt-2 font-display text-2xl font-bold text-foreground">{{stat.v}}</p>
           </div>
         ))}}
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="font-semibold text-slate-900">Today&apos;s activity</h2>
+      <div className="mt-8 overflow-hidden rounded-[calc(var(--radius-ui)+0.35rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)]">
+        <div className="border-b border-border-subtle px-5 py-4">
+          <h2 className="font-semibold text-foreground">Today&apos;s activity</h2>
         </div>
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-border-subtle">
           {{rows.map((row) => (
             <li key={{row.label}} className="flex items-center justify-between gap-4 px-5 py-4">
               <div>
-                <p className="font-medium text-slate-900">{{row.label}}</p>
-                <p className="text-sm text-slate-500">{{row.detail}}</p>
+                <p className="font-medium text-foreground">{{row.label}}</p>
+                <p className="text-sm text-muted">{{row.detail}}</p>
               </div>
-              <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+              <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
                 {{row.status}}
               </span>
             </li>
           ))}}
         </ul>
+      </div>
       </div>
     </div>
   );

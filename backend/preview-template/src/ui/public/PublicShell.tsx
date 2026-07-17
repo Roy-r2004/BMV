@@ -75,6 +75,14 @@ export function PublicShell({
       className={cn('relative min-h-screen bg-background text-foreground', className)}
       data-public-chrome={chrome}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+      >
+        <div className="ui-mesh opacity-[0.45]" />
+        <div className="absolute -left-32 top-[18%] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,var(--glow-atmosphere),transparent_68%)]" />
+        <div className="absolute -right-24 bottom-[12%] h-[22rem] w-[22rem] rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_12%,transparent),transparent_70%)]" />
+      </div>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow-[var(--shadow-ui)]"

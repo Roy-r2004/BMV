@@ -22,8 +22,9 @@ export interface ResultRailProps {
 /** Outcome proof — fixed before/after pairs, no open styling API. */
 export function ResultRail({ className, description, heading, items }: ResultRailProps) {
   return (
-    <section className={cn('px-6 py-28 lg:px-12 lg:py-32', className)}>
-      <div className="mx-auto w-full max-w-[92rem]">
+    <section className={cn('relative isolate overflow-hidden px-6 py-28 lg:px-12 lg:py-32', className)}>
+      <div className="ui-mesh opacity-40" aria-hidden="true" />
+      <div className="relative mx-auto w-full max-w-[92rem]">
         <MotionReveal className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <h2 className="font-display text-[clamp(2.75rem,5.5vw,5rem)] italic leading-[0.92] tracking-[-0.04em] text-foreground">
             {heading}
@@ -34,16 +35,16 @@ export function ResultRail({ className, description, heading, items }: ResultRai
         <MotionStagger className="mt-14 grid gap-8 lg:grid-cols-3">
           {items.map((item) => (
             <MotionStaggerItem key={item.label}>
-              <article className="overflow-hidden border border-border-subtle bg-card">
+              <article className="group overflow-hidden rounded-[calc(var(--radius-ui)+0.35rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)] transition duration-500 hover:-translate-y-1 hover:border-brand/25">
                 <div className="grid grid-cols-2 gap-px bg-border-subtle">
                   <figure className="bg-card">
-                    <img src={item.beforeSrc} alt={item.beforeAlt ?? `${item.label} before`} className="aspect-[4/5] w-full object-cover" />
+                    <img src={item.beforeSrc} alt={item.beforeAlt ?? `${item.label} before`} className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
                     <figcaption className="px-3 py-2 text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
                       Before
                     </figcaption>
                   </figure>
                   <figure className="bg-card">
-                    <img src={item.afterSrc} alt={item.afterAlt ?? `${item.label} after`} className="aspect-[4/5] w-full object-cover" />
+                    <img src={item.afterSrc} alt={item.afterAlt ?? `${item.label} after`} className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
                     <figcaption className="px-3 py-2 text-[10px] font-semibold tracking-[0.16em] text-brand uppercase">
                       After
                     </figcaption>

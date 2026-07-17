@@ -32,8 +32,8 @@ export function PageHeader({ actions, className, description, meta, title }: Pag
           className={cn(
             'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
             action.variant === 'secondary'
-              ? 'border border-[#e7edf5] bg-white text-foreground hover:bg-[#f4f7fb]'
-              : 'bg-foreground text-background hover:opacity-90'
+              ? 'border border-border-subtle bg-card text-foreground hover:bg-[color-mix(in_srgb,var(--color-brand)_8%,var(--color-background))]'
+              : 'bg-brand text-white shadow-[var(--shadow-ui)] hover:opacity-95'
           )}
         >
           {action.label}
@@ -47,7 +47,7 @@ export function PageHeader({ actions, className, description, meta, title }: Pag
   return (
     <div className={cn('flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between', className)}>
       <div className="min-w-0">
-        <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] font-semibold tracking-[-0.03em] text-foreground">
+        <h1 className="font-display text-[clamp(1.75rem,3vw,2.35rem)] font-semibold tracking-[-0.03em] text-foreground">
           {title}
         </h1>
         {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p> : null}

@@ -1,0 +1,11 @@
+{
+  "id": "hotel-hospitality-home",
+  "label": "Hotel / hospitality",
+  "industry_tags": ["hotel", "hospitality", "resort", "inn", "boutique hotel", "stay"],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "showcase", "credentials", "features", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["cinematic hero", "room showcase", "booking panel"],
+  "prompt_hints": ["Travel-editorial luxury — atmosphere first, rooms as showcase, reserve CTA."],
+  "mock_seed": { "tone": "luxurious" }
+}

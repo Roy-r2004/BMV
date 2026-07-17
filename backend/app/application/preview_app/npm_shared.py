@@ -15,6 +15,9 @@ import threading
 from pathlib import Path
 
 from app.core.config import settings
+from app.infrastructure.logging import get_logger
+
+log = get_logger("SharedNpm")
 
 _install_lock = threading.Lock()
 
@@ -111,9 +114,11 @@ def ensure_shared_node_modules(timeout: int = 300) -> tuple[Path, str]:
     with _install_lock:
         if _vite_ready(nm):
             logs.append(f"=== shared npm: cache hit ({root.name}) ===")
+            log.debug("shared npm cache hit at %s", nm)
             return nm, "\n".join(logs)
 
         logs.append(f"=== shared npm: installing into {root} ===")
+        log.info("shared npm cache miss — installing into %s", root)
         root.mkdir(parents=True, exist_ok=True)
         tpl = settings.PREVIEW_TEMPLATE_DIR
         for name in ("package.json", "package-lock.json"):
@@ -158,9 +163,15 @@ def ensure_shared_node_modules(timeout: int = 300) -> tuple[Path, str]:
                 logs.append(install.stdout or "")
                 logs.append(install.stderr or "")
             if install.returncode != 0 or not _vite_ready(nm):
+                log.error(
+                    "shared npm install failed (returncode=%s vite_ready=%s) — see .bmv-debug if build ran",
+                    install.returncode,
+                    _vite_ready(nm),
+                )
                 raise RuntimeError(
                     "Shared npm install failed — vite missing after install.\n" + "\n".join(logs)
                 )
+        log.info("shared npm ready at %s", nm)
         logs.append("=== shared npm: ready ===")
         return nm, "\n".join(logs)
 

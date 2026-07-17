@@ -86,11 +86,23 @@ export function FeatureBento({
         </MotionReveal>
 
         {resolved === 'grid' ? (
-          <MotionStagger className="mt-16 grid gap-px bg-border-subtle md:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
+          <MotionStagger className="mt-16 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {items.map((item, index) => (
               <MotionStaggerItem key={item.title}>
-                <article className="bg-background p-8">
-                  <h3 className="text-xl font-semibold tracking-tight text-foreground">{item.title}</h3>
+                <article
+                  className={cn(
+                    'group relative overflow-hidden rounded-[calc(var(--radius-ui)+0.35rem)] border border-border-subtle bg-card p-8 shadow-[var(--shadow-ui)] transition duration-500 hover:-translate-y-1 hover:border-brand/25',
+                    index === 0 && 'lg:ring-1 lg:ring-brand/20'
+                  )}
+                >
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_18%,transparent),transparent_70%)] opacity-0 transition group-hover:opacity-100"
+                  />
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand/70">
+                    {String(index + 1).padStart(2, '0')}
+                  </p>
+                  <h3 className="mt-3 text-xl font-semibold tracking-tight text-foreground">{item.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-muted">{item.description}</p>
                 </article>
               </MotionStaggerItem>
@@ -105,7 +117,7 @@ export function FeatureBento({
                 const body = (
                   <article
                     className={cn(
-                      'group relative isolate min-h-[22rem] overflow-hidden bg-[#12161a] text-white',
+                      'group relative isolate min-h-[22rem] overflow-hidden bg-foreground text-background',
                       index === 0 && 'md:col-span-2 md:min-h-[28rem]'
                     )}
                   >
@@ -116,7 +128,8 @@ export function FeatureBento({
                         className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
                       />
                     ) : null}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-brand/10" />
+                    <div className="ui-film-grain opacity-[0.1]" />
                     <div className="relative z-10 flex h-full flex-col justify-end p-7 lg:p-9">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/50">
                         {String(index + 1).padStart(2, '0')}
@@ -210,8 +223,8 @@ export function FeatureBento({
                     data-chapter
                     className={cn(
                       'flex w-[min(84vw,30rem)] shrink-0 snap-center flex-col justify-between border-y border-foreground/10 py-9 sm:w-[min(68vw,34rem)] lg:min-h-[22rem] lg:py-11',
-                      'border-l border-l-foreground/10 pl-7 lg:pl-9',
-                      active === index ? 'border-l-foreground/45' : ''
+                      'border-l-2 pl-7 lg:pl-9 transition-colors',
+                      active === index ? 'border-l-brand bg-card/40' : 'border-l-foreground/10'
                     )}
                   >
                     <div>
@@ -240,7 +253,7 @@ export function FeatureBento({
                   onClick={() => scrollTo(index)}
                   className={cn(
                     'h-1.5 rounded-full transition-all',
-                    active === index ? 'w-9 bg-foreground' : 'w-1.5 bg-foreground/20 hover:bg-foreground/40'
+                    active === index ? 'w-9 bg-brand' : 'w-1.5 bg-foreground/20 hover:bg-foreground/40'
                   )}
                 />
               ))}

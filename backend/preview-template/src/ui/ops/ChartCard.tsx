@@ -143,10 +143,14 @@ export function ChartCard({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-[#e7edf5] bg-white p-5 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.45)]',
+        'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.55rem)] border border-border-subtle bg-card p-5 shadow-[var(--shadow-ui)]',
         className
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-[color-mix(in_srgb,var(--color-brand)_10%,transparent)] blur-3xl"
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>

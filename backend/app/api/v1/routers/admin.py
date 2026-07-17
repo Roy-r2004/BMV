@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep, verify_admin
 from app.application.pipelines import blueprint, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
-from app.application.services.app_spec_generation import ensure_approved_app_spec
-from app.application.services.app_spec_repository import (
+from app.application.appspec import ensure_approved_app_spec
+from app.application.appspec.repository import (
     AppSpecRepository,
     load_json_object,
     revision_summary,

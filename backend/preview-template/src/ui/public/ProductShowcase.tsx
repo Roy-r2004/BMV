@@ -39,12 +39,13 @@ export function ProductShowcase({ className, children, description, heading, ite
   const [featured, secondary, tertiary] = objectItems;
 
   return (
-    <section className={cn('relative isolate overflow-hidden bg-[#0b0d10] px-6 py-28 text-[#f3f5f4] lg:px-12 lg:py-36', className)}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_20%_0%,rgb(255_255_255_/0.08),transparent_55%)]" />
-      <div className="ui-film-grain opacity-[0.1]" />
+    <section className={cn('relative isolate overflow-hidden bg-foreground px-6 py-28 text-background lg:px-12 lg:py-36', className)}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_20%_0%,color-mix(in_srgb,var(--color-brand)_35%,transparent),transparent_55%)]" />
+      <div className="ui-mesh opacity-30" />
+      <div className="ui-film-grain opacity-[0.12]" />
       <div className="relative mx-auto w-full max-w-[92rem]">
         <MotionReveal className="grid gap-8 border-b border-white/10 pb-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-          <h2 className="font-display text-[clamp(3rem,6vw,5.75rem)] leading-[0.9] tracking-[-0.04em]">
+          <h2 className="font-display text-[clamp(3rem,6vw,5.75rem)] leading-[0.9] tracking-[-0.04em] text-white">
             {heading}
           </h2>
           {description ? <p className="max-w-md text-base leading-8 text-white/55 lg:justify-self-end">{description}</p> : null}

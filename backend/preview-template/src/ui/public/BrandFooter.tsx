@@ -68,8 +68,9 @@ export function BrandFooter({
   const wordmarkSize = `clamp(2.75rem, ${Math.min(14, 130 / Math.max(brandName.length, 6)).toFixed(1)}vw, 11rem)`;
 
   return (
-    <footer className={cn('relative isolate overflow-hidden bg-[#0b0d10] px-6 pb-10 pt-20 text-white lg:px-12 lg:pt-24', className)}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_60%_at_15%_0%,color-mix(in_srgb,var(--color-brand)_28%,transparent),transparent_60%)]" />
+    <footer className={cn('relative isolate overflow-hidden bg-foreground px-6 pb-10 pt-20 text-white lg:px-12 lg:pt-24', className)}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_60%_at_15%_0%,color-mix(in_srgb,var(--color-brand)_35%,transparent),transparent_60%)]" />
+      <div className="ui-film-grain opacity-[0.1]" />
       <div className="relative mx-auto w-full max-w-[92rem]">
         <div className="grid gap-10 border-b border-white/10 pb-14 md:grid-cols-[1.3fr_0.7fr]">
           <p className="max-w-xl text-base leading-8 text-white/60">{description}</p>

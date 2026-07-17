@@ -79,7 +79,12 @@ export function MarketingHero({
         data-hero="service"
         className={cn('relative isolate overflow-hidden bg-card px-6 py-14 lg:px-12 lg:py-20', className)}
       >
-        <div className="mx-auto grid max-w-[92rem] items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+        <div className="ui-mesh opacity-80" aria-hidden="true" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 top-0 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_22%,transparent),transparent_68%)] blur-2xl"
+        />
+        <div className="relative mx-auto grid max-w-[92rem] items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <div>
             <MotionHeroItem index={0}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand">
@@ -97,12 +102,18 @@ export function MarketingHero({
             <MotionHeroItem index={3}>{ctas}</MotionHeroItem>
           </div>
           <MotionHeroItem index={1}>
-            <div className="relative overflow-hidden rounded-[calc(var(--radius-ui)+0.75rem)] shadow-[var(--shadow-ui)] ring-1 ring-border-subtle">
+            <div
+              className={cn(
+                'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.75rem)] shadow-[var(--shadow-ui)] ring-1 ring-border-subtle',
+                safe && 'ui-float'
+              )}
+            >
               <img
                 src={imageSrc}
                 alt={imageAlt}
                 className={cn('aspect-[5/4] w-full object-cover', safe && 'ui-kenburns')}
               />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-brand/15 via-transparent to-transparent" />
             </div>
           </MotionHeroItem>
         </div>
@@ -258,6 +269,11 @@ export function MarketingHero({
       )}
     >
       <div className="relative order-2 z-10 flex flex-col justify-center px-6 py-12 sm:px-8 md:order-1 md:px-10 md:py-20 lg:px-12">
+        <div className="ui-mesh opacity-70" aria-hidden="true" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-16 top-1/4 h-64 w-64 rounded-full bg-[radial-gradient(circle,var(--glow-atmosphere),transparent_70%)]"
+        />
         <MotionHeroItem index={0}>
           <p className={cn(display, 'text-[clamp(3.75rem,10vw,7.25rem)] leading-[0.8] text-foreground')}>
             {brandName}
@@ -279,7 +295,8 @@ export function MarketingHero({
           alt={imageAlt}
           className={cn('absolute inset-0 h-full w-full object-cover', safe && 'ui-kenburns')}
         />
-        <div className="ui-film-grain opacity-[0.12]" />
+        <div className="ui-film-grain opacity-[0.14]" />
+        <div className="ui-vignette opacity-60" />
         <div
           aria-hidden="true"
           className="ui-treatment-light pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-px md:block"

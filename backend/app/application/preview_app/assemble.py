@@ -10,7 +10,7 @@ from app.application.ui_catalogue import (
     infer_page_contract,
     infer_section_slots,
 )
-from app.application.preview_app.codegen import _bounded_json
+from app.application.preview_app.text_utils import _bounded_json
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 from app.application.preview_app.theme import sanitize_theme_inputs
 from app.application.preview_app.protected_paths import safe_generated_route_path

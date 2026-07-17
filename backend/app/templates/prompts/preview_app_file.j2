@@ -111,12 +111,14 @@ TECH RULES:
 - CRITICAL for src/index.css: it MUST start with the line `@import "tailwindcss";` then a `@theme { ... }` block defining --color-brand, --color-brand-dark, --font-sans from the design system. NEVER remove the tailwindcss import and NEVER replace Tailwind with plain custom CSS classes (no .container/.table/.button rules). Styling comes from Tailwind utilities in the components (bg-brand, text-brand, rounded-2xl, grid, etc.).
 - Import mock data from ../data/mock or @/data/mock
 - Text over photos: dark gradient overlay + white text — NEVER gray boxes on images
-- Cards: rounded-2xl border border-slate-100 bg-white shadow-sm
+- Cards: use brand tokens — `rounded-[calc(var(--radius-ui)+0.25rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)]` (never slate/white-only cards)
+- Surfaces: prefer atmospheric brand tints (`bg-[color-mix(in_srgb,var(--color-brand)_6%,var(--color-background))]`) over flat gray
 - Logo is TEXT (brand name) — never img logo
 - Only use provided Unsplash URLs for images
 - No dollar/currency symbols
 - Export default for page/layout components; named exports OK for data
 - Keep imports consistent: only import names you actually export from mock.ts. If a page imports `services` from mock, mock.ts MUST export `services`.
+- Motion & presence: use kit motion when available; otherwise add at least one of ui-mesh / ui-film-grain / kenburns / hover lift so pages never feel static.
 {% if catalogue_page %}
 - IMPORTS ALLOW-LIST: `@/ui`, `react`, `react-router-dom`, and `@/data/mock` only. Put page-specific helper logic inline.
 - Use only components and props present in the matched compact skeleton contract.
@@ -149,7 +151,7 @@ For page components (kind=page):
   * Public marketing pages: `import { usePublicNavItems, publicCta } from '@/lib/app-nav'` and render `<PublicNav items={usePublicNavItems()} cta={publicCta()} />`.
   * Member hub pages: `import { useMemberNavItems, memberCta } from '@/lib/app-nav'` and render `<PublicNav items={useMemberNavItems()} cta={memberCta()} />`.
 - Do not change sidebar/navbar labels or link sets per page — every page in a role must share the same chrome.
-- Soft SaaS ops: default OpsShell appearance is light. For `ops-dashboard`, use `composeSkeletonLayout(SKELETON_ID, slots)` and pass `rail={rail}` to OpsShell so ActivityFeed sits in the right rail; put header/kpis/chart/filters/table in main. Prefer `StatCard` card KPIs (default), greeting-style PageHeader, and status pills in tables.
+- Soft SaaS ops: default OpsShell appearance is light and **brand-tokenized** (never gray `#f4f7fb`). For `ops-dashboard`, use `composeSkeletonLayout(SKELETON_ID, slots)` and pass `rail={rail}` to OpsShell so ActivityFeed sits in the right rail; put header/kpis/chart/filters/table in main. Prefer `StatCard` card KPIs (default), greeting-style PageHeader, and status pills in tables. Add subtle brand atmosphere — no pale blank dashboards.
 - Cinematic public home: for `public-home`, pass `chrome="immersive"` to PublicShell (transparent header over the hero) and use a full-bleed MarketingHero with `images.hero` plus a short business-specific `eyebrow` (e.g. "Custom builds · Trade-ins welcome"). Add a `<LogoMarquee size="display" items={...} />` kinetic type strip right after the hero (category/collection words, not fake client logos). Give FeatureBento items `imageSrc` from `images.card1`–`card3`. Close with `<BrandFooter />` (statement footer with oversized wordmark) passed as PublicShell's `footer`.
 - Interior public pages (about/services/pricing/contact) keep `chrome="solid"` — immersive is only for pages that open with a full-bleed hero.
 - Transactional `public-utility` pages (cart, checkout, tracking, account): keep `chrome="solid"`, open with a compact `PageHeader`, and build the `workspace` slot as the real task UI — Card + Table line items, Input/Select forms, status Badges, totals. No hero, no marketing sections; this is the in-product flow the customer actually uses.
@@ -189,14 +191,15 @@ Implement EVERY section from the plan with rich, business-specific UI. If the pl
 - BrandFooter `links` is a flat `{ label, href }[]` — never nested `{ title, items: [...] }` groups.
 - PublicShell `nav` must be `<PublicNav items={navItems} cta={navCta} />` — never pass the raw `navItems` array as `nav`.
 - DataTable `render` receives the **row** object: `render: (row) => row.totalAmount` — never `(amount) => amount.toFixed(2)`.
-- Use Tailwind semantic colors only (`text-foreground`, `text-muted`, `text-slate-600`) — never invent `text-text-color` / `text-muted-text-color`.
+- Use Tailwind semantic colors only (`text-foreground`, `text-muted`, `text-brand`) — never invent `text-text-color` / `text-muted-text-color`.
 {% endif %}
-- NEVER hardcode hex colors — use text-brand, bg-brand, bg-brand/10, text-slate-600, border-slate-100
-- Typography: clear hierarchy (page titles text-3xl+ font-bold; body text-slate-600)
-- Spacing: generous section padding (py-16 lg:py-24); containers max-w-7xl mx-auto px-6
-- Use images from mock where the plan calls for imagery — object-cover, rounded-2xl
+- NEVER hardcode hex colors or slate-* — use text-brand, bg-brand, bg-brand/10, text-foreground, text-muted, border-border-subtle, bg-card
+- Typography: clear hierarchy (page titles font-display text-3xl+; body text-muted). Never default Inter/system look.
+- Spacing: generous section padding on public pages (py-16 lg:py-24); denser on ops. Containers max-w-7xl / max-w-[92rem] mx-auto px-6
+- Use images from mock where the plan calls for imagery — object-cover, rounded-2xl, kenburns on heroes
 - Each section in the plan should be visually distinct (not copy-paste the same card grid everywhere)
-- Pages must feel dense and production-ready — thin placeholder pages fail
+- Pages must feel dense, cinematic, and production-ready — thin/pale placeholder pages fail
+- Avoid bland flat white: use recipe atmosphere, brand-tinted panels, shadows via --shadow-ui, and at least 2 intentional motions per page
 {% if catalogue_page %}
 - Never render legacy AdminLayout or PublicLayout; use `{{ shell_component }}` as the sole shell
 {% else %}

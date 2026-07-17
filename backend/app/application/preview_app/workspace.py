@@ -6,6 +6,9 @@ from pathlib import Path
 from pathlib import PureWindowsPath
 
 from app.core.config import settings
+from app.infrastructure.logging import get_logger
+
+ws_log = get_logger("Workspace")
 
 _SKIP_COPY = {"node_modules", "dist", ".git"}
 
@@ -22,9 +25,9 @@ def prepare_workspace(request_id: int) -> Path:
     """Copy template into an isolated workspace (fresh each generation)."""
     workspace = get_workspace(request_id)
     tpl = settings.PREVIEW_TEMPLATE_DIR
-    print(f"    prepare_workspace id={request_id} template={tpl} exists={tpl.is_dir()}", flush=True)
+    ws_log.info("prepare_workspace id=%s template=%s exists=%s", request_id, tpl, tpl.is_dir())
     if workspace.exists():
-        print(f"    removing old workspace {workspace}", flush=True)
+        ws_log.debug("removing old workspace %s", workspace)
         shutil.rmtree(workspace, ignore_errors=True)
     workspace.mkdir(parents=True, exist_ok=True)
 
@@ -44,7 +47,7 @@ def prepare_workspace(request_id: int) -> Path:
         else:
             shutil.copy2(item, dest)
         copied += 1
-    print(f"    workspace ready at {workspace} ({copied} top-level items)", flush=True)
+    ws_log.info("workspace ready at %s (%s top-level items)", workspace, copied)
     return workspace
 
 
@@ -118,6 +121,32 @@ def write_trusted_contained_file(
     content: str | bytes,
 ) -> None:
     """Write trusted source bytes/text while replacing only the final symlink entry."""
+    from app.application.preview_app.protected_paths import (
+        canonicalize_page_component_path,
+        canonical_workspace_path,
+    )
+
+    normalized = canonical_workspace_path(rel_path)
+    if normalized.startswith("src/pages/") and normalized.lower().endswith((".tsx", ".jsx")):
+        normalized = canonicalize_page_component_path(normalized)
+        # Drop case-variant siblings (Homepage.tsx vs HomePage.tsx) so Vite
+        # never bundles two copies of the same route on case-sensitive FS.
+        parent = (Path(workspace) / normalized).parent
+        if parent.is_dir():
+            want_name = Path(normalized).name
+            want_lower = want_name.lower()
+            for sibling in parent.iterdir():
+                if (
+                    sibling.is_file()
+                    and sibling.name.lower() == want_lower
+                    and sibling.name != want_name
+                ):
+                    try:
+                        sibling.unlink()
+                    except OSError:
+                        pass
+        rel_path = normalized
+
     target = _safe_workspace_target(
         workspace,
         rel_path,

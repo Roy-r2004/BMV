@@ -1,0 +1,11 @@
+{
+  "id": "fitness-studio-home",
+  "label": "Fitness / studio",
+  "industry_tags": ["fitness", "gym", "studio", "pilates", "yoga", "training", "coaching"],
+  "recipe_hint": "warm-service",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "features", "process", "results", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["service hero", "result rail", "booking panel"],
+  "prompt_hints": ["Energetic but warm — class moments, before/after, easy book CTA."],
+  "mock_seed": { "tone": "energizing" }
+}

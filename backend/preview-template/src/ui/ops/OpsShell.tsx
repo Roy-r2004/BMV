@@ -27,7 +27,7 @@ export interface OpsShellProps {
   topbar?: React.ReactNode;
   /** Right context column (activity / profile). Stacks under main below xl. */
   rail?: React.ReactNode;
-  /** Soft SaaS (default) or legacy dark floor control. */
+  /** Soft branded workspace (default) or dark floor control. */
   appearance?: OpsShellAppearance;
   className?: string;
   adjustableSidebar?: boolean;
@@ -97,22 +97,35 @@ export function OpsShell({
   return (
     <div
       className={cn(
-        'flex min-h-screen text-foreground',
-        soft ? 'bg-[#f4f7fb]' : 'bg-[#ece8e2]',
+        'relative flex min-h-screen text-foreground',
+        soft
+          ? 'bg-[color-mix(in_srgb,var(--color-brand)_5%,var(--color-background))]'
+          : 'bg-[#1a1814]',
         className
       )}
       data-ops-appearance={appearance}
     >
+      {soft ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-90"
+          style={{
+            background:
+              'radial-gradient(70% 50% at 0% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent), transparent 55%), radial-gradient(55% 40% at 100% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 50%)',
+          }}
+        />
+      ) : null}
+
       <aside
         className={cn(
-          'relative hidden shrink-0 xl:flex xl:flex-col',
+          'relative z-[1] hidden shrink-0 xl:flex xl:flex-col',
           soft
-            ? 'border-r border-[#e7edf5] bg-white shadow-[4px_0_24px_-20px_rgba(15,23,42,0.35)]'
-            : 'bg-[#1c1916] text-[#f4f0ea]'
+            ? 'border-r border-border-subtle/80 bg-card/90 shadow-[var(--shadow-ui)] backdrop-blur-md'
+            : 'bg-[#141210] text-[#f4f0ea]'
         )}
         style={adjustableSidebar ? { width: sidebarWidth } : { width: soft ? '15.5rem' : '16.5rem' }}
       >
-        <div className={cn('px-4 py-5', soft ? 'border-b border-[#eef2f7]' : 'border-b border-white/10')}>
+        <div className={cn('px-4 py-5', soft ? 'border-b border-border-subtle/70' : 'border-b border-white/10')}>
           <div className="flex items-start justify-between gap-2">
             <div className={cn('min-w-0', collapsed && 'sr-only')}>
               <p
@@ -139,7 +152,7 @@ export function OpsShell({
                 className={cn(
                   'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition',
                   soft
-                    ? 'text-muted hover:bg-[#f4f7fb] hover:text-foreground'
+                    ? 'text-muted hover:bg-[color-mix(in_srgb,var(--color-brand)_8%,var(--color-background))] hover:text-foreground'
                     : 'text-white/55 hover:bg-white/8 hover:text-white'
                 )}
                 aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -162,11 +175,11 @@ export function OpsShell({
         <nav className="flex flex-1 flex-col gap-0.5 p-2.5" aria-label="Operations">
           {resolvedNav.map((item) => {
             const itemClassName = cn(
-              'rounded-xl px-3 py-2.5 text-sm font-medium transition',
+              'rounded-[calc(var(--radius-ui)+0.35rem)] px-3 py-2.5 text-sm font-medium transition',
               soft
                 ? item.active
-                  ? 'bg-[color-mix(in_srgb,var(--color-brand)_14%,white)] text-[color:var(--color-brand-dark,var(--color-brand))]'
-                  : 'text-muted hover:bg-[#f4f7fb] hover:text-foreground'
+                  ? 'bg-[color-mix(in_srgb,var(--color-brand)_16%,white)] text-[color:var(--color-brand-dark,var(--color-brand))] shadow-sm'
+                  : 'text-muted hover:bg-[color-mix(in_srgb,var(--color-brand)_7%,var(--color-background))] hover:text-foreground'
                 : item.active
                   ? 'bg-white/12 text-white'
                   : 'text-white/55 hover:bg-white/6 hover:text-white',
@@ -202,7 +215,7 @@ export function OpsShell({
         <div
           className={cn(
             'px-4 py-4 text-[11px]',
-            soft ? 'border-t border-[#eef2f7] text-muted' : 'border-t border-white/10 text-white/40',
+            soft ? 'border-t border-border-subtle/70 text-muted' : 'border-t border-white/10 text-white/40',
             collapsed && 'text-center'
           )}
         >
@@ -222,17 +235,17 @@ export function OpsShell({
             }}
             className={cn(
               'absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize bg-transparent',
-              soft ? 'hover:bg-[#dbe4ef]' : 'hover:bg-white/15'
+              soft ? 'hover:bg-brand/25' : 'hover:bg-white/15'
             )}
           />
         ) : null}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative z-[1] flex min-w-0 flex-1 flex-col">
         <div
           className={cn(
             'border-b px-4 py-2 xl:hidden',
-            soft ? 'border-[#e7edf5] bg-white' : 'border-border-subtle bg-card'
+            soft ? 'border-border-subtle/80 bg-card/95 backdrop-blur' : 'border-border-subtle bg-card'
           )}
         >
           <nav className="flex gap-2 overflow-x-auto" aria-label="Operations mobile">
@@ -244,10 +257,10 @@ export function OpsShell({
                   'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold',
                   item.active
                     ? soft
-                      ? 'bg-[color-mix(in_srgb,var(--color-brand)_16%,white)] text-[color:var(--color-brand-dark,var(--color-brand))]'
+                      ? 'bg-[color-mix(in_srgb,var(--color-brand)_18%,white)] text-[color:var(--color-brand-dark,var(--color-brand))]'
                       : 'bg-foreground text-background'
                     : soft
-                      ? 'bg-[#f4f7fb] text-muted'
+                      ? 'bg-[color-mix(in_srgb,var(--color-brand)_6%,var(--color-background))] text-muted'
                       : 'bg-background text-muted'
                 )}
               >
@@ -259,8 +272,10 @@ export function OpsShell({
         {topbar ? (
           <header
             className={cn(
-              'sticky top-0 z-10 border-b backdrop-blur',
-              soft ? 'border-[#e7edf5]/80 bg-white/90' : 'border-border-subtle/80 bg-[#f3efe9]/90'
+              'sticky top-0 z-10 border-b backdrop-blur-md',
+              soft
+                ? 'border-border-subtle/70 bg-card/85'
+                : 'border-border-subtle/80 bg-[#f3efe9]/90'
             )}
           >
             <div className="flex min-h-12 items-center justify-between gap-4 px-5 py-2.5 sm:px-6 lg:px-7">
@@ -275,7 +290,9 @@ export function OpsShell({
             <aside
               className={cn(
                 'w-full shrink-0 px-5 pb-5 sm:px-6 lg:px-7 xl:w-[22rem] xl:border-l xl:py-5',
-                soft ? 'border-[#e7edf5] xl:bg-[#f8fafc]' : 'border-border-subtle'
+                soft
+                  ? 'border-border-subtle/80 xl:bg-[color-mix(in_srgb,var(--color-brand)_4%,var(--color-background))]'
+                  : 'border-border-subtle'
               )}
               data-ops-rail=""
             >

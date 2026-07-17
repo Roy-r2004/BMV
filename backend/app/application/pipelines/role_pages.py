@@ -19,6 +19,9 @@ from app.application.services.page_experience import (
 )
 from app.application.services.page_inject import fix_broken_images, inject_page_enhancements
 from app.application.services.page_qa import check_page, fix_page
+from app.infrastructure.logging import get_logger
+
+role_log = get_logger("RolePages")
 
 
 def _generate_one_page_html(
@@ -122,21 +125,26 @@ def generate_role_pages(
     )
 
     # ── Step 1: Planner + validator agents ──
-    print("  [1/4] Planning UI experience from full business input...", flush=True)
+    role_log.info("[1/4] planning UI experience from full business input")
     full_context = gather_full_context(req, demo)
     plan = build_experience_plan(req, demo, primary, secondary, ai_provider, template_renderer)
     total_pages = sum(len(r.get("pages", [])) for r in plan.get("roles", []))
     coverage = len(plan.get("feature_coverage", []))
-    print(f"  OK Plan: {len(plan.get('roles', []))} roles, {total_pages} pages, {coverage} features mapped", flush=True)
+    role_log.info(
+        "plan ready: %s roles, %s pages, %s features mapped",
+        len(plan.get("roles", [])),
+        total_pages,
+        coverage,
+    )
 
     # ── Step 2: Brand manifest (inherits design_system from plan) ──
-    print("  [2/4] Building brand manifest...", flush=True)
+    role_log.info("[2/4] building brand manifest")
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
     brand_accent = design_system.get("primary_color") or manifest.get("accent") or primary
 
     # ── Step 3: Builder + QA agents per page ──
-    print(f"  [3/4] Generating {total_pages} pages from plan...", flush=True)
+    role_log.info("[3/4] generating %s pages from plan", total_pages)
     roles: dict = {}
     page_num = 0
     for role_spec in plan.get("roles", []):
@@ -157,19 +165,25 @@ def generate_role_pages(
             page_id = page_spec.get("id", f"page_{page_num}")
             page_title = page_spec.get("title", page_id)
             try:
-                print(f"  -> [{page_num}/{total_pages}] [{role_id}] {page_title} ...", flush=True)
+                role_log.debug(
+                    "[%s/%s] [%s] %s — generating",
+                    page_num,
+                    total_pages,
+                    role_id,
+                    page_title,
+                )
                 html = _generate_one_page_html(
                     full_context, concept, page_spec, page_id, images, manifest, plan, role_spec,
                     ai_provider, template_renderer,
                 )
-                print(f"  OK [{role_id}] {page_title} ({len(html):,} chars)", flush=True)
+                role_log.debug("OK [%s] %s (%s chars)", role_id, page_title, len(html))
                 roles[role_id]["pages"].append({
                     "id": page_id,
                     "title": page_title,
                     "html": html,
                 })
             except Exception as e:
-                print(f"  FAIL [{role_id}] {page_title} - {e}", flush=True)
+                role_log.error("FAIL [%s] %s — %s", role_id, page_title, e)
 
         # ── Step 4: Inject theme + bundle into one navigable website per role ──
         role_pages = roles[role_id]["pages"]
@@ -183,7 +197,7 @@ def generate_role_pages(
             role_pages, design_system, manifest, slug, template_renderer,
         )
 
-    print("  [4/4] Done.", flush=True)
+    role_log.info("[4/4] role pages generation done")
 
     result = {
         "roles": [v for v in roles.values() if v["pages"]],

@@ -1,0 +1,17 @@
+{
+  "id": "restaurant-cafe-home",
+  "label": "Local restaurant / cafe",
+  "industry_tags": ["restaurant", "cafe", "bistro", "bakery", "food", "dining"],
+  "recipe_hint": "warm-service",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "trust", "showcase", "features", "process", "testimonials", "cta", "footer"],
+  "signature_moves": ["service hero", "logo marquee", "product showcase", "warm cards"],
+  "prompt_hints": [
+    "Appetite-forward photography, warm surfaces, menu moments — not startup chrome.",
+    "Showcase dishes / rooms; FeatureBento for occasions; CTA for reservations."
+  ],
+  "mock_seed": {
+    "dishes": ["House pasta", "Weekend brunch", "Chef tasting"],
+    "tone": "hospitable"
+  }
+}

@@ -3,10 +3,35 @@
 #   docker compose up --build
 # Frontend: http://localhost:5173
 # API:      http://localhost:8001
+#
+# Dev hot-reload: ./backend and ./frontend are bind-mounted; API uses uvicorn
+# --reload and Vite HMR. Restart api only after requirements.txt / .env changes.
 
 name: bmv-local
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: bmv-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-buildmyversion}
+      POSTGRES_USER: ${POSTGRES_USER:-bmv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bmv-local-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - bmv-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-bmv} -d ${POSTGRES_DB:-buildmyversion}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -17,44 +42,69 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Always OpenRouter for local compose — never Ollama / local LLM
-      AI_PROVIDER: openrouter
-      # Fast models (DeepSeek parallel hangs for 20+ min with no file completing)
-      TEXT_MODEL: google/gemini-2.5-flash
-      PREVIEW_APP_MODEL: google/gemini-2.5-flash
-      ARCHITECT_MODEL: google/gemini-2.5-flash
-      CRITIC_MODEL: google/gemini-2.5-flash
-      FIX_MODEL: google/gemini-2.5-flash
+      # Local runtime values come from the root .env.
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
+      TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
+      PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-google/gemini-2.5-flash}
+      ARCHITECT_MODEL: ${ARCHITECT_MODEL:-google/gemini-2.5-flash}
+      CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
+      FIX_MODEL: ${FIX_MODEL:-google/gemini-2.5-flash}
       # Browser hits host-mapped port; Playwright inside container uses 8000
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       INTERNAL_BASE_URL: http://127.0.0.1:8000
       UPLOAD_DIR: /app/data/uploads
       PREVIEW_APPS_DIR: /app/data/preview-apps
       PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
-      DATABASE_URL: sqlite:////app/data/buildmyversion.db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bmv}:${POSTGRES_PASSWORD:-bmv-local-password}@db:5432/${POSTGRES_DB:-buildmyversion}
       # Parallel is safe after progress_lock/SQLite fixes; 3 keeps Flash responsive
       PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-3}
       PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-true}
       PREVIEW_SKIP_VISUAL_CRITIC: ${PREVIEW_SKIP_VISUAL_CRITIC:-false}
       PREVIEW_MAX_BUILD_FIX_ATTEMPTS: ${PREVIEW_MAX_BUILD_FIX_ATTEMPTS:-5}
       PREVIEW_MAX_FIX_LOOP_SECONDS: ${PREVIEW_MAX_FIX_LOOP_SECONDS:-600}
+      APPSPEC_MODE: ${APPSPEC_MODE:-off}
+      APPSPEC_SCHEMA_VERSION: ${APPSPEC_SCHEMA_VERSION:-1.0}
+      APPSPEC_PROMPT_REVISION: ${APPSPEC_PROMPT_REVISION:-2026-07-15.1}
+      APPSPEC_MODEL: ${APPSPEC_MODEL:-google/gemini-2.5-flash}
+      APPSPEC_REPAIR_MODEL: ${APPSPEC_REPAIR_MODEL:-google/gemini-2.5-flash}
+      APPSPEC_COVERAGE_MODEL: ${APPSPEC_COVERAGE_MODEL:-google/gemini-2.5-flash}
+      APPSPEC_MAX_CALLS: ${APPSPEC_MAX_CALLS:-6}
+      APPSPEC_MAX_REPAIR_ATTEMPTS: ${APPSPEC_MAX_REPAIR_ATTEMPTS:-3}
+      APPSPEC_MAX_TOKENS: ${APPSPEC_MAX_TOKENS:-24000}
+      APPSPEC_REPAIR_MAX_TOKENS: ${APPSPEC_REPAIR_MAX_TOKENS:-24000}
+      APPSPEC_COVERAGE_MAX_TOKENS: ${APPSPEC_COVERAGE_MAX_TOKENS:-6000}
+      APPSPEC_MIN_COVERAGE_SCORE: ${APPSPEC_MIN_COVERAGE_SCORE:-95}
+      APPSPEC_PREVIEW_TARGET_PAGES: ${APPSPEC_PREVIEW_TARGET_PAGES:-6}
+      APPSPEC_PREVIEW_MAX_PAGES: ${APPSPEC_PREVIEW_MAX_PAGES:-8}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      # Hot-reload Python on save (local compose only — off in prod)
+      UVICORN_RELOAD: ${UVICORN_RELOAD:-true}
+      WATCHFILES_FORCE_POLLING: ${WATCHFILES_FORCE_POLLING:-true}
     volumes:
       - bmv-api-data:/app/data
-      # Live-edit backend without rebuild (optional; comment out for pure image test)
-      - ./backend/app:/app/backend/app
-      - ./backend/data:/app/backend/data
-      - ./backend/preview-template:/app/backend/preview-template
+      # Full backend tree live-mounted (app, scripts, preview-template, templates)
+      - ./backend:/app/backend
+      # Temporary Cursor debug-session NDJSON sink.
+      - ./.cursor:/Users/maurice/Documents/Dev/BMV/.cursor
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   web:
     image: node:20-alpine
     container_name: bmv-web
     working_dir: /app
-    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    command: >-
+      sh -c "if [ ! -x node_modules/.bin/vite ]; then npm ci; fi
+      && exec npm run dev -- --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
     environment:
       VITE_API_BASE_URL: http://localhost:8001
+      # Reliable file watching through Docker bind mounts (macOS/Windows)
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
     volumes:
       - ./frontend:/app
       - bmv-web-node-modules:/app/node_modules
@@ -64,4 +114,5 @@ services:
 
 volumes:
   bmv-api-data:
+  bmv-pg-data:
   bmv-web-node-modules:

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getPreview, requestBuild } from '../api/requests';
@@ -19,6 +19,7 @@ import { useAiStatus } from '../hooks/useAiStatus';
 import type { BuildRequestContact } from '../types/buildRequest';
 
 const ease = [0.22, 1, 0.36, 1] as const;
+const PREVIEW_POLL_MS = 3000;
 
 export default function ResultPreviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,25 +30,43 @@ export default function ResultPreviewPage() {
   const [error, setError] = useState('');
   const [revealed, setRevealed] = useState(false);
   const aiStatus = useAiStatus(12000);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPoll = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
 
   const fetchPreview = useCallback(async () => {
     if (!id) return;
     try {
       const data = await getPreview(Number(id));
       setPreview(data);
-      if (data.is_generating && !data.concept_name) {
-        setTimeout(fetchPreview, 5000);
+      setError('');
+      // Keep polling for the full pipeline — blueprint/concept arrive early;
+      // codegen + Vite often run for many more minutes.
+      if (data.is_generating) {
+        clearPoll();
+        pollTimerRef.current = setTimeout(() => {
+          void fetchPreview();
+        }, PREVIEW_POLL_MS);
+      } else {
+        clearPoll();
       }
     } catch {
       setError('Preview not found.');
+      clearPoll();
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [clearPoll, id]);
 
   useEffect(() => {
-    fetchPreview();
-  }, [fetchPreview]);
+    void fetchPreview();
+    return clearPoll;
+  }, [fetchPreview, clearPoll]);
 
   useEffect(() => {
     if (preview?.concept_name && !preview.is_generating) {
@@ -73,13 +92,28 @@ export default function ResultPreviewPage() {
     setPreview((prev) => (prev ? { ...prev, ...updates } : prev));
   }, []);
 
-  const isGenerating = preview ? preview.is_generating && !preview.concept_name : loading;
+  const handleGenerationComplete = useCallback(() => {
+    void fetchPreview();
+  }, [fetchPreview]);
+
+  // Show progress for the entire generation lifecycle (not only pre-concept).
+  const isGenerating = preview ? preview.is_generating : loading;
   const modelsPulling = aiStatus?.provider === 'ollama' && !aiStatus.ready;
+
+  // #region agent log
+  if (preview) {
+    fetch('http://127.0.0.1:7453/ingest/fbc2480d-acff-4f2c-a3de-cf96872fcda1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'796af6'},body:JSON.stringify({sessionId:'796af6',runId:'retry-ui',hypothesisId:'C',location:'ResultPreviewPage.tsx:branch',message:'render branch decision',data:{requestId,status:preview.status,is_generating:preview.is_generating,isGenerating,showCinematic:Boolean(isGenerating||preview.status==='failed'),hasConcept:Boolean(preview.concept_name)},timestamp:Date.now()})}).catch(()=>{});
+  }
+  // #endregion
 
   if (loading && !preview) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <GenerationCinematic requestId={requestId || undefined} title="Designing your complete package" />
+        <GenerationCinematic
+          requestId={requestId || undefined}
+          title="Designing your complete package"
+          onComplete={handleGenerationComplete}
+        />
       </div>
     );
   }
@@ -95,7 +129,7 @@ export default function ResultPreviewPage() {
     );
   }
 
-  if (isGenerating) {
+  if (isGenerating || preview.status === 'failed') {
     return (
       <div className="min-h-screen bg-slate-50">
         <AiModelsBanner status={aiStatus} />
@@ -105,7 +139,13 @@ export default function ResultPreviewPage() {
             <p className="text-slate-800 font-medium">Waiting for AI models…</p>
           </div>
         ) : (
-          <GenerationCinematic requestId={requestId || undefined} businessName={preview.business_name} title="Building your complete package" compact />
+          <GenerationCinematic
+            requestId={requestId || undefined}
+            businessName={preview.business_name}
+            title="Building your complete package"
+            compact
+            onComplete={handleGenerationComplete}
+          />
         )}
       </div>
     );

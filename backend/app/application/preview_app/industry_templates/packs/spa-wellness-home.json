@@ -1,0 +1,18 @@
+{
+  "id": "spa-wellness-home",
+  "label": "Boutique spa / wellness home",
+  "industry_tags": ["spa", "wellness", "salon", "beauty", "massage", "yoga"],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "credentials", "features", "process", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["cinematic hero", "credential strip", "booking panel", "serif display"],
+  "prompt_hints": [
+    "Calm, luminous, spa-grade pacing — never generic SaaS.",
+    "Hero is brand-first with soft atmosphere; booking CTA is primary.",
+    "Use ProcessSection for the guest journey; avoid dense tables on home."
+  ],
+  "mock_seed": {
+    "treatments": ["Signature massage", "Glow facial", "Deep restore"],
+    "tone": "serene"
+  }
+}

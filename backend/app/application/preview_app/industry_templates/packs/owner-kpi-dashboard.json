@@ -1,0 +1,17 @@
+{
+  "id": "owner-kpi-dashboard",
+  "label": "Owner KPI dashboard",
+  "industry_tags": ["owner", "ops", "dashboard", "kpi", "admin", "manager"],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "chart", "filters", "table", "activity", "risk"],
+  "signature_moves": ["StatCard grid", "ActivityFeed rail", "brand-tinted OpsShell", "RiskQueue"],
+  "prompt_hints": [
+    "Soft branded OpsShell — never gray #f4f7fb or slate-900 SaaS.",
+    "KPI-first with realistic numbers; rail activity + risk queue always present."
+  ],
+  "mock_seed": {
+    "kpis": ["Revenue today", "Open tickets", "Fill rate"],
+    "tone": "operational"
+  }
+}

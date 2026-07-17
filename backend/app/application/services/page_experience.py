@@ -16,10 +16,12 @@ from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
 from app.application.services.preview_parser import parse_preview_features
-from app.application.preview_app.app_spec_projection import (
+from app.application.appspec.projection import (
     merge_experience_plan_enrichment,
 )
+from app.infrastructure.logging import get_logger
 
+plan_log = get_logger("ExperiencePlanner")
 
 def gather_full_context(req: Request, demo: dict | None = None) -> str:
     """Collect every piece of analysis the UI agents should read."""
@@ -82,7 +84,6 @@ def gather_full_context(req: Request, demo: dict | None = None) -> str:
 
     return "\n".join(parts)
 
-
 def _close_truncated_json(fragment: str) -> str | None:
     """Balance a JSON fragment cut off by a max_tokens limit.
 
@@ -129,7 +130,6 @@ def _close_truncated_json(fragment: str) -> str | None:
         candidate = candidate.rstrip()
     return candidate + "".join(reversed(stack))
 
-
 def _parse_json_from_response(raw: str) -> dict | None:
     start = raw.find("{")
     end = raw.rfind("}") + 1
@@ -157,7 +157,6 @@ def _parse_json_from_response(raw: str) -> dict | None:
             return None
         fragment = fragment[:cut]
     return None
-
 
 def _call_planner(
     req: Request,
@@ -198,14 +197,15 @@ def _call_planner(
         if canonical_seed:
             plan = merge_experience_plan_enrichment(canonical_seed, plan)
         return _normalize_plan(plan, primary, secondary)
-    print(
-        f"  planner model={model} returned no usable plan: "
-        f"parsed={'yes' if plan else 'no'} roles={bool(plan and plan.get('roles'))} "
-        f"raw_len={len(raw or '')} raw_tail={(raw or '')[-400:]!r}",
-        flush=True,
+    plan_log.debug(
+        "planner model=%s returned no usable plan: parsed=%s roles=%s raw_len=%s raw_tail=%r",
+        model,
+        bool(plan),
+        bool(plan and plan.get("roles")),
+        len(raw or ""),
+        (raw or "")[-400:],
     )
     return None
-
 
 def _plan_meets_minimums(plan: dict, preview_features: list[str] | None = None) -> tuple[bool, list[str]]:
     """Light gate — only reject empty or feature-incomplete plans, not fixed role/page counts."""
@@ -237,7 +237,6 @@ def _plan_meets_minimums(plan: dict, preview_features: list[str] | None = None) 
 
     return len(issues) == 0, issues
 
-
 def build_experience_plan(
     req: Request,
     demo: dict,
@@ -267,7 +266,7 @@ def build_experience_plan(
             if plan:
                 break
         except Exception as exc:
-            print(f"  planner model={model} raised: {type(exc).__name__}: {exc}", flush=True)
+            plan_log.warning("planner model=%s raised: %s: %s", model, type(exc).__name__, exc)
             continue
 
     if not plan and canonical_seed:
@@ -292,15 +291,14 @@ def build_experience_plan(
 
     ok, issues = _plan_meets_minimums(plan, features)
     if not ok:
-        print(f"  Plan expansion needed: {'; '.join(issues)}", flush=True)
+        plan_log.info("plan expansion needed: %s", "; ".join(issues))
         plan = _expand_plan(req, demo, plan, issues, primary, secondary, ai_provider, template_renderer)
 
     ok, issues = _plan_meets_minimums(plan, features)
     if not ok:
-        print(f"  WARN Plan gaps remain: {'; '.join(issues)}", flush=True)
+        plan_log.warning("plan gaps remain: %s", "; ".join(issues))
 
     return plan
-
 
 def _expand_plan(
     req: Request,
@@ -337,7 +335,6 @@ def _expand_plan(
             continue
     return plan
 
-
 def validate_and_expand_plan(
     req: Request,
     plan: dict,
@@ -367,7 +364,6 @@ def validate_and_expand_plan(
         except Exception:
             continue
     return plan
-
 
 def build_design_manifest(
     full_context: str,
@@ -408,7 +404,6 @@ def build_design_manifest(
         "services": [],
     }
 
-
 def page_required_sections(page_spec: dict) -> list[str]:
     sections = page_spec.get("sections") or []
     result: list[str] = []
@@ -424,7 +419,6 @@ def page_required_sections(page_spec: dict) -> list[str]:
     for f in features:
         result.append(f"Feature UI visible: {f}")
     return result
-
 
 def _summarize_plan(plan: dict) -> str:
     lines: list[str] = []
@@ -446,7 +440,6 @@ def _summarize_plan(plan: dict) -> str:
     if cov:
         lines.append(f"Feature coverage: {len(cov)} items mapped")
     return "\n".join(lines)
-
 
 def _normalize_plan(plan: dict, primary: str, secondary: str) -> dict:
     ds = plan.setdefault("design_system", {})

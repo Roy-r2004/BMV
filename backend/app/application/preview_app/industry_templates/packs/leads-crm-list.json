@@ -1,0 +1,11 @@
+{
+  "id": "leads-crm-list",
+  "label": "Leads / CRM list",
+  "industry_tags": ["leads", "crm", "pipeline", "sales", "prospects"],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "activity", "risk"],
+  "signature_moves": ["pipeline KPIs", "lead table", "activity rail"],
+  "prompt_hints": ["CRM list density — stages as pills, follow-ups in risk queue."],
+  "mock_seed": { "tone": "pipeline" }
+}

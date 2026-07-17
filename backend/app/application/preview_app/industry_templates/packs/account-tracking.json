@@ -1,0 +1,11 @@
+{
+  "id": "account-tracking",
+  "label": "Account / tracking utility",
+  "industry_tags": ["tracking", "order status", "account", "shipment", "status"],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "utility-tracking",
+  "section_order": ["header", "workspace", "activity"],
+  "signature_moves": ["status timeline", "brand accents", "activity feed"],
+  "prompt_hints": ["Status clarity — timeline + details; brand-tinted chrome not pale gray."],
+  "mock_seed": { "tone": "status" }
+}

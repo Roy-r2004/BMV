@@ -1,6 +1,12 @@
 import { RECIPE_ID } from './recipe-id';
 
-export type RecipeId = 'editorial' | 'dense-ops' | 'warm-service' | 'bold-retail';
+export type RecipeId =
+  | 'editorial'
+  | 'dense-ops'
+  | 'warm-service'
+  | 'bold-retail'
+  | 'nocturne'
+  | 'craft';
 
 /** Distinct hero compositions — not just color variants of one layout. */
 export type HeroVariant = 'cinematic' | 'service' | 'compact' | 'product' | 'editorial';
@@ -11,6 +17,8 @@ const HERO_BY_RECIPE: Record<RecipeId, HeroVariant> = {
   'dense-ops': 'compact',
   'warm-service': 'service',
   'bold-retail': 'product',
+  nocturne: 'cinematic',
+  craft: 'service',
 };
 
 const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
@@ -18,6 +26,8 @@ const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
   'dense-ops': 'grid',
   'warm-service': 'bento',
   'bold-retail': 'bento',
+  nocturne: 'alternating',
+  craft: 'alternating',
 };
 
 export function currentRecipeId(): RecipeId {
@@ -38,7 +48,7 @@ export function recipeFeatureVariant(recipeId: RecipeId = currentRecipeId()): Fe
   return FEATURE_BY_RECIPE[recipeId];
 }
 
-/** Display type treatment — italic for editorial/warm, upright for ops/retail. */
+/** Display type treatment — italic for editorial/warm/nocturne/craft, upright for ops/retail. */
 export function recipeDisplayClass(recipeId: RecipeId = currentRecipeId()): string {
   if (recipeId === 'dense-ops' || recipeId === 'bold-retail') {
     return 'font-display not-italic tracking-tight';

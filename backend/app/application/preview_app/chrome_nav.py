@@ -76,7 +76,53 @@ def _inject_in_component(src: str, body: str) -> str:
     )
 
 
+def _strip_balanced_block(src: str, start: int) -> str:
+    """Remove a `{...}` block starting at the first `{` on/after start."""
+    brace = src.find("{", start)
+    if brace < 0:
+        return src
+    depth = 0
+    i = brace
+    while i < len(src):
+        ch = src[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                if end < len(src) and src[end] == ";":
+                    end += 1
+                while end < len(src) and src[end] in "\r\n":
+                    end += 1
+                return src[:start] + src[end:]
+        i += 1
+    return src
+
+
+def _strip_local_named_component(src: str, name: str) -> str:
+    """Remove AI-invented local function/const that clashes with a @/ui import."""
+    patterns = (
+        rf"(?:export\s+)?function\s+{re.escape(name)}\s*\(",
+        rf"(?:export\s+)?const\s+{re.escape(name)}\s*=\s*(?:async\s*)?\(",
+        rf"(?:export\s+)?const\s+{re.escape(name)}\s*=\s*(?:async\s*)?function\b",
+    )
+    changed = True
+    while changed:
+        changed = False
+        for pattern in patterns:
+            match = re.search(pattern, src)
+            if not match:
+                continue
+            src = _strip_balanced_block(src, match.start())
+            changed = True
+            break
+    return src
+
+
 def _ensure_named_ui_import(src: str, name: str) -> str:
+    # Local AI copies of kit components break the build once we also import them.
+    src = _strip_local_named_component(src, name)
     pattern = (
         r"import\s*\{[^}]*\b"
         + re.escape(name)
@@ -87,7 +133,7 @@ def _ensure_named_ui_import(src: str, name: str) -> str:
 
     def add(match: re.Match[str]) -> str:
         clause = match.group(1)
-        if name in clause:
+        if re.search(rf"\b{re.escape(name)}\b", clause):
             return match.group(0)
         cleaned = clause.strip().rstrip(",")
         return f"import {{ {cleaned}, {name} }} from '@/ui'"
@@ -95,7 +141,6 @@ def _ensure_named_ui_import(src: str, name: str) -> str:
     if "from '@/ui'" in src or 'from "@/ui"' in src:
         return re.sub(r"import \{([^}]+)\} from ['\"]@/ui['\"]", add, src, count=1)
     return _ensure_import_line(src, f"import {{ {name} }} from '@/ui';")
-
 
 def _is_member_page(file_path: str, route: dict) -> bool:
     path = str(route.get("path") or "")

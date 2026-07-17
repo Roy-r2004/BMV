@@ -175,7 +175,7 @@ export default function OpsReferencePage() {
             {
               key: 'status',
               header: 'Status',
-              render: (row) => {
+              render: (row: Record<string, unknown>) => {
                 const value = String(row.status ?? '');
                 const tone = value.toLowerCase().includes('risk')
                   ? 'destructive'

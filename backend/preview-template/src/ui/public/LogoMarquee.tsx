@@ -26,9 +26,13 @@ export function LogoMarquee({ className, heading, items, size = 'default' }: Log
   if (size === 'display') {
     return (
       <section
-        className={cn('overflow-hidden border-y border-foreground/10 bg-background py-6 lg:py-8', className)}
+        className={cn(
+          'relative overflow-hidden border-y border-foreground/10 bg-[color-mix(in_srgb,var(--color-brand)_4%,var(--color-background))] py-6 lg:py-8',
+          className
+        )}
         aria-label={heading || 'Highlights'}
       >
+        <div aria-hidden className="ui-noise opacity-40" />
         <div
           className={cn(
             'relative min-w-0 overflow-hidden',

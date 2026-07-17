@@ -91,8 +91,9 @@ export function BookingPanel({
   };
 
   return (
-    <section id="book" className={cn('scroll-mt-28 px-6 py-28 lg:px-12 lg:py-32', className)}>
-      <div className="mx-auto grid w-full max-w-[92rem] gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+    <section id="book" className={cn('relative isolate scroll-mt-28 overflow-hidden px-6 py-28 lg:px-12 lg:py-32', className)}>
+      <div className="ui-mesh opacity-45" aria-hidden="true" />
+      <div className="relative mx-auto grid w-full max-w-[92rem] gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <MotionReveal>
           <p className="text-[11px] font-semibold tracking-[0.2em] text-brand uppercase">Book</p>
           <h2 className="mt-4 font-display text-[clamp(2.75rem,5vw,4.5rem)] italic leading-[0.92] tracking-[-0.04em] text-foreground">
@@ -102,7 +103,7 @@ export function BookingPanel({
           {!useCustom ? (
             <ol className="mt-10 flex gap-6 text-[11px] font-semibold tracking-[0.16em] uppercase">
               {([1, 2, 3] as const).map((n) => (
-                <li key={n} className={cn(step === n ? 'text-foreground' : 'text-muted')}>
+                <li key={n} className={cn(step === n ? 'text-brand' : 'text-muted')}>
                   0{n}
                 </li>
               ))}
@@ -110,7 +111,12 @@ export function BookingPanel({
           ) : null}
         </MotionReveal>
 
-        <MotionReveal className="border border-border-subtle bg-card p-6 sm:p-8">
+        <MotionReveal className="relative overflow-hidden rounded-[calc(var(--radius-ui)+0.5rem)] border border-border-subtle bg-card p-6 shadow-[var(--shadow-ui)] sm:p-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_18%,transparent),transparent_70%)]"
+          />
+          <div className="relative">
           {useCustom ? (
             <div className="space-y-6">
               {children}
@@ -133,10 +139,10 @@ export function BookingPanel({
                     type="button"
                     onClick={() => setTreatmentId(t.id)}
                     className={cn(
-                      'flex w-full items-center justify-between border px-4 py-4 text-left transition-colors',
+                      'flex w-full items-center justify-between rounded-[var(--radius-ui)] border px-4 py-4 text-left transition-colors',
                       treatmentId === t.id
-                        ? 'border-foreground bg-foreground text-background'
-                        : 'border-border-subtle bg-background text-foreground hover:border-foreground/40',
+                        ? 'border-brand bg-brand text-white shadow-[0_12px_28px_-16px_color-mix(in_srgb,var(--color-brand)_70%,transparent)]'
+                        : 'border-border-subtle bg-background text-foreground hover:border-brand/40',
                     )}
                   >
                     <span className="text-sm font-medium">{t.name}</span>
@@ -169,10 +175,10 @@ export function BookingPanel({
                       type="button"
                       onClick={() => setSlotId(s.id)}
                       className={cn(
-                        'border px-4 py-4 text-left text-sm transition-colors',
+                        'rounded-[var(--radius-ui)] border px-4 py-4 text-left text-sm transition-colors',
                         slotId === s.id
-                          ? 'border-foreground bg-foreground text-background'
-                          : 'border-border-subtle bg-background text-foreground hover:border-foreground/40',
+                          ? 'border-brand bg-brand text-white'
+                          : 'border-border-subtle bg-background text-foreground hover:border-brand/40',
                       )}
                     >
                       {label}
@@ -194,7 +200,7 @@ export function BookingPanel({
           {!useCustom && step === 3 ? (
             <div className="space-y-6">
               <h3 className="font-display text-2xl italic text-foreground">Confirm</h3>
-              <dl className="space-y-3 border border-border-subtle bg-background px-4 py-4 text-sm">
+              <dl className="space-y-3 rounded-[var(--radius-ui)] border border-border-subtle bg-[color-mix(in_srgb,var(--color-brand)_5%,var(--color-background))] px-4 py-4 text-sm">
                 <div className="flex justify-between gap-4">
                   <dt className="text-muted">Treatment</dt>
                   <dd className="font-medium text-foreground">{treatment?.name}</dd>
@@ -218,6 +224,7 @@ export function BookingPanel({
               </div>
             </div>
           ) : null}
+          </div>
         </MotionReveal>
       </div>
     </section>

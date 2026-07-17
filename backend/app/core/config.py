@@ -33,6 +33,13 @@ def _normalize_database_url(url: str | None) -> str:
     return raw
 
 
+def _env_or(name: str, default: str) -> str:
+    """Read an env var, treating blank/whitespace as unset so Compose defaults work."""
+
+    raw = (os.getenv(name) or "").strip()
+    return raw or default
+
+
 class Settings:
     """Environment-driven settings, resolved once at import time."""
 
@@ -100,6 +107,10 @@ class Settings:
     PREVIEW_MAX_AI_CALLS: int
     PREVIEW_SKIP_VISUAL_CRITIC: bool
     INTERNAL_BASE_URL: str
+    STATIC_DIR: Path | None
+    CORS_ORIGINS: str
+    UVICORN_RELOAD: bool
+    LOG_LEVEL: str
 
     def __init__(self) -> None:
         # Resolve preview-template from env, repo root, or next to backend/
@@ -124,31 +135,28 @@ class Settings:
         provider_key = "openrouter" if self.AI_PROVIDER == "openrouter" else "ollama"
         defaults = _DEFAULT_MODELS[provider_key]
 
-        self.TEXT_MODEL = os.getenv("TEXT_MODEL", defaults["text"])
-        self.VISION_MODEL = os.getenv("VISION_MODEL", defaults["vision"])
-        self.CODER_MODEL = os.getenv("CODER_MODEL", defaults["coder"])
-        self.HTML_MODEL = os.getenv("HTML_MODEL", defaults["html"])
-        self.PREVIEW_APP_MODEL = os.getenv("PREVIEW_APP_MODEL", self.HTML_MODEL)
+        self.TEXT_MODEL = _env_or("TEXT_MODEL", defaults["text"])
+        self.VISION_MODEL = _env_or("VISION_MODEL", defaults["vision"])
+        self.CODER_MODEL = _env_or("CODER_MODEL", defaults["coder"])
+        self.HTML_MODEL = _env_or("HTML_MODEL", defaults["html"])
+        self.PREVIEW_APP_MODEL = _env_or("PREVIEW_APP_MODEL", self.HTML_MODEL)
 
         # Architecture and design-critique are where model "taste" actually shows
         # up (layout, hierarchy, visual judgment) — bulk file codegen can stay on
         # a cheap coder model, but these two calls get a stronger default.
         taste_default = "anthropic/claude-haiku-4.5" if provider_key == "openrouter" else defaults["text"]
-        self.ARCHITECT_MODEL = os.getenv("ARCHITECT_MODEL", taste_default)
-        self.CRITIC_MODEL = os.getenv("CRITIC_MODEL", taste_default)
+        self.ARCHITECT_MODEL = _env_or("ARCHITECT_MODEL", taste_default)
+        self.CRITIC_MODEL = _env_or("CRITIC_MODEL", taste_default)
         # Fix loop uses the codegen model by default — Flash often returns empty JSON.
-        self.FIX_MODEL = os.getenv("FIX_MODEL", self.PREVIEW_APP_MODEL)
+        self.FIX_MODEL = _env_or("FIX_MODEL", self.PREVIEW_APP_MODEL)
 
-        # Canonical product contract. `off` keeps the legacy pipeline untouched;
-        # orchestration may opt into `shadow`, `required_new`, then `required` as
-        # the AppSpec stages are rolled out. The generation service itself is
-        # intentionally mode-agnostic so callers can run shadow comparisons.
+        # Canonical product contract toggle. `off` keeps the legacy pipeline
+        # untouched; `on` authors, enforces, and drives the UI from the AppSpec
+        # for every preview. Legacy rollout values (shadow/required_new/required)
+        # are accepted and treated as `on` so old configs keep working.
         requested_appspec_mode = os.getenv("APPSPEC_MODE", "off").strip().lower()
-        self.APPSPEC_MODE = (
-            requested_appspec_mode
-            if requested_appspec_mode in {"off", "shadow", "required_new", "required"}
-            else "off"
-        )
+        _appspec_on = {"on", "shadow", "required_new", "required", "true", "1", "yes", "enabled"}
+        self.APPSPEC_MODE = "on" if requested_appspec_mode in _appspec_on else "off"
         self.APPSPEC_SCHEMA_VERSION = (
             os.getenv("APPSPEC_SCHEMA_VERSION", "1.0").strip() or "1.0"
         )
@@ -156,19 +164,12 @@ class Settings:
             os.getenv("APPSPEC_PROMPT_REVISION", "2026-07-15.1").strip()
             or "2026-07-15.1"
         )
-        self.APPSPEC_MODEL = (
-            os.getenv("APPSPEC_MODEL", self.ARCHITECT_MODEL).strip()
-            or self.ARCHITECT_MODEL
-        )
-        self.APPSPEC_REPAIR_MODEL = (
-            os.getenv("APPSPEC_REPAIR_MODEL", self.APPSPEC_MODEL).strip()
-            or self.APPSPEC_MODEL
-        )
+        self.APPSPEC_MODEL = _env_or("APPSPEC_MODEL", self.ARCHITECT_MODEL)
+        self.APPSPEC_REPAIR_MODEL = _env_or("APPSPEC_REPAIR_MODEL", self.APPSPEC_MODEL)
         # Keep the coverage review separately configurable so production can use
         # a different model from the authoring pass instead of self-grading.
-        self.APPSPEC_COVERAGE_MODEL = (
-            os.getenv("APPSPEC_COVERAGE_MODEL", self.CRITIC_MODEL).strip()
-            or self.CRITIC_MODEL
+        self.APPSPEC_COVERAGE_MODEL = _env_or(
+            "APPSPEC_COVERAGE_MODEL", self.CRITIC_MODEL
         )
         try:
             self.APPSPEC_MAX_CALLS = max(2, int(os.getenv("APPSPEC_MAX_CALLS", "6")))
@@ -255,6 +256,16 @@ class Settings:
         # already-running preview-app route — never exposed to end users,
         # unrelated to any public base URL / CORS setting.
         self.INTERNAL_BASE_URL = os.getenv("INTERNAL_BASE_URL", "http://localhost:8000").rstrip("/")
+        static_dir = (os.getenv("STATIC_DIR") or "").strip()
+        self.STATIC_DIR = Path(static_dir) if static_dir else None
+        self.CORS_ORIGINS = os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5175",
+        )
+        self.UVICORN_RELOAD = os.getenv("UVICORN_RELOAD", "false").strip().lower() in (
+            "1", "true", "yes", "on",
+        )
+        self.LOG_LEVEL = os.getenv("LOG_LEVEL", "debug").strip().lower()
 
     @property
     def TEMPLATES_DIR(self) -> Path:
@@ -262,11 +273,7 @@ class Settings:
 
     @property
     def cors_origins(self) -> list[str]:
-        raw = os.getenv(
-            "CORS_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5175",
-        )
-        return [o.strip() for o in raw.split(",") if o.strip()]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 
 _DEFAULT_MODELS: dict[str, dict[str, str]] = {

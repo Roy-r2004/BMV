@@ -1,0 +1,11 @@
+{
+  "id": "agency-portfolio-home",
+  "label": "Agency / studio portfolio",
+  "industry_tags": ["agency", "studio", "design", "creative", "portfolio", "marketing", "art", "gallery", "artist", "painter"],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "showcase", "features", "process", "testimonials", "cta", "footer"],
+  "signature_moves": ["cinematic hero", "case showcase", "alternating features"],
+  "prompt_hints": ["Portfolio gravity — oversized type, case imagery, sparse but rich sections."],
+  "mock_seed": { "tone": "creative" }
+}

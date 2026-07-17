@@ -99,7 +99,7 @@ export function DataTable({
     <div className={cn('overflow-hidden border border-border-subtle bg-card', className)}>
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse text-left text-[13px]">
-          <thead className="bg-[#eef2f4] text-[11px] tracking-[0.08em] text-muted uppercase">
+          <thead className="bg-[color-mix(in_srgb,var(--color-brand)_6%,var(--color-background))] text-[11px] tracking-[0.08em] text-muted uppercase">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -122,7 +122,7 @@ export function DataTable({
                 <tr
                   key={row.id}
                   className={cn(
-                    'border-t border-border-subtle text-foreground hover:bg-[#f7f9fa]',
+                    'border-t border-border-subtle text-foreground hover:bg-[color-mix(in_srgb,var(--color-brand)_5%,var(--color-background))]',
                     onRowSelect && 'cursor-pointer'
                   )}
                   onClick={onRowSelect ? () => onRowSelect(row.original) : undefined}

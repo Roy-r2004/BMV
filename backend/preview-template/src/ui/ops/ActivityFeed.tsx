@@ -67,13 +67,17 @@ export function ActivityFeed({ className, heading = 'Activity', items }: Activit
   return (
     <section
       className={cn(
-        'rounded-2xl border border-[#e7edf5] bg-white p-5 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.45)]',
+        'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.55rem)] border border-border-subtle bg-card p-5 shadow-[var(--shadow-ui)]',
         className
       )}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-brand)_8%,transparent),transparent)]"
+      />
+      <div className="relative flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-foreground">{heading}</h3>
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#f4f7fb] px-2 py-1 text-[11px] font-medium text-muted">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--color-brand)_10%,var(--color-background))] px-2 py-1 text-[11px] font-medium text-brand">
           <UiIcon name="bell" className="h-3.5 w-3.5" />
           Live
         </span>

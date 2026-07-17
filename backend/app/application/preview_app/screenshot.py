@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.infrastructure.logging import get_logger
+
+log = get_logger("Screenshot")
+
 _ROOT_HAS_CHILDREN_JS = (
     "() => { const el = document.getElementById('root'); "
     "return !!el && el.children.length > 0; }"
@@ -39,7 +43,7 @@ def capture_route_screenshot(
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("    screenshot skipped: playwright is not installed", flush=True)
+        log.warning("screenshot skipped: playwright is not installed")
         return False
 
     try:
@@ -67,7 +71,7 @@ def capture_route_screenshot(
             finally:
                 browser.close()
     except Exception as e:
-        print(f"    screenshot capture failed for {route_path} ({full_url}): {e}", flush=True)
+        log.warning("screenshot capture failed for %s (%s): %s", route_path, full_url, e)
         return False
 
     return out_path.is_file() and out_path.stat().st_size > 0

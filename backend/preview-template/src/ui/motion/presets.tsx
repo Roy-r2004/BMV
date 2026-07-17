@@ -11,36 +11,38 @@ export function useMotionSafe(): boolean {
 }
 
 export const heroEntrance: Variants = {
-  hidden: { opacity: 0, y: 18 },
+  hidden: { opacity: 0, y: 22, filter: 'blur(6px)' },
   visible: (i: number = 0) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, delay: 0.08 + i * 0.1, ease: easeOut },
+    filter: 'blur(0px)',
+    transition: { duration: 0.8, delay: 0.06 + i * 0.11, ease: easeOut },
   }),
 };
 
 export const sectionReveal: Variants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 28 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, ease: easeOut },
+    transition: { duration: 0.65, ease: easeOut },
   },
 };
 
 export const staggerContainer: Variants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.08, delayChildren: 0.06 },
+    transition: { staggerChildren: 0.09, delayChildren: 0.08 },
   },
 };
 
 export const staggerItem: Variants = {
-  hidden: { opacity: 0, y: 14 },
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.45, ease: easeOut },
+    scale: 1,
+    transition: { duration: 0.5, ease: easeOut },
   },
 };
 
@@ -147,7 +149,29 @@ export function MotionHover({ className, children }: PresetProps) {
     return <div className={className}>{children}</div>;
   }
   return (
-    <motion.div className={cn(className)} whileHover={{ y: -3 }} transition={hoverLiftTransition}>
+    <motion.div
+      className={cn(className)}
+      whileHover={{ y: -4, scale: 1.01 }}
+      transition={hoverLiftTransition}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function MotionScaleIn({ className, children }: PresetProps) {
+  const safe = useMotionSafe();
+  if (!safe) {
+    return <div className={className}>{children}</div>;
+  }
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, scale: 0.94 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.55, ease: easeOut }}
+    >
       {children}
     </motion.div>
   );

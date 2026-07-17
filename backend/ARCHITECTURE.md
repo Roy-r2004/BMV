@@ -9,7 +9,12 @@ backend/
 ├── app/                  # Application code (import root: `app`)
 ├── preview-template/     # Vite + React scaffold copied into each preview workspace
 ├── data/                 # Seed fixtures (e.g. PlateSync demo)
-├── scripts/              # One-off ops / debug helpers (not part of the API)
+├── tests/                # Pytest suite (appspec, preview_app, infrastructure)
+├── scripts/              # Ops / CLI helpers (not part of the API)
+│   ├── cli/              # Recurring tools
+│   ├── ops/              # Migrations + seeding
+│   └── archive/          # Historical one-offs
+├── pytest.ini
 ├── requirements.txt
 ├── .env.example
 └── ARCHITECTURE.md       # This file
@@ -57,6 +62,7 @@ Routers stay thin: validate input, open a DB session, call application code, ret
 
 ```
 application/
+├── appspec/                # AppSpec generation, coverage, projection, persistence
 ├── pipelines/              # End-to-end “new request → finished preview”
 │   ├── orchestrator.py     # GenerationPipeline.run() — step order + progress
 │   ├── reference_analysis.py
@@ -67,26 +73,37 @@ application/
 │   ├── proposal.py
 │   └── _shared.py
 ├── preview_app/            # React preview: plan → codegen → Vite build → serve
-│   ├── pipeline.py         # generate_preview_app()
+│   ├── pipeline/           # Phased generate_preview_app (gate→plan→codegen→polish→build→finalize)
+│   ├── codegen/            # AI file generation, mock synth, critique, fix agent
+│   ├── safety/             # Workspace guards (invoked by pipeline, not by codegen)
+│   ├── catalogue_contract/ # Slot/tokenize/bindings/validate/scaffold/repair for catalogue pages
+│   ├── text_utils.py       # Shared fence/JSON helpers (neutral)
+│   ├── source_quality.py   # Truncation / apostrophe heuristics (neutral)
+│   ├── mock_imports.py     # Collect mock.ts import names (neutral)
+│   ├── patterns.py         # Shared regex/constants leaf module
+│   ├── deterministic_repairs.py  # Post-fix-agent safety repairs outside codegen
 │   ├── workspace.py        # Copy template → PREVIEW_APPS_DIR/{id}/
-│   ├── codegen.py          # AI file generation / critique / fix
 │   ├── assemble.py         # App.tsx, CSS, mock plumbing
 │   ├── build.py            # npm install + vite build
-│   ├── safety.py           # Guards, truncation detection
 │   ├── fallback.py         # Stubs only after AI retries
-│   ├── chat_refinement.py  # Post-preview chat edits
+│   ├── chat_refinement.py  # Thin shim → refinement/ (back-compat re-exports)
+│   ├── refinement/         # Post-preview chat edits (AppSpec ctx, intent, patch, rebuild)
 │   ├── screenshot.py
 │   └── parallel.py
 └── services/               # Reusable helpers (progress, auth, page QA, demos, …)
+    └── preview_refinement.py  # Chat API facade (history + refine_preview)
 ```
 
 ### `domain/` — contracts and data shapes
 
 ```
 domain/
-├── models/       # SQLAlchemy entities (Request, User, SolutionWorkspace, …)
-├── schemas/      # Pydantic request/response models
-└── interfaces/   # AIProvider, TemplateRenderer (implemented in infrastructure)
+├── appspec/                # Pure AppSpec sanitize + validation packages
+│   ├── sanitize/           # kinds, structure, evidence, journeys, alignment, pipeline
+│   └── validation/         # models, ids, membership, effects, journeys, acceptance, …
+├── models/                 # SQLAlchemy entities (Request, User, SolutionWorkspace, …)
+├── schemas/                # Pydantic request/response models
+└── interfaces/             # AIProvider, TemplateRenderer (implemented in infrastructure)
 ```
 
 ### `infrastructure/` — adapters
@@ -97,6 +114,7 @@ infrastructure/
 ├── ai_providers/   # factory → OpenRouter or Ollama (+ retry)
 ├── templating/     # Jinja2 renderer for prompts/codegen
 ├── storage/        # Upload dir helpers
+├── logging/        # Structured logging, diagnostics dumps
 └── web/            # Reference URL scraper
 ```
 
@@ -157,7 +175,7 @@ sequenceDiagram
 | 1 | `POST /api/requests` | Submit wizard | Saves `Request` row, optional upload + URL scrape. Starts `GenerationPipeline` on a **daemon thread**. Returns `{ id }` immediately. |
 | 2 | Frontend navigates to `/result/{id}` | — | No API call; UI opens the result page. |
 | 3 | `GET /api/requests/{id}/progress` | Result page (poll ~2.5s) | Reads `generation_log` JSON written by `progress.emit()` inside the pipeline. Stages: `analyze` → `blueprint` → `demo` → `codegen` / `architect` / `critic` → `build` → `tech` → `proposal` → `done` (or `failed`). |
-| 4 | `GET /api/requests/{id}/preview` | Result page (poll) | Returns whatever is already on the row: blueprint, visual demo, pages, scores. `is_generating` is true while status is `new` and blueprint is still empty. |
+| 4 | `GET /api/requests/{id}/preview` | Result page (poll) | Returns whatever is already on the row: blueprint, visual demo, pages, scores. `is_generating` stays true until progress stage is terminal (`done` / `failed` / `ready`) — not merely until blueprint exists. |
 | 5 | *(inside the same background job)* | Pipeline, not HTTP | Order in `orchestrator.py`: reference analysis → MVP blueprint → visual demo → **`generate_preview_app`** (copy template, AI files, Vite build) → technical plan → proposal → emit `done`. |
 | 6 | `GET /api/preview-apps/{id}/…` | iframe / browser | Serves static files from `PREVIEW_APPS_DIR/{id}/dist`. This is how the live React demo is shown. |
 | 7 | `GET /api/requests/{id}/chat` | Refine chat panel | Loads prior refine messages. |
@@ -239,7 +257,10 @@ See `.env.example` for the full list.
 
 ## Scripts and data
 
-- **`scripts/`** — local repair, poll, rebuild, seed helpers. Not imported by the API.
+- **`scripts/cli/`** — recurring tools (rebuild/finish preview, poll progress, parse debug logs).
+- **`scripts/ops/`** — migrations and seeding helpers.
+- **`scripts/archive/`** — historical one-offs; prefer not to run.
+- **`tests/`** — pytest suite (`pytest` from `backend/`).
 - **`data/`** — JSON / prebuilt dist used to seed demos (e.g. PlateSync).
 
 ## Where to change what
@@ -248,7 +269,7 @@ See `.env.example` for the full list.
 |------|------------|
 | New HTTP endpoint | `app/api/v1/routers/` + register in `api_router.py` |
 | Generation step order | `application/pipelines/orchestrator.py` |
-| Preview quality / prompts | `templates/prompts/preview_app_*.j2` + `preview_app/codegen.py` |
+| Preview quality / prompts | `templates/prompts/preview_app_*.j2` + `preview_app/codegen/` |
 | Build / Node / template path | `preview_app/workspace.py`, `build.py`, `core/config.py` |
 | AI provider switch | `infrastructure/ai_providers/factory.py` + env |
 | DB schema | `domain/models/` + `infrastructure/db/migrations.py` |

@@ -15,22 +15,23 @@ from sqlalchemy.orm import Session
 from app.application.pipelines import blueprint, proposal, reference_analysis, role_pages, technical_plan, visual_demo
 from app.application.pipelines._shared import fallback_visual_demo, get_request
 from app.application.preview_app import generate_preview_app
-from app.application.preview_app.app_spec_projection import select_preview_scope
-from app.application.services.app_spec_generation import (
+from app.application.appspec import (
     AppSpecGenerationError,
     app_spec_is_required,
     app_spec_mode,
     app_spec_should_run_for_request,
     ensure_approved_app_spec,
+    select_preview_scope,
 )
 from app.application.services.progress import emit as _emit
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.infrastructure.ai_providers.factory import get_ai_provider
+from app.infrastructure.logging import WatchBmv, get_logger
+from app.infrastructure.logging.diagnostics import dump_exception, summarize_workspace_debug
 from app.infrastructure.storage.file_service import is_image_file
 from app.infrastructure.templating.renderer import get_template_renderer
-
 
 class GenerationPipeline:
     """Orchestrates every generation step for one `Request` end-to-end."""
@@ -42,9 +43,12 @@ class GenerationPipeline:
     ) -> None:
         self.ai_provider = ai_provider or get_ai_provider()
         self.template_renderer = template_renderer or get_template_renderer()
+        self.log = get_logger(self.__class__)
 
     def run(self, db: Session, request_id: int) -> dict:
         req = get_request(db, request_id)
+        self.log.info("Starting full generation pipeline for request %s (%s)", request_id, req.business_name)
+        pipeline_watch = WatchBmv(f"generation-pipeline request={request_id}", self.log).start()
 
         _emit(db, request_id, "analyze", "Reading your business...", 2,
               detail=f"Analyzing {req.business_name}")
@@ -133,7 +137,7 @@ class GenerationPipeline:
                     raise AppSpecGenerationError(
                         f"AppSpec preview scope failed: {exc}"
                     ) from exc
-                print(f"AppSpec shadow pass failed: {exc}", flush=True)
+                self.log.warning("AppSpec shadow pass failed: %s", exc)
                 approved_app_spec = None
 
         try:
@@ -176,8 +180,16 @@ class GenerationPipeline:
             # fallback). If it still raised, the failure was likely transient
             # (flaky AI call, workspace race) — retry the whole generation once
             # from a fresh workspace before falling back to the lesser role-pages mode.
-            print(f"preview app generation failed ({e}) — retrying once...", flush=True)
-            _emit(db, request_id, "codegen", "Retrying preview generation...", 28,
+            self.log.warning("preview app generation failed (%s) — retrying once...", e)
+            try:
+                from app.application.preview_app.workspace import get_workspace
+
+                ws = get_workspace(request_id)
+                if ws.exists():
+                    dump_exception(ws, "pipeline", f"preview-gen-attempt-1-{request_id}", e)
+            except Exception:
+                pass
+            _emit(db, request_id, "build", "Retrying preview generation...", 86,
                   detail="First attempt hit an error — trying again")
             try:
                 generate_preview_app(
@@ -191,7 +203,18 @@ class GenerationPipeline:
                         else None
                     ),
                 )
-            except Exception:
+            except Exception as retry_exc:
+                try:
+                    from app.application.preview_app.workspace import get_workspace
+
+                    ws = get_workspace(request_id)
+                    if ws.exists():
+                        dump_exception(ws, "pipeline", f"preview-gen-attempt-2-{request_id}", retry_exc)
+                        report = summarize_workspace_debug(ws)
+                        for issue in report.get("top_issues", [])[:10]:
+                            self.log.error("request %s debug: %s", request_id, issue)
+                except Exception:
+                    pass
                 if require_app_spec:
                     # A required contract must never degrade into independently
                     # generated role-pages that are not traceable to it.
@@ -218,6 +241,8 @@ class GenerationPipeline:
         _emit(db, request_id, "done", "Generation complete!", 100)
 
         req = get_request(db, request_id)
+        pipeline_watch.stop()
+        self.log.info("Generation pipeline finished for request %s", request_id)
         return {
             "business_fit_score": req.business_fit_score,
             "concept_name": req.concept_name,
@@ -225,7 +250,6 @@ class GenerationPipeline:
             "preview_features": json.loads(req.preview_features) if req.preview_features else [],
             "visual_demo_generated": bool(req.visual_demo_json),
         }
-
 
 def generate_full_pipeline(db: Session, request_id: int) -> dict:
     """Backward-compatible module function preserving the original call signature."""

@@ -1,0 +1,11 @@
+{
+  "id": "education-tutoring-home",
+  "label": "Education / tutoring",
+  "industry_tags": ["education", "tutoring", "school", "learning", "course", "academy"],
+  "recipe_hint": "warm-service",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "features", "process", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["offer-first hero", "bento programs", "booking"],
+  "prompt_hints": ["Friendly clarity — programs as features, outcomes in testimonials."],
+  "mock_seed": { "tone": "encouraging" }
+}

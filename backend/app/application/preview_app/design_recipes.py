@@ -18,15 +18,19 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "tokens": {
             "radius_ui": "0.35rem",
-            "bg_mix": "3%",
-            "fg_mix": "42%",
-            "muted_mix": "28%",
-            "border_mix": "12%",
-            "shadow": "0 30px 60px -42px",
-            "shadow_alpha": "28%",
-            "glow": "8%",
+            "bg_mix": "4%",
+            "fg_mix": "44%",
+            "muted_mix": "30%",
+            "border_mix": "14%",
+            "shadow": "0 36px 70px -40px",
+            "shadow_alpha": "34%",
+            "glow": "12%",
             "card": "#fffdf8",
-            "atmosphere": "radial-gradient(120% 80% at 10% 0%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 55%)",
+            "atmosphere": (
+                "radial-gradient(120% 80% at 8% -10%, color-mix(in srgb, var(--color-brand) 16%, transparent), transparent 58%), "
+                "radial-gradient(70% 55% at 92% 8%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 52%), "
+                "linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 3%, #fffdf8), transparent 42%)"
+            ),
         },
         "hero_variant": "cinematic",
         "feature_variant": "alternating",
@@ -46,7 +50,8 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "prompt": (
             "RECIPE editorial: generous whitespace, serif/display headlines via font-display, "
-            "fewer cards, longer subcopy, cinematic imagery, avoid dense tables on public pages."
+            "fewer cards, longer subcopy, cinematic imagery with kenburns/grain, "
+            "layered atmosphere, avoid dense tables on public pages, motion on every major section."
         ),
         "industry_keywords": (
             "spa salon beauty wellness clinic dental law legal architect interior boutique "
@@ -64,16 +69,20 @@ RECIPES: dict[str, dict[str, Any]] = {
             "import": "IBM+Plex+Sans:wght@400;500;600;700",
         },
         "tokens": {
-            "radius_ui": "0.45rem",
-            "bg_mix": "6%",
-            "fg_mix": "38%",
+            "radius_ui": "0.5rem",
+            "bg_mix": "7%",
+            "fg_mix": "40%",
             "muted_mix": "32%",
-            "border_mix": "22%",
-            "shadow": "0 12px 28px -22px",
-            "shadow_alpha": "40%",
-            "glow": "4%",
+            "border_mix": "20%",
+            "shadow": "0 18px 36px -24px",
+            "shadow_alpha": "42%",
+            "glow": "8%",
             "card": "#ffffff",
-            "atmosphere": "linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 6%, #f8fafc), #f1f5f9)",
+            "atmosphere": (
+                "radial-gradient(90% 60% at 0% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent), transparent 55%), "
+                "radial-gradient(55% 45% at 100% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 50%), "
+                "linear-gradient(165deg, color-mix(in srgb, var(--color-brand) 9%, #f4f6f8), color-mix(in srgb, var(--color-brand) 5%, #eef1f5) 48%, #f7f8fa)"
+            ),
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
@@ -93,7 +102,8 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "prompt": (
             "RECIPE dense-ops: compact spacing, short labels, KPI-first, grid features, "
-            "compact utility heroes, minimal flourish, prioritize scannable lists and metrics."
+            "compact utility heroes, brand-tinted workspace chrome (never gray SaaS), "
+            "scannable lists and metrics with subtle motion on KPI tiles."
         ),
         "industry_keywords": (
             "logistics fleet warehouse saas b2b software accounting payroll hr staffing "
@@ -111,16 +121,20 @@ RECIPES: dict[str, dict[str, Any]] = {
             "import": "Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nunito+Sans:wght@400;500;600;700",
         },
         "tokens": {
-            "radius_ui": "1rem",
-            "bg_mix": "5%",
-            "fg_mix": "34%",
+            "radius_ui": "1.05rem",
+            "bg_mix": "6%",
+            "fg_mix": "36%",
             "muted_mix": "30%",
-            "border_mix": "14%",
-            "shadow": "0 22px 44px -34px",
-            "shadow_alpha": "32%",
-            "glow": "14%",
+            "border_mix": "15%",
+            "shadow": "0 28px 52px -32px",
+            "shadow_alpha": "36%",
+            "glow": "16%",
             "card": "#fffaf5",
-            "atmosphere": "radial-gradient(90% 60% at 90% 10%, color-mix(in srgb, var(--color-brand) 14%, transparent), transparent 50%)",
+            "atmosphere": (
+                "radial-gradient(95% 70% at 95% 0%, color-mix(in srgb, var(--color-brand) 18%, transparent), transparent 55%), "
+                "radial-gradient(60% 45% at 5% 30%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 50%), "
+                "linear-gradient(180deg, #fff7ef, transparent 40%)"
+            ),
         },
         "hero_variant": "service",
         "feature_variant": "bento",
@@ -141,7 +155,8 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "prompt": (
             "RECIPE warm-service: friendly tone, rounded corners, trust/process before hard sell, "
-            "bento features, offer-first service hero (headline bigger than brand), soft card surfaces."
+            "bento features, offer-first service hero (headline bigger than brand), soft warm card surfaces, "
+            "ambient brand glows, never flat white pages."
         ),
         "industry_keywords": (
             "fitness gym studio coaching tutoring education childcare pet veterinary "
@@ -159,16 +174,20 @@ RECIPES: dict[str, dict[str, Any]] = {
             "import": "Space+Grotesk:wght@400;500;600;700&family=Syne:wght@500;600;700;800",
         },
         "tokens": {
-            "radius_ui": "0.15rem",
-            "bg_mix": "2%",
-            "fg_mix": "52%",
+            "radius_ui": "0.2rem",
+            "bg_mix": "3%",
+            "fg_mix": "54%",
             "muted_mix": "26%",
-            "border_mix": "18%",
-            "shadow": "0 28px 55px -34px",
-            "shadow_alpha": "50%",
-            "glow": "18%",
+            "border_mix": "20%",
+            "shadow": "0 32px 60px -30px",
+            "shadow_alpha": "55%",
+            "glow": "22%",
             "card": "#ffffff",
-            "atmosphere": "radial-gradient(90% 70% at 80% 0%, color-mix(in srgb, var(--color-brand) 22%, transparent), transparent 55%), linear-gradient(180deg, #0b0d10 0%, transparent 28%)",
+            "atmosphere": (
+                "radial-gradient(95% 75% at 85% -5%, color-mix(in srgb, var(--color-brand) 28%, transparent), transparent 58%), "
+                "radial-gradient(50% 40% at 10% 20%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 48%), "
+                "linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 8%, #0b0d10) 0%, transparent 32%)"
+            ),
         },
         "hero_variant": "product",
         "feature_variant": "bento",
@@ -187,11 +206,111 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "prompt": (
             "RECIPE bold-retail: product/showcase first, sharp corners, high-contrast type, "
-            "short punchy copy, strong CTAs, avoid long process essays on the home page."
+            "short punchy copy, strong CTAs, kinetic marquee after hero, "
+            "avoid long process essays on the home page, push visual intensity."
         ),
         "industry_keywords": (
             "retail ecommerce fashion apparel store shop marketplace real estate property "
             "automotive car dealership electronics"
+        ),
+    },
+    "nocturne": {
+        "id": "nocturne",
+        "label": "Nocturne",
+        "blurb": "Dark, luminous nightlife / premium brand — deep surfaces, neon brand accents, high drama.",
+        "hub_variant": "marketing",
+        "fonts": {
+            "sans": '"Manrope", "Segoe UI", sans-serif',
+            "display": '"Instrument Serif", Georgia, serif',
+            "import": "Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700",
+        },
+        "tokens": {
+            "radius_ui": "0.4rem",
+            "bg_mix": "8%",
+            "fg_mix": "48%",
+            "muted_mix": "28%",
+            "border_mix": "22%",
+            "shadow": "0 40px 80px -36px",
+            "shadow_alpha": "55%",
+            "glow": "24%",
+            "card": "#121018",
+            "atmosphere": (
+                "radial-gradient(90% 70% at 80% 0%, color-mix(in srgb, var(--color-brand) 32%, transparent), transparent 55%), "
+                "radial-gradient(55% 45% at 10% 80%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 50%), "
+                "linear-gradient(180deg, #0a090c, #14121a 42%, #0a090c)"
+            ),
+        },
+        "hero_variant": "cinematic",
+        "feature_variant": "alternating",
+        "section_orders": {
+            "public-home": [
+                "hero",
+                "showcase",
+                "features",
+                "testimonials",
+                "cta",
+                "footer",
+            ],
+            "public-service": ["hero", "showcase", "process", "cta", "footer"],
+            "public-detail": ["hero", "showcase", "features", "cta", "footer"],
+        },
+        "prompt": (
+            "RECIPE nocturne: dark luminous surfaces, luminous brand accents, cinematic heroes, "
+            "high contrast type, fewer pastel cards, nightlife/premium energy, grain + vignette welcome."
+        ),
+        "industry_keywords": (
+            "nightlife bar club lounge music entertainment event concert casino gaming "
+            "luxury perfume spirits cocktail"
+        ),
+    },
+    "craft": {
+        "id": "craft",
+        "label": "Craft",
+        "blurb": "Maker / artisan — tactile type, paper tones, process storytelling, handcrafted warmth.",
+        "hub_variant": "marketing",
+        "fonts": {
+            "sans": '"DM Sans", "Segoe UI", sans-serif',
+            "display": '"Cormorant Garamond", Georgia, serif',
+            "import": "Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600;700",
+        },
+        "tokens": {
+            "radius_ui": "0.65rem",
+            "bg_mix": "5%",
+            "fg_mix": "38%",
+            "muted_mix": "28%",
+            "border_mix": "16%",
+            "shadow": "0 24px 48px -34px",
+            "shadow_alpha": "30%",
+            "glow": "11%",
+            "card": "#fbf7f0",
+            "atmosphere": (
+                "radial-gradient(80% 60% at 15% 0%, color-mix(in srgb, var(--color-brand) 12%, transparent), transparent 55%), "
+                "linear-gradient(180deg, #f7f1e6, transparent 45%)"
+            ),
+        },
+        "hero_variant": "service",
+        "feature_variant": "alternating",
+        "section_orders": {
+            "public-home": [
+                "hero",
+                "process",
+                "showcase",
+                "features",
+                "credentials",
+                "testimonials",
+                "cta",
+                "footer",
+            ],
+            "public-service": ["hero", "process", "features", "testimonials", "cta", "footer"],
+            "public-detail": ["hero", "process", "showcase", "cta", "footer"],
+        },
+        "prompt": (
+            "RECIPE craft: artisan storytelling, process-first, serif display, paper-warm cards, "
+            "tactile imagery, credentials before hard sell, never sterile SaaS chrome."
+        ),
+        "industry_keywords": (
+            "artisan craft bakery pottery woodwork furniture handmade maker studio pottery "
+            "floristry florist coffee roaster brewery winery"
         ),
     },
 }
@@ -307,6 +426,8 @@ def apply_recipe_to_architect(architect: dict[str, Any], plan: dict[str, Any]) -
     updated = dict(architect or {})
     recipe = get_recipe(plan.get("recipe_id") or (plan.get("design_system") or {}).get("recipe_id"))
     hub = str(plan.get("hub_variant") or recipe.get("hub_variant") or "marketing")
+    template_order = list(plan.get("template_section_order") or [])
+    template_id = plan.get("industry_template_id")
     routes = []
     for route in updated.get("routes") or []:
         item = dict(route)
@@ -314,6 +435,17 @@ def apply_recipe_to_architect(architect: dict[str, Any], plan: dict[str, Any]) -
         slots = list(item.get("section_slots") or [])
         if skeleton_id and slots:
             item["section_slots"] = recipe_section_slots(skeleton_id, recipe, slots)
+            # Industry template wins section rhythm on the primary public home.
+            if (
+                template_order
+                and skeleton_id == "public-home"
+                and str(item.get("path") or "") in {"/", "/home"}
+            ):
+                item["section_slots"] = recipe_section_slots(
+                    skeleton_id,
+                    {"section_orders": {skeleton_id: template_order}},
+                    item["section_slots"],
+                )
         path = str(item.get("path") or "")
         role = str(item.get("role_id") or "").lower()
         memberish = path.startswith("/member") or (
@@ -337,10 +469,16 @@ def apply_recipe_to_architect(architect: dict[str, Any], plan: dict[str, Any]) -
     updated["routes"] = routes
     updated["recipe_id"] = recipe["id"]
     updated["hub_variant"] = hub
+    if template_id:
+        updated["industry_template_id"] = template_id
     direction = str(updated.get("design_direction") or "").strip()
     recipe_line = str(recipe.get("prompt") or "")
+    template_line = str((plan.get("design_system") or {}).get("template_prompt") or "")
     if recipe_line and recipe_line not in direction:
-        updated["design_direction"] = f"{direction} {recipe_line}".strip()
+        direction = f"{direction} {recipe_line}".strip()
+    if template_line and template_line not in direction:
+        direction = f"{direction} {template_line}".strip()
+    updated["design_direction"] = direction
     return updated
 
 
