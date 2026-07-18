@@ -11,6 +11,10 @@ export type RecipeId =
 /** Distinct hero compositions — not just color variants of one layout. */
 export type HeroVariant = 'cinematic' | 'service' | 'compact' | 'product' | 'editorial';
 export type FeatureVariant = 'bento' | 'grid' | 'alternating';
+export type ShellChrome = 'solid' | 'immersive';
+export type NavVariant = 'default' | 'minimal' | 'stacked';
+export type FooterVariant = 'statement' | 'compact' | 'columns';
+export type BrandPlacement = 'start' | 'center';
 
 /** One distinct hero composition per recipe — do not collapse pairs. */
 const HERO_BY_RECIPE: Record<RecipeId, HeroVariant> = {
@@ -31,6 +35,42 @@ const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
   craft: 'bento',
 };
 
+const SHELL_BY_RECIPE: Record<RecipeId, ShellChrome> = {
+  editorial: 'immersive',
+  'dense-ops': 'solid',
+  'warm-service': 'solid',
+  'bold-retail': 'immersive',
+  nocturne: 'immersive',
+  craft: 'solid',
+};
+
+const NAV_BY_RECIPE: Record<RecipeId, NavVariant> = {
+  editorial: 'default',
+  'dense-ops': 'minimal',
+  'warm-service': 'default',
+  'bold-retail': 'minimal',
+  nocturne: 'stacked',
+  craft: 'stacked',
+};
+
+const FOOTER_BY_RECIPE: Record<RecipeId, FooterVariant> = {
+  editorial: 'statement',
+  'dense-ops': 'compact',
+  'warm-service': 'compact',
+  'bold-retail': 'statement',
+  nocturne: 'statement',
+  craft: 'columns',
+};
+
+const BRAND_BY_RECIPE: Record<RecipeId, BrandPlacement> = {
+  editorial: 'center',
+  'dense-ops': 'start',
+  'warm-service': 'start',
+  'bold-retail': 'start',
+  nocturne: 'start',
+  craft: 'center',
+};
+
 export function currentRecipeId(): RecipeId {
   const fromDom =
     typeof document !== 'undefined'
@@ -47,6 +87,22 @@ export function recipeHeroVariant(recipeId: RecipeId = currentRecipeId()): HeroV
 
 export function recipeFeatureVariant(recipeId: RecipeId = currentRecipeId()): FeatureVariant {
   return FEATURE_BY_RECIPE[recipeId];
+}
+
+export function recipeShellChrome(recipeId: RecipeId = currentRecipeId()): ShellChrome {
+  return SHELL_BY_RECIPE[recipeId];
+}
+
+export function recipeNavVariant(recipeId: RecipeId = currentRecipeId()): NavVariant {
+  return NAV_BY_RECIPE[recipeId];
+}
+
+export function recipeFooterVariant(recipeId: RecipeId = currentRecipeId()): FooterVariant {
+  return FOOTER_BY_RECIPE[recipeId];
+}
+
+export function recipeBrandPlacement(recipeId: RecipeId = currentRecipeId()): BrandPlacement {
+  return BRAND_BY_RECIPE[recipeId];
 }
 
 /** Display type treatment — italic for editorial/warm/nocturne/craft, upright for ops/retail. */

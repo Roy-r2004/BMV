@@ -48,6 +48,26 @@ def test_public_home_recipe_stacks_differ() -> None:
     assert "booking" in stacks["warm-service"]
 
 
+def test_recipes_define_distinct_chrome() -> None:
+    from app.application.preview_app.design_recipes import apply_recipe_to_plan
+
+    faces = {}
+    for rid in ("editorial", "bold-retail", "warm-service", "craft", "nocturne", "dense-ops"):
+        plan = apply_recipe_to_plan({}, recipe_id=rid)
+        ds = plan["design_system"]
+        faces[rid] = (
+            ds.get("shell_chrome"),
+            ds.get("nav_variant"),
+            ds.get("footer_variant"),
+            ds.get("brand_placement"),
+        )
+    assert faces["craft"] == ("solid", "stacked", "columns", "center")
+    assert faces["bold-retail"] == ("immersive", "minimal", "statement", "start")
+    assert faces["editorial"][3] == "center"
+    assert faces["dense-ops"][2] == "compact"
+    assert len(set(faces.values())) >= 4
+
+
 def test_scaffold_emits_recipe_order_prop() -> None:
     arch = {
         "routes": [
@@ -84,6 +104,8 @@ def test_scaffold_emits_recipe_order_prop() -> None:
     assert "order={RECIPE_ORDER}" in tsx
     assert '"showcase"' in tsx
     assert "process:" not in tsx
+    # Chrome is recipe-runtime — do not hardcode immersive for every home.
+    assert 'chrome="immersive"' not in tsx
 
 
 def test_pottery_picks_craft_studio_pack() -> None:

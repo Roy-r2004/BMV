@@ -1,7 +1,14 @@
 import * as React from 'react';
 
+import {
+  recipeBrandPlacement,
+  recipeNavVariant,
+  recipeShellChrome,
+  type BrandPlacement,
+  type ShellChrome,
+} from '../../lib/recipe';
 import { cn } from '../lib/cn';
-import { PublicNav, type PublicNavCta, type PublicNavItem } from './PublicNav';
+import { PublicNav, type PublicNavCta, type PublicNavItem, type PublicNavProps } from './PublicNav';
 
 export interface PublicShellProps {
   brandName: string;
@@ -12,7 +19,9 @@ export interface PublicShellProps {
   cta?: PublicNavCta;
   footer?: React.ReactNode;
   className?: string;
-  chrome?: 'solid' | 'immersive';
+  chrome?: ShellChrome;
+  /** Brand lockup placement — defaults from the active design recipe. */
+  brandPlacement?: BrandPlacement;
   /** Sticky thumb-zone CTA for small screens (e.g. Book). */
   mobileDock?: React.ReactNode;
 }
@@ -34,14 +43,17 @@ function isNavItemList(value: unknown): value is PublicNavItem[] {
 
 export function PublicShell({
   brandName,
+  brandPlacement: brandPlacementProp,
   children,
   className,
-  chrome = 'solid',
+  chrome: chromeProp,
   cta,
   footer,
   mobileDock,
   nav,
 }: PublicShellProps) {
+  const chrome = chromeProp ?? recipeShellChrome();
+  const brandPlacement = brandPlacementProp ?? recipeBrandPlacement();
   const immersive = chrome === 'immersive';
   const [scrolled, setScrolled] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
@@ -61,24 +73,30 @@ export function PublicShell({
 
   const overHero = immersive && !scrolled;
 
-  const baseNav = isNavItemList(nav) ? <PublicNav items={nav} cta={cta} /> : nav;
+  const baseNav = isNavItemList(nav) ? (
+    <PublicNav items={nav} cta={cta} variant={recipeNavVariant()} />
+  ) : (
+    nav
+  );
 
   const resolvedNav =
-    React.isValidElement(baseNav) && immersive
-      ? React.cloneElement(baseNav as React.ReactElement<{ inverted?: boolean }>, {
-          inverted: overHero,
+    React.isValidElement(baseNav)
+      ? React.cloneElement(baseNav as React.ReactElement<PublicNavProps>, {
+          inverted:
+            (baseNav.props as PublicNavProps).inverted ?? overHero,
+          variant: (baseNav.props as PublicNavProps).variant ?? recipeNavVariant(),
         })
       : baseNav;
+
+  const centered = brandPlacement === 'center';
 
   return (
     <div
       className={cn('relative min-h-screen bg-background text-foreground', className)}
       data-public-chrome={chrome}
+      data-brand-placement={brandPlacement}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-      >
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="ui-mesh opacity-[0.45]" />
         <div className="absolute -left-32 top-[18%] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,var(--glow-atmosphere),transparent_68%)]" />
         <div className="absolute -right-24 bottom-[12%] h-[22rem] w-[22rem] rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_12%,transparent),transparent_70%)]" />
@@ -102,17 +120,32 @@ export function PublicShell({
                 : 'border-b border-border-subtle/60 bg-background/90 backdrop-blur-xl'
           )}
         >
-          <div className="mx-auto flex min-h-[4.5rem] w-full max-w-[92rem] items-center justify-between gap-6 px-6 py-2.5 lg:px-12">
+          <div
+            className={cn(
+              'mx-auto w-full max-w-[92rem] px-6 py-2.5 lg:px-12',
+              centered
+                ? 'flex min-h-[5.25rem] flex-col items-center justify-center gap-3 md:min-h-[5.75rem]'
+                : 'flex min-h-[4.5rem] items-center justify-between gap-6'
+            )}
+          >
             <a
               href="#top"
               className={cn(
-                'font-display text-[1.85rem] leading-none tracking-[-0.03em] transition-colors hover:opacity-80',
+                'font-display leading-none tracking-[-0.03em] transition-colors hover:opacity-80',
+                centered ? 'text-[2.15rem]' : 'text-[1.85rem]',
                 overHero ? 'text-white' : 'text-foreground'
               )}
             >
               {brandName}
             </a>
-            <div className="flex min-w-0 flex-1 items-center justify-end">{resolvedNav}</div>
+            <div
+              className={cn(
+                'flex min-w-0 items-center',
+                centered ? 'w-full justify-center' : 'flex-1 justify-end'
+              )}
+            >
+              {resolvedNav}
+            </div>
           </div>
           <div
             aria-hidden="true"

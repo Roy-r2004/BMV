@@ -34,6 +34,12 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "editorial",
         "feature_variant": "alternating",
+        "chrome": {
+            "shell": "immersive",
+            "nav": "default",
+            "footer": "statement",
+            "brand": "center",
+        },
         "section_orders": {
             "public-home": [
                 "hero",
@@ -85,6 +91,12 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        "chrome": {
+            "shell": "solid",
+            "nav": "minimal",
+            "footer": "compact",
+            "brand": "start",
+        },
         "section_orders": {
             "public-home": [
                 "hero",
@@ -137,6 +149,12 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "service",
         "feature_variant": "bento",
+        "chrome": {
+            "shell": "solid",
+            "nav": "default",
+            "footer": "compact",
+            "brand": "start",
+        },
         "section_orders": {
             "public-home": [
                 "hero",
@@ -190,6 +208,12 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "product",
         "feature_variant": "bento",
+        "chrome": {
+            "shell": "immersive",
+            "nav": "minimal",
+            "footer": "statement",
+            "brand": "start",
+        },
         "section_orders": {
             "public-home": [
                 "hero",
@@ -240,6 +264,12 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "cinematic",
         "feature_variant": "alternating",
+        "chrome": {
+            "shell": "immersive",
+            "nav": "stacked",
+            "footer": "statement",
+            "brand": "start",
+        },
         "section_orders": {
             "public-home": [
                 "hero",
@@ -288,6 +318,12 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "service",
         "feature_variant": "alternating",
+        "chrome": {
+            "shell": "solid",
+            "nav": "stacked",
+            "footer": "columns",
+            "brand": "center",
+        },
         "section_orders": {
             "public-home": [
                 "hero",
@@ -394,6 +430,12 @@ def apply_recipe_to_plan(
     design["style_keywords"] = recipe["label"]
     design["hero_variant"] = recipe["hero_variant"]
     design["feature_variant"] = recipe["feature_variant"]
+    chrome = dict(recipe.get("chrome") or {})
+    if chrome:
+        design["shell_chrome"] = chrome.get("shell") or "solid"
+        design["nav_variant"] = chrome.get("nav") or "default"
+        design["footer_variant"] = chrome.get("footer") or "statement"
+        design["brand_placement"] = chrome.get("brand") or "start"
     design["recipe_prompt"] = recipe["prompt"]
     updated["design_system"] = design
     updated["recipe_id"] = recipe["id"]

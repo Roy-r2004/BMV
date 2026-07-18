@@ -279,8 +279,8 @@ def minimal_catalogue_page_scaffold(
         cta = "memberCta" if is_member else "publicCta"
         nav_import = f"import {{ {hook}, {cta} }} from '@/lib/app-nav';\n"
         nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
-        # Immersive chrome suits full-bleed heroes (retail/nocturne/editorial).
-        chrome_attr = ' chrome="immersive"' if skeleton_id == "public-home" else ""
+        # Shell/nav/footer chrome comes from the active recipe at runtime.
+        chrome_attr = ""
         use_recipe_order = skeleton_id in {
             "public-home",
             "public-service",

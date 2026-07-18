@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useLocation } from 'react-router-dom';
 
+import { recipeNavVariant, type NavVariant } from '../../lib/recipe';
 import { Button } from '../core/Button';
 import { AppLink } from '../lib/AppLink';
 import { cn } from '../lib/cn';
@@ -21,6 +22,8 @@ export interface PublicNavProps {
   className?: string;
   /** When true, use compact inverted styles for dark photo overlays */
   inverted?: boolean;
+  /** Recipe-driven layout — defaults from the active design recipe. */
+  variant?: NavVariant;
 }
 
 function pathMatches(pathname: string, href: string): boolean {
@@ -68,9 +71,17 @@ function useActiveHref(items: PublicNavItem[]) {
 }
 
 /** Catalogue public navigation — pages never invent nav chrome. */
-export function PublicNav({ className, cta, inverted = false, items }: PublicNavProps) {
+export function PublicNav({
+  className,
+  cta,
+  inverted = false,
+  items,
+  variant: variantProp,
+}: PublicNavProps) {
+  const variant = variantProp ?? recipeNavVariant();
   const active = useActiveHref(items);
   const [open, setOpen] = React.useState(false);
+  const list = Array.isArray(items) ? items : [];
 
   React.useEffect(() => {
     if (!open) return;
@@ -81,44 +92,113 @@ export function PublicNav({ className, cta, inverted = false, items }: PublicNav
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  const linkClass = (isActive: boolean) => {
+    if (variant === 'minimal') {
+      return cn(
+        'rounded-sm px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors',
+        inverted
+          ? isActive
+            ? 'text-white'
+            : 'text-white/55 hover:text-white'
+          : isActive
+            ? 'text-foreground'
+            : 'text-muted hover:text-foreground'
+      );
+    }
+    if (variant === 'stacked') {
+      return cn(
+        'rounded-none px-3 py-2 text-sm font-medium tracking-[0.04em] transition-colors',
+        inverted
+          ? isActive
+            ? 'text-white'
+            : 'text-white/65 hover:text-white'
+          : isActive
+            ? 'text-foreground'
+            : 'text-muted hover:text-foreground'
+      );
+    }
+    return cn(
+      'group relative rounded-md px-3 py-2 text-[13px] font-medium tracking-[-0.01em] transition-colors',
+      inverted
+        ? isActive
+          ? 'text-white'
+          : 'text-white/70 hover:text-white'
+        : isActive
+          ? 'text-foreground'
+          : 'text-muted hover:text-foreground'
+    );
+  };
+
+  // default links need positioning hooks for the underline span
+  const withGroup = (isActive: boolean) =>
+    variant === 'default' ? cn('group relative', linkClass(isActive)) : linkClass(isActive);
+
   return (
-    <div className={cn('relative flex w-full items-center justify-end gap-3', className)}>
-      <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
-        {items.map((item) => {
+    <div
+      className={cn(
+        'relative flex w-full items-center gap-3',
+        variant === 'stacked' ? 'justify-center md:justify-end' : 'justify-end',
+        className
+      )}
+      data-nav-variant={variant}
+    >
+      <nav
+        className={cn(
+          'hidden items-center md:flex',
+          variant === 'minimal' ? 'gap-0.5' : variant === 'stacked' ? 'gap-5' : 'gap-1'
+        )}
+        aria-label="Primary"
+      >
+        {list.map((item) => {
           const isActive = active === item.href;
           return (
             <AppLink
               key={item.href}
               href={item.href}
-              className={cn(
-                'group relative rounded-md px-3 py-2 text-[13px] font-medium tracking-[-0.01em] transition-colors',
-                inverted
-                  ? isActive
-                    ? 'text-white'
-                    : 'text-white/70 hover:text-white'
-                  : isActive
-                    ? 'text-foreground'
-                    : 'text-muted hover:text-foreground'
-              )}
+              className={withGroup(isActive)}
               aria-current={isActive ? 'page' : undefined}
             >
               {item.label}
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'absolute inset-x-3 -bottom-0.5 h-px origin-left scale-x-0 bg-current transition-transform duration-300 group-hover:scale-x-100',
-                  isActive && 'scale-x-100'
-                )}
-              />
+              {variant === 'default' ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute inset-x-3 -bottom-0.5 h-px origin-left scale-x-0 bg-current transition-transform duration-300 group-hover:scale-x-100',
+                    isActive && 'scale-x-100'
+                  )}
+                />
+              ) : null}
+              {variant === 'stacked' ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'mt-1 block h-0.5 w-full origin-left scale-x-0 bg-brand transition-transform duration-300',
+                    isActive && 'scale-x-100',
+                    inverted && 'bg-white'
+                  )}
+                />
+              ) : null}
             </AppLink>
           );
         })}
       </nav>
 
       {cta ? (
-        <Button href={cta.href} size="sm" className="hidden sm:inline-flex">
-          {cta.label}
-        </Button>
+        variant === 'minimal' ? (
+          <AppLink
+            href={cta.href}
+            className={cn(
+              'hidden text-[11px] font-semibold uppercase tracking-[0.16em] sm:inline-flex',
+              inverted ? 'text-white' : 'text-brand'
+            )}
+          >
+            {cta.label}
+          </AppLink>
+        ) : (
+          <Button href={cta.href} size="sm" className="hidden sm:inline-flex">
+            {cta.label}
+          </Button>
+        )
       ) : null}
 
       <button
@@ -146,7 +226,7 @@ export function PublicNav({ className, cta, inverted = false, items }: PublicNav
           className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-[var(--radius-ui)] border border-border-subtle bg-card shadow-[var(--shadow-ui)] md:hidden"
         >
           <nav className="flex flex-col p-2" aria-label="Mobile">
-            {items.map((item) => (
+            {list.map((item) => (
               <AppLink
                 key={item.href}
                 href={item.href}

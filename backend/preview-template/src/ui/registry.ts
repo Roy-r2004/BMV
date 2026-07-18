@@ -120,15 +120,19 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'public',
     path: 'public/PublicShell.tsx',
     requiredProps: ['brandName', 'children'],
-    optionalProps: ['nav', 'cta', 'footer', 'mobileDock', 'className', 'chrome'],
-    variants: { chrome: ['solid', 'immersive'] },
+    optionalProps: ['nav', 'cta', 'footer', 'mobileDock', 'className', 'chrome', 'brandPlacement'],
+    variants: {
+      chrome: ['solid', 'immersive'],
+      brandPlacement: ['start', 'center'],
+    },
   },
   {
     name: 'PublicNav',
     surface: 'public',
     path: 'public/PublicNav.tsx',
     requiredProps: ['items'],
-    optionalProps: ['cta', 'inverted', 'className'],
+    optionalProps: ['cta', 'inverted', 'className', 'variant'],
+    variants: { variant: ['default', 'minimal', 'stacked'] },
   },
   {
     name: 'MarketingHero',
@@ -179,7 +183,8 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'public',
     path: 'public/BrandFooter.tsx',
     requiredProps: ['brandName'],
-    optionalProps: ['description', 'links', 'meta', 'className'],
+    optionalProps: ['description', 'links', 'meta', 'className', 'variant'],
+    variants: { variant: ['statement', 'compact', 'columns'] },
   },
   {
     name: 'LogoMarquee',

@@ -221,12 +221,17 @@
         "footer",
         "mobileDock",
         "className",
-        "chrome"
+        "chrome",
+        "brandPlacement"
       ],
       "variants": {
         "chrome": [
           "solid",
           "immersive"
+        ],
+        "brandPlacement": [
+          "start",
+          "center"
         ]
       }
     },
@@ -240,8 +245,16 @@
       "optionalProps": [
         "cta",
         "inverted",
-        "className"
-      ]
+        "className",
+        "variant"
+      ],
+      "variants": {
+        "variant": [
+          "default",
+          "minimal",
+          "stacked"
+        ]
+      }
     },
     {
       "name": "MarketingHero",
@@ -357,8 +370,16 @@
         "description",
         "links",
         "meta",
-        "className"
-      ]
+        "className",
+        "variant"
+      ],
+      "variants": {
+        "variant": [
+          "statement",
+          "compact",
+          "columns"
+        ]
+      }
     },
     {
       "name": "LogoMarquee",
