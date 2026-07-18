@@ -104,28 +104,6 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         f"template={plan.get('industry_template_id') or '-'} "
         f"brand_locked={bool((plan.get('design_system') or {}).get('brand_locked'))}"
     )
-    # #region agent log
-    from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-    agent_dbg(
-        "A",
-        "plan_phase.py:recipe+template",
-        "plan recipe/template applied",
-        {
-            "request_id": request_id,
-            "industry": req.industry,
-            "template_recipe_hint": template_recipe,
-            "recipe_id": recipe.get("id"),
-            "hub_variant": plan.get("hub_variant"),
-            "industry_template_id": plan.get("industry_template_id"),
-            "template_section_order": plan.get("template_section_order"),
-            "brand_locked": bool((plan.get("design_system") or {}).get("brand_locked")),
-            "has_template_prompt": bool(
-                (plan.get("design_system") or {}).get("template_prompt")
-            ),
-        },
-    )
-    # #endregion
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
     if brand_brief:
@@ -170,27 +148,6 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     except Exception:
         raise
     architect = apply_recipe_to_architect(architect, plan)
-    # #region agent log
-    from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-    home_slots = None
-    for rt in architect.get("routes") or []:
-        if str(rt.get("path") or "") in {"/", "/home"}:
-            home_slots = list(rt.get("section_slots") or [])
-            break
-    agent_dbg(
-        "B",
-        "plan_phase.py:architect",
-        "architect after recipe/template",
-        {
-            "request_id": request_id,
-            "architect_recipe_id": architect.get("recipe_id"),
-            "architect_template_id": architect.get("industry_template_id"),
-            "home_section_slots": home_slots,
-            "route_count": len(architect.get("routes") or []),
-        },
-    )
-    # #endregion
     planned_files = len(architect.get("files_to_generate", []))
     _emit(db, request_id, "codegen",
           f"Architecture ready — {planned_files} files planned", 38,

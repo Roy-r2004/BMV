@@ -592,8 +592,9 @@ def test_production_callsites_render_with_strict_undefined() -> None:
                 renderer,
                 route_architect,
             )
-            assert scaffold_review["verdict"] == "revise"
-            assert "deterministic" in scaffold_review["issues"][0].lower()
+            # Scaffold-first pages are intentionally locked — critic must not thrash refine.
+            assert scaffold_review["verdict"] == "ok"
+            assert "scaffold" in scaffold_review["issues"][0].lower()
             visual_ai = _CapturingAI(pass_json)
             assert codegen.critique_file_visual(
                 workspace,
@@ -605,8 +606,9 @@ def test_production_callsites_render_with_strict_undefined() -> None:
                 visual_ai,
                 renderer,
                 route_architect,
-            )["verdict"] == "revise"
+            )["verdict"] == "ok"
 
+            # Scaffold pages short-circuit before AI critic parsing — locked as ok.
             malformed_ai = _CapturingAI("not JSON")
             malformed = codegen.critique_file(
                 workspace,
@@ -618,7 +620,8 @@ def test_production_callsites_render_with_strict_undefined() -> None:
                 renderer,
                 route_architect,
             )
-            assert malformed["verdict"] == "revise" and malformed["score"] == 0
+            assert malformed["verdict"] == "ok"
+            assert malformed_ai.prompts == []
 
             inconsistent_ai = _CapturingAI(
                 json.dumps(
@@ -641,8 +644,8 @@ def test_production_callsites_render_with_strict_undefined() -> None:
                 renderer,
                 route_architect,
             )
-            assert inconsistent["verdict"] == "revise"
-            assert inconsistent["score"] == 0
+            assert inconsistent["verdict"] == "ok"
+            assert inconsistent_ai.prompts == []
 
             refine_ai = _CapturingAI(scaffold)
             codegen.refine_file(

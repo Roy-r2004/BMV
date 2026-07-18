@@ -25,6 +25,17 @@ def test_admin_folder_stays_lowercase():
     )
 
 
+def test_owner_folder_stays_lowercase():
+    assert (
+        canonicalize_page_component_path("src/pages/owner/OwnerDashboardPage.tsx")
+        == "src/pages/owner/OwnerDashboardPage.tsx"
+    )
+    assert (
+        canonicalize_page_component_path("src/pages/Owner/Dashboard.tsx")
+        == "src/pages/owner/DashboardPage.tsx"
+    )
+
+
 def test_safe_generated_route_path_canonicalizes():
     path = safe_generated_route_path(
         "src/pages/Homepage.tsx",

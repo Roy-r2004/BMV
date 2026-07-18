@@ -44,23 +44,6 @@ def run_build_phase(ctx: PipelineContext) -> None:
     log.info("  [6/6] Building + AI fix loop...")
     build_watch = WatchBmv("build+fix-loop", log).start()
     ok, build_log = run_build(workspace, base_path, template_renderer)
-    # #region agent log
-    from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-    import shutil
-
-    agent_dbg(
-        "C",
-        "build_phase.py:initial_build",
-        "initial vite build result",
-        {
-            "request_id": request_id,
-            "ok": ok,
-            "has_node": bool(shutil.which("node")),
-            "has_npm": bool(shutil.which("npm")),
-            "log_tail": (build_log or "")[-800:],
-        },
-    )
-    # #endregion
     if not ok:
         log.error(
             "initial vite build failed for request %s — see .bmv-debug/vite-build/",
@@ -212,21 +195,6 @@ def run_build_phase(ctx: PipelineContext) -> None:
     else:
         _emit(db, request_id, "build_failed", "Build failed — falling back to role pages", 89)
 
-    # #region agent log
-    from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-    agent_dbg(
-        "C",
-        "build_phase.py:final",
-        "build phase outcome",
-        {
-            "request_id": request_id,
-            "ok": ok,
-            "fix_attempts_used": attempt,
-            "log_tail": (build_log or "")[-500:],
-        },
-    )
-    # #endregion
 
     # Post-build visual critique: only ever runs against a build that's
     # already succeeded (never a broken one), and is wrapped in its own

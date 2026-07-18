@@ -221,24 +221,6 @@ def _generate_catalogue_scaffold_first_file(
         )
     write_file(workspace, file_path, scaffold)
     cg_log.info("scaffold-first wrote %s skeleton=%s", file_path, skeleton_id)
-    # #region agent log
-    try:
-        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-        agent_dbg(
-            "G",
-            "generate.py:scaffold_first",
-            "scaffold-first page written",
-            {
-                "file_path": file_path,
-                "skeleton_id": skeleton_id,
-                "slot_fill": bool(settings.PREVIEW_SCAFFOLD_SLOT_FILL),
-                "page_id": page_id,
-            },
-        )
-    except Exception:
-        pass
-    # #endregion
 
     if not settings.PREVIEW_SCAFFOLD_SLOT_FILL:
         record_stubbed_path(workspace, file_path)

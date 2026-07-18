@@ -175,7 +175,7 @@ export const Curated = () => <motion.div className={clsx('x')}><Camera /></motio
 def test_ui_imports_normalize_to_combined_barrel_without_touching_data() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         workspace = Path(tmp)
-        page = _write(
+        _write(
             workspace,
             "src/pages/owner/Dashboard.tsx",
             """import { Button } from '../../ui/core/Button';
@@ -187,8 +187,12 @@ export default function Dashboard() { return <Button><Card>{brand.name}{helper()
 """,
         )
         touched = normalize_ui_kit_imports(workspace)
-        content = page.read_text(encoding="utf-8")
+        # write_file canonicalizes Dashboard.tsx → DashboardPage.tsx and drops the old file
+        canonical = workspace / "src/pages/owner/DashboardPage.tsx"
         assert touched == ["src/pages/owner/Dashboard.tsx"]
+        assert canonical.is_file()
+        assert not (workspace / "src/pages/owner/Dashboard.tsx").exists()
+        content = canonical.read_text(encoding="utf-8")
         assert "import { Button, Card } from '@/ui';" in content
         assert "../../data/mock" in content
         assert "../../lib/helper" in content

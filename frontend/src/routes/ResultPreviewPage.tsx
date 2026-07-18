@@ -100,11 +100,6 @@ export default function ResultPreviewPage() {
   const isGenerating = preview ? preview.is_generating : loading;
   const modelsPulling = aiStatus?.provider === 'ollama' && !aiStatus.ready;
 
-  // #region agent log
-  if (preview) {
-    fetch('http://127.0.0.1:7453/ingest/fbc2480d-acff-4f2c-a3de-cf96872fcda1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'796af6'},body:JSON.stringify({sessionId:'796af6',runId:'retry-ui',hypothesisId:'C',location:'ResultPreviewPage.tsx:branch',message:'render branch decision',data:{requestId,status:preview.status,is_generating:preview.is_generating,isGenerating,showCinematic:Boolean(isGenerating||preview.status==='failed'),hasConcept:Boolean(preview.concept_name)},timestamp:Date.now()})}).catch(()=>{});
-  }
-  // #endregion
 
   if (loading && !preview) {
     return (

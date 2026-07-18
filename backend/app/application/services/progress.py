@@ -219,30 +219,6 @@ def emit(
             clamped_files_done = max(prev_files_done, files_done)
             clamped_files_total = max(prev_files_total, files_total)
 
-        # #region agent log
-        try:
-            from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-            agent_dbg(
-                "A",
-                "progress.py:emit",
-                "progress emit clamp",
-                {
-                    "req_id": req_id,
-                    "requested_stage": stage,
-                    "prev_stage": prev_stage,
-                    "clamped_stage": clamped_stage,
-                    "requested_pct": pct,
-                    "prev_pct": prev_pct,
-                    "clamped_pct": clamped_pct,
-                    "reset": reset,
-                    "status": getattr(req, "status", None),
-                },
-                run_id="retry-ui",
-            )
-        except Exception:
-            pass
-        # #endregion
 
         snapshot = {
             "stage": clamped_stage,

@@ -63,23 +63,6 @@ def run_finalize(ctx: PipelineContext) -> dict:
             ctx.app_spec_scope,
             architect,
         )
-        # #region agent log
-        try:
-            from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-            agent_dbg(
-                "F",
-                "finalize.py:appspec_hooks",
-                "post-inject appspec validation",
-                {
-                    "request_id": request_id,
-                    "issue_count": len(app_spec_workspace_issues),
-                    "issues_sample": app_spec_workspace_issues[:6],
-                },
-            )
-        except Exception:
-            pass
-        # #endregion
         if app_spec_workspace_issues:
             ok = False
             _emit(

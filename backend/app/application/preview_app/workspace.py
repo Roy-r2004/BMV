@@ -126,7 +126,8 @@ def write_trusted_contained_file(
         canonical_workspace_path,
     )
 
-    normalized = canonical_workspace_path(rel_path)
+    original = canonical_workspace_path(rel_path)
+    normalized = original
     if normalized.startswith("src/pages/") and normalized.lower().endswith((".tsx", ".jsx")):
         normalized = canonicalize_page_component_path(normalized)
         # Drop case-variant siblings (Homepage.tsx vs HomePage.tsx) so Vite
@@ -165,6 +166,16 @@ def write_trusted_contained_file(
         target.write_bytes(content)
     else:
         target.write_text(content, encoding="utf-8")
+
+    # Canonical rename (Dashboard.tsx → DashboardPage.tsx) must not leave the
+    # pre-canonical file behind — import guards would "fix" a duplicate copy.
+    if original != normalized:
+        old_path = Path(workspace).joinpath(*original.split("/"))
+        try:
+            if old_path.is_file() and old_path.resolve() != target.resolve():
+                old_path.unlink()
+        except OSError:
+            pass
 
 
 def read_file(workspace: Path, rel_path: str) -> str:

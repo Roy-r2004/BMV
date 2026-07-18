@@ -229,27 +229,6 @@ def run_codegen_phase(ctx: PipelineContext) -> None:
     ctx.files_completed = 0
 
     foundation, components, pages = split_codegen_phases(files_to_gen)
-    # #region agent log
-    from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-    agent_dbg(
-        "D",
-        "codegen_phase.py:start",
-        "codegen batches",
-        {
-            "request_id": request_id,
-            "total_files": ctx.total_files,
-            "foundation": len(foundation),
-            "components": len(components),
-            "pages": len(pages),
-            "recipe_id": (architect or {}).get("recipe_id")
-            or (ctx.plan or {}).get("recipe_id"),
-            "industry_template_id": (architect or {}).get("industry_template_id")
-            or (ctx.plan or {}).get("industry_template_id"),
-            "routes": len((architect or {}).get("routes") or []),
-        },
-    )
-    # #endregion
     # Parallelize every codegen phase — OpenRouter calls are network-bound.
     _run_batch(ctx, "foundation", foundation, parallel=True)
     _run_batch(ctx, "components", components, parallel=True)

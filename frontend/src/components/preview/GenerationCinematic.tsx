@@ -173,14 +173,8 @@ export default function GenerationCinematic({
 
   const retryGeneration = async () => {
     if (!requestId) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7453/ingest/fbc2480d-acff-4f2c-a3de-cf96872fcda1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'796af6'},body:JSON.stringify({sessionId:'796af6',runId:'retry-ui',hypothesisId:'D',location:'GenerationCinematic.tsx:retry',message:'retry clicked',data:{requestId,failed,stage:progress?.stage,pct:progress?.pct},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     try {
       const res = await fetch(`${API_BASE}/api/requests/${requestId}/retry-generation`, { method: 'POST' });
-      // #region agent log
-      fetch('http://127.0.0.1:7453/ingest/fbc2480d-acff-4f2c-a3de-cf96872fcda1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'796af6'},body:JSON.stringify({sessionId:'796af6',runId:'retry-ui',hypothesisId:'D',location:'GenerationCinematic.tsx:retry-response',message:'retry API response',data:{requestId,ok:res.ok,status:res.status},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       window.location.reload();
     } catch {
       /* ignore — user can submit again */

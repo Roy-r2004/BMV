@@ -89,18 +89,15 @@ def canonicalize_page_component_path(path: str) -> str:
         pascal = f"{pascal}Page"
     elif pascal.endswith("page"):
         pascal = pascal[:-4] + "Page"
-    # Keep role folders lowercase-stable: admin / member / role-*
+    # Keep area folders lowercase-stable (owner/admin/member/staff/…).
+    # PascalCasing them (owner → Owner) breaks Linux Docker volumes and App imports.
     dirs = parts[:-1]
     normalized_dirs: list[str] = []
     for idx, part in enumerate(dirs):
         if idx <= 1:  # src / pages
             normalized_dirs.append(part)
             continue
-        low = part.lower()
-        if low in {"admin", "member"} or low.startswith("role-"):
-            normalized_dirs.append(low)
-        else:
-            normalized_dirs.append(_pascal_token(part) or part)
+        normalized_dirs.append(part.lower())
     return "/".join([*normalized_dirs, f"{pascal}.{ext}"])
 
 

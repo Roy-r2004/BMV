@@ -63,7 +63,9 @@ def test_workspace_writes_fail_closed() -> None:
         root = Path(tmp)
         outside = root.parent / f"{root.name}-outside.ts"
         write_file(root, "src/pages/Safe.tsx", "export default null;\n")
-        assert (root / "src/pages/Safe.tsx").is_file()
+        # Page writes are canonicalized to *Page.tsx
+        assert (root / "src/pages/SafePage.tsx").is_file()
+        assert not (root / "src/pages/Safe.tsx").exists()
 
         for unsafe in (
             "../outside.ts",

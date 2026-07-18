@@ -113,31 +113,6 @@ def retry_generation(request_id: int, db: Session = Depends(get_db)):
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    # #region agent log
-    try:
-        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-        from app.application.services.progress import parse_progress_snapshot
-
-        snap = parse_progress_snapshot(req.generation_log)
-        agent_dbg(
-            "A",
-            "requests.py:retry_generation:before",
-            "retry requested",
-            {
-                "request_id": request_id,
-                "status": req.status,
-                "has_blueprint": bool(req.mvp_blueprint),
-                "stage": snap.get("stage"),
-                "pct": snap.get("pct"),
-                "is_generating_before": __import__(
-                    "app.application.services.progress", fromlist=["is_request_generating"]
-                ).is_request_generating(req),
-            },
-            run_id="retry-ui",
-        )
-    except Exception:
-        pass
-    # #endregion
 
     req.status = "new"
     if not req.mvp_blueprint:
@@ -157,33 +132,6 @@ def retry_generation(request_id: int, db: Session = Depends(get_db)):
         28,
         detail="Restarting UI generation from your blueprint",
     )
-    # #region agent log
-    try:
-        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-        from app.application.services.progress import (
-            is_request_generating,
-            parse_progress_snapshot,
-        )
-
-        db.refresh(req)
-        snap = parse_progress_snapshot(req.generation_log)
-        agent_dbg(
-            "A",
-            "requests.py:retry_generation:after",
-            "retry after emit",
-            {
-                "request_id": request_id,
-                "status": req.status,
-                "stage": snap.get("stage"),
-                "pct": snap.get("pct"),
-                "label": snap.get("label"),
-                "is_generating_after": is_request_generating(req),
-            },
-            run_id="retry-ui",
-        )
-    except Exception:
-        pass
-    # #endregion
     threading.Thread(
         target=_run_preview_app_in_background,
         args=(request_id,),
@@ -278,30 +226,6 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
 
     is_generating = is_request_generating(req)
 
-    # #region agent log
-    try:
-        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-        from app.application.services.progress import parse_progress_snapshot
-
-        snap = parse_progress_snapshot(req.generation_log)
-        agent_dbg(
-            "C",
-            "requests.py:get_preview",
-            "preview payload flags",
-            {
-                "request_id": request_id,
-                "status": req.status,
-                "is_generating": is_generating,
-                "stage": snap.get("stage"),
-                "pct": snap.get("pct"),
-                "has_concept": bool(req.concept_name),
-                "has_pages": bool(generated_pages),
-            },
-            run_id="retry-ui",
-        )
-    except Exception:
-        pass
-    # #endregion
 
     return PreviewResponse(
         id=req.id,

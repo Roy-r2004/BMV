@@ -42,21 +42,6 @@ def generate_preview_app(
     log.info("Starting preview pipeline for request %s", request_id)
     pipeline_watch = WatchBmv(f"preview request={request_id}", log).start()
 
-    # #region agent log
-    from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
-
-    agent_dbg(
-        "E",
-        "orchestrator.py:start",
-        "pipeline start",
-        {
-            "request_id": request_id,
-            "industry": getattr(req, "industry", None),
-            "business_name": getattr(req, "business_name", None),
-            "has_blueprint": bool(req.mvp_blueprint),
-        },
-    )
-    # #endregion
 
     ctx = PipelineContext(
         db=db,
@@ -75,33 +60,8 @@ def generate_preview_app(
         run_polish_phase(ctx)
         run_build_phase(ctx)
         result = run_finalize(ctx)
-        # #region agent log
-        agent_dbg(
-            "E",
-            "orchestrator.py:success",
-            "pipeline finished",
-            {
-                "request_id": request_id,
-                "preview_url": (result or {}).get("preview_url")
-                or (result or {}).get("url"),
-                "keys": sorted((result or {}).keys())[:20],
-            },
-        )
-        # #endregion
         return result
     except Exception as exc:
-        # #region agent log
-        agent_dbg(
-            "E",
-            "orchestrator.py:error",
-            "pipeline exception",
-            {
-                "request_id": request_id,
-                "error_type": type(exc).__name__,
-                "error": str(exc)[:500],
-            },
-        )
-        # #endregion
         raise
 
 
