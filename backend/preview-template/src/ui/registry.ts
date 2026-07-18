@@ -391,8 +391,8 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     surface: 'public',
     shell: 'PublicShell',
     purpose: 'Single product or treatment detail.',
-    requiredSections: ['shell', 'hero', 'showcase', 'cta', 'footer'],
-    optionalSections: ['process', 'features', 'testimonials'],
+    requiredSections: ['shell', 'hero', 'showcase', 'footer'],
+    optionalSections: ['process', 'features', 'testimonials', 'credentials', 'booking', 'cta'],
     recommendedOrder: ['shell', 'hero', 'showcase', 'features', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
@@ -448,8 +448,8 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     surface: 'public',
     shell: 'PublicShell',
     purpose: 'Booking / intake conversion flow surface.',
-    requiredSections: ['shell', 'hero', 'process', 'booking', 'footer'],
-    optionalSections: ['features', 'testimonials', 'cta', 'credentials'],
+    requiredSections: ['shell', 'hero', 'booking', 'footer'],
+    optionalSections: ['process', 'features', 'testimonials', 'cta', 'credentials', 'showcase'],
     recommendedOrder: ['shell', 'hero', 'credentials', 'process', 'features', 'testimonials', 'booking', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED, 'Input', 'Select', 'Dialog'],
     supportedVariants: {

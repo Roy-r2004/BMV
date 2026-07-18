@@ -43,8 +43,9 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "cta",
                 "footer",
             ],
-            "public-service": ["hero", "process", "features", "testimonials", "cta", "footer"],
-            "public-detail": ["hero", "showcase", "process", "testimonials", "cta", "footer"],
+            "public-service": ["hero", "credentials", "features", "testimonials", "cta", "footer"],
+            "public-booking": ["hero", "credentials", "booking", "footer"],
+            "public-detail": ["hero", "credentials", "showcase", "testimonials", "cta", "footer"],
         },
         "prompt": (
             "RECIPE editorial: generous whitespace, serif/display headlines via font-display, "
@@ -94,7 +95,8 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "footer",
             ],
             "public-service": ["hero", "features", "process", "cta", "footer"],
-            "public-detail": ["hero", "features", "showcase", "process", "cta", "footer"],
+            "public-booking": ["hero", "features", "booking", "footer"],
+            "public-detail": ["hero", "features", "showcase", "cta", "footer"],
             "ops-dashboard": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
         },
         "prompt": (
@@ -147,8 +149,8 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "footer",
             ],
             "public-service": ["hero", "features", "process", "testimonials", "cta", "footer"],
-            "public-booking": ["hero", "credentials", "process", "booking", "footer"],
-            "public-detail": ["hero", "process", "showcase", "testimonials", "cta", "footer"],
+            "public-booking": ["hero", "process", "booking", "testimonials", "footer"],
+            "public-detail": ["hero", "process", "showcase", "booking", "footer"],
         },
         "prompt": (
             "RECIPE warm-service: friendly tone, rounded corners, trust/process before hard sell, "
@@ -197,6 +199,7 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "footer",
             ],
             "public-service": ["hero", "showcase", "features", "cta", "footer"],
+            "public-booking": ["hero", "showcase", "booking", "cta", "footer"],
             "public-detail": ["hero", "showcase", "features", "cta", "footer"],
         },
         "prompt": (
@@ -246,7 +249,8 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "footer",
             ],
             "public-service": ["hero", "showcase", "process", "cta", "footer"],
-            "public-detail": ["hero", "showcase", "features", "cta", "footer"],
+            "public-booking": ["hero", "showcase", "booking", "footer"],
+            "public-detail": ["hero", "showcase", "testimonials", "cta", "footer"],
         },
         "prompt": (
             "RECIPE nocturne: dark luminous surfaces, luminous brand accents, cinematic heroes, "
@@ -294,7 +298,8 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "footer",
             ],
             "public-service": ["hero", "process", "features", "testimonials", "cta", "footer"],
-            "public-detail": ["hero", "process", "showcase", "cta", "footer"],
+            "public-booking": ["hero", "process", "credentials", "booking", "footer"],
+            "public-detail": ["hero", "process", "showcase", "credentials", "footer"],
         },
         "prompt": (
             "RECIPE craft: artisan storytelling, process-first, serif display, paper-warm cards, "
@@ -417,14 +422,21 @@ def recipe_section_slots(skeleton_id: str, recipe: dict[str, Any], current: list
     allowed.discard("shell")
     required = [slot for slot in (skeleton.get("requiredSections") or []) if slot != "shell"]
 
-    # Home pages: recipe face wins (do not force every optional mid-stack slot).
-    if skeleton_id == "public-home":
+    # Marketing faces: recipe owns the stack (do not force every optional mid-slot).
+    if skeleton_id in {
+        "public-home",
+        "public-service",
+        "public-detail",
+        "public-booking",
+    }:
         ordered = [slot for slot in preferred if slot in allowed]
         for req in required:
             if req in ordered:
                 continue
             if "cta" in ordered:
                 ordered.insert(ordered.index("cta"), req)
+            elif "booking" in ordered and req != "booking":
+                ordered.insert(ordered.index("booking"), req)
             else:
                 ordered.append(req)
         return ordered

@@ -281,7 +281,12 @@ def minimal_catalogue_page_scaffold(
         nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
         # Immersive chrome suits full-bleed heroes (retail/nocturne/editorial).
         chrome_attr = ' chrome="immersive"' if skeleton_id == "public-home" else ""
-        use_recipe_order = skeleton_id == "public-home" and bool(slots)
+        use_recipe_order = skeleton_id in {
+            "public-home",
+            "public-service",
+            "public-detail",
+            "public-booking",
+        } and bool(slots)
         composer = (
             "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} order={RECIPE_ORDER} />\n"
             if use_recipe_order
@@ -300,7 +305,14 @@ def minimal_catalogue_page_scaffold(
         )
     order_const = (
         f"const RECIPE_ORDER = {json.dumps(slots)} as const;\n\n"
-        if skeleton_id == "public-home" and slots
+        if skeleton_id
+        in {
+            "public-home",
+            "public-service",
+            "public-detail",
+            "public-booking",
+        }
+        and slots
         else ""
     )
     return f"""// deterministic catalogue contract scaffold

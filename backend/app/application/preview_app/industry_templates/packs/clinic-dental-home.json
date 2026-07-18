@@ -1,11 +1,82 @@
 {
   "id": "clinic-dental-home",
   "label": "Clinic / dental",
-  "industry_tags": ["clinic", "dental", "dentist", "medical", "healthcare", "doctor"],
+  "industry_tags": ["clinic", "dental", "dentist", "medical", "healthcare", "doctor", "orthodont"],
   "recipe_hint": "editorial",
   "skeleton_id": "public-home",
   "section_order": ["hero", "credentials", "features", "process", "testimonials", "booking", "cta", "footer"],
-  "signature_moves": ["trust credentials", "process", "booking"],
-  "prompt_hints": ["Clean clinical calm with brand warmth — never sterile gray SaaS."],
-  "mock_seed": { "tone": "reassuring" }
+  "signature_moves": ["trust credentials first", "calm process", "booking panel"],
+  "prompt_hints": [
+    "Clean clinical calm with brand warmth — never sterile gray SaaS.",
+    "Lead with credentials and patient reassurance; booking is clear but never pushy."
+  ],
+  "mock_seed": {
+    "tone": "reassuring",
+    "hero": {
+      "subcopy": "Preventive care, clear treatment plans, and appointments you can book without a phone maze.",
+      "primaryCta": { "label": "Book a visit", "href": "/book" },
+      "secondaryCta": { "label": "Meet the team", "href": "/team" }
+    },
+    "services": [
+      {
+        "title": "New patient exam",
+        "description": "Full assessment, imaging when needed, and a plain-language plan."
+      },
+      {
+        "title": "Hygiene & prevention",
+        "description": "Cleanings timed to your risk — reminders that actually help."
+      },
+      {
+        "title": "Restorative care",
+        "description": "Crowns, fillings, and repairs with options explained before you decide."
+      }
+    ],
+    "process": [
+      { "title": "Share what you need", "description": "Tell us the concern — urgency, insurance, preferred times." },
+      { "title": "Reserve a chair", "description": "See open slots online; confirm in one step." },
+      { "title": "Visit with a plan", "description": "Arrive knowing who you’ll see and what happens next." }
+    ],
+    "features": [
+      {
+        "title": "Credentials you can verify",
+        "description": "Licensure, specialties, and chairside manner — upfront."
+      },
+      {
+        "title": "Treatment without jargon fog",
+        "description": "Options, timelines, and costs explained before commitment."
+      },
+      {
+        "title": "Booking that respects anxiety",
+        "description": "Calm copy, clear next steps, no surprise upsells on the form."
+      }
+    ],
+    "credentials": [
+      { "title": "Board-aware clinical team", "detail": "Continuing education tracked — protocols you can ask about." },
+      { "title": "Sterilization you can see", "detail": "Transparent room turnover standards, not vague promises." },
+      { "title": "Same-day urgent windows", "detail": "Held slots for pain and trauma when capacity allows." }
+    ],
+    "testimonials": [
+      {
+        "quote": "They explained every option before I booked — I never felt rushed into a plan.",
+        "author": "Daniel K.",
+        "role": "Patient · family of four"
+      }
+    ],
+    "showcaseHeading": "Care we offer",
+    "featuresHeading": "Designed around trust",
+    "processHeading": "How a visit works",
+    "credentialsHeading": "Why patients choose us",
+    "cta": {
+      "heading": "Book with confidence",
+      "description": "Reserve an exam or hygiene visit — we’ll confirm details before you arrive.",
+      "primaryLabel": "Book appointment",
+      "primaryHref": "/book",
+      "secondaryLabel": "Ask a question",
+      "secondaryHref": "/contact"
+    },
+    "footer": {
+      "description": "A calm clinic experience — clear care plans, respectful booking, brand warmth without cold SaaS chrome."
+    },
+    "trustLabels": ["Licensed team", "Plain-language plans", "Online booking", "Family care"]
+  }
 }

@@ -129,6 +129,73 @@ def test_scaffold_reads_industry_seed() -> None:
     assert "Signature service" not in tsx
 
 
+def test_enriched_industry_packs_carry_seed_items() -> None:
+    from app.application.preview_app.industry_templates.apply import (
+        apply_industry_template_to_plan,
+    )
+    from app.application.preview_app.industry_templates.loader import load_templates
+
+    load_templates.cache_clear()
+    cases = (
+        ("Fitness gym pilates studio", "fitness-studio-home", "Strength"),
+        ("Dental clinic healthcare", "clinic-dental-home", "patient"),
+        ("Plumbing HVAC handyman trades", "home-services-trades", "leak"),
+    )
+    for industry, template_id, needle in cases:
+        assert pick_template_id(industry=industry, seed=2) == template_id
+        plan = apply_industry_template_to_plan({}, industry=industry, seed=2)
+        blob = " ".join(
+            f"{item.get('title', '')} {item.get('description', '')}"
+            for item in plan["mock_seed"]["items"]
+        ).lower()
+        assert needle.lower() in blob
+        assert plan["mock_seed"]["hero"]["subcopy"]
+
+
+def test_booking_and_detail_recipe_stacks_differ() -> None:
+    booking = {
+        rid: tuple(
+            recipe_section_slots(
+                "public-booking",
+                get_recipe(rid),
+                ["hero", "process", "credentials", "booking", "footer"],
+            )
+        )
+        for rid in ("editorial", "warm-service", "bold-retail", "craft")
+    }
+    detail = {
+        rid: tuple(
+            recipe_section_slots(
+                "public-detail",
+                get_recipe(rid),
+                ["hero", "showcase", "process", "features", "cta", "footer"],
+            )
+        )
+        for rid in ("editorial", "warm-service", "bold-retail", "craft")
+    }
+    assert len(set(booking.values())) >= 3
+    assert booking["editorial"][1] == "credentials"
+    assert booking["warm-service"][1] == "process"
+    assert booking["bold-retail"][1] == "showcase"
+    assert "process" not in booking["bold-retail"]
+    assert detail["craft"][1] == "process"
+    assert detail["bold-retail"][1] == "showcase"
+    assert "booking" in detail["warm-service"]
+
+    tsx = minimal_catalogue_page_scaffold(
+        "src/pages/BookPage.tsx",
+        {
+            "path": "/book",
+            "skeleton_id": "public-booking",
+            "section_slots": list(booking["craft"]),
+            "title": "Book",
+        },
+        brand_name="Studio",
+    )
+    assert "order={RECIPE_ORDER}" in tsx
+    assert "seed.treatments ?? []" in tsx
+
+
 def test_mismatched_template_does_not_override_craft_home() -> None:
     arch = {
         "routes": [

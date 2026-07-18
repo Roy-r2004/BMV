@@ -5,7 +5,77 @@
   "recipe_hint": "warm-service",
   "skeleton_id": "public-home",
   "section_order": ["hero", "trust", "features", "process", "results", "cta", "footer"],
-  "signature_moves": ["service hero", "logo marquee", "process steps"],
-  "prompt_hints": ["Practical trust — clear offers, process, proof; book/quote CTA."],
-  "mock_seed": { "tone": "dependable" }
+  "signature_moves": ["service hero", "trust marquee", "clear process", "quote CTA"],
+  "prompt_hints": [
+    "Practical trust — clear offers, process, proof; book/quote CTA.",
+    "Lead with the job types homeowners recognize; show how scheduling works before the hard sell."
+  ],
+  "mock_seed": {
+    "tone": "dependable",
+    "hero": {
+      "subcopy": "Plumbing, HVAC, and home repairs with clear windows, upfront scope, and techs who show when they say they will.",
+      "primaryCta": { "label": "Request a quote", "href": "/quote" },
+      "secondaryCta": { "label": "See services", "href": "/services" }
+    },
+    "services": [
+      {
+        "title": "Emergency leak response",
+        "description": "Priority windows for burst lines and active water damage."
+      },
+      {
+        "title": "HVAC tune-up",
+        "description": "Seasonal checks that catch failures before the heatwave."
+      },
+      {
+        "title": "Electrical safety visit",
+        "description": "Panel checks, outlet issues, and code-aware fixes."
+      }
+    ],
+    "process": [
+      { "title": "Describe the job", "description": "Photos welcome — we size the visit before we arrive." },
+      { "title": "Pick a window", "description": "Real arrival ranges, not ‘sometime Tuesday’." },
+      { "title": "Approve and finish", "description": "Scope and price confirmed before work starts." }
+    ],
+    "features": [
+      {
+        "title": "Tradespeople, not ticket bots",
+        "description": "Licensed techs with the right van stock for common jobs."
+      },
+      {
+        "title": "Quotes without the fog",
+        "description": "Line items you can understand before you green-light."
+      },
+      {
+        "title": "Proof from homes like yours",
+        "description": "Before/after and review snippets from the neighborhood."
+      }
+    ],
+    "credentials": [
+      { "title": "Licensed & insured", "detail": "Coverage details available before we step on site." },
+      { "title": "Background-checked crew", "detail": "Techs you can trust around family and pets." }
+    ],
+    "testimonials": [
+      {
+        "quote": "They texted an ETA, explained the fix, and left the crawlspace cleaner than they found it.",
+        "author": "Priya S.",
+        "role": "Homeowner · HVAC + plumbing"
+      }
+    ],
+    "showcaseHeading": "Jobs we handle most",
+    "featuresHeading": "Why homeowners call back",
+    "processHeading": "From request to done",
+    "credentialsHeading": "Trust before the truck rolls",
+    "cta": {
+      "heading": "Need it handled?",
+      "description": "Request a quote or book a service window — we’ll confirm scope before arrival.",
+      "primaryLabel": "Get a quote",
+      "primaryHref": "/quote",
+      "secondaryLabel": "Call the desk",
+      "secondaryHref": "/contact"
+    },
+    "footer": {
+      "description": "Local trades done with clear windows, honest scope, and follow-through you can schedule online."
+    },
+    "trustLabels": ["Licensed", "Insured", "Same-week windows", "Neighborhood reviews"]
+  }
 }

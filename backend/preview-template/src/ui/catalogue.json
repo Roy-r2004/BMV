@@ -754,13 +754,15 @@
         "shell",
         "hero",
         "showcase",
-        "cta",
         "footer"
       ],
       "optionalSections": [
         "process",
         "features",
-        "testimonials"
+        "testimonials",
+        "credentials",
+        "booking",
+        "cta"
       ],
       "recommendedOrder": [
         "shell",
@@ -927,15 +929,16 @@
       "requiredSections": [
         "shell",
         "hero",
-        "process",
         "booking",
         "footer"
       ],
       "optionalSections": [
+        "process",
         "features",
         "testimonials",
         "cta",
-        "credentials"
+        "credentials",
+        "showcase"
       ],
       "recommendedOrder": [
         "shell",
