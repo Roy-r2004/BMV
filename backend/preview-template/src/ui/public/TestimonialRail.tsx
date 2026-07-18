@@ -16,7 +16,12 @@ export interface TestimonialRailProps {
 }
 
 /** Editorial quote stack — not equal testimonial cards. */
-export function TestimonialRail({ className, heading, items }: TestimonialRailProps) {
+export function TestimonialRail({
+  className,
+  heading,
+  items: itemsProp = [],
+}: TestimonialRailProps) {
+  const items = Array.isArray(itemsProp) ? itemsProp : [];
   const [lead, ...rest] = items;
   return (
     <section className={cn('relative isolate overflow-hidden bg-background px-6 py-28 lg:px-12 lg:py-36', className)}>

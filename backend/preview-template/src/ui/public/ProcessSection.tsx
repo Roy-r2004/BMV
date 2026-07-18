@@ -15,7 +15,13 @@ export interface ProcessSectionProps {
   className?: string;
 }
 
-export function ProcessSection({ className, description, heading, steps }: ProcessSectionProps) {
+export function ProcessSection({
+  className,
+  description,
+  heading,
+  steps: stepsProp = [],
+}: ProcessSectionProps) {
+  const steps = Array.isArray(stepsProp) ? stepsProp : [];
   return (
     <section className={cn('relative overflow-hidden px-6 py-28 lg:px-12 lg:py-36', className)}>
       <div

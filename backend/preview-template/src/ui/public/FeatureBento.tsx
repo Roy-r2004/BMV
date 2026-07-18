@@ -27,11 +27,12 @@ export function FeatureBento({
   className,
   description,
   heading,
-  items,
+  items: itemsProp = [],
   variant,
 }: FeatureBentoProps) {
   const safe = useMotionSafe();
   const resolved = variant ?? recipeFeatureVariant(currentRecipeId());
+  const items = Array.isArray(itemsProp) ? itemsProp : [];
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(0);
 

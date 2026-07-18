@@ -15,7 +15,12 @@ export interface CredentialStripProps {
 }
 
 /** Trust strip — credentials / protocols / studios with brand atmosphere. */
-export function CredentialStrip({ className, heading = 'Clinical trust', items }: CredentialStripProps) {
+export function CredentialStrip({
+  className,
+  heading = 'Clinical trust',
+  items: itemsProp = [],
+}: CredentialStripProps) {
+  const items = Array.isArray(itemsProp) ? itemsProp : [];
   return (
     <section
       className={cn(

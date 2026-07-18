@@ -65,38 +65,48 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             'imageSrc={images.hero} imageAlt="" />'
         ),
         "features": (
-            '<FeatureBento heading={seed.featuresHeading} items={seed.features} />'
+            '<FeatureBento heading={seed.featuresHeading ?? "Designed to feel alive"} '
+            'items={seed.features ?? []} />'
         ),
         "products": (
-            '<ProductShowcase heading={seed.showcaseHeading} items={seed.items.map((item, index) => ({ '
+            '<ProductShowcase heading={seed.showcaseHeading ?? "Featured picks"} '
+            'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
             'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title '
             '}))} />'
         ),
         "showcase": (
-            '<ProductShowcase heading={seed.showcaseHeading} items={seed.items.map((item, index) => ({ '
+            '<ProductShowcase heading={seed.showcaseHeading ?? "Featured experiences"} '
+            'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
             'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title '
             '}))} />'
         ),
         "process": (
-            '<ProcessSection heading={seed.processHeading} steps={seed.process} />'
+            '<ProcessSection heading={seed.processHeading ?? "How it works"} '
+            'steps={seed.process ?? []} />'
         ),
         "testimonials": (
-            '<TestimonialRail heading={seed.testimonialsHeading} items={seed.testimonials} />'
+            '<TestimonialRail heading={seed.testimonialsHeading ?? "What clients say"} '
+            'items={seed.testimonials ?? []} />'
         ),
         "cta": (
-            '<CTABand heading={seed.cta.heading} description={seed.cta.description} '
-            'primaryCta={{ label: seed.cta.primaryLabel, href: seed.cta.primaryHref }} '
-            'secondaryCta={{ label: seed.cta.secondaryLabel, href: seed.cta.secondaryHref }} />'
+            '<CTABand heading={seed.cta?.heading ?? "Make it unforgettable"} '
+            'description={seed.cta?.description ?? "Book the next chapter — polished, branded, never bland."} '
+            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", href: seed.cta?.primaryHref ?? "#details" }} '
+            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", href: seed.cta?.secondaryHref ?? "#contact" }} />'
         ),
-        "footer": f'<BrandFooter brandName={{{brand_js}}} description={{seed.footer.description}} />',
+        "footer": (
+            f'<BrandFooter brandName={{{brand_js}}} '
+            'description={seed.footer?.description ?? "Premium presence from first glance to booked revenue."} />'
+        ),
         "trust": (
             '<LogoMarquee heading="Trusted in the room" '
-            'items={seed.trustLabels.map((label) => ({ label }))} />'
+            'items={(seed.trustLabels ?? []).map((label) => ({ label }))} />'
         ),
         "credentials": (
-            '<CredentialStrip heading={seed.credentialsHeading} items={seed.credentials} />'
+            '<CredentialStrip heading={seed.credentialsHeading ?? "Why it stands out"} '
+            'items={seed.credentials ?? []} />'
         ),
         "spotlight": '<SpotlightCard title="Atmosphere over filler" description="Layered glow, grain, and brand light so the page never looks pale." />',
         "results": (
@@ -106,7 +116,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         ),
         "booking": (
             '<BookingPanel heading="Choose a time" '
-            'treatments={seed.treatments} '
+            'treatments={seed.treatments ?? []} '
             'slots={[{ id: "slot-1", startsAt: "2026-07-14T10:00:00" }]} />'
         ),
         "workspace": (

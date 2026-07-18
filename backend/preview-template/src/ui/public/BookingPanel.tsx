@@ -56,8 +56,9 @@ export function BookingPanel({
   heading,
   onConfirm,
   slots,
-  treatments = [],
+  treatments: treatmentsProp = [],
 }: BookingPanelProps) {
+  const treatments = Array.isArray(treatmentsProp) ? treatmentsProp : [];
   const structuredSlots = isSlotList(slots) ? slots : [];
   const customSlots = !isSlotList(slots) && slots != null ? (slots as React.ReactNode) : null;
   const useCustom = Boolean(children || customSlots);

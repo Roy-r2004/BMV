@@ -19,8 +19,14 @@ export interface LogoMarqueeProps {
  * Scrolling trust rail — heading lives outside the track so labels never shear under it.
  * `size="display"` turns it into a kinetic typographic band.
  */
-export function LogoMarquee({ className, heading, items, size = 'default' }: LogoMarqueeProps) {
+export function LogoMarquee({
+  className,
+  heading,
+  items: itemsProp = [],
+  size = 'default',
+}: LogoMarqueeProps) {
   const safe = useMotionSafe();
+  const items = Array.isArray(itemsProp) ? itemsProp : [];
   const loop = safe ? [...items, ...items] : items;
 
   if (size === 'display') {

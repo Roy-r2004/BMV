@@ -124,8 +124,8 @@ def test_scaffold_reads_industry_seed() -> None:
         brand_name="Clay & Kiln",
     )
     assert "import { images, seed } from '@/data/mock'" in tsx
-    assert "seed.items.map" in tsx
-    assert "seed.process" in tsx
+    assert "(seed.items ?? []).map" in tsx
+    assert "seed.process ?? []" in tsx
     assert "Signature service" not in tsx
 
 
