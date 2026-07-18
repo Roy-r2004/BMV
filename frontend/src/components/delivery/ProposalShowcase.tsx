@@ -4,12 +4,20 @@ import { parseMarkdownSections, extractListItems } from '../../utils/parseMarkdo
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+type StructuredAiFeature = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+};
+
 interface Props {
   content: string;
   conceptName?: string | null;
+  aiFeatures?: StructuredAiFeature[];
 }
 
-export default function ProposalShowcase({ content, conceptName }: Props) {
+export default function ProposalShowcase({ content, conceptName, aiFeatures: structuredAi }: Props) {
   const sections = parseMarkdownSections(content);
 
   const find = (...kws: string[]) =>
@@ -25,6 +33,10 @@ export default function ProposalShowcase({ content, conceptName }: Props) {
   const pricing    = find('pricing', 'investment', 'cost');
   const nextSteps  = find('next step');
   const whatsapp   = find('whatsapp', 'follow-up', 'message');
+
+  const structuredNames = (structuredAi ?? []).map((f) => f.name).filter(Boolean);
+  const markdownAiItems = aiFeatures ? extractListItems(aiFeatures.body) : [];
+  const aiItems = structuredNames.length > 0 ? structuredNames : markdownAiItems;
 
   const used = new Set(
     [goal, solution, includes, excludes, aiFeatures, benefits, timeline, pricing, nextSteps, whatsapp]
@@ -90,8 +102,8 @@ export default function ProposalShowcase({ content, conceptName }: Props) {
         </div>
       )}
 
-      {/* ── AI features ── */}
-      {aiFeatures && (
+      {/* ── AI features (structured inventory preferred over markdown sniffing) ── */}
+      {aiItems.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -106,7 +118,7 @@ export default function ProposalShowcase({ content, conceptName }: Props) {
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-700">AI features</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {extractListItems(aiFeatures.body).slice(0, 8).map((item, i) => (
+            {aiItems.slice(0, 8).map((item, i) => (
               <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 text-white text-xs font-semibold px-3.5 py-1.5">
                 <span className="w-1 h-1 rounded-full bg-violet-300" />
                 {trunc(item, 60)}

@@ -223,6 +223,13 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     optionalProps: ['description', 'className'],
   },
   {
+    name: 'AiFeatureDeck',
+    surface: 'public',
+    path: 'public/AiFeatureDeck.tsx',
+    requiredProps: ['features'],
+    optionalProps: ['brandName', 'className'],
+  },
+  {
     name: 'BookingPanel',
     surface: 'public',
     path: 'public/BookingPanel.tsx',
@@ -313,6 +320,7 @@ const PUBLIC_ALLOWED = [
   'CredentialStrip',
   'ResultRail',
   'BookingPanel',
+  'AiFeatureDeck',
   'Button',
   'Badge',
   'UiIcon',

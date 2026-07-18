@@ -192,6 +192,14 @@ def _sanitize_candidate(
     if candidate is None:
         return None
     sanitized = sanitize_app_spec_payload(candidate.payload, source_snapshot)
+    from app.application.services.ai_features import (
+        ai_features_from_source,
+        bind_ai_features_to_app_spec,
+    )
+
+    ai_features = ai_features_from_source(source_snapshot)
+    if ai_features:
+        sanitized = bind_ai_features_to_app_spec(sanitized, ai_features)
     return AppSpecCandidate(
         payload=sanitized,
         response_excerpt=candidate.response_excerpt,

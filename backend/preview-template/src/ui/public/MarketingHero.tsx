@@ -31,17 +31,6 @@ export interface MarketingHeroProps {
   className?: string;
 }
 
-function resolveVariant(
-  recipeId: ReturnType<typeof currentRecipeId>,
-  variant?: MarketingHeroVariant,
-): HeroVariant {
-  if (!variant || variant === 'split') return recipeHeroVariant(recipeId);
-  if (variant === 'cinematic' || variant === 'service' || variant === 'compact' || variant === 'product' || variant === 'editorial') {
-    return variant;
-  }
-  return recipeHeroVariant(recipeId);
-}
-
 export function MarketingHero({
   brandName,
   className,
@@ -52,11 +41,12 @@ export function MarketingHero({
   primaryCta,
   secondaryCta,
   subcopy,
-  variant,
+  variant: _variant,
 }: MarketingHeroProps) {
   const safe = useMotionSafe();
   const recipeId = currentRecipeId();
-  const resolved = resolveVariant(recipeId, variant);
+  // Recipe owns hero composition — codegen cannot collapse every business to one layout.
+  const resolved = recipeHeroVariant(recipeId);
   const display = recipeDisplayClass(recipeId);
 
   const ctas = (

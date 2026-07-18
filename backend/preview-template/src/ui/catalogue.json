@@ -467,6 +467,18 @@
       ]
     },
     {
+      "name": "AiFeatureDeck",
+      "surface": "public",
+      "path": "public/AiFeatureDeck.tsx",
+      "requiredProps": [
+        "features"
+      ],
+      "optionalProps": [
+        "brandName",
+        "className"
+      ]
+    },
+    {
       "name": "OpsShell",
       "surface": "ops",
       "path": "ops/OpsShell.tsx",
@@ -684,6 +696,7 @@
         "CredentialStrip",
         "ResultRail",
         "BookingPanel",
+        "AiFeatureDeck",
         "Button",
         "Badge",
         "UiIcon"
@@ -747,6 +760,7 @@
         "CredentialStrip",
         "ResultRail",
         "BookingPanel",
+        "AiFeatureDeck",
         "Button",
         "Badge",
         "UiIcon"
@@ -811,6 +825,7 @@
         "CredentialStrip",
         "ResultRail",
         "BookingPanel",
+        "AiFeatureDeck",
         "Button",
         "Badge",
         "UiIcon"
@@ -874,6 +889,7 @@
         "CredentialStrip",
         "ResultRail",
         "BookingPanel",
+        "AiFeatureDeck",
         "Button",
         "Badge",
         "UiIcon",
@@ -988,6 +1004,7 @@
         "CredentialStrip",
         "ResultRail",
         "BookingPanel",
+        "AiFeatureDeck",
         "Button",
         "Badge",
         "UiIcon",

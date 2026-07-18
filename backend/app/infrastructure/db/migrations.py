@@ -1,9 +1,9 @@
-"""Ad-hoc SQLite column migrations.
+"""Ad-hoc column migrations.
 
-Lightweight alternative to Alembic for this project's simple SQLite schema —
+Lightweight alternative to Alembic for this project's simple schema —
 adds columns that may be missing in databases created by older versions of
-the app. Safe to call on every startup: it only runs on SQLite, only adds
-columns that don't already exist, and never raises.
+the app. Safe to call on every startup: it only adds columns that don't
+already exist, and never raises.
 """
 from sqlalchemy import text
 
@@ -15,19 +15,33 @@ _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
     ("project_type", "ALTER TABLE requests ADD COLUMN project_type VARCHAR"),
     ("existing_product_url", "ALTER TABLE requests ADD COLUMN existing_product_url VARCHAR"),
     ("generation_log", "ALTER TABLE requests ADD COLUMN generation_log TEXT"),
+    ("ai_features", "ALTER TABLE requests ADD COLUMN ai_features TEXT"),
 ]
 
 
 def run_sqlite_migrations() -> None:
     """Add any missing columns to the `requests` table. Never raises."""
-    if not settings.DATABASE_URL.startswith("sqlite"):
-        return
+    url = settings.DATABASE_URL
     try:
         with engine.connect() as conn:
-            existing = {row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))}
-            for column, ddl in _REQUESTS_TABLE_MIGRATIONS:
-                if column not in existing:
-                    conn.execute(text(ddl))
-            conn.commit()
+            if url.startswith("sqlite"):
+                existing = {
+                    row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))
+                }
+                for column, ddl in _REQUESTS_TABLE_MIGRATIONS:
+                    if column not in existing:
+                        conn.execute(text(ddl))
+                conn.commit()
+                return
+
+            if url.startswith("postgresql"):
+                for column, _ddl in _REQUESTS_TABLE_MIGRATIONS:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE requests ADD COLUMN IF NOT EXISTS "
+                            f"{column} TEXT"
+                        )
+                    )
+                conn.commit()
     except Exception:
         pass

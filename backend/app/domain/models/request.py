@@ -43,6 +43,8 @@ class Request(Base):
     concept_name = Column(String, nullable=True)
     preview_summary = Column(Text, nullable=True)
     preview_features = Column(Text, nullable=True)
+    # JSON list of {id, name, description, category, surface} from blueprint §11
+    ai_features = Column(Text, nullable=True)
 
     reference_metadata = Column(Text, nullable=True)
 

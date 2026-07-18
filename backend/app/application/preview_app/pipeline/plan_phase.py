@@ -167,6 +167,14 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     ) or manifest.get("brand_name") or req.business_name or "Brand"
     if isinstance(plan.get("mock_seed"), dict):
         architect["mock_seed"] = plan["mock_seed"]
+    from app.application.preview_app.ai_feature_surfaces import (
+        ensure_ai_feature_route,
+        ensure_ai_feature_surfaces,
+    )
+    from app.application.services.ai_features import ai_features_from_request
+
+    # Route must exist before mock nav is written so the hub is linked.
+    ensure_ai_feature_route(architect, ai_features_from_request(req))
     write_plumbing_mock(
         workspace,
         architect,
@@ -176,6 +184,12 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         secondary,
         design_system=design_system,
         mock_seed=plan.get("mock_seed") if isinstance(plan.get("mock_seed"), dict) else None,
+    )
+    ensure_ai_feature_surfaces(
+        workspace,
+        architect,
+        req,
+        brand_name=brand_name,
     )
     log.info("    plumbing mock (brand, roles, nav) ready")
     workspace_watch.stop()

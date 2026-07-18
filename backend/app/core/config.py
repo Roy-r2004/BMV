@@ -163,7 +163,7 @@ class Settings:
             os.getenv("APPSPEC_SCHEMA_VERSION", "1.0").strip() or "1.0"
         )
         self.APPSPEC_PROMPT_REVISION = (
-            os.getenv("APPSPEC_PROMPT_REVISION", "2026-07-15.1").strip()
+            os.getenv("APPSPEC_PROMPT_REVISION", "2026-07-18.1").strip()
             or "2026-07-15.1"
         )
         self.APPSPEC_MODEL = _env_or("APPSPEC_MODEL", self.ARCHITECT_MODEL)
@@ -216,11 +216,11 @@ class Settings:
         try:
             self.APPSPEC_PREVIEW_MAX_PAGES = max(
                 self.APPSPEC_PREVIEW_TARGET_PAGES,
-                int(os.getenv("APPSPEC_PREVIEW_MAX_PAGES", "8")),
+                int(os.getenv("APPSPEC_PREVIEW_MAX_PAGES", "10")),
             )
         except ValueError:
             self.APPSPEC_PREVIEW_MAX_PAGES = max(
-                self.APPSPEC_PREVIEW_TARGET_PAGES, 8
+                self.APPSPEC_PREVIEW_TARGET_PAGES, 10
             )
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.

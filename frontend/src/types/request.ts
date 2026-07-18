@@ -290,6 +290,13 @@ export interface PreviewResponse {
   concept_name: string | null;
   preview_summary: string | null;
   preview_features: string[];
+  ai_features?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    category?: string;
+    surface?: string;
+  }>;
   visual_demo: VisualDemo | null;
   generated_pages: GeneratedPages | null;
   status: string;

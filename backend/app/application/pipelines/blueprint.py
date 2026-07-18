@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import get_request
+from app.application.services.ai_features import extract_ai_features_from_blueprint
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -46,6 +47,11 @@ def generate_mvp_blueprint(
     req.concept_name = preview["concept_name"]
     req.preview_summary = preview["preview_summary"]
     req.preview_features = json.dumps(preview["preview_features"])
+    needs = str(getattr(req, "needs_ai", None) or "").strip().lower()
+    if needs == "no":
+        req.ai_features = json.dumps([])
+    else:
+        req.ai_features = json.dumps(extract_ai_features_from_blueprint(result))
     req.updated_at = datetime.utcnow()
     db.commit()
     return result

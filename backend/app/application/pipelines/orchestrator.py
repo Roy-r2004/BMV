@@ -243,11 +243,14 @@ class GenerationPipeline:
         req = get_request(db, request_id)
         pipeline_watch.stop()
         self.log.info("Generation pipeline finished for request %s", request_id)
+        from app.application.services.ai_features import ai_features_from_request
+
         return {
             "business_fit_score": req.business_fit_score,
             "concept_name": req.concept_name,
             "preview_summary": req.preview_summary,
             "preview_features": json.loads(req.preview_features) if req.preview_features else [],
+            "ai_features": ai_features_from_request(req),
             "visual_demo_generated": bool(req.visual_demo_json),
         }
 

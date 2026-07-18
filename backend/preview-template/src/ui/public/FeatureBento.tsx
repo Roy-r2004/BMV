@@ -28,10 +28,11 @@ export function FeatureBento({
   description,
   heading,
   items: itemsProp = [],
-  variant,
+  variant: _variant,
 }: FeatureBentoProps) {
   const safe = useMotionSafe();
-  const resolved = variant ?? recipeFeatureVariant(currentRecipeId());
+  // Recipe owns feature composition — ignore AI-passed variants.
+  const resolved = recipeFeatureVariant(currentRecipeId());
   const items = Array.isArray(itemsProp) ? itemsProp : [];
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(0);

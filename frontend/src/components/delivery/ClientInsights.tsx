@@ -72,6 +72,24 @@ export default function ClientInsights({ preview }: Props) {
           </div>
         )}
 
+        {(preview.ai_features?.length ?? 0) > 0 && (
+          <div className="mb-10 rounded-2xl border border-violet-100 bg-violet-50/40 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-violet-700 mb-3">
+              AI features in your plan
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {preview.ai_features!.map((feature) => (
+                <span
+                  key={feature.id}
+                  className="inline-flex items-center rounded-full bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  {feature.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {blueprintSections.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider text-center mb-4">

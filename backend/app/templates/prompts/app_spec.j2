@@ -39,7 +39,12 @@ CONTRACT RULES:
    `customer_input.*` or `reference_evidence.*` paths. Never cite
    `derived_context.*` or other non-authoritative analysis in `source_refs`.
    Blueprint-only suggestions belong in `deferred_scope` with `should` or
-   `could` priority, not as confirmed `must` requirements.
+   `could` priority, not as confirmed `must` requirements — EXCEPT
+   `customer_input.ai_features`: when that array is non-empty, every item is a
+   confirmed `must` requirement (verification_mode `content` is fine) that must
+   appear on an in-preview page (prefer a single public hub page such as
+   `PAGE-AI-FEATURES` at `/ai-features`). Do not place planned AI features only
+   in `deferred_scope`.
 6. Model the complete hierarchy: product intent -> requirements -> capabilities
    -> journeys -> pages -> states/actions/transitions -> evidence -> acceptance
    tests. Populate traceability so a validator can follow every required outcome

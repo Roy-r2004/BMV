@@ -246,7 +246,11 @@ export default function FullDeliveryPackage({ preview, liveSiteAbove = false, hi
         accent="violet"
       >
         {preview.proposal_draft ? (
-          <ProposalShowcase content={preview.proposal_draft} conceptName={preview.concept_name} />
+          <ProposalShowcase
+            content={preview.proposal_draft}
+            conceptName={preview.concept_name}
+            aiFeatures={preview.ai_features}
+          />
         ) : (
           <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-8 text-center">
             <p className="text-sm text-slate-500">Proposal will appear here once generation completes.</p>

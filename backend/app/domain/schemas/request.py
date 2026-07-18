@@ -16,6 +16,7 @@ class PreviewResponse(BaseModel):
     concept_name: Optional[str] = None
     preview_summary: Optional[str] = None
     preview_features: list[str] = []
+    ai_features: list[dict[str, Any]] = []
     visual_demo: Optional[dict[str, Any]] = None
     generated_pages: Optional[dict[str, Any]] = None
     app_spec: Optional[dict[str, Any]] = None

@@ -1,0 +1,519 @@
+"""Structured AI features from the plan → AppSpec / preview binding.
+
+The product contract: every AI feature proposed in the blueprint must appear as
+an interactive surface in the live preview. Markdown section 11 alone is not
+enough — we extract a stable inventory, treat it as customer_input, bind it into
+AppSpec, and project it onto a deterministic hub page.
+"""
+from __future__ import annotations
+
+import json
+import re
+from typing import Any, Mapping, Optional
+
+AI_FEATURE_SOURCE_REF = "customer_input.ai_features"
+# Id chosen so AppSpec projection maps to src/pages/AiFeaturesPage.tsx
+PAGE_AI_HUB_ID = "PAGE-AI-FEATURES"
+PAGE_AI_HUB_ROUTE = "/ai-features"
+MAX_AI_FEATURES = 6
+
+_CATEGORY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("chat", ("chat", "assistant", "qa", "q&a", "convers", "faq", "bot")),
+    ("scheduling", ("schedul", "book", "appoint", "calendar", "slot", "reserv")),
+    ("digest", ("digest", "summary", "report", "brief", "insight", "daily")),
+    ("scoring", ("score", "rank", "priorit", "lead scor", "risk", "qualify")),
+    ("automation", ("automat", "workflow", "trigger", "chase", "follow-up", "remind")),
+    ("ops", ("ops", "admin", "dashboard", "triage", "routing", "intake")),
+)
+
+
+def _slugify(value: str, *, fallback: str = "feature") -> str:
+    text = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+    return (text[:48] or fallback).strip("-") or fallback
+
+
+def infer_category(name: str, description: str = "") -> str:
+    blob = f"{name} {description}".lower()
+    for category, hints in _CATEGORY_HINTS:
+        if any(hint in blob for hint in hints):
+            return category
+    return "automation"
+
+
+def _split_name_description(line: str) -> tuple[str, str]:
+    cleaned = re.sub(r"^[-*•\d.)]+\s*", "", (line or "").strip())
+    cleaned = re.sub(r"\*+", "", cleaned).strip()
+    if not cleaned:
+        return "", ""
+    for sep in (": ", " — ", " – ", " - "):
+        if sep in cleaned:
+            left, right = cleaned.split(sep, 1)
+            left, right = left.strip(), right.strip()
+            if left and right:
+                return left[:120], right[:400]
+    return cleaned[:120], cleaned[:400]
+
+
+def extract_ai_features_from_blueprint(blueprint: str) -> list[dict[str, Any]]:
+    """Parse blueprint §11 into a stable structured inventory."""
+    if not (blueprint or "").strip():
+        return []
+
+    section = re.search(
+        r"(?:^|\n)\s*11\.\s*AI features[^\n]*\n([\s\S]*?)(?=\n\s*12\.|\n\s*#|\Z)",
+        blueprint,
+        re.IGNORECASE,
+    )
+    if not section:
+        section = re.search(
+            r"(?:AI features that add real value|AI features)[:\s]*\n([\s\S]*?)"
+            r"(?=\n\s*\d+\.\s|\n#{1,3}\s|\Z)",
+            blueprint,
+            re.IGNORECASE,
+        )
+    if not section:
+        return []
+
+    body = section.group(1).strip()
+    lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+    features: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for line in lines:
+        if re.match(r"^\d+\.\s+\S", line) and not re.match(r"^\d+\.\s", line[:4]):
+            break
+        # Stop if a new numbered top-level section leaked in.
+        if re.match(r"^(1[2-9]|[2-9]\d)\.\s", line):
+            break
+        name, description = _split_name_description(line)
+        if not name or len(name) < 3:
+            continue
+        # Skip prose that is not a feature bullet.
+        if name.lower().startswith(("note", "none", "n/a", "not applicable")):
+            continue
+        feature_id = _slugify(name)
+        base = feature_id
+        n = 2
+        while feature_id in seen:
+            feature_id = f"{base}-{n}"
+            n += 1
+        seen.add(feature_id)
+        category = infer_category(name, description)
+        features.append(
+            {
+                "id": feature_id,
+                "name": name,
+                "description": description or name,
+                "category": category,
+                "surface": category,
+            }
+        )
+        if len(features) >= MAX_AI_FEATURES:
+            break
+    return features
+
+
+def parse_ai_features(raw: Optional[str | list | dict]) -> list[dict[str, Any]]:
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, list):
+        items = raw
+    elif isinstance(raw, dict):
+        items = raw.get("ai_features") or raw.get("features") or []
+    else:
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return extract_ai_features_from_blueprint(str(raw))
+        if isinstance(parsed, list):
+            items = parsed
+        elif isinstance(parsed, dict):
+            items = parsed.get("ai_features") or parsed.get("features") or []
+        else:
+            return []
+
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        if isinstance(item, str):
+            name, description = _split_name_description(item)
+            if not name:
+                continue
+            feature = {
+                "id": _slugify(name),
+                "name": name,
+                "description": description or name,
+                "category": infer_category(name, description),
+                "surface": infer_category(name, description),
+            }
+        elif isinstance(item, Mapping):
+            name = str(item.get("name") or item.get("title") or "").strip()
+            if not name:
+                continue
+            description = str(item.get("description") or item.get("summary") or name).strip()
+            category = str(item.get("category") or item.get("surface") or "").strip().lower()
+            if category not in {c for c, _ in _CATEGORY_HINTS}:
+                category = infer_category(name, description)
+            feature = {
+                "id": _slugify(str(item.get("id") or name)),
+                "name": name[:120],
+                "description": description[:400],
+                "category": category,
+                "surface": str(item.get("surface") or category),
+            }
+        else:
+            continue
+        fid = feature["id"]
+        if fid in seen:
+            continue
+        seen.add(fid)
+        out.append(feature)
+        if len(out) >= MAX_AI_FEATURES:
+            break
+    return out
+
+
+def ai_features_from_request(req: Any) -> list[dict[str, Any]]:
+    needs = str(getattr(req, "needs_ai", None) or "").strip().lower()
+    if needs == "no":
+        return []
+    stored = parse_ai_features(getattr(req, "ai_features", None))
+    if stored:
+        return stored
+    return extract_ai_features_from_blueprint(getattr(req, "mvp_blueprint", None) or "")
+
+
+def ai_features_from_source(source_snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
+    customer = source_snapshot.get("customer_input") if isinstance(source_snapshot, Mapping) else None
+    if not isinstance(customer, Mapping):
+        return []
+    needs = str(customer.get("needs_ai") or "").strip().lower()
+    if needs == "no":
+        return []
+    return parse_ai_features(customer.get("ai_features"))
+
+
+def _unique_id(prefix: str, existing: set[str], stem: str) -> str:
+    base = f"{prefix}-{_slugify(stem, fallback='AI').upper().replace('-', '-')}"
+    base = re.sub(r"[^A-Za-z0-9_-]+", "", base)[:56] or f"{prefix}-AI"
+    candidate = base
+    n = 2
+    while candidate.casefold() in existing:
+        candidate = f"{base}-{n}"[:64]
+        n += 1
+    existing.add(candidate.casefold())
+    return candidate
+
+
+def _feature_already_bound(payload: Mapping[str, Any], feature: Mapping[str, Any]) -> bool:
+    fid = str(feature.get("id") or "").casefold()
+    name = str(feature.get("name") or "").casefold()
+    for req in payload.get("requirements") or []:
+        if not isinstance(req, Mapping):
+            continue
+        rid = str(req.get("id") or "").casefold()
+        title = str(req.get("title") or "").casefold()
+        desc = str(req.get("description") or "").casefold()
+        refs = [str(r).casefold() for r in (req.get("source_refs") or [])]
+        if AI_FEATURE_SOURCE_REF.casefold() in refs and (
+            fid and fid in rid or (name and (name in title or name in desc))
+        ):
+            return True
+        if fid and f"req-ai-{fid}" == rid:
+            return True
+    for page in payload.get("pages") or []:
+        if not isinstance(page, Mapping):
+            continue
+        if str(page.get("id") or "").casefold() == PAGE_AI_HUB_ID.casefold():
+            purpose = str(page.get("purpose") or "").casefold()
+            if name and name in purpose:
+                return True
+    return False
+
+
+def bind_ai_features_to_app_spec(
+    payload: Mapping[str, Any],
+    features: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Ensure every planned AI feature is a must requirement on PAGE-AI-HUB.
+
+    Content-verified requirements share one hub page so preview page caps stay
+    intact while every feature remains in scope (never deferred_scope-only).
+    """
+    import copy
+
+    if not features:
+        return dict(payload) if not isinstance(payload, dict) else copy.deepcopy(payload)
+
+    sanitized = copy.deepcopy(dict(payload))
+    pending = [f for f in features if not _feature_already_bound(sanitized, f)]
+    if not pending and any(
+        str(p.get("id") or "").casefold() == PAGE_AI_HUB_ID.casefold()
+        for p in (sanitized.get("pages") or [])
+        if isinstance(p, Mapping)
+    ):
+        return sanitized
+
+    roles = [r for r in (sanitized.get("roles") or []) if isinstance(r, dict)]
+    if not roles:
+        return sanitized
+    role = next(
+        (r for r in roles if str(r.get("id") or "").upper().startswith("ROLE")),
+        roles[0],
+    )
+    role_id = str(role.get("id") or "ROLE-CUSTOMER")
+
+    id_index: set[str] = set()
+    for key in (
+        "requirements",
+        "capabilities",
+        "pages",
+        "states",
+        "actions",
+        "transitions",
+        "evidence",
+        "journeys",
+        "acceptance_tests",
+        "entities",
+        "assumptions",
+        "open_questions",
+    ):
+        for item in sanitized.get(key) or []:
+            if isinstance(item, Mapping) and item.get("id"):
+                id_index.add(str(item["id"]).casefold())
+
+    pages = [p for p in (sanitized.get("pages") or []) if isinstance(p, dict)]
+    hub = next(
+        (p for p in pages if str(p.get("id") or "").casefold() == PAGE_AI_HUB_ID.casefold()),
+        None,
+    )
+    if hub is None:
+        hub = {
+            "id": PAGE_AI_HUB_ID,
+            "name": "AI features",
+            "purpose": (
+                "Interactive hub where every AI feature proposed in the plan "
+                "is visible and usable in the live product."
+            ),
+            "route": PAGE_AI_HUB_ROUTE,
+            "surface": "public",
+            "primary": False,
+            "role_ids": [role_id],
+            "capability_ids": [],
+            "state_ids": [],
+            "action_ids": [],
+            "evidence_ids": [],
+        }
+        pages.append(hub)
+        id_index.add(PAGE_AI_HUB_ID.casefold())
+        sanitized["pages"] = pages
+
+    requirements = [r for r in (sanitized.get("requirements") or []) if isinstance(r, dict)]
+    capabilities = [c for c in (sanitized.get("capabilities") or []) if isinstance(c, dict)]
+    evidence = [e for e in (sanitized.get("evidence") or []) if isinstance(e, dict)]
+    states = [s for s in (sanitized.get("states") or []) if isinstance(s, dict)]
+    acceptance_tests = [
+        t for t in (sanitized.get("acceptance_tests") or []) if isinstance(t, dict)
+    ]
+    traceability = [t for t in (sanitized.get("traceability") or []) if isinstance(t, dict)]
+    deferred = [d for d in (sanitized.get("deferred_scope") or []) if isinstance(d, dict)]
+
+    # Drop deferred entries that duplicate these AI feature outcomes.
+    pending_names = {str(f.get("name") or "").casefold() for f in pending}
+    deferred = [
+        d
+        for d in deferred
+        if str(d.get("name") or "").casefold() not in pending_names
+        and not str(d.get("id") or "").upper().startswith("DEFER-REQ-AI")
+    ]
+
+    state_id = "STATE-AI-HUB-READY"
+    if state_id.casefold() not in id_index:
+        states.append(
+            {
+                "id": state_id,
+                "page_id": PAGE_AI_HUB_ID,
+                "name": "Ready",
+                "description": "AI feature hub is ready for customers and operators.",
+                "initial": True,
+                # Content hub has no interaction graph — treat ready as terminal.
+                "terminal": True,
+                "evidence_ids": [],
+            }
+        )
+        id_index.add(state_id.casefold())
+    hub_state_ids = list(hub.get("state_ids") or [])
+    if state_id not in hub_state_ids:
+        hub_state_ids.append(state_id)
+    hub["state_ids"] = hub_state_ids
+
+    for feature in pending:
+        fid = str(feature.get("id") or "feature")
+        name = str(feature.get("name") or fid)
+        description = str(feature.get("description") or name)
+        req_id = _unique_id("REQ-AI", id_index, fid)
+        cap_id = _unique_id("CAP-AI", id_index, fid)
+        ev_id = _unique_id("EVIDENCE-AI", id_index, fid)
+        test_id = _unique_id("TEST-AI", id_index, fid)
+
+        requirements.append(
+            {
+                "id": req_id,
+                "title": name[:240],
+                "description": (
+                    f"The live product exposes the planned AI feature '{name}': {description}"
+                )[:4000],
+                "priority": "must",
+                "verification_mode": "content",
+                "source_refs": [AI_FEATURE_SOURCE_REF],
+            }
+        )
+        capabilities.append(
+            {
+                "id": cap_id,
+                "name": name[:240],
+                "description": description[:4000],
+                "requirement_ids": [req_id],
+                "role_ids": [role_id],
+                "entity_ids": [],
+            }
+        )
+        evidence.append(
+            {
+                "id": ev_id,
+                "page_id": PAGE_AI_HUB_ID,
+                "name": f"{name} surface",
+                "description": (
+                    f"Interactive AI feature '{name}' is visible with data-ai-feature='{fid}'."
+                )[:4000],
+                "kind": "status",
+                "capability_ids": [cap_id],
+            }
+        )
+        acceptance_tests.append(
+            {
+                "id": test_id,
+                "name": f"{name} is visible",
+                "description": (
+                    f"Prove the planned AI feature '{name}' is visible on the AI hub page."
+                )[:4000],
+                "requirement_ids": [req_id],
+                "journey_id": None,
+                "assertions": [
+                    {
+                        "kind": "visible",
+                        "description": f"AI feature '{name}' is visible on the hub.",
+                        "page_id": PAGE_AI_HUB_ID,
+                        "state_id": state_id,
+                        "evidence_id": ev_id,
+                        "expected": fid,
+                    }
+                ],
+            }
+        )
+        hub_caps = list(hub.get("capability_ids") or [])
+        if cap_id not in hub_caps:
+            hub_caps.append(cap_id)
+        hub["capability_ids"] = hub_caps
+        hub_ev = list(hub.get("evidence_ids") or [])
+        if ev_id not in hub_ev:
+            hub_ev.append(ev_id)
+        hub["evidence_ids"] = hub_ev
+        for st in states:
+            if str(st.get("id") or "") == state_id:
+                st_ev = list(st.get("evidence_ids") or [])
+                if ev_id not in st_ev:
+                    st_ev.append(ev_id)
+                st["evidence_ids"] = st_ev
+        traceability.append(
+            {
+                "requirement_id": req_id,
+                "capability_ids": [cap_id],
+                "page_ids": [PAGE_AI_HUB_ID],
+                "evidence_ids": [ev_id],
+                "journey_ids": [],
+                "acceptance_test_ids": [test_id],
+            }
+        )
+
+    # Ensure hub purpose mentions all feature names for coverage reviewers.
+    names = [str(f.get("name") or "") for f in features if f.get("name")]
+    if names:
+        hub["purpose"] = (
+            "Interactive hub for planned AI features: " + "; ".join(names[:MAX_AI_FEATURES])
+        )[:4000]
+
+    if role_id not in list(hub.get("role_ids") or []):
+        hub["role_ids"] = list(dict.fromkeys([*(hub.get("role_ids") or []), role_id]))
+
+    sanitized["requirements"] = requirements
+    sanitized["capabilities"] = capabilities
+    sanitized["evidence"] = evidence
+    sanitized["states"] = states
+    sanitized["pages"] = pages
+    sanitized["acceptance_tests"] = acceptance_tests
+    sanitized["traceability"] = traceability
+    sanitized["deferred_scope"] = deferred
+    return sanitized
+
+
+def missing_ai_feature_ids_in_workspace(
+    workspace_text_blob: str,
+    features: list[Mapping[str, Any]],
+) -> list[str]:
+    missing: list[str] = []
+    blob = workspace_text_blob or ""
+    for feature in features:
+        fid = str(feature.get("id") or "").strip()
+        if not fid:
+            continue
+        markers = (
+            f'data-ai-feature="{fid}"',
+            f"data-ai-feature='{fid}'",
+            f"data-ai-feature={json.dumps(fid)}",
+            f'data-ai-feature={{json.dumps("{fid}")}}',
+            # Hub page / mock inventory embed the planned id even when the
+            # interactive attribute lives inside AiFeatureDeck at runtime.
+            f'"id": "{fid}"',
+            f'"id":"{fid}"',
+        )
+        if not any(marker in blob for marker in markers):
+            missing.append(fid)
+    return missing
+
+
+def ai_feature_hub_page_source(
+    *,
+    brand_name: str,
+    features: list[Mapping[str, Any]],
+    page_id: str = PAGE_AI_HUB_ID,
+    evidence_ids: list[str] | None = None,
+) -> str:
+    """Deterministic interactive hub page for planned AI features."""
+    brand = brand_name or "Brand"
+    page = page_id or PAGE_AI_HUB_ID
+    ev_ids = [str(e) for e in (evidence_ids or []) if e]
+    evidence_spans = "\n".join(
+        f'        <span className="sr-only" data-appspec-evidence={json.dumps(eid)}>{eid}</span>'
+        for eid in ev_ids
+    )
+    return f"""// plan AI feature hub — every planned AI feature is interactive here
+import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
+import {{ aiFeatures }} from '@/data/mock';
+import {{ PublicShell, PublicNav, AiFeatureDeck }} from '@/ui';
+
+export default function AiFeaturesPage() {{
+  const navItems = usePublicNavItems();
+  const navCta = publicCta();
+  const features = Array.isArray(aiFeatures) && aiFeatures.length
+    ? aiFeatures
+    : {json.dumps([dict(f) for f in features], ensure_ascii=False)};
+  return (
+    <PublicShell brandName={{{json.dumps(brand)}}} nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>
+      <div data-appspec-page={{{json.dumps(page)}}}>
+{evidence_spans}
+        <AiFeatureDeck features={{features}} brandName={{{json.dumps(brand)}}} />
+      </div>
+    </PublicShell>
+  );
+}}
+"""

@@ -434,12 +434,14 @@ def write_plumbing_mock(
         if isinstance(mock_seed, dict)
         else (architect.get("mock_seed") if isinstance(architect.get("mock_seed"), dict) else None)
     )
+    ai_features = architect.get("ai_features") if isinstance(architect.get("ai_features"), list) else []
     content = (
         f"export const brand = {json.dumps(brand_payload, ensure_ascii=False)};\n\n"
         f"export const images = {json.dumps(img, indent=2, ensure_ascii=False)};\n\n"
         f"export const roles = {json.dumps(roles_data, indent=2, ensure_ascii=False)};\n\n"
         f"export const navigation = {json.dumps({'public': public_nav, 'admin': admin_nav}, indent=2, ensure_ascii=False)};\n\n"
-        f"export const seed = {json.dumps(seed_payload, indent=2, ensure_ascii=False)};\n"
+        f"export const seed = {json.dumps(seed_payload, indent=2, ensure_ascii=False)};\n\n"
+        f"export const aiFeatures = {json.dumps(ai_features, indent=2, ensure_ascii=False)} as const;\n"
     )
     write_file(workspace, "src/data/mock.ts", content)
 

@@ -48,6 +48,82 @@ def test_public_home_recipe_stacks_differ() -> None:
     assert "booking" in stacks["warm-service"]
 
 
+def test_skeleton_composer_does_not_append_extra_slots_when_order_set() -> None:
+    """Mirrors SkeletonComposer.resolveOrder — recipe order must drop orphan AI slots."""
+    recommended = [
+        "shell",
+        "hero",
+        "features",
+        "showcase",
+        "process",
+        "testimonials",
+        "cta",
+        "footer",
+    ]
+    required = ["shell", "hero", "cta", "footer"]
+    slots = {
+        "hero": True,
+        "process": True,
+        "showcase": True,
+        "credentials": True,
+        "cta": True,
+        "footer": True,
+        "features": True,
+        "spotlight": True,
+        "testimonials": True,
+    }
+    order = ["hero", "process", "showcase", "credentials", "cta", "footer"]
+    sequence = [s for s in order if s != "shell" and slots.get(s) is not None]
+    required_missing = [
+        s for s in required if s != "shell" and slots.get(s) is not None and s not in sequence
+    ]
+    final = [*sequence, *required_missing]
+    assert final == order
+    assert "features" not in final
+    assert "spotlight" not in final
+    # Without a recipe order, orphans would append (old behavior).
+    fallback = [s for s in recommended if s != "shell" and slots.get(s) is not None]
+    for key in slots:
+        if key != "shell" and key not in fallback:
+            fallback.append(key)
+    assert "features" in fallback
+
+
+def test_lock_recipe_section_order_restores_craft_face() -> None:
+    from app.application.preview_app.catalogue_contract.repair import (
+        lock_recipe_section_order,
+    )
+
+    mangled = """
+const SKELETON_ID = "public-home" as const;
+const RECIPE_ORDER = ["hero", "features", "spotlight", "showcase", "process", "testimonials", "cta", "footer"] as const;
+export default function HomePage() {
+  return (
+    <PublicShell brandName="Clay">
+      <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />
+    </PublicShell>
+  );
+}
+"""
+    route = {
+        "path": "/",
+        "skeleton_id": "public-home",
+        "section_slots": [
+            "hero",
+            "process",
+            "showcase",
+            "credentials",
+            "cta",
+            "footer",
+        ],
+    }
+    locked = lock_recipe_section_order(mangled, route)
+    assert '"process"' in locked
+    assert locked.index('"process"') < locked.index('"showcase"')
+    assert "features" not in locked.split("RECIPE_ORDER")[1].split("as const")[0]
+    assert "order={RECIPE_ORDER}" in locked
+
+
 def test_recipes_define_distinct_chrome() -> None:
     from app.application.preview_app.design_recipes import apply_recipe_to_plan
 

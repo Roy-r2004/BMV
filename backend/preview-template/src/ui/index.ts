@@ -32,6 +32,7 @@ export {
 
 export {
   AccentBeam,
+  AiFeatureDeck,
   BookingPanel,
   BrandFooter,
   CredentialStrip,
@@ -47,6 +48,8 @@ export {
   SpotlightCard,
   TestimonialRail,
   type AccentBeamProps,
+  type AiFeatureDeckProps,
+  type AiFeatureItem,
   type BookingPanelProps,
   type BookingSlot,
   type BookingTreatment,

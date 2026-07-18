@@ -11,6 +11,7 @@ from app.application.pipelines.role_pages import generate_role_pages
 from app.application.preview_app import generate_preview_app
 from app.application.services.progress import emit as _emit
 from app.application.services.progress import is_request_generating, progress_payload
+from app.application.services.ai_features import ai_features_from_request
 from app.application.services.preview_parser import parse_preview_features
 from app.application.services.preview_refinement import get_chat_history, refine_preview
 from app.application.appspec.repository import (
@@ -234,6 +235,7 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         concept_name=req.concept_name,
         preview_summary=req.preview_summary,
         preview_features=parse_preview_features(req.preview_features),
+        ai_features=ai_features_from_request(req),
         visual_demo=visual_demo,
         generated_pages=generated_pages,
         app_spec=(

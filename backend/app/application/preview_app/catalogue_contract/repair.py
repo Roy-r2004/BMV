@@ -1,6 +1,7 @@
 """Catalogue page import normalization and slot repair."""
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -39,7 +40,44 @@ _COMPOSER_INVOCATION_RE = re.compile(
 _SKELETON_CONST_RE = re.compile(
     r"const\s+SKELETON_ID\s*=\s*(?:'[^']+'|\"[^\"]+\")\s*as\s+const\s*;?"
 )
+_RECIPE_ORDER_RE = re.compile(
+    r"const\s+RECIPE_ORDER\s*=\s*\[[^\]]*\]\s*as\s*const\s*;?",
+    re.DOTALL,
+)
+_FACE_SKELETONS = frozenset(
+    {"public-home", "public-service", "public-detail", "public-booking"}
+)
 _COMPOSER_FIXABLE = frozenset({"SkeletonComposer invocation", "assigned skeleton literal"})
+
+
+def lock_recipe_section_order(content: str, route: dict) -> str:
+    """Force RECIPE_ORDER to the architect/recipe face — codegen must not rewrite it."""
+    skeleton_id = str(route.get("skeleton_id") or "")
+    if skeleton_id not in _FACE_SKELETONS:
+        return content
+    slots = assigned_non_shell_slots(route)
+    if not slots:
+        return content
+
+    order_decl = f"const RECIPE_ORDER = {json.dumps(slots)} as const;"
+    if _RECIPE_ORDER_RE.search(content):
+        locked = _RECIPE_ORDER_RE.sub(order_decl, content, count=1)
+    elif _SKELETON_CONST_RE.search(content):
+        locked = _SKELETON_CONST_RE.sub(
+            lambda m: f"{m.group(0)}\n{order_decl}",
+            content,
+            count=1,
+        )
+    else:
+        locked = content
+
+    if _COMPOSER_INVOCATION_RE.search(locked):
+        locked = _COMPOSER_INVOCATION_RE.sub(
+            "<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} order={RECIPE_ORDER} />",
+            locked,
+            count=1,
+        )
+    return locked
 
 
 def _composer_errors_only(errors: list[str]) -> bool:
@@ -229,11 +267,13 @@ def enforce_catalogue_page_contract(
     if not route.get("skeleton_id"):
         return content, False
     content = normalize_catalogue_page_imports(content, route)
+    # Always re-assert recipe face order, even when the page already compiles.
+    content = lock_recipe_section_order(content, route)
     if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
         return content, False
     repaired, healed = repair_skeleton_composer_invocation(content, route)
     if healed:
-        content = repaired
+        content = lock_recipe_section_order(repaired, route)
         if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
             return content, False
     repaired, healed = repair_missing_catalogue_slots(
@@ -242,7 +282,7 @@ def enforce_catalogue_page_contract(
         brand_name=brand_name,
     )
     if healed:
-        return repaired, False
+        return lock_recipe_section_order(repaired, route), False
     return (
         minimal_catalogue_page_scaffold(
             file_path,

@@ -18,3 +18,8 @@ export {
   type BookingTreatment,
   type BookingSlot,
 } from './BookingPanel';
+export {
+  AiFeatureDeck,
+  type AiFeatureDeckProps,
+  type AiFeatureItem,
+} from './AiFeatureDeck';

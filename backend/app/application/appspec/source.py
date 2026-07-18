@@ -7,10 +7,24 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.application.services.ai_features import (
+    extract_ai_features_from_blueprint,
+    parse_ai_features,
+)
 from app.domain.models.request import Request
 
 
 SOURCE_SCHEMA_VERSION = "1.0"
+
+
+def _customer_ai_features(req: Request) -> list:
+    """Authoritative AI inventory for AppSpec source (empty when needs_ai=no)."""
+    if str(getattr(req, "needs_ai", None) or "").strip().lower() == "no":
+        return []
+    features = parse_ai_features(getattr(req, "ai_features", None))
+    if features:
+        return features
+    return extract_ai_features_from_blueprint(getattr(req, "mvp_blueprint", None) or "")
 
 
 def _json_ready(value: Any) -> Any:
@@ -108,6 +122,8 @@ def capture_request_source(req: Request) -> dict[str, Any]:
             "needs_ai": getattr(req, "needs_ai", None),
             "budget_range": getattr(req, "budget_range", None),
             "timeline": getattr(req, "timeline", None),
+            # Structured plan AI inventory — every item must ship in the preview.
+            "ai_features": _customer_ai_features(req),
         },
         "reference_evidence": {
             "reference_metadata": _parsed_json_or_text(

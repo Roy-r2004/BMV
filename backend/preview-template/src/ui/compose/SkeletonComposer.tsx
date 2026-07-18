@@ -38,7 +38,18 @@ function resolveOrder(
   const sequence = (order && order.length > 0 ? order : skeleton.recommendedOrder).filter(
     (section) => section !== 'shell' && slots[section] != null,
   );
-  // Keep any provided slots the order list omitted (stable append).
+  // When a recipe/template order is provided, it owns the page face —
+  // do not append leftover AI slots (features/spotlight/etc.) or every
+  // business collapses back into the same long marketing stack.
+  if (order && order.length > 0) {
+    const requiredMissing = skeleton.requiredSections.filter(
+      (section) =>
+        section !== 'shell' &&
+        slots[section] != null &&
+        !sequence.includes(section),
+    );
+    return [...sequence, ...requiredMissing];
+  }
   for (const section of Object.keys(slots)) {
     if (section !== 'shell' && slots[section] != null && !sequence.includes(section)) {
       sequence.push(section);

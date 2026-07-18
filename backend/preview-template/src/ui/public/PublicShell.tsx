@@ -116,15 +116,17 @@ export function PublicShell({
             scrolled
               ? 'border-b border-border-subtle/80 bg-background/80 shadow-[0_10px_30px_-24px_rgb(18_22_26_/0.45)] backdrop-blur-xl'
               : immersive
-                ? 'border-b border-transparent bg-gradient-to-b from-black/45 to-transparent'
-                : 'border-b border-border-subtle/60 bg-background/90 backdrop-blur-xl'
+                ? 'border-b border-transparent bg-gradient-to-b from-black/70 via-black/35 to-transparent'
+                : centered
+                  ? 'border-b border-[color-mix(in_srgb,var(--color-brand)_22%,transparent)] bg-[color-mix(in_srgb,var(--color-brand)_10%,#f7f1e6)]'
+                  : 'border-b-2 border-brand/25 bg-background/95 backdrop-blur-xl'
           )}
         >
           <div
             className={cn(
               'mx-auto w-full max-w-[92rem] px-6 py-2.5 lg:px-12',
               centered
-                ? 'flex min-h-[5.25rem] flex-col items-center justify-center gap-3 md:min-h-[5.75rem]'
+                ? 'flex min-h-[6rem] flex-col items-center justify-center gap-3 md:min-h-[6.5rem]'
                 : 'flex min-h-[4.5rem] items-center justify-between gap-6'
             )}
           >
@@ -132,7 +134,7 @@ export function PublicShell({
               href="#top"
               className={cn(
                 'font-display leading-none tracking-[-0.03em] transition-colors hover:opacity-80',
-                centered ? 'text-[2.15rem]' : 'text-[1.85rem]',
+                centered ? 'text-[clamp(2rem,4vw,2.75rem)] italic' : 'text-[1.85rem]',
                 overHero ? 'text-white' : 'text-foreground'
               )}
             >

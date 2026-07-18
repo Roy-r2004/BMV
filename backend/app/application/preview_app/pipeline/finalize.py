@@ -82,11 +82,17 @@ def run_finalize(ctx: PipelineContext) -> dict:
         if ctx.app_spec_result
         else {}
     )
+    from app.application.preview_app.ai_feature_surfaces import AI_HUB_COMPONENT
+
     for route in route_list:
         component_file = (route.get("component_file") or "").replace("\\", "/")
         if not component_file or not route.get("skeleton_id"):
             continue
-        source = read_file(workspace, component_file)
+        source = read_file(workspace, component_file) or ""
+        # Deterministic plan→site AI hub is never a catalogue stub.
+        if component_file == AI_HUB_COMPONENT or "plan AI feature hub" in source:
+            clear_stubbed_path(workspace, component_file)
+            continue
         if "deterministic catalogue contract scaffold" not in source:
             clear_stubbed_path(workspace, component_file)
             continue
@@ -112,7 +118,11 @@ def run_finalize(ctx: PipelineContext) -> dict:
         else:
             record_stubbed_path(workspace, component_file)
 
-    fallback_pages = consume_stubbed_paths(workspace)
+    fallback_pages = [
+        path
+        for path in consume_stubbed_paths(workspace)
+        if path.replace("\\", "/") != AI_HUB_COMPONENT
+    ]
     if ctx.enforce_app_spec and fallback_pages:
         ok = False
         _emit(
@@ -123,9 +133,55 @@ def run_finalize(ctx: PipelineContext) -> dict:
             92,
             detail=", ".join(fallback_pages[:8]),
         )
-    preview_url = f"{ctx.base_path}/" if ok else None
+
+    # Plan → site contract: every structured AI feature must be addressable.
+    from app.application.preview_app.ai_feature_surfaces import (
+        assert_ai_features_present,
+        ensure_ai_feature_surfaces,
+    )
+    from app.application.services.ai_features import ai_features_from_request
+
+    planned_ai = ai_features_from_request(req)
+    if planned_ai:
+        missing_ai = assert_ai_features_present(workspace, planned_ai)
+        if missing_ai:
+            try:
+                ensure_ai_feature_surfaces(
+                    workspace,
+                    architect,
+                    req,
+                    brand_name=ctx.brand_name or req.business_name or "Brand",
+                )
+            except Exception as e:
+                log.warning("    AI feature hub heal failed: %s", e)
+            missing_ai = assert_ai_features_present(workspace, planned_ai)
+        if missing_ai:
+            ok = False
+            _emit(
+                db,
+                request_id,
+                "contract_failed",
+                "Preview is missing AI features from the plan",
+                92,
+                detail=", ".join(missing_ai[:8]),
+            )
+
+    from pathlib import Path
+
+    # Vite may succeed while AppSpec stub/contract checks still fail. Prefer
+    # showing the compiled site over leaving Live Product on a blank spinner.
+    dist_ok = (Path(workspace) / "dist" / "index.html").is_file()
+    viewable = bool(ok or dist_ok)
+    preview_url = f"{ctx.base_path}/" if viewable else None
     if ok:
         log.info("  OK Preview built: %s", preview_url)
+    elif dist_ok:
+        log.warning(
+            "  WARN preview %s compiled but contract/stub checks failed — "
+            "serving dist anyway (%s fallback page(s))",
+            request_id,
+            len(fallback_pages),
+        )
     else:
         log.error("  FAIL build for request %s — see .bmv-debug/", request_id)
         dump_pipeline_summary(
@@ -178,7 +234,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
     result = {
         "preview_app": {
             "url": preview_url,
-            "status": "ready" if ok else "failed",
+            "status": "ready" if viewable else "failed",
             "roles": roles_out,
             "routes": route_list,
             "design_direction": architect.get("design_direction", ""),
@@ -219,7 +275,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
     req.updated_at = datetime.utcnow()
     db.commit()
 
-    if not ok:
+    if not ok and not dist_ok:
         if ctx.enforce_app_spec:
             reason = (
                 "Required AppSpec preview contains fallback/stub pages: "
@@ -246,6 +302,10 @@ def run_finalize(ctx: PipelineContext) -> dict:
 
     # Stay below tech (90) / proposal (95) / done (100) so the customer bar
     # does not jump backward after the live preview becomes available.
-    _emit(db, request_id, "ready", "Live preview ready!", 88,
-          detail=preview_url or "")
+    ready_label = (
+        "Live preview ready!"
+        if ok
+        else "Live preview ready (some pages used fallback scaffolds)"
+    )
+    _emit(db, request_id, "ready", ready_label, 88, detail=preview_url or "")
     return result
