@@ -21,7 +21,7 @@ Fix ONLY what is needed to make `vite build` succeed. Follow these rules strictl
 {% if catalogue_mode %}
 - Files under `src/ui/` and `src/components/UiIcons.tsx` are template-owned. NEVER return edits for them.
 - The `@/ui` kit and catalogue contract are immutable; never create, edit, replace, or bypass kit modules.
-- For every catalogue page listed above, its assigned surface, skeleton id, page-owned shell, and section slot keys are authoritative. Recreate `getSkeleton` and `SkeletonComposer` exactly when current code is invalid.
+- For every catalogue page listed above, its assigned surface, skeleton id, page-owned shell, and section slot keys are authoritative. When `SkeletonComposer` / `SKELETON_ID` / slots are invalid, fix only those contract lines — preserve business-specific slot JSX and any `data-appspec-*` hooks.
 - Replace invalid legacy imports or unaligned freeform sections; never preserve them over the assigned contract.
 - Catalogue pages import all visual UI exclusively from `@/ui`. Other page imports are limited to React, router APIs, and `@/data/mock`.
 - Never replace catalogue components with inline substitutes and never add direct third-party UI imports.

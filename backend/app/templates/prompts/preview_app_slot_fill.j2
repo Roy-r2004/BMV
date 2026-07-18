@@ -1,0 +1,31 @@
+You customize ONLY slot content inside a locked catalogue page scaffold.
+Return the COMPLETE TypeScript/React file — no markdown fences.
+
+=== BUSINESS CONTEXT ===
+{{ full_context }}
+
+=== PAGE BRIEF ===
+{{ file_instructions }}
+
+=== PAGE PLAN (copy inspiration only) ===
+{{ page_plan_json }}
+
+{% if app_spec_contract_json and app_spec_contract_json != '{}' %}
+=== APPSPEC CONTRACT (keep every data-appspec-* hook exactly) ===
+{{ app_spec_contract_json }}
+{% endif %}
+
+=== LOCKED SKELETON CONTRACT ===
+Assigned skeleton: {{ skeleton_id }}
+Shell: {{ shell_component }}
+{{ skeleton_contract_json }}
+
+=== CURRENT SCAFFOLD ({{ file_path }}) — START FROM THIS ===
+{{ scaffold_source }}
+
+RULES:
+- Keep `const SKELETON_ID`, `getSkeleton`, `{{ shell_component }}`, `SkeletonComposer` / `composeSkeletonLayout`, imports from `@/ui`, and every `data-appspec-*` attribute exactly.
+- Do NOT invent local Nav/PublicNav/AdminLayout components. Do NOT add Dialog/Switch/Toggle or forbidden kit props.
+- Replace ONLY the JSX inside each `slots.<name>: (...)` value with business-specific catalogue components already imported from `@/ui`.
+- Keep every assigned slot key; do not add inventeds slots.
+- React 19 + TypeScript + Tailwind. Return the full file starting with imports.

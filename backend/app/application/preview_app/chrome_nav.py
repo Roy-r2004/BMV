@@ -76,6 +76,39 @@ def _inject_in_component(src: str, body: str) -> str:
     )
 
 
+def _matching_paren_end(src: str, open_index: int) -> int | None:
+    """Return index of `)` matching `(` at open_index, skipping strings."""
+    if open_index < 0 or open_index >= len(src) or src[open_index] != "(":
+        return None
+    depth = 0
+    i = open_index
+    in_str: str | None = None
+    escape = False
+    while i < len(src):
+        ch = src[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == in_str:
+                in_str = None
+            i += 1
+            continue
+        if ch in {'"', "'", "`"}:
+            in_str = ch
+            i += 1
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
 def _strip_balanced_block(src: str, start: int) -> str:
     """Remove a `{...}` block starting at the first `{` on/after start."""
     brace = src.find("{", start)
@@ -100,12 +133,90 @@ def _strip_balanced_block(src: str, start: int) -> str:
     return src
 
 
+def _strip_decl_through_body(src: str, match_start: int) -> str:
+    """Remove from match_start through the component's closing body brace."""
+    paren = src.find("(", match_start)
+    if paren < 0:
+        return _strip_balanced_block(src, match_start)
+    params_end = _matching_paren_end(src, paren)
+    if params_end is None:
+        return _strip_balanced_block(src, match_start)
+    cursor = params_end + 1
+    while cursor < len(src) and src[cursor] in " \t\r\n":
+        cursor += 1
+    if cursor < len(src) and src[cursor] == ":":
+        depth = 0
+        cursor += 1
+        while cursor < len(src):
+            ch = src[cursor]
+            if ch in "<({":
+                depth += 1
+            elif ch in ">)}":
+                depth = max(0, depth - 1)
+            elif depth == 0 and (ch == "{" or (ch == "=" and src[cursor : cursor + 2] == "=>")):
+                break
+            cursor += 1
+    while cursor < len(src) and src[cursor] in " \t\r\n":
+        cursor += 1
+    if cursor + 1 < len(src) and src[cursor : cursor + 2] == "=>":
+        cursor += 2
+        while cursor < len(src) and src[cursor] in " \t\r\n":
+            cursor += 1
+    if cursor >= len(src) or src[cursor] != "{":
+        # Fall back: remove through next semicolon/newline cluster
+        end = src.find("\n", params_end)
+        if end < 0:
+            end = len(src)
+        return src[:match_start] + src[end:]
+    # Find matching body brace from cursor
+    depth = 0
+    i = cursor
+    while i < len(src):
+        ch = src[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                if end < len(src) and src[end] == ";":
+                    end += 1
+                while end < len(src) and src[end] in "\r\n":
+                    end += 1
+                return src[:match_start] + src[end:]
+        i += 1
+    return src[:match_start]
+
+
 def _strip_local_named_component(src: str, name: str) -> str:
     """Remove AI-invented local function/const that clashes with a @/ui import."""
+    # Drop companion prop types left behind after stripping the component.
+    type_match = re.search(
+        rf"(?:export\s+)?type\s+{re.escape(name)}Props\s*=",
+        src,
+    )
+    if type_match:
+        eq = src.find("=", type_match.end() - 1)
+        brace = src.find("{", eq if eq >= 0 else type_match.end())
+        if brace >= 0:
+            src = _strip_balanced_block(src, type_match.start())
+        else:
+            semi = src.find(";", type_match.end())
+            if semi >= 0:
+                end = semi + 1
+                while end < len(src) and src[end] in "\r\n":
+                    end += 1
+                src = src[: type_match.start()] + src[end:]
+    iface_match = re.search(
+        rf"(?:export\s+)?interface\s+{re.escape(name)}Props\b",
+        src,
+    )
+    if iface_match:
+        src = _strip_balanced_block(src, iface_match.start())
     patterns = (
         rf"(?:export\s+)?function\s+{re.escape(name)}\s*\(",
-        rf"(?:export\s+)?const\s+{re.escape(name)}\s*=\s*(?:async\s*)?\(",
-        rf"(?:export\s+)?const\s+{re.escape(name)}\s*=\s*(?:async\s*)?function\b",
+        rf"(?:export\s+)?const\s+{re.escape(name)}\s*(?::\s*[^=]+)?=\s*(?:async\s*)?\(",
+        rf"(?:export\s+)?const\s+{re.escape(name)}\s*(?::\s*[^=]+)?=\s*(?:async\s*)?function\b",
     )
     changed = True
     while changed:
@@ -114,9 +225,22 @@ def _strip_local_named_component(src: str, name: str) -> str:
             match = re.search(pattern, src)
             if not match:
                 continue
-            src = _strip_balanced_block(src, match.start())
+            src = _strip_decl_through_body(src, match.start())
             changed = True
             break
+    # Safety net for half-stripped leftovers seen in Vite: `: PublicNavProps) {`
+    src = re.sub(
+        rf"^\s*:\s*{re.escape(name)}Props\)\s*\{{[\s\S]*?\n\}}\s*",
+        "",
+        src,
+        flags=re.MULTILINE,
+    )
+    src = re.sub(
+        rf"^\s*:\s*\w+Props\)\s*\{{[\s\S]*?\n\}}\s*",
+        "",
+        src,
+        flags=re.MULTILINE,
+    )
     return src
 
 

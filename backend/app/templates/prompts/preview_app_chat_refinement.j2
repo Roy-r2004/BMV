@@ -57,7 +57,7 @@ Rules:
 {% if catalogue_mode %}
 - Files under `src/ui/` and `src/components/UiIcons.tsx` are template-owned and MUST NOT be returned in `files`.
 - The `@/ui` kit and catalogue contracts are immutable; never create, edit, replace, or bypass kit modules.
-- Assigned catalogue surface, skeleton, page-owned shell, and section slot keys are authoritative; recreate `getSkeleton` and `SkeletonComposer` if current code is invalid.
+- Assigned catalogue surface, skeleton, page-owned shell, and section slot keys are authoritative; if `getSkeleton` / `SkeletonComposer` / slots are invalid, fix only those lines and keep business slot content plus `data-appspec-*` hooks.
 - Replace invalid legacy imports and map freeform plan briefs into the assigned slots; never preserve either over the authoritative contract.
 - Import catalogue page UI exclusively from `@/ui`; other imports are limited to React, router APIs, and `@/data/mock`.
 - Do not add direct third-party UI imports or replace catalogue components with inline substitutes.

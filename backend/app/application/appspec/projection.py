@@ -455,6 +455,7 @@ def to_architecture_seed(
                 "journey_ids": [item["id"] for item in contract["journeys"]],
                 "state_ids": list(page.state_ids),
                 "action_ids": list(page.action_ids),
+                "evidence_ids": list(page.evidence_ids),
                 "acceptance_test_ids": [
                     item["id"] for item in contract["acceptance_tests"]
                 ],

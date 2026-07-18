@@ -7,6 +7,10 @@ import json
 import time
 from datetime import datetime
 
+from app.application.appspec.hooks import (
+    ensure_workspace_appspec_hooks,
+    page_hooks_present,
+)
 from app.application.appspec.repository import app_spec_provenance
 from app.application.appspec.workspace_validation import validate_app_spec_workspace
 from app.application.preview_app.fallback import (
@@ -36,12 +40,46 @@ def run_finalize(ctx: PipelineContext) -> dict:
 
     app_spec_workspace_issues: list[str] = []
     if ok and ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope:
+        # Heal missing hooks after visual refine / scaffolds so finalize does
+        # not hard-fail on prompt-missed data-appspec-* attributes.
+        try:
+            healed = ensure_workspace_appspec_hooks(
+                workspace,
+                ctx.app_spec_result.spec,
+                ctx.app_spec_scope,
+                architect,
+            )
+            if healed:
+                log.info(
+                    "    appspec hooks injected: %s%s",
+                    ", ".join(healed[:8]),
+                    "..." if len(healed) > 8 else "",
+                )
+        except Exception as e:
+            log.warning("    appspec hook injection skipped: %s", e)
         app_spec_workspace_issues = validate_app_spec_workspace(
             workspace,
             ctx.app_spec_result.spec,
             ctx.app_spec_scope,
             architect,
         )
+        # #region agent log
+        try:
+            from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
+
+            agent_dbg(
+                "F",
+                "finalize.py:appspec_hooks",
+                "post-inject appspec validation",
+                {
+                    "request_id": request_id,
+                    "issue_count": len(app_spec_workspace_issues),
+                    "issues_sample": app_spec_workspace_issues[:6],
+                },
+            )
+        except Exception:
+            pass
+        # #endregion
         if app_spec_workspace_issues:
             ok = False
             _emit(
@@ -56,14 +94,40 @@ def run_finalize(ctx: PipelineContext) -> dict:
     accent = ctx.design_system.get("primary_color") or ctx.manifest.get("accent") or ctx.primary
     architect_roles = architect.get("roles") or []
     route_list = architect.get("routes") or []
+    pages_by_id = (
+        {page.id: page for page in ctx.app_spec_result.spec.pages}
+        if ctx.app_spec_result
+        else {}
+    )
     for route in route_list:
         component_file = (route.get("component_file") or "").replace("\\", "/")
         if not component_file or not route.get("skeleton_id"):
             continue
-        if "deterministic catalogue contract scaffold" in read_file(workspace, component_file):
-            record_stubbed_path(workspace, component_file)
-        else:
+        source = read_file(workspace, component_file)
+        if "deterministic catalogue contract scaffold" not in source:
             clear_stubbed_path(workspace, component_file)
+            continue
+        page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "")
+        page = pages_by_id.get(page_id)
+        action_ids = list(page.action_ids) if page else list(route.get("action_ids") or [])
+        evidence_ids = (
+            list(page.evidence_ids) if page else list(route.get("evidence_ids") or [])
+        )
+        # Catalogue scaffolds with full AppSpec hooks are acceptable fallbacks
+        # under enforcement — they still compile and are browser-addressable.
+        if (
+            ctx.enforce_app_spec
+            and page_id
+            and page_hooks_present(
+                source,
+                page_id=page_id,
+                action_ids=action_ids,
+                evidence_ids=evidence_ids,
+            )
+        ):
+            clear_stubbed_path(workspace, component_file)
+        else:
+            record_stubbed_path(workspace, component_file)
 
     fallback_pages = consume_stubbed_paths(workspace)
     if ctx.enforce_app_spec and fallback_pages:

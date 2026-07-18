@@ -145,6 +145,72 @@ def find_double_brace_object_literals(content: str) -> list[str]:
     ]
 
 
+def _matching_brace_end(content: str, open_index: int) -> int | None:
+    """Return index of `}` matching `{` at open_index, skipping strings."""
+    if open_index < 0 or open_index >= len(content) or content[open_index] != "{":
+        return None
+    depth = 0
+    i = open_index
+    in_str: str | None = None
+    escape = False
+    while i < len(content):
+        ch = content[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == in_str:
+                in_str = None
+            i += 1
+            continue
+        if ch in {'"', "'", "`"}:
+            in_str = ch
+            i += 1
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
+def _collapse_non_jsx_double_brace_objects(content: str) -> tuple[str, int]:
+    """Collapse `{{ … }}` object literals that are not JSX attribute values."""
+    if not content or "{{" not in content:
+        return content, 0
+    repaired = 0
+    out: list[str] = []
+    i = 0
+    while i < len(content):
+        if content[i : i + 2] != "{{":
+            out.append(content[i])
+            i += 1
+            continue
+        if _is_jsx_attribute_object(content, i):
+            out.append(content[i])
+            i += 1
+            continue
+        # Only collapse starts the detector cares about (label/detail/status/k/v).
+        if not _DOUBLE_BRACE_OBJECT_START_RE.match(content, i):
+            out.append(content[i])
+            i += 1
+            continue
+        inner_end = _matching_brace_end(content, i + 1)
+        if inner_end is None or inner_end + 1 >= len(content) or content[inner_end + 1] != "}":
+            out.append(content[i])
+            i += 1
+            continue
+        # Strip one outer brace pair: {{ ... }} → { ... }
+        out.append(content[i + 1 : inner_end + 1])
+        repaired += 1
+        i = inner_end + 2
+    return "".join(out), repaired
+
+
 def repair_double_brace_object_literals_in_text(content: str) -> tuple[str, int]:
     """Rewrite invalid double-brace row/stat objects to single-brace TS literals."""
     if not content:
@@ -171,7 +237,8 @@ def repair_double_brace_object_literals_in_text(content: str) -> tuple[str, int]
 
     out = _DOUBLE_BRACE_ROW_OBJECT_RE.sub(_row, content)
     out = _DOUBLE_BRACE_STAT_OBJECT_RE.sub(_stat, out)
-    return out, repaired
+    collapsed, n_collapse = _collapse_non_jsx_double_brace_objects(out)
+    return collapsed, repaired + n_collapse
 
 
 def _assert_no_double_brace_object_literals(content: str, path: str = "<memory>") -> None:

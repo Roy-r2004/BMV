@@ -106,6 +106,8 @@ class Settings:
     PREVIEW_MAX_FIX_LOOP_SECONDS: int
     PREVIEW_MAX_AI_CALLS: int
     PREVIEW_SKIP_VISUAL_CRITIC: bool
+    PREVIEW_SCAFFOLD_FIRST: bool
+    PREVIEW_SCAFFOLD_SLOT_FILL: bool
     INTERNAL_BASE_URL: str
     STATIC_DIR: Path | None
     CORS_ORIGINS: str
@@ -251,6 +253,14 @@ class Settings:
         # demo quality. Skip with PREVIEW_SKIP_VISUAL_CRITIC=true for speed.
         self.PREVIEW_SKIP_VISUAL_CRITIC = os.getenv(
             "PREVIEW_SKIP_VISUAL_CRITIC", "false"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        # Catalogue pages: emit deterministic scaffold first (reliable compile +
+        # AppSpec hooks), optionally AI-fill slot copy once. Default ON.
+        self.PREVIEW_SCAFFOLD_FIRST = os.getenv(
+            "PREVIEW_SCAFFOLD_FIRST", "true"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.PREVIEW_SCAFFOLD_SLOT_FILL = os.getenv(
+            "PREVIEW_SCAFFOLD_SLOT_FILL", "true"
         ).strip().lower() in ("1", "true", "yes", "on")
         # Internal-only address Playwright uses to reach this same server's
         # already-running preview-app route — never exposed to end users,

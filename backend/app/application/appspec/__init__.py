@@ -3,6 +3,11 @@
 Pure contract rules live in ``app.domain.appspec`` (validation, sanitize).
 """
 
+from app.application.appspec.hooks import (
+    ensure_workspace_appspec_hooks,
+    inject_appspec_contract_hooks,
+    page_hooks_present,
+)
 from app.application.appspec.generation import (
     AppSpecCallBudgetExceeded,
     AppSpecGenerationError,
@@ -45,8 +50,11 @@ __all__ = [
     "app_spec_should_run_for_request",
     "brand_projection",
     "ensure_approved_app_spec",
+    "ensure_workspace_appspec_hooks",
+    "inject_appspec_contract_hooks",
     "merge_architecture_enrichment",
     "merge_experience_plan_enrichment",
+    "page_hooks_present",
     "select_preview_scope",
     "to_architecture_seed",
     "to_experience_plan_seed",

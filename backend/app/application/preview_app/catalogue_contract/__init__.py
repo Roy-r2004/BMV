@@ -5,6 +5,7 @@ from app.application.preview_app.catalogue_contract.imports import normalize_cat
 from app.application.preview_app.catalogue_contract.repair import (
     enforce_catalogue_page_contract,
     repair_missing_catalogue_slots,
+    repair_skeleton_composer_invocation,
 )
 from app.application.preview_app.catalogue_contract.scaffold import (
     _safe_slot_jsx,
@@ -31,6 +32,7 @@ __all__ = [
     "minimal_catalogue_page_scaffold",
     "normalize_catalogue_page_imports",
     "repair_missing_catalogue_slots",
+    "repair_skeleton_composer_invocation",
     "required_non_shell_slots",
     "validate_catalogue_page_content",
     "_safe_slot_jsx",

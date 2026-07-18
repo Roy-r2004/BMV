@@ -207,6 +207,24 @@ def minimal_catalogue_page_scaffold(
     is_member = path.startswith("/member") or "/member/" in canonical_workspace_path(file_path)
     needs_images = any("images." in _safe_slot_jsx(slot, brand, title) for slot in slots)
     images_import = "import { images } from '@/data/mock';\n" if needs_images else ""
+    page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
+    action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
+    evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
+    appspec_attrs = f' data-appspec-page={json.dumps(page_id)}' if page_id else ""
+    appspec_hook_spans = ""
+    if page_id:
+        span_lines = []
+        for action_id in action_ids:
+            span_lines.append(
+                f'        <span className="sr-only" data-appspec-action={json.dumps(action_id)}>'
+                f"{action_id}</span>"
+            )
+        for evidence_id in evidence_ids:
+            span_lines.append(
+                f'        <span className="sr-only" data-appspec-evidence={json.dumps(evidence_id)}>'
+                f"{evidence_id}</span>"
+            )
+        appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
     if shell == "OpsShell":
         nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
         nav_hook = "  const adminNavItems = useAdminNavItems();\n"
@@ -215,7 +233,8 @@ def minimal_catalogue_page_scaffold(
                 "  const { main, rail } = composeSkeletonLayout(SKELETON_ID, slots);\n\n"
                 "  return (\n"
                 f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} rail={{rail}}>\n'
-                "      <div data-skeleton={skeleton.id}>{main}</div>\n"
+                f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>"
+                f"{appspec_hook_spans}{{main}}</div>\n"
                 f"    </{shell}>\n"
                 "  );"
             )
@@ -223,7 +242,8 @@ def minimal_catalogue_page_scaffold(
             body = (
                 "  return (\n"
                 f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}}>\n'
-                "      <div data-skeleton={skeleton.id}>\n"
+                f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>\n"
+                f"{appspec_hook_spans}"
                 "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
                 "      </div>\n"
                 f"    </{shell}>\n"
@@ -240,7 +260,8 @@ def minimal_catalogue_page_scaffold(
             "  return (\n"
             f'    <{shell} brandName={{{json.dumps(brand)}}}{chrome_attr} '
             f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>\n'
-            "      <div data-skeleton={skeleton.id}>\n"
+            f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>\n"
+            f"{appspec_hook_spans}"
             "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
             "      </div>\n"
             f"    </{shell}>\n"

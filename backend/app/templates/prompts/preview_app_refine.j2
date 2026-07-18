@@ -22,7 +22,7 @@ Assigned skeleton: {{ skeleton_id }}
 
 CATALOGUE PAGE CONTRACT:
 - Import page UI exclusively from `@/ui`; other imports are limited to React, router APIs, and `@/data/mock`.
-- Recreate exactly `const SKELETON_ID = '{{ skeleton_id }}' as const`, `getSkeleton(SKELETON_ID)`, every assigned section slot key, and `SkeletonComposer`, even when the current file is invalid.
+- Ensure `const SKELETON_ID = '{{ skeleton_id }}' as const`, `getSkeleton(SKELETON_ID)`, every assigned section slot key, and `<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />`. Prefer patching those contract lines over rewriting the whole page; preserve business-specific slot content and `data-appspec-*` hooks.
 - Keep `{{ shell_component }}` as the page-owned shell. App.tsx does not wrap this route.
 - The template-owned UI kit and matched compact contract are immutable. Never edit or bypass them and never substitute direct package imports or hand-drawn UI.
 - Never regress to Nav, PublicLayout, AdminLayout, UiIcons, deep `@/ui/*` imports, invented slots, or duplicate/parallel chrome.

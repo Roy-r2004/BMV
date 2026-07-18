@@ -51,14 +51,16 @@ def main() -> None:
         content = (root / path).read_text(encoding="utf-8")
         _assert_stub_ok(content, "write_safe_stub clinic")
 
+        admin_rel = "src/pages/owner/AdminClientsPage.tsx"
         write_safe_stub(
             root,
-            "src/pages/owner/AdminClientsPage.tsx",
+            admin_rel,
             brand_name="Lumina",
             industry="beauty spa salon",
             page_title="Clients",
         )
-        admin = (root / "src/pages/owner/AdminClientsPage.tsx").read_text(encoding="utf-8")
+        admin_path = next(root.rglob("AdminClientsPage.tsx"))
+        admin = admin_path.read_text(encoding="utf-8")
         _assert_stub_ok(admin, "write_safe_stub salon")
 
         # Deterministic repair path for already-corrupted files.
@@ -97,8 +99,25 @@ def main() -> None:
         if '{ label: "9:15 · New patient"' not in fixed:
             raise AssertionError("repair did not produce single-brace row objects")
 
+        # Non-row shapes the model emits (partial keys / expressions) must also
+        # collapse — this is what hard-failed PaintingDetailPage on req 17.
+        partial = (
+            'const meta = [\n'
+            '  {{ label: painting.title }},\n'
+            '  {{ label: "Size", detail: painting.size }},\n'
+            '];\n'
+            'const cta = {{ label: "Inquire", href: "/contact" }};\n'
+        )
+        partial_fixed, partial_n = repair_double_brace_object_literals_in_text(partial)
+        if partial_n < 1:
+            raise AssertionError(f"expected partial double-brace repairs, got {partial_n}")
+        if find_double_brace_object_literals(partial_fixed):
+            raise AssertionError(f"partial repair left double braces: {partial_fixed!r}")
+        if "{{ label:" in partial_fixed:
+            raise AssertionError("partial repair left `{{ label:`")
+
         corrupt = root / "src" / "pages" / "BrokenPage.tsx"
-        corrupt.write_text(bad, encoding="utf-8")
+        corrupt.write_text(bad + "\n" + partial, encoding="utf-8")
         repaired = scan_and_repair_double_brace_literals(root)
         if "src/pages/BrokenPage.tsx" not in repaired:
             raise AssertionError(f"scan_and_repair missed BrokenPage: {repaired}")

@@ -4,11 +4,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from app.application.appspec.hooks import inject_appspec_contract_hooks
 from app.application.prompts import PromptTemplate
 from app.application.preview_app.brand_brief import brief_prompt_block
 from app.application.preview_app.catalogue_contract import (
     blocking_contract_errors,
     enforce_catalogue_page_contract,
+    minimal_catalogue_page_scaffold,
 )
 from app.application.preview_app.codegen.architect import (
     _CHROME_CONTRACTS,
@@ -139,6 +141,179 @@ def _generate_utility_composed_file(
     write_file(workspace, file_path, composed)
     return composed
 
+
+def _merged_catalogue_route(
+    file_path: str,
+    route: dict,
+    page_plan: dict,
+    skeleton_id: str,
+) -> dict:
+    slots = infer_section_slots({**page_plan, **route}, skeleton_id)
+    page_id = (
+        route.get("app_spec_page_id")
+        or route.get("page_id")
+        or page_plan.get("app_spec_page_id")
+        or page_plan.get("id")
+        or ""
+    )
+    contract = page_plan.get("app_spec_contract") or {}
+    page_meta = contract.get("page") if isinstance(contract, dict) else {}
+    if isinstance(page_meta, dict) and page_meta.get("id"):
+        page_id = page_meta.get("id") or page_id
+    action_ids = list(route.get("action_ids") or [])
+    evidence_ids = list(route.get("evidence_ids") or [])
+    if not action_ids and isinstance(contract, dict):
+        action_ids = [
+            str(item.get("id"))
+            for item in (contract.get("actions") or [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+    if not evidence_ids and isinstance(contract, dict):
+        evidence_ids = [
+            str(item.get("id"))
+            for item in (contract.get("evidence") or [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+    return {
+        **route,
+        "skeleton_id": skeleton_id,
+        "path": route.get("path") or page_plan.get("path") or "",
+        "title": route.get("title") or page_plan.get("title") or file_path,
+        "section_slots": route.get("section_slots") or page_plan.get("section_slots") or slots,
+        "component_file": file_path,
+        "app_spec_page_id": page_id,
+        "page_id": page_id,
+        "action_ids": action_ids,
+        "evidence_ids": evidence_ids,
+        "surface": route.get("surface") or page_plan.get("surface") or "",
+    }
+
+
+def _generate_catalogue_scaffold_first_file(
+    workspace: Path,
+    file_path: str,
+    *,
+    file_spec: dict,
+    route: dict,
+    page_plan: dict,
+    skeleton_id: str,
+    full_context: str,
+    manifest: dict,
+    architect: dict,
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+) -> str:
+    """Emit a compiling catalogue scaffold first; optionally AI-fill slot copy once."""
+    brand_name = _brand_name_from_manifest(manifest)
+    merged = _merged_catalogue_route(file_path, route, page_plan or {}, skeleton_id)
+    scaffold = minimal_catalogue_page_scaffold(
+        file_path,
+        merged,
+        brand_name=brand_name,
+    )
+    page_id = str(merged.get("app_spec_page_id") or merged.get("page_id") or "")
+    if page_id:
+        scaffold = inject_appspec_contract_hooks(
+            scaffold,
+            page_id=page_id,
+            action_ids=list(merged.get("action_ids") or []),
+            evidence_ids=list(merged.get("evidence_ids") or []),
+        )
+    write_file(workspace, file_path, scaffold)
+    cg_log.info("scaffold-first wrote %s skeleton=%s", file_path, skeleton_id)
+    # #region agent log
+    try:
+        from app.application.preview_app.pipeline.debug_ndjson import agent_dbg
+
+        agent_dbg(
+            "G",
+            "generate.py:scaffold_first",
+            "scaffold-first page written",
+            {
+                "file_path": file_path,
+                "skeleton_id": skeleton_id,
+                "slot_fill": bool(settings.PREVIEW_SCAFFOLD_SLOT_FILL),
+                "page_id": page_id,
+            },
+        )
+    except Exception:
+        pass
+    # #endregion
+
+    if not settings.PREVIEW_SCAFFOLD_SLOT_FILL:
+        record_stubbed_path(workspace, file_path)
+        return scaffold
+
+    slots = infer_section_slots(merged, skeleton_id)
+    skeleton_contract_json = _bounded_json(
+        compact_skeleton_contract(skeleton_id, slots),
+        5000,
+    )
+    shell_component = (
+        "OpsShell" if (merged.get("surface") or "") == "ops" else "PublicShell"
+    )
+    app_spec_contract = page_plan.get("app_spec_contract") or {}
+    prompt = template_renderer.render(
+        PromptTemplate.PREVIEW_APP_SLOT_FILL,
+        full_context=full_context[:8000],
+        file_path=file_path,
+        file_instructions=file_spec.get("instructions") or "",
+        page_plan_json=_bounded_json(page_plan, 4000) if page_plan else "{}",
+        app_spec_contract_json=(
+            _bounded_json(app_spec_contract, 8000) if app_spec_contract else "{}"
+        ),
+        skeleton_id=skeleton_id,
+        skeleton_contract_json=skeleton_contract_json,
+        shell_component=shell_component,
+        scaffold_source=scaffold[:16000],
+    )
+    content = scaffold
+    try:
+        cg_log.debug("slot_fill %s model=%s", file_path, settings.PREVIEW_APP_MODEL)
+        raw = ai_provider.ask_chat(
+            settings.PREVIEW_APP_MODEL,
+            [{"role": "user", "content": prompt}],
+            max_tokens=12000,
+        )
+        filled = _sanitize_emoji_icons(_strip_fences(raw))
+        if filled and "export default" in filled and not looks_truncated_source(filled):
+            content = filled
+    except Exception as exc:
+        cg_log.warning("slot_fill ask failed for %s: %s — keeping scaffold", file_path, exc)
+        content = scaffold
+
+    content, replaced = enforce_catalogue_page_contract(
+        file_path,
+        content,
+        architect,
+        brand_name=brand_name,
+    )
+    if replaced or "deterministic catalogue contract scaffold" in content:
+        # Prefer the known-good scaffold we already wrote over a bad fill.
+        if replaced:
+            cg_log.warning("slot_fill fell back to scaffold for %s", file_path)
+            content = scaffold
+            content, _ = enforce_catalogue_page_contract(
+                file_path,
+                content,
+                architect,
+                brand_name=brand_name,
+            )
+        record_stubbed_path(workspace, file_path)
+    else:
+        if page_id:
+            content = inject_appspec_contract_hooks(
+                content,
+                page_id=page_id,
+                action_ids=list(merged.get("action_ids") or []),
+                evidence_ids=list(merged.get("evidence_ids") or []),
+            )
+        clear_stubbed_path(workspace, file_path)
+
+    write_file(workspace, file_path, content)
+    return content
+
+
 def generate_file(
     workspace: Path,
     file_spec: dict,
@@ -192,6 +367,23 @@ def generate_file(
             page_plan=page_plan or {},
             full_context=full_context,
             manifest=manifest,
+            ai_provider=ai_provider,
+            template_renderer=template_renderer,
+        )
+
+    # Scaffold-first: catalogue pages compile from a deterministic template; AI
+    # only customizes slot copy (optional). Skips freeform PREVIEW_APP_FILE.
+    if catalogue_page and settings.PREVIEW_SCAFFOLD_FIRST:
+        return _generate_catalogue_scaffold_first_file(
+            workspace,
+            file_path,
+            file_spec=file_spec,
+            route=route or {},
+            page_plan=page_plan or {},
+            skeleton_id=skeleton_id,
+            full_context=full_context,
+            manifest=manifest,
+            architect=architect,
             ai_provider=ai_provider,
             template_renderer=template_renderer,
         )
