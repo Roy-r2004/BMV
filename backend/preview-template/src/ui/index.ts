@@ -33,6 +33,7 @@ export {
 export {
   AccentBeam,
   AiFeatureDeck,
+  AiFeaturePanel,
   BookingPanel,
   BrandFooter,
   CredentialStrip,
@@ -50,6 +51,7 @@ export {
   type AccentBeamProps,
   type AiFeatureDeckProps,
   type AiFeatureItem,
+  type AiFeaturePanelProps,
   type BookingPanelProps,
   type BookingSlot,
   type BookingTreatment,

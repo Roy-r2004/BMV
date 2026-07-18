@@ -26,6 +26,93 @@ _CATEGORY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("ops", ("ops", "admin", "dashboard", "triage", "routing", "intake")),
 )
 
+# Route path scoring: higher = better home for that AI category.
+_CATEGORY_ROUTE_HINTS: dict[str, tuple[tuple[str, int], ...]] = {
+    "chat": (
+        ("faq", 12),
+        ("assistant", 11),
+        ("help", 9),
+        ("contact", 7),
+        ("home", 3),
+        ("/", 2),
+    ),
+    "scheduling": (
+        ("book", 12),
+        ("reserv", 11),
+        ("appoint", 10),
+        ("class", 8),
+        ("schedule", 9),
+        ("slot", 8),
+    ),
+    "digest": (("dashboard", 12), ("overview", 9), ("owner", 7), ("admin", 7)),
+    "scoring": (("lead", 12), ("inbox", 10), ("dashboard", 8), ("owner", 6)),
+    "automation": (
+        ("waitlist", 12),
+        ("automat", 10),
+        ("workflow", 9),
+        ("owner", 6),
+        ("admin", 6),
+    ),
+    "ops": (("dashboard", 12), ("owner", 9), ("admin", 9), ("ops", 8)),
+}
+
+_DEMO_BY_CATEGORY: dict[str, dict[str, Any]] = {
+    "chat": {
+        "demo_hint": "Ask a real customer question",
+        "demo_prompts": [
+            "What are your hours this week?",
+            "How does pricing work?",
+            "Can I book for tomorrow?",
+        ],
+        "placement_label": "Customer assistant",
+    },
+    "scheduling": {
+        "demo_hint": "Ask for the next open slot",
+        "demo_prompts": [
+            "Next available Thursday morning",
+            "Any openings this weekend?",
+            "Book the soonest 60-minute slot",
+        ],
+        "placement_label": "Scheduling AI",
+    },
+    "digest": {
+        "demo_hint": "Generate today's owner brief",
+        "demo_prompts": [
+            "Summarize today",
+            "What needs attention?",
+            "Top 3 priorities",
+        ],
+        "placement_label": "Owner digest",
+    },
+    "scoring": {
+        "demo_hint": "Score an incoming lead",
+        "demo_prompts": [
+            "Score this new inquiry",
+            "Who should we call first?",
+            "Rank today's leads",
+        ],
+        "placement_label": "Lead scoring",
+    },
+    "automation": {
+        "demo_hint": "Trigger the next automation step",
+        "demo_prompts": [
+            "Notify the next waitlisted guest",
+            "Chase missing documents",
+            "Run tonight's follow-ups",
+        ],
+        "placement_label": "Automation",
+    },
+    "ops": {
+        "demo_hint": "Route today's ops work",
+        "demo_prompts": [
+            "Triage new inbox items",
+            "Assign an owner for this request",
+            "What should the team do next?",
+        ],
+        "placement_label": "Ops AI",
+    },
+}
+
 
 def _slugify(value: str, *, fallback: str = "feature") -> str:
     text = re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
@@ -38,6 +125,91 @@ def infer_category(name: str, description: str = "") -> str:
         if any(hint in blob for hint in hints):
             return category
     return "automation"
+
+
+def _demo_payload(category: str) -> dict[str, Any]:
+    return dict(_DEMO_BY_CATEGORY.get(category) or _DEMO_BY_CATEGORY["automation"])
+
+
+def enrich_feature(feature: Mapping[str, Any]) -> dict[str, Any]:
+    """Add demo script + placement metadata used by contextual panels."""
+    out = dict(feature)
+    category = str(out.get("category") or out.get("surface") or "automation").lower()
+    if category not in _DEMO_BY_CATEGORY:
+        category = infer_category(str(out.get("name") or ""), str(out.get("description") or ""))
+    demo = _demo_payload(category)
+    out["category"] = category
+    out["surface"] = str(out.get("surface") or category)
+    out.setdefault("demo_hint", demo["demo_hint"])
+    out.setdefault("demo_prompts", list(demo["demo_prompts"]))
+    out.setdefault("placement_label", demo["placement_label"])
+    return out
+
+
+def score_route_for_category(category: str, path: str, title: str = "", purpose: str = "") -> int:
+    blob = f"{path} {title} {purpose}".lower()
+    score = 0
+    for hint, weight in _CATEGORY_ROUTE_HINTS.get(category, ()):
+        if hint == "/" and (path or "") in {"/", "/home"}:
+            score += weight
+        elif hint in blob:
+            score += weight
+    # Prefer public for chat/scheduling; ops for digest/ops/scoring/automation.
+    if category in {"chat", "scheduling"} and ("owner" in blob or "admin" in blob):
+        score -= 3
+    if category in {"digest", "ops", "scoring", "automation"} and not (
+        "owner" in blob or "admin" in blob or "dashboard" in blob
+    ):
+        score -= 1
+    return score
+
+
+def assign_feature_placements(
+    features: list[Mapping[str, Any]],
+    routes: list[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Bind each feature to the best concrete route in the architect."""
+    usable_routes = [
+        rt
+        for rt in routes
+        if isinstance(rt, Mapping)
+        and str(rt.get("path") or "").strip()
+        and str(rt.get("path") or "") != PAGE_AI_HUB_ROUTE
+        and str(rt.get("component_file") or "").replace("\\", "/")
+    ]
+    assigned: list[dict[str, Any]] = []
+    used_paths: set[str] = set()
+    for raw in features:
+        feature = enrich_feature(raw)
+        category = str(feature.get("category") or "automation")
+        ranked = sorted(
+            usable_routes,
+            key=lambda rt: (
+                -score_route_for_category(
+                    category,
+                    str(rt.get("path") or ""),
+                    str(rt.get("title") or ""),
+                    str(rt.get("purpose") or ""),
+                ),
+                0 if str(rt.get("path") or "") not in used_paths else 1,
+                str(rt.get("path") or ""),
+            ),
+        )
+        best = ranked[0] if ranked else None
+        if best is not None:
+            path = str(best.get("path") or "")
+            feature["placement_path"] = path
+            feature["placement_component"] = str(best.get("component_file") or "").replace(
+                "\\", "/"
+            )
+            feature["placement_title"] = str(best.get("title") or path)
+            used_paths.add(path)
+        else:
+            feature["placement_path"] = PAGE_AI_HUB_ROUTE
+            feature["placement_component"] = "src/pages/AiFeaturesPage.tsx"
+            feature["placement_title"] = "AI features"
+        assigned.append(feature)
+    return assigned
 
 
 def _split_name_description(line: str) -> tuple[str, str]:
@@ -99,13 +271,15 @@ def extract_ai_features_from_blueprint(blueprint: str) -> list[dict[str, Any]]:
         seen.add(feature_id)
         category = infer_category(name, description)
         features.append(
-            {
-                "id": feature_id,
-                "name": name,
-                "description": description or name,
-                "category": category,
-                "surface": category,
-            }
+            enrich_feature(
+                {
+                    "id": feature_id,
+                    "name": name,
+                    "description": description or name,
+                    "category": category,
+                    "surface": category,
+                }
+            )
         )
         if len(features) >= MAX_AI_FEATURES:
             break
@@ -166,7 +340,7 @@ def parse_ai_features(raw: Optional[str | list | dict]) -> list[dict[str, Any]]:
         if fid in seen:
             continue
         seen.add(fid)
-        out.append(feature)
+        out.append(enrich_feature(feature))
         if len(out) >= MAX_AI_FEATURES:
             break
     return out

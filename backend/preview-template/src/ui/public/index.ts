@@ -23,3 +23,7 @@ export {
   type AiFeatureDeckProps,
   type AiFeatureItem,
 } from './AiFeatureDeck';
+export {
+  AiFeaturePanel,
+  type AiFeaturePanelProps,
+} from './AiFeaturePanel';

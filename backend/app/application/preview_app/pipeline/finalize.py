@@ -143,18 +143,17 @@ def run_finalize(ctx: PipelineContext) -> dict:
 
     planned_ai = ai_features_from_request(req)
     if planned_ai:
+        # Re-apply after codegen so contextual panels land on real pages.
+        try:
+            ensure_ai_feature_surfaces(
+                workspace,
+                architect,
+                req,
+                brand_name=ctx.brand_name or req.business_name or "Brand",
+            )
+        except Exception as e:
+            log.warning("    AI feature surface inject failed: %s", e)
         missing_ai = assert_ai_features_present(workspace, planned_ai)
-        if missing_ai:
-            try:
-                ensure_ai_feature_surfaces(
-                    workspace,
-                    architect,
-                    req,
-                    brand_name=ctx.brand_name or req.business_name or "Brand",
-                )
-            except Exception as e:
-                log.warning("    AI feature hub heal failed: %s", e)
-            missing_ai = assert_ai_features_present(workspace, planned_ai)
         if missing_ai:
             ok = False
             _emit(

@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from app.application.preview_app.ai_feature_surfaces import inject_ai_panel_into_page
 from app.application.services.ai_features import (
     PAGE_AI_HUB_ID,
+    assign_feature_placements,
     bind_ai_features_to_app_spec,
     extract_ai_features_from_blueprint,
     missing_ai_feature_ids_in_workspace,
@@ -85,3 +87,39 @@ def test_missing_ai_feature_ids_detects_gap():
     assert "class-waitlist-ai" in missing
     assert "owner-daily-digest" in missing
     assert "studio-faq-assistant" not in missing
+
+
+def test_assign_feature_placements_picks_workflow_routes():
+    features = extract_ai_features_from_blueprint(BLUEPRINT)
+    routes = [
+        {"path": "/", "title": "Home", "component_file": "src/pages/HomePage.tsx", "purpose": "marketing"},
+        {"path": "/faq", "title": "FAQ", "component_file": "src/pages/FaqPage.tsx", "purpose": "assistant answers"},
+        {"path": "/classes/book", "title": "Book", "component_file": "src/pages/BookingPage.tsx", "purpose": "booking"},
+        {"path": "/owner/waitlists", "title": "Waitlists", "component_file": "src/pages/owner/WaitlistsPage.tsx", "purpose": "waitlist automation"},
+        {"path": "/owner/dashboard", "title": "Dashboard", "component_file": "src/pages/owner/DashboardPage.tsx", "purpose": "ops dashboard"},
+    ]
+    placed = assign_feature_placements(features, routes)
+    by_id = {f["id"]: f for f in placed}
+    assert by_id["studio-faq-assistant"]["placement_path"] == "/faq"
+    assert by_id["owner-daily-digest"]["placement_path"] == "/owner/dashboard"
+    assert by_id["class-waitlist-ai"]["placement_path"] in {"/owner/waitlists", "/classes/book"}
+    assert by_id["studio-faq-assistant"]["demo_prompts"]
+
+
+def test_inject_ai_panel_into_page_is_idempotent():
+    source = """import { PublicShell, PublicNav } from '@/ui';
+
+export default function FaqPage() {
+  return (
+    <PublicShell brandName=\"Studio\" nav={<PublicNav items={[]} />}>
+      <div>FAQ</div>
+    </PublicShell>
+  );
+}
+"""
+    once = inject_ai_panel_into_page(source, feature_id="studio-faq-assistant", brand_name="Studio")
+    twice = inject_ai_panel_into_page(once, feature_id="studio-faq-assistant", brand_name="Studio")
+    assert once.count("<AiFeaturePanel") == 1
+    assert 'data-ai-feature-panel="studio-faq-assistant"' in once
+    assert "aiFeatures" in once
+    assert twice == once

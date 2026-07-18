@@ -10,6 +10,12 @@ export type AiFeatureItem = {
   description?: string;
   category?: string;
   surface?: string;
+  demo_hint?: string;
+  demo_prompts?: string[];
+  placement_label?: string;
+  placement_path?: string;
+  placement_title?: string;
+  placement_component?: string;
 };
 
 export type AiFeatureDeckProps = {
@@ -128,7 +134,18 @@ export function AiFeatureDeck({ features, brandName = 'Brand', className }: AiFe
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           {items.map((feature) => (
-            <FeatureWidget key={feature.id} feature={feature} brandName={brandName} />
+            <div key={feature.id} className="space-y-2">
+              <FeatureWidget feature={feature} brandName={brandName} />
+              {feature.placement_path && feature.placement_path !== '/ai-features' ? (
+                <a
+                  href={feature.placement_path}
+                  className="inline-flex text-sm font-semibold text-neutral-800 underline-offset-4 hover:underline"
+                >
+                  See it in context
+                  {feature.placement_title ? ` · ${feature.placement_title}` : ''} →
+                </a>
+              ) : null}
+            </div>
           ))}
         </div>
       </div>
