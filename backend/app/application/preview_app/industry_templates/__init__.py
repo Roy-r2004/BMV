@@ -24,6 +24,7 @@ TEMPLATE_IDS: tuple[str, ...] = (
     "fitness-studio-home",
     "real-estate-showcase",
     "fashion-retail-storefront",
+    "pottery-craft-studio",
     "clinic-dental-home",
     "agency-portfolio-home",
     "home-services-trades",

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.application.preview_app.industry_templates.loader import get_template, pick_template_id
+from app.application.preview_app.industry_templates.seed import normalize_mock_seed
 
 
 def apply_industry_template_to_plan(
@@ -18,6 +19,9 @@ def apply_industry_template_to_plan(
     tid = pick_template_id(industry=industry or "", surface=surface, seed=int(seed or 0))
     pack = get_template(tid)
     if not pack:
+        # Still emit a default seed so scaffolds can import `@/data/mock` seed.
+        if "mock_seed" not in updated:
+            updated["mock_seed"] = normalize_mock_seed(None)
         return updated
 
     updated["industry_template_id"] = pack["id"]
@@ -41,6 +45,9 @@ def apply_industry_template_to_plan(
     if pack.get("recipe_hint"):
         design["template_recipe_hint"] = pack["recipe_hint"]
     updated["design_system"] = design
+    updated["mock_seed"] = normalize_mock_seed(
+        pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None
+    )
     return updated
 
 

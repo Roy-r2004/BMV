@@ -35,61 +35,68 @@ _SLOT_COMPONENT = {
     "empty": "EmptyState",
 }
 
+_SEED_SLOTS = frozenset(
+    {
+        "hero",
+        "features",
+        "showcase",
+        "products",
+        "process",
+        "testimonials",
+        "cta",
+        "footer",
+        "trust",
+        "credentials",
+        "booking",
+    }
+)
+
 
 def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
     brand_js = json.dumps(brand)
     title_js = json.dumps(title)
     samples = {
         "hero": (
-            f'<MarketingHero brandName={{{brand_js}}} headline={{{title_js}}} '
-            'subcopy="Cinematic first impression — brand-forward, vivid, and ready for the next step." '
-            'primaryCta={{ label: "Explore now", href: "#details" }} '
-            'secondaryCta={{ label: "See how it works", href: "#process" }} '
+            f'<MarketingHero brandName={{{brand_js}}} '
+            f'headline={{seed.hero.headline || {title_js}}} '
+            'subcopy={seed.hero.subcopy} '
+            'primaryCta={seed.hero.primaryCta} '
+            'secondaryCta={seed.hero.secondaryCta} '
             'imageSrc={images.hero} imageAlt="" />'
         ),
         "features": (
-            '<FeatureBento heading="Designed to feel alive" items={['
-            '{ title: "Immersive first view", description: "Atmosphere, motion, and brand color from the first scroll." }, '
-            '{ title: "Real product moments", description: "Concrete screens — bookings, tickets, KPIs — not placeholder cards." }, '
-            '{ title: "Guided next step", description: "Every section pushes toward a clear action." }'
-            ']} />'
+            '<FeatureBento heading={seed.featuresHeading} items={seed.features} />'
         ),
         "products": (
-            '<ProductShowcase heading="Featured picks" items={['
-            '{ title: "Signature item", description: "A dependable starting point.", imageSrc: images.card1, imageAlt: "" }, '
-            '{ title: "Everyday essential", description: "Built for daily use.", imageSrc: images.card2, imageAlt: "" }'
-            ']} />'
+            '<ProductShowcase heading={seed.showcaseHeading} items={seed.items.map((item, index) => ({ '
+            'title: item.title, description: item.description, '
+            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title '
+            '}))} />'
         ),
         "showcase": (
-            '<ProductShowcase heading="Featured experiences" items={['
-            '{ title: "Signature service", description: "A dependable starting point.", imageSrc: images.card1, imageAlt: "" }, '
-            '{ title: "Everyday essential", description: "Built for daily use.", imageSrc: images.card2, imageAlt: "" }'
-            ']} />'
+            '<ProductShowcase heading={seed.showcaseHeading} items={seed.items.map((item, index) => ({ '
+            'title: item.title, description: item.description, '
+            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title '
+            '}))} />'
         ),
         "process": (
-            '<ProcessSection heading="How it works" steps={['
-            '{ title: "Choose", description: "Find the right option." }, '
-            '{ title: "Confirm", description: "Select a convenient time." }, '
-            '{ title: "Enjoy", description: "We take care of the details." }'
-            ']} />'
+            '<ProcessSection heading={seed.processHeading} steps={seed.process} />'
         ),
         "testimonials": (
-            '<TestimonialRail heading="What clients say" items={['
-            '{ quote: "Clear, warm, and easy from start to finish.", author: "A returning client", role: "Verified guest" }'
-            ']} />'
+            '<TestimonialRail heading={seed.testimonialsHeading} items={seed.testimonials} />'
         ),
         "cta": (
-            '<CTABand heading="Make it unforgettable" description="Book the next chapter — polished, branded, never bland." '
-            'primaryCta={{ label: "Get started", href: "#details" }} '
-            'secondaryCta={{ label: "Talk to us", href: "#contact" }} />'
+            '<CTABand heading={seed.cta.heading} description={seed.cta.description} '
+            'primaryCta={{ label: seed.cta.primaryLabel, href: seed.cta.primaryHref }} '
+            'secondaryCta={{ label: seed.cta.secondaryLabel, href: seed.cta.secondaryHref }} />'
         ),
-        "footer": f'<BrandFooter brandName={{{brand_js}}} description="Premium presence from first glance to booked revenue." />',
-        "trust": '<LogoMarquee heading="Trusted in the room" items={[{ label: "Signature craft" }, { label: "On-time delivery" }, { label: "Repeat guests" }, { label: "Local favorite" }]} />',
+        "footer": f'<BrandFooter brandName={{{brand_js}}} description={{seed.footer.description}} />',
+        "trust": (
+            '<LogoMarquee heading="Trusted in the room" '
+            'items={seed.trustLabels.map((label) => ({ label }))} />'
+        ),
         "credentials": (
-            '<CredentialStrip heading="Why it stands out" items={['
-            '{ title: "Brand-first chrome", detail: "Every surface carries your color and type." }, '
-            '{ title: "Motion with purpose", detail: "Kenburns, reveals, and lifts — never static." }'
-            ']} />'
+            '<CredentialStrip heading={seed.credentialsHeading} items={seed.credentials} />'
         ),
         "spotlight": '<SpotlightCard title="Atmosphere over filler" description="Layered glow, grain, and brand light so the page never looks pale." />',
         "results": (
@@ -99,7 +106,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         ),
         "booking": (
             '<BookingPanel heading="Choose a time" '
-            'treatments={[{ id: "signature", name: "Signature service", duration: "60 min" }]} '
+            'treatments={seed.treatments} '
             'slots={[{ id: "slot-1", startsAt: "2026-07-14T10:00:00" }]} />'
         ),
         "workspace": (
@@ -205,8 +212,16 @@ def minimal_catalogue_page_scaffold(
     )
     path = str(route.get("path") or "")
     is_member = path.startswith("/member") or "/member/" in canonical_workspace_path(file_path)
+    uses_seed = any(slot in _SEED_SLOTS for slot in slots)
     needs_images = any("images." in _safe_slot_jsx(slot, brand, title) for slot in slots)
-    images_import = "import { images } from '@/data/mock';\n" if needs_images else ""
+    if uses_seed and needs_images:
+        images_import = "import { images, seed } from '@/data/mock';\n"
+    elif uses_seed:
+        images_import = "import { seed } from '@/data/mock';\n"
+    elif needs_images:
+        images_import = "import { images } from '@/data/mock';\n"
+    else:
+        images_import = ""
     page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
     action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
     evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
@@ -291,4 +306,3 @@ const SKELETON_ID = {json.dumps(skeleton_id)} as const;
 {body}
 }}
 """
-

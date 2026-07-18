@@ -391,8 +391,11 @@ def write_plumbing_mock(
     primary: str,
     secondary: str,
     design_system: dict | None = None,
+    mock_seed: dict | None = None,
 ) -> None:
     """Minimal mock.ts so layouts/router work before pages exist."""
+    from app.application.preview_app.industry_templates.seed import normalize_mock_seed
+
     routes = architect.get("routes") or []
     roles_src = architect.get("roles") or []
     roles_data = []
@@ -426,11 +429,17 @@ def write_plumbing_mock(
     }
     if design_system:
         brand_payload["design_system"] = design_system
+    seed_payload = normalize_mock_seed(
+        mock_seed
+        if isinstance(mock_seed, dict)
+        else (architect.get("mock_seed") if isinstance(architect.get("mock_seed"), dict) else None)
+    )
     content = (
         f"export const brand = {json.dumps(brand_payload, ensure_ascii=False)};\n\n"
         f"export const images = {json.dumps(img, indent=2, ensure_ascii=False)};\n\n"
         f"export const roles = {json.dumps(roles_data, indent=2, ensure_ascii=False)};\n\n"
-        f"export const navigation = {json.dumps({'public': public_nav, 'admin': admin_nav}, indent=2, ensure_ascii=False)};\n"
+        f"export const navigation = {json.dumps({'public': public_nav, 'admin': admin_nav}, indent=2, ensure_ascii=False)};\n\n"
+        f"export const seed = {json.dumps(seed_payload, indent=2, ensure_ascii=False)};\n"
     )
     write_file(workspace, "src/data/mock.ts", content)
 

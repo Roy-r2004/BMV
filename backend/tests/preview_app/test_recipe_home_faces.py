@@ -86,16 +86,47 @@ def test_scaffold_emits_recipe_order_prop() -> None:
     assert "process:" not in tsx
 
 
-def test_pottery_does_not_pick_fitness_template() -> None:
+def test_pottery_picks_craft_studio_pack() -> None:
+    from app.application.preview_app.industry_templates.apply import (
+        apply_industry_template_to_plan,
+    )
     from app.application.preview_app.industry_templates.loader import load_templates
 
     load_templates.cache_clear()
     tid = pick_template_id(industry="Arts & Crafts / Pottery Studio", seed=3)
-    assert tid is None
+    assert tid == "pottery-craft-studio"
     assert pick_template_id(industry="Studio", seed=1) is None
     assert pick_template_id(industry="Digital marketing agency portfolio", seed=2) == (
         "agency-portfolio-home"
     )
+    plan = apply_industry_template_to_plan(
+        {"recipe_id": "craft"},
+        industry="Arts & Crafts / Pottery Studio",
+        seed=3,
+    )
+    assert plan["industry_template_id"] == "pottery-craft-studio"
+    assert any(
+        "Wheel" in item["title"] or "Glaze" in item["title"]
+        for item in plan["mock_seed"]["items"]
+    )
+
+
+def test_scaffold_reads_industry_seed() -> None:
+    route = {
+        "path": "/",
+        "skeleton_id": "public-home",
+        "section_slots": ["hero", "process", "showcase", "cta", "footer"],
+        "title": "Home",
+    }
+    tsx = minimal_catalogue_page_scaffold(
+        "src/pages/HomePage.tsx",
+        route,
+        brand_name="Clay & Kiln",
+    )
+    assert "import { images, seed } from '@/data/mock'" in tsx
+    assert "seed.items.map" in tsx
+    assert "seed.process" in tsx
+    assert "Signature service" not in tsx
 
 
 def test_mismatched_template_does_not_override_craft_home() -> None:

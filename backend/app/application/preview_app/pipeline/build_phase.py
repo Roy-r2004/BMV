@@ -183,6 +183,9 @@ def run_build_phase(ctx: PipelineContext) -> None:
             ctx.primary,
             ctx.secondary,
             design_system=ctx.design_system,
+            mock_seed=(ctx.plan or {}).get("mock_seed")
+            if isinstance((ctx.plan or {}).get("mock_seed"), dict)
+            else None,
         )
         _pre_build_fixups(ctx)
         ok, build_log = run_build(workspace, base_path, template_renderer)

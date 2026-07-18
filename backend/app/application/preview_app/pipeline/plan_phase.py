@@ -165,6 +165,8 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         if isinstance(manifest.get("brand"), dict)
         else None
     ) or manifest.get("brand_name") or req.business_name or "Brand"
+    if isinstance(plan.get("mock_seed"), dict):
+        architect["mock_seed"] = plan["mock_seed"]
     write_plumbing_mock(
         workspace,
         architect,
@@ -173,6 +175,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         primary,
         secondary,
         design_system=design_system,
+        mock_seed=plan.get("mock_seed") if isinstance(plan.get("mock_seed"), dict) else None,
     )
     log.info("    plumbing mock (brand, roles, nav) ready")
     workspace_watch.stop()

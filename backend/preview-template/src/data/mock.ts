@@ -28,6 +28,53 @@ export const navigation = {
   ],
 };
 
+/** Industry template seed — generation overwrites this from the pack mock_seed. */
+export const seed = {
+  tone: 'branded',
+  hero: {
+    headline: '',
+    subcopy: 'Cinematic first impression — brand-forward, vivid, and ready for the next step.',
+    primaryCta: { label: 'Explore now', href: '#details' },
+    secondaryCta: { label: 'See how it works', href: '#process' },
+  },
+  items: [
+    { title: 'Signature offering', description: 'A dependable starting point.' },
+    { title: 'Everyday essential', description: 'Built for daily use.' },
+  ],
+  features: [
+    { title: 'Immersive first view', description: 'Atmosphere and brand color from the first scroll.' },
+    { title: 'Guided next step', description: 'Every section pushes toward a clear action.' },
+  ],
+  process: [
+    { title: 'Choose', description: 'Find the right option.' },
+    { title: 'Confirm', description: 'Select a convenient time.' },
+    { title: 'Enjoy', description: 'We take care of the details.' },
+  ],
+  credentials: [
+    { title: 'Brand-first chrome', detail: 'Every surface carries your color and type.' },
+    { title: 'Motion with purpose', detail: 'Kenburns, reveals, and lifts — never static.' },
+  ],
+  testimonials: [
+    { quote: 'Clear, warm, and easy from start to finish.', author: 'A returning client', role: 'Verified guest' },
+  ],
+  treatments: [{ id: 'offer-1', name: 'Signature offering', duration: '60 min' }],
+  showcaseHeading: 'Featured experiences',
+  featuresHeading: 'Designed to feel alive',
+  processHeading: 'How it works',
+  credentialsHeading: 'Why it stands out',
+  testimonialsHeading: 'What clients say',
+  cta: {
+    heading: 'Make it unforgettable',
+    description: 'Book the next chapter — polished, branded, never bland.',
+    primaryLabel: 'Get started',
+    primaryHref: '#details',
+    secondaryLabel: 'Talk to us',
+    secondaryHref: '#contact',
+  },
+  footer: { description: 'Premium presence from first glance to booked revenue.' },
+  trustLabels: ['Signature craft', 'On-time delivery', 'Repeat guests', 'Local favorite'],
+};
+
 export const services = [
   { id: '1', name: 'Service One', description: 'Description', duration: '60 min' },
   { id: '2', name: 'Service Two', description: 'Description', duration: '45 min' },

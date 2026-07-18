@@ -1,0 +1,60 @@
+{
+  "id": "pottery-craft-studio",
+  "label": "Pottery / craft studio",
+  "industry_tags": ["pottery", "ceramic", "ceramics", "clay", "kiln", "wheel throwing", "glaze"],
+  "recipe_hint": "craft",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "process", "showcase", "credentials", "cta", "footer"],
+  "signature_moves": ["process-first journey", "maker credentials", "tactile product showcase"],
+  "prompt_hints": [
+    "Artisan pottery studio — paper-warm surfaces, process storytelling, never sterile SaaS.",
+    "Lead with how wheel classes and kiln firings work; showcase vessels and workshops.",
+    "Credentials before hard sell; booking CTAs for classes and kiln slots."
+  ],
+  "mock_seed": {
+    "tone": "tactile-maker",
+    "hero": {
+      "subcopy": "Wheel classes, glaze workshops, and kiln firing slots for makers who want their hands in the clay.",
+      "primaryCta": { "label": "Browse classes", "href": "/classes" },
+      "secondaryCta": { "label": "Reserve kiln time", "href": "/kiln-slots" }
+    },
+    "classes": [
+      {
+        "title": "Intro to Wheel Throwing",
+        "description": "Centering, opening, and your first bowl — small cohorts, patient coaching."
+      },
+      {
+        "title": "Glaze Exploration",
+        "description": "Layer, drip, and fire with studio glazes tuned for our kilns."
+      },
+      {
+        "title": "Open Studio + Kiln Slot",
+        "description": "Bring greenware or book a bisque/glaze firing with clear capacity."
+      }
+    ],
+    "process": [
+      { "title": "Pick a class or kiln window", "description": "See real capacity — no DM guessing." },
+      { "title": "Reserve your spot", "description": "Confirm online; we hold materials and shelf space." },
+      { "title": "Make, glaze, fire", "description": "Studio support from wet clay through the final unload." }
+    ],
+    "credentials": [
+      { "title": "Working studio kilns", "detail": "Transparent bisque and glaze calendars with load limits." },
+      { "title": "Taught by makers", "detail": "Instructors who throw and fire here weekly — not a rented room." }
+    ],
+    "showcaseHeading": "On the boards this season",
+    "processHeading": "From wet clay to fired piece",
+    "credentialsHeading": "Why makers stay",
+    "cta": {
+      "heading": "Ready to get making?",
+      "description": "Book a class or claim a kiln slot — capacity updates as seats fill.",
+      "primaryLabel": "See classes",
+      "primaryHref": "/classes",
+      "secondaryLabel": "Kiln slots",
+      "secondaryHref": "/kiln-slots"
+    },
+    "footer": {
+      "description": "A neighborhood pottery studio for classes, open studio, and honest kiln time."
+    },
+    "trustLabels": ["Wheel classes", "Glaze lab", "Kiln calendar", "Open studio"]
+  }
+}
