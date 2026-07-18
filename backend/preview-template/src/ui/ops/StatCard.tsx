@@ -11,11 +11,18 @@ export interface StatCardProps {
   value: string;
   delta?: string;
   hint?: string;
-  /** UiIcon name rendered in the corner chip (defaults to 'chart'). */
-  icon?: string;
+  /** Lucide key or a prebuilt icon node from codegen. */
+  icon?: string | React.ReactNode;
   /** Soft branded card (default) or dense strip cell for shared KPI rows. */
   variant?: StatCardVariant;
   className?: string;
+}
+
+function resolveIcon(icon: string | React.ReactNode | undefined, className: string) {
+  if (typeof icon === 'string' || icon == null) {
+    return <UiIcon name={typeof icon === 'string' ? icon : 'chart'} className={className} />;
+  }
+  return icon;
 }
 
 /** KPI tile — brand-token card by default for ops dashboards. */
@@ -35,7 +42,7 @@ export function StatCard({
     return (
       <div className={cn('border-r border-border-subtle pr-5 last:border-r-0', className)}>
         <div className="flex items-center gap-2">
-          <UiIcon name={icon} className="h-3.5 w-3.5 text-brand" />
+          {resolveIcon(icon, 'h-3.5 w-3.5 text-brand')}
           <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">{label}</p>
         </div>
         <div className="mt-3 flex items-baseline gap-2">
@@ -75,7 +82,7 @@ export function StatCard({
         <div className="relative flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-muted">{label}</p>
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-[calc(var(--radius-ui)+0.2rem)] bg-[color-mix(in_srgb,var(--color-brand)_14%,white)] text-brand ring-1 ring-brand/10">
-            <UiIcon name={icon} className="h-4 w-4" />
+            {resolveIcon(icon, 'h-4 w-4')}
           </span>
         </div>
         <div className="relative mt-4 flex items-end gap-2">

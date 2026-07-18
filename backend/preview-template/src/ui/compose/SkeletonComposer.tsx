@@ -8,6 +8,8 @@ export interface SkeletonComposerProps {
   skeletonId: SkeletonId;
   /** Map of section id → rendered catalogue subtree. Composer decides order. */
   slots: SkeletonSlots;
+  /** Optional recipe/template-driven order; falls back to skeleton.recommendedOrder. */
+  order?: readonly string[];
 }
 
 export interface ComposedSkeletonLayout {
@@ -28,18 +30,30 @@ function assertRequiredSections(skeletonId: SkeletonId, slots: SkeletonSlots) {
   return skeleton;
 }
 
+function resolveOrder(
+  skeleton: ReturnType<typeof getSkeleton>,
+  slots: SkeletonSlots,
+  order?: readonly string[],
+): string[] {
+  const sequence = (order && order.length > 0 ? order : skeleton.recommendedOrder).filter(
+    (section) => section !== 'shell' && slots[section] != null,
+  );
+  // Keep any provided slots the order list omitted (stable append).
+  for (const section of Object.keys(slots)) {
+    if (section !== 'shell' && slots[section] != null && !sequence.includes(section)) {
+      sequence.push(section);
+    }
+  }
+  return sequence;
+}
+
 /**
  * Drives page structure from the skeleton registry.
- * Pages supply content slots only; section order comes from recommendedOrder.
+ * Pages supply content slots; section order prefers recipe/template `order`.
  */
-export function SkeletonComposer({ skeletonId, slots }: SkeletonComposerProps) {
+export function SkeletonComposer({ skeletonId, slots, order }: SkeletonComposerProps) {
   const skeleton = assertRequiredSections(skeletonId, slots);
-
-  const ordered = skeleton.recommendedOrder.filter((section) => {
-    if (section === 'shell') return false;
-    if (slots[section] != null) return true;
-    return false;
-  });
+  const ordered = resolveOrder(skeleton, slots, order);
 
   return (
     <>
@@ -56,13 +70,14 @@ export function SkeletonComposer({ skeletonId, slots }: SkeletonComposerProps) {
  */
 export function composeSkeletonLayout(
   skeletonId: SkeletonId,
-  slots: SkeletonSlots
+  slots: SkeletonSlots,
+  order?: readonly string[],
 ): ComposedSkeletonLayout {
   const skeleton = assertRequiredSections(skeletonId, slots);
 
   if (skeletonId === 'ops-dashboard' && slots.activity != null) {
-    const mainOrder = skeleton.recommendedOrder.filter(
-      (section) => section !== 'shell' && section !== 'activity' && slots[section] != null
+    const mainOrder = resolveOrder(skeleton, slots, order).filter(
+      (section) => section !== 'activity',
     );
     return {
       main: (
@@ -77,7 +92,7 @@ export function composeSkeletonLayout(
   }
 
   return {
-    main: <SkeletonComposer skeletonId={skeletonId} slots={slots} />,
+    main: <SkeletonComposer skeletonId={skeletonId} slots={slots} order={order} />,
   };
 }
 

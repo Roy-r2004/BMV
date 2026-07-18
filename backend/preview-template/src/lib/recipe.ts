@@ -12,8 +12,9 @@ export type RecipeId =
 export type HeroVariant = 'cinematic' | 'service' | 'compact' | 'product' | 'editorial';
 export type FeatureVariant = 'bento' | 'grid' | 'alternating';
 
+/** One distinct hero composition per recipe — do not collapse pairs. */
 const HERO_BY_RECIPE: Record<RecipeId, HeroVariant> = {
-  editorial: 'cinematic',
+  editorial: 'editorial',
   'dense-ops': 'compact',
   'warm-service': 'service',
   'bold-retail': 'product',
@@ -25,9 +26,9 @@ const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
   editorial: 'alternating',
   'dense-ops': 'grid',
   'warm-service': 'bento',
-  'bold-retail': 'bento',
+  'bold-retail': 'grid',
   nocturne: 'alternating',
-  craft: 'alternating',
+  craft: 'bento',
 };
 
 export function currentRecipeId(): RecipeId {

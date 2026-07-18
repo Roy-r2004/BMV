@@ -15,6 +15,33 @@ _PACKS_DIR = Path(__file__).resolve().parent / "packs"
 _PUBLIC_HOME_SKELETONS = frozenset({"public-home", "public-service", "public-detail", "public-booking"})
 _UTILITY_SKELETON_PREFIXES = ("utility-", "member-", "checkout")
 
+# Shared business vocabulary that must never count as a unique industry hit.
+_WEAK_INDUSTRY_TOKENS = frozenset(
+    {
+        "studio",
+        "home",
+        "shop",
+        "store",
+        "service",
+        "services",
+        "business",
+        "online",
+        "local",
+        "class",
+        "classes",
+        "booking",
+        "bookings",
+        "craft",
+        "crafts",
+        "art",
+        "arts",
+        "design",
+        "creative",
+        "maker",
+        "makers",
+    }
+)
+
 
 @lru_cache(maxsize=1)
 def load_templates() -> dict[str, dict[str, Any]]:
@@ -68,26 +95,23 @@ def pick_template_id(
             continue
         if surface == "public" and not _is_public_marketing_skeleton(sk):
             continue
-        hit = len(tokens & tag_tokens)
-        if hit:
-            scored.append((hit * 10 + (seed % 3), tid))
+        overlap = tokens & tag_tokens
+        strong = {t for t in overlap if t not in _WEAK_INDUSTRY_TOKENS}
+        # Require a real match — shared words like "studio"/"home"/"arts" are too weak
+        # and were forcing pottery → fitness/agency packs.
+        if len(strong) >= 2:
+            scored.append((len(strong) * 10 + (seed % 3), tid))
+        elif len(strong) == 1:
+            # Allow only distinctive tags (length > 5) as a single-token hit.
+            distinctive = {t for t in strong if len(t) > 5}
+            if distinctive:
+                scored.append((8 + (seed % 3), tid))
     if scored:
         scored.sort(reverse=True)
         return scored[0][1]
 
-    # Soft fallback only among marketing homes for public; ops dashboards for ops.
-    candidates = [
-        tid
-        for tid in TEMPLATE_IDS
-        if tid in templates
-        and (
-            (_is_ops_skeleton(str(templates[tid].get("skeleton_id") or "")) if surface == "ops"
-             else _is_public_marketing_skeleton(str(templates[tid].get("skeleton_id") or "")))
-        )
-    ]
-    if not candidates:
-        return None
-    return candidates[seed % len(candidates)]
+    # No soft random fallback — wrong packs erase recipe faces.
+    return None
 
 
 def get_template(template_id: str | None) -> dict[str, Any] | None:

@@ -1,7 +1,7 @@
 {
   "id": "fitness-studio-home",
   "label": "Fitness / studio",
-  "industry_tags": ["fitness", "gym", "studio", "pilates", "yoga", "training", "coaching"],
+  "industry_tags": ["fitness", "gym", "pilates", "yoga", "training", "coaching", "workout", "crossfit"],
   "recipe_hint": "warm-service",
   "skeleton_id": "public-home",
   "section_order": ["hero", "features", "process", "results", "testimonials", "booking", "cta", "footer"],

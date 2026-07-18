@@ -42,6 +42,17 @@ def assigned_non_shell_slots(route: dict) -> list[str]:
         if section != "shell"
     ]
     selected = set(required + assigned)
+    # Prefer the route's recipe/template order when present.
+    if assigned:
+        ordered = [section for section in assigned if section in selected]
+        for section in required:
+            if section not in ordered:
+                ordered.append(section)
+        for section in skeleton.get("recommendedOrder") or []:
+            name = str(section)
+            if name != "shell" and name in selected and name not in ordered:
+                ordered.append(name)
+        return ordered
     order = [
         str(section)
         for section in skeleton.get("recommendedOrder") or []

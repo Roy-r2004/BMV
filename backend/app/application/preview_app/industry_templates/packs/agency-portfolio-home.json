@@ -1,7 +1,7 @@
 {
   "id": "agency-portfolio-home",
   "label": "Agency / studio portfolio",
-  "industry_tags": ["agency", "studio", "design", "creative", "portfolio", "marketing", "art", "gallery", "artist", "painter"],
+  "industry_tags": ["agency", "portfolio", "marketing", "branding", "advertising", "consultancy"],
   "recipe_hint": "editorial",
   "skeleton_id": "public-home",
   "section_order": ["hero", "showcase", "features", "process", "testimonials", "cta", "footer"],

@@ -99,11 +99,15 @@ def repair_skeleton_composer_invocation(
                 1,
             )
 
-    composer_jsx = (
-        "<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />"
-        if skeleton_id != "ops-dashboard"
-        else None
-    )
+    composer_jsx = None
+    if skeleton_id != "ops-dashboard":
+        # Preserve recipe order when the page already declares RECIPE_ORDER.
+        if "RECIPE_ORDER" in repaired:
+            composer_jsx = (
+                "<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} order={RECIPE_ORDER} />"
+            )
+        else:
+            composer_jsx = "<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />"
     if composer_jsx:
         if _COMPOSER_INVOCATION_RE.search(repaired):
             repaired = _COMPOSER_INVOCATION_RE.sub(composer_jsx, repaired, count=1)

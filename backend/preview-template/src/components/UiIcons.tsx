@@ -29,9 +29,14 @@ const icons: Record<string, LucideIcon> = {
   default: Circle,
 };
 
-export function UiIcon({ name, className = 'w-5 h-5' }: { name: string; className?: string }) {
-  const key = (name || 'default').toLowerCase();
-  const Icon = icons[key] ?? icons.default;
+function iconKey(name: unknown): string {
+  if (typeof name === 'string' && name.trim()) return name.trim().toLowerCase();
+  return 'default';
+}
+
+export function UiIcon({ name, className = 'w-5 h-5' }: { name?: unknown; className?: string }) {
+  // Generators sometimes pass a React node; never crash the preview on that.
+  const Icon = icons[iconKey(name)] ?? icons.default;
   return <Icon aria-hidden="true" className={className} strokeWidth={1.75} />;
 }
 

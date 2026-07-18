@@ -32,15 +32,13 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 3%, #fffdf8), transparent 42%)"
             ),
         },
-        "hero_variant": "cinematic",
+        "hero_variant": "editorial",
         "feature_variant": "alternating",
         "section_orders": {
             "public-home": [
                 "hero",
                 "credentials",
                 "showcase",
-                "features",
-                "process",
                 "testimonials",
                 "cta",
                 "footer",
@@ -92,7 +90,6 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "features",
                 "results",
                 "process",
-                "showcase",
                 "cta",
                 "footer",
             ],
@@ -196,8 +193,6 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "hero",
                 "showcase",
                 "features",
-                "results",
-                "testimonials",
                 "cta",
                 "footer",
             ],
@@ -246,7 +241,6 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-home": [
                 "hero",
                 "showcase",
-                "features",
                 "testimonials",
                 "cta",
                 "footer",
@@ -295,9 +289,7 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "hero",
                 "process",
                 "showcase",
-                "features",
                 "credentials",
-                "testimonials",
                 "cta",
                 "footer",
             ],
@@ -408,16 +400,43 @@ def apply_recipe_to_plan(
 
 
 def recipe_section_slots(skeleton_id: str, recipe: dict[str, Any], current: list[str]) -> list[str]:
-    """Reorder (and optionally enrich) slots using the recipe's preferred order."""
+    """Apply recipe section order — for public-home, recipe owns the middle stack.
+
+    Other skeletons keep a softer reorder of whatever was already assigned.
+    """
     preferred = list((recipe.get("section_orders") or {}).get(skeleton_id) or [])
     if not preferred:
         return current
+
+    from app.application.ui_catalogue import get_skeleton
+
+    skeleton = get_skeleton(skeleton_id)
+    allowed = set(skeleton.get("requiredSections") or []) | set(
+        skeleton.get("optionalSections") or []
+    )
+    allowed.discard("shell")
+    required = [slot for slot in (skeleton.get("requiredSections") or []) if slot != "shell"]
+
+    # Home pages: recipe face wins (do not force every optional mid-stack slot).
+    if skeleton_id == "public-home":
+        ordered = [slot for slot in preferred if slot in allowed]
+        for req in required:
+            if req in ordered:
+                continue
+            if "cta" in ordered:
+                ordered.insert(ordered.index("cta"), req)
+            else:
+                ordered.append(req)
+        return ordered
+
     current_set = set(current)
-    ordered = [slot for slot in preferred if slot in current_set]
-    # Keep any assigned slots the recipe didn't mention (stable append).
+    ordered = [slot for slot in preferred if slot in current_set and slot in allowed]
     for slot in current:
-        if slot not in ordered:
+        if slot not in ordered and slot in allowed:
             ordered.append(slot)
+    for req in required:
+        if req not in ordered:
+            ordered.append(req)
     return ordered
 
 
@@ -435,11 +454,21 @@ def apply_recipe_to_architect(architect: dict[str, Any], plan: dict[str, Any]) -
         slots = list(item.get("section_slots") or [])
         if skeleton_id and slots:
             item["section_slots"] = recipe_section_slots(skeleton_id, recipe, slots)
-            # Industry template wins section rhythm on the primary public home.
+            # Template may refine home rhythm only when its recipe_hint matches.
+            template_hint = str(
+                (plan.get("design_system") or {}).get("template_recipe_hint")
+                or plan.get("template_recipe_hint")
+                or ""
+            ).strip()
+            recipe_id = str(recipe.get("id") or "")
+            # Fail closed: only override when the pack explicitly targets this recipe.
+            # Missing hints used to wipe recipe faces (e.g. pottery → agency stack).
             if (
                 template_order
                 and skeleton_id == "public-home"
                 and str(item.get("path") or "") in {"/", "/home"}
+                and template_hint
+                and template_hint == recipe_id
             ):
                 item["section_slots"] = recipe_section_slots(
                     skeleton_id,

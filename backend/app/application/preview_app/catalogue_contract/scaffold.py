@@ -254,25 +254,35 @@ def minimal_catalogue_page_scaffold(
         cta = "memberCta" if is_member else "publicCta"
         nav_import = f"import {{ {hook}, {cta} }} from '@/lib/app-nav';\n"
         nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
-        # Cinematic homes get the transparent-over-hero header by default.
+        # Immersive chrome suits full-bleed heroes (retail/nocturne/editorial).
         chrome_attr = ' chrome="immersive"' if skeleton_id == "public-home" else ""
+        use_recipe_order = skeleton_id == "public-home" and bool(slots)
+        composer = (
+            "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} order={RECIPE_ORDER} />\n"
+            if use_recipe_order
+            else "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
+        )
         body = (
             "  return (\n"
             f'    <{shell} brandName={{{json.dumps(brand)}}}{chrome_attr} '
             f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>\n'
             f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>\n"
             f"{appspec_hook_spans}"
-            "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
+            f"{composer}"
             "      </div>\n"
             f"    </{shell}>\n"
             "  );"
         )
+    order_const = (
+        f"const RECIPE_ORDER = {json.dumps(slots)} as const;\n\n"
+        if skeleton_id == "public-home" and slots
+        else ""
+    )
     return f"""// deterministic catalogue contract scaffold
 {nav_import}{images_import}import {{ {", ".join(components)} }} from '@/ui';
 
 const SKELETON_ID = {json.dumps(skeleton_id)} as const;
-
-export default function {component}() {{
+{order_const}export default function {component}() {{
 {nav_hook}  const skeleton = getSkeleton(SKELETON_ID);
   const slots = {{
 {slot_lines}

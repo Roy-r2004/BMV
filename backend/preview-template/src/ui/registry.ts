@@ -337,9 +337,20 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     id: 'public-home',
     surface: 'public',
     shell: 'PublicShell',
-    purpose: 'Marketing landing with cinematic hero and varied section hierarchy.',
-    requiredSections: ['shell', 'hero', 'features', 'showcase', 'process', 'testimonials', 'cta', 'footer'],
-    optionalSections: ['trust', 'credentials', 'spotlight', 'results', 'booking'],
+    purpose:
+      'Marketing landing — only hero/cta/footer are required; recipe/template chooses the middle stack.',
+    requiredSections: ['shell', 'hero', 'cta', 'footer'],
+    optionalSections: [
+      'trust',
+      'credentials',
+      'features',
+      'spotlight',
+      'showcase',
+      'results',
+      'process',
+      'testimonials',
+      'booking',
+    ],
     recommendedOrder: [
       'shell',
       'hero',

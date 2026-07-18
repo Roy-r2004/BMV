@@ -7,11 +7,19 @@ import { cn } from '../lib/cn';
 export interface SpotlightCardProps {
   title: string;
   description: string;
-  icon?: string;
+  /** Lucide key (e.g. "zap") or a prebuilt icon node from codegen. */
+  icon?: string | React.ReactNode;
   className?: string;
 }
 
 export function SpotlightCard({ className, description, icon = 'zap', title }: SpotlightCardProps) {
+  const iconNode =
+    typeof icon === 'string' || icon == null ? (
+      <UiIcon name={typeof icon === 'string' ? icon : 'zap'} className="h-5 w-5" />
+    ) : (
+      icon
+    );
+
   return (
     <MotionReveal>
       <article
@@ -27,7 +35,7 @@ export function SpotlightCard({ className, description, icon = 'zap', title }: S
         />
         <div className="relative flex flex-col gap-5 md:flex-row md:items-start md:gap-10">
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand ring-1 ring-brand/15 transition group-hover:bg-brand group-hover:text-white">
-            <UiIcon name={icon} className="h-5 w-5" />
+            {iconNode}
           </span>
           <div>
             <h3 className="font-display text-[clamp(2rem,3.5vw,3.25rem)] italic tracking-tight text-foreground">
