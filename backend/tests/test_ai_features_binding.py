@@ -9,6 +9,8 @@ from app.application.services.ai_features import (
     PAGE_AI_HUB_ID,
     assign_feature_placements,
     bind_ai_features_to_app_spec,
+    build_business_demo_scripts,
+    enrich_feature,
     extract_ai_features_from_blueprint,
     missing_ai_feature_ids_in_workspace,
     parse_ai_features,
@@ -104,6 +106,64 @@ def test_assign_feature_placements_picks_workflow_routes():
     assert by_id["owner-daily-digest"]["placement_path"] == "/owner/dashboard"
     assert by_id["class-waitlist-ai"]["placement_path"] in {"/owner/waitlists", "/classes/book"}
     assert by_id["studio-faq-assistant"]["demo_prompts"]
+
+
+POTTERY_CONTEXT = {
+    "business_name": "Clay & Kiln",
+    "industry": "pottery studio",
+    "business_description": "Studio pottery shop with glaze recipes and kiln firing classes",
+    "main_problem": "Shoppers ask the same glaze and firing questions all day",
+    "desired_outcome": "Instant answers about glaze, firing, and class seats",
+    "concept_name": "The Kiln Keeper",
+    "mvp_blueprint": "FAQ covers glaze chemistry and kiln schedules for beginners",
+}
+
+
+def test_business_demo_scripts_use_domain_terms_not_generic_hours():
+    feature = {
+        "id": "studio-faq-assistant",
+        "name": "Studio FAQ assistant",
+        "description": "answers glaze and firing questions for shoppers",
+        "category": "chat",
+    }
+    scripts = build_business_demo_scripts(feature, POTTERY_CONTEXT)
+    joined = " ".join(scripts["demo_prompts"]).lower()
+    assert "what are your hours" not in joined
+    assert "how does pricing work" not in joined
+    assert any(term in joined for term in ("glaze", "firing", "pottery", "kiln", "clay"))
+    assert "clay & kiln" in joined or "pottery" in joined
+    assert scripts["demo_results"]
+    for prompt in scripts["demo_prompts"]:
+        assert prompt in scripts["demo_results"]
+        assert "clay & kiln" in scripts["demo_results"][prompt].lower()
+
+
+def test_enrich_feature_with_context_overwrites_generic_demos():
+    feature = {
+        "id": "studio-faq-assistant",
+        "name": "Studio FAQ assistant",
+        "description": "answers glaze and firing questions for shoppers",
+        "category": "chat",
+        "demo_prompts": ["What are your hours this week?"],
+    }
+    enriched = enrich_feature(feature, context=POTTERY_CONTEXT)
+    joined = " ".join(enriched["demo_prompts"]).lower()
+    assert "what are your hours this week" not in joined
+    assert any(term in joined for term in ("glaze", "firing", "pottery", "kiln"))
+    assert enriched["demo_results"]
+
+
+def test_assign_feature_placements_keeps_business_demo_scripts():
+    features = extract_ai_features_from_blueprint(BLUEPRINT)
+    routes = [
+        {"path": "/faq", "title": "FAQ", "component_file": "src/pages/FaqPage.tsx", "purpose": "assistant"},
+        {"path": "/owner/dashboard", "title": "Dashboard", "component_file": "src/pages/owner/DashboardPage.tsx"},
+    ]
+    placed = assign_feature_placements(features, routes, context=POTTERY_CONTEXT)
+    faq = next(f for f in placed if f["id"] == "studio-faq-assistant")
+    joined = " ".join(faq["demo_prompts"]).lower()
+    assert "what are your hours" not in joined
+    assert faq["demo_results"]
 
 
 def test_inject_ai_panel_into_page_is_idempotent():

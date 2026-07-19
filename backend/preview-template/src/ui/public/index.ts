@@ -27,3 +27,7 @@ export {
   AiFeaturePanel,
   type AiFeaturePanelProps,
 } from './AiFeaturePanel';
+export {
+  AiFeatureStage,
+  type AiFeatureStageProps,
+} from './AiFeatureStage';

@@ -1,22 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Badge } from '../core/Badge';
-import { Button } from '../core/Button';
-import { Input } from '../core/Input';
-import { cn } from '../lib/cn';
+import { useMemo } from 'react';
 
-export type AiFeatureItem = {
-  id: string;
-  name: string;
-  description?: string;
-  category?: string;
-  surface?: string;
-  demo_hint?: string;
-  demo_prompts?: string[];
-  placement_label?: string;
-  placement_path?: string;
-  placement_title?: string;
-  placement_component?: string;
-};
+import { MotionReveal, MotionStagger, MotionStaggerItem } from '../motion';
+import { cn } from '../lib/cn';
+import {
+  AiFeatureStage,
+  categoryLabel,
+  type AiFeatureItem,
+} from './AiFeatureStage';
+
+export type { AiFeatureItem };
 
 export type AiFeatureDeckProps = {
   features: AiFeatureItem[];
@@ -24,84 +16,63 @@ export type AiFeatureDeckProps = {
   className?: string;
 };
 
-function categoryLabel(category: string | undefined): string {
-  const c = (category || 'automation').toLowerCase();
-  const map: Record<string, string> = {
-    chat: 'Assistant',
-    scheduling: 'Scheduling',
-    digest: 'Digest',
-    scoring: 'Scoring',
-    automation: 'Automation',
-    ops: 'Ops AI',
-  };
-  return map[c] || 'AI';
-}
-
-function FeatureWidget({
+function FeatureStageRow({
   feature,
   brandName,
+  index,
 }: {
   feature: AiFeatureItem;
   brandName: string;
+  index: number;
 }) {
   const category = (feature.category || feature.surface || 'automation').toLowerCase();
-  const [input, setInput] = useState('');
-  const [output, setOutput] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const run = () => {
-    setBusy(true);
-    window.setTimeout(() => {
-      const prompt = input.trim() || feature.name;
-      if (category === 'chat') {
-        setOutput(
-          `${brandName} assistant: Based on “${prompt}”, here is a clear next step and what I need from you.`,
-        );
-      } else if (category === 'scheduling') {
-        setOutput(`Suggested: Thu 10:00 · Fri 14:30 · Mon 09:15 — best fit for “${prompt}”.`);
-      } else if (category === 'digest') {
-        setOutput(`Digest ready: 3 priorities, 1 risk, 1 win related to “${prompt}”.`);
-      } else if (category === 'scoring') {
-        setOutput(`Score 82/100 for “${prompt}” — high intent, follow up today.`);
-      } else if (category === 'ops') {
-        setOutput(`Routed “${prompt}” to the right queue with checklist + owner.`);
-      } else {
-        setOutput(`Automation drafted for “${prompt}” — review → approve → run.`);
-      }
-      setBusy(false);
-    }, 280);
-  };
+  const inContext =
+    feature.placement_path && feature.placement_path !== '/ai-features'
+      ? feature.placement_path
+      : null;
 
   return (
-    <section
-      className="rounded-2xl border border-black/10 bg-white/80 p-5 shadow-sm"
-      data-ai-feature={feature.id}
-      aria-label={feature.name}
-    >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{categoryLabel(category)}</Badge>
-        <h3 className="text-base font-semibold tracking-tight text-neutral-900">{feature.name}</h3>
-      </div>
-      <p className="mb-4 text-sm leading-relaxed text-neutral-600">
-        {feature.description || feature.name}
-      </p>
-      <div className="space-y-3">
-        <Input
-          label="Try it"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={`Ask ${feature.name.toLowerCase()}…`}
-        />
-        <Button type="button" onClick={run} disabled={busy}>
-          {busy ? 'Running…' : 'Run AI'}
-        </Button>
-        {output ? (
-          <div className="rounded-xl bg-neutral-950 px-4 py-3 text-sm leading-relaxed text-neutral-100">
-            {output}
+    <MotionStaggerItem>
+      <article
+        className="grid items-start gap-8 border-t border-black/[0.06] py-12 first:border-t-0 first:pt-0 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12"
+        data-ai-feature={feature.id}
+        aria-label={feature.name}
+      >
+        <div className="max-w-md">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[11px] tabular-nums text-neutral-400">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className="rounded-full border border-black/8 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+              {categoryLabel(category)}
+            </span>
           </div>
-        ) : null}
-      </div>
-    </section>
+          <h3 className="mt-4 font-display text-[clamp(2rem,3.4vw,2.85rem)] italic leading-[1.05] tracking-tight text-foreground">
+            {feature.name}
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-neutral-600 sm:text-[15px]">
+            {feature.description || feature.name}
+          </p>
+          {inContext ? (
+            <a
+              href={inContext}
+              className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-foreground underline-offset-4 transition hover:underline"
+            >
+              See it in context
+              {feature.placement_title ? (
+                <span className="font-normal text-neutral-500">· {feature.placement_title}</span>
+              ) : null}
+              <span aria-hidden="true">→</span>
+            </a>
+          ) : (
+            <p className="mt-6 text-xs font-medium uppercase tracking-[0.16em] text-neutral-400">
+              Previewed on this hub
+            </p>
+          )}
+        </div>
+        <AiFeatureStage feature={feature} brandName={brandName} />
+      </article>
+    </MotionStaggerItem>
   );
 }
 
@@ -120,34 +91,35 @@ export function AiFeatureDeck({ features, brandName = 'Brand', className }: AiFe
   }
 
   return (
-    <section className={cn('px-6 py-12 sm:px-10', className)} data-ai-feature-deck="">
-      <div className="mx-auto max-w-5xl">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
-          AI in your product
-        </p>
-        <h2 className="mb-2 text-3xl font-semibold tracking-tight text-neutral-950">
-          Every AI feature from your plan
-        </h2>
-        <p className="mb-8 max-w-2xl text-sm leading-relaxed text-neutral-600">
-          These are the AI capabilities proposed for {brandName}. Each one is interactive in this
-          preview — not just listed in the proposal.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2">
-          {items.map((feature) => (
-            <div key={feature.id} className="space-y-2">
-              <FeatureWidget feature={feature} brandName={brandName} />
-              {feature.placement_path && feature.placement_path !== '/ai-features' ? (
-                <a
-                  href={feature.placement_path}
-                  className="inline-flex text-sm font-semibold text-neutral-800 underline-offset-4 hover:underline"
-                >
-                  See it in context
-                  {feature.placement_title ? ` · ${feature.placement_title}` : ''} →
-                </a>
-              ) : null}
-            </div>
+    <section
+      className={cn('relative isolate overflow-hidden px-6 py-16 sm:px-10 sm:py-20', className)}
+      data-ai-feature-deck=""
+    >
+      <div className="ui-mesh opacity-40" aria-hidden="true" />
+      <div className="relative mx-auto max-w-6xl">
+        <MotionReveal>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--color-brand)]">
+            AI in your product
+          </p>
+          <h2 className="mt-4 max-w-3xl font-display text-[clamp(2.75rem,6vw,4.75rem)] italic leading-[0.92] tracking-[-0.03em] text-foreground">
+            Every AI feature from your plan — live
+          </h2>
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:text-base">
+            These are the capabilities proposed for {brandName}. Open a conversation below, or jump
+            into the page where each one actually lives.
+          </p>
+        </MotionReveal>
+
+        <MotionStagger className="mt-14">
+          {items.map((feature, index) => (
+            <FeatureStageRow
+              key={feature.id}
+              feature={feature}
+              brandName={brandName}
+              index={index}
+            />
           ))}
-        </div>
+        </MotionStagger>
       </div>
     </section>
   );

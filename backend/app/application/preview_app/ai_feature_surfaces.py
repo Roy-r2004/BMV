@@ -16,6 +16,7 @@ from app.application.services.ai_features import (
     ai_feature_hub_page_source,
     ai_features_from_request,
     assign_feature_placements,
+    business_context_from_request,
     missing_ai_feature_ids_in_workspace,
 )
 from app.application.preview_app.workspace import read_file, write_file
@@ -39,7 +40,12 @@ def _features_for(req: Any, architect: Mapping[str, Any]) -> list[dict[str, Any]
     return []
 
 
-def ensure_ai_feature_route(architect: dict[str, Any], features: list[dict[str, Any]]) -> dict:
+def ensure_ai_feature_route(
+    architect: dict[str, Any],
+    features: list[dict[str, Any]],
+    *,
+    context: Mapping[str, str] | None = None,
+) -> dict:
     """Ensure architect has a public route for the AI feature hub."""
     if not features:
         return architect
@@ -70,7 +76,7 @@ def ensure_ai_feature_route(architect: dict[str, Any], features: list[dict[str, 
             role_id = str(role["id"])
             break
 
-    placed = assign_feature_placements(features, routes)
+    placed = assign_feature_placements(features, routes, context=context)
     evidence_ids = list((existing or {}).get("evidence_ids") or [])
     route = {
         "path": PAGE_AI_HUB_ROUTE,
@@ -271,7 +277,11 @@ def ensure_ai_feature_surfaces(
     features = _features_for(req, architect)
     if not features:
         return []
-    ensure_ai_feature_route(architect, features)
+    ensure_ai_feature_route(
+        architect,
+        features,
+        context=business_context_from_request(req),
+    )
     features = list(architect.get("ai_features") or features)
     write_ai_features_mock(workspace, features)
     route = next(

@@ -171,10 +171,17 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         ensure_ai_feature_route,
         ensure_ai_feature_surfaces,
     )
-    from app.application.services.ai_features import ai_features_from_request
+    from app.application.services.ai_features import (
+        ai_features_from_request,
+        business_context_from_request,
+    )
 
     # Route must exist before mock nav is written so the hub is linked.
-    ensure_ai_feature_route(architect, ai_features_from_request(req))
+    ensure_ai_feature_route(
+        architect,
+        ai_features_from_request(req),
+        context=business_context_from_request(req),
+    )
     write_plumbing_mock(
         workspace,
         architect,

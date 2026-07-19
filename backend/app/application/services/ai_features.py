@@ -127,22 +127,258 @@ def infer_category(name: str, description: str = "") -> str:
     return "automation"
 
 
+_STOPWORDS = {
+    "a", "an", "the", "and", "or", "for", "with", "from", "that", "this", "these",
+    "those", "into", "your", "their", "about", "using", "using", "when", "what",
+    "how", "can", "will", "are", "is", "to", "of", "in", "on", "at", "by", "as",
+    "it", "its", "be", "been", "was", "were", "have", "has", "had", "do", "does",
+    "did", "not", "no", "yes", "each", "every", "also", "than", "then", "them",
+    "they", "you", "we", "our", "real", "value", "feature", "features", "ai",
+    "assistant", "automation", "customer", "customers", "business", "owner",
+}
+
+
 def _demo_payload(category: str) -> dict[str, Any]:
-    return dict(_DEMO_BY_CATEGORY.get(category) or _DEMO_BY_CATEGORY["automation"])
+    base = dict(_DEMO_BY_CATEGORY.get(category) or _DEMO_BY_CATEGORY["automation"])
+    base["demo_prompts"] = list(base.get("demo_prompts") or [])
+    return base
 
 
-def enrich_feature(feature: Mapping[str, Any]) -> dict[str, Any]:
+def business_context_from_request(req: Any) -> dict[str, str]:
+    """Collect business-specific text used to personalize demo scripts."""
+    return {
+        "business_name": str(getattr(req, "business_name", None) or "").strip(),
+        "industry": str(getattr(req, "industry", None) or "").strip(),
+        "business_description": str(getattr(req, "business_description", None) or "").strip(),
+        "main_problem": str(getattr(req, "main_problem", None) or "").strip(),
+        "desired_outcome": str(getattr(req, "desired_outcome", None) or "").strip(),
+        "concept_name": str(getattr(req, "concept_name", None) or "").strip(),
+        "mvp_blueprint": str(getattr(req, "mvp_blueprint", None) or "")[:2500],
+    }
+
+
+def _topic_terms(*parts: str, limit: int = 8) -> list[str]:
+    """Pull concrete nouns/phrases from business + feature copy."""
+    blob = " ".join(p for p in parts if p)
+    if not blob:
+        return []
+    # Prefer multi-word phrases that look domain-specific.
+    phrases = re.findall(
+        r"\b(?:[A-Za-z][A-Za-z0-9]+(?:\s+[A-Za-z][A-Za-z0-9]+){1,2})\b",
+        blob,
+    )
+    words = re.findall(r"\b[A-Za-z][A-Za-z0-9-]{3,}\b", blob)
+    scored: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for raw in phrases + words:
+        text = re.sub(r"\s+", " ", raw.strip())
+        folded = text.casefold()
+        if folded in seen or folded in _STOPWORDS:
+            continue
+        tokens = folded.split()
+        if all(tok in _STOPWORDS for tok in tokens):
+            continue
+        if len(tokens) == 1 and len(folded) < 4:
+            continue
+        seen.add(folded)
+        # Prefer feature-description phrases (appear earlier in joined blob).
+        score = 10 if " " in text else 4
+        if any(ch.isdigit() for ch in text):
+            score -= 2
+        scored.append((score, text))
+    scored.sort(key=lambda item: (-item[0], len(item[1])))
+    return [item[1] for item in scored[:limit]]
+
+
+def build_business_demo_scripts(
+    feature: Mapping[str, Any],
+    context: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build try-this prompts + canned answers grounded in this business."""
+    ctx = dict(context or {})
+    category = str(feature.get("category") or feature.get("surface") or "automation").lower()
+    if category not in _DEMO_BY_CATEGORY:
+        category = infer_category(str(feature.get("name") or ""), str(feature.get("description") or ""))
+    fallback = _demo_payload(category)
+    name = str(feature.get("name") or "AI feature").strip()
+    description = str(feature.get("description") or name).strip()
+    biz = ctx.get("business_name") or ctx.get("concept_name") or "the studio"
+    industry = ctx.get("industry") or "this business"
+
+    terms = _topic_terms(
+        description,
+        name,
+        ctx.get("main_problem", ""),
+        ctx.get("desired_outcome", ""),
+        ctx.get("business_description", "")[:500],
+        industry,
+        ctx.get("mvp_blueprint", "")[:800],
+    )
+    t0 = terms[0] if terms else industry
+    t1 = terms[1] if len(terms) > 1 else name
+    t2 = terms[2] if len(terms) > 2 else (terms[0] if terms else "today")
+
+    if category == "chat":
+        prompts = [
+            f"What should I know about {t0}?",
+            f"How does {t1} work at {biz}?",
+            f"Can beginners get help with {t2} this week?",
+        ]
+        hint = f"Ask something a real {industry or 'customer'} would ask {biz}"
+        results = {
+            prompts[0]: (
+                f"{biz}: For “{prompts[0]}” — {description.rstrip('.')} "
+                f"Here’s the short answer, what to prepare, and when a human should join."
+            ),
+            prompts[1]: (
+                f"{biz}: “{prompts[1]}” — we walk customers through {t1} step by step, "
+                f"including timing, cost cues, and the next action to take."
+            ),
+            prompts[2]: (
+                f"{biz}: Yes — for “{prompts[2]}”, the assistant qualifies the request, "
+                f"shares what {t2} involves, and offers the best next booking path."
+            ),
+        }
+    elif category == "scheduling":
+        prompts = [
+            f"Next opening for {t0}",
+            f"Any {t1} slots this weekend?",
+            f"Book the soonest session related to {t2}",
+        ]
+        hint = f"Ask for availability in {biz}'s real schedule"
+        results = {
+            prompts[0]: (
+                f"Best fits for “{prompts[0]}”: Thu 10:00 · Fri 14:30 · Mon 09:15 — "
+                f"holds a seat for {t0} at {biz}."
+            ),
+            prompts[1]: (
+                f"Weekend openings for “{prompts[1]}”: Sat 11:00 · Sun 15:30. "
+                f"Capacity updates as {t1} fills."
+            ),
+            prompts[2]: (
+                f"Held the soonest match for “{prompts[2]}”. Confirmation draft ready; "
+                f"customer can confirm in one tap."
+            ),
+        }
+    elif category == "digest":
+        prompts = [
+            f"Summarize {t0} for today",
+            f"What needs attention around {t1}?",
+            f"Top priorities for {biz}",
+        ]
+        hint = f"Generate today's brief for {biz}"
+        results = {
+            prompts[0]: (
+                f"Daily brief — “{prompts[0]}”: 3 priorities · 1 risk · 1 win tied to {t0}. "
+                f"Owner can act in under a minute."
+            ),
+            prompts[1]: (
+                f"Attention list for “{prompts[1]}”: overdue follow-ups, capacity risk on {t1}, "
+                f"and one customer waiting on a reply."
+            ),
+            prompts[2]: (
+                f"Top priorities for {biz}: protect today's {t0}, clear the {t1} queue, "
+                f"and confirm tomorrow's commitments."
+            ),
+        }
+    elif category == "scoring":
+        prompts = [
+            f"Score this inquiry about {t0}",
+            f"Who should we call first about {t1}?",
+            f"Rank today's leads for {biz}",
+        ]
+        hint = f"Score a lead the way {biz} would"
+        results = {
+            prompts[0]: (
+                f"Score 86/100 for “{prompts[0]}” — high intent on {t0}. "
+                f"Suggested next step: call within 2 hours."
+            ),
+            prompts[1]: (
+                f"Call first: the lead asking about {t1}. "
+                f"Reason: urgency + fit with {biz}'s core offer."
+            ),
+            prompts[2]: (
+                f"Lead ranking for {biz}: 1) {t0} inquiry 2) {t1} follow-up 3) browse-only. "
+                f"Focus staff time on the top two."
+            ),
+        }
+    elif category == "ops":
+        prompts = [
+            f"Triage new requests about {t0}",
+            f"Assign an owner for this {t1} issue",
+            f"What should the {biz} team do next?",
+        ]
+        hint = f"Route ops work the way {biz} runs"
+        results = {
+            prompts[0]: (
+                f"Routed “{prompts[0]}” → queue + owner + checklist for {t0}. "
+                f"Status: In progress."
+            ),
+            prompts[1]: (
+                f"Assigned “{prompts[1]}” to the best available owner with a {t1} checklist "
+                f"and due time today."
+            ),
+            prompts[2]: (
+                f"Next for {biz}: clear the {t0} backlog, confirm {t1}, then review tonight's handoff."
+            ),
+        }
+    else:  # automation
+        prompts = [
+            f"Notify the next person waiting for {t0}",
+            f"Chase what's missing for {t1}",
+            f"Run tonight's follow-ups for {biz}",
+        ]
+        hint = f"Trigger the automation {biz} actually needs"
+        results = {
+            prompts[0]: (
+                f"Automation for “{prompts[0]}”: message drafted, spot held for 30 minutes, "
+                f"next guest in line ready if they decline."
+            ),
+            prompts[1]: (
+                f"Chase sequence for “{prompts[1]}”: reminder #1 sent about {t1}, "
+                f"escalates tomorrow if still open."
+            ),
+            prompts[2]: (
+                f"Tonight's follow-ups for {biz} are queued — review → approve → run. "
+                f"Covers {t0} and {t1}."
+            ),
+        }
+
+    # Keep prompts short for chips.
+    prompts = [p[:90] for p in prompts]
+    results = {k[:90]: v for k, v in results.items()}
+    return {
+        "demo_hint": hint,
+        "demo_prompts": prompts or list(fallback["demo_prompts"]),
+        "demo_results": results,
+        "placement_label": fallback["placement_label"],
+    }
+
+
+def enrich_feature(
+    feature: Mapping[str, Any],
+    context: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     """Add demo script + placement metadata used by contextual panels."""
     out = dict(feature)
     category = str(out.get("category") or out.get("surface") or "automation").lower()
     if category not in _DEMO_BY_CATEGORY:
         category = infer_category(str(out.get("name") or ""), str(out.get("description") or ""))
-    demo = _demo_payload(category)
     out["category"] = category
     out["surface"] = str(out.get("surface") or category)
-    out.setdefault("demo_hint", demo["demo_hint"])
-    out.setdefault("demo_prompts", list(demo["demo_prompts"]))
-    out.setdefault("placement_label", demo["placement_label"])
+
+    if context and any(str(context.get(k) or "").strip() for k in context):
+        scripts = build_business_demo_scripts(out, context)
+        out["demo_hint"] = scripts["demo_hint"]
+        out["demo_prompts"] = list(scripts["demo_prompts"])
+        out["demo_results"] = dict(scripts["demo_results"])
+        out["placement_label"] = scripts["placement_label"]
+    else:
+        demo = _demo_payload(category)
+        out.setdefault("demo_hint", demo["demo_hint"])
+        out.setdefault("demo_prompts", list(demo["demo_prompts"]))
+        out.setdefault("placement_label", demo["placement_label"])
+        out.setdefault("demo_results", {})
     return out
 
 
@@ -167,6 +403,7 @@ def score_route_for_category(category: str, path: str, title: str = "", purpose:
 def assign_feature_placements(
     features: list[Mapping[str, Any]],
     routes: list[Mapping[str, Any]],
+    context: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Bind each feature to the best concrete route in the architect."""
     usable_routes = [
@@ -180,7 +417,7 @@ def assign_feature_placements(
     assigned: list[dict[str, Any]] = []
     used_paths: set[str] = set()
     for raw in features:
-        feature = enrich_feature(raw)
+        feature = enrich_feature(raw, context=context)
         category = str(feature.get("category") or "automation")
         ranked = sorted(
             usable_routes,
@@ -351,9 +588,11 @@ def ai_features_from_request(req: Any) -> list[dict[str, Any]]:
     if needs == "no":
         return []
     stored = parse_ai_features(getattr(req, "ai_features", None))
-    if stored:
-        return stored
-    return extract_ai_features_from_blueprint(getattr(req, "mvp_blueprint", None) or "")
+    features = stored or extract_ai_features_from_blueprint(
+        getattr(req, "mvp_blueprint", None) or ""
+    )
+    context = business_context_from_request(req)
+    return [enrich_feature(item, context=context) for item in features]
 
 
 def ai_features_from_source(source_snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
