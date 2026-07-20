@@ -62,49 +62,71 @@ export function MarketingHero({
     </div>
   );
 
-  /* ─── warm-service: soft stacked service hero (offer-first, cream, rounded photo) ─── */
+  /* ─── warm-service: full-bleed appetite cinema (not soft inset cards) ─── */
   if (resolved === 'service') {
     return (
       <section
         data-hero="service"
-        className={cn('relative isolate overflow-hidden bg-card px-6 py-14 lg:px-12 lg:py-20', className)}
+        className={cn('relative isolate min-h-[100svh] overflow-hidden bg-[#120e0c] text-white', className)}
       >
-        <div className="ui-mesh opacity-80" aria-hidden="true" />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 top-0 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_22%,transparent),transparent_68%)] blur-2xl"
+        <img
+          src={imageSrc}
+          alt={imageAlt}
+          className={cn(
+            'absolute inset-0 h-full w-full scale-105 object-cover object-center',
+            safe && 'ui-kenburns-cinematic'
+          )}
         />
-        <div className="relative mx-auto grid max-w-[92rem] items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div>
-            <AnimeHeroItem index={0}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand">
-                {brandName}
-              </p>
-            </AnimeHeroItem>
-            <AnimeHeroItem index={1}>
-              <h1 className={cn(display, 'mt-4 max-w-[16ch] text-[clamp(2.6rem,5.5vw,4.75rem)] leading-[0.95] text-foreground')}>
-                {headline}
-              </h1>
-            </AnimeHeroItem>
-            <AnimeHeroItem index={2}>
-              <p className="mt-5 max-w-md text-base leading-8 text-muted">{subcopy}</p>
-            </AnimeHeroItem>
-            <AnimeHeroItem index={3}>{ctas}</AnimeHeroItem>
-          </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#120e0c] via-[#120e0c]/55 to-[#120e0c]/15" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#120e0c]/85 via-[#120e0c]/35 to-transparent" />
+        <div className="ui-vignette opacity-80" />
+        <div className="ui-film-grain opacity-[0.32]" />
+        {safe ? <div className="ui-hero-sheen" /> : null}
+        {safe ? <div className="ui-light-sweep" aria-hidden="true" /> : null}
+        <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[92rem] flex-col justify-end px-6 pb-16 pt-28 sm:pb-20 lg:px-12 lg:pb-24">
+          <AnimeHeroItem index={0}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
+              {eyebrow || brandName}
+            </p>
+          </AnimeHeroItem>
           <AnimeHeroItem index={1}>
-            <div
+            <h1
               className={cn(
-                'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.75rem)] shadow-[var(--shadow-ui)] ring-1 ring-border-subtle',
-                safe && 'ui-float'
+                display,
+                'mt-5 max-w-[14ch] text-[clamp(3.2rem,9vw,7rem)] leading-[0.88] tracking-[-0.04em] text-white'
               )}
             >
-              <img
-                src={imageSrc}
-                alt={imageAlt}
-                className={cn('aspect-[5/4] w-full object-cover', safe && 'ui-kenburns')}
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-brand/15 via-transparent to-transparent" />
+              {headline}
+            </h1>
+          </AnimeHeroItem>
+          <AnimeHeroItem index={2}>
+            <p className="mt-6 max-w-md text-[1.05rem] leading-8 text-white/72">{subcopy}</p>
+          </AnimeHeroItem>
+          <AnimeHeroItem index={3}>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Button
+                href={primaryCta.href}
+                size="lg"
+                className="bg-white text-foreground shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] hover:bg-white/92"
+              >
+                {primaryCta.label}
+              </Button>
+              {secondaryCta ? (
+                <Button
+                  href={secondaryCta.href}
+                  size="lg"
+                  variant="outline"
+                  className="border-white/45 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15"
+                >
+                  {secondaryCta.label}
+                </Button>
+              ) : null}
             </div>
+          </AnimeHeroItem>
+          <AnimeHeroItem index={4}>
+            <p className={cn('mt-16 text-[10px] font-semibold uppercase tracking-[0.32em] text-white/40', safe && 'ui-scroll-cue')}>
+              Scroll to taste
+            </p>
           </AnimeHeroItem>
         </div>
       </section>
@@ -187,6 +209,7 @@ export function MarketingHero({
         <div className="ui-vignette opacity-85" />
         <div className="ui-film-grain opacity-[0.28]" />
         {safe ? <div className="ui-hero-sheen" /> : null}
+        {safe ? <div className="ui-light-sweep" aria-hidden="true" /> : null}
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[92rem] flex-col justify-end px-6 pb-16 pt-28 sm:pb-20 lg:px-12 lg:pb-24">
           <AnimeHeroItem index={0}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">

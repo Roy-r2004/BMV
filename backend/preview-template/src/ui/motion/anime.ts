@@ -24,10 +24,11 @@ export function playEntrance(
   opts: EntranceOpts = {},
 ): JSAnimation | null {
   if (prefersReducedMotion()) return null;
-  const { delay = 0, duration = 820, y = 22, blur = 6 } = opts;
+  const { delay = 0, duration = 1100, y = 42, blur = 14 } = opts;
   return animate(target, {
     opacity: [0, 1],
     translateY: [y, 0],
+    scale: [1.04, 1],
     filter: [`blur(${blur}px)`, 'blur(0px)'],
     ease: easeOut,
     duration,
@@ -41,11 +42,12 @@ export function staggerIn(
   opts: EntranceOpts & { staggerMs?: number } = {},
 ): JSAnimation | null {
   if (prefersReducedMotion()) return null;
-  const { delay = 0, duration = 560, y = 18, staggerMs = 90 } = opts;
+  const { delay = 0, duration = 720, y = 36, staggerMs = 110 } = opts;
   return animate(targets, {
     opacity: [0, 1],
     translateY: [y, 0],
-    scale: [0.985, 1],
+    scale: [0.96, 1],
+    filter: ['blur(8px)', 'blur(0px)'],
     ease: easeOut,
     duration,
     delay: stagger(staggerMs, { start: delay }),
@@ -101,7 +103,7 @@ export function observeSectionReveal(
     node.style.opacity = '1';
     return () => undefined;
   }
-  const { duration = 680, y = 28 } = opts;
+  const { duration = 920, y = 56 } = opts;
   node.style.opacity = '0';
   const io = new IntersectionObserver(
     (entries) => {
@@ -110,13 +112,15 @@ export function observeSectionReveal(
         animate(node, {
           opacity: [0, 1],
           translateY: [y, 0],
+          scale: [0.97, 1],
+          filter: ['blur(10px)', 'blur(0px)'],
           ease: easeOut,
           duration,
         } as AnimationParams);
         io.disconnect();
       }
     },
-    { threshold: 0.18, rootMargin: '0px 0px -8% 0px' },
+    { threshold: 0.12, rootMargin: '0px 0px -12% 0px' },
   );
   io.observe(node);
   return () => io.disconnect();

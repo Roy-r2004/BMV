@@ -66,10 +66,48 @@
 
 @keyframes ui-kenburns {
   from {
-    transform: scale(1.04);
+    transform: scale(1.06);
   }
   to {
-    transform: scale(1.14);
+    transform: scale(1.18);
+  }
+}
+
+@keyframes ui-kenburns-cinematic {
+  0% {
+    transform: scale(1.12) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.22) translate3d(-2.5%, -1.5%, 0);
+  }
+}
+
+@keyframes ui-light-sweep {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.55;
+  }
+  45% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: translateX(140%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes ui-scroll-cue {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateY(6px);
   }
 }
 
@@ -95,7 +133,29 @@
 }
 
 .ui-kenburns {
-  animation: ui-kenburns 32s ease-out both;
+  animation: ui-kenburns 22s ease-out both;
+}
+
+.ui-kenburns-cinematic {
+  animation: ui-kenburns-cinematic 18s ease-out both;
+  will-change: transform;
+}
+
+.ui-light-sweep {
+  pointer-events: none;
+  position: absolute;
+  inset: -10% -30%;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgb(255 255 255 / 0.22) 48%,
+    transparent 58%
+  );
+  animation: ui-light-sweep 2.8s ease-out 0.35s both;
+}
+
+.ui-scroll-cue {
+  animation: ui-scroll-cue 2.2s ease-in-out infinite;
 }
 
 .ui-marquee-track {
@@ -194,7 +254,10 @@
 @media (prefers-reduced-motion: reduce) {
   .ui-marquee-track,
   .ui-kenburns,
+  .ui-kenburns-cinematic,
   .ui-hero-sheen,
+  .ui-light-sweep,
+  .ui-scroll-cue,
   .ui-float {
     animation: none;
   }

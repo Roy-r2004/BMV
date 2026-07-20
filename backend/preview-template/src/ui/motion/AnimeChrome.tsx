@@ -34,7 +34,7 @@ export function AnimeHeroItem({
     el.style.opacity = '0';
     let anim: ReturnType<typeof playEntrance> = null;
     try {
-      anim = playEntrance(el, { delay: 60 + index * 110, y: 24, blur: 5 });
+      anim = playEntrance(el, { delay: 120 + index * 160, y: 48, blur: 16, duration: 1200 });
     } catch {
       el.style.opacity = '1';
       return;
@@ -46,7 +46,7 @@ export function AnimeHeroItem({
         el.style.filter = 'none';
         el.style.transform = 'none';
       }
-    }, 1200 + index * 110);
+    }, 1800 + index * 160);
     return () => {
       window.clearTimeout(fallback);
       anim?.pause?.();
@@ -95,11 +95,11 @@ export function AnimeStagger({ children, className, role }: BoxProps) {
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
-          staggerIn(kids, { staggerMs: 85, y: 20 });
+          staggerIn(kids, { staggerMs: 120, y: 40 });
           io.disconnect();
         }
       },
-      { threshold: 0.16 },
+      { threshold: 0.12 },
     );
     io.observe(el);
     return () => io.disconnect();
