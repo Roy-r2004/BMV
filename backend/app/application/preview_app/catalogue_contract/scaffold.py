@@ -58,10 +58,10 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
     samples = {
         "hero": (
             f'<MarketingHero brandName={{{brand_js}}} '
-            f'headline={{seed.hero.headline || {title_js}}} '
-            'subcopy={seed.hero.subcopy} '
-            'primaryCta={seed.hero.primaryCta} '
-            'secondaryCta={seed.hero.secondaryCta} '
+            f'headline={{seed.hero?.headline || {title_js}}} '
+            'subcopy={seed.hero?.subcopy} '
+            'primaryCta={seed.hero?.primaryCta} '
+            'secondaryCta={seed.hero?.secondaryCta} '
             'imageSrc={images.hero} imageAlt="" />'
         ),
         "features": (

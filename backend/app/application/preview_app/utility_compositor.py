@@ -13,12 +13,19 @@ from typing import Any
 
 UTILITY_SKELETON_ID = "public-utility"
 
-_WORKSPACE_TYPES = frozenset({"cart", "checkout", "tracking", "account", "generic"})
+_WORKSPACE_TYPES = frozenset(
+    {"cart", "checkout", "tracking", "account", "confirmation", "generic"}
+)
 
 
 def infer_utility_workspace_type(path: str = "", title: str = "", page_type: str = "") -> str:
     """Map route text → fixed workspace layout. Never ask the model for architecture."""
     blob = f"{path} {title} {page_type}".lower()
+    if re.search(
+        r"waitlist|confirm|confirmation|success|thank[- ]?you|booked|you're on",
+        blob,
+    ):
+        return "confirmation"
     if re.search(r"\bcart\b|basket|bag\b", blob):
         return "cart"
     if re.search(r"checkout|payment|pay\b|billing", blob):
@@ -181,6 +188,39 @@ def default_utility_content(
             },
             "footer": {"description": f"Signed-in experience for {brand} customers."},
         }
+    if workspace_type == "confirmation":
+        return {
+            "header": {
+                "title": page_title or "You're all set",
+                "description": f"We'll follow up with next steps from {brand}.",
+            },
+            "detail": "Confirmation on file",
+            "eyebrow": "Confirmed",
+            "primary_cta": {"label": "Back to home", "href": "/"},
+            "workspace": {
+                "cards": [
+                    {
+                        "title": "Explore more",
+                        "description": f"See what else {brand} offers.",
+                        "cta_label": "Browse",
+                        "cta_href": "/",
+                    },
+                    {
+                        "title": "Get help",
+                        "description": "Questions? Reach out anytime.",
+                        "cta_label": "Contact",
+                        "cta_href": "/contact",
+                    },
+                    {
+                        "title": "AI features",
+                        "description": "Try the assistants built for this business.",
+                        "cta_label": "Open hub",
+                        "cta_href": "/ai-features",
+                    },
+                ]
+            },
+            "footer": {"description": f"Thank you for choosing {brand}."},
+        }
     return {
         "header": {
             "title": page_title or "Workspace",
@@ -324,6 +364,16 @@ def normalize_utility_content(
             )
         base["workspace"] = {"cards": cards or list(ws_base.get("cards") or [])}
 
+    if workspace_type == "confirmation":
+        cta_in = data.get("primary_cta") if isinstance(data.get("primary_cta"), dict) else {}
+        cta_base = base.get("primary_cta") if isinstance(base.get("primary_cta"), dict) else {}
+        base["detail"] = _s(data.get("detail"), base.get("detail", ""))
+        base["eyebrow"] = _s(data.get("eyebrow"), base.get("eyebrow", "Confirmed"))
+        base["primary_cta"] = {
+            "label": _s(cta_in.get("label"), cta_base.get("label", "Continue")),
+            "href": _s(cta_in.get("href"), cta_base.get("href", "/")),
+        }
+
     return base
 
 
@@ -407,7 +457,7 @@ def _workspace_jsx(workspace_type: str, workspace: dict[str, Any]) -> str:
             + "\n          </ul>\n"
             "        </Card>"
         )
-    # account / generic
+    # account / generic (never ship 3 cards in a 2-col grid — orphan column)
     cards = workspace.get("cards") or []
     card_blocks = []
     for card in cards:
@@ -420,8 +470,15 @@ def _workspace_jsx(workspace_type: str, workspace: dict[str, Any]) -> str:
             "            </Button>\n"
             "          </Card>"
         )
+    grid = (
+        "sm:grid-cols-2 lg:grid-cols-3"
+        if len(cards) >= 3
+        else "sm:grid-cols-2"
+        if len(cards) == 2
+        else "grid-cols-1"
+    )
     return (
-        "<div className=\"grid gap-4 md:grid-cols-2\">\n"
+        f"<div className=\"grid gap-4 {grid}\">\n"
         + "\n".join(card_blocks)
         + "\n        </div>"
     )
@@ -485,6 +542,54 @@ def compose_utility_page_tsx(
 
     header = normalized["header"]
     footer = normalized["footer"]
+
+    # Confirmation / waitlist / success → ConfirmStage (centered, equal next steps).
+    if wtype == "confirmation":
+        cards = (normalized.get("workspace") or {}).get("cards") or []
+        steps_js = _js(
+            [
+                {
+                    "title": c.get("title"),
+                    "description": c.get("description") or "",
+                    "ctaLabel": c.get("cta_label") or "Open",
+                    "href": c.get("cta_href") or "/",
+                }
+                for c in cards
+                if isinstance(c, dict)
+            ]
+        )
+        cta = normalized.get("primary_cta") or {"label": "Continue", "href": "/"}
+        return f"""// composed confirmation page (ConfirmStage)
+import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
+import {{ PublicShell, PublicNav, BrandFooter, ConfirmStage }} from '@/ui';
+
+export default function {component}() {{
+  const navItems = usePublicNavItems();
+  const navCta = publicCta();
+
+  return (
+    <PublicShell
+      brandName={{{_js(brand_name or "Brand")}}}
+      chrome="solid"
+      nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}
+    >
+      <ConfirmStage
+        eyebrow={{{_js(normalized.get("eyebrow") or "Confirmed")}}}
+        title={{{_js(header["title"])}}}
+        detail={{{_js(normalized.get("detail") or "")}}}
+        description={{{_js(header["description"])}}}
+        primaryCta={{{_js({"label": cta.get("label") or "Continue", "href": cta.get("href") or "/"})}}}
+        nextSteps={{{steps_js}}}
+      />
+      <BrandFooter
+        brandName={{{_js(brand_name or "Brand")}}}
+        description={{{_js(footer["description"])}}}
+      />
+    </PublicShell>
+  );
+}}
+"""
+
     workspace_jsx = _workspace_jsx(wtype, normalized["workspace"])
     summary_jsx = _summary_jsx(normalized.get("summary"))
 

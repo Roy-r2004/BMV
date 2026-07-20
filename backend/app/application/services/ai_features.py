@@ -135,6 +135,37 @@ _STOPWORDS = {
     "did", "not", "no", "yes", "each", "every", "also", "than", "then", "them",
     "they", "you", "we", "our", "real", "value", "feature", "features", "ai",
     "assistant", "automation", "customer", "customers", "business", "owner",
+    "hand", "time", "help", "next", "person", "people", "common", "questions",
+    "details", "policies", "studio", "provided", "using", "knowledge", "base",
+    "should", "know", "get", "open", "spot", "opens", "tonight", "week", "today",
+}
+
+# Fragment phrases that score as "domain" but read broken in demo chips.
+_JUNK_PHRASES = {
+    "by hand",
+    "the time",
+    "spot opens",
+    "get help",
+    "next person",
+    "common questions",
+    "studio policies",
+    "class details",
+    "knowledge base",
+    "should know",
+    "this week",
+    "the next",
+    "kiln studio",  # truncated brand fragment
+}
+
+_DOMAIN_SEEDS: dict[str, tuple[str, ...]] = {
+    "pottery": ("glazes", "kiln firing", "wheel throwing", "class seats", "open studio"),
+    "ceramic": ("glazes", "kiln firing", "wheel throwing", "class seats", "bisque"),
+    "clay": ("glazes", "kiln firing", "wheel classes", "studio seats"),
+    "salon": ("color", "cut", "chair time", "stylist"),
+    "spa": ("treatment", "booking", "aftercare"),
+    "clinic": ("appointment", "intake", "follow-up"),
+    "restaurant": ("reservation", "menu", "table"),
+    "fitness": ("class", "membership", "trainer"),
 }
 
 
@@ -162,6 +193,7 @@ def _topic_terms(*parts: str, limit: int = 8) -> list[str]:
     blob = " ".join(p for p in parts if p)
     if not blob:
         return []
+    folded_blob = blob.casefold()
     # Prefer multi-word phrases that look domain-specific.
     phrases = re.findall(
         r"\b(?:[A-Za-z][A-Za-z0-9]+(?:\s+[A-Za-z][A-Za-z0-9]+){1,2})\b",
@@ -170,13 +202,28 @@ def _topic_terms(*parts: str, limit: int = 8) -> list[str]:
     words = re.findall(r"\b[A-Za-z][A-Za-z0-9-]{3,}\b", blob)
     scored: list[tuple[int, str]] = []
     seen: set[str] = set()
+
+    # Seed high-quality domain terms when industry is known.
+    for key, seeds in _DOMAIN_SEEDS.items():
+        if key in folded_blob:
+            for seed in seeds:
+                if seed in seen:
+                    continue
+                seen.add(seed)
+                scored.append((18, seed))
+
     for raw in phrases + words:
         text = re.sub(r"\s+", " ", raw.strip())
         folded = text.casefold()
-        if folded in seen or folded in _STOPWORDS:
+        if folded in seen or folded in _STOPWORDS or folded in _JUNK_PHRASES:
             continue
         tokens = folded.split()
         if all(tok in _STOPWORDS for tok in tokens):
+            continue
+        # Drop "prep + weak noun" fragments ("by hand", "the time").
+        if len(tokens) >= 2 and tokens[0] in {
+            "by", "the", "a", "an", "for", "with", "from", "to", "of", "in", "on", "at",
+        }:
             continue
         if len(tokens) == 1 and len(folded) < 4:
             continue
@@ -185,6 +232,22 @@ def _topic_terms(*parts: str, limit: int = 8) -> list[str]:
         score = 10 if " " in text else 4
         if any(ch.isdigit() for ch in text):
             score -= 2
+        # Boost clear domain nouns.
+        if any(
+            tok in folded
+            for tok in (
+                "glaze",
+                "kiln",
+                "firing",
+                "wheel",
+                "class",
+                "waitlist",
+                "booking",
+                "pottery",
+                "clay",
+            )
+        ):
+            score += 6
         scored.append((score, text))
     scored.sort(key=lambda item: (-item[0], len(item[1])))
     return [item[1] for item in scored[:limit]]
@@ -214,6 +277,16 @@ def build_business_demo_scripts(
         industry,
         ctx.get("mvp_blueprint", "")[:800],
     )
+    # Waitlist / booking features should talk about seats/classes, not glaze chemistry.
+    name_desc = f"{name} {description}".casefold()
+    if "waitlist" in name_desc or category == "scheduling":
+        preferred = [
+            t
+            for t in terms
+            if any(k in t.casefold() for k in ("class", "seat", "wheel", "studio", "session", "booking"))
+        ]
+        if preferred:
+            terms = preferred + [t for t in terms if t not in preferred]
     t0 = terms[0] if terms else industry
     t1 = terms[1] if len(terms) > 1 else name
     t2 = terms[2] if len(terms) > 2 else (terms[0] if terms else "today")
@@ -222,16 +295,16 @@ def build_business_demo_scripts(
         prompts = [
             f"What should I know about {t0}?",
             f"How does {t1} work at {biz}?",
-            f"Can beginners get help with {t2} this week?",
+            f"Can beginners join a {t2} this week?",
         ]
-        hint = f"Ask something a real {industry or 'customer'} would ask {biz}"
+        hint = f"Ask the way a real guest would ask {biz}"
         results = {
             prompts[0]: (
                 f"{biz}: For “{prompts[0]}” — {description.rstrip('.')} "
                 f"Here’s the short answer, what to prepare, and when a human should join."
             ),
             prompts[1]: (
-                f"{biz}: “{prompts[1]}” — we walk customers through {t1} step by step, "
+                f"{biz}: “{prompts[1]}” — we walk guests through {t1} step by step, "
                 f"including timing, cost cues, and the next action to take."
             ),
             prompts[2]: (
@@ -243,7 +316,7 @@ def build_business_demo_scripts(
         prompts = [
             f"Next opening for {t0}",
             f"Any {t1} slots this weekend?",
-            f"Book the soonest session related to {t2}",
+            f"Book the soonest {t2}",
         ]
         hint = f"Ask for availability in {biz}'s real schedule"
         results = {
@@ -400,6 +473,18 @@ def score_route_for_category(category: str, path: str, title: str = "", purpose:
     return score
 
 
+def _concrete_placement_path(path: str) -> str:
+    """Turn /classes/:id into a clickable path (/classes), never a raw param URL."""
+    raw = (path or "").strip() or PAGE_AI_HUB_ROUTE
+    if ":" not in raw:
+        return raw
+    parts = [p for p in raw.split("/") if p]
+    if parts and parts[-1].startswith(":"):
+        parent = "/" + "/".join(parts[:-1])
+        return parent if parent != "/" else PAGE_AI_HUB_ROUTE
+    return re.sub(r"/:[^/]+", "", raw) or PAGE_AI_HUB_ROUTE
+
+
 def assign_feature_placements(
     features: list[Mapping[str, Any]],
     routes: list[Mapping[str, Any]],
@@ -413,7 +498,18 @@ def assign_feature_placements(
         and str(rt.get("path") or "").strip()
         and str(rt.get("path") or "") != PAGE_AI_HUB_ROUTE
         and str(rt.get("component_file") or "").replace("\\", "/")
+        # Prefer real URLs over parameterized templates in "See it in context" links.
+        and ":" not in str(rt.get("path") or "")
     ]
+    if not usable_routes:
+        usable_routes = [
+            rt
+            for rt in routes
+            if isinstance(rt, Mapping)
+            and str(rt.get("path") or "").strip()
+            and str(rt.get("path") or "") != PAGE_AI_HUB_ROUTE
+            and str(rt.get("component_file") or "").replace("\\", "/")
+        ]
     assigned: list[dict[str, Any]] = []
     used_paths: set[str] = set()
     for raw in features:
@@ -434,13 +530,13 @@ def assign_feature_placements(
         )
         best = ranked[0] if ranked else None
         if best is not None:
-            path = str(best.get("path") or "")
+            path = _concrete_placement_path(str(best.get("path") or ""))
             feature["placement_path"] = path
             feature["placement_component"] = str(best.get("component_file") or "").replace(
                 "\\", "/"
             )
             feature["placement_title"] = str(best.get("title") or path)
-            used_paths.add(path)
+            used_paths.add(str(best.get("path") or path))
         else:
             feature["placement_path"] = PAGE_AI_HUB_ROUTE
             feature["placement_component"] = "src/pages/AiFeaturesPage.tsx"

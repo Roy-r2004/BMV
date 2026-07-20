@@ -17,19 +17,18 @@ RECIPES: dict[str, dict[str, Any]] = {
             "import": "Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Source+Sans+3:wght@400;500;600;700",
         },
         "tokens": {
-            "radius_ui": "0.35rem",
-            "bg_mix": "4%",
-            "fg_mix": "44%",
-            "muted_mix": "30%",
-            "border_mix": "14%",
-            "shadow": "0 36px 70px -40px",
-            "shadow_alpha": "34%",
-            "glow": "12%",
-            "card": "#fffdf8",
+            "radius_ui": "0.3rem",
+            "bg_mix": "3%",
+            "fg_mix": "48%",
+            "muted_mix": "28%",
+            "border_mix": "12%",
+            "shadow": "0 32px 64px -44px",
+            "shadow_alpha": "28%",
+            "glow": "7%",
+            "card": "#ffffff",
             "atmosphere": (
-                "radial-gradient(120% 80% at 8% -10%, color-mix(in srgb, var(--color-brand) 16%, transparent), transparent 58%), "
-                "radial-gradient(70% 55% at 92% 8%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 52%), "
-                "linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 3%, #fffdf8), transparent 42%)"
+                "linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 2.5%, #faf9f7), transparent 48%), "
+                "radial-gradient(90% 55% at 8% -8%, color-mix(in srgb, var(--color-brand) 8%, transparent), transparent 60%)"
             ),
         },
         "hero_variant": "editorial",
@@ -54,9 +53,10 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-detail": ["hero", "credentials", "showcase", "testimonials", "cta", "footer"],
         },
         "prompt": (
-            "RECIPE editorial: generous whitespace, serif/display headlines via font-display, "
-            "fewer cards, longer subcopy, cinematic imagery with kenburns/grain, "
-            "layered atmosphere, avoid dense tables on public pages, motion on every major section."
+            "RECIPE editorial (Manus-clear): brand-first hero — one name, one headline, one sentence, "
+            "one CTA group, one visual plane. No cards in the hero. Generous whitespace, serif display "
+            "for titles only (not every line italic), quiet atmosphere — avoid purple glow and sticker overlays. "
+            "Motion on major sections; never dense tables on public pages."
         ),
         "industry_keywords": (
             "spa salon beauty wellness clinic dental law legal architect interior boutique "
@@ -294,35 +294,34 @@ RECIPES: dict[str, dict[str, Any]] = {
     "craft": {
         "id": "craft",
         "label": "Craft",
-        "blurb": "Maker / artisan — tactile type, paper tones, process storytelling, handcrafted warmth.",
+        "blurb": "Maker / artisan — full-bleed photo hero, ink on stone, process after the fold. Never cream card soup.",
         "hub_variant": "marketing",
         "fonts": {
             "sans": '"DM Sans", "Segoe UI", sans-serif',
-            "display": '"Cormorant Garamond", Georgia, serif',
-            "import": "Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;600;700",
+            "display": '"Libre Baskerville", Georgia, serif',
+            "import": "Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600;700",
         },
         "tokens": {
-            "radius_ui": "0.65rem",
-            "bg_mix": "5%",
-            "fg_mix": "38%",
-            "muted_mix": "28%",
-            "border_mix": "16%",
-            "shadow": "0 24px 48px -34px",
-            "shadow_alpha": "30%",
-            "glow": "11%",
-            "card": "#fbf7f0",
+            "radius_ui": "0.25rem",
+            "bg_mix": "2%",
+            "fg_mix": "52%",
+            "muted_mix": "24%",
+            "border_mix": "10%",
+            "shadow": "0 40px 80px -48px",
+            "shadow_alpha": "40%",
+            "glow": "5%",
+            "card": "#ffffff",
             "atmosphere": (
-                "radial-gradient(80% 60% at 15% 0%, color-mix(in srgb, var(--color-brand) 12%, transparent), transparent 55%), "
-                "linear-gradient(180deg, #f7f1e6, transparent 45%)"
+                "linear-gradient(180deg, #f3f0ea 0%, #faf9f6 38%, transparent 62%)"
             ),
         },
-        "hero_variant": "service",
+        "hero_variant": "product",
         "feature_variant": "alternating",
         "chrome": {
-            "shell": "solid",
-            "nav": "stacked",
-            "footer": "columns",
-            "brand": "center",
+            "shell": "immersive",
+            "nav": "minimal",
+            "footer": "statement",
+            "brand": "start",
         },
         "section_orders": {
             "public-home": [
@@ -338,8 +337,10 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-detail": ["hero", "process", "showcase", "credentials", "footer"],
         },
         "prompt": (
-            "RECIPE craft: artisan storytelling, process-first, serif display, paper-warm cards, "
-            "tactile imagery, credentials before hard sell, never sterile SaaS chrome."
+            "RECIPE craft (premium maker): FULL-BLEED photo hero — brand name as the dominant type, "
+            "one short headline, one sentence, one CTA pair. No cards in the hero. After the fold: "
+            "editorial process rows (not cards), dark showcase mosaic, then CTA. Serif for display "
+            "titles only (never every line italic). Stone/ink palette — avoid cream card grids."
         ),
         "industry_keywords": (
             "artisan craft bakery pottery woodwork furniture handmade maker studio pottery "

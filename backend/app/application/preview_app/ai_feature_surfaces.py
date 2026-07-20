@@ -119,8 +119,10 @@ def write_ai_features_mock(workspace: Path, features: list[dict[str, Any]]) -> N
     payload = json.dumps(features, indent=2, ensure_ascii=False)
     export = f"\nexport const aiFeatures = {payload} as const;\n"
     if "export const aiFeatures" in current:
+        # Match through `] as const;` — values may contain bare `;` so do not
+        # stop at the first semicolon in the JSON payload.
         current = re.sub(
-            r"export const aiFeatures\s*=\s*[\s\S]*?;\s*",
+            r"export const aiFeatures\s*=\s*\[[\s\S]*?\]\s*as\s*const\s*;\s*",
             export.lstrip(),
             current,
             count=1,

@@ -202,7 +202,11 @@ export default function ResultPreviewPage() {
                   pages={preview.generated_pages}
                   requestId={preview.id}
                   conceptName={preview.concept_name ?? undefined}
-                  features={preview.preview_features}
+                  features={
+                    preview.ai_features?.length
+                      ? preview.ai_features.map((f) => f.name)
+                      : preview.preview_features
+                  }
                 />
               </div>
             ) : preview.generated_pages?.roles?.length ? (

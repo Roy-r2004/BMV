@@ -288,12 +288,19 @@ def _nav_items_for(routes: list[dict], predicate) -> list[dict]:
         if path in seen:
             continue
         seen.add(path)
+        label = _nav_label(rt)
+        if path == "/ai-features":
+            label = "AI features"
         items.append({
             "id": path.strip("/").replace("/", "-") or "home",
             "path": path,
             "href": path,
-            "label": _nav_label(rt),
+            "label": label,
         })
+    # Pin the AI hub near the top of public chrome so it's never buried.
+    ai_idx = next((i for i, it in enumerate(items) if it.get("path") == "/ai-features"), -1)
+    if ai_idx > 1:
+        items.insert(1, items.pop(ai_idx))
     return items
 
 

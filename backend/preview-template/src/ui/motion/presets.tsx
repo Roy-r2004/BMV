@@ -2,6 +2,7 @@ import * as React from 'react';
 import { motion, useReducedMotion, type Transition, type Variants } from 'motion/react';
 
 import { cn } from '../lib/cn';
+import { AnimeReveal, AnimeStagger, AnimeStaggerItem } from './AnimeChrome';
 
 const easeOut: Transition['ease'] = [0.22, 1, 0.36, 1];
 
@@ -75,59 +76,23 @@ export function MotionPage({ className, children }: PresetProps) {
 }
 
 export function MotionReveal({ className, children }: PresetProps) {
-  const safe = useMotionSafe();
-  if (!safe) {
-    return <div className={className}>{children}</div>;
-  }
-  return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.22 }}
-      variants={sectionReveal}
-    >
-      {children}
-    </motion.div>
-  );
+  // Page-level section reveals use anime.js for Manus-grade choreography.
+  return <AnimeReveal className={className}>{children}</AnimeReveal>;
 }
 
 export function MotionStagger({ className, children, role }: PresetProps) {
-  const safe = useMotionSafe();
-  if (!safe) {
-    return (
-      <div className={className} role={role}>
-        {children}
-      </div>
-    );
-  }
   return (
-    <motion.div
-      className={className}
-      role={role}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.18 }}
-      variants={staggerContainer}
-    >
+    <AnimeStagger className={className} role={role}>
       {children}
-    </motion.div>
+    </AnimeStagger>
   );
 }
 
 export function MotionStaggerItem({ className, children, role }: PresetProps) {
-  const safe = useMotionSafe();
-  if (!safe) {
-    return (
-      <div className={className} role={role}>
-        {children}
-      </div>
-    );
-  }
   return (
-    <motion.div className={className} role={role} variants={staggerItem}>
+    <AnimeStaggerItem className={className} role={role}>
       {children}
-    </motion.div>
+    </AnimeStaggerItem>
   );
 }
 

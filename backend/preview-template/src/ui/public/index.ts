@@ -31,3 +31,13 @@ export {
   AiFeatureStage,
   type AiFeatureStageProps,
 } from './AiFeatureStage';
+export {
+  ConfirmStage,
+  type ConfirmStageProps,
+  type ConfirmNextStep,
+} from './ConfirmStage';
+export {
+  ScheduleRail,
+  type ScheduleRailProps,
+  type ScheduleItem,
+} from './ScheduleRail';

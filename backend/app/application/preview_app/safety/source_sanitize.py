@@ -34,6 +34,46 @@ def sanitize_workspace_sources(workspace) -> list[str]:
             cleaned.append(rel)
     return cleaned
 
+
+_UNEVEN_TWO_COL_GRID_RE = re.compile(
+    r'className=(["\'])([^"\']*\bgrid\b[^"\']*\bmd:grid-cols-2\b[^"\']*)\1',
+    re.MULTILINE,
+)
+
+
+def repair_uneven_card_grids(workspace) -> list[str]:
+    """Fix `md:grid-cols-2` grids that contain 3 Card children (orphan column).
+
+    AI utility pages often emit a 2-col grid with three next-step cards, which
+    leaves an empty bottom-right quadrant. Promote those to `lg:grid-cols-3`.
+    """
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        if not rel.endswith((".tsx", ".ts")):
+            continue
+        if "/pages/" not in rel.replace("\\", "/"):
+            continue
+        raw = read_file(workspace, rel)
+        if "md:grid-cols-2" not in raw or "<Card" not in raw:
+            continue
+        card_count = len(re.findall(r"<Card\b", raw))
+        if card_count < 3:
+            continue
+
+        def _repl(m: re.Match) -> str:
+            quote, classes = m.group(1), m.group(2)
+            if "lg:grid-cols-3" in classes:
+                return m.group(0)
+            updated = classes.replace("md:grid-cols-2", "sm:grid-cols-2 lg:grid-cols-3")
+            return f"className={quote}{updated}{quote}"
+
+        updated = _UNEVEN_TWO_COL_GRID_RE.sub(_repl, raw)
+        if updated != raw:
+            write_file(workspace, rel, updated)
+            fixed.append(rel)
+            guard_log.info("repaired uneven card grid in %s", rel)
+    return fixed
+
 def _import_prefix_for_page(rel: str) -> str:
     """Relative prefix from a page file back to `src/` (e.g. `../../` for `src/pages/owner/X.tsx`)."""
     norm = rel.replace("\\", "/")

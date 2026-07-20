@@ -66,6 +66,28 @@ export function SkeletonComposer({ skeletonId, slots, order }: SkeletonComposerP
   const skeleton = assertRequiredSections(skeletonId, slots);
   const ordered = resolveOrder(skeleton, slots, order);
 
+  // Utility pages need a framed content column — raw header/workspace dumps
+  // look unfinished (no padding, orphan card grids). Footer stays full-bleed.
+  if (skeletonId === 'public-utility') {
+    const body = ordered.filter((section) => section !== 'footer');
+    const footer = ordered.includes('footer') ? slots.footer : null;
+    return (
+      <>
+        <div
+          data-utility-frame=""
+          className="relative mx-auto w-full max-w-5xl px-6 py-12 sm:px-10 sm:py-16 lg:py-20"
+        >
+          <div className="space-y-10">
+            {body.map((section) => (
+              <React.Fragment key={section}>{slots[section]}</React.Fragment>
+            ))}
+          </div>
+        </div>
+        {footer}
+      </>
+    );
+  }
+
   return (
     <>
       {ordered.map((section) => (

@@ -96,11 +96,11 @@ export function PublicShell({
       data-public-chrome={chrome}
       data-brand-placement={brandPlacement}
     >
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="ui-mesh opacity-[0.45]" />
-        <div className="absolute -left-32 top-[18%] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,var(--glow-atmosphere),transparent_68%)]" />
-        <div className="absolute -right-24 bottom-[12%] h-[22rem] w-[22rem] rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_12%,transparent),transparent_70%)]" />
-      </div>
+      {!immersive ? (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+          <div className="ui-mesh opacity-[0.28]" />
+        </div>
+      ) : null}
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow-[var(--shadow-ui)]"
@@ -114,27 +114,29 @@ export function PublicShell({
             'z-40 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-300',
             immersive || scrolled ? 'fixed inset-x-0 top-0' : 'sticky top-0',
             scrolled
-              ? 'border-b border-border-subtle/80 bg-background/80 shadow-[0_10px_30px_-24px_rgb(18_22_26_/0.45)] backdrop-blur-xl'
+              ? 'border-b border-border-subtle/80 bg-background/85 shadow-[0_10px_30px_-24px_rgb(18_22_26_/0.45)] backdrop-blur-xl'
               : immersive
-                ? 'border-b border-transparent bg-gradient-to-b from-black/70 via-black/35 to-transparent'
+                ? 'border-b border-transparent bg-gradient-to-b from-black/55 via-black/20 to-transparent'
                 : centered
-                  ? 'border-b border-[color-mix(in_srgb,var(--color-brand)_22%,transparent)] bg-[color-mix(in_srgb,var(--color-brand)_10%,#f7f1e6)]'
-                  : 'border-b-2 border-brand/25 bg-background/95 backdrop-blur-xl'
+                  ? 'border-b border-border-subtle bg-background/90 backdrop-blur-md'
+                  : 'border-b border-border-subtle/70 bg-background/90 backdrop-blur-xl'
           )}
         >
           <div
             className={cn(
-              'mx-auto w-full max-w-[92rem] px-6 py-2.5 lg:px-12',
+              'mx-auto w-full max-w-[92rem] px-6 py-3 lg:px-12',
               centered
-                ? 'flex min-h-[6rem] flex-col items-center justify-center gap-3 md:min-h-[6.5rem]'
-                : 'flex min-h-[4.5rem] items-center justify-between gap-6'
+                ? 'flex min-h-[4.25rem] flex-col items-center justify-center gap-2 md:min-h-[4.5rem]'
+                : 'flex min-h-[3.75rem] items-center justify-between gap-6'
             )}
           >
             <a
               href="#top"
               className={cn(
                 'font-display leading-none tracking-[-0.03em] transition-colors hover:opacity-80',
-                centered ? 'text-[clamp(2rem,4vw,2.75rem)] italic' : 'text-[1.85rem]',
+                centered
+                  ? 'text-[clamp(1.45rem,2.8vw,1.85rem)]'
+                  : 'text-[1.35rem] font-medium',
                 overHero ? 'text-white' : 'text-foreground'
               )}
             >

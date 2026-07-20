@@ -34,23 +34,23 @@ function FeatureStageRow({
   return (
     <MotionStaggerItem>
       <article
-        className="grid items-start gap-8 border-t border-black/[0.06] py-12 first:border-t-0 first:pt-0 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12"
+        className="grid items-start gap-8 border-t border-border-subtle py-12 first:border-t-0 first:pt-0 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12"
         data-ai-feature={feature.id}
         aria-label={feature.name}
       >
         <div className="max-w-md">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[11px] tabular-nums text-neutral-400">
+            <span className="font-mono text-[11px] tabular-nums text-muted">
               {String(index + 1).padStart(2, '0')}
             </span>
-            <span className="rounded-full border border-black/8 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+            <span className="rounded-full border border-border-subtle bg-card px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
               {categoryLabel(category)}
             </span>
           </div>
-          <h3 className="mt-4 font-display text-[clamp(2rem,3.4vw,2.85rem)] italic leading-[1.05] tracking-tight text-foreground">
+          <h3 className="mt-4 font-display text-[clamp(2rem,3.4vw,2.85rem)] leading-[1.05] tracking-tight text-foreground">
             {feature.name}
           </h3>
-          <p className="mt-3 text-sm leading-relaxed text-neutral-600 sm:text-[15px]">
+          <p className="mt-3 text-sm leading-relaxed text-muted sm:text-[15px]">
             {feature.description || feature.name}
           </p>
           {inContext ? (
@@ -60,12 +60,12 @@ function FeatureStageRow({
             >
               See it in context
               {feature.placement_title ? (
-                <span className="font-normal text-neutral-500">· {feature.placement_title}</span>
+                <span className="font-normal text-muted">· {feature.placement_title}</span>
               ) : null}
               <span aria-hidden="true">→</span>
             </a>
           ) : (
-            <p className="mt-6 text-xs font-medium uppercase tracking-[0.16em] text-neutral-400">
+            <p className="mt-6 text-xs font-medium uppercase tracking-[0.16em] text-muted">
               Previewed on this hub
             </p>
           )}
@@ -85,7 +85,7 @@ export function AiFeatureDeck({ features, brandName = 'Brand', className }: AiFe
   if (!items.length) {
     return (
       <section className={cn('px-6 py-16', className)}>
-        <p className="text-sm text-neutral-500">No AI features in this plan yet.</p>
+        <p className="text-sm text-muted">No AI features in this plan yet.</p>
       </section>
     );
   }
@@ -95,16 +95,16 @@ export function AiFeatureDeck({ features, brandName = 'Brand', className }: AiFe
       className={cn('relative isolate overflow-hidden px-6 py-16 sm:px-10 sm:py-20', className)}
       data-ai-feature-deck=""
     >
-      <div className="ui-mesh opacity-40" aria-hidden="true" />
+      <div className="ui-mesh opacity-30" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl">
         <MotionReveal>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--color-brand)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">
             AI in your product
           </p>
-          <h2 className="mt-4 max-w-3xl font-display text-[clamp(2.75rem,6vw,4.75rem)] italic leading-[0.92] tracking-[-0.03em] text-foreground">
+          <h2 className="mt-4 max-w-3xl font-display text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[0.95] tracking-[-0.03em] text-foreground">
             Every AI feature from your plan — live
           </h2>
-          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:text-base">
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
             These are the capabilities proposed for {brandName}. Open a conversation below, or jump
             into the page where each one actually lives.
           </p>

@@ -2844,6 +2844,10 @@ html.refine-chat-open {
 .rbp-role-chip:hover { color: #94a3b8; }
 .rbp-role-chip--active { font-weight: 700; }
 .rbp-role-chip__icon { flex-shrink: 0; }
+.rbp-role-chip--ai {
+  margin-left: 0.35rem;
+  border-style: dashed;
+}
 
 .rbp-header__right { flex-shrink: 0; }
 

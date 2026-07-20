@@ -1,23 +1,24 @@
 @import "tailwindcss";
 
-/* Daylight atelier — porcelain + ink. Chart/ops use graphite, not teal. */
+/* Manus-clear daylight — quiet surfaces, ink type, graphite charts. */
 @theme {
-  --color-background: #f4f1ec;
-  --color-foreground: #1c1916;
-  --color-muted: #6b645c;
+  --color-background: #f7f6f3;
+  --color-foreground: #1a1917;
+  --color-muted: #6a6560;
   --color-card: #ffffff;
-  --color-border-subtle: #ddd6cc;
-  --color-brand: #3a342e;
-  --color-brand-dark: #2a251f;
-  --color-accent: #8a8176;
-  --color-ring: #3a342e;
-  --color-chart: #2f2a26;
-  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Instrument Serif", "Georgia", serif;
-  --radius-ui: 0.5rem;
-  --shadow-ui: 0 24px 50px -36px rgb(28 25 22 / 0.45);
-  --glow-atmosphere: rgb(58 52 46 / 0.1);
-  --treatment-light: #3a342e;
+  --color-border-subtle: #e4e0d8;
+  --color-brand: #2c2925;
+  --color-brand-dark: #1a1917;
+  --color-accent: #7a746c;
+  --color-ring: #2c2925;
+  --color-chart: #2c2925;
+  --font-sans: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Libre Baskerville", "Georgia", serif;
+  --radius-ui: 0.4rem;
+  --shadow-ui: 0 28px 56px -40px rgb(26 25 23 / 0.42);
+  --glow-atmosphere: rgb(44 41 37 / 0.07);
+  --treatment-light: #2c2925;
+  --recipe-atmosphere: linear-gradient(180deg, #faf9f7 0%, transparent 42%);
 }
 
 @layer base {
@@ -119,11 +120,10 @@
   pointer-events: none;
   position: absolute;
   inset: 0;
-  opacity: 0.85;
+  opacity: 0.55;
   background:
-    radial-gradient(50% 45% at 12% 18%, var(--glow-atmosphere), transparent 60%),
-    radial-gradient(42% 38% at 88% 12%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 55%),
-    radial-gradient(55% 50% at 55% 100%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 60%);
+    radial-gradient(55% 40% at 10% 0%, var(--glow-atmosphere), transparent 62%),
+    radial-gradient(45% 35% at 92% 8%, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 58%);
 }
 
 .ui-noise {
@@ -212,5 +212,36 @@
 }
 .text-danger {
   color: #dc2626;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+}
+
+[data-recipe="editorial"] .font-display,
+[data-recipe="warm-service"] .font-display {
+  font-style: italic;
+  letter-spacing: -0.03em;
+}
+
+[data-recipe="craft"] {
+  --color-background: #f3f0ea;
+  --color-foreground: #171512;
+  --color-muted: #625c54;
+  --color-card: #ffffff;
+  --color-border-subtle: #ddd6cb;
+  --radius-ui: 0.25rem;
+}
+[data-recipe="craft"] .font-display,
+[data-recipe="dense-ops"] .font-display,
+[data-recipe="bold-retail"] .font-display {
+  font-style: normal;
+  letter-spacing: -0.035em;
+}
+[data-recipe="craft"] [data-hero="product"] {
+  min-height: 100svh;
+}
+[data-recipe="craft"] section:not([data-hero]) {
+  padding-block: clamp(4rem, 8vw, 7rem);
 }
 

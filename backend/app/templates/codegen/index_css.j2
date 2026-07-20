@@ -81,11 +81,10 @@
   pointer-events: none;
   position: absolute;
   inset: 0;
-  opacity: 0.85;
+  opacity: 0.55;
   background:
-    radial-gradient(50% 45% at 12% 18%, var(--glow-atmosphere), transparent 60%),
-    radial-gradient(42% 38% at 88% 12%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 55%),
-    radial-gradient(55% 50% at 55% 100%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 60%);
+    radial-gradient(55% 40% at 10% 0%, var(--glow-atmosphere), transparent 62%),
+    radial-gradient(45% 35% at 92% 8%, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 58%);
 }
 
 .ui-noise {
@@ -208,10 +207,21 @@
   color: #f7f2ea;
 }
 
+[data-recipe="craft"] {
+  --color-background: #f3f0ea;
+  --color-foreground: #171512;
+  --color-muted: #625c54;
+  --color-card: #ffffff;
+  --color-border-subtle: #ddd6cb;
+  --radius-ui: 0.25rem;
+}
 [data-recipe="craft"] .font-display {
-  font-style: italic;
-  letter-spacing: -0.028em;
+  font-style: normal;
+  letter-spacing: -0.035em;
+}
+[data-recipe="craft"] [data-hero="product"] {
+  min-height: 100svh;
 }
 [data-recipe="craft"] section:not([data-hero]) {
-  padding-block: clamp(3.25rem, 6.5vw, 6rem);
+  padding-block: clamp(4rem, 8vw, 7rem);
 }

@@ -236,6 +236,56 @@ def _design_system_dict(primary: str, secondary: str, font: str) -> dict:
         "card_style": "shadow (rgba(0,0,0,0.05))",
     }
 
+
+def _default_services(brand_name: str) -> list[dict[str, str]]:
+    label = (brand_name or "Brand").strip() or "Brand"
+    return [
+        {
+            "id": "intro-session",
+            "name": f"{label} intro session",
+            "description": "A welcoming first session for new guests.",
+            "duration": "90 min",
+            "level": "Beginner Friendly",
+            "day": "Thursday",
+            "status": "Open",
+        },
+        {
+            "id": "signature-workshop",
+            "name": "Signature workshop",
+            "description": "The core experience guests book most often.",
+            "duration": "2 hours",
+            "level": "All Levels",
+            "day": "Saturday",
+            "status": "Open",
+        },
+        {
+            "id": "advanced-studio",
+            "name": "Advanced studio time",
+            "description": "Deeper practice with guided feedback.",
+            "duration": "3 hours",
+            "level": "Intermediate",
+            "day": "Wednesday",
+            "status": "Full",
+        },
+    ]
+
+
+def _default_products(brand_name: str) -> list[dict[str, str]]:
+    label = (brand_name or "Brand").strip() or "Brand"
+    return [
+        {
+            "title": f"{label} essential",
+            "description": "A dependable pick from the shop floor.",
+            "name": f"{label} essential",
+        },
+        {
+            "title": "Studio favorite",
+            "description": "The piece guests ask about first.",
+            "name": "Studio favorite",
+        },
+    ]
+
+
 def _default_export_value(
     name: str,
     architect: dict,
@@ -256,7 +306,7 @@ def _default_export_value(
     if low in ("design_system", "designsystem"):
         return json.dumps(_design_system_dict(primary, secondary, font), ensure_ascii=False)
     if low in ("manifest", "brand_manifest", "brandmanifest"):
-        # Pages read manifest.brand_name / manifest.accent / manifest.design_system.*
+        # Pages read manifest.brand_name / manifest.services / design_system.*
         # — an array stub white-screens the whole route.
         return json.dumps(
             {
@@ -265,6 +315,8 @@ def _default_export_value(
                 "tagline": "",
                 "accent": primary,
                 "design_system": _design_system_dict(primary, secondary, font),
+                "services": _default_services(brand_name or "Brand"),
+                "products": _default_products(brand_name or "Brand"),
             },
             ensure_ascii=False,
         )
@@ -437,6 +489,53 @@ def _strip_forbidden_mock_stubs(mock: str) -> str:
     )
     return updated
 
+def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
+    """Guarantee seed.hero (and related scaffold keys) exist for catalogue pages.
+
+    AI mock synthesis often replaces `seed` with domain-specific data and drops
+    hero/cta/footer — HomePage then crashes on `seed.hero.headline`.
+    """
+    if "export const seed" not in mock:
+        return mock
+    # Already has a hero object under seed — leave it alone.
+    if re.search(r"export const seed\s*=\s*\{[\s\S]*?\bhero\s*:", mock):
+        return mock
+
+    brand = (brand_name or "Brand").replace("\\", "\\\\").replace("'", "\\'")
+    inject = (
+        "\n  hero: {\n"
+        f"    headline: '{brand}',\n"
+        "    subcopy: 'A clear next step — polished, branded, and ready to book.',\n"
+        "    primaryCta: { label: 'Get started', href: '#details' },\n"
+        "    secondaryCta: { label: 'See how it works', href: '#process' },\n"
+        "  },\n"
+        "  items: [\n"
+        "    { title: 'Signature offering', description: 'A dependable starting point.' },\n"
+        "    { title: 'Everyday essential', description: 'Built for daily use.' },\n"
+        "    { title: 'Member favorite', description: 'The one guests come back for.' },\n"
+        "  ],\n"
+        "  showcaseHeading: 'Featured experiences',\n"
+        "  cta: {\n"
+        "    heading: 'Make it unforgettable',\n"
+        "    description: 'Book the next chapter — polished, branded, never bland.',\n"
+        "    primaryLabel: 'Get started',\n"
+        "    primaryHref: '#details',\n"
+        "    secondaryLabel: 'Talk to us',\n"
+        "    secondaryHref: '#contact',\n"
+        "  },\n"
+        "  footer: {\n"
+        "    description: 'Premium presence from first glance to booked revenue.',\n"
+        "  },\n"
+    )
+    updated, n = re.subn(
+        r"(export const seed\s*=\s*\{)",
+        r"\1" + inject,
+        mock,
+        count=1,
+    )
+    return updated if n else mock
+
+
 def ensure_mock_exports(
     workspace, architect: dict, plan: dict, images: dict, brand_name: str
 ) -> list[str]:
@@ -446,6 +545,11 @@ def ensure_mock_exports(
     build-correctness — prevents MISSING_EXPORT failures and fix-loop thrashing.
     """
     mock = read_file(workspace, "src/data/mock.ts")
+    seeded = ensure_seed_scaffold_fields(mock, brand_name=brand_name)
+    if seeded != mock:
+        mock = seeded
+        write_file(workspace, "src/data/mock.ts", mock)
+        guard_log.info("seed.hero restored for scaffold pages (brand=%s)", brand_name)
     cleaned = _strip_forbidden_mock_stubs(_clean_mock(mock))
     if cleaned != mock:
         mock = cleaned
@@ -466,11 +570,14 @@ def ensure_mock_exports(
 
     def _missing_export(name: str) -> str:
         low = name.lower().replace("_", "")
-        if low in ("manifest", "brandmanifest") and brand_body:
-            # Pages that import `manifest` mean the whole brand manifest —
-            # alias it so manifest.services / manifest.design_system just work.
-            return f"export const {name} = {{ brand_name: brand.name, ...brand }};"
-        if re.search(rf"(?m)^\s*{re.escape(name)}\s*:", brand_body):
+        if low in ("manifest", "brandmanifest"):
+            # Pages call BRAND_MANIFEST.services.filter(...) — a brand spread
+            # without services white-screens the route. Prefer a full object.
+            return (
+                f"export const {name} = "
+                f"{_default_export_value(name, architect, plan, images, brand_name)};"
+            )
+        if brand_body and re.search(rf"(?m)^\s*{re.escape(name)}\s*:", brand_body):
             return f"export const {name} = brand.{name};"
         return (
             f"export const {name} = "

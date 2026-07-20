@@ -34,6 +34,7 @@ from app.application.preview_app.safety.mock_data import (
 from app.application.preview_app.safety.runtime import ensure_runtime_correctness
 from app.application.preview_app.safety.source_sanitize import (
     fix_nested_import_paths,
+    repair_uneven_card_grids,
     sanitize_workspace_sources,
 )
 from app.application.preview_app.safety.ui_icons import (
@@ -75,6 +76,7 @@ def apply_workspace_guards(
         (lambda: sanitize_workspace_sources(workspace), "fences stripped"),
         (lambda: sanitize_data_files(workspace), "quotes escaped"),
         (lambda: fix_nested_import_paths(workspace), "import paths fixed"),
+        (lambda: repair_uneven_card_grids(workspace), "uneven card grids fixed"),
         (lambda: normalize_ui_kit_imports(workspace), "UI imports normalized"),
         (lambda: strip_forbidden_npm_imports(workspace), "forbidden npm imports stripped"),
         (lambda: ensure_headless_stub_imports(workspace), "headless stubs imported"),

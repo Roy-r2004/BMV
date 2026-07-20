@@ -33,12 +33,13 @@ function pathMatches(pathname: string, href: string): boolean {
   return false;
 }
 
-function useActiveHref(items: PublicNavItem[]) {
+function useActiveHref(items: PublicNavItem[] | undefined) {
   const { pathname } = useLocation();
   const [hashActive, setHashActive] = React.useState('');
+  const safeItems = Array.isArray(items) ? items : [];
 
   React.useEffect(() => {
-    const ids = items
+    const ids = safeItems
       .map((item) => (item.href.startsWith('#') ? item.href.slice(1) : ''))
       .filter(Boolean);
 
@@ -60,14 +61,14 @@ function useActiveHref(items: PublicNavItem[]) {
       window.removeEventListener('scroll', update);
       window.removeEventListener('hashchange', update);
     };
-  }, [items]);
+  }, [safeItems]);
 
   return React.useMemo(() => {
-    const pathHit = items.find((item) => pathMatches(pathname, item.href));
+    const pathHit = safeItems.find((item) => pathMatches(pathname, item.href));
     if (pathHit) return pathHit.href;
     if (hashActive) return hashActive;
-    return items[0]?.href ?? '';
-  }, [items, pathname, hashActive]);
+    return safeItems[0]?.href ?? '';
+  }, [safeItems, pathname, hashActive]);
 }
 
 /** Catalogue public navigation — pages never invent nav chrome. */
@@ -188,14 +189,22 @@ export function PublicNav({
           <AppLink
             href={cta.href}
             className={cn(
-              'hidden text-[11px] font-semibold uppercase tracking-[0.16em] sm:inline-flex',
+              'text-[11px] font-semibold uppercase tracking-[0.16em]',
               inverted ? 'text-white' : 'text-brand'
             )}
           >
             {cta.label}
           </AppLink>
         ) : (
-          <Button href={cta.href} size="sm" className="hidden sm:inline-flex">
+          <Button
+            href={cta.href}
+            size="sm"
+            className={cn(
+              'inline-flex',
+              inverted &&
+                'border-white/35 bg-white text-foreground shadow-none hover:bg-white/92 hover:text-foreground'
+            )}
+          >
             {cta.label}
           </Button>
         )

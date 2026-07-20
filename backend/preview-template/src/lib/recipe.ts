@@ -23,7 +23,7 @@ const HERO_BY_RECIPE: Record<RecipeId, HeroVariant> = {
   'warm-service': 'service',
   'bold-retail': 'product',
   nocturne: 'cinematic',
-  craft: 'service',
+  craft: 'product',
 };
 
 const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
@@ -41,7 +41,7 @@ const SHELL_BY_RECIPE: Record<RecipeId, ShellChrome> = {
   'warm-service': 'solid',
   'bold-retail': 'immersive',
   nocturne: 'immersive',
-  craft: 'solid',
+  craft: 'immersive',
 };
 
 const NAV_BY_RECIPE: Record<RecipeId, NavVariant> = {
@@ -50,7 +50,7 @@ const NAV_BY_RECIPE: Record<RecipeId, NavVariant> = {
   'warm-service': 'default',
   'bold-retail': 'minimal',
   nocturne: 'stacked',
-  craft: 'stacked',
+  craft: 'minimal',
 };
 
 const FOOTER_BY_RECIPE: Record<RecipeId, FooterVariant> = {
@@ -59,7 +59,7 @@ const FOOTER_BY_RECIPE: Record<RecipeId, FooterVariant> = {
   'warm-service': 'compact',
   'bold-retail': 'statement',
   nocturne: 'statement',
-  craft: 'columns',
+  craft: 'statement',
 };
 
 const BRAND_BY_RECIPE: Record<RecipeId, BrandPlacement> = {
@@ -68,7 +68,7 @@ const BRAND_BY_RECIPE: Record<RecipeId, BrandPlacement> = {
   'warm-service': 'start',
   'bold-retail': 'start',
   nocturne: 'start',
-  craft: 'center',
+  craft: 'start',
 };
 
 export function currentRecipeId(): RecipeId {

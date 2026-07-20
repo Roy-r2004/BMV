@@ -9,6 +9,7 @@ import { roles } from './data/mock';
 
 const PublicReferencePage = lazy(() => import('./ui/examples/PublicReferencePage'));
 const OpsReferencePage = lazy(() => import('./ui/examples/OpsReferencePage'));
+const AiFeaturesReferencePage = lazy(() => import('./ui/examples/AiFeaturesReferencePage'));
 
 function RouteBridge() {
   const location = useLocation();
@@ -61,6 +62,14 @@ export default function App() {
           element={
             <Suspense fallback={null}>
               <OpsReferencePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/_catalogue/ai"
+          element={
+            <Suspense fallback={null}>
+              <AiFeaturesReferencePage />
             </Suspense>
           }
         />

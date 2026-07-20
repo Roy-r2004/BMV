@@ -68,17 +68,25 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
   const isRebuilding = previewApp?.status === 'rebuilding';
   const refineError = previewApp?.last_refinement_error?.trim() || '';
   const accent = activeRole?.accent ?? '#6366f1';
+  const hasAiHub = Boolean(
+    (previewApp?.routes || []).some((rt) => (rt.path || '') === '/ai-features')
+    || (Array.isArray(features) && features.length > 0),
+  );
+  const onAiHub = currentPath === '/ai-features' || currentPath.startsWith('/ai-features?');
+
+  const navigatePreview = (nextPath: string) => {
+    const path = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
+    // Remount iframe under /api/preview-apps/{id}/… — never bare paths on the
+    // API host (that returns {"detail":"Not Found"} JSON).
+    setIframeEntryPath(path);
+    setCurrentPath(path);
+  };
 
   const handleRoleChange = (roleId: string) => {
     if (roleId === activeRoleId) return;
     setActiveRoleId(roleId);
     const role = roles.find((r) => r.id === roleId);
-    const nextPath = role?.defaultPath || '/';
-    // Remount iframe under /api/preview-apps/{id}/… — never bare /owner/… on the
-    // API host (that returns {"detail":"Not Found"} JSON). Do not also postMessage
-    // into the outgoing iframe; that race can navigate it off the preview mount.
-    setIframeEntryPath(nextPath);
-    setCurrentPath(nextPath);
+    navigatePreview(role?.defaultPath || '/');
   };
 
   useEffect(() => {
@@ -135,6 +143,21 @@ export default function PreviewAppPreview({ pages, requestId: _requestId, concep
               {role.label}
             </button>
           ))}
+          {hasAiHub ? (
+            <button
+              type="button"
+              onClick={() => navigatePreview('/ai-features')}
+              className={`rbp-role-chip rbp-role-chip--ai ${onAiHub ? 'rbp-role-chip--active' : ''}`}
+              style={
+                onAiHub
+                  ? { background: accent + '22', color: accent, borderColor: accent + '55' }
+                  : undefined
+              }
+              title="Open every AI feature from the plan"
+            >
+              AI features
+            </button>
+          ) : null}
         </div>
 
         <div className="rbp-header__right">

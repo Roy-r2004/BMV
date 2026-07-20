@@ -122,12 +122,15 @@ export function publicCta() {
   const publicLinks = sectionLinks('public');
   const bookish =
     publicLinks.find((item) =>
-      /book|class|login|join|start/i.test(
+      /book|class|schedule|workshop|login|join|start/i.test(
         `${item.label || ''} ${item.path || ''} ${item.href || ''}`
       )
     ) || null;
   const href = String(bookish?.href || bookish?.path || firstHref(publicLinks, '/'));
-  return { label: 'Get started', href };
+  const bookLabel = /book|class|schedule|workshop/i.test(
+    `${bookish?.label || ''} ${bookish?.path || ''} ${bookish?.href || ''}`
+  );
+  return { label: bookLabel ? 'Book' : 'Get started', href };
 }
 
 export function memberCta() {

@@ -13,3 +13,18 @@ export {
   staggerItem,
   useMotionSafe,
 } from './presets';
+
+export {
+  AnimeHeroItem,
+  AnimeReveal,
+  AnimeStagger,
+  AnimeStaggerItem,
+} from './AnimeChrome';
+
+export {
+  drawChart,
+  observeSectionReveal,
+  playEntrance,
+  prefersReducedMotion,
+  staggerIn,
+} from './anime';

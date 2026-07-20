@@ -94,7 +94,7 @@ function MessageBlock({
 }) {
   if (msg.role === 'system') {
     const body = (
-      <div className="rounded-2xl border border-dashed border-black/10 bg-white/50 px-3.5 py-3 text-sm leading-relaxed text-neutral-600">
+      <div className="rounded-2xl border border-dashed border-border-subtle bg-card/60 px-3.5 py-3 text-sm leading-relaxed text-muted">
         {msg.text}
       </div>
     );
@@ -115,14 +115,14 @@ function MessageBlock({
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm sm:max-w-[85%]',
+          'max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-[var(--shadow-ui)] sm:max-w-[85%]',
           isUser
-            ? 'rounded-br-md bg-[color:var(--color-brand)] text-white'
-            : 'rounded-bl-md border border-black/[0.06] bg-white text-foreground',
+            ? 'rounded-br-md bg-brand text-white'
+            : 'rounded-bl-md border border-border-subtle bg-card text-foreground',
         )}
       >
         {!isUser ? (
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
             {brandName}
           </p>
         ) : null}
@@ -203,30 +203,30 @@ export function AiFeatureStage({
   return (
     <div
       className={cn(
-        'relative flex flex-col overflow-hidden rounded-[1.35rem] border border-black/[0.07] bg-[color-mix(in_srgb,var(--color-card)_88%,white)] shadow-[0_24px_60px_-40px_rgba(20,16,12,0.55)]',
+        'relative flex flex-col overflow-hidden rounded-[calc(var(--radius-ui)+0.85rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)]',
         compact ? 'min-h-[280px]' : 'min-h-[360px]',
         className,
       )}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-80"
+        className="pointer-events-none absolute inset-0 opacity-70"
         aria-hidden="true"
         style={{
           background:
-            'radial-gradient(80% 60% at 100% 0%, color-mix(in srgb, var(--color-brand) 14%, transparent), transparent 55%), radial-gradient(70% 50% at 0% 100%, color-mix(in srgb, var(--color-brand) 8%, transparent), transparent 50%)',
+            'radial-gradient(80% 55% at 100% 0%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 55%)',
         }}
       />
 
-      <header className="relative z-[1] flex items-center justify-between gap-3 border-b border-black/[0.05] px-4 py-3 sm:px-5">
+      <header className="relative z-[1] flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-5">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--color-brand)]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">
             Live demo · {categoryLabel(category)}
           </p>
           <p className="mt-0.5 truncate text-sm font-medium tracking-tight text-foreground">
             {feature.name}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-black/8 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-600">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-background/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/70 opacity-60" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-600" />
@@ -253,7 +253,7 @@ export function AiFeatureStage({
 
         {busy ? (
           <div className="flex justify-start">
-            <div className="rounded-2xl rounded-bl-md border border-black/[0.06] bg-white px-3.5 py-2.5 text-sm text-neutral-500 shadow-sm">
+            <div className="rounded-2xl rounded-bl-md border border-border-subtle bg-card px-3.5 py-2.5 text-sm text-muted shadow-sm">
               <span className="sr-only">Thinking</span>
               <ThinkingDots />
             </div>
@@ -262,7 +262,7 @@ export function AiFeatureStage({
 
         {!busy && messages.length <= 1 && prompts.length > 0 ? (
           <div className="pt-1">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
               Try one of these
             </p>
             <div className="flex flex-col gap-2">
@@ -272,12 +272,12 @@ export function AiFeatureStage({
                   type="button"
                   onClick={() => send(prompt)}
                   className={cn(
-                    'group rounded-2xl border border-black/[0.07] bg-white/80 px-3.5 py-2.5 text-left text-sm leading-snug text-neutral-800 transition',
-                    'hover:border-[color:var(--color-brand)]/35 hover:bg-white hover:shadow-[0_12px_28px_-22px_rgba(20,16,12,0.55)]',
-                    activePrompt === prompt && 'border-[color:var(--color-brand)]/40',
+                    'group rounded-2xl border border-border-subtle bg-background/80 px-3.5 py-2.5 text-left text-sm leading-snug text-foreground transition',
+                    'hover:border-brand/35 hover:bg-card hover:shadow-[var(--shadow-ui)]',
+                    activePrompt === prompt && 'border-brand/40',
                   )}
                 >
-                  <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-400 transition group-hover:text-[color:var(--color-brand)]">
+                  <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted transition group-hover:text-brand">
                     Ask
                   </span>
                   {prompt}
@@ -289,7 +289,7 @@ export function AiFeatureStage({
       </div>
 
       <form
-        className="relative z-[1] border-t border-black/[0.05] bg-white/70 p-3 backdrop-blur-sm sm:p-4"
+        className="relative z-[1] border-t border-border-subtle bg-background/70 p-3 backdrop-blur-sm sm:p-4"
         onSubmit={(e) => {
           e.preventDefault();
           send();
@@ -306,8 +306,8 @@ export function AiFeatureStage({
                 className={cn(
                   'rounded-full border px-2.5 py-1 text-left text-[11px] font-medium transition',
                   activePrompt === prompt
-                    ? 'border-[color:var(--color-brand)] bg-[color:var(--color-brand)] text-white'
-                    : 'border-black/10 bg-white text-neutral-700 hover:border-black/25',
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-border-subtle bg-card text-muted hover:border-brand/30 hover:text-foreground',
                 )}
               >
                 {prompt}
@@ -325,7 +325,7 @@ export function AiFeatureStage({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a real customer ask…"
             disabled={busy}
-            className="h-11 min-w-0 flex-1 rounded-xl border border-black/10 bg-white px-3.5 text-sm text-foreground outline-none transition placeholder:text-neutral-400 focus:border-[color:var(--color-brand)]/40 focus:ring-4 focus:ring-[color:var(--color-ring)]/15"
+            className="h-11 min-w-0 flex-1 rounded-[var(--radius-ui)] border border-border-subtle bg-card px-3.5 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-brand/40 focus:ring-4 focus:ring-ring/15"
           />
           <Button type="submit" disabled={busy || !input.trim()} size="default">
             {busy ? '…' : 'Send'}

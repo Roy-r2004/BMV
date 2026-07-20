@@ -130,12 +130,31 @@ def test_business_demo_scripts_use_domain_terms_not_generic_hours():
     joined = " ".join(scripts["demo_prompts"]).lower()
     assert "what are your hours" not in joined
     assert "how does pricing work" not in joined
+    assert "by hand" not in joined
+    assert "the time" not in joined
     assert any(term in joined for term in ("glaze", "firing", "pottery", "kiln", "clay"))
     assert "clay & kiln" in joined or "pottery" in joined
     assert scripts["demo_results"]
     for prompt in scripts["demo_prompts"]:
         assert prompt in scripts["demo_results"]
         assert "clay & kiln" in scripts["demo_results"][prompt].lower()
+
+
+def test_demo_scripts_reject_junk_fragments_from_policy_copy():
+    feature = {
+        "id": "studio-faq-assistant",
+        "name": "Intelligent Studio Assistant",
+        "description": (
+            "Automatically answers common questions about glazes, firing, studio policies, "
+            "and class details using a knowledge base provided by the studio."
+        ),
+        "category": "chat",
+    }
+    scripts = build_business_demo_scripts(feature, POTTERY_CONTEXT)
+    joined = " ".join(scripts["demo_prompts"]).lower()
+    assert "by hand" not in joined
+    assert "common questions" not in joined
+    assert any(term in joined for term in ("glaze", "firing", "kiln", "wheel", "class"))
 
 
 def test_enrich_feature_with_context_overwrites_generic_demos():
