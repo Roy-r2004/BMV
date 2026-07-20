@@ -48,7 +48,7 @@ const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
 const SHELL_BY_RECIPE: Record<RecipeId, ShellChrome> = {
   editorial: 'immersive',
   'dense-ops': 'solid',
-  'warm-service': 'solid',
+  'warm-service': 'immersive',
   'bold-retail': 'immersive',
   nocturne: 'immersive',
   craft: 'immersive',

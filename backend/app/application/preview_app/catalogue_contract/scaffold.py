@@ -101,7 +101,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             'description={seed.footer?.description ?? "Premium presence from first glance to booked revenue."} />'
         ),
         "trust": (
-            '<LogoMarquee heading="Trusted in the room" '
+            '<LogoMarquee size="display" '
             'items={(seed.trustLabels ?? []).map((label) => ({ label }))} />'
         ),
         "credentials": (

@@ -152,7 +152,7 @@ RECIPES: dict[str, dict[str, Any]] = {
         "hero_variant": "service",
         "feature_variant": "bento",
         "chrome": {
-            "shell": "solid",
+            "shell": "immersive",
             "nav": "default",
             "footer": "compact",
             "brand": "start",

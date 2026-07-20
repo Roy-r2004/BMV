@@ -83,26 +83,31 @@ export function MarketingHero({
         <div className="ui-film-grain opacity-[0.32]" />
         {safe ? <div className="ui-hero-sheen" /> : null}
         {safe ? <div className="ui-light-sweep" aria-hidden="true" /> : null}
-        <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[92rem] flex-col justify-end px-6 pb-16 pt-28 sm:pb-20 lg:px-12 lg:pb-24">
+        <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[92rem] flex-col justify-center px-6 pb-20 pt-28 sm:pb-24 lg:px-12 lg:pt-32">
           <AnimeHeroItem index={0}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
               {eyebrow || brandName}
             </p>
           </AnimeHeroItem>
           <AnimeHeroItem index={1}>
-            <h1
+            <p
               className={cn(
                 display,
-                'mt-5 max-w-[14ch] text-[clamp(3.2rem,9vw,7rem)] leading-[0.88] tracking-[-0.04em] text-white'
+                'mt-6 max-w-[11ch] text-[clamp(3.5rem,11vw,8rem)] leading-[0.82] tracking-[-0.045em] text-white'
               )}
             >
+              {brandName}
+            </p>
+          </AnimeHeroItem>
+          <AnimeHeroItem index={2}>
+            <h1 className="mt-7 max-w-[22ch] text-[clamp(1.25rem,2.4vw,1.85rem)] font-medium leading-snug tracking-[-0.02em] text-white/92">
               {headline}
             </h1>
           </AnimeHeroItem>
-          <AnimeHeroItem index={2}>
-            <p className="mt-6 max-w-md text-[1.05rem] leading-8 text-white/72">{subcopy}</p>
-          </AnimeHeroItem>
           <AnimeHeroItem index={3}>
+            <p className="mt-5 max-w-md text-[1.05rem] leading-8 text-white/70">{subcopy}</p>
+          </AnimeHeroItem>
+          <AnimeHeroItem index={4}>
             <div className="mt-10 flex flex-wrap gap-3">
               <Button
                 href={primaryCta.href}
@@ -123,8 +128,8 @@ export function MarketingHero({
               ) : null}
             </div>
           </AnimeHeroItem>
-          <AnimeHeroItem index={4}>
-            <p className={cn('mt-16 text-[10px] font-semibold uppercase tracking-[0.32em] text-white/40', safe && 'ui-scroll-cue')}>
+          <AnimeHeroItem index={5}>
+            <p className={cn('mt-14 text-[10px] font-semibold uppercase tracking-[0.32em] text-white/40', safe && 'ui-scroll-cue')}>
               Scroll to taste
             </p>
           </AnimeHeroItem>

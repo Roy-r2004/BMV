@@ -159,7 +159,7 @@
 }
 
 .ui-marquee-track {
-  animation: ui-marquee 56s linear infinite;
+  animation: ui-marquee 38s linear infinite;
 }
 
 @keyframes ui-float {
