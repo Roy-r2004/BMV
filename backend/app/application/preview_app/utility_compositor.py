@@ -662,3 +662,58 @@ export default function {component}() {{
 def is_utility_catalogue_route(route: dict | None, skeleton_id: str = "") -> bool:
     sid = str(skeleton_id or (route or {}).get("skeleton_id") or "")
     return sid == UTILITY_SKELETON_ID
+
+
+def _is_ai_feature_hub_route(
+    route: dict | None,
+    page_plan: dict | None = None,
+) -> bool:
+    """AI hub is a dedicated AiFeatureDeck face — never a utility checkout layout."""
+    route = route or {}
+    page_plan = page_plan or {}
+    path = str(route.get("path") or page_plan.get("path") or "").rstrip("/").lower()
+    page_id = str(
+        route.get("app_spec_page_id")
+        or route.get("page_id")
+        or page_plan.get("app_spec_page_id")
+        or page_plan.get("page_id")
+        or page_plan.get("id")
+        or ""
+    ).casefold()
+    component = str(
+        route.get("component_file") or page_plan.get("component_file") or ""
+    ).replace("\\", "/").lower()
+    page_type = str(route.get("page_type") or page_plan.get("page_type") or "").casefold()
+    if path == "/ai-features" or path.endswith("/ai-features"):
+        return True
+    if page_id == "page-ai-features":
+        return True
+    if page_type == "ai_hub":
+        return True
+    if component.endswith("aifeaturespage.tsx"):
+        return True
+    return False
+
+
+def should_compose_utility_page(
+    route: dict | None,
+    skeleton_id: str = "",
+    page_plan: dict | None = None,
+) -> bool:
+    """True when layout must come from the utility compositor (never freeform).
+
+    AppSpec contracts must not bypass this — they only add content hooks.
+    Also recovers when architect assigns the wrong skeleton to a transactional
+    path (cart / checkout / confirm / tracking / account).
+    """
+    route = route or {}
+    page_plan = page_plan or {}
+    if _is_ai_feature_hub_route(route, page_plan):
+        return False
+    if is_utility_catalogue_route(route, skeleton_id):
+        return True
+    path = str(route.get("path") or page_plan.get("path") or "")
+    title = str(route.get("title") or page_plan.get("title") or "")
+    page_type = str(route.get("page_type") or page_plan.get("page_type") or "")
+    workspace_type = infer_utility_workspace_type(path, title, page_type)
+    return workspace_type in {"cart", "checkout", "tracking", "account", "confirmation"}

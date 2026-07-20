@@ -50,15 +50,19 @@ from app.domain.models.app_spec import (
 )
 from app.domain.schemas.app_spec import AppSpec
 
-AppSpecMode = Literal["off", "on"]
+AppSpecMode = Literal["off", "on", "shadow"]
 
-# Legacy rollout values map onto the single ``on`` toggle so existing configs
-# keep working after collapsing the four rollout stages into on/off.
-_LEGACY_ON_MODES = {"shadow", "required_new", "required", "true", "1", "yes", "enabled"}
+# Legacy rollout aliases still mean enforced AppSpec. ``shadow`` authors the
+# contract but must not block preview when validation/coverage fails.
+_LEGACY_ON_MODES = {"required_new", "required", "true", "1", "yes", "enabled"}
 
 def _normalize_mode(mode: str | None) -> AppSpecMode:
     raw = str(settings.APPSPEC_MODE if mode is None else mode).strip().lower()
-    return "on" if (raw == "on" or raw in _LEGACY_ON_MODES) else "off"
+    if raw == "shadow":
+        return "shadow"
+    if raw == "on" or raw in _LEGACY_ON_MODES:
+        return "on"
+    return "off"
 
 class AppSpecGenerationError(RuntimeError):
     """No deterministic- and semantic-approved AppSpec could be produced."""
@@ -130,17 +134,17 @@ class _StageLimitedAIProvider:
         return str(getattr(self.provider, "name", type(self.provider).__name__))
 
 def app_spec_mode() -> AppSpecMode:
-    """Return the normalized AppSpec toggle (``on`` or ``off``)."""
+    """Return the normalized AppSpec toggle (``off``, ``on``, or ``shadow``)."""
 
     return _normalize_mode(None)
 
 def app_spec_should_run(*, mode: str | None = None) -> bool:
     """Whether callers should invoke AppSpec generation."""
 
-    return _normalize_mode(mode) == "on"
+    return _normalize_mode(mode) in {"on", "shadow"}
 
 def app_spec_is_required(*, is_new_request: bool = True, mode: str | None = None) -> bool:
-    """When AppSpec is on it is always enforced (no partial rollout stages)."""
+    """True only for enforced AppSpec (``on``). ``shadow`` must not block preview."""
 
     return _normalize_mode(mode) == "on"
 
@@ -149,7 +153,7 @@ def app_spec_should_run_for_request(
 ) -> bool:
     """Apply the AppSpec toggle to one concrete request."""
 
-    return _normalize_mode(mode) == "on"
+    return _normalize_mode(mode) in {"on", "shadow"}
 
 def _validation_payload(
     report: ValidationReport | None,
@@ -234,6 +238,27 @@ def _schema_version_issue(spec: AppSpec) -> dict[str, Any] | None:
         "related_ids": [],
     }
 
+def _resolve_source_ref(source_snapshot: dict[str, Any], source_ref: str) -> Any:
+    """Walk dotted source paths, including list indices (ai_features.0.description)."""
+    current: Any = source_snapshot
+    for segment in str(source_ref or "").split("."):
+        if segment == "":
+            return None
+        if isinstance(current, dict):
+            if segment not in current:
+                return None
+            current = current[segment]
+            continue
+        if isinstance(current, list) and segment.isdigit():
+            index = int(segment)
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+            continue
+        return None
+    return current
+
+
 def _source_reference_issues(
     spec: AppSpec,
     source_snapshot: dict[str, Any],
@@ -258,12 +283,7 @@ def _source_reference_issues(
                 )
                 continue
             seen.add(folded)
-            current: Any = source_snapshot
-            for segment in source_ref.split("."):
-                if not isinstance(current, dict) or segment not in current:
-                    current = None
-                    break
-                current = current[segment]
+            current = _resolve_source_ref(source_snapshot, source_ref)
             if current is None or current == "" or current == [] or current == {}:
                 issues.append(
                     {

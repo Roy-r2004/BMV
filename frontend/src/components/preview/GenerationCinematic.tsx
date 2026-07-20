@@ -311,15 +311,17 @@ export default function GenerationCinematic({
               </div>
             </div>
 
-            {!compact && log.length > 0 && (
+            {log.length > 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="w-full max-w-lg bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-xs"
+                className={`w-full max-w-lg bg-black/40 border border-white/10 rounded-xl font-mono text-xs ${
+                  compact ? 'p-3' : 'p-4'
+                }`}
               >
                 <div className="space-y-1">
-                  {log.slice(-6).map((entry, i, arr) => (
+                  {log.slice(compact ? -8 : -6).map((entry, i, arr) => (
                     <div key={`${entry.t}-${i}`} className={`flex gap-2 ${i === arr.length - 1 ? 'text-cyan-300' : 'text-slate-500'}`}>
                       <span className="shrink-0 text-slate-600">›</span>
                       <span className="truncate">{entry.msg}</span>

@@ -25,6 +25,7 @@ from app.application.preview_app.safety.imports import (
     strip_forbidden_npm_imports,
 )
 from app.application.preview_app.safety.mock_data import (
+    assert_brand_content_floor,
     enrich_date_starved_mock_exports,
     enrich_empty_mock_exports,
     ensure_mock_exports,
@@ -138,6 +139,13 @@ def apply_workspace_guards(
             guard_log.info("enriched date-starved mock exports: %s", ", ".join(dated))
     except Exception as e:
         guard_log.warning("date-starved mock enrich skipped: %s", e)
+    try:
+        floor = assert_brand_content_floor(workspace, brand_name)
+        if floor:
+            actions.extend([f"mock-floor:{n}" for n in floor])
+            guard_log.info("brand content floor: %s", ", ".join(floor))
+    except Exception as e:
+        guard_log.warning("brand content floor skipped: %s", e)
     try:
         repaired = repair_typed_mock_exports(workspace, brand_name, primary, secondary, font)
         if repaired:

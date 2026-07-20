@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from app.domain.appspec.sanitize.alignment import (
     _sanitize_action_capability_page_alignment,
+    _sanitize_action_capability_role_alignment,
     _sanitize_action_entity_capability_alignment,
     _sanitize_page_state_membership,
     _sanitize_trace_journeys_and_tests,
@@ -104,6 +105,7 @@ def sanitize_app_spec_payload(
     _sanitize_journey_step_actions(sanitized)
     _sanitize_ambiguous_transitions(sanitized)
     _sanitize_action_capability_page_alignment(sanitized)
+    _sanitize_action_capability_role_alignment(sanitized)
     _sanitize_action_entity_capability_alignment(sanitized)
     _sanitize_page_state_membership(sanitized)
     _sanitize_page_action_ids(sanitized)

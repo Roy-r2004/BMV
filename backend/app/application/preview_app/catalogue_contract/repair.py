@@ -8,6 +8,7 @@ import re
 from app.application.preview_app.catalogue_contract.imports import normalize_catalogue_page_imports
 from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
+    _is_schedule_listing_route,
     _safe_slot_jsx,
     minimal_catalogue_page_scaffold,
 )
@@ -16,9 +17,13 @@ from app.application.preview_app.catalogue_contract.slots import (
     catalogue_route_for_file,
 )
 from app.application.preview_app.catalogue_contract.validate import (
+    _AI_HUB_FACE_MARKER,
+    _CONFIRM_FACE_MARKER,
+    _SCHEDULE_FACE_MARKER,
     blocking_contract_errors,
     validate_catalogue_page_content,
 )
+from app.application.services.ai_features import ai_feature_hub_page_source
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +261,28 @@ def repair_missing_catalogue_slots(
     return repaired, True
 
 
+def _is_dedicated_face_page(content: str) -> bool:
+    """ScheduleRail / ConfirmStage / AI hub faces must not become SkeletonComposer pages."""
+    text = content or ""
+    return (
+        _SCHEDULE_FACE_MARKER in text
+        or _CONFIRM_FACE_MARKER in text
+        or _AI_HUB_FACE_MARKER in text
+        or ("AiFeatureDeck" in text and "aiFeatures" in text)
+    )
+
+
+def _is_ai_hub_file(file_path: str, route: dict) -> bool:
+    path = str(route.get("path") or "").rstrip("/").lower()
+    page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").casefold()
+    rel = (file_path or "").replace("\\", "/").lower()
+    return (
+        path == "/ai-features"
+        or page_id == "page-ai-features"
+        or rel.endswith("aifeaturespage.tsx")
+    )
+
+
 def enforce_catalogue_page_contract(
     file_path: str,
     content: str,
@@ -264,7 +291,60 @@ def enforce_catalogue_page_contract(
     brand_name: str | None = None,
 ) -> tuple[str, bool]:
     route = catalogue_route_for_file(file_path, architect)
+    # AI hub: always restore AiFeatureDeck if missing (even with empty skeleton_id).
+    if _is_ai_hub_file(file_path, route) and "AiFeatureDeck" not in (content or ""):
+        return (
+            ai_feature_hub_page_source(
+                brand_name=brand_name or "Brand",
+                features=[],
+                page_id=str(
+                    route.get("app_spec_page_id") or route.get("page_id") or "PAGE-AI-FEATURES"
+                ),
+                evidence_ids=list(route.get("evidence_ids") or []),
+            ),
+            True,
+        )
     if not route.get("skeleton_id"):
+        # Face pages without a skeleton still need protect-on-sight validation.
+        if _is_dedicated_face_page(content or ""):
+            if not blocking_contract_errors(
+                validate_catalogue_page_content(content or "", route or {"path": "/ai-features"})
+            ):
+                return content, False
+        return content, False
+    # Listing routes must keep ScheduleRail — AI catalog clones get replaced.
+    if _is_schedule_listing_route(file_path, route) and "ScheduleRail" not in (content or ""):
+        return (
+            minimal_catalogue_page_scaffold(
+                file_path, route, brand_name=brand_name
+            ),
+            True,
+        )
+    # Dedicated faces already encode layout; only validate, never rewrite.
+    if _is_dedicated_face_page(content):
+        if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
+            return content, False
+        if _SCHEDULE_FACE_MARKER in (content or ""):
+            return (
+                minimal_catalogue_page_scaffold(
+                    file_path, route, brand_name=brand_name
+                ),
+                True,
+            )
+        if _is_ai_hub_file(file_path, route) or _AI_HUB_FACE_MARKER in (content or ""):
+            return (
+                ai_feature_hub_page_source(
+                    brand_name=brand_name or "Brand",
+                    features=[],
+                    page_id=str(
+                        route.get("app_spec_page_id")
+                        or route.get("page_id")
+                        or "PAGE-AI-FEATURES"
+                    ),
+                    evidence_ids=list(route.get("evidence_ids") or []),
+                ),
+                True,
+            )
         return content, False
     content = normalize_catalogue_page_imports(content, route)
     # Always re-assert recipe face order, even when the page already compiles.

@@ -536,6 +536,48 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
     return updated if n else mock
 
 
+def assert_brand_content_floor(workspace, brand_name: str) -> list[str]:
+    """Guarantee brand content is never empty before build (one-shot quality floor).
+
+    Fixes nested `services: []` / `products: []` inside BRAND_MANIFEST and any
+    top-level empty list exports. Returns names of exports/fields repaired.
+    """
+    fixed: list[str] = []
+    filled = enrich_empty_mock_exports(workspace, brand_name)
+    fixed.extend(filled)
+
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    if not mock.strip():
+        return fixed
+
+    services_json = json.dumps(_default_services(brand_name or "Brand"), ensure_ascii=False)
+    products_json = json.dumps(_default_products(brand_name or "Brand"), ensure_ascii=False)
+    updated = mock
+
+    def _fill_empty_key(src: str, key: str, value_json: str) -> tuple[str, bool]:
+        pattern = re.compile(
+            rf"({key}\s*:\s*)\[\s*\]",
+            re.MULTILINE,
+        )
+        if not pattern.search(src):
+            return src, False
+        return pattern.sub(rf"\g<1>{value_json}", src, count=1), True
+
+    for key, value_json, label in (
+        ("services", services_json, "BRAND_MANIFEST.services"),
+        ("products", products_json, "BRAND_MANIFEST.products"),
+    ):
+        updated, changed = _fill_empty_key(updated, key, value_json)
+        if changed:
+            fixed.append(label)
+
+    if updated != mock:
+        write_file(workspace, mock_path, updated)
+        guard_log.info("brand content floor repaired: %s", ", ".join(fixed))
+    return fixed
+
+
 def ensure_mock_exports(
     workspace, architect: dict, plan: dict, images: dict, brand_name: str
 ) -> list[str]:

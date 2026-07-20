@@ -333,12 +333,14 @@ def test_stage_call_ceiling_and_rollout_policy() -> None:
 
     assert app_spec_should_run(mode="off") is False
     assert app_spec_should_run(mode="on") is True
-    # Legacy rollout values still resolve to "on" for backward compatibility.
+    # Shadow still authors AppSpec, but must not enforce / block preview.
     assert app_spec_should_run(mode="shadow") is True
+    assert app_spec_is_required(mode="shadow", is_new_request=True) is False
     assert app_spec_is_required(mode="on", is_new_request=True) is True
     assert app_spec_is_required(mode="on", is_new_request=False) is True
     assert app_spec_is_required(mode="off", is_new_request=True) is False
     assert app_spec_should_run_for_request(mode="on", is_new_request=True) is True
+    assert app_spec_should_run_for_request(mode="shadow", is_new_request=True) is True
     assert app_spec_should_run_for_request(mode="on", is_new_request=False) is True
     assert app_spec_should_run_for_request(mode="off", is_new_request=True) is False
 

@@ -1,6 +1,7 @@
 """AppSpec sanitize — state graph and journeys."""
 from __future__ import annotations
 
+from collections import defaultdict, deque
 from typing import Any
 
 def _sanitize_acceptance_journey_requirements(payload: dict[str, Any]) -> None:
@@ -58,7 +59,41 @@ def _sanitize_state_graph(payload: dict[str, Any]) -> None:
         if not state.get("terminal") and state_id not in outgoing:
             state["terminal"] = True
         kept.append(state)
+
+    # Drop states the model invented but never wired from an initial state
+    # (e.g. STATE-PAYMENT-FAILED with no inbound transition) — otherwise AppSpec
+    # validation blocks the whole preview.
+    outgoing_map: dict[str, list[str]] = defaultdict(list)
+    for transition in transitions:
+        from_id = str(transition.get("from_state_id") or "")
+        to_id = str(transition.get("to_state_id") or "")
+        if from_id and to_id:
+            outgoing_map[from_id].append(to_id)
+    initials = [str(s.get("id")) for s in kept if s.get("initial") and s.get("id")]
+    reachable: set[str] = set(initials)
+    queue: deque[str] = deque(initials)
+    while queue:
+        current = queue.popleft()
+        for nxt in outgoing_map.get(current, ()):
+            if nxt not in reachable:
+                reachable.add(nxt)
+                queue.append(nxt)
+    pruned: list[dict[str, Any]] = []
+    for state in kept:
+        state_id = str(state.get("id") or "")
+        if state_id and state_id not in reachable:
+            removed.add(state_id)
+            continue
+        pruned.append(state)
+    kept = pruned
     payload["states"] = kept
+    if removed:
+        payload["transitions"] = [
+            item
+            for item in transitions
+            if str(item.get("from_state_id") or "") not in removed
+            and str(item.get("to_state_id") or "") not in removed
+        ]
 
     if removed:
         for page in payload.get("pages") or []:

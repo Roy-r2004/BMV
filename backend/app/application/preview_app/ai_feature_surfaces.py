@@ -87,7 +87,10 @@ def ensure_ai_feature_route(
         "component_file": AI_HUB_COMPONENT,
         "layout": "public",
         "surface": "public",
-        "skeleton_id": "public-utility",
+        # Face page (AiFeatureDeck) — never public-utility or catalogue slots.
+        # Utility compose + catalogue guards were replacing the hub with a checkout stub.
+        "skeleton_id": "",
+        "page_type": "ai_hub",
         "purpose": "Interactive hub for every AI feature proposed in the plan",
         "features": [str(f.get("name") or f.get("id")) for f in placed],
         "ai_feature_ids": [str(f.get("id")) for f in placed if f.get("id")],
@@ -198,7 +201,7 @@ def _ensure_mock_import(source: str) -> str:
 
 def _panel_jsx(feature_id: str, brand_name: str) -> str:
     return (
-        f'      <div {_PANEL_MARKER}={json.dumps(feature_id)}>\n'
+        f'      <div id={json.dumps(feature_id)} {_PANEL_MARKER}={json.dumps(feature_id)}>\n'
         f'        <AiFeaturePanel\n'
         f'          feature={{(aiFeatures as any).find((f: any) => f.id === {json.dumps(feature_id)}) '
         f'|| {{ id: {json.dumps(feature_id)}, name: {json.dumps(feature_id)} }}}}\n'
@@ -206,6 +209,33 @@ def _panel_jsx(feature_id: str, brand_name: str) -> str:
         f'        />\n'
         f'      </div>'
     )
+
+
+_AI_STEP_HREF_RE = re.compile(
+    r"""href=\{\s*["'](/(?:[\w-]+/)*(?:ai-advisor|ai-stylist|ai-chat)/[^"']+)["']\s*\}"""
+    r"""|href=["'](/(?:[\w-]+/)*(?:ai-advisor|ai-stylist|ai-chat)/[^"']+)["']""",
+    re.IGNORECASE,
+)
+
+
+def rewrite_invented_ai_step_links(source: str) -> str:
+    """Cards often link to /ai-advisor/skill-assessment etc. — those routes rarely exist.
+
+    Point them at the in-page AI panel (hash) so the demo actually opens.
+    """
+    if not source:
+        return source
+    panel_ids = re.findall(rf'{_PANEL_MARKER}="([^"]+)"', source)
+    if not panel_ids:
+        panel_ids = re.findall(r'data-ai-feature="([^"]+)"', source)
+    anchor = f"#{panel_ids[0]}" if panel_ids else ""
+    if not anchor:
+        return source
+
+    def _repl(match: re.Match[str]) -> str:
+        return f'href="{anchor}"'
+
+    return _AI_STEP_HREF_RE.sub(_repl, source)
 
 
 def inject_ai_panel_into_page(
@@ -261,10 +291,27 @@ def inject_contextual_ai_panels(
             feature_id=fid,
             brand_name=brand_name,
         )
+        updated = rewrite_invented_ai_step_links(updated)
         if updated != source:
             write_file(workspace, component, updated)
             written.append(component)
             log.info("AI panel injected %s → %s", fid, component)
+    # Also heal advisor pages that already had a panel but still have dead step links.
+    pages = workspace / "src" / "pages"
+    if pages.is_dir():
+        for path in pages.rglob("*.tsx"):
+            rel = str(path.relative_to(workspace)).replace("\\", "/")
+            try:
+                current = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if "ai-advisor/" not in current and "ai-stylist/" not in current:
+                continue
+            fixed = rewrite_invented_ai_step_links(current)
+            if fixed != current:
+                write_file(workspace, rel, fixed)
+                written.append(rel)
+                log.info("rewrote invented AI step links on %s", rel)
     return written
 
 

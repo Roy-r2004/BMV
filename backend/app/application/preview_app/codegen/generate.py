@@ -12,6 +12,7 @@ from app.application.preview_app.catalogue_contract import (
     enforce_catalogue_page_contract,
     minimal_catalogue_page_scaffold,
 )
+from app.application.preview_app.catalogue_contract.repair import lock_recipe_section_order
 from app.application.preview_app.codegen.architect import (
     _CHROME_CONTRACTS,
     _architect_prompt_context,
@@ -36,8 +37,8 @@ from app.application.preview_app.utility_compositor import (
     compose_utility_page_tsx,
     default_utility_content,
     infer_utility_workspace_type,
-    is_utility_catalogue_route,
     normalize_utility_content,
+    should_compose_utility_page,
 )
 from app.application.preview_app.workspace import list_source_files, read_file, summarize_files, write_file
 from app.application.services.page_experience import page_required_sections
@@ -134,10 +135,42 @@ def _generate_utility_composed_file(
             brand_name=brand_name,
             workspace_type=workspace_type,
         )
-        clear_stubbed_path(workspace, file_path)
-    else:
-        clear_stubbed_path(workspace, file_path)
 
+    # AppSpec hooks are additive — never a reason to skip the compositor.
+    page_id = (
+        route.get("app_spec_page_id")
+        or route.get("page_id")
+        or page_plan.get("app_spec_page_id")
+        or page_plan.get("id")
+        or ""
+    )
+    contract = page_plan.get("app_spec_contract") or {}
+    page_meta = contract.get("page") if isinstance(contract, dict) else {}
+    if isinstance(page_meta, dict) and page_meta.get("id"):
+        page_id = page_meta.get("id") or page_id
+    action_ids = list(route.get("action_ids") or [])
+    evidence_ids = list(route.get("evidence_ids") or [])
+    if not action_ids and isinstance(contract, dict):
+        action_ids = [
+            str(item.get("id"))
+            for item in (contract.get("actions") or [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+    if not evidence_ids and isinstance(contract, dict):
+        evidence_ids = [
+            str(item.get("id"))
+            for item in (contract.get("evidence") or [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+    if page_id:
+        composed = inject_appspec_contract_hooks(
+            composed,
+            page_id=str(page_id),
+            action_ids=action_ids,
+            evidence_ids=evidence_ids,
+        )
+
+    clear_stubbed_path(workspace, file_path)
     write_file(workspace, file_path, composed)
     return composed
 
@@ -292,6 +325,10 @@ def _generate_catalogue_scaffold_first_file(
             )
         clear_stubbed_path(workspace, file_path)
 
+    # Recipe owns public-home section order even after slot-fill rewrites.
+    if str(merged.get("skeleton_id") or "") == "public-home":
+        content = lock_recipe_section_order(content, merged)
+
     write_file(workspace, file_path, content)
     return content
 
@@ -326,11 +363,8 @@ def generate_file(
     catalogue_page = file_kind == "page" and bool(skeleton_id)
 
     # Contract compositor: utility pages never go through freeform React codegen.
-    if (
-        catalogue_page
-        and is_utility_catalogue_route(route, skeleton_id)
-        and not app_spec_contract
-    ):
+    # AppSpec contracts must not bypass this — hooks are injected after compose.
+    if catalogue_page and should_compose_utility_page(route, skeleton_id, page_plan or {}):
         merged_route = {
             **route,
             "skeleton_id": "public-utility",

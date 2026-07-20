@@ -25,14 +25,109 @@ from app.application.preview_app.catalogue_contract.tokenize import (
 )
 from app.application.ui_catalogue import compact_skeleton_contract, get_skeleton
 
+_SCHEDULE_FACE_MARKER = "// schedule listing scaffold"
+_SCHEDULE_FACE_REQUIRED = (
+    "PublicShell",
+    "PublicNav",
+    "MarketingHero",
+    "ScheduleRail",
+    "CTABand",
+    "BrandFooter",
+)
+_CONFIRM_FACE_MARKER = "// composed confirmation page (ConfirmStage)"
+_CONFIRM_FACE_REQUIRED = (
+    "PublicShell",
+    "PublicNav",
+    "ConfirmStage",
+    "BrandFooter",
+)
+_AI_HUB_FACE_MARKER = "// plan AI feature hub"
+_AI_HUB_FACE_REQUIRED = (
+    "PublicShell",
+    "PublicNav",
+    "AiFeatureDeck",
+)
+
+
+def _validate_schedule_listing_face(content: str) -> list[str]:
+    """Accept dedicated ScheduleRail listing pages (not SkeletonComposer clones)."""
+    errors: list[str] = []
+    text = content or ""
+    if _SCHEDULE_FACE_MARKER not in text:
+        return ["schedule listing face marker"]
+    for name in _SCHEDULE_FACE_REQUIRED:
+        if name not in text:
+            errors.append(f"missing schedule face component:{name}")
+    if "@/ui" not in text:
+        errors.append("missing @/ui import")
+    if "BRAND_MANIFEST" not in text:
+        errors.append("missing BRAND_MANIFEST services binding")
+    return errors
+
+
+def _validate_confirm_stage_face(content: str) -> list[str]:
+    """Accept ConfirmStage confirmation pages (utility compositor face)."""
+    errors: list[str] = []
+    text = content or ""
+    if _CONFIRM_FACE_MARKER not in text:
+        return ["confirm stage face marker"]
+    for name in _CONFIRM_FACE_REQUIRED:
+        if name not in text:
+            errors.append(f"missing confirm face component:{name}")
+    if "@/ui" not in text:
+        errors.append("missing @/ui import")
+    return errors
+
+
+def _validate_ai_hub_face(content: str) -> list[str]:
+    """Accept AiFeatureDeck hub pages — never public-utility checkout stubs."""
+    errors: list[str] = []
+    text = content or ""
+    if _AI_HUB_FACE_MARKER not in text and "AiFeatureDeck" not in text:
+        return ["ai hub face marker"]
+    for name in _AI_HUB_FACE_REQUIRED:
+        if name not in text:
+            errors.append(f"missing ai hub face component:{name}")
+    if "@/ui" not in text:
+        errors.append("missing @/ui import")
+    if "aiFeatures" not in text and "ai_features" not in text:
+        errors.append("missing aiFeatures binding")
+    # Reject the utility stub that used to overwrite this page.
+    if "Signature package" in text or (
+        "Your details" in text and "Ready to confirm" in text
+    ):
+        errors.append("utility checkout stub on ai hub")
+    return errors
+
+
 def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
     skeleton_id = str(route.get("skeleton_id") or "")
+    text = content or ""
+    path = str(route.get("path") or "").rstrip("/").lower()
+    page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").casefold()
+    is_ai_hub = (
+        path == "/ai-features"
+        or page_id == "page-ai-features"
+        or _AI_HUB_FACE_MARKER in text
+        or (
+            "AiFeatureDeck" in text
+            and "AiFeaturesPage" in text
+        )
+    )
+    if is_ai_hub:
+        return _validate_ai_hub_face(text)
     if not skeleton_id:
         return []
+    if _SCHEDULE_FACE_MARKER in text:
+        return _validate_schedule_listing_face(text)
+    if _CONFIRM_FACE_MARKER in text or (
+        "ConfirmStage" in text and "composed confirmation page" in text
+    ):
+        return _validate_confirm_stage_face(text)
     errors: list[str] = []
     # Validate against normalized imports — enforce_catalogue_page_contract
     # materializes the same rewrite before the file is written.
-    tokens = _source_tokens(normalize_catalogue_page_imports(content or "", route))
+    tokens = _source_tokens(normalize_catalogue_page_imports(text, route))
     literal = "\0" + skeleton_id
     has_skeleton_const = _has_token_sequence(
         tokens,

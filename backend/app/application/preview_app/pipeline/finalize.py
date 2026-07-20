@@ -141,11 +141,16 @@ def run_finalize(ctx: PipelineContext) -> dict:
     )
     from app.application.services.ai_features import ai_features_from_request
 
-    planned_ai = ai_features_from_request(req)
+    planned_ai: list = []
+    planned_ai = ai_features_from_request(req) or []
     if planned_ai:
         # Re-apply after codegen so contextual panels land on real pages.
+        # Must rebuild after this — earlier Vite dist may still contain a
+        # public-utility stub that overwrote the hub before guards were fixed.
+        hub_before = read_file(workspace, "src/pages/AiFeaturesPage.tsx") or ""
+        written_ai: list[str] = []
         try:
-            ensure_ai_feature_surfaces(
+            written_ai = ensure_ai_feature_surfaces(
                 workspace,
                 architect,
                 req,
@@ -153,6 +158,35 @@ def run_finalize(ctx: PipelineContext) -> dict:
             )
         except Exception as e:
             log.warning("    AI feature surface inject failed: %s", e)
+        hub_after = read_file(workspace, "src/pages/AiFeaturesPage.tsx") or ""
+        needs_ai_rebuild = bool(written_ai) and "AiFeatureDeck" in hub_after and (
+            hub_before != hub_after or "AiFeatureDeck" not in hub_before
+        )
+        if needs_ai_rebuild:
+            try:
+                from app.application.preview_app.build import run_build
+
+                _emit(
+                    db,
+                    request_id,
+                    "build",
+                    "Rebuilding preview with AI feature hub...",
+                    90,
+                    detail="AiFeatureDeck must ship in dist, not only source",
+                )
+                rebuilt_ok, rebuild_log = run_build(
+                    workspace, ctx.base_path, ctx.template_renderer
+                )
+                if rebuilt_ok:
+                    ok = True
+                    ctx.build_log = rebuild_log
+                    log.info("    AI hub rebuild OK — dist includes AiFeatureDeck")
+                else:
+                    log.warning(
+                        "    AI hub rebuild failed — source has hub but dist may be stale"
+                    )
+            except Exception as e:
+                log.warning("    AI hub rebuild skipped: %s", e)
         missing_ai = assert_ai_features_present(workspace, planned_ai)
         if missing_ai:
             ok = False
@@ -165,15 +199,73 @@ def run_finalize(ctx: PipelineContext) -> dict:
                 detail=", ".join(missing_ai[:8]),
             )
 
+    # Automated quality lock — heal known failures; do not claim ready if hard rules fail.
     from pathlib import Path
+
+    from app.application.preview_app.quality_gate import run_quality_gate_with_heal
+
+    def _gate_rebuild():
+        from app.application.preview_app.build import run_build
+
+        return run_build(workspace, ctx.base_path, ctx.template_renderer)
+
+    _emit(
+        db,
+        request_id,
+        "quality_gate",
+        "Running automated quality lock...",
+        91,
+        detail="AI hub · listings · confirm · nav · dead links",
+    )
+    gate = run_quality_gate_with_heal(
+        Path(workspace),
+        architect,
+        brand_name=ctx.brand_name or req.business_name or "Brand",
+        req=req,
+        require_ai_hub=bool(planned_ai),
+        rebuild=_gate_rebuild,
+        ai_provider=getattr(ctx, "ai_provider", None),
+    )
+    if gate.healed:
+        log.info("    quality gate healed: %s", ", ".join(gate.healed[:10]))
+    if not gate.ok:
+        ok = False
+        detail = "; ".join(
+            f"{i.code}@{i.path or '-'}: {i.message}" for i in gate.issues[:8]
+        )
+        log.error("    quality gate FAILED: %s", detail)
+        _emit(
+            db,
+            request_id,
+            "contract_failed",
+            "Quality lock failed — preview not ready",
+            92,
+            detail=detail,
+        )
+    else:
+        log.info("    quality gate PASSED")
+        _emit(
+            db,
+            request_id,
+            "quality_gate",
+            "Quality lock passed",
+            92,
+            detail=f"healed={len(gate.healed)}",
+        )
 
     # Vite may succeed while AppSpec stub/contract checks still fail. Prefer
     # showing the compiled site over leaving Live Product on a blank spinner.
     dist_ok = (Path(workspace) / "dist" / "index.html").is_file()
-    viewable = bool(ok or dist_ok)
+    # Hard lock: quality gate failure means not ready (no manual bypass).
+    viewable = bool(dist_ok and gate.ok and ok)
     preview_url = f"{ctx.base_path}/" if viewable else None
-    if ok:
+    if viewable:
         log.info("  OK Preview built: %s", preview_url)
+    elif dist_ok and not gate.ok:
+        log.error(
+            "  FAIL preview %s built but quality lock failed — not marking ready",
+            request_id,
+        )
     elif dist_ok:
         log.warning(
             "  WARN preview %s compiled but contract/stub checks failed — "
@@ -274,37 +366,44 @@ def run_finalize(ctx: PipelineContext) -> dict:
     req.updated_at = datetime.utcnow()
     db.commit()
 
-    if not ok and not dist_ok:
-        if ctx.enforce_app_spec:
-            reason = (
-                "Required AppSpec preview contains fallback/stub pages: "
-                + ", ".join(fallback_pages)
-                if fallback_pages
-                else (
-                    "Required AppSpec preview is missing contract hooks: "
-                    + "; ".join(app_spec_workspace_issues)
-                    if app_spec_workspace_issues
-                    else "Required AppSpec preview did not compile successfully."
-                )
+    if not viewable:
+        if not gate.ok:
+            reason = "Quality lock failed: " + "; ".join(
+                f"{i.code}: {i.message}" for i in gate.issues[:6]
             )
             _emit(db, request_id, "failed", reason, 100)
-            raise PreviewAppContractError(reason)
-        # Do not raise — the UI already has status=failed. Raising caused the
-        # background worker to emit a second "Generation failed" and made
-        # concurrent runs look like hard crashes even after fallbacks ran.
-        log.warning(
-            f"  WARN preview {request_id} finished without a successful Vite build "
-            f"after {ctx.max_fix_attempts} fix attempts — status marked failed"
-        )
-        _emit(db, request_id, "failed", "Preview build could not complete — try Generate again", 100)
+            return result
+        if not dist_ok:
+            if ctx.enforce_app_spec:
+                reason = (
+                    "Required AppSpec preview contains fallback/stub pages: "
+                    + ", ".join(fallback_pages)
+                    if fallback_pages
+                    else (
+                        "Required AppSpec preview is missing contract hooks: "
+                        + "; ".join(app_spec_workspace_issues)
+                        if app_spec_workspace_issues
+                        else "Required AppSpec preview did not compile successfully."
+                    )
+                )
+                _emit(db, request_id, "failed", reason, 100)
+                raise PreviewAppContractError(reason)
+            log.warning(
+                f"  WARN preview {request_id} finished without a successful Vite build "
+                f"after {ctx.max_fix_attempts} fix attempts — status marked failed"
+            )
+            _emit(
+                db,
+                request_id,
+                "failed",
+                "Preview build could not complete — try Generate again",
+                100,
+            )
+            return result
+        _emit(db, request_id, "failed", "Preview did not pass quality lock", 100)
         return result
 
     # Stay below tech (90) / proposal (95) / done (100) so the customer bar
     # does not jump backward after the live preview becomes available.
-    ready_label = (
-        "Live preview ready!"
-        if ok
-        else "Live preview ready (some pages used fallback scaffolds)"
-    )
-    _emit(db, request_id, "ready", ready_label, 88, detail=preview_url or "")
+    _emit(db, request_id, "ready", "Live preview ready!", 88, detail=preview_url or "")
     return result

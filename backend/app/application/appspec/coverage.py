@@ -204,11 +204,18 @@ def coverage_requires_repair(
         for item in review.goal_coverage:
             if not item.requirement_ids:
                 continue
-            current: Any = dict(source_snapshot)
+            current: Any = source_snapshot
             for segment in item.source_path.split("."):
-                if not isinstance(current, Mapping) or segment not in current:
-                    return True
-                current = current[segment]
+                if isinstance(current, Mapping) and segment in current:
+                    current = current[segment]
+                    continue
+                if isinstance(current, list) and segment.isdigit():
+                    index = int(segment)
+                    if index < 0 or index >= len(current):
+                        return True
+                    current = current[index]
+                    continue
+                return True
             if current is None or current == "" or current == [] or current == {}:
                 return True
     for findings in (

@@ -18,7 +18,7 @@ type RawNav = {
 };
 
 function shortLabel(label: string, href: string): string {
-  let text = (label || '').trim();
+  let text = String(label ?? '').trim();
   text = text
     .replace(/^(Welcome(\s+to)?|Manage|My)\s+/i, '')
     .replace(/\s+/g, ' ')

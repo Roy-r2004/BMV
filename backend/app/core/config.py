@@ -85,6 +85,7 @@ class Settings:
     ARCHITECT_MODEL: str
     CRITIC_MODEL: str
     FIX_MODEL: str
+    QUALITY_FIX_MODEL: str
     APPSPEC_MODEL: str
     APPSPEC_REPAIR_MODEL: str
     APPSPEC_COVERAGE_MODEL: str
@@ -105,6 +106,8 @@ class Settings:
     PREVIEW_MAX_BUILD_FIX_ATTEMPTS: int
     PREVIEW_MAX_FIX_LOOP_SECONDS: int
     PREVIEW_MAX_AI_CALLS: int
+    PREVIEW_QUALITY_AI_REPAIR: bool
+    PREVIEW_MAX_QUALITY_FIX_ATTEMPTS: int
     PREVIEW_SKIP_VISUAL_CRITIC: bool
     PREVIEW_SCAFFOLD_FIRST: bool
     PREVIEW_SCAFFOLD_SLOT_FILL: bool
@@ -151,14 +154,29 @@ class Settings:
         self.CRITIC_MODEL = _env_or("CRITIC_MODEL", taste_default)
         # Fix loop uses the codegen model by default — Flash often returns empty JSON.
         self.FIX_MODEL = _env_or("FIX_MODEL", self.PREVIEW_APP_MODEL)
+        # Quality-gate dynamic repair (agentic coding). Prefer a strong coder;
+        # default follows FIX_MODEL (set QUALITY_FIX_MODEL=z-ai/glm-5.2 to try GLM).
+        self.QUALITY_FIX_MODEL = _env_or("QUALITY_FIX_MODEL", self.FIX_MODEL)
 
-        # Canonical product contract toggle. `off` keeps the legacy pipeline
-        # untouched; `on` authors, enforces, and drives the UI from the AppSpec
-        # for every preview. Legacy rollout values (shadow/required_new/required)
-        # are accepted and treated as `on` so old configs keep working.
+        # Canonical product contract toggle:
+        # - off: skip AppSpec
+        # - shadow: author/validate but do not block preview on failure
+        # - on: enforce AppSpec (legacy aliases map here)
         requested_appspec_mode = os.getenv("APPSPEC_MODE", "off").strip().lower()
-        _appspec_on = {"on", "shadow", "required_new", "required", "true", "1", "yes", "enabled"}
-        self.APPSPEC_MODE = "on" if requested_appspec_mode in _appspec_on else "off"
+        if requested_appspec_mode == "shadow":
+            self.APPSPEC_MODE = "shadow"
+        elif requested_appspec_mode in {
+            "on",
+            "required_new",
+            "required",
+            "true",
+            "1",
+            "yes",
+            "enabled",
+        }:
+            self.APPSPEC_MODE = "on"
+        else:
+            self.APPSPEC_MODE = "off"
         self.APPSPEC_SCHEMA_VERSION = (
             os.getenv("APPSPEC_SCHEMA_VERSION", "1.0").strip() or "1.0"
         )
@@ -248,6 +266,16 @@ class Settings:
             self.PREVIEW_MAX_AI_CALLS = max(1, int(os.getenv("PREVIEW_MAX_AI_CALLS", "96")))
         except ValueError:
             self.PREVIEW_MAX_AI_CALLS = 96
+        # After deterministic quality heals fail, let a sandboxed AI repair try.
+        self.PREVIEW_QUALITY_AI_REPAIR = os.getenv(
+            "PREVIEW_QUALITY_AI_REPAIR", "true"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        try:
+            self.PREVIEW_MAX_QUALITY_FIX_ATTEMPTS = max(
+                0, int(os.getenv("PREVIEW_MAX_QUALITY_FIX_ATTEMPTS", "2"))
+            )
+        except ValueError:
+            self.PREVIEW_MAX_QUALITY_FIX_ATTEMPTS = 2
 
         # Post-build visual critique (screenshot + vision) — ON by default for
         # demo quality. Skip with PREVIEW_SKIP_VISUAL_CRITIC=true for speed.

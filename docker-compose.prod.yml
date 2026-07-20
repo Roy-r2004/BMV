@@ -124,7 +124,7 @@ services:
       VISION_MODEL: ${VISION_MODEL:-meta-llama/llama-3.2-11b-vision-instruct}
       OLLAMA_URL: http://ollama:11434
       PULL_MODELS: "false"
-      APPSPEC_MODE: ${APPSPEC_MODE:-off}
+      APPSPEC_MODE: ${APPSPEC_MODE:-on}
       APPSPEC_SCHEMA_VERSION: ${APPSPEC_SCHEMA_VERSION:-1.0}
       APPSPEC_PROMPT_REVISION: ${APPSPEC_PROMPT_REVISION:-2026-07-15.1}
       APPSPEC_MODEL: ${APPSPEC_MODEL:-google/gemini-2.5-flash}

@@ -190,6 +190,134 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         raise ValueError(f"Unsupported catalogue fallback slot: {slot}") from exc
 
 
+_SCHEDULE_HINTS = (
+    "class",
+    "classes",
+    "workshop",
+    "workshops",
+    "schedule",
+    "session",
+    "sessions",
+    "service",
+    "services",
+    "treatment",
+    "treatments",
+    "booking-list",
+)
+
+
+def _route_text_blob(file_path: str, route: dict) -> str:
+    parts = [
+        str(route.get("path") or ""),
+        str(route.get("title") or ""),
+        str(route.get("page_id") or ""),
+        str(route.get("app_spec_page_id") or ""),
+        canonical_workspace_path(file_path),
+    ]
+    return " ".join(parts).lower()
+
+
+def _is_schedule_listing_route(file_path: str, route: dict) -> bool:
+    """Classes/services listings get ScheduleRail — not a home marketing clone."""
+    skeleton_id = str(route.get("skeleton_id") or "")
+    if skeleton_id not in {
+        "public-service",
+        "public-booking",
+        "public-catalog",
+        "public-home",
+    }:
+        return False
+    path = str(route.get("path") or "").lower().rstrip("/")
+    # Detail routes like /classes/:id are not the listing face.
+    if re.search(r"/:\w+", path) or re.search(r"/\{[^}]+\}", path):
+        return False
+    file_blob = canonical_workspace_path(file_path).lower()
+    if "detail" in file_blob:
+        return False
+    blob = _route_text_blob(file_path, route)
+    return any(hint in blob for hint in _SCHEDULE_HINTS)
+
+
+def _schedule_listing_scaffold(
+    *,
+    component: str,
+    brand: str,
+    title: str,
+    listing_path: str,
+    page_id: str,
+    action_ids: list[str],
+    evidence_ids: list[str],
+) -> str:
+    brand_js = json.dumps(brand)
+    title_js = json.dumps(title)
+    base = (listing_path or "/classes").rstrip("/") or "/classes"
+    base_js = json.dumps(base)
+    appspec_attrs = f" data-appspec-page={json.dumps(page_id)}" if page_id else ""
+    span_lines: list[str] = []
+    for action_id in action_ids:
+        span_lines.append(
+            f'        <span className="sr-only" data-appspec-action={json.dumps(action_id)}>'
+            f"{action_id}</span>"
+        )
+    for evidence_id in evidence_ids:
+        span_lines.append(
+            f'        <span className="sr-only" data-appspec-evidence={json.dumps(evidence_id)}>'
+            f"{evidence_id}</span>"
+        )
+    appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
+    return f"""// schedule listing scaffold — distinct from home marketing clone
+import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
+import {{ BRAND_MANIFEST, images }} from '@/data/mock';
+import {{ PublicShell, PublicNav, MarketingHero, ScheduleRail, CTABand, BrandFooter }} from '@/ui';
+
+const services = Array.isArray(BRAND_MANIFEST?.services) ? BRAND_MANIFEST.services : [];
+const LISTING_BASE = {base_js};
+
+export default function {component}() {{
+  const navItems = usePublicNavItems();
+  const navCta = publicCta();
+  const items = services.map((s: any, i: number) => ({{
+    id: String(s.id || `session-${{i}}`),
+    name: String(s.name || s.title || 'Session'),
+    description: String(s.description || ''),
+    duration: String(s.duration || ''),
+    level: String(s.level || 'All Levels'),
+    day: String(s.day || ''),
+    status: String(s.status || 'Open'),
+    href: `${{LISTING_BASE}}/${{s.id || i + 1}}`,
+  }}));
+
+  return (
+    <PublicShell brandName={{{brand_js}}} chrome="immersive" nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>
+      <div data-skeleton="public-service"{appspec_attrs}>{appspec_hook_spans}
+      <MarketingHero
+        brandName={{{brand_js}}}
+        headline={{{title_js}}}
+        subcopy="Pick a session from the schedule — levels, times, and open seats in one place."
+        primaryCta={{{{ label: "Browse schedule", href: "#schedule-list" }}}}
+        secondaryCta={{{{ label: "Ask AI advisor", href: "/ai-features" }}}}
+        imageSrc={{images.hero}}
+        imageAlt=""
+      />
+      <ScheduleRail
+        heading="Upcoming sessions"
+        description="Filter by level or day. Full sessions can join the waitlist."
+        items={{items}}
+      />
+      <CTABand
+        heading="Not sure which session fits?"
+        description="Open the AI features hub for advisors, FAQs, and waitlist help."
+        primaryCta={{{{ label: "Open AI features", href: "/ai-features" }}}}
+        secondaryCta={{{{ label: "Contact us", href: "/contact" }}}}
+      />
+      <BrandFooter brandName={{{brand_js}}} description="Clear schedules. Real bookings. Brand-first pages." />
+      </div>
+    </PublicShell>
+  );
+}}
+"""
+
+
 def minimal_catalogue_page_scaffold(
     file_path: str,
     route: dict,
@@ -200,11 +328,24 @@ def minimal_catalogue_page_scaffold(
     component = re.sub(r"[^A-Za-z0-9_]", "", stem) or "CataloguePage"
     if component[0].isdigit():
         component = f"Page{component}"
+    brand = brand_name or "Brand"
+    title = str(route.get("title") or component.replace("Page", "") or "Overview")
+    page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
+    action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
+    evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
+    if _is_schedule_listing_route(file_path, route):
+        return _schedule_listing_scaffold(
+            component=component,
+            brand=brand,
+            title=title,
+            listing_path=str(route.get("path") or "/classes"),
+            page_id=page_id,
+            action_ids=action_ids,
+            evidence_ids=evidence_ids,
+        )
     skeleton_id = str(route["skeleton_id"])
     shell = expected_shell(route)
     slots = assigned_non_shell_slots(route)
-    brand = brand_name or "Brand"
-    title = str(route.get("title") or component.replace("Page", "") or "Overview")
     components = [shell, "getSkeleton"]
     if skeleton_id == "ops-dashboard":
         components.append("composeSkeletonLayout")
@@ -232,9 +373,6 @@ def minimal_catalogue_page_scaffold(
         images_import = "import { images } from '@/data/mock';\n"
     else:
         images_import = ""
-    page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
-    action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
-    evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
     appspec_attrs = f' data-appspec-page={json.dumps(page_id)}' if page_id else ""
     appspec_hook_spans = ""
     if page_id:

@@ -58,11 +58,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-bmv}:${POSTGRES_PASSWORD:-bmv-local-password}@db:5432/${POSTGRES_DB:-buildmyversion}
       # Parallel is safe after progress_lock/SQLite fixes; 3 keeps Flash responsive
       PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-3}
-      PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-true}
+      PREVIEW_SKIP_CRITIC: ${PREVIEW_SKIP_CRITIC:-false}
       PREVIEW_SKIP_VISUAL_CRITIC: ${PREVIEW_SKIP_VISUAL_CRITIC:-false}
       PREVIEW_MAX_BUILD_FIX_ATTEMPTS: ${PREVIEW_MAX_BUILD_FIX_ATTEMPTS:-5}
       PREVIEW_MAX_FIX_LOOP_SECONDS: ${PREVIEW_MAX_FIX_LOOP_SECONDS:-600}
-      APPSPEC_MODE: ${APPSPEC_MODE:-off}
+      # off for reliable local demos; use shadow/on when hardening AppSpec
+      APPSPEC_MODE: ${APPSPEC_MODE:-shadow}
       APPSPEC_SCHEMA_VERSION: ${APPSPEC_SCHEMA_VERSION:-1.0}
       APPSPEC_PROMPT_REVISION: ${APPSPEC_PROMPT_REVISION:-2026-07-15.1}
       APPSPEC_MODEL: ${APPSPEC_MODEL:-google/gemini-2.5-flash}

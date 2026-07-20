@@ -84,6 +84,31 @@ def _sanitize_action_capability_page_alignment(payload: dict[str, Any]) -> None:
         if not action_caps:
             action["capability_ids"] = ["CAP-UNSPECIFIED"]
 
+
+def _sanitize_action_capability_role_alignment(payload: dict[str, Any]) -> None:
+    """Grant each action's role on every capability the action cites."""
+
+    capabilities = {
+        str(item.get("id")): item
+        for item in (payload.get("capabilities") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    for action in payload.get("actions") or []:
+        if not isinstance(action, dict):
+            continue
+        role_id = str(action.get("role_id") or "")
+        if not role_id:
+            continue
+        for capability_id in action.get("capability_ids") or []:
+            capability = capabilities.get(str(capability_id))
+            if capability is None:
+                continue
+            roles = [str(value) for value in (capability.get("role_ids") or [])]
+            if role_id not in roles:
+                roles.append(role_id)
+                capability["role_ids"] = roles
+
+
 def _sanitize_action_entity_capability_alignment(payload: dict[str, Any]) -> None:
     """Ensure action.entity_id is declared on every capability the action cites."""
 

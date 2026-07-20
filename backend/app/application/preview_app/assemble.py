@@ -280,10 +280,32 @@ def _nav_items_for(routes: list[dict], predicate) -> list[dict]:
         path = rt.get("path")
         if not path or not predicate(rt):
             continue
-        if ":" in path:
+        if ":" in path or "{" in path:
             continue
         # Keep transactional booking steps out of persistent chrome.
-        if re.match(r"^/(book|payment|confirmation)\b", path):
+        if re.match(
+            r"^/(book|booking|payment|confirmation|checkout|cart|login|register|signup)\b",
+            path,
+            re.I,
+        ):
+            continue
+        segments = [s for s in path.strip("/").split("/") if s]
+        # Public chrome: listings + hubs only — not /classes/intro-to-wheel clutter.
+        if (
+            len(segments) >= 2
+            and not path.startswith(("/admin", "/owner", "/member", "/ops"))
+            and segments[0]
+            in {
+                "classes",
+                "services",
+                "products",
+                "treatments",
+                "stylists",
+                "workshops",
+                "schedule",
+                "sessions",
+            }
+        ):
             continue
         if path in seen:
             continue
@@ -301,6 +323,17 @@ def _nav_items_for(routes: list[dict], predicate) -> list[dict]:
     ai_idx = next((i for i, it in enumerate(items) if it.get("path") == "/ai-features"), -1)
     if ai_idx > 1:
         items.insert(1, items.pop(ai_idx))
+    # Cap public chrome so generated detail sprawl never overwhelms the demo.
+    if items and all(not str(it.get("path") or "").startswith(("/admin", "/owner")) for it in items):
+        priority = ("/", "/home", "/ai-features", "/classes", "/services", "/schedule", "/ai-advisor", "/contact")
+        ranked = sorted(
+            items,
+            key=lambda it: (
+                priority.index(it["path"]) if it.get("path") in priority else 50,
+                str(it.get("label") or ""),
+            ),
+        )
+        items = ranked[:7]
     return items
 
 
@@ -597,7 +630,17 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     import_lines = "\n".join(f"import {c} from '{imp}';" for c, imp in sorted(imports.items()))
 
     def _routes_block(items: list[tuple[str, str]]) -> str:
-        return "\n".join(f'          <Route path="{p}" element={{<{c} />}} />' for p, c in items)
+        lines: list[str] = []
+        for path, comp in items:
+            lines.append(f'          <Route path="{path}" element={{<{comp} />}} />')
+            # Advisor cards invent /ai-advisor/skill-assessment etc. Keep those
+            # URLs on the same page so "sub steps" don't fall through to Home.
+            leaf = path.rstrip("/").rsplit("/", 1)[-1].lower()
+            if re.search(r"ai[-_]?advisor|ai[-_]?stylist|ai[-_]?chat", leaf) and not path.endswith("/*"):
+                lines.append(
+                    f'          <Route path="{path.rstrip("/")}/*" element={{<{comp} />}} />'
+                )
+        return "\n".join(lines)
 
     blocks: list[str] = []
     if not has_root and first_path != "/":
