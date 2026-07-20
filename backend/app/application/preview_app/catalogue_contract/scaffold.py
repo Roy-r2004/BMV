@@ -66,6 +66,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         ),
         "features": (
             '<FeatureBento heading={seed.featuresHeading ?? "Designed to feel alive"} '
+            'imagePool={[images.card1, images.card2, images.card3, images.ambient]} '
             'items={seed.features ?? []} />'
         ),
         "products": (

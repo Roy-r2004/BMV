@@ -19,6 +19,8 @@ export interface FeatureBentoProps {
   items: FeatureBentoItem[];
   description?: string;
   variant?: FeatureBentoVariant;
+  /** When items lack imageSrc, pull from this pool (card1/card2/…) so bento stays cinematic. */
+  imagePool?: string[];
   className?: string;
 }
 
@@ -27,13 +29,18 @@ export function FeatureBento({
   className,
   description,
   heading,
+  imagePool,
   items: itemsProp = [],
   variant: _variant,
 }: FeatureBentoProps) {
   const safe = useMotionSafe();
   // Recipe owns feature composition — ignore AI-passed variants.
   const resolved = recipeFeatureVariant(currentRecipeId());
-  const items = Array.isArray(itemsProp) ? itemsProp : [];
+  const pool = Array.isArray(imagePool) ? imagePool.filter(Boolean) : [];
+  const items = (Array.isArray(itemsProp) ? itemsProp : []).map((item, index) => ({
+    ...item,
+    imageSrc: item.imageSrc || (pool.length ? pool[index % pool.length] : undefined),
+  }));
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(0);
 
@@ -143,7 +150,10 @@ export function FeatureBento({
                       <img
                         src={item.imageSrc}
                         alt={item.imageAlt ?? ''}
-                        className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                        className={cn(
+                          'absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]',
+                          safe && index === 0 && 'ui-kenburns'
+                        )}
                       />
                     ) : null}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-brand/10" />
@@ -173,19 +183,49 @@ export function FeatureBento({
               })}
             </MotionStagger>
           ) : (
-            <MotionStagger className="mt-20">
+            /* Text-only fallback — stacked spotlight cards, NOT ProcessSection row lists */
+            <MotionStagger className="mt-16 grid gap-5 lg:grid-cols-12">
               {items.map((item, index) => (
-                <MotionStaggerItem key={item.title}>
-                  <article className="grid gap-4 border-t border-foreground/12 py-12 md:grid-cols-12 md:gap-10 md:py-14">
-                    <p className="font-display text-4xl italic text-foreground/25 md:col-span-2">
-                      {String(index + 1).padStart(2, '0')}
+                <MotionStaggerItem
+                  key={item.title}
+                  className={cn(
+                    index === 0 && 'lg:col-span-7',
+                    index === 1 && 'lg:col-span-5',
+                    index >= 2 && 'lg:col-span-4'
+                  )}
+                >
+                  <article
+                    className={cn(
+                      'group relative flex h-full flex-col overflow-hidden rounded-[calc(var(--radius-ui)+0.5rem)] border border-border-subtle bg-card p-8 shadow-[var(--shadow-ui)] transition duration-500 hover:-translate-y-1',
+                      index === 0 && 'min-h-[18rem] bg-foreground text-background lg:p-10'
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        'text-[11px] font-semibold uppercase tracking-[0.22em]',
+                        index === 0 ? 'text-white/45' : 'text-brand/70'
+                      )}
+                    >
+                      Highlight {String(index + 1).padStart(2, '0')}
                     </p>
-                    <div className="md:col-span-5">
-                      <h3 className="font-display text-[clamp(1.85rem,3vw,2.75rem)] italic leading-[1.05] tracking-tight text-foreground">
-                        {item.title}
-                      </h3>
-                    </div>
-                    <p className="text-base leading-8 text-muted md:col-span-5 md:pt-2">{item.description}</p>
+                    <h3
+                      className={cn(
+                        'mt-5 font-display leading-[1.05] tracking-tight',
+                        index === 0
+                          ? 'text-[clamp(2rem,3.5vw,3rem)] text-white'
+                          : 'text-[clamp(1.5rem,2.4vw,2.1rem)] text-foreground'
+                      )}
+                    >
+                      {item.title}
+                    </h3>
+                    <p
+                      className={cn(
+                        'mt-4 text-sm leading-7',
+                        index === 0 ? 'max-w-md text-white/70' : 'text-muted'
+                      )}
+                    >
+                      {item.description}
+                    </p>
                   </article>
                 </MotionStaggerItem>
               ))}
