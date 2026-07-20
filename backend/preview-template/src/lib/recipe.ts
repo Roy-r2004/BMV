@@ -9,30 +9,40 @@ export type RecipeId =
   | 'craft';
 
 /** Distinct hero compositions — not just color variants of one layout. */
-export type HeroVariant = 'cinematic' | 'service' | 'compact' | 'product' | 'editorial';
+export type HeroVariant =
+  | 'cinematic'
+  | 'service'
+  | 'compact'
+  | 'product'
+  | 'editorial'
+  | 'atelier';
 export type FeatureVariant = 'bento' | 'grid' | 'alternating';
 export type ShellChrome = 'solid' | 'immersive';
 export type NavVariant = 'default' | 'minimal' | 'stacked';
 export type FooterVariant = 'statement' | 'compact' | 'columns';
 export type BrandPlacement = 'start' | 'center';
 
-/** One distinct hero composition per recipe — do not collapse pairs. */
+/**
+ * One distinct hero composition per recipe — do not collapse pairs.
+ * Must stay 1:1 with backend design_recipes.py hero_variant values.
+ */
 const HERO_BY_RECIPE: Record<RecipeId, HeroVariant> = {
   editorial: 'editorial',
   'dense-ops': 'compact',
   'warm-service': 'service',
   'bold-retail': 'product',
   nocturne: 'cinematic',
-  craft: 'product',
+  craft: 'atelier',
 };
 
+/** Must stay 1:1 with backend design_recipes.py feature_variant values. */
 const FEATURE_BY_RECIPE: Record<RecipeId, FeatureVariant> = {
   editorial: 'alternating',
   'dense-ops': 'grid',
   'warm-service': 'bento',
-  'bold-retail': 'grid',
+  'bold-retail': 'bento',
   nocturne: 'alternating',
-  craft: 'bento',
+  craft: 'alternating',
 };
 
 const SHELL_BY_RECIPE: Record<RecipeId, ShellChrome> = {
@@ -50,7 +60,7 @@ const NAV_BY_RECIPE: Record<RecipeId, NavVariant> = {
   'warm-service': 'default',
   'bold-retail': 'minimal',
   nocturne: 'stacked',
-  craft: 'minimal',
+  craft: 'default',
 };
 
 const FOOTER_BY_RECIPE: Record<RecipeId, FooterVariant> = {
@@ -59,7 +69,7 @@ const FOOTER_BY_RECIPE: Record<RecipeId, FooterVariant> = {
   'warm-service': 'compact',
   'bold-retail': 'statement',
   nocturne: 'statement',
-  craft: 'statement',
+  craft: 'columns',
 };
 
 const BRAND_BY_RECIPE: Record<RecipeId, BrandPlacement> = {

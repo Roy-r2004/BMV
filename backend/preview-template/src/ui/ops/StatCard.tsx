@@ -71,13 +71,17 @@ export function StatCard({
     <MotionHover>
       <div
         className={cn(
-          'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.55rem)] border border-border-subtle bg-card p-5 shadow-[var(--shadow-ui)]',
+          'relative overflow-hidden rounded-[calc(var(--radius-ui)+0.55rem)] border border-border-subtle bg-card p-5 shadow-[var(--shadow-ui)] ring-1 ring-brand/8',
           className
         )}
       >
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[color-mix(in_srgb,var(--color-brand)_14%,transparent)] blur-2xl"
+          className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[color-mix(in_srgb,var(--color-brand)_18%,transparent)] blur-2xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/25 to-transparent"
         />
         <div className="relative flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-muted">{label}</p>

@@ -99,7 +99,7 @@ export function OpsShell({
       className={cn(
         'relative flex min-h-screen text-foreground',
         soft
-          ? 'bg-[color-mix(in_srgb,var(--color-brand)_5%,var(--color-background))]'
+          ? 'bg-[color-mix(in_srgb,var(--color-brand)_6%,var(--color-background))]'
           : 'bg-[#1a1814]',
         className
       )}
@@ -108,10 +108,10 @@ export function OpsShell({
       {soft ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-90"
+          className="pointer-events-none absolute inset-0 opacity-95"
           style={{
             background:
-              'radial-gradient(70% 50% at 0% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent), transparent 55%), radial-gradient(55% 40% at 100% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 50%)',
+              'radial-gradient(70% 50% at 0% 0%, color-mix(in srgb, var(--color-brand) 18%, transparent), transparent 55%), radial-gradient(55% 40% at 100% 0%, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 50%), linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 4%, transparent), transparent 40%)',
           }}
         />
       ) : null}
@@ -120,7 +120,7 @@ export function OpsShell({
         className={cn(
           'relative z-[1] hidden shrink-0 xl:flex xl:flex-col',
           soft
-            ? 'border-r border-border-subtle/80 bg-card/90 shadow-[var(--shadow-ui)] backdrop-blur-md'
+            ? 'border-r border-border-subtle/80 bg-card/95 shadow-[var(--shadow-ui)] backdrop-blur-md ring-1 ring-brand/5'
             : 'bg-[#141210] text-[#f4f0ea]'
         )}
         style={adjustableSidebar ? { width: sidebarWidth } : { width: soft ? '15.5rem' : '16.5rem' }}

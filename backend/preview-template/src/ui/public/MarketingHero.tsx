@@ -117,40 +117,61 @@ export function MarketingHero({
       <section
         data-hero="compact"
         className={cn(
-          'relative isolate border-b border-border-subtle bg-background px-6 py-10 lg:px-10',
+          'relative isolate overflow-hidden border-b border-border-subtle bg-background px-6 py-12 lg:px-10 lg:py-14',
           className
         )}
       >
-        <div className="mx-auto grid max-w-[92rem] gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_100%_0%,color-mix(in_srgb,var(--color-brand)_14%,transparent),transparent_55%)]"
+        />
+        <div className="relative mx-auto grid max-w-[92rem] gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{brandName}</p>
-            <h1 className={cn(display, 'mt-2 text-[clamp(1.75rem,3vw,2.5rem)] leading-tight text-foreground')}>
-              {headline}
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-muted">{subcopy}</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button href={primaryCta.href} size="default">
-                {primaryCta.label}
-              </Button>
-              {secondaryCta ? (
-                <Button href={secondaryCta.href} size="default" variant="outline">
-                  {secondaryCta.label}
+            <AnimeHeroItem index={0}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">{brandName}</p>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={1}>
+              <h1 className={cn(display, 'mt-2 text-[clamp(1.85rem,3.2vw,2.65rem)] leading-tight text-foreground')}>
+                {headline}
+              </h1>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={2}>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted">{subcopy}</p>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={3}>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button href={primaryCta.href} size="default">
+                  {primaryCta.label}
                 </Button>
-              ) : null}
+                {secondaryCta ? (
+                  <Button href={secondaryCta.href} size="default" variant="outline">
+                    {secondaryCta.label}
+                  </Button>
+                ) : null}
+              </div>
+            </AnimeHeroItem>
+          </div>
+          <AnimeHeroItem index={1}>
+            <div className="overflow-hidden rounded-[var(--radius-ui)] border border-border-subtle shadow-[var(--shadow-ui)] ring-1 ring-brand/10">
+              <img
+                src={imageSrc}
+                alt={imageAlt}
+                className={cn('aspect-[16/11] w-full object-cover', safe && 'ui-kenburns')}
+              />
             </div>
-          </div>
-          <div className="overflow-hidden rounded-[var(--radius-ui)] border border-border-subtle">
-            <img src={imageSrc} alt={imageAlt} className="aspect-[16/11] w-full object-cover" />
-          </div>
+          </AnimeHeroItem>
         </div>
       </section>
     );
   }
 
-  /* ─── product / craft: full-bleed immersive — brand owns the first viewport ─── */
+  /* ─── product / bold-retail: full-bleed immersive — brand owns the first viewport ─── */
   if (resolved === 'product') {
+    const brandText = String(brandName ?? '');
+    const headlineText = String(headline ?? '');
     const headlineDistinct =
-      headline.trim().toLowerCase() !== brandName.trim().toLowerCase() && headline.trim().length > 0;
+      headlineText.trim().toLowerCase() !== brandText.trim().toLowerCase() &&
+      headlineText.trim().length > 0;
     return (
       <section
         data-hero="product"
@@ -161,15 +182,15 @@ export function MarketingHero({
           alt={imageAlt}
           className={cn('absolute inset-0 h-full w-full object-cover', safe && 'ui-kenburns')}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/15" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
-        <div className="ui-vignette opacity-80" />
-        <div className="ui-film-grain opacity-[0.22]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/30 to-transparent" />
+        <div className="ui-vignette opacity-85" />
+        <div className="ui-film-grain opacity-[0.28]" />
         {safe ? <div className="ui-hero-sheen" /> : null}
         <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-[92rem] flex-col justify-end px-6 pb-16 pt-28 sm:pb-20 lg:px-12 lg:pb-24">
           <AnimeHeroItem index={0}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
-              {eyebrow || 'Studio · Clay · Fire'}
+              {eyebrow || brandName}
             </p>
           </AnimeHeroItem>
           <AnimeHeroItem index={1}>
@@ -223,14 +244,87 @@ export function MarketingHero({
     );
   }
 
+  /* ─── craft atelier: stone type panel + tall asymmetric media rail (≠ retail full-bleed) ─── */
+  if (resolved === 'atelier') {
+    return (
+      <section
+        data-hero="atelier"
+        className={cn(
+          'relative isolate min-h-[100svh] overflow-hidden bg-[#f3f0ea] text-[#1a1714]',
+          className
+        )}
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            background:
+              'radial-gradient(70% 50% at 12% 18%, color-mix(in srgb, var(--color-brand) 12%, transparent), transparent 58%), linear-gradient(180deg, #efebe3 0%, #f7f5f0 42%, #f3f0ea 100%)',
+          }}
+        />
+        <div className="ui-noise opacity-[0.35]" aria-hidden="true" />
+        <div className="relative z-10 mx-auto grid min-h-[100svh] max-w-[92rem] items-stretch gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="flex flex-col justify-end px-6 pb-16 pt-28 sm:px-10 lg:px-14 lg:pb-24 lg:pt-32">
+            <AnimeHeroItem index={0}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-brand">
+                {eyebrow || 'Handmade · Small batch'}
+              </p>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={1}>
+              <p
+                className={cn(
+                  display,
+                  'mt-5 max-w-[11ch] text-[clamp(3.75rem,10vw,7.5rem)] leading-[0.84] tracking-[-0.04em] text-[#1a1714]'
+                )}
+              >
+                {brandName}
+              </p>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={2}>
+              <h1 className="mt-8 max-w-[22ch] text-[clamp(1.15rem,2vw,1.45rem)] font-medium leading-snug tracking-[-0.02em] text-[#1a1714]/90">
+                {headline}
+              </h1>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={3}>
+              <p className="mt-4 max-w-sm text-[0.95rem] leading-7 text-[#1a1714]/65">{subcopy}</p>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={4}>{ctas}</AnimeHeroItem>
+          </div>
+          <AnimeHeroItem index={1}>
+            <div className="relative min-h-[48vh] overflow-hidden lg:min-h-full lg:pl-6 lg:pr-10 lg:py-10">
+              <div
+                className={cn(
+                  'relative h-full min-h-[48vh] overflow-hidden shadow-[var(--shadow-ui)] ring-1 ring-[#1a1714]/10 lg:min-h-[calc(100svh-5rem)] lg:rounded-sm',
+                  safe && 'ui-float'
+                )}
+              >
+                <img
+                  src={imageSrc}
+                  alt={imageAlt}
+                  className={cn(
+                    'absolute inset-0 h-full w-full object-cover object-center',
+                    safe && 'ui-kenburns'
+                  )}
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1a1714]/25 via-transparent to-transparent" />
+                <div className="ui-film-grain opacity-[0.12]" />
+              </div>
+            </div>
+          </AnimeHeroItem>
+        </div>
+      </section>
+    );
+  }
+
   /* ─── editorial: type-led + edge photo ─── */
   if (resolved === 'editorial') {
     return (
       <section
         data-hero="editorial"
-        className={cn('relative isolate bg-foreground px-6 py-24 text-background lg:px-10 lg:py-32', className)}
+        className={cn('relative isolate overflow-hidden bg-foreground px-6 py-24 text-background lg:px-10 lg:py-32', className)}
       >
-        <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+        <div className="ui-mesh opacity-30" aria-hidden="true" />
+        <div className="relative mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div>
             <AnimeHeroItem index={0}>
               <p className={cn(display, 'text-[clamp(3.5rem,9vw,7rem)] leading-[0.82] text-white')}>{brandName}</p>
@@ -246,11 +340,14 @@ export function MarketingHero({
             <AnimeHeroItem index={3}>{ctas}</AnimeHeroItem>
           </div>
           <AnimeHeroItem index={1}>
-            <img
-              src={imageSrc}
-              alt={imageAlt}
-              className="aspect-[5/4] w-full rounded-[var(--radius-ui)] object-cover shadow-[var(--shadow-ui)]"
-            />
+            <div className={cn('relative overflow-hidden rounded-[var(--radius-ui)]', safe && 'ui-float')}>
+              <img
+                src={imageSrc}
+                alt={imageAlt}
+                className={cn('aspect-[5/4] w-full object-cover shadow-[var(--shadow-ui)]', safe && 'ui-kenburns')}
+              />
+              <div className="ui-film-grain opacity-[0.14]" />
+            </div>
           </AnimeHeroItem>
         </div>
       </section>
@@ -301,7 +398,8 @@ export function MarketingHero({
           alt={imageAlt}
           className={cn('absolute inset-0 h-full w-full object-cover', safe && 'ui-kenburns')}
         />
-        <div className="ui-film-grain opacity-[0.1]" />
+        <div className="ui-film-grain opacity-[0.14]" />
+        <div className="ui-vignette opacity-50" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/40 md:bg-gradient-to-r md:from-background/30 md:via-transparent md:to-transparent" />
       </div>
     </section>

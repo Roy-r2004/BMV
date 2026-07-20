@@ -98,9 +98,14 @@ export function PublicShell({
     >
       {!immersive ? (
         <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-          <div className="ui-mesh opacity-[0.28]" />
+          <div className="ui-mesh opacity-[0.32]" />
+          <div className="ui-noise opacity-[0.2]" />
         </div>
-      ) : null}
+      ) : (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+          <div className="ui-noise opacity-[0.12]" />
+        </div>
+      )}
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow-[var(--shadow-ui)]"

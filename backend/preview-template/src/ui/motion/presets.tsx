@@ -12,21 +12,21 @@ export function useMotionSafe(): boolean {
 }
 
 export const heroEntrance: Variants = {
-  hidden: { opacity: 0, y: 22, filter: 'blur(6px)' },
+  hidden: { opacity: 0, y: 26, filter: 'blur(8px)' },
   visible: (i: number = 0) => ({
     opacity: 1,
     y: 0,
     filter: 'blur(0px)',
-    transition: { duration: 0.8, delay: 0.06 + i * 0.11, ease: easeOut },
+    transition: { duration: 0.85, delay: 0.05 + i * 0.12, ease: easeOut },
   }),
 };
 
 export const sectionReveal: Variants = {
-  hidden: { opacity: 0, y: 28 },
+  hidden: { opacity: 0, y: 32 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.65, ease: easeOut },
+    transition: { duration: 0.7, ease: easeOut },
   },
 };
 

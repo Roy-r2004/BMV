@@ -121,7 +121,8 @@ export function BrandFooter({
         )}
         data-footer-variant={variant}
       >
-        <div className="mx-auto grid w-full max-w-[92rem] gap-12 md:grid-cols-[1.1fr_0.9fr]">
+        <div className="ui-mesh opacity-40" aria-hidden="true" />
+        <div className="relative mx-auto grid w-full max-w-[92rem] gap-12 md:grid-cols-[1.1fr_0.9fr]">
           <div>
             <p className="font-display text-[clamp(2.5rem,5vw,4rem)] italic leading-[0.95] tracking-[-0.03em]">
               {brandName}

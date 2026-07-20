@@ -140,7 +140,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     path: 'public/MarketingHero.tsx',
     requiredProps: ['brandName', 'headline', 'subcopy', 'primaryCta', 'imageSrc'],
     optionalProps: ['secondaryCta', 'imageAlt', 'eyebrow', 'variant', 'className'],
-    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'split'] },
+    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split'] },
   },
   {
     name: 'FeatureBento',
@@ -406,7 +406,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     ],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'split'],
+      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split'],
       FeatureBento: ['bento', 'grid', 'alternating'],
     },
   },
@@ -420,7 +420,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     recommendedOrder: ['shell', 'hero', 'features', 'showcase', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED, 'ScheduleRail', 'Badge'],
     supportedVariants: {
-      MarketingHero: ['service', 'editorial', 'cinematic', 'compact', 'product', 'split'],
+      MarketingHero: ['service', 'editorial', 'cinematic', 'compact', 'product', 'atelier', 'split'],
       FeatureBento: ['grid', 'alternating', 'bento'],
     },
   },
@@ -434,7 +434,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     recommendedOrder: ['shell', 'hero', 'showcase', 'features', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['product', 'service', 'editorial', 'compact', 'split'],
+      MarketingHero: ['product', 'atelier', 'service', 'editorial', 'compact', 'split'],
       FeatureBento: ['alternating', 'grid'],
     },
   },
@@ -457,7 +457,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
       'Dialog',
     ],
     supportedVariants: {
-      MarketingHero: ['compact', 'editorial', 'product', 'split'],
+      MarketingHero: ['compact', 'editorial', 'product', 'atelier', 'split'],
       FeatureBento: ['grid', 'bento'],
     },
   },

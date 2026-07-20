@@ -22,6 +22,12 @@ Recipe: {{ recipe_id | default('') }} · hub_variant={{ hub_variant | default(''
 - Prefer `font-display` on H1/H2 headlines; body uses the recipe sans stack from CSS tokens.
 - Match recipe density (air vs compact). Do not invent a conflicting visual theme.
 - Brand brief palette/type win over recipe defaults when they disagree.
+- Composition is recipe-owned via `@/ui`: MarketingHero / FeatureBento / PublicShell / BrandFooter
+  resolve their faces from the active recipe. Do NOT invent a parallel mid-page card grid,
+  second hero, or custom chrome that ignores `section_slots` / recipe variants.
+- Honor the assigned `section_slots` order exactly — that order IS the recipe rhythm
+  (e.g. credentials-before-features vs showcase-first). Reordering into a generic
+  hero → three equal cards → CTA stack is a failure.
 {% endif %}
 
 === BRAND MANIFEST ===

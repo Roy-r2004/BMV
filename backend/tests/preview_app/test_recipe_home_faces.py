@@ -125,9 +125,10 @@ export default function HomePage() {
 
 
 def test_recipes_define_distinct_chrome() -> None:
-    from app.application.preview_app.design_recipes import apply_recipe_to_plan
+    from app.application.preview_app.design_recipes import RECIPES, apply_recipe_to_plan
 
     faces = {}
+    heroes = {}
     for rid in ("editorial", "bold-retail", "warm-service", "craft", "nocturne", "dense-ops"):
         plan = apply_recipe_to_plan({}, recipe_id=rid)
         ds = plan["design_system"]
@@ -137,11 +138,19 @@ def test_recipes_define_distinct_chrome() -> None:
             ds.get("footer_variant"),
             ds.get("brand_placement"),
         )
-    assert faces["craft"] == ("solid", "stacked", "columns", "center")
+        heroes[rid] = ds.get("hero_variant")
+    # craft must not share bold-retail's product hero / chrome silhouette
+    assert faces["craft"] == ("immersive", "default", "columns", "start")
     assert faces["bold-retail"] == ("immersive", "minimal", "statement", "start")
+    assert heroes["craft"] == "atelier"
+    assert heroes["bold-retail"] == "product"
+    assert len(set(heroes.values())) == 6
     assert faces["editorial"][3] == "center"
     assert faces["dense-ops"][2] == "compact"
     assert len(set(faces.values())) >= 4
+    # Keep Python recipe table in lockstep with the assertions above.
+    assert RECIPES["craft"]["hero_variant"] == "atelier"
+    assert RECIPES["craft"]["chrome"]["footer"] == "columns"
 
 
 def test_scaffold_emits_recipe_order_prop() -> None:

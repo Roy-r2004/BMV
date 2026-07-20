@@ -61,6 +61,7 @@ RULES:
 - CRITICAL: Each role MUST have visually DISTINCT pages — derive page types and sections from the plan, not from a fixed template
 - Every route MUST retain surface and skeleton_id from its matching experience-plan page
 - Every route MUST retain section_slots too; they must belong to the chosen skeleton contract, include its non-shell required slots, and exclude `shell`
+- CRITICAL: Do NOT reorder section_slots into a generic hero → cards → CTA stack. The experience plan's slot order is the design recipe's rhythm — preserve it exactly so businesses don't share one mid-page silhouette.
 - CRITICAL: component_file paths MUST reflect role folders: public pages in src/pages/, owner pages in src/pages/owner/, admin pages in src/pages/admin/
 - Each route's files_to_generate instructions MUST copy the section list from the matching page in the experience plan
 - CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.

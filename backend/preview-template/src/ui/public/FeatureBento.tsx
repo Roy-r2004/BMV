@@ -76,10 +76,24 @@ export function FeatureBento({
   };
 
   return (
-    <section className={cn('px-6 py-28 lg:px-12 lg:py-36', className)}>
+    <section
+      className={cn(
+        'relative px-6 py-28 lg:px-12 lg:py-36',
+        resolved === 'grid' && 'bg-[color-mix(in_srgb,var(--color-brand)_3%,var(--color-background))]',
+        resolved === 'bento' && 'bg-background',
+        resolved === 'alternating' && 'bg-card/40',
+        className
+      )}
+      data-feature-variant={resolved}
+    >
       <div className="mx-auto w-full max-w-[92rem]">
         <MotionReveal className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-end lg:gap-16">
-          <h2 className="font-display text-[clamp(3rem,6vw,5.5rem)] italic leading-[0.92] tracking-[-0.04em] text-foreground">
+          <h2
+            className={cn(
+              'font-display text-[clamp(3rem,6vw,5.5rem)] leading-[0.92] tracking-[-0.04em] text-foreground',
+              resolved === 'grid' ? 'not-italic' : 'italic'
+            )}
+          >
             {heading}
           </h2>
           {description ? (
@@ -94,13 +108,15 @@ export function FeatureBento({
                 <article
                   className={cn(
                     'group relative overflow-hidden rounded-[calc(var(--radius-ui)+0.35rem)] border border-border-subtle bg-card p-8 shadow-[var(--shadow-ui)] transition duration-500 hover:-translate-y-1 hover:border-brand/25',
-                    index === 0 && 'lg:ring-1 lg:ring-brand/20'
+                    index === 0 && 'lg:col-span-1 lg:ring-1 lg:ring-brand/25',
+                    index === 1 && 'lg:ring-1 lg:ring-border-subtle'
                   )}
                 >
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--color-brand)_18%,transparent),transparent_70%)] opacity-0 transition group-hover:opacity-100"
                   />
+                  <div className="ui-gradient-border pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100" />
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand/70">
                     {String(index + 1).padStart(2, '0')}
                   </p>
@@ -225,8 +241,10 @@ export function FeatureBento({
                     data-chapter
                     className={cn(
                       'flex w-[min(84vw,30rem)] shrink-0 snap-center flex-col justify-between border-y border-foreground/10 py-9 sm:w-[min(68vw,34rem)] lg:min-h-[22rem] lg:py-11',
-                      'border-l-2 pl-7 lg:pl-9 transition-colors',
-                      active === index ? 'border-l-brand bg-card/40' : 'border-l-foreground/10'
+                      'border-l-[3px] pl-7 lg:pl-9 transition-[border-color,background-color,box-shadow] duration-300',
+                      active === index
+                        ? 'border-l-brand bg-card/70 shadow-[var(--shadow-ui)]'
+                        : 'border-l-foreground/10'
                     )}
                   >
                     <div>

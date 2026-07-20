@@ -43,6 +43,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-home": [
                 "hero",
                 "credentials",
+                "features",
                 "showcase",
                 "testimonials",
                 "cta",
@@ -54,8 +55,9 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "prompt": (
             "RECIPE editorial (Manus-clear): brand-first hero — one name, one headline, one sentence, "
-            "one CTA group, one visual plane. No cards in the hero. Generous whitespace, serif display "
-            "for titles only (not every line italic), quiet atmosphere — avoid purple glow and sticker overlays. "
+            "one CTA group, one visual plane. No cards in the hero. After the fold: credentials strip "
+            "before features (trust-first). Generous whitespace, serif display for titles only "
+            "(not every line italic), quiet atmosphere — avoid purple glow and sticker overlays. "
             "Motion on major sections; never dense tables on public pages."
         ),
         "industry_keywords": (
@@ -100,8 +102,8 @@ RECIPES: dict[str, dict[str, Any]] = {
         "section_orders": {
             "public-home": [
                 "hero",
-                "features",
                 "results",
+                "features",
                 "process",
                 "cta",
                 "footer",
@@ -112,8 +114,8 @@ RECIPES: dict[str, dict[str, Any]] = {
             "ops-dashboard": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
         },
         "prompt": (
-            "RECIPE dense-ops: compact spacing, short labels, KPI-first, grid features, "
-            "compact utility heroes, brand-tinted workspace chrome (never gray SaaS), "
+            "RECIPE dense-ops: compact spacing, short labels, KPI/results immediately after hero, "
+            "grid features, compact utility heroes, brand-tinted workspace chrome (never gray SaaS), "
             "scannable lists and metrics with subtle motion on KPI tiles."
         ),
         "industry_keywords": (
@@ -176,8 +178,8 @@ RECIPES: dict[str, dict[str, Any]] = {
             "ambient brand glows, never flat white pages."
         ),
         "industry_keywords": (
-            "fitness gym studio coaching tutoring education childcare pet veterinary "
-            "home cleaning repair handyman cafe bakery restaurant food"
+            "fitness gym coaching tutoring education childcare pet veterinary "
+            "home cleaning repair handyman cafe restaurant food"
         ),
     },
     "bold-retail": {
@@ -274,6 +276,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-home": [
                 "hero",
                 "showcase",
+                "features",
                 "testimonials",
                 "cta",
                 "footer",
@@ -283,8 +286,9 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-detail": ["hero", "showcase", "testimonials", "cta", "footer"],
         },
         "prompt": (
-            "RECIPE nocturne: dark luminous surfaces, luminous brand accents, cinematic heroes, "
-            "high contrast type, fewer pastel cards, nightlife/premium energy, grain + vignette welcome."
+            "RECIPE nocturne: dark luminous surfaces, luminous brand accents, cinematic split heroes, "
+            "showcase mosaic before features, high contrast type, fewer pastel cards, "
+            "nightlife/premium energy, grain + vignette welcome."
         ),
         "industry_keywords": (
             "nightlife bar club lounge music entertainment event concert casino gaming "
@@ -294,7 +298,7 @@ RECIPES: dict[str, dict[str, Any]] = {
     "craft": {
         "id": "craft",
         "label": "Craft",
-        "blurb": "Maker / artisan — full-bleed photo hero, ink on stone, process after the fold. Never cream card soup.",
+        "blurb": "Maker / artisan — atelier hero (type + asymmetric media rail), ink on stone, process after the fold. Never cream card soup.",
         "hub_variant": "marketing",
         "fonts": {
             "sans": '"DM Sans", "Segoe UI", sans-serif',
@@ -315,12 +319,13 @@ RECIPES: dict[str, dict[str, Any]] = {
                 "linear-gradient(180deg, #f3f0ea 0%, #faf9f6 38%, transparent 62%)"
             ),
         },
-        "hero_variant": "product",
+        # Unique silhouette — must NOT share `product` with bold-retail.
+        "hero_variant": "atelier",
         "feature_variant": "alternating",
         "chrome": {
             "shell": "immersive",
-            "nav": "minimal",
-            "footer": "statement",
+            "nav": "default",
+            "footer": "columns",
             "brand": "start",
         },
         "section_orders": {
@@ -337,14 +342,15 @@ RECIPES: dict[str, dict[str, Any]] = {
             "public-detail": ["hero", "process", "showcase", "credentials", "footer"],
         },
         "prompt": (
-            "RECIPE craft (premium maker): FULL-BLEED photo hero — brand name as the dominant type, "
-            "one short headline, one sentence, one CTA pair. No cards in the hero. After the fold: "
-            "editorial process rows (not cards), dark showcase mosaic, then CTA. Serif for display "
-            "titles only (never every line italic). Stone/ink palette — avoid cream card grids."
+            "RECIPE craft (premium maker): ATELIER hero — brand as dominant display type on a stone "
+            "panel, asymmetric tall photo rail (not full-bleed retail). No cards in the hero. After "
+            "the fold: editorial process rows (not cards), dark showcase mosaic, then CTA. Serif for "
+            "display titles only (never every line italic). Stone/ink palette — avoid cream card grids."
         ),
         "industry_keywords": (
-            "artisan craft bakery pottery woodwork furniture handmade maker studio pottery "
-            "floristry florist coffee roaster brewery winery"
+            "artisan craft bakery pottery ceramic ceramics clay kiln wheel woodwork "
+            "furniture handmade maker studio workshop floristry florist coffee roaster "
+            "brewery winery"
         ),
     },
 }
