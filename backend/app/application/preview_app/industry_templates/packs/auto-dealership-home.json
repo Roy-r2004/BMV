@@ -1,11 +1,63 @@
 {
   "id": "auto-dealership-home",
   "label": "Auto / dealership",
-  "industry_tags": ["auto", "car", "dealership", "automotive", "vehicles", "motors"],
+  "industry_tags": ["auto", "car", "dealership", "automotive", "vehicles", "sales", "service bay"],
   "recipe_hint": "bold-retail",
   "skeleton_id": "public-home",
   "section_order": ["hero", "showcase", "features", "process", "cta", "footer"],
-  "signature_moves": ["product hero", "vehicle showcase", "sharp CTAs"],
-  "prompt_hints": ["Inventory-forward drama — full-bleed vehicles, short copy, strong CTAs."],
-  "mock_seed": { "tone": "bold" }
+  "signature_moves": ["product hero", "inventory mosaic", "sharp retail CTAs", "test-drive process"],
+  "prompt_hints": [
+    "High-contrast automotive retail — inventory first, punchy CTAs, cinematic vehicle photography.",
+    "Showcase vehicles early; keep mid-page tight; service and sales CTAs clear.",
+    "Copy as the dealership (\"Browse inventory\", \"Book a test drive\") — product immersion."
+  ],
+  "mock_seed": {
+    "tone": "confident",
+    "hero": {
+      "headline": "Inventory that is actually on the lot",
+      "subcopy": "New and certified pre-owned — filter by trim, book a drive, and get a transparent offer.",
+      "primaryCta": { "label": "Browse inventory", "href": "/inventory" },
+      "secondaryCta": { "label": "Book a test drive", "href": "/test-drive" }
+    },
+    "products": [
+      { "title": "2024 Midsize SUV", "description": "AWD, family seating, and a certified inspection packet online." },
+      { "title": "Compact hybrid", "description": "City mpg without giving up highway confidence." },
+      { "title": "Crew cab truck", "description": "Towing package, bed liner, and service history attached." },
+      { "title": "Performance coupe", "description": "Low miles, clean Carfax, and a weekend-ready exhaust note." }
+    ],
+    "features": [
+      { "title": "Real lot photos", "description": "Shot here — not stock images from another zip code." },
+      { "title": "Transparent pricing desk", "description": "Fees listed before you sit down with a salesperson." },
+      { "title": "Service bay online", "description": "Book oil, tires, and recalls without the phone hold music." }
+    ],
+    "process": [
+      { "title": "Find your vehicle", "description": "Filter inventory by body style, price, and features." },
+      { "title": "Schedule a drive", "description": "Hold a slot; we stage the car and paperwork." },
+      { "title": "Close with clarity", "description": "Offer, trade-in, and financing options side by side." }
+    ],
+    "credentials": [
+      { "title": "Certified pre-owned desk", "detail": "Inspection checklists published with every CPO unit." },
+      { "title": "Factory-trained service", "detail": "Technicians on brand tooling — not a generic garage." }
+    ],
+    "testimonials": [
+      { "quote": "The online price matched the desk. That alone made me stay.", "author": "Brandon Q.", "role": "Buyer" },
+      { "quote": "Test drive was ready when I arrived — no forty-minute wait in the showroom.", "author": "Alicia M.", "role": "Shopper" }
+    ],
+    "showcaseHeading": "On the lot now",
+    "featuresHeading": "Buying without the fog",
+    "processHeading": "Browse → drive → decide",
+    "credentialsHeading": "Why drivers come here",
+    "testimonialsHeading": "From the showroom",
+    "cta": {
+      "heading": "Ready to drive something?",
+      "description": "Browse live inventory or book a test drive for this week.",
+      "primaryLabel": "See inventory",
+      "primaryHref": "/inventory",
+      "secondaryLabel": "Service appointment",
+      "secondaryHref": "/service"
+    },
+    "footer": { "description": "A dealership for drivers who want honest inventory, clear pricing, and on-time test drives." },
+    "trustLabels": ["On-lot photos", "Transparent fees", "CPO inspections", "Online service bay"],
+    "nav_cta": { "label": "Inventory", "href": "/inventory" }
+  }
 }

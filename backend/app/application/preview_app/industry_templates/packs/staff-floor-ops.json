@@ -5,7 +5,55 @@
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
   "section_order": ["header", "kpis", "filters", "table", "activity", "risk"],
-  "signature_moves": ["floor OpsShell", "queue table", "risk queue"],
-  "prompt_hints": ["Shift-ready density — who is waiting, what is late, brand soft chrome."],
-  "mock_seed": { "tone": "floor" }
+  "signature_moves": ["floor OpsShell", "queue table", "risk queue", "shift KPI strip"],
+  "prompt_hints": [
+    "Shift-ready density — who is waiting, what is late, brand soft chrome.",
+    "Queue table and risk items must feel live with realistic names and timestamps.",
+    "Copy as floor ops (\"Now serving\", \"Late check-ins\") — immersive staff console."
+  ],
+  "mock_seed": {
+    "tone": "floor",
+    "hero": {
+      "headline": "Floor board",
+      "subcopy": "Who is waiting, who is late, and what needs a manager before the next wave.",
+      "primaryCta": { "label": "Open queue", "href": "#queue" },
+      "secondaryCta": { "label": "Call next", "href": "#next" }
+    },
+    "items": [
+      { "title": "Waitlist · 6 parties", "description": "Longest wait 18m · patio preferred" },
+      { "title": "Late check-ins · 2", "description": "Table 12 · Table 4" },
+      { "title": "Running tickets · 11", "description": "3 fired · 2 expo hold" },
+      { "title": "Staff on floor · 8", "description": "2 break · 1 covering bar" }
+    ],
+    "features": [
+      { "title": "Queue that updates live", "description": "Covers seat preferences and quoted waits." },
+      { "title": "Late flags early", "description": "No-shows and delayed arrivals before they cascade." },
+      { "title": "Shift notes", "description": "Handoffs between hosts without sticky notes." }
+    ],
+    "process": [
+      { "title": "Scan the board", "description": "KPIs then the queue." },
+      { "title": "Filter by station", "description": "Host, expo, or bar — see only your lane." },
+      { "title": "Clear blockers", "description": "Risk items assigned before the rush." }
+    ],
+    "credentials": [
+      { "title": "Role-aware views", "detail": "Staff see the floor; managers see staffing risk." }
+    ],
+    "testimonials": [
+      { "quote": "We stopped losing walk-ins because the wait quote was finally honest.", "author": "Host lead", "role": "Floor staff" }
+    ],
+    "showcaseHeading": "Live queue",
+    "featuresHeading": "Built for the rush",
+    "processHeading": "Board → clear",
+    "cta": {
+      "heading": "Rush in 20 minutes",
+      "description": "Clear overdue tickets and seat the waitlist that is about to tip.",
+      "primaryLabel": "Seat next",
+      "primaryHref": "#next",
+      "secondaryLabel": "Staffing",
+      "secondaryHref": "#staff"
+    },
+    "footer": { "description": "Floor ops for hosts and managers who need the truth mid-service." },
+    "trustLabels": ["Live waitlist", "Late flags", "Station filters", "Shift handoff"],
+    "nav_cta": { "label": "Floor", "href": "/staff" }
+  }
 }

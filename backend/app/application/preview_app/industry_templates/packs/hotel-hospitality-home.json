@@ -1,11 +1,63 @@
 {
   "id": "hotel-hospitality-home",
   "label": "Hotel / hospitality",
-  "industry_tags": ["hotel", "hospitality", "resort", "inn", "boutique hotel", "stay"],
-  "recipe_hint": "editorial",
+  "industry_tags": ["hotel", "hospitality", "inn", "resort", "boutique hotel", "lodging", "guest"],
+  "recipe_hint": "nocturne",
   "skeleton_id": "public-home",
-  "section_order": ["hero", "showcase", "credentials", "features", "testimonials", "booking", "cta", "footer"],
-  "signature_moves": ["cinematic hero", "room showcase", "booking panel"],
-  "prompt_hints": ["Travel-editorial luxury — atmosphere first, rooms as showcase, reserve CTA."],
-  "mock_seed": { "tone": "luxurious" }
+  "section_order": ["hero", "showcase", "features", "testimonials", "cta", "footer"],
+  "signature_moves": ["cinematic split hero", "room showcase mosaic", "luminous accents", "statement booking CTA"],
+  "prompt_hints": [
+    "Dark luminous hospitality — cinematic heroes, room photography, high-contrast type.",
+    "Showcase rooms and experiences early; fewer pastel cards; grain and vignette welcome.",
+    "Copy as the hotel (\"Reserve a night\", \"Explore rooms\") — never demo-agency voice."
+  ],
+  "mock_seed": {
+    "tone": "luxurious",
+    "hero": {
+      "headline": "Nights designed for lingering",
+      "subcopy": "Boutique rooms, late kitchen, and a lobby that feels like a living room — reserve your stay.",
+      "primaryCta": { "label": "Reserve a night", "href": "/reserve" },
+      "secondaryCta": { "label": "Explore rooms", "href": "/rooms" }
+    },
+    "products": [
+      { "title": "Courtyard king", "description": "Quiet room facing the garden with soaking tub and linen everything." },
+      { "title": "City loft suite", "description": "Corner windows, lounge seating, and a bar cart waiting." },
+      { "title": "Garden bungalow", "description": "Private entrance, outdoor shower, morning coffee on the patio." },
+      { "title": "Extended stay studio", "description": "Kitchenette and desk for guests who need a week, not a night." }
+    ],
+    "features": [
+      { "title": "Late kitchen until midnight", "description": "Small plates and wine without leaving the property." },
+      { "title": "Concierge that texts back", "description": "Reservations, transfers, and local tips on your phone." },
+      { "title": "Flexible checkout when we can", "description": "Late checkout requests handled by room availability — honestly." }
+    ],
+    "process": [
+      { "title": "Choose your room", "description": "Photos, amenities, and real nightly rates." },
+      { "title": "Reserve securely", "description": "Confirm dates; we hold with a clear cancellation window." },
+      { "title": "Arrive and settle", "description": "Mobile check-in when ready; keys waiting at the desk." }
+    ],
+    "credentials": [
+      { "title": "Independent boutique", "detail": "Owner-operated with house-made details, not a chain template." },
+      { "title": "Guest score 4.8", "detail": "From recent stays — cleanliness and quiet called out most." }
+    ],
+    "testimonials": [
+      { "quote": "The courtyard room was quieter than any downtown hotel we have tried.", "author": "Ivy & Cole", "role": "Weekend guests" },
+      { "quote": "Concierge got us a last-minute table and a car — without making it a production.", "author": "Naomi S.", "role": "Suite guest" }
+    ],
+    "showcaseHeading": "Rooms & suites",
+    "featuresHeading": "Hospitality details that matter",
+    "processHeading": "Reserve with ease",
+    "credentialsHeading": "Why guests return",
+    "testimonialsHeading": "Guest book",
+    "cta": {
+      "heading": "Your dates are waiting",
+      "description": "Check availability and reserve a room for your next stay.",
+      "primaryLabel": "Reserve",
+      "primaryHref": "/reserve",
+      "secondaryLabel": "Gift a stay",
+      "secondaryHref": "/gift"
+    },
+    "footer": { "description": "A boutique hotel for guests who want cinematic nights and thoughtful service." },
+    "trustLabels": ["Boutique rooms", "Late kitchen", "Mobile check-in", "Guest score 4.8"],
+    "nav_cta": { "label": "Reserve", "href": "/reserve" }
+  }
 }

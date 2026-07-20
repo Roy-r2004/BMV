@@ -1,18 +1,65 @@
 {
   "id": "spa-wellness-home",
   "label": "Boutique spa / wellness home",
-  "industry_tags": ["spa", "wellness", "salon", "beauty", "massage", "yoga"],
+  "industry_tags": ["spa", "wellness", "salon", "beauty", "massage", "yoga", "facial"],
   "recipe_hint": "editorial",
   "skeleton_id": "public-home",
   "section_order": ["hero", "credentials", "features", "process", "testimonials", "booking", "cta", "footer"],
-  "signature_moves": ["cinematic hero", "credential strip", "booking panel", "serif display"],
+  "signature_moves": ["brand-first editorial hero", "credential strip before features", "calm booking panel", "serif display titles only"],
   "prompt_hints": [
-    "Calm, luminous, spa-grade pacing — never generic SaaS.",
-    "Hero is brand-first with soft atmosphere; booking CTA is primary.",
-    "Use ProcessSection for the guest journey; avoid dense tables on home."
+    "Calm, luminous, spa-grade pacing — never generic SaaS or purple glow.",
+    "Hero is brand-first with soft atmosphere; primary CTA books a treatment.",
+    "Use ProcessSection for the guest journey; avoid dense tables on the home page.",
+    "Copy speaks as the spa to guests (\"Book your restore hour\"), never demo-agency voice."
   ],
   "mock_seed": {
-    "treatments": ["Signature massage", "Glow facial", "Deep restore"],
-    "tone": "serene"
+    "tone": "serene",
+    "hero": {
+      "headline": "Quiet luxury for tired skin and busy minds",
+      "subcopy": "Signature massage, glow facials, and restore rituals — booked in minutes, never rushed.",
+      "primaryCta": { "label": "Book a treatment", "href": "/book" },
+      "secondaryCta": { "label": "View the menu", "href": "/services" }
+    },
+    "treatments": [
+      { "title": "Signature massage", "description": "90 minutes of deep restore with warm oil and quiet rooms." },
+      { "title": "Glow facial", "description": "Custom cleanse, peel, and LED finish for luminous skin." },
+      { "title": "Deep restore ritual", "description": "Scalp, body, and breathwork for guests who arrive depleted." },
+      { "title": "Couples suite", "description": "Side-by-side massage with shared lounge and tea service." }
+    ],
+    "features": [
+      { "title": "Treatment rooms that stay quiet", "description": "Soundproof doors, linen warmth, and lighting tuned for rest." },
+      { "title": "Therapists who know your preferences", "description": "Pressure notes, scent allergies, and favorite oils travel with every booking." },
+      { "title": "Same-day openings when they appear", "description": "Live openings surface for members first, then the public waitlist." }
+    ],
+    "process": [
+      { "title": "Choose your ritual", "description": "Browse treatments with clear duration, price, and therapist notes." },
+      { "title": "Pick a time that fits", "description": "Real availability — no phone tag, no mystery waitlists." },
+      { "title": "Arrive and unwind", "description": "Check in digitally; tea and quiet lounge before your room is ready." }
+    ],
+    "credentials": [
+      { "title": "Licensed therapists only", "detail": "Every practitioner is credentialed and reviewed in-house." },
+      { "title": "Clean beauty formulary", "detail": "Oils and peels chosen for sensitive skin — fragrance optional." },
+      { "title": "Member rebooking rate 78%", "detail": "Guests return because the room feels the same every visit." }
+    ],
+    "testimonials": [
+      { "quote": "I booked in under a minute and the room actually smelled like rest, not a lobby candle.", "author": "Maya R.", "role": "Monthly member" },
+      { "quote": "They remembered my pressure preference without me asking. That is rare.", "author": "Daniel K.", "role": "Deep restore guest" }
+    ],
+    "showcaseHeading": "Treatments guests rebook",
+    "featuresHeading": "Why the room feels different",
+    "processHeading": "From browse to booked",
+    "credentialsHeading": "Trust, quietly proven",
+    "testimonialsHeading": "What guests whisper about",
+    "cta": {
+      "heading": "Your next restore hour is open",
+      "description": "Claim a treatment slot — members see openings first.",
+      "primaryLabel": "Book now",
+      "primaryHref": "/book",
+      "secondaryLabel": "Membership",
+      "secondaryHref": "/membership"
+    },
+    "footer": { "description": "A boutique spa for guests who want quiet luxury without the hard sell." },
+    "trustLabels": ["Licensed therapists", "Clean formulary", "Same-day openings", "Member rebooking"],
+    "nav_cta": { "label": "Book", "href": "/book" }
   }
 }

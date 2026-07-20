@@ -1,11 +1,63 @@
 {
   "id": "agency-portfolio-home",
   "label": "Agency / studio portfolio",
-  "industry_tags": ["agency", "portfolio", "marketing", "branding", "advertising", "consultancy"],
+  "industry_tags": ["agency", "studio", "portfolio", "design", "creative", "branding", "marketing"],
   "recipe_hint": "editorial",
   "skeleton_id": "public-home",
   "section_order": ["hero", "showcase", "features", "process", "testimonials", "cta", "footer"],
-  "signature_moves": ["cinematic hero", "case showcase", "alternating features"],
-  "prompt_hints": ["Portfolio gravity — oversized type, case imagery, sparse but rich sections."],
-  "mock_seed": { "tone": "creative" }
+  "signature_moves": ["gallery editorial hero", "case-study showcase", "process rows", "statement wordmark footer"],
+  "prompt_hints": [
+    "Portfolio-first editorial — large type, airy whitespace, case studies as the product.",
+    "Showcase selected work early; process is secondary; CTA is a project inquiry.",
+    "Copy as the studio (\"View selected work\", \"Start a project\") — never meta demo language."
+  ],
+  "mock_seed": {
+    "tone": "creative",
+    "hero": {
+      "headline": "Brands that look inevitable once they exist",
+      "subcopy": "Identity, product UI, and campaign systems for teams who want craft without the circus.",
+      "primaryCta": { "label": "View selected work", "href": "/work" },
+      "secondaryCta": { "label": "Start a project", "href": "/contact" }
+    },
+    "products": [
+      { "title": "Northline identity", "description": "Wordmark, system, and launch kit for a regional brokerage." },
+      { "title": "Peak Form product UI", "description": "Member booking and coach tools rebuilt around clarity." },
+      { "title": "Ember Order campaign", "description": "Seasonal menu films and a reservation funnel that converts." },
+      { "title": "Harbor Care site", "description": "Patient-facing site with booking and clinician bios." }
+    ],
+    "features": [
+      { "title": "Strategy before pixels", "description": "Positioning and audience notes arrive before moodboards." },
+      { "title": "Systems, not one-offs", "description": "Components and templates clients can keep shipping with." },
+      { "title": "Tight feedback loops", "description": "Weekly reviews with decisions captured in writing." }
+    ],
+    "process": [
+      { "title": "Discover", "description": "Goals, constraints, and the work that must ship first." },
+      { "title": "Design", "description": "Directions, then a locked system — not endless variants." },
+      { "title": "Deliver", "description": "Assets, guidelines, and handoff that engineering can use." }
+    ],
+    "credentials": [
+      { "title": "Cross-discipline studio", "detail": "Brand, product, and motion under one roof." },
+      { "title": "Shipped with in-house engineers", "detail": "Designs that survive production, not just Figma." }
+    ],
+    "testimonials": [
+      { "quote": "They killed three directions early so we did not waste a quarter arguing taste.", "author": "Alex R.", "role": "CMO" },
+      { "quote": "The handoff docs were better than most agencies' final decks.", "author": "Kim J.", "role": "Product lead" }
+    ],
+    "showcaseHeading": "Selected work",
+    "featuresHeading": "How we partner",
+    "processHeading": "A calm production path",
+    "credentialsHeading": "Studio facts",
+    "testimonialsHeading": "Client notes",
+    "cta": {
+      "heading": "Have a brief?",
+      "description": "Tell us the outcome and timeline — we reply with fit and next steps.",
+      "primaryLabel": "Start a project",
+      "primaryHref": "/contact",
+      "secondaryLabel": "See capabilities",
+      "secondaryHref": "/services"
+    },
+    "footer": { "description": "A design studio for brands that need systems, not just pretty one-offs." },
+    "trustLabels": ["Strategy first", "Production-ready systems", "Weekly decisions", "In-house build"],
+    "nav_cta": { "label": "Work", "href": "/work" }
+  }
 }

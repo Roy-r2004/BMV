@@ -61,12 +61,12 @@ Each template = skeleton_id + recipe hint + section_slots + sample content pack 
 
 Today’s tokenized OpsShell/StatCard/Card/CSS/prompts make templates *actually* look branded. Tomorrow’s templates plug into that system instead of fighting slate hardcodes.
 
-## Scaffold started today
+## Scaffold status
 
 - `backend/app/application/preview_app/industry_templates/` — schema ids + loader/picker + apply
-- **All 20 JSON packs** present (metadata + prompt hints + section order)
-- Plan phase already stamps `industry_template_id` + template prompt hints and prefers `recipe_hint`
-- Tomorrow: richer content/mock JSX packs, section_order → architect routes, gallery QA
+- **All packs** present with **rich mock_seed** (hero, items/products/services, process, credentials, testimonials, CTAs, trust labels, signature prompt hints)
+- Plan phase stamps `industry_template_id` + template prompt hints and prefers `recipe_hint`
+- Remaining optional: internal gallery QA + side-by-side generate eval
 
 ## Done today (kit floor raised)
 

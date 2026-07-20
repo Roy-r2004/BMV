@@ -1,81 +1,63 @@
 {
   "id": "home-services-trades",
   "label": "Home services / trades",
-  "industry_tags": ["plumbing", "hvac", "electrician", "handyman", "cleaning", "repair", "trades"],
+  "industry_tags": ["home services", "plumber", "electrician", "hvac", "handyman", "cleaning", "repair", "trades"],
   "recipe_hint": "warm-service",
   "skeleton_id": "public-home",
-  "section_order": ["hero", "trust", "features", "process", "results", "cta", "footer"],
-  "signature_moves": ["service hero", "trust marquee", "clear process", "quote CTA"],
+  "section_order": ["hero", "trust", "features", "process", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["offer-first service hero", "trust strip", "booking panel", "process clarity"],
   "prompt_hints": [
-    "Practical trust — clear offers, process, proof; book/quote CTA.",
-    "Lead with the job types homeowners recognize; show how scheduling works before the hard sell."
+    "Practical warmth — trustworthy, clear pricing cues, booking-first CTA.",
+    "Trust and process before long essays; showcase jobs done; never gray field-service SaaS.",
+    "Copy as the trade business (\"Book a visit\", \"Get a quote\") — product immersion."
   ],
   "mock_seed": {
     "tone": "dependable",
     "hero": {
-      "subcopy": "Plumbing, HVAC, and home repairs with clear windows, upfront scope, and techs who show when they say they will.",
-      "primaryCta": { "label": "Request a quote", "href": "/quote" },
-      "secondaryCta": { "label": "See services", "href": "/services" }
+      "headline": "Same-week visits from pros who show up on time",
+      "subcopy": "Plumbing, electrical, and HVAC — booked online with clear windows and upfront estimates.",
+      "primaryCta": { "label": "Book a visit", "href": "/book" },
+      "secondaryCta": { "label": "Get a quote", "href": "/quote" }
     },
     "services": [
-      {
-        "title": "Emergency leak response",
-        "description": "Priority windows for burst lines and active water damage."
-      },
-      {
-        "title": "HVAC tune-up",
-        "description": "Seasonal checks that catch failures before the heatwave."
-      },
-      {
-        "title": "Electrical safety visit",
-        "description": "Panel checks, outlet issues, and code-aware fixes."
-      }
-    ],
-    "process": [
-      { "title": "Describe the job", "description": "Photos welcome — we size the visit before we arrive." },
-      { "title": "Pick a window", "description": "Real arrival ranges, not ‘sometime Tuesday’." },
-      { "title": "Approve and finish", "description": "Scope and price confirmed before work starts." }
+      { "title": "Plumbing repair", "description": "Leaks, clogs, and fixture swaps with parts that match your home." },
+      { "title": "Electrical safety", "description": "Outlets, panels, and lighting upgrades done to code." },
+      { "title": "HVAC tune-up", "description": "Seasonal service that keeps systems quiet and efficient." },
+      { "title": "Handyman punch list", "description": "Small jobs bundled into one visit so you are not scheduling three times." }
     ],
     "features": [
-      {
-        "title": "Tradespeople, not ticket bots",
-        "description": "Licensed techs with the right van stock for common jobs."
-      },
-      {
-        "title": "Quotes without the fog",
-        "description": "Line items you can understand before you green-light."
-      },
-      {
-        "title": "Proof from homes like yours",
-        "description": "Before/after and review snippets from the neighborhood."
-      }
+      { "title": "Arrival windows that hold", "description": "Two-hour windows with live ETA texts when the tech is en route." },
+      { "title": "Estimates before work starts", "description": "Approve the scope on your phone — no surprise invoices." },
+      { "title": "Photo notes after the job", "description": "Before/after shots land in your job history automatically." }
+    ],
+    "process": [
+      { "title": "Describe the issue", "description": "Photos and a short note beat a vague phone call." },
+      { "title": "Pick a window", "description": "See open slots by trade and neighborhood." },
+      { "title": "Approve and done", "description": "Confirm the estimate, pay when the work is finished." }
     ],
     "credentials": [
-      { "title": "Licensed & insured", "detail": "Coverage details available before we step on site." },
-      { "title": "Background-checked crew", "detail": "Techs you can trust around family and pets." }
+      { "title": "Licensed & insured crews", "detail": "Every tech carries credentials you can verify." },
+      { "title": "Neighborhood response times", "detail": "Routed by zip so travel does not eat your day." }
     ],
     "testimonials": [
-      {
-        "quote": "They texted an ETA, explained the fix, and left the crawlspace cleaner than they found it.",
-        "author": "Priya S.",
-        "role": "Homeowner · HVAC + plumbing"
-      }
+      { "quote": "They texted an ETA, showed the estimate on my phone, and cleaned up after the sink repair.", "author": "Dana L.", "role": "Homeowner" },
+      { "quote": "No three-day phone tag — I booked HVAC for Thursday and they arrived in the window.", "author": "Greg P.", "role": "Repeat customer" }
     ],
-    "showcaseHeading": "Jobs we handle most",
-    "featuresHeading": "Why homeowners call back",
-    "processHeading": "From request to done",
-    "credentialsHeading": "Trust before the truck rolls",
+    "showcaseHeading": "Services we handle",
+    "featuresHeading": "Why neighbors call us back",
+    "processHeading": "From issue to fixed",
+    "credentialsHeading": "Credentials that matter on-site",
+    "testimonialsHeading": "Homeowner notes",
     "cta": {
-      "heading": "Need it handled?",
-      "description": "Request a quote or book a service window — we’ll confirm scope before arrival.",
-      "primaryLabel": "Get a quote",
-      "primaryHref": "/quote",
-      "secondaryLabel": "Call the desk",
-      "secondaryHref": "/contact"
+      "heading": "Something broken?",
+      "description": "Book a visit this week or request a quote with photos.",
+      "primaryLabel": "Book visit",
+      "primaryHref": "/book",
+      "secondaryLabel": "Request quote",
+      "secondaryHref": "/quote"
     },
-    "footer": {
-      "description": "Local trades done with clear windows, honest scope, and follow-through you can schedule online."
-    },
-    "trustLabels": ["Licensed", "Insured", "Same-week windows", "Neighborhood reviews"]
+    "footer": { "description": "A local trades team for homes that need reliable visits and honest estimates." },
+    "trustLabels": ["Licensed crews", "On-time windows", "Upfront estimates", "Photo job notes"],
+    "nav_cta": { "label": "Book", "href": "/book" }
   }
 }

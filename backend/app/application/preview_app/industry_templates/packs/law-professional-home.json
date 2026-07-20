@@ -1,11 +1,64 @@
 {
   "id": "law-professional-home",
   "label": "Law / professional services",
-  "industry_tags": ["law", "legal", "attorney", "accountant", "consulting", "professional"],
+  "industry_tags": ["law", "legal", "attorney", "lawyer", "firm", "counsel", "professional services"],
   "recipe_hint": "editorial",
   "skeleton_id": "public-home",
   "section_order": ["hero", "credentials", "features", "process", "testimonials", "cta", "footer"],
-  "signature_moves": ["editorial type", "credential strip", "process timeline"],
-  "prompt_hints": ["Authoritative calm — serif display, restrained motion, trust before CTA."],
-  "mock_seed": { "tone": "authoritative" }
+  "signature_moves": ["authority editorial hero", "credential strip early", "quiet process timeline", "statement footer"],
+  "prompt_hints": [
+    "Authoritative, calm, high-trust — serif display, generous whitespace, never flashy startup UI.",
+    "Lead with credentials and practice areas; CTA is a consultation, not a gimmick.",
+    "Copy as the firm speaking to clients — precise, human, never demo-agency voice."
+  ],
+  "mock_seed": {
+    "tone": "authoritative",
+    "hero": {
+      "headline": "Counsel that moves as carefully as the stakes demand",
+      "subcopy": "Business, family, and dispute matters handled with clarity — from first call to signed order.",
+      "primaryCta": { "label": "Request a consultation", "href": "/consult" },
+      "secondaryCta": { "label": "Practice areas", "href": "/practices" }
+    },
+    "services": [
+      { "title": "Business counsel", "description": "Formation, contracts, and ongoing advice for owners who need a steady outside counsel." },
+      { "title": "Family matters", "description": "Divorce, custody, and agreements handled with discretion and clear next steps." },
+      { "title": "Dispute resolution", "description": "Negotiation first, litigation when required — with timelines you can plan around." },
+      { "title": "Estate planning", "description": "Wills, trusts, and succession documents that families actually understand." }
+    ],
+    "features": [
+      { "title": "Partners who answer", "description": "Direct lines to the attorney on your matter — not a rotating intake queue." },
+      { "title": "Transparent scopes", "description": "Engagement letters that spell fees, phases, and what \"done\" looks like." },
+      { "title": "Secure client portal", "description": "Upload documents, track deadlines, and message counsel without email sprawl." }
+    ],
+    "process": [
+      { "title": "Share the situation", "description": "A short consult to map facts, risks, and urgency." },
+      { "title": "Agree the plan", "description": "Scope, fees, and milestones in writing before work begins." },
+      { "title": "Execute with updates", "description": "Regular status notes so you are never guessing where things stand." }
+    ],
+    "credentials": [
+      { "title": "Bar-admitted partners", "detail": "Every matter is supervised by a licensed attorney." },
+      { "title": "25+ years combined practice", "detail": "Business and family benches that have seen the hard cases." },
+      { "title": "Client confidentiality first", "detail": "Secure portals and need-to-know staffing on sensitive files." }
+    ],
+    "testimonials": [
+      { "quote": "They explained the risk in plain English and never pushed me into a fight I did not need.", "author": "Elena V.", "role": "Business owner" },
+      { "quote": "Deadlines were met. Updates arrived before I had to ask. That is rare in this field.", "author": "Marcus T.", "role": "Family client" }
+    ],
+    "showcaseHeading": "Practice areas",
+    "featuresHeading": "How we work with you",
+    "processHeading": "From consult to counsel",
+    "credentialsHeading": "Credentials that matter",
+    "testimonialsHeading": "Client voices",
+    "cta": {
+      "heading": "Start with a clear conversation",
+      "description": "Request a consultation — we respond within one business day.",
+      "primaryLabel": "Request consult",
+      "primaryHref": "/consult",
+      "secondaryLabel": "Call the desk",
+      "secondaryHref": "/contact"
+    },
+    "footer": { "description": "A professional firm for clients who want clarity, discretion, and counsel that moves." },
+    "trustLabels": ["Bar-admitted", "Direct partner access", "Secure portal", "Plain-English counsel"],
+    "nav_cta": { "label": "Consult", "href": "/consult" }
+  }
 }

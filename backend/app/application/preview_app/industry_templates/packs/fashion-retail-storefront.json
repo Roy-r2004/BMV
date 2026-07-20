@@ -1,63 +1,63 @@
 {
   "id": "fashion-retail-storefront",
   "label": "Fashion / retail storefront",
-  "industry_tags": ["fashion", "apparel", "retail", "boutique", "clothing", "outfitters", "merch"],
+  "industry_tags": ["fashion", "retail", "apparel", "boutique", "clothing", "shop", "ecommerce"],
   "recipe_hint": "bold-retail",
   "skeleton_id": "public-home",
-  "section_order": ["hero", "showcase", "features", "trust", "cta", "footer"],
-  "signature_moves": ["full-bleed product hero", "merch showcase first", "punchy CTA"],
+  "section_order": ["hero", "showcase", "features", "cta", "footer"],
+  "signature_moves": ["full-bleed product hero", "tight merchandising stack", "kinetic showcase", "sharp CTAs"],
   "prompt_hints": [
-    "Merchandise dominates — brand wordmark huge, short punchy copy.",
-    "Lead with product showcase; skip long process essays on the home page."
+    "Product-first merchandising — sharp corners, high-contrast type, short punchy copy.",
+    "Showcase drops and bestsellers; keep the mid-page stack tight; avoid long process essays.",
+    "Copy as the store (\"Shop the drop\", \"Add to bag\") — never agency pitch language."
   ],
   "mock_seed": {
-    "tone": "editorial-retail",
+    "tone": "bold",
     "hero": {
-      "subcopy": "New drops, field-ready layers, and pieces built to move — shop the edit before it sells out.",
-      "primaryCta": { "label": "Shop the drop", "href": "/shop" },
+      "headline": "New drop. Clean lines. Ready to wear tonight.",
+      "subcopy": "Seasonal essentials and limited runs — sized honestly, shipped fast, returned easily.",
+      "primaryCta": { "label": "Shop new", "href": "/shop" },
       "secondaryCta": { "label": "View lookbook", "href": "/lookbook" }
     },
     "products": [
-      {
-        "title": "Trail shell jacket",
-        "description": "Packable weather layer with a clean silhouette."
-      },
-      {
-        "title": "Everyday tote",
-        "description": "Structured canvas that still looks sharp after the commute."
-      },
-      {
-        "title": "Studio knit",
-        "description": "Soft midweight staple for layering season."
-      }
+      { "title": "Wool overshirt", "description": "Heavyweight, unlined, built for transitional weather." },
+      { "title": "Relaxed trouser", "description": "Soft twill with a clean break — office to late dinner." },
+      { "title": "Everyday tee pack", "description": "Three fits, one wash — the rotation people actually finish." },
+      { "title": "Leather tote", "description": "Vegetable-tanned, room for a laptop, ages in public." }
     ],
     "features": [
-      {
-        "title": "Drop-led merchandising",
-        "description": "Hero the product, not a generic feature grid."
-      },
-      {
-        "title": "Reserve before it vanishes",
-        "description": "Clear CTAs from showcase to checkout intent."
-      },
-      {
-        "title": "Brand-forward chrome",
-        "description": "Huge type, short copy, merchandise as the visual story."
-      }
+      { "title": "True-to-size guides", "description": "Measurements from real samples, not marketing guesses." },
+      { "title": "Two-day shipping on staples", "description": "In-stock essentials leave the warehouse the same day." },
+      { "title": "Easy returns desk", "description": "Print a label in the order history — no chat maze." }
     ],
-    "showcaseHeading": "Featured gear",
-    "featuresHeading": "Built for the browse",
+    "process": [
+      { "title": "Find your fit", "description": "Filter by size, fabric, and occasion." },
+      { "title": "Checkout clean", "description": "Apple Pay, cards, or store credit — one screen." },
+      { "title": "Wear or return", "description": "Fourteen days, prepaid label, no lectures." }
+    ],
+    "credentials": [
+      { "title": "Responsible mills", "detail": "Preferred suppliers with traceable dye houses." },
+      { "title": "In-house quality check", "detail": "Every SKU sampled before a full run ships." }
+    ],
+    "testimonials": [
+      { "quote": "The overshirt fit like the size chart promised. That almost never happens online.", "author": "Lee A.", "role": "Repeat buyer" },
+      { "quote": "Returns were boring — in the best way. Label printed, done.", "author": "Sofia N.", "role": "First order" }
+    ],
+    "showcaseHeading": "This week's edit",
+    "featuresHeading": "Built for buying without regret",
+    "processHeading": "Shop → wear",
+    "credentialsHeading": "Why the fabric holds up",
+    "testimonialsHeading": "From the fitting room",
     "cta": {
-      "heading": "See something you like?",
-      "description": "Reserve it today — limited runs disappear fast.",
+      "heading": "The rack is live",
+      "description": "Shop the new drop before sizes thin out.",
       "primaryLabel": "Shop now",
       "primaryHref": "/shop",
-      "secondaryLabel": "Get notified",
-      "secondaryHref": "/notify"
+      "secondaryLabel": "Restock alerts",
+      "secondaryHref": "/alerts"
     },
-    "footer": {
-      "description": "A retail storefront that leads with product, not filler."
-    },
-    "trustLabels": ["New drop", "Limited run", "Free returns", "Member early access"]
+    "footer": { "description": "A retail storefront for clothes that look sharp and fit like the chart said." },
+    "trustLabels": ["True-to-size", "Fast staples shipping", "Easy returns", "Limited drops"],
+    "nav_cta": { "label": "Shop", "href": "/shop" }
   }
 }

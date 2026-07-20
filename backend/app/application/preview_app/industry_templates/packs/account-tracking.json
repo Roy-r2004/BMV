@@ -1,11 +1,58 @@
 {
   "id": "account-tracking",
   "label": "Account / tracking utility",
-  "industry_tags": ["tracking", "order status", "account", "shipment", "status"],
+  "industry_tags": ["account", "tracking", "orders", "status", "shipment", "profile"],
   "recipe_hint": "dense-ops",
-  "skeleton_id": "utility-tracking",
-  "section_order": ["header", "workspace", "activity"],
-  "signature_moves": ["status timeline", "brand accents", "activity feed"],
-  "prompt_hints": ["Status clarity — timeline + details; brand-tinted chrome not pale gray."],
-  "mock_seed": { "tone": "status" }
+  "skeleton_id": "utility-account",
+  "section_order": ["header", "summary", "workspace", "activity"],
+  "signature_moves": ["status summary strip", "dense tracking table", "activity timeline", "compact utility chrome"],
+  "prompt_hints": [
+    "Account tracking utility — dense, scannable statuses, brand-tinted chrome never gray SaaS.",
+    "Show realistic order/shipment rows with timestamps and clear next actions.",
+    "Copy as the product (\"Track shipment\", \"View invoice\") — immersive account UX."
+  ],
+  "mock_seed": {
+    "tone": "operational",
+    "hero": {
+      "headline": "Orders and shipments in one place",
+      "subcopy": "Live statuses, invoices, and delivery windows — without hunting through email threads.",
+      "primaryCta": { "label": "Track latest", "href": "#latest" },
+      "secondaryCta": { "label": "View invoices", "href": "#invoices" }
+    },
+    "items": [
+      { "title": "Order #4821 · In transit", "description": "Out for delivery · ETA today 4–7p" },
+      { "title": "Order #4790 · Delivered", "description": "Signed at door · Mar 12" },
+      { "title": "Order #4755 · Processing", "description": "Warehouse pick · ships tomorrow" }
+    ],
+    "features": [
+      { "title": "Status without support tickets", "description": "Carrier events mapped into plain language." },
+      { "title": "Invoice vault", "description": "Download PDFs for every paid order." },
+      { "title": "Reorder from history", "description": "One tap to restock a past cart." }
+    ],
+    "process": [
+      { "title": "Open an order", "description": "See items, payment, and timeline." },
+      { "title": "Follow the shipment", "description": "Carrier checkpoints update as they happen." },
+      { "title": "Act if needed", "description": "Reschedule, return, or contact with context attached." }
+    ],
+    "credentials": [
+      { "title": "Secure account area", "detail": "Auth-gated history; no public order guessing." }
+    ],
+    "testimonials": [
+      { "quote": "I stopped emailing \"where is my order\" — the timeline is right here.", "author": "Account user", "role": "Customer" }
+    ],
+    "showcaseHeading": "Recent orders",
+    "featuresHeading": "Account tools that answer questions",
+    "processHeading": "Track → resolve",
+    "cta": {
+      "heading": "Need help on an order?",
+      "description": "Open the order first — support starts with the full timeline.",
+      "primaryLabel": "Contact support",
+      "primaryHref": "/support",
+      "secondaryLabel": "Start a return",
+      "secondaryHref": "/returns"
+    },
+    "footer": { "description": "Your account for orders, tracking, and invoices." },
+    "trustLabels": ["Live tracking", "Invoice vault", "Secure login", "Reorder history"],
+    "nav_cta": { "label": "Orders", "href": "#orders" }
+  }
 }

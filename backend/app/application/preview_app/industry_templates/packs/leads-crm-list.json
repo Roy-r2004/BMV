@@ -1,11 +1,59 @@
 {
   "id": "leads-crm-list",
   "label": "Leads / CRM list",
-  "industry_tags": ["leads", "crm", "pipeline", "sales", "prospects"],
+  "industry_tags": ["leads", "crm", "pipeline", "sales", "prospects", "inbox"],
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
   "section_order": ["header", "kpis", "filters", "table", "activity", "risk"],
-  "signature_moves": ["pipeline KPIs", "lead table", "activity rail"],
-  "prompt_hints": ["CRM list density — stages as pills, follow-ups in risk queue."],
-  "mock_seed": { "tone": "pipeline" }
+  "signature_moves": ["pipeline KPI strip", "lead table", "stale-lead risk", "activity rail"],
+  "prompt_hints": [
+    "CRM list density — stages, owners, and stale leads with brand-tinted ops chrome.",
+    "Seed realistic lead rows with stages and last-touch timestamps; never empty pipeline.",
+    "Copy as sales ops (\"Follow up\", \"Stale leads\") — immersive CRM."
+  ],
+  "mock_seed": {
+    "tone": "operational",
+    "hero": {
+      "headline": "Pipeline board",
+      "subcopy": "New leads, follow-ups due, and stale deals that need a human before they go cold.",
+      "primaryCta": { "label": "Due today", "href": "#due" },
+      "secondaryCta": { "label": "Add lead", "href": "#new" }
+    },
+    "items": [
+      { "title": "Northline Holdings · Qualified", "description": "Owner Dana · Last touch 2h · Demo booked Thu" },
+      { "title": "Peak Form · New", "description": "Owner unassigned · Form fill · Score 72" },
+      { "title": "Ember Order · Proposal", "description": "Owner Sam · Waiting on legal · 5d idle" },
+      { "title": "Harbor Care · Stale", "description": "Owner Maya · No reply 12d · RISK" }
+    ],
+    "features": [
+      { "title": "Stages that match reality", "description": "New → qualified → proposal → won — no fake kanban fluff." },
+      { "title": "Stale lead alerts", "description": "Risk queue for silence past your SLA." },
+      { "title": "Activity attached", "description": "Calls, notes, and emails on the same row context." }
+    ],
+    "process": [
+      { "title": "Triage new", "description": "Assign owners and next steps." },
+      { "title": "Work the due list", "description": "Follow-ups sorted by urgency." },
+      { "title": "Rescue stale", "description": "Re-engage or close lost with a reason." }
+    ],
+    "credentials": [
+      { "title": "Source tracking", "detail": "Every lead knows if it came from form, referral, or import." }
+    ],
+    "testimonials": [
+      { "quote": "Stale deals stopped hiding at the bottom of a spreadsheet.", "author": "Sales lead", "role": "CRM owner" }
+    ],
+    "showcaseHeading": "Hot pipeline",
+    "featuresHeading": "CRM that respects follow-up",
+    "processHeading": "Triage → close",
+    "cta": {
+      "heading": "Three follow-ups are due",
+      "description": "Clear today's list before new inbound piles up.",
+      "primaryLabel": "Open due",
+      "primaryHref": "#due",
+      "secondaryLabel": "Stale risks",
+      "secondaryHref": "#risk"
+    },
+    "footer": { "description": "Leads CRM for teams who win by following up on time." },
+    "trustLabels": ["Stage clarity", "Due today", "Stale SLA", "Source tracking"],
+    "nav_cta": { "label": "Leads", "href": "/owner/leads" }
+  }
 }

@@ -5,7 +5,54 @@
   "recipe_hint": "warm-service",
   "skeleton_id": "member-hub",
   "section_order": ["header", "workspace", "summary", "activity"],
-  "signature_moves": ["brand-tinted cards", "upcoming bookings", "quick actions"],
-  "prompt_hints": ["Utility with warmth — next booking, history, one-tap actions; never gray admin."],
-  "mock_seed": { "tone": "member" }
+  "signature_moves": ["brand-tinted member cards", "upcoming bookings rail", "one-tap quick actions", "warm utility chrome"],
+  "prompt_hints": [
+    "Utility with warmth — next booking, history, one-tap actions; never gray admin SaaS.",
+    "Show realistic upcoming sessions and credits; member voice throughout.",
+    "Copy as the product to the member (\"Your next class\", \"Manage membership\") — immersive."
+  ],
+  "mock_seed": {
+    "tone": "member",
+    "hero": {
+      "headline": "Your week at a glance",
+      "subcopy": "Upcoming bookings, credits remaining, and quick actions — everything you need before you walk in.",
+      "primaryCta": { "label": "Book next visit", "href": "/book" },
+      "secondaryCta": { "label": "View history", "href": "/history" }
+    },
+    "items": [
+      { "title": "Thursday strength 6:30p", "description": "Coach Maya · Studio B · 1 credit" },
+      { "title": "Saturday mobility", "description": "Coach Leo · Studio A · 1 credit" },
+      { "title": "Open gym window", "description": "Friday 12–2p · Floor access" }
+    ],
+    "features": [
+      { "title": "Credits that are visible", "description": "Remaining pack balance before you tap book." },
+      { "title": "One-tap rebook", "description": "Repeat last class with the same coach when seats open." },
+      { "title": "History with notes", "description": "Past visits and coach comments in one list." }
+    ],
+    "process": [
+      { "title": "Check what is next", "description": "Upcoming visits pinned at the top." },
+      { "title": "Act in one tap", "description": "Book, cancel, or transfer credits without a scavenger hunt." },
+      { "title": "Stay current", "description": "Membership renewals and receipts live under Account." }
+    ],
+    "credentials": [
+      { "title": "Secure member login", "detail": "Session tokens and privacy-first profile fields." }
+    ],
+    "testimonials": [
+      { "quote": "I can see my next two classes and remaining credits without digging through email.", "author": "Member hub user", "role": "Active member" }
+    ],
+    "showcaseHeading": "Upcoming",
+    "featuresHeading": "Member tools that stay out of the way",
+    "processHeading": "How the hub works",
+    "cta": {
+      "heading": "Need another spot this week?",
+      "description": "Book with your remaining credits or upgrade the pack.",
+      "primaryLabel": "Book now",
+      "primaryHref": "/book",
+      "secondaryLabel": "Manage plan",
+      "secondaryHref": "/membership"
+    },
+    "footer": { "description": "Your member home for bookings, credits, and history." },
+    "trustLabels": ["Credits visible", "One-tap rebook", "Visit history", "Secure login"],
+    "nav_cta": { "label": "Book", "href": "/book" }
+  }
 }

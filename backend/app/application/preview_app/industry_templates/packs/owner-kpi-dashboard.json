@@ -5,13 +5,55 @@
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
   "section_order": ["header", "kpis", "chart", "filters", "table", "activity", "risk"],
-  "signature_moves": ["StatCard grid", "ActivityFeed rail", "brand-tinted OpsShell", "RiskQueue"],
+  "signature_moves": ["StatCard KPI grid", "ActivityFeed rail", "brand-tinted OpsShell", "RiskQueue"],
   "prompt_hints": [
     "Soft branded OpsShell — never gray #f4f7fb or slate-900 SaaS.",
-    "KPI-first with realistic numbers; rail activity + risk queue always present."
+    "KPI-first with realistic numbers; rail activity + risk queue always present.",
+    "Copy as the ops console for the owner (\"Today's revenue\", \"Open tickets\") — immersive."
   ],
   "mock_seed": {
-    "kpis": ["Revenue today", "Open tickets", "Fill rate"],
-    "tone": "operational"
+    "tone": "operational",
+    "hero": {
+      "headline": "Today's pulse",
+      "subcopy": "Revenue, fill rate, and tickets that need a decision before the floor gets busy.",
+      "primaryCta": { "label": "Review risks", "href": "#risk" },
+      "secondaryCta": { "label": "Export day", "href": "#export" }
+    },
+    "items": [
+      { "title": "Revenue today", "description": "12,480 · +8% vs last Tuesday" },
+      { "title": "Open tickets", "description": "14 · 3 overdue SLA" },
+      { "title": "Fill rate", "description": "86% · evening still soft" },
+      { "title": "No-shows", "description": "2 · auto-waitlist cleared 1" }
+    ],
+    "features": [
+      { "title": "KPIs that explain themselves", "description": "Deltas and hints under every tile — not naked numbers." },
+      { "title": "Risk queue up front", "description": "SLA breaches and inventory lows before vanity charts." },
+      { "title": "Activity rail", "description": "Staff actions and system events in one scroll." }
+    ],
+    "process": [
+      { "title": "Scan KPIs", "description": "Spot what moved since yesterday." },
+      { "title": "Filter the table", "description": "Drill into the segment that needs action." },
+      { "title": "Clear risks", "description": "Assign or resolve items in the risk queue." }
+    ],
+    "credentials": [
+      { "title": "Brand-tinted workspace", "detail": "Ops chrome uses brand tokens — never anonymous gray." }
+    ],
+    "testimonials": [
+      { "quote": "I open this before service and know what to fix in two minutes.", "author": "Floor owner", "role": "Operator" }
+    ],
+    "showcaseHeading": "Priority rows",
+    "featuresHeading": "Built for morning decisions",
+    "processHeading": "Scan → act",
+    "cta": {
+      "heading": "Something needs you",
+      "description": "Jump to overdue tickets or soft fill windows.",
+      "primaryLabel": "Open tickets",
+      "primaryHref": "#tickets",
+      "secondaryLabel": "Fill gaps",
+      "secondaryHref": "#schedule"
+    },
+    "footer": { "description": "Owner ops dashboard for revenue, fill, and risk — brand-tinted." },
+    "trustLabels": ["Live KPIs", "SLA risk queue", "Activity rail", "Brand ops chrome"],
+    "nav_cta": { "label": "Dashboard", "href": "/owner" }
   }
 }

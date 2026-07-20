@@ -1,17 +1,63 @@
 {
   "id": "restaurant-cafe-home",
   "label": "Local restaurant / cafe",
-  "industry_tags": ["restaurant", "cafe", "bistro", "bakery", "food", "dining"],
+  "industry_tags": ["restaurant", "cafe", "bistro", "bakery", "food", "dining", "brunch"],
   "recipe_hint": "warm-service",
   "skeleton_id": "public-home",
   "section_order": ["hero", "trust", "showcase", "features", "process", "testimonials", "cta", "footer"],
-  "signature_moves": ["service hero", "logo marquee", "product showcase", "warm cards"],
+  "signature_moves": ["appetite-forward service hero", "dish showcase mosaic", "warm card surfaces", "reservation CTA band"],
   "prompt_hints": [
-    "Appetite-forward photography, warm surfaces, menu moments — not startup chrome.",
-    "Showcase dishes / rooms; FeatureBento for occasions; CTA for reservations."
+    "Appetite-forward photography and warm surfaces — menu moments, not startup chrome.",
+    "Showcase dishes and rooms; FeatureBento for occasions; CTA for reservations.",
+    "Copy as the restaurant (\"Reserve a table\", \"Tonight's pasta\") — never BMV pitch language."
   ],
   "mock_seed": {
-    "dishes": ["House pasta", "Weekend brunch", "Chef tasting"],
-    "tone": "hospitable"
+    "tone": "hospitable",
+    "hero": {
+      "headline": "Neighborhood tables, chef-led plates",
+      "subcopy": "Seasonal pasta, weekend brunch, and a tasting menu worth dressing up for.",
+      "primaryCta": { "label": "Reserve a table", "href": "/reserve" },
+      "secondaryCta": { "label": "See the menu", "href": "/menu" }
+    },
+    "dishes": [
+      { "title": "House pasta", "description": "Handmade ribbons, brown butter, and whatever the market delivered this morning." },
+      { "title": "Weekend brunch", "description": "Eggs, pastry, and coffee until two — walk-ins welcome when we can." },
+      { "title": "Chef tasting", "description": "Five courses, wine pairings optional, booked for the room upstairs." },
+      { "title": "Bar bites", "description": "Olives, toast, and small plates for the early crowd." }
+    ],
+    "features": [
+      { "title": "Open kitchen energy", "description": "Watch the pass without feeling like you are in the way." },
+      { "title": "Neighborhood wine list", "description": "Short, honest bottles — by the glass and under forty." },
+      { "title": "Tables that turn with care", "description": "Reservations hold; walk-ins get a real wait estimate." }
+    ],
+    "process": [
+      { "title": "Pick a night", "description": "See open tables by party size and time." },
+      { "title": "Reserve in seconds", "description": "Confirm online; we text if the kitchen is delayed." },
+      { "title": "Sit down and eat", "description": "Hosts know your name; the plate arrives hot." }
+    ],
+    "credentials": [
+      { "title": "Farm partners within 40 miles", "detail": "Menus shift with what growers actually bring." },
+      { "title": "Open since 2016", "detail": "Same corner, same cooks, better bread." }
+    ],
+    "testimonials": [
+      { "quote": "We reserved for four and they seated us on time with the pasta still steaming.", "author": "Priya S.", "role": "Friday regular" },
+      { "quote": "Brunch without the chaos — coffee arrived before we finished reading the menu.", "author": "Jon M.", "role": "Weekend guest" }
+    ],
+    "showcaseHeading": "On the pass tonight",
+    "featuresHeading": "Why neighbors keep coming back",
+    "processHeading": "From craving to table",
+    "credentialsHeading": "Roots you can taste",
+    "testimonialsHeading": "From the dining room",
+    "cta": {
+      "heading": "Hungry tonight?",
+      "description": "Hold a table — or join the walk-in list with a real wait time.",
+      "primaryLabel": "Reserve",
+      "primaryHref": "/reserve",
+      "secondaryLabel": "Order ahead",
+      "secondaryHref": "/order"
+    },
+    "footer": { "description": "A neighborhood restaurant for plates that taste like someone cooked them for you." },
+    "trustLabels": ["Seasonal menu", "Local growers", "On-time seating", "Walk-in honesty"],
+    "nav_cta": { "label": "Reserve", "href": "/reserve" }
   }
 }

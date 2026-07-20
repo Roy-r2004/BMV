@@ -1,11 +1,59 @@
 {
   "id": "booking-calendar-ops",
   "label": "Booking calendar ops",
-  "industry_tags": ["calendar", "bookings", "appointments", "schedule", "reservations ops"],
+  "industry_tags": ["booking", "calendar", "schedule", "appointments", "reservations ops"],
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
   "section_order": ["header", "kpis", "filters", "table", "chart", "activity"],
-  "signature_moves": ["day list", "fill-rate KPIs", "activity"],
-  "prompt_hints": ["Schedule ops — today's book, conflicts in risk/activity, brand chrome."],
-  "mock_seed": { "tone": "schedule" }
+  "signature_moves": ["day calendar density", "fill-rate KPIs", "conflict risk", "brand OpsShell"],
+  "prompt_hints": [
+    "Booking calendar ops — day density, conflicts, and fill rate with brand-tinted chrome.",
+    "Seed realistic appointment rows with times, rooms, and staff; never an empty week.",
+    "Copy as scheduling ops (\"Open slots\", \"Conflicts\") — immersive calendar console."
+  ],
+  "mock_seed": {
+    "tone": "operational",
+    "hero": {
+      "headline": "Today's book",
+      "subcopy": "Fill rate, open slots, and conflicts that need a move before guests arrive.",
+      "primaryCta": { "label": "Resolve conflicts", "href": "#conflicts" },
+      "secondaryCta": { "label": "Open slots", "href": "#open" }
+    },
+    "items": [
+      { "title": "9:00 · Glow facial · Room 2", "description": "Therapist Ana · Confirmed" },
+      { "title": "10:30 · Deep restore · Room 1", "description": "Therapist Leo · Confirmed" },
+      { "title": "12:00 · CONFLICT · Room 2 double-book", "description": "Needs move · RISK" },
+      { "title": "15:00 · Open · Room 3", "description": "90m available · waitlist 2" }
+    ],
+    "features": [
+      { "title": "Conflicts before check-in", "description": "Double-books and overlapping rooms flagged early." },
+      { "title": "Fill-rate by daypart", "description": "Morning vs evening gaps that marketing can push." },
+      { "title": "Waitlist auto-offer", "description": "Cancellations notify the next guest instantly." }
+    ],
+    "process": [
+      { "title": "Scan the day", "description": "KPIs then the appointment table." },
+      { "title": "Fix conflicts", "description": "Move rooms or staff before the guest is in the lobby." },
+      { "title": "Fill gaps", "description": "Offer open slots to the waitlist." }
+    ],
+    "credentials": [
+      { "title": "Timezone-safe scheduling", "detail": "Staff and guest times stay consistent across devices." }
+    ],
+    "testimonials": [
+      { "quote": "We catch double-books before the client is standing at reception.", "author": "Front desk", "role": "Scheduler" }
+    ],
+    "showcaseHeading": "Today's appointments",
+    "featuresHeading": "Calendar ops that prevent chaos",
+    "processHeading": "Scan → fix → fill",
+    "cta": {
+      "heading": "One conflict needs a room change",
+      "description": "Resolve it, then offer the 3pm opening to the waitlist.",
+      "primaryLabel": "Fix conflict",
+      "primaryHref": "#conflicts",
+      "secondaryLabel": "Notify waitlist",
+      "secondaryHref": "#waitlist"
+    },
+    "footer": { "description": "Booking calendar ops for teams who hate surprise double-books." },
+    "trustLabels": ["Conflict flags", "Fill-rate KPIs", "Waitlist offers", "Daypart gaps"],
+    "nav_cta": { "label": "Calendar", "href": "/owner/calendar" }
+  }
 }

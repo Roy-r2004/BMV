@@ -1,11 +1,63 @@
 {
   "id": "real-estate-showcase",
   "label": "Real estate showcase",
-  "industry_tags": ["real", "estate", "property", "realtor", "homes", "listings"],
+  "industry_tags": ["real estate", "property", "realtor", "brokerage", "homes", "listings"],
   "recipe_hint": "bold-retail",
   "skeleton_id": "public-home",
-  "section_order": ["hero", "showcase", "features", "results", "testimonials", "cta", "footer"],
-  "signature_moves": ["product hero", "product showcase", "kinetic marquee"],
-  "prompt_hints": ["Listing-first imagery, sharp type, high-contrast CTAs."],
-  "mock_seed": { "tone": "aspirational" }
+  "section_order": ["hero", "showcase", "features", "process", "testimonials", "cta", "footer"],
+  "signature_moves": ["product-first hero", "listing mosaic", "sharp merchandising type", "tour CTA"],
+  "prompt_hints": [
+    "High-contrast merchandising — listings first, punchy CTAs, cinematic photography.",
+    "Showcase homes and neighborhoods; avoid soft spa aesthetics; keep retail sharpness.",
+    "Copy as the brokerage (\"Tour this home\", \"Request a showing\") — product immersion."
+  ],
+  "mock_seed": {
+    "tone": "aspirational",
+    "hero": {
+      "headline": "Homes that photograph well and live better",
+      "subcopy": "Curated listings, private showings, and agents who know the block — not just the MLS sheet.",
+      "primaryCta": { "label": "Browse listings", "href": "/listings" },
+      "secondaryCta": { "label": "Request a showing", "href": "/showing" }
+    },
+    "products": [
+      { "title": "Garden terrace loft", "description": "Two beds, west light, and a private outdoor room above the street." },
+      { "title": "Tree-lined family home", "description": "Four beds near the park — renovated kitchen, quiet block." },
+      { "title": "Downtown pied-à-terre", "description": "Efficient one-bed with building amenities and skyline views." },
+      { "title": "Studio with roof access", "description": "Creative space plus shared roof deck for evenings outside." }
+    ],
+    "features": [
+      { "title": "Listings with honest notes", "description": "What needs work, what shines, and which neighbors you will meet." },
+      { "title": "Private tour windows", "description": "Book showings that respect sellers and your calendar." },
+      { "title": "Offer guidance in plain language", "description": "Contingencies, timelines, and negotiation moves without jargon fog." }
+    ],
+    "process": [
+      { "title": "Save what fits", "description": "Filter by neighborhood, beds, and must-haves." },
+      { "title": "Tour with an agent", "description": "Confirm a showing slot; we handle access and timing." },
+      { "title": "Move with clarity", "description": "Offer strategy, inspections, and closing milestones mapped out." }
+    ],
+    "credentials": [
+      { "title": "Local brokerage desk", "detail": "Agents who walk these blocks weekly — not remote call centers." },
+      { "title": "Verified listing photos", "detail": "Shot and updated so what you tour matches what you clicked." }
+    ],
+    "testimonials": [
+      { "quote": "We toured three homes in one afternoon and the notes afterward actually helped us decide.", "author": "Chris & Ana", "role": "Buyers" },
+      { "quote": "Listing went live with photos that looked like the house, not a fantasy filter.", "author": "Jordan W.", "role": "Seller" }
+    ],
+    "showcaseHeading": "Featured homes",
+    "featuresHeading": "How we sell and buy",
+    "processHeading": "From browse to keys",
+    "credentialsHeading": "Why clients stay local",
+    "testimonialsHeading": "Recent closings",
+    "cta": {
+      "heading": "Ready to walk through a home?",
+      "description": "Browse live listings or request a private showing this week.",
+      "primaryLabel": "See listings",
+      "primaryHref": "/listings",
+      "secondaryLabel": "Talk to an agent",
+      "secondaryHref": "/contact"
+    },
+    "footer": { "description": "A local brokerage for buyers and sellers who want clarity with every showing." },
+    "trustLabels": ["Local agents", "Honest listing notes", "Private showings", "Plain-language offers"],
+    "nav_cta": { "label": "Listings", "href": "/listings" }
+  }
 }

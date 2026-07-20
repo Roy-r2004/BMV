@@ -1,11 +1,59 @@
 {
   "id": "inventory-catalog-ops",
   "label": "Inventory / catalog ops",
-  "industry_tags": ["inventory", "catalog", "stock", "sku", "products ops"],
+  "industry_tags": ["inventory", "catalog", "stock", "sku", "warehouse", "products ops"],
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
-  "section_order": ["header", "kpis", "filters", "table", "chart", "activity"],
-  "signature_moves": ["SKU table", "stock KPIs", "chart"],
-  "prompt_hints": ["Catalog ops — filters + dense table + stock KPIs; brand tokens only."],
-  "mock_seed": { "tone": "inventory" }
+  "section_order": ["header", "kpis", "filters", "table", "chart", "risk"],
+  "signature_moves": ["SKU table density", "low-stock risk queue", "brand OpsShell", "filter bar"],
+  "prompt_hints": [
+    "Catalog ops density — SKUs, stock levels, and reorder risk with brand-tinted chrome.",
+    "Never empty catalog tables; seed realistic product rows and low-stock flags.",
+    "Copy as inventory ops (\"Reorder\", \"Low stock\") — immersive back-office."
+  ],
+  "mock_seed": {
+    "tone": "operational",
+    "hero": {
+      "headline": "Catalog & stock",
+      "subcopy": "SKUs, on-hand counts, and reorder risks before you sell air.",
+      "primaryCta": { "label": "View low stock", "href": "#risk" },
+      "secondaryCta": { "label": "Add SKU", "href": "#new" }
+    },
+    "products": [
+      { "title": "Wool overshirt · SKU WOS-M", "description": "On hand 12 · Reorder at 15 · Vendor lead 9d" },
+      { "title": "Relaxed trouser · SKU RT-32", "description": "On hand 4 · LOW · PO drafted" },
+      { "title": "Everyday tee pack · SKU ETP-3", "description": "On hand 48 · Healthy · Sell-through 6%/wk" },
+      { "title": "Leather tote · SKU LT-01", "description": "On hand 7 · Watch · Spring demand up" }
+    ],
+    "features": [
+      { "title": "Low-stock before sellouts", "description": "Risk queue sorted by days of cover." },
+      { "title": "Filters that match the warehouse", "description": "Vendor, category, and location — not vanity tags." },
+      { "title": "PO hints", "description": "Suggested quantities from sell-through, not gut feel alone." }
+    ],
+    "process": [
+      { "title": "Scan risks", "description": "Low and watch items first." },
+      { "title": "Filter the catalog", "description": "Find the SKU lane that needs action." },
+      { "title": "Reorder or adjust", "description": "Draft PO or change thresholds." }
+    ],
+    "credentials": [
+      { "title": "Single source of on-hand", "detail": "Counts sync from receiving — UI never invents stock." }
+    ],
+    "testimonials": [
+      { "quote": "We stopped overselling the trouser because low stock finally screamed.", "author": "Ops lead", "role": "Catalog manager" }
+    ],
+    "showcaseHeading": "Watch list",
+    "featuresHeading": "Inventory without spreadsheet fog",
+    "processHeading": "Risk → reorder",
+    "cta": {
+      "heading": "Four SKUs need you",
+      "description": "Clear low-stock risks before the next sales push.",
+      "primaryLabel": "Open risks",
+      "primaryHref": "#risk",
+      "secondaryLabel": "Export CSV",
+      "secondaryHref": "#export"
+    },
+    "footer": { "description": "Inventory ops for teams who sell what they actually have." },
+    "trustLabels": ["Low-stock queue", "Vendor filters", "PO hints", "Synced on-hand"],
+    "nav_cta": { "label": "Inventory", "href": "/owner/inventory" }
+  }
 }

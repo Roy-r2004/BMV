@@ -1,11 +1,58 @@
 {
   "id": "checkout-cart",
   "label": "Checkout / cart utility",
-  "industry_tags": ["checkout", "cart", "order", "payment", "bag"],
+  "industry_tags": ["checkout", "cart", "bag", "payment", "order"],
   "recipe_hint": "bold-retail",
   "skeleton_id": "utility-checkout",
-  "section_order": ["workspace", "summary"],
-  "signature_moves": ["line items", "brand totals", "confirm CTA"],
-  "prompt_hints": ["Focused transactional density — clear line items, brand total, no marketing fluff."],
-  "mock_seed": { "tone": "transactional" }
+  "section_order": ["header", "summary", "workspace", "confirm"],
+  "signature_moves": ["dense cart summary", "clear totals", "confident pay CTA", "brand-tinted utility chrome"],
+  "prompt_hints": [
+    "Checkout utility — sharp, scannable, high-contrast totals; never pale form soup.",
+    "Show line items, shipping, and pay CTA with realistic sample cart data.",
+    "Copy as the store checkout (\"Place order\", \"Apply code\") — immersive commerce."
+  ],
+  "mock_seed": {
+    "tone": "transactional",
+    "hero": {
+      "headline": "Your bag",
+      "subcopy": "Review items, shipping, and totals — then place the order in one clear step.",
+      "primaryCta": { "label": "Place order", "href": "#pay" },
+      "secondaryCta": { "label": "Keep shopping", "href": "/shop" }
+    },
+    "products": [
+      { "title": "Wool overshirt · M", "description": "Qty 1 · 148" },
+      { "title": "Relaxed trouser · 32", "description": "Qty 1 · 128" },
+      { "title": "Everyday tee pack", "description": "Qty 1 · 64" }
+    ],
+    "features": [
+      { "title": "Live shipping estimate", "description": "Updates when address and method change." },
+      { "title": "Promo codes that fail loudly", "description": "Invalid codes explain why — not silent ignore." },
+      { "title": "Saved payment when available", "description": "One-tap pay for returning customers." }
+    ],
+    "process": [
+      { "title": "Confirm items", "description": "Adjust quantities or remove without losing place." },
+      { "title": "Choose delivery", "description": "Standard or express with clear arrival windows." },
+      { "title": "Pay", "description": "Card or wallet — receipt lands instantly." }
+    ],
+    "credentials": [
+      { "title": "Encrypted payments", "detail": "PCI-aware flow; card data never stored in plain UI." }
+    ],
+    "testimonials": [
+      { "quote": "Totals matched the bag. Shipping made sense. Done in under a minute.", "author": "Checkout guest", "role": "Buyer" }
+    ],
+    "showcaseHeading": "In your bag",
+    "featuresHeading": "Checkout without friction theater",
+    "processHeading": "Bag → pay",
+    "cta": {
+      "heading": "Ready to place the order?",
+      "description": "Confirm shipping and pay — we email the receipt immediately.",
+      "primaryLabel": "Place order",
+      "primaryHref": "#pay",
+      "secondaryLabel": "Edit bag",
+      "secondaryHref": "#bag"
+    },
+    "footer": { "description": "A checkout built for clarity — items, totals, pay." },
+    "trustLabels": ["Encrypted pay", "Clear totals", "Live shipping", "Instant receipt"],
+    "nav_cta": { "label": "Pay", "href": "#pay" }
+  }
 }

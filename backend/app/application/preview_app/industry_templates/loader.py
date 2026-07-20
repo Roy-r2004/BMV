@@ -1,4 +1,4 @@
-"""Load + pick industry templates (content packs land tomorrow)."""
+"""Load + pick industry templates (rich content packs in packs/*.json)."""
 from __future__ import annotations
 
 import json

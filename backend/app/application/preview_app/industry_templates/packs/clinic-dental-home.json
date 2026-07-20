@@ -1,82 +1,64 @@
 {
   "id": "clinic-dental-home",
   "label": "Clinic / dental",
-  "industry_tags": ["clinic", "dental", "dentist", "medical", "healthcare", "doctor", "orthodont"],
+  "industry_tags": ["clinic", "dental", "dentist", "medical", "healthcare", "doctor", "orthodontics"],
   "recipe_hint": "editorial",
   "skeleton_id": "public-home",
   "section_order": ["hero", "credentials", "features", "process", "testimonials", "booking", "cta", "footer"],
-  "signature_moves": ["trust credentials first", "calm process", "booking panel"],
+  "signature_moves": ["trust-first credentials", "calm editorial hero", "booking panel", "patient testimonials"],
   "prompt_hints": [
-    "Clean clinical calm with brand warmth — never sterile gray SaaS.",
-    "Lead with credentials and patient reassurance; booking is clear but never pushy."
+    "Clinical calm — clean surfaces, trust cues early, never alarming medical red overload.",
+    "Credentials before hard sell; booking is the primary CTA; patient-facing language only.",
+    "Copy as the clinic (\"Book your cleaning\", \"Meet the care team\") — immersive care product."
   ],
   "mock_seed": {
     "tone": "reassuring",
     "hero": {
-      "subcopy": "Preventive care, clear treatment plans, and appointments you can book without a phone maze.",
+      "headline": "Care that starts on time and explains every step",
+      "subcopy": "Cleanings, restorative work, and orthodontics — booked online with providers you can research first.",
       "primaryCta": { "label": "Book a visit", "href": "/book" },
       "secondaryCta": { "label": "Meet the team", "href": "/team" }
     },
     "services": [
-      {
-        "title": "New patient exam",
-        "description": "Full assessment, imaging when needed, and a plain-language plan."
-      },
-      {
-        "title": "Hygiene & prevention",
-        "description": "Cleanings timed to your risk — reminders that actually help."
-      },
-      {
-        "title": "Restorative care",
-        "description": "Crowns, fillings, and repairs with options explained before you decide."
-      }
-    ],
-    "process": [
-      { "title": "Share what you need", "description": "Tell us the concern — urgency, insurance, preferred times." },
-      { "title": "Reserve a chair", "description": "See open slots online; confirm in one step." },
-      { "title": "Visit with a plan", "description": "Arrive knowing who you’ll see and what happens next." }
+      { "title": "Preventive cleaning", "description": "Exam, polish, and a clear plan for the patient — no surprise upsells." },
+      { "title": "Restorative care", "description": "Fillings, crowns, and repairs scheduled around your week." },
+      { "title": "Orthodontics consult", "description": "Alignment options with digital previews and realistic timelines." },
+      { "title": "Emergency slot", "description": "Same-day openings when pain cannot wait for next month." }
     ],
     "features": [
-      {
-        "title": "Credentials you can verify",
-        "description": "Licensure, specialties, and chairside manner — upfront."
-      },
-      {
-        "title": "Treatment without jargon fog",
-        "description": "Options, timelines, and costs explained before commitment."
-      },
-      {
-        "title": "Booking that respects anxiety",
-        "description": "Calm copy, clear next steps, no surprise upsells on the form."
-      }
+      { "title": "Digital intake before you arrive", "description": "Forms and insurance details finished at home — less clipboard time." },
+      { "title": "Providers with public bios", "description": "Credentials, languages, and focus areas visible before you book." },
+      { "title": "Reminders that actually help", "description": "SMS and email with prep notes, not just \"see you soon.\"" }
+    ],
+    "process": [
+      { "title": "Choose a visit type", "description": "Cleaning, consult, or urgent — with expected duration." },
+      { "title": "Pick provider and time", "description": "Live openings across the week; filters by preference." },
+      { "title": "Confirm and prepare", "description": "Intake link arrives immediately; arrive ready." }
     ],
     "credentials": [
-      { "title": "Board-aware clinical team", "detail": "Continuing education tracked — protocols you can ask about." },
-      { "title": "Sterilization you can see", "detail": "Transparent room turnover standards, not vague promises." },
-      { "title": "Same-day urgent windows", "detail": "Held slots for pain and trauma when capacity allows." }
+      { "title": "Board-certified clinicians", "detail": "Every provider listed with license and specialty." },
+      { "title": "Sterilization standards posted", "detail": "Protocols patients can read — not marketing fluff." },
+      { "title": "Insurance desk on-site", "detail": "Benefits checked before treatment, not after." }
     ],
     "testimonials": [
-      {
-        "quote": "They explained every option before I booked — I never felt rushed into a plan.",
-        "author": "Daniel K.",
-        "role": "Patient · family of four"
-      }
+      { "quote": "They explained the X-ray in normal words and booked the follow-up while I still had my calendar open.", "author": "Rita H.", "role": "Cleaning patient" },
+      { "quote": "Same-day emergency slot saved me a weekend of guessing and Advil.", "author": "Omar F.", "role": "Urgent visit" }
     ],
-    "showcaseHeading": "Care we offer",
-    "featuresHeading": "Designed around trust",
-    "processHeading": "How a visit works",
-    "credentialsHeading": "Why patients choose us",
+    "showcaseHeading": "Care we provide",
+    "featuresHeading": "Designed around patients",
+    "processHeading": "Book without the phone tree",
+    "credentialsHeading": "Trust you can verify",
+    "testimonialsHeading": "Patient notes",
     "cta": {
-      "heading": "Book with confidence",
-      "description": "Reserve an exam or hygiene visit — we’ll confirm details before you arrive.",
-      "primaryLabel": "Book appointment",
+      "heading": "Openings this week",
+      "description": "Book a cleaning or consult — insurance check included before you arrive.",
+      "primaryLabel": "Book visit",
       "primaryHref": "/book",
-      "secondaryLabel": "Ask a question",
-      "secondaryHref": "/contact"
+      "secondaryLabel": "New patient forms",
+      "secondaryHref": "/intake"
     },
-    "footer": {
-      "description": "A calm clinic experience — clear care plans, respectful booking, brand warmth without cold SaaS chrome."
-    },
-    "trustLabels": ["Licensed team", "Plain-language plans", "Online booking", "Family care"]
+    "footer": { "description": "A clinic for patients who want clear plans, on-time visits, and providers they chose on purpose." },
+    "trustLabels": ["Board-certified", "Digital intake", "Insurance desk", "Same-day urgency"],
+    "nav_cta": { "label": "Book", "href": "/book" }
   }
 }

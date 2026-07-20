@@ -1,81 +1,63 @@
 {
   "id": "fitness-studio-home",
   "label": "Fitness / studio",
-  "industry_tags": ["fitness", "gym", "pilates", "yoga", "training", "coaching", "workout", "crossfit"],
+  "industry_tags": ["fitness", "gym", "studio", "yoga", "pilates", "training", "coaching", "workout"],
   "recipe_hint": "warm-service",
   "skeleton_id": "public-home",
-  "section_order": ["hero", "features", "process", "results", "testimonials", "booking", "cta", "footer"],
-  "signature_moves": ["service hero", "class grid", "result rail", "booking panel"],
+  "section_order": ["hero", "trust", "features", "process", "showcase", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["energy service hero", "class showcase", "booking panel", "trust strip for coaches"],
   "prompt_hints": [
-    "Energetic but warm — class moments, before/after proof, easy book CTA.",
-    "Lead with class types and coaching outcomes; booking is the primary conversion."
+    "High-energy but approachable — sweaty photography, clear class times, warm service chrome.",
+    "Showcase classes and coaches; booking CTA is primary; never gray gym-software UI.",
+    "Copy as the studio (\"Book today's class\", \"Meet your coach\") — immersive product voice."
   ],
   "mock_seed": {
     "tone": "energizing",
     "hero": {
-      "subcopy": "Small-group strength, reformer pilates, and coaching that fits a real week — book the next session in minutes.",
-      "primaryCta": { "label": "Book a class", "href": "/book" },
-      "secondaryCta": { "label": "See the schedule", "href": "/classes" }
+      "headline": "Classes that leave you better than you arrived",
+      "subcopy": "Strength, pilates, and HIIT — small rooms, coaches who know your name, bookings that stick.",
+      "primaryCta": { "label": "Book a class", "href": "/classes" },
+      "secondaryCta": { "label": "Meet the coaches", "href": "/coaches" }
     },
-    "services": [
-      {
-        "title": "Strength Foundations",
-        "description": "Coach-led lifting for busy adults — progressive, never chaotic."
-      },
-      {
-        "title": "Reformer Pilates",
-        "description": "Controlled sessions that rebuild mobility and core control."
-      },
-      {
-        "title": "1:1 Coaching Block",
-        "description": "Personal programming with check-ins and form videos."
-      }
-    ],
-    "process": [
-      { "title": "Pick a class or coach", "description": "See real capacity — no waitlist guessing in DMs." },
-      { "title": "Reserve your spot", "description": "Confirm online; we hold your mat or rack." },
-      { "title": "Show up ready", "description": "Coaches know your focus before you walk in." }
+    "classes": [
+      { "title": "Strength foundations", "description": "Barbell and bodyweight progressions with coaches spotting every lift." },
+      { "title": "Power pilates", "description": "Core-first reformer work that builds control without burnout." },
+      { "title": "HIIT express", "description": "45 minutes, heart-rate high, recovery built into every block." },
+      { "title": "Mobility reset", "description": "Hips, shoulders, and breath for the days between hard sessions." }
     ],
     "features": [
-      {
-        "title": "Classes that fill with intent",
-        "description": "Transparent seats so regulars and newcomers both get a fair shot."
-      },
-      {
-        "title": "Proof you can feel",
-        "description": "Progress photos and session notes — not vanity metrics alone."
-      },
-      {
-        "title": "Book without friction",
-        "description": "One tap from schedule to confirmed spot."
-      }
+      { "title": "Rooms capped at twelve", "description": "Enough space to move, enough attention to progress." },
+      { "title": "Coaches with real notes", "description": "Your modifications and goals follow you from class to class." },
+      { "title": "Waitlists that actually clear", "description": "Cancellations notify the next member in seconds." }
+    ],
+    "process": [
+      { "title": "Pick a class", "description": "Filter by style, coach, and time — see open spots live." },
+      { "title": "Reserve your spot", "description": "Confirm in one tap; credits or drop-in, your choice." },
+      { "title": "Show up ready", "description": "Check in at the desk; mats and water are waiting." }
     ],
     "credentials": [
-      { "title": "Certified coaches on the floor", "detail": "Programming reviewed weekly — not a revolving sub list." },
-      { "title": "Small cohorts by design", "detail": "Caps that keep coaching personal even at peak hours." }
+      { "title": "Certified coaches", "detail": "Every instructor carries current credentials and first-aid training." },
+      { "title": "4.9 member rating", "detail": "From members who book weekly, not one-time drop-ins." }
     ],
     "testimonials": [
-      {
-        "quote": "I stopped chasing waitlists — booking takes less time than finding parking.",
-        "author": "Maya R.",
-        "role": "Member · 8 months"
-      }
+      { "quote": "I stopped ghosting workouts because the waitlist and coaches made it feel like a real commitment.", "author": "Sam L.", "role": "Strength member" },
+      { "quote": "Small rooms, loud playlists, and coaches who correct form without embarrassing you.", "author": "Nina P.", "role": "HIIT regular" }
     ],
-    "showcaseHeading": "Classes this week",
-    "featuresHeading": "Built for consistency",
-    "processHeading": "From browse to booked",
+    "showcaseHeading": "This week's classes",
+    "featuresHeading": "Built for people who actually show up",
+    "processHeading": "Book. Arrive. Move.",
     "credentialsHeading": "Why members stay",
+    "testimonialsHeading": "From the floor",
     "cta": {
-      "heading": "Ready for your next session?",
-      "description": "Grab a class or coaching block — seats update as they fill.",
-      "primaryLabel": "Book now",
-      "primaryHref": "/book",
-      "secondaryLabel": "View schedule",
-      "secondaryHref": "/classes"
+      "heading": "Your next class has an open spot",
+      "description": "Book today — or claim a trial credit if you are new here.",
+      "primaryLabel": "Book class",
+      "primaryHref": "/classes",
+      "secondaryLabel": "Start a trial",
+      "secondaryHref": "/trial"
     },
-    "footer": {
-      "description": "A neighborhood training studio for strength, pilates, and coaching that respects your calendar."
-    },
-    "trustLabels": ["Strength", "Pilates", "Coaching", "Small groups"]
+    "footer": { "description": "A neighborhood studio for strength, pilates, and HIIT that respects your time." },
+    "trustLabels": ["Small classes", "Certified coaches", "Live waitlists", "Trial credits"],
+    "nav_cta": { "label": "Book", "href": "/classes" }
   }
 }

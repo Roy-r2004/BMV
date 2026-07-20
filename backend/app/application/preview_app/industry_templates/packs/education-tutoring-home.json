@@ -1,11 +1,63 @@
 {
   "id": "education-tutoring-home",
   "label": "Education / tutoring",
-  "industry_tags": ["education", "tutoring", "school", "learning", "course", "academy"],
+  "industry_tags": ["education", "tutoring", "tutor", "school", "learning", "coaching", "lessons"],
   "recipe_hint": "warm-service",
   "skeleton_id": "public-home",
-  "section_order": ["hero", "features", "process", "testimonials", "booking", "cta", "footer"],
-  "signature_moves": ["offer-first hero", "bento programs", "booking"],
-  "prompt_hints": ["Friendly clarity — programs as features, outcomes in testimonials."],
-  "mock_seed": { "tone": "encouraging" }
+  "section_order": ["hero", "trust", "features", "process", "showcase", "testimonials", "booking", "cta", "footer"],
+  "signature_moves": ["encouraging service hero", "program showcase", "booking panel", "parent trust strip"],
+  "prompt_hints": [
+    "Encouraging and clear — programs, tutors, and booking without corporate LMS chrome.",
+    "Showcase subjects and outcomes; booking is primary; warm surfaces over gray dashboards.",
+    "Copy as the school (\"Book a session\", \"Meet tutors\") — immersive learning product."
+  ],
+  "mock_seed": {
+    "tone": "encouraging",
+    "hero": {
+      "headline": "Tutoring that fits the week your family actually has",
+      "subcopy": "Math, writing, and exam prep with tutors you can meet first — sessions booked in minutes.",
+      "primaryCta": { "label": "Book a session", "href": "/book" },
+      "secondaryCta": { "label": "Browse programs", "href": "/programs" }
+    },
+    "classes": [
+      { "title": "Math foundations", "description": "One-on-one progressions from fractions through algebra with weekly goals." },
+      { "title": "Writing studio", "description": "Essays, structure, and voice — drafts reviewed between sessions." },
+      { "title": "Exam prep sprint", "description": "Timed practice, score tracking, and calm coaching before test day." },
+      { "title": "Homework club", "description": "Small groups for accountability without the chaos of a study hall." }
+    ],
+    "features": [
+      { "title": "Tutor matching that sticks", "description": "Subject, personality, and schedule — not a random rotate." },
+      { "title": "Parent visibility", "description": "Session notes and next steps after every meeting." },
+      { "title": "Flexible makeup windows", "description": "Reschedule without losing the credit when life happens." }
+    ],
+    "process": [
+      { "title": "Choose a program", "description": "Pick subject and intensity that match the student." },
+      { "title": "Meet a tutor", "description": "Short intro call or first session to confirm fit." },
+      { "title": "Build a rhythm", "description": "Weekly slots with goals you can see improving." }
+    ],
+    "credentials": [
+      { "title": "Vetted tutors", "detail": "Background checks and subject assessments before first lesson." },
+      { "title": "Curriculum-aligned plans", "detail": "Mapped to common standards without teaching to a worksheet void." }
+    ],
+    "testimonials": [
+      { "quote": "My kid finally stopped dreading math night — the tutor notes made homework make sense.", "author": "Helen C.", "role": "Parent" },
+      { "quote": "Exam sprint was intense but organized. Scores went up without panic.", "author": "Theo M.", "role": "Student" }
+    ],
+    "showcaseHeading": "Programs open now",
+    "featuresHeading": "Built for real family schedules",
+    "processHeading": "From match to momentum",
+    "credentialsHeading": "Why parents trust us",
+    "testimonialsHeading": "Family voices",
+    "cta": {
+      "heading": "Ready for a first session?",
+      "description": "Book this week or request a tutor match for your subject.",
+      "primaryLabel": "Book session",
+      "primaryHref": "/book",
+      "secondaryLabel": "Ask a question",
+      "secondaryHref": "/contact"
+    },
+    "footer": { "description": "A tutoring studio for students who need clarity, cadence, and tutors who stick." },
+    "trustLabels": ["Vetted tutors", "Parent notes", "Flexible makeup", "Exam sprints"],
+    "nav_cta": { "label": "Book", "href": "/book" }
+  }
 }

@@ -1,4 +1,4 @@
-"""Industry starter templates — fill content packs tomorrow; picker wires into plan/architect."""
+"""Industry starter templates — rich content packs + picker wired into plan/architect."""
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -16,7 +16,7 @@ class IndustryTemplate(TypedDict, total=False):
     mock_seed: dict[str, Any]
 
 
-# Registry ids — packs live in industry_templates/packs/*.json (loaded tomorrow).
+# Registry ids — packs live in industry_templates/packs/*.json.
 TEMPLATE_IDS: tuple[str, ...] = (
     "spa-wellness-home",
     "restaurant-cafe-home",
