@@ -146,7 +146,11 @@ def _seed_int(seed: str | int | None) -> int:
     return int(hashlib.sha256(str(seed).encode("utf-8")).hexdigest(), 16)
 
 
-def _slot_queries(business_name: str | None, industry: str) -> dict[str, str]:
+def _slot_queries(
+    business_name: str | None,
+    industry: str,
+    imagery_roles: dict[str, str] | None = None,
+) -> dict[str, str]:
     brand = (business_name or "").strip()
     industry_clean = (industry or "business").strip() or "business"
     base = f"{brand} {industry_clean}".strip() if brand else industry_clean
@@ -167,6 +171,10 @@ def _slot_queries(business_name: str | None, industry: str) -> dict[str, str]:
     for slot in _SLOTS:
         suffix = _SLOT_QUERY_SUFFIX[slot]
         queries[slot] = f"{base} {category_hint} {suffix}".strip()
+    if imagery_roles:
+        for slot, query in imagery_roles.items():
+            if slot in _SLOTS and str(query).strip():
+                queries[slot] = str(query).strip()
     return queries
 
 
@@ -210,8 +218,9 @@ def _fetch_pexels_images(
     *,
     business_name: str | None,
     seed: str | int | None,
+    imagery_roles: dict[str, str] | None = None,
 ) -> dict[str, str] | None:
-    queries = _slot_queries(business_name, industry)
+    queries = _slot_queries(business_name, industry, imagery_roles=imagery_roles)
     seed_n = _seed_int(seed)
     used_ids: set[int] = set()
     result: dict[str, str] = {}
@@ -249,6 +258,7 @@ def get_images_for_industry(
     seed: str | int | None = None,
     hero_override: str | None = None,
     business_name: str | None = None,
+    imagery_roles: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Return image URLs for preview mock data (Pexels when configured, else curated)."""
     api_key = ""
@@ -266,6 +276,7 @@ def get_images_for_industry(
                 industry,
                 business_name=business_name,
                 seed=seed,
+                imagery_roles=imagery_roles,
             )
             if pexels and len(pexels) >= 4:
                 if hero_override:

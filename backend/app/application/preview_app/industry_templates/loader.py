@@ -110,7 +110,17 @@ def pick_template_id(
         scored.sort(reverse=True)
         return scored[0][1]
 
-    # No soft random fallback — wrong packs erase recipe faces.
+    # Ops packs are cross-industry consoles — rotate a default when tags miss.
+    # Public stays fail-closed (wrong marketing pack erases recipe faces).
+    if surface == "ops":
+        ops_ids = sorted(
+            tid
+            for tid, pack in templates.items()
+            if _is_ops_skeleton(str(pack.get("skeleton_id") or ""))
+        )
+        if ops_ids:
+            return ops_ids[int(seed or 0) % len(ops_ids)]
+
     return None
 
 

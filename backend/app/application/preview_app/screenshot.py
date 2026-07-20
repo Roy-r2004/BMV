@@ -20,6 +20,24 @@ _ROOT_HAS_CHILDREN_JS = (
 )
 
 
+def _launch_chromium(p):
+    """Prefer channel=chromium; fall back to bundled Chromium if channel missing."""
+    try:
+        # channel="chromium" opts into Chromium's "new" headless mode,
+        # which runs the same regular Chromium build used for headed
+        # mode (closer to real rendering) instead of the separate
+        # chromium-headless-shell binary — one less browser download to
+        # ship, and one fewer place headless-only rendering quirks can
+        # diverge from what a real user's browser would show.
+        return p.chromium.launch(headless=True, channel="chromium")
+    except Exception as e:
+        log.warning(
+            "screenshot channel=chromium launch failed (%s); using bundled chromium",
+            e,
+        )
+        return p.chromium.launch(headless=True)
+
+
 def capture_route_screenshot(
     base_url: str,
     route_path: str,
@@ -49,13 +67,7 @@ def capture_route_screenshot(
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with sync_playwright() as p:
-            # channel="chromium" opts into Chromium's "new" headless mode,
-            # which runs the same regular Chromium build used for headed
-            # mode (closer to real rendering) instead of the separate
-            # chromium-headless-shell binary — one less browser download to
-            # ship, and one fewer place headless-only rendering quirks can
-            # diverge from what a real user's browser would show.
-            browser = p.chromium.launch(headless=True, channel="chromium")
+            browser = _launch_chromium(p)
             try:
                 page = browser.new_page(viewport=viewport or {"width": 1280, "height": 900})
                 page.goto(full_url, wait_until="networkidle", timeout=timeout_ms)

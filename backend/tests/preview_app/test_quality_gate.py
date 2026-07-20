@@ -192,3 +192,72 @@ export default function AiFeaturesPage() {
     assert report.ok
     mystery = (ws / "src/pages/MysteryPage.tsx").read_text(encoding="utf-8")
     assert "#skill-level-assessor" in mystery
+
+
+def test_gate_detects_and_heals_empty_mock_export(tmp_path: Path) -> None:
+    ws = _ws(tmp_path)
+    write_file(
+        ws,
+        "src/pages/AiFeaturesPage.tsx",
+        """// plan AI feature hub
+import { AiFeatureDeck } from '@/ui';
+import { aiFeatures } from '@/data/mock';
+export default function AiFeaturesPage() {
+  return <AiFeatureDeck features={aiFeatures} brandName="Brand" />;
+}
+""",
+    )
+    write_file(ws, "src/pages/HomePage.tsx", "export default function HomePage(){return null}")
+    write_file(ws, "src/App.tsx", "export default function App(){return null}")
+    write_file(
+        ws,
+        "src/data/mock.ts",
+        'export const navigation = { public: [{ path: "/", label: "Home" }] };\n'
+        "export const products = [];\n"
+        "export const aiFeatures = [] as const;\n",
+    )
+    report = evaluate_quality_gate(ws, {}, require_ai_hub=True)
+    assert any(i.code == "empty_mock_export" for i in report.issues)
+
+    healed = heal_quality_gate(ws, {"routes": [], "roles": []}, brand_name="Brand", req=None)
+    assert "src/data/mock.ts" in healed
+    mock = (ws / "src/data/mock.ts").read_text(encoding="utf-8")
+    assert "export const products = []" not in mock
+
+    report2 = evaluate_quality_gate(ws, {}, require_ai_hub=True)
+    assert not any(i.code == "empty_mock_export" for i in report2.issues)
+
+
+def test_gate_detects_empty_seed_page(tmp_path: Path) -> None:
+    ws = _ws(tmp_path)
+    write_file(
+        ws,
+        "src/pages/AiFeaturesPage.tsx",
+        """// plan AI feature hub
+import { AiFeatureDeck } from '@/ui';
+import { aiFeatures } from '@/data/mock';
+export default function AiFeaturesPage() {
+  return <AiFeatureDeck features={aiFeatures} brandName="Brand" />;
+}
+""",
+    )
+    write_file(
+        ws,
+        "src/pages/ListPage.tsx",
+        """
+import { useState } from 'react';
+export default function ListPage() {
+  const [items, setItems] = useState([]);
+  return <ul>{items.map((x: any) => <li key={x.id}>{x.name}</li>)}</ul>;
+}
+""",
+    )
+    write_file(ws, "src/App.tsx", "export default function App(){return null}")
+    write_file(
+        ws,
+        "src/data/mock.ts",
+        'export const navigation = { public: [{ path: "/", label: "Home" }] };\n'
+        "export const aiFeatures = [] as const;\n",
+    )
+    report = evaluate_quality_gate(ws, {}, require_ai_hub=True)
+    assert any(i.code == "empty_seed_page" and "ListPage" in i.path for i in report.issues)

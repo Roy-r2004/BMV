@@ -6,6 +6,14 @@
   "skeleton_id": "public-home",
   "section_order": ["hero", "process", "showcase", "credentials", "cta", "footer"],
   "signature_moves": ["process-first journey", "maker credentials", "tactile product showcase"],
+  "imagery_roles": {
+    "hero": "pottery studio artisan workshop clay wheel wide",
+    "hero2": "ceramic kiln studio interior warm light",
+    "card1": "handmade pottery bowl detail texture",
+    "card2": "pottery class hands shaping clay",
+    "card3": "ceramic artist glazing piece",
+    "ambient": "studio clay shelves pottery atmosphere"
+  },
   "prompt_hints": [
     "Artisan pottery studio — paper-warm surfaces, process storytelling, never sterile SaaS.",
     "Lead with how wheel classes and kiln firings work; showcase vessels and workshops.",

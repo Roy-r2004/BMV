@@ -177,6 +177,7 @@ def test_scaffold_emits_recipe_order_prop() -> None:
     assert assigned_non_shell_slots(route) == [
         "hero",
         "showcase",
+        "features",
         "testimonials",
         "cta",
         "footer",
@@ -257,6 +258,38 @@ def test_enriched_industry_packs_carry_seed_items() -> None:
         ).lower()
         assert needle.lower() in blob
         assert plan["mock_seed"]["hero"]["subcopy"]
+
+
+def test_ops_template_stamps_kpis_onto_plan() -> None:
+    from app.application.preview_app.industry_templates.apply import (
+        apply_industry_template_to_plan,
+        apply_ops_industry_template_to_plan,
+    )
+    from app.application.preview_app.industry_templates.loader import load_templates
+    from app.application.preview_app.industry_templates.seed import normalize_mock_seed
+
+    load_templates.cache_clear()
+    plan = apply_industry_template_to_plan(
+        {}, industry="restaurant cafe dining", seed=1, surface="public"
+    )
+    plan = apply_ops_industry_template_to_plan(
+        plan, industry="restaurant cafe dining", seed=1
+    )
+    assert plan.get("ops_template_id")
+    assert plan["mock_seed"].get("kpis")
+    assert plan["mock_seed"].get("activity")
+    assert plan["mock_seed"].get("risk")
+    assert plan.get("imagery_roles")
+
+    ops_only = normalize_mock_seed(
+        {
+            "tone": "operational",
+            "items": [{"title": "Revenue", "description": "9,200 · +4%"}],
+            "kpis": [{"label": "Revenue", "value": "9,200", "delta": "+4%", "hint": "today"}],
+        }
+    )
+    assert ops_only["kpis"][0]["value"] == "9,200"
+    assert ops_only["tableRows"]
 
 
 def test_booking_and_detail_recipe_stacks_differ() -> None:

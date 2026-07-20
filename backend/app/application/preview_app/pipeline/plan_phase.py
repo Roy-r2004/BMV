@@ -71,6 +71,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         plan = apply_brief_to_plan(plan, brand_brief)
     from app.application.preview_app.industry_templates.apply import (
         apply_industry_template_to_plan,
+        apply_ops_industry_template_to_plan,
         template_recipe_hint,
     )
 
@@ -97,11 +98,29 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         seed=request_id,
         surface="public",
     )
+    # Ops packs were unreachable when surface was hardcoded to public only.
+    plan = apply_ops_industry_template_to_plan(
+        plan,
+        industry=req.industry,
+        seed=request_id,
+    )
+    imagery_roles = plan.get("imagery_roles") if isinstance(plan.get("imagery_roles"), dict) else None
+    if imagery_roles:
+        from app.application.services.industry_images import get_images_for_industry
+
+        images = get_images_for_industry(
+            req.industry or "",
+            seed=request_id,
+            business_name=req.business_name,
+            imagery_roles=imagery_roles,
+        )
+        ctx.images = images
     recipe = get_recipe(plan.get("recipe_id"))
     log.info(
         f"    design recipe: {recipe.get('id')} ({recipe.get('label')}) "
         f"hub={plan.get('hub_variant')} "
         f"template={plan.get('industry_template_id') or '-'} "
+        f"ops={plan.get('ops_template_id') or '-'} "
         f"brand_locked={bool((plan.get('design_system') or {}).get('brand_locked'))}"
     )
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)

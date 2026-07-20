@@ -54,6 +54,26 @@
     },
     "footer": { "description": "Owner ops dashboard for revenue, fill, and risk — brand-tinted." },
     "trustLabels": ["Live KPIs", "SLA risk queue", "Activity rail", "Brand ops chrome"],
-    "nav_cta": { "label": "Dashboard", "href": "/owner" }
+    "nav_cta": { "label": "Dashboard", "href": "/owner" },
+    "kpis": [
+      { "label": "Revenue today", "value": "12,480", "delta": "+8%", "hint": "vs last Tuesday" },
+      { "label": "Open tickets", "value": "14", "delta": "3 overdue", "hint": "SLA watch" },
+      { "label": "Fill rate", "value": "86%", "delta": "-2%", "hint": "evening still soft" },
+      { "label": "No-shows", "value": "2", "delta": "-1", "hint": "waitlist cleared 1" }
+    ],
+    "activity": [
+      { "id": "a1", "title": "Ticket #482 escalated", "detail": "VIP walk-in waiting 12m", "time": "Just now" },
+      { "id": "a2", "title": "Shift note posted", "detail": "Patio heaters on for 7pm", "time": "18m ago" },
+      { "id": "a3", "title": "Inventory low", "detail": "House red under 8 bottles", "time": "1h ago" }
+    ],
+    "risk": [
+      { "id": "r1", "title": "3 tickets past SLA", "detail": "Assign before dinner rush", "severity": "high" },
+      { "id": "r2", "title": "Evening fill soft", "detail": "Push SMS for 7–8pm slots", "severity": "medium" }
+    ],
+    "tableRows": [
+      { "id": "t1", "name": "Ticket #482 · VIP wait", "status": "Escalated", "owner": "Host lead" },
+      { "id": "t2", "name": "Inventory · house red", "status": "Low", "owner": "Bar" },
+      { "id": "t3", "name": "No-show · Table 12", "status": "Cleared", "owner": "Floor" }
+    ]
   }
 }

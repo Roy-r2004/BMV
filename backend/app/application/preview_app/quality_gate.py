@@ -153,6 +153,33 @@ def evaluate_quality_gate(
                 "src/data/mock.ts",
             )
 
+    # Empty mock array exports → blank list UIs even when pages import them.
+    from app.application.preview_app.patterns import _EMPTY_ARRAY_EXPORT_RE
+
+    skip_empty = {"roles", "navigation", "images", "brand", "aiFeatures"}
+    for match in _EMPTY_ARRAY_EXPORT_RE.finditer(mock):
+        name = match.group(1)
+        if name.lower() in {s.lower() for s in skip_empty}:
+            continue
+        report.fail(
+            "empty_mock_export",
+            f"mock.ts exports empty array `{name}`",
+            "src/data/mock.ts",
+        )
+
+    # Pages that map over useState([]) with no mock import → empty demo lists.
+    try:
+        from app.application.preview_app.safety.source_sanitize import find_empty_seed_pages
+
+        for rel in find_empty_seed_pages(workspace):
+            report.fail(
+                "empty_seed_page",
+                "Page maps over useState([]) with no mock seed import",
+                rel,
+            )
+    except Exception as e:
+        log.warning("empty_seed_page check skipped: %s", e)
+
     return report
 
 
@@ -273,6 +300,16 @@ def heal_quality_gate(
             healed.append("src/data/mock.ts")
     except Exception as e:
         log.warning("quality heal nav failed: %s", e)
+
+    # 6) Empty mock array exports → seed realistic rows
+    try:
+        from app.application.preview_app.safety.mock_data import enrich_empty_mock_exports
+
+        filled = enrich_empty_mock_exports(workspace, brand_name)
+        if filled:
+            healed.append("src/data/mock.ts")
+    except Exception as e:
+        log.warning("quality heal empty mock exports failed: %s", e)
 
     # De-dupe while preserving order
     return list(dict.fromkeys(healed))

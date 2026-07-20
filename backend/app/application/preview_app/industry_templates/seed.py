@@ -12,17 +12,167 @@ def _as_item_dicts(raw: Any) -> list[dict[str, str]]:
         if isinstance(entry, str) and entry.strip():
             items.append({"title": entry.strip(), "description": ""})
         elif isinstance(entry, dict):
-            title = str(entry.get("title") or entry.get("name") or "").strip()
+            title = str(entry.get("title") or entry.get("name") or entry.get("label") or "").strip()
             if not title:
                 continue
             desc = str(
                 entry.get("description")
                 or entry.get("detail")
                 or entry.get("blurb")
+                or entry.get("hint")
+                or entry.get("value")
                 or ""
             ).strip()
             items.append({"title": title, "description": desc})
     return items
+
+
+def _ops_tone(tone: str) -> bool:
+    t = (tone or "").lower()
+    return any(
+        key in t
+        for key in (
+            "ops",
+            "operational",
+            "floor",
+            "dashboard",
+            "kpi",
+            "inventory",
+            "staff",
+            "crm",
+            "calendar",
+        )
+    )
+
+
+def _normalize_kpis(raw: Any, items: list[dict[str, str]]) -> list[dict[str, str]]:
+    kpis: list[dict[str, str]] = []
+    if isinstance(raw, list):
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            label = str(entry.get("label") or entry.get("title") or entry.get("name") or "").strip()
+            if not label:
+                continue
+            kpis.append(
+                {
+                    "label": label,
+                    "value": str(entry.get("value") or entry.get("metric") or "—").strip() or "—",
+                    "delta": str(entry.get("delta") or "").strip(),
+                    "hint": str(entry.get("hint") or entry.get("description") or "").strip(),
+                }
+            )
+    if kpis:
+        return kpis[:6]
+    # Derive from marketing-shaped items when pack is ops-toned.
+    for item in items[:4]:
+        title = item["title"]
+        desc = item["description"]
+        value = "—"
+        hint = desc
+        if "·" in desc:
+            left, _, right = desc.partition("·")
+            value = left.strip() or "—"
+            hint = right.strip() or desc
+        elif desc and len(desc) <= 24:
+            value = desc
+            hint = ""
+        kpis.append({"label": title, "value": value, "delta": "", "hint": hint})
+    return kpis
+
+
+def _normalize_activity(raw: Any) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    if isinstance(raw, list):
+        for idx, entry in enumerate(raw):
+            if isinstance(entry, dict):
+                title = str(entry.get("title") or entry.get("name") or "").strip()
+                if not title:
+                    continue
+                out.append(
+                    {
+                        "id": str(entry.get("id") or f"activity-{idx + 1}"),
+                        "title": title,
+                        "detail": str(entry.get("detail") or entry.get("description") or "").strip(),
+                        "time": str(entry.get("time") or entry.get("when") or "Just now").strip()
+                        or "Just now",
+                    }
+                )
+            elif isinstance(entry, str) and entry.strip():
+                out.append(
+                    {
+                        "id": f"activity-{idx + 1}",
+                        "title": entry.strip(),
+                        "detail": "",
+                        "time": "Just now",
+                    }
+                )
+    return out
+
+
+def _normalize_risk(raw: Any) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    if isinstance(raw, list):
+        for idx, entry in enumerate(raw):
+            if isinstance(entry, dict):
+                title = str(entry.get("title") or entry.get("name") or "").strip()
+                if not title:
+                    continue
+                severity = str(entry.get("severity") or "medium").strip().lower() or "medium"
+                if severity not in ("low", "medium", "high"):
+                    severity = "medium"
+                out.append(
+                    {
+                        "id": str(entry.get("id") or f"risk-{idx + 1}"),
+                        "title": title,
+                        "detail": str(entry.get("detail") or entry.get("description") or "").strip(),
+                        "severity": severity,
+                    }
+                )
+            elif isinstance(entry, str) and entry.strip():
+                out.append(
+                    {
+                        "id": f"risk-{idx + 1}",
+                        "title": entry.strip(),
+                        "detail": "",
+                        "severity": "medium",
+                    }
+                )
+    return out
+
+
+def _normalize_table_rows(raw: Any, items: list[dict[str, str]]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    if isinstance(raw, list):
+        for idx, entry in enumerate(raw):
+            if isinstance(entry, dict):
+                name = str(
+                    entry.get("name") or entry.get("title") or entry.get("label") or ""
+                ).strip()
+                if not name:
+                    continue
+                rows.append(
+                    {
+                        "id": str(entry.get("id") or f"row-{idx + 1}"),
+                        "name": name,
+                        "status": str(entry.get("status") or entry.get("state") or "Open").strip()
+                        or "Open",
+                        "owner": str(entry.get("owner") or entry.get("assignee") or "Team").strip()
+                        or "Team",
+                    }
+                )
+    if rows:
+        return rows[:8]
+    for idx, item in enumerate(items[:5]):
+        rows.append(
+            {
+                "id": f"row-{idx + 1}",
+                "name": item["title"],
+                "status": "Open",
+                "owner": "Team",
+            }
+        )
+    return rows
 
 
 def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -32,7 +182,7 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
 
     items = _as_item_dicts(src.get("items"))
     if not items:
-        for key in ("products", "dishes", "treatments", "classes", "services"):
+        for key in ("products", "dishes", "treatments", "classes", "services", "offerings"):
             items = _as_item_dicts(src.get(key))
             if items:
                 break
@@ -120,7 +270,7 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
             }
         )
 
-    return {
+    seed: dict[str, Any] = {
         "tone": tone,
         "hero": {
             "headline": str(hero_src.get("headline") or "").strip(),
@@ -168,7 +318,61 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
         },
         "trustLabels": [
             str(x)
-            for x in (src.get("trustLabels") or ["Signature craft", "On-time delivery", "Repeat guests", "Local favorite"])
+            for x in (
+                src.get("trustLabels")
+                or ["Signature craft", "On-time delivery", "Repeat guests", "Local favorite"]
+            )
             if str(x).strip()
         ],
     }
+
+    # Ops dashboards need KPI / table / activity / risk — preserve pack fields or derive.
+    want_ops = (
+        _ops_tone(tone)
+        or src.get("kpis") is not None
+        or src.get("activity") is not None
+        or src.get("risk") is not None
+        or src.get("tableRows") is not None
+        or src.get("table") is not None
+    )
+    if want_ops:
+        kpis = _normalize_kpis(src.get("kpis"), items)
+        activity = _normalize_activity(src.get("activity"))
+        if not activity:
+            activity = [
+                {
+                    "id": "activity-1",
+                    "title": "Record updated",
+                    "detail": items[0]["title"] if items else "Latest change logged.",
+                    "time": "Just now",
+                },
+                {
+                    "id": "activity-2",
+                    "title": "Owner assigned",
+                    "detail": "Waiting on confirmation.",
+                    "time": "12m ago",
+                },
+                {
+                    "id": "activity-3",
+                    "title": "Note added",
+                    "detail": "Follow-up requested.",
+                    "time": "1h ago",
+                },
+            ]
+        risk = _normalize_risk(src.get("risk"))
+        if not risk:
+            risk = [
+                {
+                    "id": "risk-1",
+                    "title": "Needs attention",
+                    "detail": items[0]["description"] if items else "A follow-up is overdue.",
+                    "severity": "medium",
+                }
+            ]
+        table_rows = _normalize_table_rows(src.get("tableRows") or src.get("table"), items)
+        seed["kpis"] = kpis
+        seed["activity"] = activity
+        seed["risk"] = risk
+        seed["tableRows"] = table_rows
+
+    return seed

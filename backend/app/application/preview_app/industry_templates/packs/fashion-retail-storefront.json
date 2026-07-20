@@ -6,6 +6,14 @@
   "skeleton_id": "public-home",
   "section_order": ["hero", "showcase", "features", "cta", "footer"],
   "signature_moves": ["full-bleed product hero", "tight merchandising stack", "kinetic showcase", "sharp CTAs"],
+  "imagery_roles": {
+    "hero": "fashion boutique storefront clothing rack wide",
+    "hero2": "apparel boutique interior merchandising",
+    "card1": "fashion product garment detail",
+    "card2": "shopper styling experience boutique",
+    "card3": "retail stylist service fitting",
+    "ambient": "fashion retail texture fabric atmosphere"
+  },
   "prompt_hints": [
     "Product-first merchandising — sharp corners, high-contrast type, short punchy copy.",
     "Showcase drops and bestsellers; keep the mid-page stack tight; avoid long process essays.",

@@ -36,6 +36,16 @@ from app.infrastructure.logging import get_logger
 
 cg_log = get_logger("Codegen")
 
+_DEFAULT_DESIGN_DIRECTION = (
+    "Brand-forward and recipe-locked — match the stated design recipe, "
+    "avoid generic SaaS chrome, purple-on-white defaults, and placeholder density."
+)
+
+
+def _vision_model() -> str:
+    return (getattr(settings, "VISION_MODEL", None) or "").strip() or settings.CRITIC_MODEL
+
+
 def critique_file(
     workspace: Path,
     file_path: str,
@@ -73,7 +83,7 @@ def critique_file(
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_CRITIC,
         full_context=full_context[:8000],
-        design_direction=design_direction or "Modern, premium, conversion-focused",
+        design_direction=design_direction or _DEFAULT_DESIGN_DIRECTION,
         file_instructions=file_instructions or "Client-facing product page",
         file_path=file_path,
         current_content=current[:14000],
@@ -151,7 +161,7 @@ def critique_file_visual(
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_VISUAL_CRITIC,
         full_context=full_context[:8000],
-        design_direction=design_direction or "Modern, premium, conversion-focused",
+        design_direction=design_direction or _DEFAULT_DESIGN_DIRECTION,
         file_instructions=file_instructions or "Client-facing product page",
         file_path=file_path,
         catalogue_page=bool(skeleton_id),
@@ -159,7 +169,7 @@ def critique_file_visual(
         skeleton_id=skeleton_id,
         skeleton_contract_json=skeleton_contract_json,
     )
-    raw = ai_provider.ask_vision(settings.CRITIC_MODEL, prompt, screenshot_path)
+    raw = ai_provider.ask_vision(_vision_model(), prompt, screenshot_path)
     try:
         parsed = _parse_json(raw)
     except Exception:
@@ -173,7 +183,7 @@ def critique_file_visual(
             "can be stated in the required schema."
         )
         raw_retry = ai_provider.ask_vision(
-            settings.CRITIC_MODEL,
+            _vision_model(),
             retry_prompt,
             screenshot_path,
         )

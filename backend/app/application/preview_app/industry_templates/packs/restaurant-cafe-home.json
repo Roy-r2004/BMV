@@ -6,6 +6,14 @@
   "skeleton_id": "public-home",
   "section_order": ["hero", "trust", "showcase", "features", "process", "testimonials", "cta", "footer"],
   "signature_moves": ["appetite-forward service hero", "dish showcase mosaic", "warm card surfaces", "reservation CTA band"],
+  "imagery_roles": {
+    "hero": "restaurant dining room plated food wide",
+    "hero2": "cafe interior warm seating",
+    "card1": "chef plated pasta dish detail",
+    "card2": "brunch guests dining experience",
+    "card3": "barista coffee service moment",
+    "ambient": "restaurant ambient candlelight atmosphere"
+  },
   "prompt_hints": [
     "Appetite-forward photography and warm surfaces — menu moments, not startup chrome.",
     "Showcase dishes and rooms; FeatureBento for occasions; CTA for reservations.",

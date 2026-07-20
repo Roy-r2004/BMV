@@ -6,6 +6,14 @@
   "skeleton_id": "public-home",
   "section_order": ["hero", "credentials", "features", "process", "testimonials", "booking", "cta", "footer"],
   "signature_moves": ["brand-first editorial hero", "credential strip before features", "calm booking panel", "serif display titles only"],
+  "imagery_roles": {
+    "hero": "luxury spa treatment room soft light wide",
+    "hero2": "wellness salon calm interior",
+    "card1": "facial massage spa treatment detail",
+    "card2": "yoga wellness guest experience",
+    "card3": "spa therapist service moment",
+    "ambient": "spa candles towels serene atmosphere"
+  },
   "prompt_hints": [
     "Calm, luminous, spa-grade pacing — never generic SaaS or purple glow.",
     "Hero is brand-first with soft atmosphere; primary CTA books a treatment.",
