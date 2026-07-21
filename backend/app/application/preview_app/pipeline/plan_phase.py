@@ -75,12 +75,25 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         template_recipe_hint,
     )
 
+    industry_context = " ".join(
+        part
+        for part in (
+            getattr(req, "business_description", None) or "",
+            getattr(req, "main_problem", None) or "",
+            getattr(req, "desired_outcome", None) or "",
+            getattr(req, "target_customers", None) or "",
+            getattr(req, "business_name", None) or "",
+            full_context[:800],
+        )
+        if str(part).strip()
+    )
     template_recipe = None
     if not (brand_brief or {}).get("recipe_id"):
         template_recipe = template_recipe_hint(
             industry=req.industry,
             seed=request_id,
             surface="public",
+            context=industry_context,
         )
     plan = apply_recipe_to_plan(
         plan,
@@ -97,12 +110,14 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         industry=req.industry,
         seed=request_id,
         surface="public",
+        context=industry_context,
     )
     # Ops packs were unreachable when surface was hardcoded to public only.
     plan = apply_ops_industry_template_to_plan(
         plan,
         industry=req.industry,
         seed=request_id,
+        context=industry_context,
     )
     imagery_roles = plan.get("imagery_roles") if isinstance(plan.get("imagery_roles"), dict) else None
     if imagery_roles:

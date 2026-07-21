@@ -270,12 +270,19 @@ def test_ops_template_stamps_kpis_onto_plan() -> None:
 
     load_templates.cache_clear()
     plan = apply_industry_template_to_plan(
-        {}, industry="restaurant cafe dining", seed=1, surface="public"
+        {},
+        industry="Fintech / Hedge fund trading",
+        seed=1,
+        surface="public",
+        context="internal trading desk blotter portfolio P&L",
     )
     plan = apply_ops_industry_template_to_plan(
-        plan, industry="restaurant cafe dining", seed=1
+        plan,
+        industry="Fintech / Hedge fund trading",
+        seed=1,
+        context="internal trading desk blotter portfolio P&L",
     )
-    assert plan.get("ops_template_id")
+    assert plan.get("ops_template_id") == "hedge-fund-trading-desk"
     assert plan["mock_seed"].get("kpis")
     assert plan["mock_seed"].get("activity")
     assert plan["mock_seed"].get("risk")

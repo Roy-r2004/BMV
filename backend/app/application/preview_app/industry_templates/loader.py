@@ -81,12 +81,13 @@ def pick_template_id(
     industry: str = "",
     surface: str = "public",
     seed: int = 0,
+    context: str = "",
 ) -> str | None:
     """Best-effort industry match; None = recipe-only (better than a wrong utility pack)."""
     templates = load_templates()
     if not templates:
         return None
-    tokens = _tokenize(industry)
+    tokens = _tokenize(f"{industry} {context}")
     scored: list[tuple[int, str]] = []
     for tid, pack in templates.items():
         tag_tokens = _tokenize(" ".join(pack.get("industry_tags") or []))
@@ -110,17 +111,9 @@ def pick_template_id(
         scored.sort(reverse=True)
         return scored[0][1]
 
-    # Ops packs are cross-industry consoles — rotate a default when tags miss.
-    # Public stays fail-closed (wrong marketing pack erases recipe faces).
-    if surface == "ops":
-        ops_ids = sorted(
-            tid
-            for tid, pack in templates.items()
-            if _is_ops_skeleton(str(pack.get("skeleton_id") or ""))
-        )
-        if ops_ids:
-            return ops_ids[int(seed or 0) % len(ops_ids)]
-
+    # Never rotate a random ops CRM/KPI pack on a miss — wrong industry voice
+    # (e.g. trading desks becoming "client follow-up" dashboards) is worse than
+    # recipe-only generation.
     return None
 
 

@@ -147,7 +147,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     surface: 'public',
     path: 'public/FeatureBento.tsx',
     requiredProps: ['heading', 'items'],
-    optionalProps: ['description', 'variant', 'className'],
+    optionalProps: ['description', 'variant', 'className', 'imagePool'],
     variants: { variant: ['bento', 'grid', 'alternating'] },
   },
   {

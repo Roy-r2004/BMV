@@ -48,13 +48,44 @@ _SEED_SLOTS = frozenset(
         "trust",
         "credentials",
         "booking",
+        "header",
+        "kpis",
+        "chart",
+        "filters",
+        "table",
+        "activity",
+        "risk",
     }
 )
+
+_TRADING_HINTS = (
+    "trade",
+    "trading",
+    "trader",
+    "hedge",
+    "blotter",
+    "portfolio",
+    "equity",
+    "fintech",
+    "oms",
+    "execution",
+    "broker",
+    "pnl",
+    "p&l",
+    "fund",
+    "desk",
+)
+
+
+def _is_trading_domain(*parts: str) -> bool:
+    blob = " ".join(str(p or "") for p in parts).lower()
+    return any(hint in blob for hint in _TRADING_HINTS)
 
 
 def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
     brand_js = json.dumps(brand)
     title_js = json.dumps(title)
+    trading = _is_trading_domain(brand, title)
     samples = {
         "hero": (
             f'<MarketingHero brandName={{{brand_js}}} '
@@ -66,7 +97,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         ),
         "features": (
             '<FeatureBento heading={seed.featuresHeading ?? "Designed to feel alive"} '
-            'imagePool={[images.card1, images.card2, images.card3, images.ambient]} '
+            'imagePool={[images.card1, images.card2, images.card3]} '
             'items={seed.features ?? []} />'
         ),
         "products": (
@@ -146,42 +177,101 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             '</div>'
             '</Card>'
         ),
-        "header": f'<PageHeader title={{{title_js}}} description="A current view of the work that needs your attention." meta={{<span className="text-sm text-muted">Today</span>}} />',
+        "header": (
+            f'<PageHeader title={{seed.hero?.headline || {title_js}}} '
+            + (
+                'description={seed.hero?.subcopy || "Watchlist, blotter, positions, and P&L for the fund book."} '
+                if trading
+                else 'description={seed.hero?.subcopy || "A current view of the work that needs your attention."} '
+            )
+            + 'meta={<span className="text-sm text-muted">Live</span>} />'
+        ),
         "kpis": (
             '<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">'
-            '<StatCard label="Active today" value="24" delta="+8%" hint="Compared with last week" />'
-            '<StatCard label="In progress" value="11" delta="+2" hint="Open work items" />'
-            '<StatCard label="Resolved" value="93%" delta="-2%" hint="Rolling 7-day rate" />'
-            '</div>'
+            + (
+                (
+                    '<StatCard label={seed.kpis?.[0]?.label ?? "Open orders"} value={seed.kpis?.[0]?.value ?? "18"} delta={seed.kpis?.[0]?.delta ?? "+3"} hint={seed.kpis?.[0]?.hint ?? "working on desk"} />'
+                    '<StatCard label={seed.kpis?.[1]?.label ?? "Day P&L"} value={seed.kpis?.[1]?.value ?? "+1.24M"} delta={seed.kpis?.[1]?.delta ?? "+0.4%"} hint={seed.kpis?.[1]?.hint ?? "vs NAV"} />'
+                    '<StatCard label={seed.kpis?.[2]?.label ?? "Gross exposure"} value={seed.kpis?.[2]?.value ?? "62%"} delta={seed.kpis?.[2]?.delta ?? "-3%"} hint={seed.kpis?.[2]?.hint ?? "limit 75%"} />'
+                )
+                if trading
+                else (
+                    '<StatCard label={seed.kpis?.[0]?.label ?? "Active today"} value={seed.kpis?.[0]?.value ?? "24"} delta={seed.kpis?.[0]?.delta ?? "+8%"} hint={seed.kpis?.[0]?.hint ?? "Compared with last week"} />'
+                    '<StatCard label={seed.kpis?.[1]?.label ?? "In progress"} value={seed.kpis?.[1]?.value ?? "11"} delta={seed.kpis?.[1]?.delta ?? "+2"} hint={seed.kpis?.[1]?.hint ?? "Open work items"} />'
+                    '<StatCard label={seed.kpis?.[2]?.label ?? "Resolved"} value={seed.kpis?.[2]?.value ?? "93%"} delta={seed.kpis?.[2]?.delta ?? "-2%"} hint={seed.kpis?.[2]?.hint ?? "Rolling 7-day rate"} />'
+                )
+            )
+            + '</div>'
         ),
         "chart": (
-            '<ChartCard title="Weekly performance" type="area" dataKey="value" xKey="day" '
+            '<ChartCard title={seed.showcaseHeading ?? '
+            + ('"Intraday P&L"' if trading else '"Weekly performance"')
+            + '} type="area" dataKey="value" xKey="day" '
             'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }, { day: "Wed", value: 15 }, '
             '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />'
         ),
-        "filters": '<FilterBar searchPlaceholder="Search records" filters={[{ id: "all", label: "All", active: true }, { id: "open", label: "Open", active: false }]} />',
+        "filters": (
+            '<FilterBar searchPlaceholder="'
+            + ("Search symbols / orders" if trading else "Search records")
+            + '" filters={[{ id: "all", label: "All", active: true }, { id: "'
+            + ("working" if trading else "open")
+            + '", label: "'
+            + ("Working" if trading else "Open")
+            + '", active: false }]} />'
+        ),
         "table": (
             '<DataTable columns={['
-            '{ key: "name", header: "Name" }, '
+            '{ key: "name", header: "'
+            + ("Order" if trading else "Name")
+            + '" }, '
             '{ key: "status", header: "Status" }, '
-            '{ key: "updated", header: "Updated" }'
-            ']} rows={['
-            '{ name: "Primary record", status: "In progress", updated: "Today" }, '
-            '{ name: "Follow-up item", status: "On hold", updated: "Yesterday" }, '
-            '{ name: "Completed item", status: "Done", updated: "2 days ago" }'
-            ']} />'
+            '{ key: "owner", header: "'
+            + ("Desk" if trading else "Owner")
+            + '" }'
+            ']} rows={(seed.tableRows ?? ['
+            + (
+                (
+                    '{ id: "t1", name: "AAPL · BUY 25,000", status: "Working", owner: "Exec trader" }, '
+                    '{ id: "t2", name: "MSFT · SELL 12,000", status: "Partial", owner: "Exec trader" }, '
+                    '{ id: "t3", name: "NVDA · BUY 8,000", status: "Staged", owner: "PM" }'
+                )
+                if trading
+                else (
+                    '{ id: "t1", name: "Primary record", status: "In progress", owner: "Ops" }, '
+                    '{ id: "t2", name: "Follow-up item", status: "On hold", owner: "Ops" }, '
+                    '{ id: "t3", name: "Completed item", status: "Done", owner: "Ops" }'
+                )
+            )
+            + ']).map((row) => ({ name: row.name, status: row.status, owner: row.owner || row.updated || "—" }))} />'
         ),
         "activity": (
-            '<ActivityFeed heading="Activity" items={['
-            '{ id: "activity-1", title: "Record updated", detail: "The latest details are ready.", time: "Just now" }, '
-            '{ id: "activity-2", title: "Owner assigned", detail: "Waiting on confirmation.", time: "12m ago" }, '
-            '{ id: "activity-3", title: "Note added", detail: "Customer asked for a callback.", time: "1h ago" }'
-            ']} />'
+            '<ActivityFeed heading="Activity" items={(seed.activity ?? ['
+            + (
+                (
+                    '{ id: "activity-1", title: "Fill · AAPL 10k", detail: "Avg 198.22 · rest working", time: "Just now" }, '
+                    '{ id: "activity-2", title: "Ticket staged · NVDA", detail: "Buy 8k @ 905.00", time: "4m ago" }, '
+                    '{ id: "activity-3", title: "Risk check passed", detail: "MSFT sell within net limit", time: "11m ago" }'
+                )
+                if trading
+                else (
+                    '{ id: "activity-1", title: "Record updated", detail: "The latest details are ready.", time: "Just now" }, '
+                    '{ id: "activity-2", title: "Owner assigned", detail: "Waiting on confirmation.", time: "12m ago" }, '
+                    '{ id: "activity-3", title: "Note added", detail: "Internal handoff logged.", time: "1h ago" }'
+                )
+            )
+            + '])} />'
         ),
         "risk": (
-            '<RiskQueue heading="Needs attention" items={['
-            '{ id: "risk-1", title: "Follow-up due", detail: "A client is waiting for confirmation.", severity: "medium" }'
-            ']} />'
+            '<RiskQueue heading="'
+            + ("Risk limits" if trading else "Needs attention")
+            + '" items={(seed.risk ?? ['
+            + (
+                '{ id: "risk-1", title: "Sector concentration", detail: "Tech sleeve at 28% of NAV", severity: "medium" }'
+                if trading
+                else
+                '{ id: "risk-1", title: "Follow-up due", detail: "An internal item needs confirmation.", severity: "medium" }'
+            )
+            + '])} />'
         ),
         "empty": '<EmptyState title="Nothing here yet" description="New records will appear here." />',
     }

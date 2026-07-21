@@ -51,10 +51,16 @@ def apply_industry_template_to_plan(
     industry: str | None = None,
     seed: int | None = 0,
     surface: str = "public",
+    context: str | None = None,
 ) -> dict[str, Any]:
     """Attach template metadata + prompt hints after recipe selection."""
     updated = dict(plan or {})
-    tid = pick_template_id(industry=industry or "", surface=surface, seed=int(seed or 0))
+    tid = pick_template_id(
+        industry=industry or "",
+        surface=surface,
+        seed=int(seed or 0),
+        context=context or "",
+    )
     pack = get_template(tid)
     if not pack:
         # Still emit a default seed so scaffolds can import `@/data/mock` seed.
@@ -90,10 +96,16 @@ def apply_ops_industry_template_to_plan(
     *,
     industry: str | None = None,
     seed: int | None = 0,
+    context: str | None = None,
 ) -> dict[str, Any]:
     """Stamp an ops pack alongside the public pack so owner/staff faces get voice + seed."""
     updated = dict(plan or {})
-    tid = pick_template_id(industry=industry or "", surface="ops", seed=int(seed or 0))
+    tid = pick_template_id(
+        industry=industry or "",
+        surface="ops",
+        seed=int(seed or 0),
+        context=context or "",
+    )
     pack = get_template(tid)
     if not pack:
         return updated
@@ -132,9 +144,15 @@ def template_recipe_hint(
     industry: str | None = None,
     seed: int | None = 0,
     surface: str = "public",
+    context: str | None = None,
 ) -> str | None:
     """Peek recipe hint before recipe apply (when brand has not locked a recipe)."""
-    tid = pick_template_id(industry=industry or "", surface=surface, seed=int(seed or 0))
+    tid = pick_template_id(
+        industry=industry or "",
+        surface=surface,
+        seed=int(seed or 0),
+        context=context or "",
+    )
     pack = get_template(tid)
     if not pack:
         return None

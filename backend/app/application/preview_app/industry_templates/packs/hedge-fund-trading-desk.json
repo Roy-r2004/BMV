@@ -1,0 +1,112 @@
+{
+  "id": "hedge-fund-trading-desk",
+  "label": "Hedge fund trading desk",
+  "industry_tags": [
+    "hedge",
+    "fund",
+    "trading",
+    "trader",
+    "fintech",
+    "blotter",
+    "portfolio",
+    "equity",
+    "execution",
+    "oms",
+    "risk",
+    "pnl",
+    "desk",
+    "institutional",
+    "broker",
+    "order"
+  ],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
+  "signature_moves": [
+    "institutional OpsShell",
+    "order blotter table",
+    "P&L chart",
+    "risk limit queue",
+    "desk activity rail"
+  ],
+  "prompt_hints": [
+    "INTERNAL hedge-fund trading desk only — never a retail SaaS, CRM, client portal, or marketing site.",
+    "Forbidden copy: customer, client follow-up, tickets, SLA, callback, leads, bookings.",
+    "Required language: watchlist, order ticket, blotter, fills, positions, P&L, risk limits, NAV, exposure.",
+    "Dense institutional UI: dark-leaning brand chrome, short labels, live-feeling blotter rows with symbols and sides.",
+    "Roles are Portfolio Manager, Execution Trader, Risk Officer — fund staff, not external customers."
+  ],
+  "imagery_roles": {
+    "hero": "institutional trading desk monitors market data wide",
+    "hero2": "hedge fund office trading floor screens",
+    "card1": "equity chart candlesticks close-up",
+    "card2": "order blotter screen interface",
+    "card3": "risk dashboard portfolio exposure",
+    "ambient": "dark financial data atmosphere"
+  },
+  "mock_seed": {
+    "tone": "institutional-trading",
+    "hero": {
+      "headline": "Trading desk",
+      "subcopy": "Watchlist → ticket → blotter → positions → P&L for the fund book.",
+      "primaryCta": { "label": "New order", "href": "#ticket" },
+      "secondaryCta": { "label": "Risk limits", "href": "#risk" }
+    },
+    "items": [
+      { "title": "AAPL · Buy 25k", "description": "Limit 198.40 · Working" },
+      { "title": "MSFT · Sell 12k", "description": "Market · Partial fill" },
+      { "title": "NVDA · Buy 8k", "description": "Limit 905.00 · Staged" },
+      { "title": "SPY · Hedge", "description": "Protective put · Risk desk" }
+    ],
+    "features": [
+      { "title": "Order blotter", "description": "Working, filled, and rejected orders in one tape." },
+      { "title": "Positions & P&L", "description": "Live marks against the fund book." },
+      { "title": "Risk limits", "description": "Gross/net exposure and breach alerts before send." }
+    ],
+    "process": [
+      { "title": "Scan book", "description": "Symbols, exposure, and open risk." },
+      { "title": "Stage ticket", "description": "Side, qty, limit — pre-trade checks." },
+      { "title": "Watch blotter", "description": "Fills update positions and P&L." }
+    ],
+    "credentials": [
+      { "title": "Desk-only access", "detail": "Built for fund PMs, traders, and risk — not clients." }
+    ],
+    "testimonials": [],
+    "showcaseHeading": "Working orders",
+    "featuresHeading": "Desk surfaces",
+    "processHeading": "Ticket → blotter → book",
+    "cta": {
+      "heading": "Pre-trade risk clear",
+      "description": "Send only when limits and compliance checks pass.",
+      "primaryLabel": "Open ticket",
+      "primaryHref": "#ticket",
+      "secondaryLabel": "View exposure",
+      "secondaryHref": "#risk"
+    },
+    "footer": {
+      "description": "Internal hedge-fund trading engine — blotter, positions, P&L, risk."
+    },
+    "trustLabels": ["Blotter", "Positions", "P&L", "Risk limits"],
+    "nav_cta": { "label": "Desk", "href": "/dashboard" },
+    "kpis": [
+      { "label": "Open orders", "value": "18", "delta": "+3", "hint": "working on desk" },
+      { "label": "Day P&L", "value": "+1.24M", "delta": "+0.4%", "hint": "vs NAV" },
+      { "label": "Gross exposure", "value": "62%", "delta": "-3%", "hint": "limit 75%" },
+      { "label": "Fills today", "value": "41", "delta": "12 partial", "hint": "execution" }
+    ],
+    "activity": [
+      { "id": "a1", "title": "Fill · AAPL 10k", "detail": "Avg 198.22 · rest working", "time": "Just now" },
+      { "id": "a2", "title": "Ticket staged · NVDA", "detail": "Buy 8k @ 905.00 · PM desk", "time": "4m ago" },
+      { "id": "a3", "title": "Risk check passed", "detail": "MSFT sell within net limit", "time": "11m ago" }
+    ],
+    "risk": [
+      { "id": "r1", "title": "Sector concentration", "detail": "Tech sleeve at 28% of NAV", "severity": "medium" },
+      { "id": "r2", "title": "Order aging", "detail": "3 limits open > 40m", "severity": "low" }
+    ],
+    "tableRows": [
+      { "id": "t1", "name": "AAPL · BUY 25,000", "status": "Working", "owner": "Exec trader" },
+      { "id": "t2", "name": "MSFT · SELL 12,000", "status": "Partial", "owner": "Exec trader" },
+      { "id": "t3", "name": "NVDA · BUY 8,000", "status": "Staged", "owner": "PM" }
+    ]
+  }
+}

@@ -120,7 +120,8 @@ RECIPES: dict[str, dict[str, Any]] = {
         ),
         "industry_keywords": (
             "logistics fleet warehouse saas b2b software accounting payroll hr staffing "
-            "agency operations manufacturing industrial"
+            "agency operations manufacturing industrial hedge fund trading trader fintech "
+            "blotter portfolio equity oms execution institutional broker desk risk pnl"
         ),
     },
     "warm-service": {

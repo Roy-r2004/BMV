@@ -296,7 +296,8 @@
       "optionalProps": [
         "description",
         "variant",
-        "className"
+        "className",
+        "imagePool"
       ],
       "variants": {
         "variant": [
