@@ -25,13 +25,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.4
-      # Ephemeral SQLite is fine for free tier (wiped on redeploy; PlateSync re-seeds)
+      # Free tier disk is ephemeral — use a persistent disk in prod hosts (Coolify /app/data).
       - key: DATABASE_URL
         value: sqlite:///./buildmyversion.db
       - key: UPLOAD_DIR
         value: ./app/uploads
       - key: PREVIEW_TEMPLATE_DIR
         value: ./preview-template
+      - key: SEED_DEMO
+        value: "false"
       - key: AI_PROVIDER
         value: openrouter
       # Fast live path — Flash for speed; visual critique stays on

@@ -12,6 +12,14 @@ AI_PROVIDER="${AI_PROVIDER:-openrouter}"
 
 mkdir -p "$DATA_DIR" "$UPLOAD_DIR" "$PREVIEW_APPS_DIR"
 
+# Builds (SQLite + preview-apps) must live on a Coolify/Docker persistent volume
+# mounted at /app/data. Without that, every redeploy starts empty.
+export SEED_DEMO="${SEED_DEMO:-false}"
+echo "Data dir: ${DATA_DIR} (db=$( [ -f "${DATA_DIR}/buildmyversion.db" ] && echo present || echo missing )) SEED_DEMO=${SEED_DEMO}"
+if [ ! -f "${DATA_DIR}/buildmyversion.db" ]; then
+  echo "NOTE: No SQLite DB yet under ${DATA_DIR}. On Coolify, attach Persistent Storage to /app/data so builds survive redeploys."
+fi
+
 if [ "$AI_PROVIDER" = "ollama" ]; then
   echo "Waiting for Ollama at ${OLLAMA_URL}..."
   for i in $(seq 1 90); do

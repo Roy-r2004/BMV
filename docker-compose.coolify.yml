@@ -1,0 +1,62 @@
+# Coolify / one-service deploy: keeps SQLite + preview builds across redeploys.
+# In Coolify: use this compose file (or Dockerfile.app) and ensure a persistent
+# volume is mounted at /app/data. SEED_DEMO stays false — no PlateSync reseed.
+#
+# Coolify UI alternative (Dockerfile deploy):
+#   Storages → Add → Destination Path = /app/data
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+    restart: unless-stopped
+    environment:
+      SEED_DEMO: "false"
+      DATABASE_URL: sqlite:////app/data/buildmyversion.db
+      UPLOAD_DIR: /app/data/uploads
+      STATIC_DIR: /app/static
+      PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
+      PREVIEW_APPS_DIR: /app/data/preview-apps
+      DATA_DIR: /app/data
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-roy.rizkallah@hotmail.com}
+      ADMIN_NAME: ${ADMIN_NAME:-Roy}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:-}
+      ADMIN_SYNC_PASSWORD: ${ADMIN_SYNC_PASSWORD:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
+      PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
+      ARCHITECT_MODEL: ${ARCHITECT_MODEL:-google/gemini-2.5-flash}
+      CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
+      FIX_MODEL: ${FIX_MODEL:-google/gemini-2.5-flash}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://buildmyversion.com}
+      INTERNAL_BASE_URL: http://127.0.0.1:8000
+      APPSPEC_MODE: ${APPSPEC_MODE:-on}
+      APPSPEC_FALLBACK_ENABLED: ${APPSPEC_FALLBACK_ENABLED:-true}
+      PORT: "8000"
+    volumes:
+      - bmv-persistent-data:/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+volumes:
+  bmv-persistent-data:
+    name: bmv-persistent-data

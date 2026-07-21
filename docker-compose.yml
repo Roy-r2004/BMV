@@ -59,6 +59,8 @@ services:
       UPLOAD_DIR: /app/data/uploads
       PREVIEW_APPS_DIR: /app/data/preview-apps
       PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
+      # Never auto-seed PlateSync over real local builds unless explicitly enabled
+      SEED_DEMO: ${SEED_DEMO:-false}
       DATABASE_URL: postgresql://${POSTGRES_USER:-bmv}:${POSTGRES_PASSWORD:-bmv-local-password}@db:5432/${POSTGRES_DB:-buildmyversion}
       # Parallel is safe after progress_lock/SQLite fixes; 3 keeps Flash responsive
       PREVIEW_PARALLEL_WORKERS: ${PREVIEW_PARALLEL_WORKERS:-3}

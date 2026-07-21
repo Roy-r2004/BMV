@@ -66,8 +66,9 @@ class Settings:
     # Optional Discord/Slack/generic webhook for admin alerts (POST JSON).
     ADMIN_ALERT_WEBHOOK_URL: str = (os.getenv("ADMIN_ALERT_WEBHOOK_URL") or "").strip()
 
-    # Seed PlateSync demo on boot when gallery is empty (local/dev). Off in production.
-    SEED_DEMO: bool = os.getenv("SEED_DEMO", "true").strip().lower() in (
+    # PlateSync demo seed on boot. Default OFF so Coolify/prod redeploys never
+    # wipe or replace real customer builds. Opt in explicitly for local demos.
+    SEED_DEMO: bool = os.getenv("SEED_DEMO", "false").strip().lower() in (
         "1",
         "true",
         "yes",

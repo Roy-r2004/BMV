@@ -30,6 +30,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     OLLAMA_URL=http://ollama:11434 \
     PORT=8000 \
     PULL_MODELS=false \
+    SEED_DEMO=false \
     PATH="/opt/node/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

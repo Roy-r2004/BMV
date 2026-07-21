@@ -1,4 +1,4 @@
-"""Seed the real local PlateSync demo (DB row + built preview dist) when empty."""
+"""Optional PlateSync demo seed — never deletes real customer builds."""
 from __future__ import annotations
 
 import json
@@ -90,19 +90,17 @@ def _remap_generated_pages(raw: str | None, request_id: int) -> str | None:
     return json.dumps(gp)
 
 
-def _has_live_preview(req: Request) -> bool:
-    raw = req.generated_pages or ""
-    if not raw or "preview_app" not in raw:
-        return False
-    try:
-        pa = (json.loads(raw).get("preview_app") or {})
-        return pa.get("status") == "ready" and bool(pa.get("url"))
-    except Exception:
-        return False
+def _is_platesync(req: Request) -> bool:
+    blob = f"{req.business_name or ''} {req.concept_name or ''}".lower()
+    return "platesync" in blob
 
 
 def seed_demo_if_empty() -> None:
-    """Insert/upgrade the real PlateSync demo (full local export + live dist)."""
+    """Insert PlateSync only when the DB has zero requests.
+
+    Never deletes or overwrites existing rows. Production should keep
+    ``SEED_DEMO=false`` so this function is not called at all.
+    """
     seed_path = _first_existing(_seed_json_paths())
     if not seed_path:
         logger.warning(
@@ -117,35 +115,14 @@ def seed_demo_if_empty() -> None:
 
     db: Session = SessionLocal()
     try:
-        existing_rows = (
-            db.query(Request)
-            .filter(
-                Request.concept_name.isnot(None),
-                Request.concept_name != "",
-                Request.visual_demo_json.isnot(None),
-                Request.visual_demo_json != "",
+        total = db.query(Request).count()
+        if total > 0:
+            # Never mutate an existing gallery — customer builds always win.
+            logger.info(
+                "SEED_DEMO: DB already has %s request(s); leaving them untouched",
+                total,
             )
-            .all()
-        )
-
-        # If a complete live PlateSync already exists, refresh dist + asset paths
-        complete = next((r for r in existing_rows if _has_live_preview(r)), None)
-        if complete is not None:
-            _install_preview_dist(complete.id)
-            # Keep generated_pages URL aligned with this request id
-            remapped = _remap_generated_pages(complete.generated_pages, complete.id)
-            if remapped and remapped != complete.generated_pages:
-                complete.generated_pages = remapped
-                db.commit()
-            logger.info("Real PlateSync already seeded (id=%s); refreshed preview dist", complete.id)
             return
-
-        # Remove incomplete/fallback gallery rows so we can replace with the real one
-        for row in existing_rows:
-            db.delete(row)
-        if existing_rows:
-            db.flush()
-            logger.info("Removed %s incomplete demo row(s) before reseeding", len(existing_rows))
 
         allowed = {c.name for c in Request.__table__.columns}
         payload = {k: v for k, v in data.items() if k in allowed and k != "id"}
@@ -160,7 +137,7 @@ def seed_demo_if_empty() -> None:
 
         _install_preview_dist(req.id)
         logger.info(
-            "Seeded real PlateSync demo id=%s concept=%s",
+            "Seeded PlateSync demo id=%s concept=%s (empty DB only)",
             req.id,
             data.get("concept_name") or name,
         )
