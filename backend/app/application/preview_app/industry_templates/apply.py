@@ -53,8 +53,16 @@ def apply_industry_template_to_plan(
     surface: str = "public",
     context: str | None = None,
 ) -> dict[str, Any]:
-    """Attach template metadata + prompt hints after recipe selection."""
+    """Attach template metadata + prompt hints after recipe selection.
+
+    Callers must pass surface=\"ops\" for saas_workspace / internal_ops kinds so
+    public-home packs never stamp marketing voice onto product workspaces.
+    """
     updated = dict(plan or {})
+    # Respect product_kind lock when present on the plan.
+    kind = str(updated.get("product_kind") or "")
+    if kind in {"saas_workspace", "internal_ops"}:
+        surface = "ops"
     tid = pick_template_id(
         industry=industry or "",
         surface=surface,

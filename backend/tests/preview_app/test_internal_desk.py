@@ -99,7 +99,7 @@ def test_architect_forces_ops_surface_and_skips_ai_hub() -> None:
     assert "/ticket" in paths
     assert "/positions" in paths
     assert "/risk" in paths
-    assert "INTERNAL TRADING DESK" in out["files_to_generate"][0]["instructions"]
+    assert "PRODUCT_KIND=internal_ops" in out["files_to_generate"][0]["instructions"]
 
 
 def test_ai_hub_route_stays_openable_on_ops_desk() -> None:

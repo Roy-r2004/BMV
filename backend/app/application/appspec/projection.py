@@ -280,6 +280,37 @@ def to_experience_plan_seed(
                         "title": page.name,
                         "page_type": "canonical-product-surface",
                         "surface": page.surface,
+                        # Lock chrome early so enrichment cannot invent public-home for ops.
+                        "skeleton_id": (
+                            "ops-dashboard"
+                            if page.surface == "ops"
+                            and (
+                                page.primary
+                                or page.route in {"/", "/home", "/desk", "/dashboard"}
+                            )
+                            else ("ops-list" if page.surface == "ops" else "")
+                        ),
+                        "section_slots": (
+                            [
+                                "header",
+                                "kpis",
+                                "filters",
+                                "table",
+                                "chart",
+                                "activity",
+                                "risk",
+                            ]
+                            if page.surface == "ops"
+                            and (
+                                page.primary
+                                or page.route in {"/", "/home", "/desk", "/dashboard"}
+                            )
+                            else (
+                                ["header", "filters", "table"]
+                                if page.surface == "ops"
+                                else []
+                            )
+                        ),
                         "purpose": page.purpose,
                         "sections": [],
                         "features_to_showcase": [
@@ -397,7 +428,32 @@ def merge_experience_plan_enrichment(
                 "sample_data_notes",
             ):
                 if proposed_page.get(key):
+                    # Never let enrichment downgrade a locked ops page to public-home.
+                    if (
+                        key == "skeleton_id"
+                        and str(page.get("skeleton_id") or "").startswith("ops")
+                        and str(proposed_page.get(key) or "").startswith("public")
+                    ):
+                        continue
+                    if (
+                        key == "section_slots"
+                        and str(page.get("skeleton_id") or "").startswith("ops")
+                        and str(proposed_page.get("skeleton_id") or "").startswith(
+                            "public"
+                        )
+                    ):
+                        continue
                     page[key] = proposed_page[key]
+            if str(page.get("surface") or "") == "ops":
+                page["surface"] = "ops"
+                sk = str(page.get("skeleton_id") or "")
+                if not sk or sk.startswith("public"):
+                    page["skeleton_id"] = "ops-list"
+                    page["section_slots"] = page.get("section_slots") or [
+                        "header",
+                        "filters",
+                        "table",
+                    ]
             pages.append(page)
         role["pages"] = pages
         merged_roles.append(role)
@@ -435,6 +491,9 @@ def to_architecture_seed(
     for page_id in scope.selected_page_ids:
         page = pages_by_id[page_id]
         contract = _page_contract_dict(app_spec, page.id)
+        is_ops_home = page.surface == "ops" and (
+            page.primary or page.route in {"/", "/home", "/desk", "/dashboard"}
+        )
         routes.append(
             {
                 "path": page.route,
@@ -445,6 +504,26 @@ def to_architecture_seed(
                 "component_file": _component_file(page, app_spec),
                 "layout": "public" if page.surface == "public" else "admin",
                 "surface": page.surface,
+                "skeleton_id": (
+                    "ops-dashboard"
+                    if is_ops_home
+                    else ("ops-list" if page.surface == "ops" else "")
+                ),
+                "section_slots": (
+                    [
+                        "header",
+                        "kpis",
+                        "filters",
+                        "table",
+                        "chart",
+                        "activity",
+                        "risk",
+                    ]
+                    if is_ops_home
+                    else (
+                        ["header", "filters", "table"] if page.surface == "ops" else []
+                    )
+                ),
                 "purpose": page.purpose,
                 "features": [
                     capability.name

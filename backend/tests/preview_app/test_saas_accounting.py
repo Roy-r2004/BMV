@@ -91,4 +91,4 @@ def test_architect_injects_product_routes() -> None:
     assert "/reports" in paths
     home = next(rt for rt in out["routes"] if rt["path"] == "/")
     assert home["surface"] == "ops"
-    assert "SAAS ACCOUNTING PRODUCT" in out["files_to_generate"][0]["instructions"]
+    assert "PRODUCT_KIND=saas_workspace" in out["files_to_generate"][0]["instructions"]

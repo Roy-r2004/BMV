@@ -161,8 +161,17 @@ def _infer_surface(page: dict[str, Any]) -> str:
             "trading desk",
             "order ticket",
             "hedge fund",
+            "invoice",
+            "bookkeep",
+            "reconcil",
+            "workspace",
+            "work queue",
         )
     ):
+        return "ops"
+    # Explicit product-kind lock from planner / product_kind module
+    product_kind = str(page.get("product_kind") or "").lower()
+    if product_kind in {"saas_workspace", "internal_ops"}:
         return "ops"
     return "public"
 

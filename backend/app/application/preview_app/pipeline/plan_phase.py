@@ -47,11 +47,38 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     plan_watch = WatchBmv("planning", log).start()
     _emit(db, request_id, "codegen", "Planning agent — mapping roles and user journeys...", 30)
     full_context = gather_full_context(req, demo)
+    industry_context = " ".join(
+        part
+        for part in (
+            getattr(req, "industry", None) or "",
+            getattr(req, "business_description", None) or "",
+            getattr(req, "main_problem", None) or "",
+            getattr(req, "desired_outcome", None) or "",
+            getattr(req, "target_customers", None) or "",
+            getattr(req, "business_name", None) or "",
+            full_context[:800],
+        )
+        if str(part).strip()
+    )
+    from app.application.preview_app.product_kind import (
+        OPS_KINDS,
+        apply_product_kind_to_architect,
+        apply_product_kind_to_plan,
+        lock_chrome_on_architecture_seed,
+        lock_chrome_on_experience_seed,
+        resolve_product_kind_contract,
+    )
+
+    kind_contract = resolve_product_kind_contract(industry_context)
     canonical_plan_seed = (
         to_experience_plan_seed(ctx.app_spec_result.spec, ctx.app_spec_scope)
         if ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope
         else None
     )
+    if canonical_plan_seed is not None:
+        canonical_plan_seed = lock_chrome_on_experience_seed(
+            canonical_plan_seed, kind_contract
+        )
     plan = build_experience_plan(
         req,
         demo,
@@ -75,26 +102,24 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         template_recipe_hint,
     )
 
-    industry_context = " ".join(
-        part
-        for part in (
-            getattr(req, "business_description", None) or "",
-            getattr(req, "main_problem", None) or "",
-            getattr(req, "desired_outcome", None) or "",
-            getattr(req, "target_customers", None) or "",
-            getattr(req, "business_name", None) or "",
-            full_context[:800],
-        )
-        if str(part).strip()
+    # Product kind first — locks chrome before recipes/packs can stamp marketing.
+    plan = apply_product_kind_to_plan(plan, kind_contract)
+    log.info(
+        "    product_kind=%s subtype=%s pages=%s",
+        kind_contract.kind,
+        kind_contract.subtype,
+        len(kind_contract.pages),
     )
+
+    pack_surface = kind_contract.template_surface
     template_recipe = None
     if not (brand_brief or {}).get("recipe_id"):
         template_recipe = template_recipe_hint(
             industry=req.industry,
             seed=request_id,
-            surface="public",
+            surface=pack_surface,
             context=industry_context,
-        )
+        ) or kind_contract.recipe_id
     plan = apply_recipe_to_plan(
         plan,
         industry=req.industry,
@@ -103,22 +128,40 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         or full_context[:800],
         concept_name=req.business_name,
         seed=request_id,
-        recipe_id=(brand_brief or {}).get("recipe_id") or template_recipe,
+        recipe_id=(brand_brief or {}).get("recipe_id")
+        or template_recipe
+        or kind_contract.recipe_id,
     )
-    plan = apply_industry_template_to_plan(
-        plan,
-        industry=req.industry,
-        seed=request_id,
-        surface="public",
-        context=industry_context,
-    )
-    # Ops packs were unreachable when surface was hardcoded to public only.
-    plan = apply_ops_industry_template_to_plan(
-        plan,
-        industry=req.industry,
-        seed=request_id,
-        context=industry_context,
-    )
+    # Workspace/desk kinds: ops pack owns voice+seed. Never stamp public-home packs onto /.
+    if kind_contract.kind in OPS_KINDS:
+        plan = apply_ops_industry_template_to_plan(
+            plan,
+            industry=req.industry,
+            seed=request_id,
+            context=industry_context,
+        )
+        # Prefer ops mock_seed as the primary seed (not marketing hero copy).
+        if plan.get("ops_template_id"):
+            plan["industry_template_id"] = plan.get("ops_template_id")
+            plan["industry_template_label"] = plan.get("ops_template_label")
+        plan["recipe_id"] = kind_contract.recipe_id
+    else:
+        plan = apply_industry_template_to_plan(
+            plan,
+            industry=req.industry,
+            seed=request_id,
+            surface="public",
+            context=industry_context,
+        )
+        plan = apply_ops_industry_template_to_plan(
+            plan,
+            industry=req.industry,
+            seed=request_id,
+            context=industry_context,
+        )
+    # Re-apply kind lock after packs so marketing voice cannot rewrite chrome.
+    plan = apply_product_kind_to_plan(plan, kind_contract)
+    # Legacy forcers kept as validators / last-resort repair for niche keywords.
     from app.application.preview_app.internal_desk import (
         ensure_internal_desk_architect,
         ensure_internal_desk_experience_plan,
@@ -190,10 +233,12 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             raise
         architect = {}
     if ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope:
-        architect = merge_architecture_enrichment(
+        arch_seed = lock_chrome_on_architecture_seed(
             to_architecture_seed(ctx.app_spec_result.spec, ctx.app_spec_scope),
-            architect,
+            kind_contract,
         )
+        architect = merge_architecture_enrichment(arch_seed, architect)
+    architect = apply_product_kind_to_architect(architect, kind_contract)
     architect = ensure_internal_desk_architect(
         architect,
         context=industry_context,
@@ -202,6 +247,8 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         architect,
         context=industry_context,
     )
+    # Final kind lock wins over forcer drift on AI hub / extra pages.
+    architect = apply_product_kind_to_architect(architect, kind_contract)
     try:
         architect = _normalize_architect(architect, plan)
     except Exception:

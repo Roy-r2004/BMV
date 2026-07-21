@@ -137,6 +137,50 @@ def evaluate_quality_gate(
     if 'path="/ai-advisor"' in app and 'path="/ai-advisor/*"' not in app:
         report.fail("ai_advisor_no_wildcard", "App.tsx missing /ai-advisor/* catch-all", "src/App.tsx")
 
+    # Product-kind chrome: saas/ops must not ship a marketing home.
+    try:
+        from app.application.preview_app.product_kind import validate_product_kind_chrome
+
+        for code in validate_product_kind_chrome(architect):
+            report.fail(
+                code,
+                f"Product kind chrome mismatch: {code}",
+                "architect.routes",
+            )
+    except Exception as e:
+        log.warning("product_kind chrome check skipped: %s", e)
+
+    # Workspace density: ops home page should look like a product, not MarketingHero.
+    for rt in architect.get("routes") or []:
+        if not isinstance(rt, dict):
+            continue
+        if str(rt.get("path") or "") not in {"/", "/home"}:
+            continue
+        if str(rt.get("surface") or "") != "ops" and not str(
+            rt.get("skeleton_id") or ""
+        ).startswith("ops"):
+            continue
+        rel = str(rt.get("component_file") or "").replace("\\", "/")
+        src = _read(workspace, rel) if rel else ""
+        if src and "MarketingHero" in src:
+            report.fail(
+                "ops_home_marketing_hero",
+                "Ops/SaaS home still uses MarketingHero",
+                rel,
+            )
+        if src and "OpsShell" not in src and "composeSkeletonLayout" not in src:
+            report.fail(
+                "ops_home_missing_shell",
+                "Ops/SaaS home missing OpsShell",
+                rel,
+            )
+        if src and "StatCard" not in src and "DataTable" not in src:
+            report.fail(
+                "ops_home_thin",
+                "Ops/SaaS home missing KPI/table density",
+                rel,
+            )
+
     mock = _read(workspace, "src/data/mock.ts")
     # Nav clutter: too many public detail links in navigation JSON.
     public_nav_match = re.search(
@@ -199,6 +243,65 @@ def heal_quality_gate(
     from app.application.services.ai_features import ai_feature_hub_page_source
 
     healed: list[str] = []
+
+    # 0) Product-kind chrome repair — rewrite marketing ops homes to catalogue ops scaffold
+    try:
+        from app.application.preview_app.product_kind import (
+            OPS_KINDS,
+            apply_product_kind_to_architect,
+            resolve_product_kind_contract,
+            validate_product_kind_chrome,
+        )
+
+        kind = str(architect.get("product_kind") or "")
+        if kind in OPS_KINDS or validate_product_kind_chrome(architect):
+            context = ""
+            if req is not None:
+                from app.application.preview_app.product_kind import context_from_request
+
+                context = context_from_request(req)
+            contract = resolve_product_kind_contract(
+                context or kind or "saas workspace dashboard"
+            )
+            repaired = apply_product_kind_to_architect(architect, contract)
+            architect.clear()
+            architect.update(repaired)
+            for rt in architect.get("routes") or []:
+                if not isinstance(rt, dict):
+                    continue
+                if str(rt.get("path") or "") not in {"/", "/home"}:
+                    continue
+                if str(rt.get("surface") or "") != "ops" and not str(
+                    rt.get("skeleton_id") or ""
+                ).startswith("ops"):
+                    continue
+                rel = str(rt.get("component_file") or "").replace("\\", "/")
+                if not rel:
+                    continue
+                src = _read(workspace, rel)
+                if src and "MarketingHero" not in src and "OpsShell" in src:
+                    continue
+                rt = dict(rt)
+                rt["surface"] = "ops"
+                rt["skeleton_id"] = rt.get("skeleton_id") or "ops-dashboard"
+                if not rt.get("section_slots"):
+                    rt["section_slots"] = [
+                        "header",
+                        "kpis",
+                        "filters",
+                        "table",
+                        "chart",
+                        "activity",
+                        "risk",
+                    ]
+                write_file(
+                    workspace,
+                    rel,
+                    minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name),
+                )
+                healed.append(rel)
+    except Exception as e:
+        log.warning("quality heal product_kind chrome failed: %s", e)
 
     # 1) AI hub + panels + dead step links
     if req is not None:

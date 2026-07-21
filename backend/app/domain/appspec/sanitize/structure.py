@@ -160,12 +160,23 @@ def _sanitize_pages_for_internal_desk(
     payload: dict[str, Any],
     source_snapshot: Any,
 ) -> None:
-    """Hedge-fund / trading / accounting briefs must not lock a public marketing homepage."""
+    """Ops/SaaS product kinds must not lock a public marketing homepage."""
 
     blob = _customer_blob(source_snapshot, payload)
-    desk_hits = sum(1 for hint in _INTERNAL_DESK_HINTS if hint in blob)
-    accounting_hits = sum(1 for hint in _ACCOUNTING_HINTS if hint in blob)
-    if desk_hits < 2 and accounting_hits < 2:
+    try:
+        from app.application.preview_app.product_kind import (
+            OPS_KINDS,
+            classify_product_kind,
+        )
+
+        kind = classify_product_kind(blob)
+        force_ops = kind in OPS_KINDS
+    except Exception:
+        desk_hits = sum(1 for hint in _INTERNAL_DESK_HINTS if hint in blob)
+        accounting_hits = sum(1 for hint in _ACCOUNTING_HINTS if hint in blob)
+        force_ops = desk_hits >= 2 or accounting_hits >= 2
+
+    if not force_ops:
         return
 
     for page in payload.get("pages") or []:
@@ -181,6 +192,16 @@ def _sanitize_pages_for_internal_desk(
             "/trading",
             "/invoices",
             "/books",
+            "/queue",
+            "/records",
+            "/reconciliation",
+            "/reports",
+            "/customers",
+            "/expenses",
+            "/ticket",
+            "/blotter",
+            "/positions",
+            "/risk",
         }:
             page["surface"] = "ops"
 
