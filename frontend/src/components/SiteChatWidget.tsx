@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { sendSiteChat, type SiteChatMessage } from '../api/siteChat';
 import '../styles/site-chat.css';
