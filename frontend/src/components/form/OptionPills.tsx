@@ -25,10 +25,10 @@ export default function OptionPills({ name, options, value, onChange, icons }: P
               className="sr-only"
             />
             <span
-              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all duration-300 ${
+              className={`inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl text-sm font-medium border min-h-[2.75rem] transition-colors duration-200 ${
                 selected
-                  ? 'border-blue-500/50 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25 scale-[1.02]'
-                  : 'border-slate-200/90 bg-white/90 text-slate-600 hover:border-blue-300 hover:bg-blue-50/60 hover:shadow-md hover:shadow-blue-500/5 group-hover:-translate-y-0.5'
+                  ? 'border-blue-500/50 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/20'
+                  : 'border-slate-200 bg-white text-slate-600'
               }`}
             >
               {icon && (

@@ -16,6 +16,7 @@ import AdminDashboardPage from './routes/AdminDashboardPage';
 import AdminRequestDetailPage from './routes/AdminRequestDetailPage';
 import AdminLayout from './components/AdminLayout';
 import SiteChatWidget from './components/SiteChatWidget';
+import './styles/mobile-shell.css';
 
 export default function App() {
   return (

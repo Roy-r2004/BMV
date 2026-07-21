@@ -1,14 +1,24 @@
-import { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 const lines = ['Example', 'outputs', 'that inspire.'];
 
 export default function ExamplesHero() {
+  const reduce = useReducedMotion();
+  const [parallax, setParallax] = useState(false);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
   const y = useTransform(scrollYProgress, [0, 1], [0, 100]);
   const opacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const sync = () => setParallax(mq.matches && !reduce);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [reduce]);
 
   return (
     <section ref={ref} className="about-cinematic-hero relative flex items-center overflow-hidden pt-16 hero-surface">
@@ -20,8 +30,8 @@ export default function ExamplesHero() {
       <div className="hero-orb w-2 h-2 bg-blue-500/50 bottom-[35%] left-[10%]" style={{ animationDelay: '1.8s' }} />
 
       <motion.div
-        style={{ y, opacity }}
-        className="container-max relative z-10 px-4 sm:px-6 w-full py-12 min-h-[calc(100dvh-4rem)] flex flex-col justify-center text-center"
+        style={parallax ? { y, opacity } : undefined}
+        className="container-max relative z-10 px-4 sm:px-6 w-full py-10 sm:py-12 min-h-0 sm:min-h-[calc(100dvh-4rem)] flex flex-col justify-center text-center"
       >
         <motion.span
           initial={{ opacity: 0, y: 20 }}

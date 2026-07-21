@@ -18,7 +18,7 @@ export default function SolutionsPage() {
         <div className="hero-blob w-[600px] h-[360px] bg-blue-400/28 -top-28 -right-28" />
         <div className="hero-blob w-[480px] h-[300px] bg-cyan-400/22 -bottom-36 -left-28" />
 
-        <div className="container-max relative z-10 px-4 sm:px-6 w-full py-12 min-h-[calc(100dvh-4rem)] flex flex-col justify-center text-center">
+        <div className="container-max relative z-10 px-4 sm:px-6 w-full py-10 sm:py-12 min-h-0 sm:min-h-[calc(100dvh-4rem)] flex flex-col justify-center text-center">
           <motion.span
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

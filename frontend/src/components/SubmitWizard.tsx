@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { markOwnRequest } from '../utils/ownRequest';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -137,9 +137,9 @@ const INITIAL: FormData = {
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 const slideVariants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? 48 : -48, filter: 'blur(4px)' }),
-  center: { opacity: 1, x: 0, filter: 'blur(0px)' },
-  exit: (dir: number) => ({ opacity: 0, x: dir > 0 ? -48 : 48, filter: 'blur(4px)' }),
+  enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? 16 : -16 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir > 0 ? -16 : 16 }),
 };
 
 function Field({
@@ -166,7 +166,7 @@ function Field({
 }
 
 const inputClass =
-  'submit-input w-full px-4 py-3.5 rounded-xl border border-slate-200/90 bg-white/95 text-navy placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 outline-none transition-all text-[15px] shadow-sm';
+  'submit-input w-full px-4 py-3.5 rounded-xl border border-slate-200/90 bg-white text-navy placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 outline-none transition-colors text-base shadow-sm';
 
 export interface SubmitWizardProps {
   variant?: 'page' | 'modal';
@@ -250,16 +250,25 @@ export default function SubmitWizard({
     return true;
   };
 
+  const scrollWizardIntoView = () => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const goNext = () => {
     if (!validateStep()) return;
     setDirection(1);
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    scrollWizardIntoView();
   };
 
   const goBack = () => {
     setFieldError('');
     setDirection(-1);
     setStep((s) => Math.max(s - 1, 0));
+    scrollWizardIntoView();
   };
 
   const handleSubmit = async () => {
@@ -303,41 +312,44 @@ export default function SubmitWizard({
   const currentStep = STEPS[step];
   const StepIcon = () => STEP_ICONS[step];
 
+  const keyHandlersRef = useRef({ loading, isLast, goNext, handleSubmit });
+  keyHandlersRef.current = { loading, isLast, goNext, handleSubmit };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.shiftKey || loading) return;
+      const h = keyHandlersRef.current;
+      if (e.key !== 'Enter' || e.shiftKey || h.loading) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'TEXTAREA') return;
       e.preventDefault();
-      if (isLast) handleSubmit();
-      else goNext();
+      if (h.isLast) void h.handleSubmit();
+      else h.goNext();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, []);
 
   return (
     <>
       {loading && <GeneratingOverlay businessName={data.business_name} />}
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <FormProgress steps={STEPS} current={step} />
 
-        <div className={`about-gradient-ring submit-wizard-panel rounded-3xl about-glass shadow-2xl shadow-blue-500/8 p-6 sm:p-8 lg:p-10 flex flex-col relative overflow-hidden ${variant === 'page' ? 'min-h-[460px]' : 'min-h-0'}`}>
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-cyan-400/10 via-blue-400/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+        <div className={`submit-wizard-panel rounded-3xl bg-white border border-slate-200/80 shadow-lg shadow-slate-200/60 p-6 sm:p-8 lg:p-10 flex flex-col relative overflow-hidden ${variant === 'page' ? 'sm:min-h-[460px]' : 'min-h-0'}`}>
 
-          <div className="mb-7 sm:mb-8 relative flex items-start gap-4">
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
+          <div className="mb-5 sm:mb-8 relative flex items-start gap-3 sm:gap-4">
+            <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center shadow-md shadow-blue-500/25">
               <StepIcon />
             </div>
             <div className="min-w-0 pt-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500/80 mb-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500/80 mb-0.5 sm:mb-1">
                 {currentStep.label}
               </p>
-              <h2 className="text-xl sm:text-2xl lg:text-[1.65rem] font-bold text-navy leading-tight">
+              <h2 className="text-lg sm:text-2xl lg:text-[1.65rem] font-bold text-navy leading-tight">
                 {currentStep.subtitle}
               </h2>
-              <p className="text-sm text-slate-500 mt-1.5">{stepHint(step)}</p>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 sm:mt-1.5 leading-snug">{stepHint(step)}</p>
             </div>
           </div>
 
@@ -365,23 +377,23 @@ export default function SubmitWizard({
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.4, ease: easeOut }}
-                className="space-y-5"
+                transition={{ duration: 0.28, ease: easeOut }}
+                className="space-y-4 sm:space-y-5"
               >
                 {step === 0 && (
                   <>
                     {/* Project type selector */}
                     <Field label="What are you looking to do?">
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="submit-project-types grid grid-cols-3 gap-3">
                         {PROJECT_TYPES.map((pt) => (
                           <button
                             key={pt.id}
                             type="button"
                             onClick={() => update('project_type', pt.id)}
-                            className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all duration-200 ${
+                            className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-colors duration-200 ${
                               data.project_type === pt.id
                                 ? 'border-blue-500 bg-blue-50/80 text-blue-700 shadow-sm shadow-blue-200'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                : 'border-slate-200 bg-white text-slate-600'
                             }`}
                           >
                             <span className={data.project_type === pt.id ? 'text-blue-600' : 'text-slate-400'}>
@@ -646,12 +658,12 @@ export default function SubmitWizard({
             </AnimatePresence>
           </div>
 
-          <div className="relative flex items-center justify-between gap-3 mt-8 pt-7 border-t border-slate-200/60">
+          <div className="submit-wizard-actions--inline relative flex items-center justify-between gap-3 mt-8 pt-7 border-t border-slate-200/60">
             <button
               type="button"
               onClick={goBack}
               disabled={step === 0 || loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-navy hover:bg-white/80 disabled:opacity-0 disabled:pointer-events-none transition-all border border-transparent hover:border-slate-200/80"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-navy hover:bg-white/80 disabled:opacity-0 disabled:pointer-events-none transition-colors border border-transparent hover:border-slate-200/80"
             >
               <IconArrowLeft />
               Back
@@ -660,7 +672,7 @@ export default function SubmitWizard({
             {isLast ? (
               <button
                 type="button"
-                onClick={handleSubmit}
+                onClick={() => void handleSubmit()}
                 disabled={loading}
                 className="gradient-btn text-sm px-6 sm:px-8 py-3 disabled:opacity-50 inline-flex items-center gap-2"
               >
@@ -685,6 +697,36 @@ export default function SubmitWizard({
           </div>
         </div>
       </div>
+
+      {variant === 'page' && (
+        <div className="submit-wizard-cta md:hidden" role="navigation" aria-label="Form actions">
+          <button
+            type="button"
+            className="submit-cta-back"
+            onClick={goBack}
+            disabled={step === 0 || loading}
+            aria-label="Back"
+          >
+            <IconArrowLeft />
+          </button>
+          {isLast ? (
+            <button
+              type="button"
+              className="submit-cta-next"
+              onClick={() => void handleSubmit()}
+              disabled={loading}
+            >
+              <IconSend className="w-4 h-4" />
+              Create preview
+            </button>
+          ) : (
+            <button type="button" className="submit-cta-next" onClick={goNext}>
+              Continue
+              <IconArrowRight />
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

@@ -4695,12 +4695,12 @@ html.refine-chat-open {
 @media (max-width: 640px) {
   .result-above-fold {
     height: auto;
-    min-height: calc(100dvh - 3rem);
+    min-height: 0;
     overflow: visible;
   }
 
   .result-first-screen {
-    min-height: min(72dvh, 640px);
+    min-height: min(58dvh, 480px);
   }
 
   .result-page--with-chat .result-above-fold {

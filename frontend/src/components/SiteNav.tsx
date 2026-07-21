@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from './Logo';
 import GlowButton from './GlowButton';
@@ -17,9 +17,22 @@ export default function SiteNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, isAuthenticated, logout, loading } = useAuth();
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [menuOpen]);
+
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 border-b border-blue-100/80 bg-white/90 backdrop-blur-xl shadow-sm shadow-blue-500/5">
-      <div className="container-max flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 h-14 sm:h-16 min-h-[3.5rem]">
+    <nav className="fixed top-0 inset-x-0 z-50 border-b border-blue-100/80 bg-white/95 shadow-sm shadow-blue-500/5 supports-[backdrop-filter]:backdrop-blur-md">
+      <div className="container-max flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 h-14 sm:h-16 min-h-[3.5rem] pt-[env(safe-area-inset-top)]">
         <div className="shrink-0 min-w-0">
           <div className="sm:hidden">
             <Logo />
@@ -57,7 +70,7 @@ export default function SiteNav() {
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:bg-slate-100"
+            className="md:hidden flex items-center justify-center w-11 h-11 rounded-xl text-slate-700 hover:bg-slate-100"
           >
             {menuOpen ? (
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -95,15 +108,18 @@ export default function SiteNav() {
             )
           )}
 
-          <GlowButton to="/submit" className="!inline-flex items-center justify-center text-xs sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap leading-none max-h-10">
-            <span className="sm:hidden">Create</span>
+          <GlowButton
+            to="/submit"
+            className="!inline-flex items-center justify-center text-xs sm:text-sm py-2.5 px-3.5 sm:px-4 whitespace-nowrap leading-none min-h-10"
+          >
+            <span className="sm:hidden">Start</span>
             <span className="hidden sm:inline">Create My Version</span>
           </GlowButton>
         </div>
       </div>
 
       {menuOpen && (
-        <div className="md:hidden border-t border-slate-100 bg-white/98 px-3 py-2 flex flex-col gap-0.5">
+        <div className="md:hidden border-t border-slate-100 bg-white site-nav-mobile-menu">
           {LINKS.map((link) => {
             const active = pathname === link.to;
             return (
@@ -114,16 +130,16 @@ export default function SiteNav() {
                   setMenuOpen(false);
                   if (active) scrollToTop('smooth');
                 }}
-                className={`px-3 py-2.5 rounded-lg text-sm font-medium ${
-                  active ? 'text-blue-600 bg-blue-50' : 'text-slate-700 hover:bg-slate-50'
+                className={`rounded-xl font-semibold ${
+                  active ? 'text-blue-600 bg-blue-50' : 'text-slate-800 hover:bg-slate-50'
                 }`}
               >
                 {link.label}
               </Link>
             );
           })}
-          {!loading && (
-            isAuthenticated ? (
+          {!loading &&
+            (isAuthenticated ? (
               <>
                 <span className="px-3 py-2.5 text-sm text-slate-500">{user?.name}</span>
                 <button
@@ -132,7 +148,7 @@ export default function SiteNav() {
                     setMenuOpen(false);
                     logout();
                   }}
-                  className="px-3 py-2.5 rounded-lg text-sm font-medium text-left text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl font-semibold text-left text-slate-800 hover:bg-slate-50 w-full"
                 >
                   Sign out
                 </button>
@@ -142,12 +158,18 @@ export default function SiteNav() {
                 to="/login"
                 state={{ from: pathname }}
                 onClick={() => setMenuOpen(false)}
-                className="px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50"
+                className="rounded-xl font-semibold text-blue-600 hover:bg-blue-50"
               >
                 Sign in
               </Link>
-            )
-          )}
+            ))}
+          <Link
+            to="/submit"
+            onClick={() => setMenuOpen(false)}
+            className="mt-2 rounded-xl font-bold text-center text-white bg-gradient-to-r from-blue-600 to-cyan-500 py-3"
+          >
+            Start free preview
+          </Link>
         </div>
       )}
     </nav>

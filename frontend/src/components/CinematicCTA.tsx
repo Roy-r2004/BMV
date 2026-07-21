@@ -61,16 +61,16 @@ export default function CinematicCTA({
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center w-full sm:w-auto">
             <Link
               to={primaryTo}
-              className="inline-flex items-center justify-center min-w-[220px] px-8 py-3.5 rounded-xl bg-white text-blue-600 font-bold text-base shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+              className="inline-flex items-center justify-center w-full sm:w-auto sm:min-w-[220px] px-8 py-3.5 rounded-xl bg-white text-blue-600 font-bold text-base shadow-lg hover:shadow-xl sm:hover:-translate-y-0.5 transition-all duration-300 min-h-12"
             >
               {primaryLabel}
             </Link>
             <Link
               to={secondaryTo}
-              className="inline-flex items-center justify-center min-w-[200px] px-8 py-3.5 rounded-xl border border-white/35 text-white font-semibold hover:bg-white/10 transition-all duration-300 text-sm sm:text-base"
+              className="inline-flex items-center justify-center w-full sm:w-auto sm:min-w-[200px] px-8 py-3.5 rounded-xl border border-white/35 text-white font-semibold hover:bg-white/10 transition-all duration-300 text-sm sm:text-base min-h-12"
             >
               {secondaryLabel}
             </Link>

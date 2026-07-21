@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import GlowButton from '../GlowButton';
@@ -7,10 +7,19 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 export default function AboutHero() {
   const reduce = useReducedMotion();
+  const [parallax, setParallax] = useState(false);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
   const y = useTransform(scrollYProgress, [0, 1], [0, 80]);
   const opacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const sync = () => setParallax(mq.matches && !reduce);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [reduce]);
 
   return (
     <section ref={ref} className="about-boom-hero relative flex items-center overflow-hidden pt-16">
@@ -22,8 +31,8 @@ export default function AboutHero() {
       </div>
 
       <motion.div
-        style={reduce ? undefined : { y, opacity }}
-        className="container-max relative z-10 px-4 sm:px-6 w-full py-16 sm:py-20 min-h-[min(100dvh-4rem,44rem)] flex flex-col justify-center"
+        style={parallax ? { y, opacity } : undefined}
+        className="container-max relative z-10 px-4 sm:px-6 w-full py-10 sm:py-20 min-h-0 sm:min-h-[min(100dvh-4rem,44rem)] flex flex-col justify-center"
       >
         <motion.p
           initial={reduce ? false : { opacity: 0, y: 14 }}

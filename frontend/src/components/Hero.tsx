@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import GlowButton from './GlowButton';
 import HeroScrollCue from './HeroScrollCue';
@@ -8,10 +8,20 @@ import HeroProductStage from './HeroProductStage';
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export default function Hero() {
+  const reduce = useReducedMotion();
+  const [parallax, setParallax] = useState(false);
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
   const y = useTransform(scrollYProgress, [0, 1], [0, 48]);
   const opacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const sync = () => setParallax(mq.matches && !reduce);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [reduce]);
 
   return (
     <section ref={ref} className="bmv-hero relative flex items-center overflow-hidden pt-16">
@@ -20,8 +30,8 @@ export default function Hero() {
       <div className="bmv-hero__wash" aria-hidden />
 
       <motion.div
-        style={{ y, opacity }}
-        className="container-max relative z-10 px-4 sm:px-6 w-full py-8 sm:py-10 min-h-[min(100dvh-4rem,46rem)] flex items-center"
+        style={parallax ? { y, opacity } : undefined}
+        className="container-max relative z-10 px-4 sm:px-6 w-full py-7 sm:py-10 min-h-0 sm:min-h-[min(100dvh-4rem,46rem)] flex items-center"
       >
         <div className="grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-8 lg:gap-14 items-center w-full">
           <div className="text-center lg:text-left">

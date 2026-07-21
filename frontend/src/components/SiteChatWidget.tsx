@@ -100,7 +100,17 @@ export default function SiteChatWidget() {
     }
   }, [open, messages, busy]);
 
-  if (pathname.startsWith('/admin')) return null;
+  // Keep dense product pages light — no fixed chat fighting thumbs
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/submit') ||
+    pathname.startsWith('/result') ||
+    pathname.startsWith('/share') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup')
+  ) {
+    return null;
+  }
 
   const ask = async (text: string) => {
     const trimmed = text.trim();

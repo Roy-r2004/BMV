@@ -22,7 +22,7 @@ export default function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative bg-navy text-white overflow-hidden">
+    <footer className="site-footer relative bg-navy text-white overflow-hidden">
       <div className="h-px bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent" />
       <div className="absolute inset-0 cinematic-grid opacity-[0.04] pointer-events-none invert" />
       <div className="absolute -top-32 right-0 w-96 h-96 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />

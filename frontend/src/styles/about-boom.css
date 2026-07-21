@@ -17,6 +17,12 @@
   min-height: min(100dvh, 52rem);
 }
 
+@media (max-width: 767px) {
+  .about-boom-hero {
+    min-height: auto;
+  }
+}
+
 .about-boom-hero__void {
   position: absolute;
   inset: 0;
