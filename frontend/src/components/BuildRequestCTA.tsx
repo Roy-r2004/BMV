@@ -226,10 +226,13 @@ export default function BuildRequestCTA({
                     </p>
                     <p className="mt-1 text-xs font-medium text-slate-500">{p.timeline}</p>
                     <p className="mt-3 text-xs text-slate-500 italic">{p.bestFor}</p>
-                    <ul className="mt-4 space-y-2">
+                    <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                      What’s included
+                    </p>
+                    <ul className="mt-2 space-y-2">
                       {p.includes.map((line) => (
                         <li key={line} className="flex gap-2 text-sm text-slate-700 leading-snug">
-                          <span className="mt-0.5 text-teal-600 shrink-0" aria-hidden>
+                          <span className="mt-0.5 text-teal-600 shrink-0 font-bold" aria-hidden>
                             ✓
                           </span>
                           <span>{line}</span>
@@ -241,65 +244,114 @@ export default function BuildRequestCTA({
               })}
             </div>
 
-            <div className="mt-10">
-              <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-                <div>
-                  <h4 className="font-bold text-slate-900">
-                    Suggested for {businessName || conceptName || 'this business'}
-                  </h4>
-                  <p className="text-sm text-slate-500">
-                    Tailored from your industry, preview features, and AI plan — not a generic list.
-                    Growth already includes some.
-                  </p>
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {addons.map((addon) => {
-                  const included = addonIncluded(addon, planId);
-                  const available = addonAvailable(addon, planId);
-                  const on = included || addonIds.includes(addon.id);
-                  return (
-                    <button
-                      key={addon.id}
-                      type="button"
-                      disabled={included || !available}
-                      onClick={() => toggleAddon(addon.id)}
-                      className={`text-left rounded-xl border px-4 py-3.5 transition ${
-                        included
-                          ? 'border-teal-200 bg-teal-50/50 cursor-default'
-                          : on
-                            ? 'border-teal-600 bg-teal-50/40 ring-1 ring-teal-600/20'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                      } ${!available && !included ? 'opacity-40' : ''}`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-900 text-sm">{addon.name}</p>
-                          <p className="mt-0.5 text-xs text-slate-500 leading-relaxed">
-                            {addon.description}
+            <div className="mt-10 space-y-8">
+              {(() => {
+                const includedAddons = addons.filter((a) => addonIncluded(a, planId));
+                const optionalAddons = addons.filter((a) => addonAvailable(a, planId));
+                return (
+                  <>
+                    {includedAddons.length > 0 ? (
+                      <div>
+                        <div className="mb-3">
+                          <h4 className="font-bold text-slate-900">
+                            Included in {plan.name}
+                          </h4>
+                          <p className="text-sm text-slate-500">
+                            Already in your package — no extra charge on the soft estimate.
                           </p>
-                          {addon.whyForYou ? (
-                            <p className="mt-2 text-[11px] font-medium text-teal-800/80 leading-snug">
-                              Why for you: {addon.whyForYou}
-                            </p>
-                          ) : null}
                         </div>
-                        <div className="text-right shrink-0">
-                          {included ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wide text-teal-700">
-                              Included
-                            </span>
-                          ) : (
-                            <span className="text-sm font-bold text-slate-900">
-                              +${addon.fromUsd.toLocaleString('en-US')}
-                            </span>
-                          )}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {includedAddons.map((addon) => (
+                            <div
+                              key={addon.id}
+                              className="rounded-xl border border-teal-200 bg-teal-50/60 px-4 py-3.5"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-slate-900 text-sm">{addon.name}</p>
+                                  <p className="mt-0.5 text-xs text-slate-600 leading-relaxed">
+                                    {addon.description}
+                                  </p>
+                                  {addon.whyForYou ? (
+                                    <p className="mt-2 text-[11px] font-medium text-teal-800/80 leading-snug">
+                                      Why for you: {addon.whyForYou}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <span className="shrink-0 rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                  Included
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+                    ) : planId === 'custom' ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        Custom / Scale includes everything we agree on a scope call — pick optional
+                        upgrades below as a starting wishlist.
+                      </div>
+                    ) : planId === 'launch' ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        Launch includes your preview build, owner basics, and 1–2 AI features. Growth
+                        unlocks payments, messaging, roles, and care as <strong>Included</strong>.
+                      </div>
+                    ) : null}
+
+                    {optionalAddons.length > 0 ? (
+                      <div>
+                        <div className="mb-3">
+                          <h4 className="font-bold text-slate-900">
+                            Optional upgrades for {businessName || conceptName || 'this business'}
+                          </h4>
+                          <p className="text-sm text-slate-500">
+                            Only these raise the soft “from” estimate. Toggle what you want.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {optionalAddons.map((addon) => {
+                            const on = addonIds.includes(addon.id);
+                            return (
+                              <button
+                                key={addon.id}
+                                type="button"
+                                onClick={() => toggleAddon(addon.id)}
+                                className={`text-left rounded-xl border px-4 py-3.5 transition ${
+                                  on
+                                    ? 'border-teal-600 bg-teal-50/40 ring-1 ring-teal-600/20'
+                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-slate-900 text-sm">{addon.name}</p>
+                                    <p className="mt-0.5 text-xs text-slate-500 leading-relaxed">
+                                      {addon.description}
+                                    </p>
+                                    {addon.whyForYou ? (
+                                      <p className="mt-2 text-[11px] font-medium text-teal-800/80 leading-snug">
+                                        Why for you: {addon.whyForYou}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="text-sm font-bold text-slate-900">
+                                      +${addon.fromUsd.toLocaleString('en-US')}
+                                    </span>
+                                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                      {on ? 'Added' : 'Add'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-5 py-4">

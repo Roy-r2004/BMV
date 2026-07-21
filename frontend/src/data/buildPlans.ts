@@ -41,7 +41,7 @@ export const BUILD_PLANS: BuildPlan[] = [
     id: 'launch',
     name: 'Launch MVP',
     tagline: 'Ship the preview you just saw — for real.',
-    fromUsd: 3500,
+    fromUsd: 1200,
     timeline: '4–8 weeks',
     bestFor: 'Getting live fast with your core customer + owner flows',
     includes: [
@@ -56,7 +56,7 @@ export const BUILD_PLANS: BuildPlan[] = [
     id: 'growth',
     name: 'Growth MVP',
     tagline: 'Launch + make it earn and run itself.',
-    fromUsd: 7500,
+    fromUsd: 2800,
     timeline: '8–12 weeks',
     highlight: true,
     badge: 'Most popular',
@@ -64,10 +64,10 @@ export const BUILD_PLANS: BuildPlan[] = [
     includes: [
       'Everything in Launch MVP',
       'Payments / booking / ordering polish',
-      'Extra AI features + automations',
-      'WhatsApp or SMS reminders (where applicable)',
-      'More pages & roles as scoped',
-      '30 days of post-launch tweaks',
+      'Full AI suite from your preview',
+      'WhatsApp or SMS reminders',
+      'Staff / role dashboards from your preview',
+      '30-day care after launch',
     ],
   },
   {
@@ -78,7 +78,7 @@ export const BUILD_PLANS: BuildPlan[] = [
     timeline: 'Scoped together',
     bestFor: 'Complex ops, POS/CRM links, or a longer partnership',
     includes: [
-      'Everything you need beyond Growth',
+      'Everything in Growth MVP',
       'Third-party integrations',
       'Advanced roles & permissions',
       'Custom workflows and reporting',
@@ -155,7 +155,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'ai-pack',
       name: `Full AI suite for ${brand}`,
       description: `Wire all previewed AI: ${aiNames.join(', ')}.`,
-      fromUsd: 1200,
+      fromUsd: 450,
       includedIn: ['growth'],
       whyForYou: 'These AI features are already in your preview plan.',
     });
@@ -164,18 +164,18 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'ai-pack',
       name: `Production-ready ${aiNames[0]}`,
       description: `Take “${aiNames[0]}” from demo to live with your real data and guardrails.`,
-      fromUsd: 900,
-      includedIn: ['growth'],
-      whyForYou: 'Highlighted in your AI hub.',
+      fromUsd: 350,
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Included in Launch (1–2 AI features) and Growth.',
     });
   } else {
     push({
       id: 'ai-pack',
       name: `AI assistant for ${brand}`,
       description: 'A branded AI helper trained on your offerings and FAQs.',
-      fromUsd: 800,
-      includedIn: ['growth'],
-      whyForYou: 'Speeds up answers your customers already ask.',
+      fromUsd: 350,
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Covered by the AI features in Launch / Growth.',
     });
   }
 
@@ -185,7 +185,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Online ordering + payments',
       description: `Card checkout for ${brand} pickup/orders — cart through paid confirmation.`,
-      fromUsd: 1400,
+      fromUsd: 550,
       includedIn: ['growth'],
       whyForYou: 'Cuts phone orders and missed tickets.',
     });
@@ -194,7 +194,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Booking deposits & payments',
       description: 'Take deposits or full payment when customers book — fewer no-shows.',
-      fromUsd: 1200,
+      fromUsd: 500,
       includedIn: ['growth'],
       whyForYou: hasNoShow
         ? 'Your brief called out no-shows / phone friction.'
@@ -205,7 +205,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Shop checkout + catalog',
       description: 'Sell featured products with real checkout and order status.',
-      fromUsd: 1300,
+      fromUsd: 550,
       includedIn: ['growth'],
       whyForYou: 'Turns your showcase into revenue.',
     });
@@ -214,7 +214,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Stay / experience booking payments',
       description: 'Secure reservations with deposits and confirmation emails.',
-      fromUsd: 1300,
+      fromUsd: 550,
       includedIn: ['growth'],
       whyForYou: 'Hospitality needs paid holds, not open calendars.',
     });
@@ -223,7 +223,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Payments for your main journey',
       description: 'Checkout wired into the primary action in your preview.',
-      fromUsd: 1200,
+      fromUsd: 500,
       includedIn: ['growth'],
       whyForYou: 'Makes the demo path collect real money.',
     });
@@ -235,7 +235,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'messaging',
       name: 'Order & table reminders',
       description: 'WhatsApp/SMS for order-ready alerts and reservation reminders.',
-      fromUsd: 900,
+      fromUsd: 350,
       includedIn: ['growth'],
       whyForYou: hasNoShow
         ? 'Matches your no-show / phone-order pain.'
@@ -246,7 +246,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'messaging',
       name: 'Appointment reminder automations',
       description: 'WhatsApp/SMS before visits + easy reschedule links.',
-      fromUsd: 900,
+      fromUsd: 350,
       includedIn: ['growth'],
       whyForYou: 'Protects your calendar from empty slots.',
     });
@@ -255,19 +255,20 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'messaging',
       name: 'Customer messaging automations',
       description: 'Confirmations and follow-ups on WhatsApp or SMS.',
-      fromUsd: 900,
+      fromUsd: 350,
       includedIn: ['growth'],
       whyForYou: 'Where your customers already reply.',
     });
   }
 
-  // 4) Roles — use real role labels when we have them
+  // 4) Roles — included in Growth (staff dashboards)
   if (roles.length >= 2) {
     push({
       id: 'roles',
       name: `Dashboards for ${roles.slice(0, 3).join(' + ')}`,
       description: `Separate live workspaces for each role in your preview.`,
-      fromUsd: 800,
+      fromUsd: 300,
+      includedIn: ['growth'],
       whyForYou: 'Your preview already defines these roles.',
     });
   } else if (bucket === 'food') {
@@ -275,7 +276,8 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: 'Floor + kitchen ops views',
       description: 'Staff queue / ticket board separate from the owner dashboard.',
-      fromUsd: 750,
+      fromUsd: 300,
+      includedIn: ['growth'],
       whyForYou: 'Cafe ops need more than one admin screen.',
     });
   } else if (bucket === 'beauty' || bucket === 'fitness') {
@@ -283,7 +285,8 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: 'Front desk + practitioner views',
       description: 'Reception books; practitioners see today’s clients.',
-      fromUsd: 750,
+      fromUsd: 300,
+      includedIn: ['growth'],
       whyForYou: 'Two jobs, two screens — fewer mix-ups.',
     });
   } else {
@@ -291,18 +294,19 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: 'Extra staff / partner roles',
       description: 'Additional dashboards beyond the owner view.',
-      fromUsd: 700,
+      fromUsd: 300,
+      includedIn: ['growth'],
       whyForYou: 'When more than one person runs the product daily.',
     });
   }
 
-  // 5) Industry specialty
+  // 5) Industry specialty — optional upgrade (not in base packages)
   if (bucket === 'food') {
     push({
       id: 'specialty',
       name: 'Live menu & allergen data',
       description: 'Editable menu, modifiers, and allergen facts feeding your AI answers.',
-      fromUsd: 850,
+      fromUsd: 400,
       whyForYou: /allergen|diet/.test(text)
         ? 'Your plan includes allergen / dietary AI.'
         : 'Menus change — the app should too.',
@@ -312,7 +316,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Client notes & rebooking',
       description: 'Treatment history, photos, and smart rebook prompts.',
-      fromUsd: 850,
+      fromUsd: 400,
       whyForYou: 'Repeat visits are the business model.',
     });
   } else if (bucket === 'fitness') {
@@ -320,7 +324,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Class packs & memberships',
       description: 'Sell packs, track credits, and gate class booking.',
-      fromUsd: 950,
+      fromUsd: 450,
       whyForYou: 'Studios grow on packs, not one-off visits.',
     });
   } else if (bucket === 'retail' || hasInventory) {
@@ -328,7 +332,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Inventory & low-stock alerts',
       description: 'Track SKUs and warn before bestsellers run out.',
-      fromUsd: 800,
+      fromUsd: 400,
       whyForYou: 'Retail dies when the shelf is empty online.',
     });
   } else if (bucket === 'education') {
@@ -336,7 +340,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Class schedule & enrollments',
       description: 'Sessions, seats, and student confirmations.',
-      fromUsd: 850,
+      fromUsd: 400,
       whyForYou: 'Education needs seats, not a static brochure.',
     });
   } else if (bucket === 'services') {
@@ -344,7 +348,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Job / lead pipeline',
       description: 'Capture leads, assign jobs, and track status to done.',
-      fromUsd: 900,
+      fromUsd: 400,
       whyForYou: 'Service businesses win on follow-through.',
     });
   } else {
@@ -352,17 +356,17 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: `Domain module for ${brand}`,
       description: 'A custom workflow module matched to your industry preview.',
-      fromUsd: 850,
+      fromUsd: 400,
       whyForYou: 'Goes beyond a generic website template.',
     });
   }
 
-  // 6) Always useful polish + care (shorter why)
+  // 6) Optional polish + care (care included in Growth)
   push({
     id: 'cinema',
     name: `Cinematic polish for ${brand}`,
     description: 'Hero photography art-direction, motion, and brand-first craft.',
-    fromUsd: 600,
+    fromUsd: 250,
     whyForYou: 'Makes the live product feel as premium as the preview.',
   });
 
@@ -370,7 +374,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
     id: 'care',
     name: '30-day care after launch',
     description: 'Priority fixes and small iterations once you’re live.',
-    fromUsd: 500,
+    fromUsd: 200,
     includedIn: ['growth'],
     whyForYou: 'First month is when real customers find edge cases.',
   });
@@ -423,7 +427,8 @@ export function summarizeSelection(
   catalog: BuildAddon[] = BUILD_ADDONS,
 ): string {
   const plan = BUILD_PLANS.find((p) => p.id === planId);
-  const addons = catalog.filter(
+  const included = catalog.filter((a) => addonIncluded(a, planId));
+  const extras = catalog.filter(
     (a) => selectedAddonIds.includes(a.id) && addonAvailable(a, planId),
   );
   const estimate = estimateFromUsd(planId, selectedAddonIds, catalog);
@@ -433,12 +438,15 @@ export function summarizeSelection(
       ? `Estimate: ${formatFromUsd(estimate)} USD (soft floor — exact quote after scope)`
       : 'Estimate: custom quote after scope call',
   ];
-  if (addons.length) {
+  if (included.length) {
+    parts.push(`Included in package: ${included.map((a) => a.name).join('; ')}`);
+  }
+  if (extras.length) {
     parts.push(
-      `Add-ons: ${addons.map((a) => `${a.name} (+$${a.fromUsd})`).join('; ')}`,
+      `Optional add-ons: ${extras.map((a) => `${a.name} (+$${a.fromUsd})`).join('; ')}`,
     );
   } else {
-    parts.push('Add-ons: none');
+    parts.push('Optional add-ons: none');
   }
   return parts.join('\n');
 }
