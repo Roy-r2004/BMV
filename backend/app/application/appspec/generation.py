@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -169,6 +169,27 @@ def _validation_payload(
     payload["issues"] = list(payload.get("issues") or []) + list(extra_issues or [])
     payload["passed"] = bool(payload.get("is_valid")) and not extra_issues
     return payload
+
+
+def _format_validation_failure(prefix: str, validation_payload: Mapping[str, Any]) -> str:
+    """Include a short issue digest so UI/logs show why validation failed closed."""
+
+    issues = list(validation_payload.get("issues") or [])
+    if not issues:
+        return prefix
+    parts: list[str] = []
+    for issue in issues[:3]:
+        if not isinstance(issue, Mapping):
+            continue
+        code = str(issue.get("code") or "issue").strip() or "issue"
+        message = str(issue.get("message") or "").strip()
+        if message:
+            parts.append(f"{code}: {message}")
+        else:
+            parts.append(code)
+    if not parts:
+        return prefix
+    return f"{prefix} ({'; '.join(parts)})"
 
 def _coverage_payload(
     review: AppSpecCoverageReview | None,
@@ -488,7 +509,10 @@ def ensure_approved_app_spec(
                         terminal_reason=reason,
                     )
                     raise AppSpecGenerationError(
-                        "AppSpec failed schema or deterministic validation after repair.",
+                        _format_validation_failure(
+                            "AppSpec failed schema or deterministic validation after repair.",
+                            validation_payload,
+                        ),
                         revision_record=rejected,
                     )
                 repairs += 1

@@ -12,6 +12,43 @@ from app.domain.appspec.sanitize.kinds import (
 )
 from app.domain.appspec.sanitize.structure import _sanitize_route
 
+# Mirrors AcceptanceAssertion fields in app.domain.schemas.app_spec.
+_ALLOWED_ASSERTION_KEYS = frozenset(
+    {
+        "kind",
+        "description",
+        "page_id",
+        "state_id",
+        "evidence_id",
+        "expected",
+    }
+)
+
+
+def _fold_assertion_extra_into_expected(assertion: dict[str, Any]) -> None:
+    """Preserve useful model extras inside ``expected`` before stripping them."""
+
+    if assertion.get("expected"):
+        return
+    parts: list[str] = []
+    for key in ("entity_id", "field_id", "action_id", "value"):
+        raw = assertion.get(key)
+        if raw is None or raw == "":
+            continue
+        parts.append(f"{key}={raw}")
+    if parts:
+        assertion["expected"] = ", ".join(parts)[:240]
+
+
+def _sanitize_assertion_schema_fields(assertion: dict[str, Any]) -> None:
+    """Drop forbidden keys models often invent (e.g. entity_id on assertions)."""
+
+    _fold_assertion_extra_into_expected(assertion)
+    for key in list(assertion.keys()):
+        if key not in _ALLOWED_ASSERTION_KEYS:
+            assertion.pop(key, None)
+
+
 def _sanitize_page_evidence_ids(
     page: dict[str, Any],
     evidence_by_page: dict[str, list[str]],
@@ -91,6 +128,7 @@ def _sanitize_evidence_and_assertions(payload: dict[str, Any]) -> None:
                 aliases=_ASSERTION_KIND_ALIASES,
                 default="visible",
             )
+            _sanitize_assertion_schema_fields(assertion)
             # Models often emit kind=state for visual checks without state_id.
             if str(assertion.get("kind")) != "state" or assertion.get("state_id"):
                 continue
