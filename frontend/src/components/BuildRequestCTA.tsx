@@ -291,11 +291,6 @@ export default function BuildRequestCTA({
                         Custom / Scale includes everything we agree on a scope call — pick optional
                         upgrades below as a starting wishlist.
                       </div>
-                    ) : planId === 'launch' ? (
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                        Launch includes your preview build, owner basics, and 1–2 AI features. Growth
-                        unlocks payments, messaging, roles, and care as <strong>Included</strong>.
-                      </div>
                     ) : null}
 
                     {optionalAddons.length > 0 ? (

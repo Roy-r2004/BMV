@@ -47,7 +47,9 @@ export const BUILD_PLANS: BuildPlan[] = [
     includes: [
       'Production build of your preview (public site + core journeys)',
       'Owner / admin basics',
-      '1–2 AI features from your plan',
+      'AI from your preview, wired for production',
+      'Payments on your main path (orders, booking, or checkout)',
+      'Customer confirmations (email + WhatsApp/SMS basics)',
       'Brand colors, typography, and deploy',
       'Launch handoff + walkthrough',
     ],
@@ -55,18 +57,18 @@ export const BUILD_PLANS: BuildPlan[] = [
   {
     id: 'growth',
     name: 'Growth MVP',
-    tagline: 'Launch + make it earn and run itself.',
+    tagline: 'Launch + staff ops, polish, and post-launch care.',
     fromUsd: 2800,
     timeline: '8–12 weeks',
     highlight: true,
     badge: 'Most popular',
-    bestFor: 'Teams that want payments, AI, and polish in one go',
+    bestFor: 'Teams that need staff roles, fuller automations, and care',
     includes: [
       'Everything in Launch MVP',
-      'Payments / booking / ordering polish',
-      'Full AI suite from your preview',
-      'WhatsApp or SMS reminders',
       'Staff / role dashboards from your preview',
+      'Richer reminder & follow-up automations',
+      'Domain extras scoped to your industry',
+      'Cinematic polish pass',
       '30-day care after launch',
     ],
   },
@@ -149,15 +151,15 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
     out.push(addon);
   };
 
-  // 1) AI — name real features from their preview when present
+  // 1) AI — covered in Launch (and Growth). Never treat as a paid Launch add-on.
   if (aiNames.length >= 2) {
     push({
       id: 'ai-pack',
-      name: `Full AI suite for ${brand}`,
-      description: `Wire all previewed AI: ${aiNames.join(', ')}.`,
+      name: `AI suite for ${brand}`,
+      description: `Wire previewed AI live: ${aiNames.join(', ')}.`,
       fromUsd: 450,
-      includedIn: ['growth'],
-      whyForYou: 'These AI features are already in your preview plan.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Already in your preview — included in Launch.',
     });
   } else if (aiNames.length === 1) {
     push({
@@ -166,7 +168,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       description: `Take “${aiNames[0]}” from demo to live with your real data and guardrails.`,
       fromUsd: 350,
       includedIn: ['launch', 'growth'],
-      whyForYou: 'Included in Launch (1–2 AI features) and Growth.',
+      whyForYou: 'Included in Launch MVP.',
     });
   } else {
     push({
@@ -175,19 +177,19 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       description: 'A branded AI helper trained on your offerings and FAQs.',
       fromUsd: 350,
       includedIn: ['launch', 'growth'],
-      whyForYou: 'Covered by the AI features in Launch / Growth.',
+      whyForYou: 'Included in Launch MVP.',
     });
   }
 
-  // 2) Industry-primary commerce / ops addon
+  // 2) Primary commerce — included in Launch (core MVP path)
   if (bucket === 'food' || hasOrder) {
     push({
       id: 'payments',
       name: 'Online ordering + payments',
       description: `Card checkout for ${brand} pickup/orders — cart through paid confirmation.`,
       fromUsd: 550,
-      includedIn: ['growth'],
-      whyForYou: 'Cuts phone orders and missed tickets.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Core Launch path — not an upgrade.',
     });
   } else if (bucket === 'beauty' || bucket === 'health' || bucket === 'fitness' || hasBooking) {
     push({
@@ -195,10 +197,10 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Booking deposits & payments',
       description: 'Take deposits or full payment when customers book — fewer no-shows.',
       fromUsd: 500,
-      includedIn: ['growth'],
+      includedIn: ['launch', 'growth'],
       whyForYou: hasNoShow
-        ? 'Your brief called out no-shows / phone friction.'
-        : 'Booking businesses convert better with deposits.',
+        ? 'Your brief called out no-shows — covered in Launch.'
+        : 'Included in Launch so bookings can collect money.',
     });
   } else if (bucket === 'retail') {
     push({
@@ -206,8 +208,8 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Shop checkout + catalog',
       description: 'Sell featured products with real checkout and order status.',
       fromUsd: 550,
-      includedIn: ['growth'],
-      whyForYou: 'Turns your showcase into revenue.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Included in Launch — showcase becomes revenue.',
     });
   } else if (bucket === 'hospitality') {
     push({
@@ -215,8 +217,8 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Stay / experience booking payments',
       description: 'Secure reservations with deposits and confirmation emails.',
       fromUsd: 550,
-      includedIn: ['growth'],
-      whyForYou: 'Hospitality needs paid holds, not open calendars.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Included in Launch — paid holds, not open calendars.',
     });
   } else {
     push({
@@ -224,40 +226,40 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Payments for your main journey',
       description: 'Checkout wired into the primary action in your preview.',
       fromUsd: 500,
-      includedIn: ['growth'],
-      whyForYou: 'Makes the demo path collect real money.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Included in Launch so the demo path can collect money.',
     });
   }
 
-  // 3) Messaging / reminders — industry voice
+  // 3) Messaging / reminders — included in Launch (basic); Growth keeps them too
   if (bucket === 'food') {
     push({
       id: 'messaging',
-      name: 'Order & table reminders',
+      name: 'Order & table confirmations',
       description: 'WhatsApp/SMS for order-ready alerts and reservation reminders.',
       fromUsd: 350,
-      includedIn: ['growth'],
+      includedIn: ['launch', 'growth'],
       whyForYou: hasNoShow
-        ? 'Matches your no-show / phone-order pain.'
-        : 'Keeps tables and pickups on time.',
+        ? 'Matches your no-show / phone-order pain — in Launch.'
+        : 'Included in Launch so customers get real updates.',
     });
   } else if (bucket === 'beauty' || bucket === 'health' || bucket === 'fitness') {
     push({
       id: 'messaging',
-      name: 'Appointment reminder automations',
+      name: 'Appointment reminders',
       description: 'WhatsApp/SMS before visits + easy reschedule links.',
       fromUsd: 350,
-      includedIn: ['growth'],
-      whyForYou: 'Protects your calendar from empty slots.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Included in Launch — protects your calendar.',
     });
   } else {
     push({
       id: 'messaging',
-      name: 'Customer messaging automations',
+      name: 'Customer messaging',
       description: 'Confirmations and follow-ups on WhatsApp or SMS.',
       fromUsd: 350,
-      includedIn: ['growth'],
-      whyForYou: 'Where your customers already reply.',
+      includedIn: ['launch', 'growth'],
+      whyForYou: 'Included in Launch — where customers already reply.',
     });
   }
 
@@ -300,13 +302,14 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
     });
   }
 
-  // 5) Industry specialty — optional upgrade (not in base packages)
+  // 5) Industry specialty — included in Growth; optional paid add-on on Launch
   if (bucket === 'food') {
     push({
       id: 'specialty',
       name: 'Live menu & allergen data',
       description: 'Editable menu, modifiers, and allergen facts feeding your AI answers.',
       fromUsd: 400,
+      includedIn: ['growth'],
       whyForYou: /allergen|diet/.test(text)
         ? 'Your plan includes allergen / dietary AI.'
         : 'Menus change — the app should too.',
@@ -317,6 +320,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Client notes & rebooking',
       description: 'Treatment history, photos, and smart rebook prompts.',
       fromUsd: 400,
+      includedIn: ['growth'],
       whyForYou: 'Repeat visits are the business model.',
     });
   } else if (bucket === 'fitness') {
@@ -325,6 +329,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Class packs & memberships',
       description: 'Sell packs, track credits, and gate class booking.',
       fromUsd: 450,
+      includedIn: ['growth'],
       whyForYou: 'Studios grow on packs, not one-off visits.',
     });
   } else if (bucket === 'retail' || hasInventory) {
@@ -333,6 +338,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Inventory & low-stock alerts',
       description: 'Track SKUs and warn before bestsellers run out.',
       fromUsd: 400,
+      includedIn: ['growth'],
       whyForYou: 'Retail dies when the shelf is empty online.',
     });
   } else if (bucket === 'education') {
@@ -341,6 +347,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Class schedule & enrollments',
       description: 'Sessions, seats, and student confirmations.',
       fromUsd: 400,
+      includedIn: ['growth'],
       whyForYou: 'Education needs seats, not a static brochure.',
     });
   } else if (bucket === 'services') {
@@ -349,6 +356,7 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: 'Job / lead pipeline',
       description: 'Capture leads, assign jobs, and track status to done.',
       fromUsd: 400,
+      includedIn: ['growth'],
       whyForYou: 'Service businesses win on follow-through.',
     });
   } else {
@@ -357,16 +365,18 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       name: `Domain module for ${brand}`,
       description: 'A custom workflow module matched to your industry preview.',
       fromUsd: 400,
+      includedIn: ['growth'],
       whyForYou: 'Goes beyond a generic website template.',
     });
   }
 
-  // 6) Optional polish + care (care included in Growth)
+  // 6) Polish + care — Growth includes both; Launch can add as optional upgrades
   push({
     id: 'cinema',
     name: `Cinematic polish for ${brand}`,
     description: 'Hero photography art-direction, motion, and brand-first craft.',
     fromUsd: 250,
+    includedIn: ['growth'],
     whyForYou: 'Makes the live product feel as premium as the preview.',
   });
 
