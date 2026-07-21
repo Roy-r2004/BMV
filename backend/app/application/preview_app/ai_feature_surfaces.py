@@ -40,13 +40,27 @@ def _features_for(req: Any, architect: Mapping[str, Any]) -> list[dict[str, Any]
     return []
 
 
+def _architect_is_ops_first(architect: Mapping[str, Any]) -> bool:
+    routes = [rt for rt in (architect.get("routes") or []) if isinstance(rt, dict)]
+    if not routes:
+        return False
+    ops = sum(
+        1
+        for rt in routes
+        if str(rt.get("surface") or "").lower() == "ops"
+        or str(rt.get("layout") or "").lower() == "admin"
+        or str(rt.get("skeleton_id") or "").startswith("ops")
+    )
+    return ops >= max(1, (len(routes) + 1) // 2)
+
+
 def ensure_ai_feature_route(
     architect: dict[str, Any],
     features: list[dict[str, Any]],
     *,
     context: Mapping[str, str] | None = None,
 ) -> dict:
-    """Ensure architect has a public route for the AI feature hub."""
+    """Ensure architect has a route for the AI feature hub."""
     if not features:
         return architect
     routes = list(architect.get("routes") or [])
@@ -64,10 +78,12 @@ def ensure_ai_feature_route(
         ),
         None,
     )
+    ops_first = _architect_is_ops_first(architect)
     role_id = "ROLE-CUSTOMER"
     for rt in routes:
         if isinstance(rt, dict) and rt.get("role_id") and (
-            rt.get("layout") == "public" or rt.get("surface") == "public"
+            (not ops_first and (rt.get("layout") == "public" or rt.get("surface") == "public"))
+            or (ops_first and (rt.get("layout") == "admin" or rt.get("surface") == "ops"))
         ):
             role_id = str(rt["role_id"])
             break
@@ -85,17 +101,20 @@ def ensure_ai_feature_route(
         "role_id": role_id,
         "title": "AI features",
         "component_file": AI_HUB_COMPONENT,
-        "layout": "public",
-        "surface": "public",
+        # Ops-first desks: keep hub in admin layout so sidebar links work.
+        "layout": "admin" if ops_first else "public",
+        "surface": "ops" if ops_first else "public",
         # Face page (AiFeatureDeck) — never public-utility or catalogue slots.
         # Utility compose + catalogue guards were replacing the hub with a checkout stub.
         "skeleton_id": "",
+        "owns_shell": True,
         "page_type": "ai_hub",
         "purpose": "Interactive hub for every AI feature proposed in the plan",
         "features": [str(f.get("name") or f.get("id")) for f in placed],
         "ai_feature_ids": [str(f.get("id")) for f in placed if f.get("id")],
         "evidence_ids": evidence_ids,
         "action_ids": list((existing or {}).get("action_ids") or []),
+        "ops_shell": ops_first,
     }
     if existing is None:
         routes.append(route)
@@ -141,11 +160,13 @@ def write_ai_feature_hub_page(
     brand_name: str,
     features: list[dict[str, Any]],
     evidence_ids: list[str] | None = None,
+    ops_shell: bool = False,
 ) -> str:
     source = ai_feature_hub_page_source(
         brand_name=brand_name,
         features=features,
         evidence_ids=evidence_ids,
+        ops_shell=ops_shell,
     )
     write_file(workspace, AI_HUB_COMPONENT, source)
     return AI_HUB_COMPONENT
@@ -342,12 +363,19 @@ def ensure_ai_feature_surfaces(
         ),
         {},
     )
+    ops_shell = bool(
+        route.get("ops_shell")
+        or str(route.get("surface") or "").lower() == "ops"
+        or str(route.get("layout") or "").lower() == "admin"
+        or _architect_is_ops_first(architect)
+    )
     written = [
         write_ai_feature_hub_page(
             workspace,
             brand_name=brand_name,
             features=features,
             evidence_ids=list(route.get("evidence_ids") or []),
+            ops_shell=ops_shell,
         ),
         "src/data/mock.ts",
     ]

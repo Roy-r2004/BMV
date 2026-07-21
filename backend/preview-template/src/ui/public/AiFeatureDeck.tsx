@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { MotionReveal, MotionStagger, MotionStaggerItem } from '../motion';
+import { AppLink } from '../lib/AppLink';
 import { cn } from '../lib/cn';
 import {
   AiFeatureStage,
@@ -54,7 +55,7 @@ function FeatureStageRow({
             {feature.description || feature.name}
           </p>
           {inContext ? (
-            <a
+            <AppLink
               href={inContext}
               className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-foreground underline-offset-4 transition hover:underline"
             >
@@ -63,7 +64,7 @@ function FeatureStageRow({
                 <span className="font-normal text-muted">· {feature.placement_title}</span>
               ) : null}
               <span aria-hidden="true">→</span>
-            </a>
+            </AppLink>
           ) : (
             <p className="mt-6 text-xs font-medium uppercase tracking-[0.16em] text-muted">
               Previewed on this hub

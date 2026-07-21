@@ -184,15 +184,25 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
                 if trading
                 else 'description={seed.hero?.subcopy || "A current view of the work that needs your attention."} '
             )
-            + 'meta={<span className="text-sm text-muted">Live</span>} />'
+            + 'meta={<span className="text-sm text-muted">'
+            + ("Markets open · live marks" if trading else "Live")
+            + "</span>}"
+            + (
+                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
+                '{ label: "New ticket", href: "/ticket" }]}'
+                if trading
+                else ""
+            )
+            + " />"
         ),
         "kpis": (
-            '<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">'
+            '<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">'
             + (
                 (
                     '<StatCard label={seed.kpis?.[0]?.label ?? "Open orders"} value={seed.kpis?.[0]?.value ?? "18"} delta={seed.kpis?.[0]?.delta ?? "+3"} hint={seed.kpis?.[0]?.hint ?? "working on desk"} />'
                     '<StatCard label={seed.kpis?.[1]?.label ?? "Day P&L"} value={seed.kpis?.[1]?.value ?? "+1.24M"} delta={seed.kpis?.[1]?.delta ?? "+0.4%"} hint={seed.kpis?.[1]?.hint ?? "vs NAV"} />'
                     '<StatCard label={seed.kpis?.[2]?.label ?? "Gross exposure"} value={seed.kpis?.[2]?.value ?? "62%"} delta={seed.kpis?.[2]?.delta ?? "-3%"} hint={seed.kpis?.[2]?.hint ?? "limit 75%"} />'
+                    '<StatCard label={seed.kpis?.[3]?.label ?? "Fills today"} value={seed.kpis?.[3]?.value ?? "41"} delta={seed.kpis?.[3]?.delta ?? "+6"} hint={seed.kpis?.[3]?.hint ?? "across 9 names"} />'
                 )
                 if trading
                 else (
@@ -207,8 +217,14 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             '<ChartCard title={seed.showcaseHeading ?? '
             + ('"Intraday P&L"' if trading else '"Weekly performance"')
             + '} type="area" dataKey="value" xKey="day" '
-            'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }, { day: "Wed", value: 15 }, '
-            '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />'
+            + (
+                'data={[{ day: "09:30", value: 0.4 }, { day: "10:30", value: 0.9 }, '
+                '{ day: "11:30", value: 0.7 }, { day: "13:00", value: 1.1 }, '
+                '{ day: "14:30", value: 1.24 }, { day: "15:45", value: 1.18 }]} />'
+                if trading
+                else 'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }, { day: "Wed", value: 15 }, '
+                '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />'
+            )
         ),
         "filters": (
             '<FilterBar searchPlaceholder="'
@@ -217,7 +233,14 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             + ("working" if trading else "open")
             + '", label: "'
             + ("Working" if trading else "Open")
-            + '", active: false }]} />'
+            + '", active: false }'
+            + (
+                ', { id: "partial", label: "Partial", active: false }, '
+                '{ id: "filled", label: "Filled", active: false }'
+                if trading
+                else ""
+            )
+            + "]} />"
         ),
         "table": (
             '<DataTable columns={['
@@ -233,7 +256,12 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
                 (
                     '{ id: "t1", name: "AAPL · BUY 25,000", status: "Working", owner: "Exec trader" }, '
                     '{ id: "t2", name: "MSFT · SELL 12,000", status: "Partial", owner: "Exec trader" }, '
-                    '{ id: "t3", name: "NVDA · BUY 8,000", status: "Staged", owner: "PM" }'
+                    '{ id: "t3", name: "NVDA · BUY 8,000", status: "Staged", owner: "PM" }, '
+                    '{ id: "t4", name: "META · BUY 4,500", status: "Filled", owner: "Exec trader" }, '
+                    '{ id: "t5", name: "AMZN · SELL 3,200", status: "Working", owner: "PM" }, '
+                    '{ id: "t6", name: "JPM · BUY 15,000", status: "Partial", owner: "Exec trader" }, '
+                    '{ id: "t7", name: "XOM · SELL 9,000", status: "Working", owner: "Risk" }, '
+                    '{ id: "t8", name: "TSLA · BUY 2,100", status: "Rejected", owner: "PM" }'
                 )
                 if trading
                 else (
@@ -250,7 +278,9 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
                 (
                     '{ id: "activity-1", title: "Fill · AAPL 10k", detail: "Avg 198.22 · rest working", time: "Just now" }, '
                     '{ id: "activity-2", title: "Ticket staged · NVDA", detail: "Buy 8k @ 905.00", time: "4m ago" }, '
-                    '{ id: "activity-3", title: "Risk check passed", detail: "MSFT sell within net limit", time: "11m ago" }'
+                    '{ id: "activity-3", title: "Risk check passed", detail: "MSFT sell within net limit", time: "11m ago" }, '
+                    '{ id: "activity-4", title: "Replace · AMZN", detail: "Qty 3.2k → 2.8k", time: "18m ago" }, '
+                    '{ id: "activity-5", title: "Limit warning", detail: "Tech sleeve 28% soft cap", time: "22m ago" }'
                 )
                 if trading
                 else (
@@ -266,7 +296,11 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             + ("Risk limits" if trading else "Needs attention")
             + '" items={(seed.risk ?? ['
             + (
-                '{ id: "risk-1", title: "Sector concentration", detail: "Tech sleeve at 28% of NAV", severity: "medium" }'
+                (
+                    '{ id: "risk-1", title: "Sector concentration", detail: "Tech sleeve at 28% of NAV", severity: "medium" }, '
+                    '{ id: "risk-2", title: "Single-name", detail: "NVDA 9.1% vs 10% hard", severity: "low" }, '
+                    '{ id: "risk-3", title: "Gross utilization", detail: "62% of 75% book limit", severity: "low" }'
+                )
                 if trading
                 else
                 '{ id: "risk-1", title: "Follow-up due", detail: "An internal item needs confirmation.", severity: "medium" }'
@@ -483,10 +517,11 @@ def minimal_catalogue_page_scaffold(
         nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
         nav_hook = "  const adminNavItems = useAdminNavItems();\n"
         if skeleton_id == "ops-dashboard":
+            appearance = ' appearance="floor"' if _is_trading_domain(brand, title) else ""
             body = (
                 "  const { main, rail } = composeSkeletonLayout(SKELETON_ID, slots);\n\n"
                 "  return (\n"
-                f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} rail={{rail}}>\n'
+                f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} rail={{rail}}{appearance}>\n'
                 f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>"
                 f"{appspec_hook_spans}{{main}}</div>\n"
                 f"    </{shell}>\n"

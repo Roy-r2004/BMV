@@ -996,6 +996,7 @@ def ai_feature_hub_page_source(
     features: list[Mapping[str, Any]],
     page_id: str = PAGE_AI_HUB_ID,
     evidence_ids: list[str] | None = None,
+    ops_shell: bool = False,
 ) -> str:
     """Deterministic interactive hub page for planned AI features."""
     brand = brand_name or "Brand"
@@ -1005,6 +1006,28 @@ def ai_feature_hub_page_source(
         f'        <span className="sr-only" data-appspec-evidence={json.dumps(eid)}>{eid}</span>'
         for eid in ev_ids
     )
+    feature_json = json.dumps([dict(f) for f in features], ensure_ascii=False)
+    if ops_shell:
+        return f"""// plan AI feature hub — ops desk chrome (preview basename-safe)
+import {{ useAdminNavItems }} from '@/lib/app-nav';
+import {{ aiFeatures }} from '@/data/mock';
+import {{ OpsShell, AiFeatureDeck }} from '@/ui';
+
+export default function AiFeaturesPage() {{
+  const adminNavItems = useAdminNavItems();
+  const features = Array.isArray(aiFeatures) && aiFeatures.length
+    ? aiFeatures
+    : {feature_json};
+  return (
+    <OpsShell brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} appearance="floor">
+      <div data-appspec-page={{{json.dumps(page)}}}>
+{evidence_spans}
+        <AiFeatureDeck features={{features}} brandName={{{json.dumps(brand)}}} />
+      </div>
+    </OpsShell>
+  );
+}}
+"""
     return f"""// plan AI feature hub — every planned AI feature is interactive here
 import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
 import {{ aiFeatures }} from '@/data/mock';
@@ -1015,7 +1038,7 @@ export default function AiFeaturesPage() {{
   const navCta = publicCta();
   const features = Array.isArray(aiFeatures) && aiFeatures.length
     ? aiFeatures
-    : {json.dumps([dict(f) for f in features], ensure_ascii=False)};
+    : {feature_json};
   return (
     <PublicShell brandName={{{json.dumps(brand)}}} nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>
       <div data-appspec-page={{{json.dumps(page)}}}>

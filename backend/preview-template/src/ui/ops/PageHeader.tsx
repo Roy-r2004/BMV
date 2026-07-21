@@ -1,9 +1,11 @@
 import * as React from 'react';
 
+import { AppLink } from '../lib/AppLink';
 import { cn } from '../lib/cn';
 
 export interface PageHeaderAction {
   label: string;
+  href?: string;
   onClick?: () => void;
   variant?: 'primary' | 'secondary';
 }
@@ -21,24 +23,43 @@ function isActionDescriptorList(value: unknown): value is PageHeaderAction[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null && 'label' in item);
 }
 
+function actionClassName(variant?: PageHeaderAction['variant']): string {
+  return cn(
+    'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+    variant === 'secondary'
+      ? 'border border-border-subtle bg-card text-foreground hover:bg-[color-mix(in_srgb,var(--color-brand)_8%,var(--color-background))]'
+      : 'bg-brand text-white shadow-[var(--shadow-ui)] hover:opacity-95'
+  );
+}
+
 export function PageHeader({ actions, className, description, meta, title }: PageHeaderProps) {
   const resolvedActions = isActionDescriptorList(actions) ? (
     <>
-      {actions.map((action, index) => (
-        <button
-          key={`${action.label}-${index}`}
-          type="button"
-          onClick={action.onClick}
-          className={cn(
-            'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-            action.variant === 'secondary'
-              ? 'border border-border-subtle bg-card text-foreground hover:bg-[color-mix(in_srgb,var(--color-brand)_8%,var(--color-background))]'
-              : 'bg-brand text-white shadow-[var(--shadow-ui)] hover:opacity-95'
-          )}
-        >
-          {action.label}
-        </button>
-      ))}
+      {actions.map((action, index) => {
+        const classes = actionClassName(action.variant);
+        if (action.href) {
+          return (
+            <AppLink
+              key={`${action.label}-${index}`}
+              href={action.href}
+              className={classes}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </AppLink>
+          );
+        }
+        return (
+          <button
+            key={`${action.label}-${index}`}
+            type="button"
+            onClick={action.onClick}
+            className={classes}
+          >
+            {action.label}
+          </button>
+        );
+      })}
     </>
   ) : (
     (actions as React.ReactNode)

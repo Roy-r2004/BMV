@@ -135,6 +135,52 @@ def _layout_for(route: dict) -> str:
     return "public"
 
 
+def _route_owns_shell(route: dict) -> bool:
+    """Catalogue pages and the AI hub own their shell (no Public/AdminLayout wrap)."""
+    if route.get("owns_shell"):
+        return True
+    if route.get("skeleton_id"):
+        return True
+    page_type = str(route.get("page_type") or "").casefold()
+    path = str(route.get("path") or "").rstrip("/").lower()
+    component = str(route.get("component_file") or "").replace("\\", "/").lower()
+    return (
+        page_type == "ai_hub"
+        or path == "/ai-features"
+        or component.endswith("aifeaturespage.tsx")
+    )
+
+
+def _pin_ai_features_nav(items: list[dict], routes: list[dict]) -> list[dict]:
+    """Ensure /ai-features appears in ops sidebars, not only public chrome."""
+    if any(str(it.get("path") or "") == "/ai-features" for it in items):
+        return items
+    has_hub = any(
+        isinstance(rt, dict)
+        and (
+            str(rt.get("path") or "") == "/ai-features"
+            or str(rt.get("page_type") or "").casefold() == "ai_hub"
+            or str(rt.get("component_file") or "")
+            .replace("\\", "/")
+            .endswith("AiFeaturesPage.tsx")
+        )
+        for rt in routes
+    )
+    if not has_hub:
+        return items
+    hub = {
+        "id": "ai-features",
+        "path": "/ai-features",
+        "href": "/ai-features",
+        "label": "AI features",
+    }
+    if not items:
+        return [hub]
+    # Keep Desk/home first when present.
+    insert_at = 1 if str(items[0].get("path") or "") in {"/", "/home", "/desk"} else 0
+    return items[:insert_at] + [hub] + items[insert_at:]
+
+
 def _score_page_for_route(rel: str, route: dict) -> int:
     path = (route.get("path") or "").lower()
     role_id = (route.get("role_id") or "").lower()
@@ -365,15 +411,23 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
         })
 
     public_nav = _nav_items_for(routes, lambda rt: _layout_for(rt) == "public")
-    admin_nav = _nav_items_for(routes, lambda rt: _layout_for(rt) == "admin")
+    admin_nav = _pin_ai_features_nav(
+        _nav_items_for(routes, lambda rt: _layout_for(rt) == "admin"),
+        routes,
+    )
+    # Ops-first previews: also surface AI hub in public nav for deep links.
+    public_nav = _pin_ai_features_nav(public_nav, routes)
     navigation_data = {"public": public_nav, "admin": admin_nav}
     for role in roles_src:
         role_id = role.get("id")
         if not role_id:
             continue
-        navigation_data[role_id] = _nav_items_for(
+        navigation_data[role_id] = _pin_ai_features_nav(
+            _nav_items_for(
+                routes,
+                lambda rt, rid=role_id: rt.get("role_id") == rid,
+            ),
             routes,
-            lambda rt, rid=role_id: rt.get("role_id") == rid,
         )
 
     roles_json = json.dumps(roles_data, indent=2, ensure_ascii=False)
@@ -454,14 +508,22 @@ def write_plumbing_mock(
             "defaultPath": default,
             "icon": ar.get("icon") or "users",
         })
-    public_nav = [
-        {"path": rt["path"], "label": rt.get("title") or rt["path"]}
-        for rt in routes if rt.get("path") and _layout_for(rt) == "public"
-    ]
-    admin_nav = [
-        {"path": rt["path"], "label": rt.get("title") or rt["path"]}
-        for rt in routes if rt.get("path") and _layout_for(rt) == "admin"
-    ]
+    public_nav = _pin_ai_features_nav(
+        [
+            {"path": rt["path"], "href": rt["path"], "label": rt.get("title") or rt["path"]}
+            for rt in routes
+            if rt.get("path") and _layout_for(rt) == "public"
+        ],
+        routes,
+    )
+    admin_nav = _pin_ai_features_nav(
+        [
+            {"path": rt["path"], "href": rt["path"], "label": rt.get("title") or rt["path"]}
+            for rt in routes
+            if rt.get("path") and _layout_for(rt) == "admin"
+        ],
+        routes,
+    )
     img = images or {}
     brand_payload: dict = {
         "name": brand_name or "Brand",
@@ -592,7 +654,7 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
             imports[comp] = imp
         used_files.add(rel)
         used_components[comp] = path
-        resolved.append((path, comp, _layout_for(rt), rel, bool(rt.get("skeleton_id"))))
+        resolved.append((path, comp, _layout_for(rt), rel, _route_owns_shell(rt)))
 
     if not resolved and catalog:
         for rel in catalog:

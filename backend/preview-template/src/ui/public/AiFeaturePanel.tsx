@@ -1,4 +1,5 @@
 import { MotionReveal } from '../motion';
+import { AppLink } from '../lib/AppLink';
 import { cn } from '../lib/cn';
 import { AiFeatureStage, type AiFeatureItem } from './AiFeatureStage';
 
@@ -39,12 +40,12 @@ export function AiFeaturePanel({
               {feature.description || feature.name}
             </p>
           </div>
-          <a
+          <AppLink
             href="/ai-features"
             className="shrink-0 text-xs font-semibold text-neutral-600 underline-offset-4 transition hover:text-foreground hover:underline"
           >
             All AI features →
-          </a>
+          </AppLink>
         </div>
         <AiFeatureStage feature={feature} brandName={brandName} compact />
       </section>
