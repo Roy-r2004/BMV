@@ -652,6 +652,172 @@ def test_repairs_graph_journey_and_trace_mismatches() -> None:
     assert report.is_valid, [issue.code for issue in report.issues]
 
 
+def test_coerces_reference_entity_id_fields_to_reference_type() -> None:
+    """Models often set reference_entity_id on string/list fields (TradeForge)."""
+
+    payload = {
+        "schema_version": "1.0",
+        "product_intent": {
+            "name": "TradeForge",
+            "summary": "Trading desk",
+            "problem": "Fragmented order flow",
+            "desired_outcome": "Watchlist to order to P&L",
+            "target_users": ["Traders"],
+            "success_metrics": ["Orders filled"],
+        },
+        "requirements": [
+            {
+                "id": "REQ-ORDER",
+                "title": "Place order",
+                "description": "Trader can place a simulated order.",
+                "priority": "must",
+                "verification_mode": "interaction",
+                "source_refs": ["customer_input.desired_outcome"],
+            }
+        ],
+        "assumptions": [],
+        "open_questions": [],
+        "roles": [
+            {
+                "id": "ROLE-TRADER",
+                "name": "Trader",
+                "description": "Places orders.",
+                "goals": ["Trade"],
+                "default_page_id": "PAGE-DESK",
+            }
+        ],
+        "entities": [
+            {
+                "id": "ENTITY-ASSET",
+                "name": "Asset",
+                "description": "Tradable asset.",
+                "fields": [
+                    {
+                        "id": "symbol",
+                        "name": "Symbol",
+                        "type": "string",
+                        "required": True,
+                    }
+                ],
+            },
+            {
+                "id": "ENTITY-ORDER",
+                "name": "Order",
+                "description": "Simulated order.",
+                "fields": [
+                    {
+                        "id": "orderAssetId",
+                        "name": "Asset",
+                        "type": "string",
+                        "reference_entity_id": "ENTITY-ASSET",
+                        "required": True,
+                    },
+                    {
+                        "id": "portfolioPositions",
+                        "name": "Positions",
+                        "type": "list",
+                        "reference_entity_id": "ENTITY-ASSET",
+                    },
+                    {
+                        "id": "brokenRef",
+                        "name": "Broken",
+                        "type": "reference",
+                        "reference_entity_id": "ENTITY-MISSING",
+                    },
+                ],
+            },
+        ],
+        "capabilities": [
+            {
+                "id": "CAP-ORDER",
+                "name": "Order",
+                "description": "Place orders.",
+                "requirement_ids": ["REQ-ORDER"],
+                "role_ids": ["ROLE-TRADER"],
+                "entity_ids": ["ENTITY-ORDER", "ENTITY-ASSET"],
+            }
+        ],
+        "pages": [
+            {
+                "id": "PAGE-DESK",
+                "name": "Desk",
+                "purpose": "Trading desk.",
+                "route": "/desk",
+                "surface": "ops",
+                "primary": True,
+                "role_ids": ["ROLE-TRADER"],
+                "capability_ids": ["CAP-ORDER"],
+                "state_ids": ["STATE-READY"],
+                "action_ids": [],
+                "evidence_ids": ["EVIDENCE-DESK"],
+            }
+        ],
+        "states": [
+            {
+                "id": "STATE-READY",
+                "page_id": "PAGE-DESK",
+                "name": "Ready",
+                "description": "Ready to trade.",
+                "initial": True,
+                "terminal": False,
+                "evidence_ids": [],
+            }
+        ],
+        "actions": [],
+        "transitions": [],
+        "evidence": [
+            {
+                "id": "EVIDENCE-DESK",
+                "page_id": "PAGE-DESK",
+                "name": "Order ticket",
+                "description": "Order ticket is visible.",
+                "kind": "form",
+                "capability_ids": ["CAP-ORDER"],
+            }
+        ],
+        "journeys": [],
+        "acceptance_tests": [
+            {
+                "id": "TEST-ORDER",
+                "name": "Order placed",
+                "description": "Order appears in blotter.",
+                "requirement_ids": ["REQ-ORDER"],
+                "journey_id": None,
+                "assertions": [
+                    {
+                        "kind": "visible",
+                        "description": "Ticket visible",
+                        "page_id": "PAGE-DESK",
+                        "evidence_id": "EVIDENCE-DESK",
+                    }
+                ],
+            }
+        ],
+        "traceability": [
+            {
+                "requirement_id": "REQ-ORDER",
+                "capability_ids": ["CAP-ORDER"],
+                "page_ids": ["PAGE-DESK"],
+                "evidence_ids": ["EVIDENCE-DESK"],
+                "journey_ids": [],
+                "acceptance_test_ids": ["TEST-ORDER"],
+            }
+        ],
+        "deferred_scope": [],
+    }
+    sanitized = sanitize_app_spec_payload(payload, _source_snapshot())
+    fields = {f["id"]: f for f in sanitized["entities"][1]["fields"]}
+    assert fields["orderAssetId"]["type"] == "reference"
+    assert fields["portfolioPositions"]["type"] == "reference"
+    assert fields["brokenRef"]["type"] == "string"
+    assert "reference_entity_id" not in fields["brokenRef"]
+    from app.domain.appspec.validation import validate_app_spec
+
+    spec = parse_app_spec_candidate(sanitized)
+    report = validate_app_spec(spec)
+    assert report.is_valid, [issue.code for issue in report.issues]
+
+
 def test_strips_forbidden_acceptance_assertion_fields() -> None:
     """Models often put entity_id on assertions; schema forbids extras."""
 
@@ -799,5 +965,6 @@ if __name__ == "__main__":
     test_normalizes_invalid_evidence_and_assertion_kinds()
     test_repairs_entity_fields_and_deferred_scope_gaps()
     test_repairs_graph_journey_and_trace_mismatches()
+    test_coerces_reference_entity_id_fields_to_reference_type()
     test_strips_forbidden_acceptance_assertion_fields()
-    print("AppSpec sanitize tests passed (7 tests)")
+    print("AppSpec sanitize tests passed (8 tests)")

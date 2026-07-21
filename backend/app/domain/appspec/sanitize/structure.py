@@ -103,6 +103,11 @@ def _sanitize_capabilities(payload: dict[str, Any]) -> None:
         capability["requirement_ids"] = inferred[:1]
 
 def _sanitize_entities(payload: dict[str, Any]) -> None:
+    entity_ids = {
+        str(item.get("id"))
+        for item in (payload.get("entities") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
     for entity in payload.get("entities") or []:
         if not isinstance(entity, dict):
             continue
@@ -111,6 +116,36 @@ def _sanitize_entities(payload: dict[str, Any]) -> None:
                 continue
             if not str(field.get("name") or "").strip():
                 field["name"] = _humanize_identifier(str(field.get("id") or "Field"))
+            _sanitize_entity_field_reference(field, entity_ids)
+
+
+def _sanitize_entity_field_reference(
+    field: dict[str, Any],
+    entity_ids: set[str],
+) -> None:
+    """Align field.type with reference_entity_id (models often mismatch these)."""
+
+    ref = field.get("reference_entity_id")
+    ref_id = str(ref).strip() if ref is not None and ref != "" else ""
+    field_type = str(field.get("type") or "string").strip() or "string"
+
+    if ref_id and ref_id not in entity_ids:
+        field.pop("reference_entity_id", None)
+        ref_id = ""
+
+    if ref_id:
+        # Declaring a FK means the field is a reference, even if the model said
+        # string/list/integer (common on trading/order entity drafts).
+        field["type"] = "reference"
+        field["reference_entity_id"] = ref_id
+        if field_type != "enum":
+            field.pop("enum_values", None)
+        return
+
+    if field_type == "reference":
+        # Reference without a target cannot satisfy schema; downgrade to string.
+        field["type"] = "string"
+        field.pop("reference_entity_id", None)
 
 def _sanitize_deferred_scope(payload: dict[str, Any]) -> None:
     requirements = {
