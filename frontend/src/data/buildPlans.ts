@@ -3,7 +3,7 @@
 export interface BuildAddon {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   /** Plans that already include this addon (cannot toggle off as extra). */
   includedIn?: Array<'launch' | 'growth'>;
   /** Why we suggested this for this business (shown as a small hint). */
