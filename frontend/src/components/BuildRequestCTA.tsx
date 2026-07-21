@@ -166,7 +166,7 @@ export default function BuildRequestCTA({
   return (
     <section
       id="build-plans"
-      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      className="relative scroll-mt-32 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-teal-50/40 pointer-events-none" />
       <div className="relative z-10 p-6 sm:p-8 lg:p-10">

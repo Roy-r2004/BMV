@@ -38,13 +38,14 @@ export default function DeliveryNavigator({ items, embedded = false, compact = f
   }, [items]);
 
   const navigate = (id: string) => {
-    if (id === 'live-product') {
-      document.getElementById('live-product')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActive(id);
+    setActive(id);
+    // Live product + build plans live outside FullDeliveryPackage — scroll directly.
+    if (id === 'live-product' || id === 'build-plans') {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    // Delivery sections listen for this event (expand accordion, then scroll).
     window.dispatchEvent(new CustomEvent('delivery-navigate', { detail: { sectionId: id } }));
-    setActive(id);
   };
 
   const readyCount = items.filter((i) => i.ready).length;
