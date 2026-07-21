@@ -244,6 +244,14 @@ export default function ResultPreviewPage() {
           requestId={preview.id}
           conceptName={preview.concept_name}
           businessName={preview.business_name}
+          industry={preview.industry}
+          mainProblem={preview.main_problem}
+          desiredOutcome={preview.desired_outcome}
+          previewFeatures={preview.preview_features}
+          aiFeatures={preview.ai_features}
+          roleLabels={(preview.generated_pages?.preview_app?.roles || []).map(
+            (r) => r.label || r.id,
+          )}
           onRequestBuild={handleRequestBuild}
           buildRequested={preview.build_requested}
           demoView={isDemoView}

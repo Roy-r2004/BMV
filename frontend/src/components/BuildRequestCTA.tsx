@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { whatsappUrl } from '../api/client';
 import type { BuildRequestContact } from '../types/buildRequest';
 import {
-  BUILD_ADDONS,
   BUILD_PLANS,
   addonAvailable,
   addonIncluded,
   estimateFromUsd,
   formatFromUsd,
+  suggestBusinessAddons,
   summarizeSelection,
+  type BuildAddonContext,
   type BuildPlan,
 } from '../data/buildPlans';
 
@@ -17,6 +18,12 @@ interface Props {
   requestId: number;
   conceptName?: string | null;
   businessName?: string;
+  industry?: string | null;
+  mainProblem?: string | null;
+  desiredOutcome?: string | null;
+  previewFeatures?: string[];
+  aiFeatures?: BuildAddonContext['aiFeatures'];
+  roleLabels?: string[];
   onRequestBuild: (contact: BuildRequestContact) => Promise<void>;
   buildRequested?: boolean;
   demoView?: boolean;
@@ -28,6 +35,12 @@ export default function BuildRequestCTA({
   requestId,
   conceptName,
   businessName,
+  industry,
+  mainProblem,
+  desiredOutcome,
+  previewFeatures,
+  aiFeatures,
+  roleLabels,
   onRequestBuild,
   buildRequested,
   demoView = false,
@@ -45,8 +58,35 @@ export default function BuildRequestCTA({
     notes: '',
   });
 
+  const addons = useMemo(
+    () =>
+      suggestBusinessAddons({
+        businessName,
+        conceptName,
+        industry,
+        mainProblem,
+        desiredOutcome,
+        previewFeatures,
+        aiFeatures,
+        roleLabels,
+      }),
+    [
+      businessName,
+      conceptName,
+      industry,
+      mainProblem,
+      desiredOutcome,
+      previewFeatures,
+      aiFeatures,
+      roleLabels,
+    ],
+  );
+
   const plan = BUILD_PLANS.find((p) => p.id === planId) || BUILD_PLANS[1];
-  const estimate = useMemo(() => estimateFromUsd(planId, addonIds), [planId, addonIds]);
+  const estimate = useMemo(
+    () => estimateFromUsd(planId, addonIds, addons),
+    [planId, addonIds, addons],
+  );
 
   const toggleAddon = (id: string) => {
     setAddonIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -57,13 +97,13 @@ export default function BuildRequestCTA({
     // Drop add-ons already included in the new plan
     setAddonIds((prev) =>
       prev.filter((aid) => {
-        const addon = BUILD_ADDONS.find((a) => a.id === aid);
+        const addon = addons.find((a) => a.id === aid);
         return addon ? addonAvailable(addon, id) : false;
       }),
     );
   };
 
-  const selectionSummary = summarizeSelection(planId, addonIds);
+  const selectionSummary = summarizeSelection(planId, addonIds, addons);
 
   const waMessage = demoView
     ? `Hi, I saw the "${conceptName || 'demo'}" example and want something similar.\n\n${selectionSummary}`
@@ -89,7 +129,7 @@ export default function BuildRequestCTA({
         notes,
         package_id: planId,
         addon_ids: addonIds.filter((id) => {
-          const a = BUILD_ADDONS.find((x) => x.id === id);
+          const a = addons.find((x) => x.id === id);
           return a ? addonAvailable(a, planId) : false;
         }),
         estimate_from_usd: estimate ?? undefined,
@@ -204,14 +244,17 @@ export default function BuildRequestCTA({
             <div className="mt-10">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                 <div>
-                  <h4 className="font-bold text-slate-900">Add-ons</h4>
+                  <h4 className="font-bold text-slate-900">
+                    Suggested for {businessName || conceptName || 'this business'}
+                  </h4>
                   <p className="text-sm text-slate-500">
-                    Optional extras that raise the soft “from” estimate. Growth already includes some.
+                    Tailored from your industry, preview features, and AI plan — not a generic list.
+                    Growth already includes some.
                   </p>
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {BUILD_ADDONS.map((addon) => {
+                {addons.map((addon) => {
                   const included = addonIncluded(addon, planId);
                   const available = addonAvailable(addon, planId);
                   const on = included || addonIds.includes(addon.id);
@@ -235,6 +278,11 @@ export default function BuildRequestCTA({
                           <p className="mt-0.5 text-xs text-slate-500 leading-relaxed">
                             {addon.description}
                           </p>
+                          {addon.whyForYou ? (
+                            <p className="mt-2 text-[11px] font-medium text-teal-800/80 leading-snug">
+                              Why for you: {addon.whyForYou}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="text-right shrink-0">
                           {included ? (
