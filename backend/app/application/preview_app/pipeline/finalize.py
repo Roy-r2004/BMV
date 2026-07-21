@@ -256,22 +256,24 @@ def run_finalize(ctx: PipelineContext) -> dict:
     # Vite may succeed while AppSpec stub/contract checks still fail. Prefer
     # showing the compiled site over leaving Live Product on a blank spinner.
     dist_ok = (Path(workspace) / "dist" / "index.html").is_file()
-    # Hard lock: quality gate failure means not ready (no manual bypass).
-    viewable = bool(dist_ok and gate.ok and ok)
+    # Hard lock: only the automated quality gate blocks Live Product.
+    # Soft contract/fallback/AI-surface flags (ok=False) must not hide a built dist
+    # behind "Website preview is being generated…".
+    viewable = bool(dist_ok and gate.ok)
     preview_url = f"{ctx.base_path}/" if viewable else None
     if viewable:
         log.info("  OK Preview built: %s", preview_url)
+        if not ok:
+            log.warning(
+                "  WARN preview %s quality gate passed but soft contract issues remain "
+                "(fallback=%s) — serving Live Product anyway",
+                request_id,
+                len(fallback_pages),
+            )
     elif dist_ok and not gate.ok:
         log.error(
             "  FAIL preview %s built but quality lock failed — not marking ready",
             request_id,
-        )
-    elif dist_ok:
-        log.warning(
-            "  WARN preview %s compiled but contract/stub checks failed — "
-            "serving dist anyway (%s fallback page(s))",
-            request_id,
-            len(fallback_pages),
         )
     else:
         log.error("  FAIL build for request %s — see .bmv-debug/", request_id)
@@ -400,7 +402,14 @@ def run_finalize(ctx: PipelineContext) -> dict:
                 100,
             )
             return result
-        _emit(db, request_id, "failed", "Preview did not pass quality lock", 100)
+        # Should be unreachable: dist_ok + gate.ok ⇒ viewable.
+        _emit(
+            db,
+            request_id,
+            "failed",
+            "Preview built but could not be published — try Generate again",
+            100,
+        )
         return result
 
     # Stay below tech (90) / proposal (95) / done (100) so the customer bar

@@ -181,36 +181,61 @@ export default function GenerationCinematic({
     }
   };
 
+  const graphSize = compact ? 320 : 560;
+
   return (
     <div
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse 120% 80% at 50% 40%, #0a1628 0%, #050c18 60%, #020810 100%)' }}
+      style={{ background: 'radial-gradient(ellipse 130% 90% at 50% 35%, #0b1a30 0%, #050c18 55%, #01060e 100%)' }}
     >
       <GridOverlay />
 
-      <div className="absolute w-[600px] h-[600px] rounded-full opacity-[0.07] pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)', top: '10%', left: '50%', transform: 'translateX(-50%)' }} />
-      <div className="absolute w-[400px] h-[400px] rounded-full opacity-[0.05] pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)', top: '40%', left: '20%' }} />
+      {/* Ambient bloom */}
+      <motion.div
+        className="absolute pointer-events-none rounded-full -translate-x-1/2"
+        style={{
+          width: compact ? 420 : 720,
+          height: compact ? 420 : 720,
+          top: '6%',
+          left: '50%',
+          background: 'radial-gradient(circle, rgba(56,189,248,0.22) 0%, rgba(37,99,235,0.08) 42%, transparent 70%)',
+        }}
+        animate={{ opacity: [0.55, 0.95, 0.55], scale: [1, 1.06, 1] }}
+        transition={{ duration: 4.2, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <div
+        className="absolute w-[480px] h-[480px] rounded-full opacity-[0.08] pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)', top: '45%', left: '8%' }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 80% 70% at 50% 45%, transparent 35%, rgba(0,0,0,0.45) 100%)' }}
+      />
 
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-10 flex flex-col items-center gap-8">
+      <div className={`relative z-10 w-full mx-auto flex flex-col items-center ${
+        compact ? 'max-w-3xl px-4 py-8 gap-6' : 'max-w-6xl px-5 sm:px-8 py-12 sm:py-16 gap-10 sm:gap-12'
+      }`}>
 
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-400 mb-2">
+          <p className={`font-bold uppercase tracking-[0.28em] text-cyan-400 mb-3 ${
+            compact ? 'text-[11px]' : 'text-xs sm:text-sm'
+          }`}>
             {failed ? 'Needs attention' : 'AI at work'}
           </p>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{title}</h1>
+          <h1 className={`font-bold text-white tracking-tight ${
+            compact ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-5xl'
+          }`}>{title}</h1>
           {businessName && (
-            <p className="text-slate-400 text-sm mt-1">
+            <p className={`text-slate-400 mt-2 ${compact ? 'text-sm' : 'text-base sm:text-lg'}`}>
               Crafting for <span className="text-cyan-300 font-medium">{businessName}</span>
             </p>
           )}
           {requestId && !failed && (
-            <p className="text-slate-500 text-xs mt-2 font-mono tabular-nums">
+            <p className={`text-slate-500 mt-3 font-mono tabular-nums ${compact ? 'text-xs' : 'text-sm'}`}>
               Elapsed {formatElapsed(elapsedMs)}
             </p>
           )}
@@ -221,10 +246,20 @@ export default function GenerationCinematic({
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15, duration: 0.7 }}
-            className="relative flex items-center justify-center"
-            style={{ width: compact ? 280 : 400, height: compact ? 280 : 400 }}
+            className="relative flex items-center justify-center w-full"
+            style={{
+              maxWidth: graphSize,
+              aspectRatio: '1 / 1',
+            }}
           >
-            <NodeGraph activeStep={activeStep} pct={pct} compact={compact} />
+            <div
+              className="absolute inset-[-6%] rounded-full pointer-events-none"
+              style={{
+                background: 'radial-gradient(circle, rgba(56,189,248,0.14) 0%, transparent 65%)',
+                filter: 'blur(10px)',
+              }}
+            />
+            <NodeGraph activeStep={activeStep} pct={pct} compact={compact} size={graphSize} />
           </motion.div>
         )}
 
@@ -232,24 +267,24 @@ export default function GenerationCinematic({
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-rose-500/10 px-6 py-5 text-center"
+            className="w-full max-w-lg rounded-2xl border border-rose-500/30 bg-rose-500/10 px-6 py-6 sm:px-8 sm:py-7 text-center"
           >
-            <p className="text-rose-200 font-medium mb-2">{currentLabel}</p>
-            {detail && <p className="text-rose-200/70 text-sm mb-4 break-words">{detail}</p>}
-            <p className="text-slate-400 text-xs mb-5 leading-relaxed">
+            <p className="text-rose-200 font-medium text-base sm:text-lg mb-2">{currentLabel}</p>
+            {detail && <p className="text-rose-200/70 text-sm sm:text-base mb-4 break-words">{detail}</p>}
+            <p className="text-slate-400 text-sm mb-5 leading-relaxed">
               This isn&apos;t a frozen tab — generation stopped with an error. You can retry or start a new request.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={retryGeneration}
-                className="rounded-full bg-cyan-500 px-5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400"
+                className="rounded-full bg-cyan-500 px-6 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400"
               >
                 Retry generation
               </button>
               <Link
                 to="/submit"
-                className="rounded-full border border-white/20 px-5 py-2 text-sm font-medium text-white/80 hover:bg-white/5"
+                className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white/80 hover:bg-white/5"
               >
                 New request
               </Link>
@@ -263,31 +298,39 @@ export default function GenerationCinematic({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="flex items-center gap-3 px-5 py-2.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 backdrop-blur"
+                className={`flex items-center gap-3.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 backdrop-blur-md shadow-[0_0_40px_rgba(34,211,238,0.18)] ${
+                  compact ? 'px-5 py-2.5' : 'px-7 py-3.5 sm:px-8 sm:py-4'
+                }`}
               >
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                <span className="text-cyan-200 text-sm font-mono font-medium">{currentLabel}</span>
+                <span className={`rounded-full bg-cyan-400 shrink-0 shadow-[0_0_12px_rgba(34,211,238,0.9)] ${
+                  compact ? 'w-2 h-2' : 'w-2.5 h-2.5'
+                }`}
+                  style={{ animation: 'gc-pulse 1.4s ease-in-out infinite' }}
+                />
+                <span className={`text-cyan-100 font-mono font-semibold tracking-tight ${
+                  compact ? 'text-sm' : 'text-base sm:text-lg'
+                }`}>{currentLabel}</span>
               </motion.div>
             </AnimatePresence>
 
             {connectionError && (
-              <p className="text-amber-300/90 text-xs font-medium">
+              <p className="text-amber-300/90 text-sm font-medium">
                 Reconnecting to progress updates… last known status kept on screen.
               </p>
             )}
 
             {stalled && !connectionError && (
-              <p className="text-slate-400 text-xs max-w-md text-center leading-relaxed">
+              <p className={`text-slate-400 max-w-xl text-center leading-relaxed ${compact ? 'text-xs' : 'text-sm'}`}>
                 Still working — complex builds often take several minutes on this step. Keep this tab open.
               </p>
             )}
 
             {filesTotal > 0 && activeStep === 2 && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-                <p className="text-slate-400 text-xs font-mono mb-1.5">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center w-full max-w-md">
+                <p className={`text-slate-300 font-mono mb-2 ${compact ? 'text-xs' : 'text-sm sm:text-base'}`}>
                   {filesDone} / {filesTotal} files generated
                 </p>
-                <div className="w-48 h-1 rounded-full bg-white/10 mx-auto overflow-hidden">
+                <div className={`rounded-full bg-white/10 mx-auto overflow-hidden ${compact ? 'w-56 h-1.5' : 'w-72 h-2'}`}>
                   <motion.div
                     className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400"
                     animate={{ width: filesTotal > 0 ? `${(filesDone / filesTotal) * 100}%` : '0%' }}
@@ -297,17 +340,24 @@ export default function GenerationCinematic({
               </motion.div>
             )}
 
-            <div className="w-full max-w-md">
-              <div className="flex justify-between text-[10px] text-slate-500 mb-1.5">
-                <span className="font-mono">pipeline progress</span>
-                <span className="text-cyan-400 font-mono font-bold">{pct}%</span>
+            <div className={`w-full ${compact ? 'max-w-md' : 'max-w-2xl'}`}>
+              <div className={`flex justify-between text-slate-400 mb-2 ${compact ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
+                <span className="font-mono uppercase tracking-[0.16em]">pipeline progress</span>
+                <span className="text-cyan-300 font-mono font-bold tabular-nums">{pct}%</span>
               </div>
-              <div className="h-0.5 rounded-full bg-white/10 overflow-hidden">
+              <div className={`relative rounded-full bg-white/10 overflow-hidden ${compact ? 'h-1.5' : 'h-2.5'}`}>
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-400"
+                  className="relative h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-300"
                   animate={{ width: `${pct}%` }}
                   transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-                />
+                  style={{ boxShadow: '0 0 24px rgba(34,211,238,0.45)' }}
+                >
+                  <motion.div
+                    className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                    animate={{ x: ['-120%', '320%'] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
+                  />
+                </motion.div>
               </div>
             </div>
 
@@ -316,19 +366,28 @@ export default function GenerationCinematic({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className={`w-full max-w-lg bg-black/40 border border-white/10 rounded-xl font-mono text-xs ${
-                  compact ? 'p-3' : 'p-4'
+                className={`w-full bg-black/50 border border-cyan-500/15 rounded-2xl font-mono shadow-[0_0_50px_rgba(6,182,212,0.08)] ${
+                  compact
+                    ? 'max-w-lg p-3.5 text-xs'
+                    : 'max-w-3xl p-5 sm:p-6 text-sm sm:text-[15px]'
                 }`}
               >
-                <div className="space-y-1">
-                  {log.slice(compact ? -8 : -6).map((entry, i, arr) => (
-                    <div key={`${entry.t}-${i}`} className={`flex gap-2 ${i === arr.length - 1 ? 'text-cyan-300' : 'text-slate-500'}`}>
-                      <span className="shrink-0 text-slate-600">›</span>
+                <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
+                  {log.slice(compact ? -8 : -8).map((entry, i, arr) => (
+                    <div
+                      key={`${entry.t}-${i}`}
+                      className={`flex gap-2.5 ${
+                        i === arr.length - 1
+                          ? 'text-cyan-200 font-medium'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      <span className={`shrink-0 ${i === arr.length - 1 ? 'text-cyan-400' : 'text-slate-600'}`}>›</span>
                       <span className="truncate">{entry.msg}</span>
                     </div>
                   ))}
                   {detail && (
-                    <div className="flex gap-2 text-slate-600">
+                    <div className="flex gap-2.5 text-slate-600">
                       <span className="shrink-0">·</span>
                       <span className="truncate italic">{detail}</span>
                     </div>
@@ -337,12 +396,21 @@ export default function GenerationCinematic({
               </motion.div>
             )}
 
-            <p className="text-center text-[11px] text-white/25 max-w-sm leading-relaxed">
+            <p className={`text-center text-white/35 leading-relaxed ${
+              compact ? 'text-xs max-w-sm' : 'text-sm max-w-xl'
+            }`}>
               Keep this tab open — your live site, blueprint, technical plan, and build packages are being built. Typical runs take 5–15 minutes.
             </p>
           </>
         )}
       </div>
+
+      <style>{`
+        @keyframes gc-pulse {
+          0%, 100% { opacity: 0.55; transform: scale(0.92); }
+          50% { opacity: 1; transform: scale(1.15); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -351,16 +419,22 @@ function NodeGraph({
   activeStep,
   pct,
   compact,
+  size,
 }: {
   activeStep: number;
   pct: number;
   compact: boolean;
+  size: number;
 }) {
-  const size = compact ? 280 : 400;
   const cx = size / 2;
   const cy = size / 2;
-  const radius = compact ? 100 : 145;
-  const nodeR = compact ? 28 : 36;
+  const radius = compact ? 112 : 195;
+  const nodeR = compact ? 32 : 48;
+  const hubR = compact ? 40 : 64;
+  const ringOuter = compact ? 54 : 86;
+  const ringInner = compact ? 44 : 72;
+  const logoSize = compact ? 52 : 82;
+  const pctFont = compact ? 11 : 15;
 
   const nodePositions = ANGLES.map((angleDeg) => {
     const rad = (angleDeg * Math.PI) / 180;
@@ -368,23 +442,28 @@ function NodeGraph({
   });
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ overflow: 'visible', maxWidth: '100%', height: 'auto' }}
+    >
       <defs>
-        <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
+        <filter id="glow-cyan" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation={compact ? 5 : 7} result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
-        <filter id="glow-center" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="8" result="blur" />
+        <filter id="glow-center" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation={compact ? 10 : 14} result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
         <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.8" />
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.95" />
         </linearGradient>
         <radialGradient id="center-grad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1d4ed8" />
-          <stop offset="60%" stopColor="#0f172a" />
+          <stop offset="0%" stopColor="#2563eb" />
+          <stop offset="55%" stopColor="#0f172a" />
           <stop offset="100%" stopColor="#020810" />
         </radialGradient>
       </defs>
@@ -393,56 +472,59 @@ function NodeGraph({
         const node = NODES[i];
         const isDone = activeStep > node.step;
         const isActive = activeStep === node.step;
-        const opacity = isDone ? 0.85 : isActive ? 0.65 : 0.18;
+        const opacity = isDone ? 0.9 : isActive ? 0.8 : 0.2;
         return (
           <g key={`line-${i}`}>
-            <line x1={cx} y1={cy} x2={pos.x} y2={pos.y} stroke="#1e3a5f" strokeWidth="1" />
+            <line x1={cx} y1={cy} x2={pos.x} y2={pos.y} stroke="#1e3a5f" strokeWidth={compact ? 1 : 1.5} />
             <motion.line
               x1={cx} y1={cy} x2={pos.x} y2={pos.y}
               stroke="url(#line-grad)"
-              strokeWidth={isActive ? 2 : 1.5}
+              strokeWidth={isActive ? (compact ? 2.5 : 3.5) : (compact ? 1.5 : 2)}
               strokeLinecap="round"
               animate={{ opacity }}
               transition={{ duration: 0.8 }}
             />
-            {isActive && <TravellingDot x1={cx} y1={cy} x2={pos.x} y2={pos.y} />}
+            {isActive && <TravellingDot x1={cx} y1={cy} x2={pos.x} y2={pos.y} compact={compact} />}
           </g>
         );
       })}
 
       <motion.circle
-        cx={cx} cy={cy} r={compact ? 46 : 62}
-        fill="none" stroke="#3b82f6" strokeWidth="1"
+        cx={cx} cy={cy} r={ringOuter}
+        fill="none" stroke="#3b82f6" strokeWidth={compact ? 1.2 : 1.6}
         style={{ transformOrigin: `${cx}px ${cy}px` }}
-        animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.08, 1] }}
+        animate={{ opacity: [0.25, 0.7, 0.25], scale: [1, 1.1, 1] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.circle
-        cx={cx} cy={cy} r={compact ? 38 : 52}
-        fill="none" stroke="#06b6d4" strokeWidth="0.8"
-        animate={{ opacity: [0.3, 0.7, 0.3] }}
+        cx={cx} cy={cy} r={ringInner}
+        fill="none" stroke="#22d3ee" strokeWidth={compact ? 1 : 1.3}
+        animate={{ opacity: [0.35, 0.85, 0.35] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
       />
 
-      <circle cx={cx} cy={cy} r={compact ? 34 : 46} fill="url(#center-grad)" filter="url(#glow-center)" />
-      <circle cx={cx} cy={cy} r={compact ? 34 : 46} fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.7" />
+      <circle cx={cx} cy={cy} r={hubR} fill="url(#center-grad)" filter="url(#glow-center)" />
+      <circle cx={cx} cy={cy} r={hubR} fill="none" stroke="#38bdf8" strokeWidth={compact ? 1.8 : 2.2} opacity="0.85" />
 
-      {(() => {
-        const logoSize = compact ? 44 : 60;
-        return (
-          <image
-            href="/logo.png"
-            x={cx - logoSize / 2}
-            y={cy - logoSize / 2}
-            width={logoSize}
-            height={logoSize}
-            preserveAspectRatio="xMidYMid meet"
-          />
-        );
-      })()}
+      <image
+        href="/logo.png"
+        x={cx - logoSize / 2}
+        y={cy - logoSize / 2}
+        width={logoSize}
+        height={logoSize}
+        preserveAspectRatio="xMidYMid meet"
+      />
 
       {pct > 0 && (
-        <text x={cx} y={cy + (compact ? 34 : 46) + 14} textAnchor="middle" fill="#06b6d4" fontSize={compact ? 8 : 10} fontFamily="monospace" fontWeight="600">
+        <text
+          x={cx}
+          y={cy + hubR + (compact ? 16 : 22)}
+          textAnchor="middle"
+          fill="#67e8f9"
+          fontSize={pctFont}
+          fontFamily="ui-monospace, monospace"
+          fontWeight="700"
+        >
           {pct}%
         </text>
       )}
@@ -466,11 +548,15 @@ function NodeGraph({
   );
 }
 
-function TravellingDot({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: number }) {
+function TravellingDot({
+  x1, y1, x2, y2, compact,
+}: {
+  x1: number; y1: number; x2: number; y2: number; compact: boolean;
+}) {
   const [t, setT] = useState(0);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
-  const DURATION = 1800;
+  const DURATION = 1600;
 
   useEffect(() => {
     const animate = (ts: number) => {
@@ -487,7 +573,14 @@ function TravellingDot({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number;
   const py = y1 + (y2 - y1) * t;
 
   return (
-    <circle cx={px} cy={py} r={3} fill="#38bdf8" opacity={0.9} filter="url(#glow-cyan)" />
+    <circle
+      cx={px}
+      cy={py}
+      r={compact ? 3.5 : 5}
+      fill="#67e8f9"
+      opacity={0.95}
+      filter="url(#glow-cyan)"
+    />
   );
 }
 
@@ -500,12 +593,12 @@ function SurroundingNode({
 }) {
   const fillColor = isDone ? '#0f4c35' : isActive ? '#0c2a4d' : '#0a1628';
   const strokeColor = isDone ? '#10b981' : isActive ? '#38bdf8' : '#1e3a5f';
-  const strokeWidth = isActive ? 2 : 1;
+  const strokeWidth = isActive ? (compact ? 2.2 : 2.8) : (compact ? 1.2 : 1.6);
   const filterStr = isActive || isDone ? 'url(#glow-cyan)' : undefined;
-  const labelSize = compact ? 8 : 10;
-  const safeR = Number.isFinite(r) && r > 0 ? r : compact ? 28 : 36;
-  const iconScale = compact ? (safeR * 1.0) / 24 : (safeR * 1.1) / 24;
-  const iconColor = isDone ? '#6ee7b7' : isActive ? '#38bdf8' : '#334155';
+  const labelSize = compact ? 10 : 14;
+  const safeR = Number.isFinite(r) && r > 0 ? r : compact ? 32 : 48;
+  const iconScale = compact ? (safeR * 1.05) / 24 : (safeR * 1.15) / 24;
+  const iconColor = isDone ? '#6ee7b7' : isActive ? '#67e8f9' : '#475569';
 
   return (
     <g filter={filterStr}>
@@ -517,10 +610,10 @@ function SurroundingNode({
 
       {isActive && (
         <motion.circle
-          cx={x} cy={y} r={safeR + 4}
-          fill="none" stroke="#38bdf8" strokeWidth="0.8"
+          cx={x} cy={y} r={safeR + (compact ? 5 : 8)}
+          fill="none" stroke="#67e8f9" strokeWidth={compact ? 1 : 1.4}
           style={{ transformOrigin: `${x}px ${y}px` }}
-          animate={{ opacity: [0.4, 0.9, 0.4], scale: [1, 1.12, 1] }}
+          animate={{ opacity: [0.35, 1, 0.35], scale: [1, 1.14, 1] }}
           transition={{ duration: 1.5, repeat: Infinity }}
         />
       )}
@@ -537,12 +630,12 @@ function SurroundingNode({
       </g>
 
       <text
-        x={x} y={y + r + labelSize + 3}
+        x={x} y={y + safeR + labelSize + (compact ? 4 : 6)}
         textAnchor="middle"
-        fill={isDone ? '#6ee7b7' : isActive ? '#7dd3fc' : '#334155'}
+        fill={isDone ? '#6ee7b7' : isActive ? '#a5f3fc' : '#64748b'}
         fontSize={labelSize}
-        fontFamily="system-ui, sans-serif"
-        fontWeight={isActive ? '600' : '400'}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontWeight={isActive ? '700' : '500'}
       >
         {label}
       </text>
@@ -553,13 +646,13 @@ function SurroundingNode({
 function GridOverlay() {
   return (
     <div
-      className="absolute inset-0 pointer-events-none opacity-[0.06]"
+      className="absolute inset-0 pointer-events-none opacity-[0.07]"
       style={{
         backgroundImage: `
           linear-gradient(to right, #38bdf8 1px, transparent 1px),
           linear-gradient(to bottom, #38bdf8 1px, transparent 1px)
         `,
-        backgroundSize: '48px 48px',
+        backgroundSize: '56px 56px',
       }}
     />
   );
