@@ -90,11 +90,6 @@ def _remap_generated_pages(raw: str | None, request_id: int) -> str | None:
     return json.dumps(gp)
 
 
-def _is_platesync(req: Request) -> bool:
-    blob = f"{req.business_name or ''} {req.concept_name or ''}".lower()
-    return "platesync" in blob
-
-
 def seed_demo_if_empty() -> None:
     """Insert PlateSync only when the DB has zero requests.
 
