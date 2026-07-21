@@ -16,7 +16,7 @@ export interface BuildPlan {
   tagline: string;
   timeline: string;
   highlight?: boolean;
-  badge?: string;
+  badge?: string | null;
   includes: string[];
   bestFor: string;
 }

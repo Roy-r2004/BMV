@@ -44,7 +44,12 @@ function previewSrcForPath(base: string, appPath: string): string {
   return `${root}${appPath.startsWith('/') ? appPath : `/${appPath}`}`;
 }
 
-export default function PreviewAppPreview({ pages, requestId: _requestId, conceptName }: Props) {
+export default function PreviewAppPreview({
+  pages,
+  requestId: _requestId,
+  conceptName,
+  features,
+}: Props) {
   const previewApp = pages.preview_app;
   const roles = previewApp?.roles?.length ? previewApp.roles : pages.roles ?? [];
   const [activeRoleId, setActiveRoleId] = useState<string>(roles[0]?.id ?? '');

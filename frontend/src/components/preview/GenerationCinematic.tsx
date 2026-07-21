@@ -174,7 +174,7 @@ export default function GenerationCinematic({
   const retryGeneration = async () => {
     if (!requestId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/requests/${requestId}/retry-generation`, { method: 'POST' });
+      await fetch(`${API_BASE}/api/requests/${requestId}/retry-generation`, { method: 'POST' });
       window.location.reload();
     } catch {
       /* ignore — user can submit again */
