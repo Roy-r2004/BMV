@@ -112,9 +112,10 @@ services:
       INTERNAL_BASE_URL: http://127.0.0.1:8000
       # Hostinger default: OpenRouter (set OPENROUTER_API_KEY in .env)
       AI_PROVIDER: ${AI_PROVIDER:-openrouter}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY in .env}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-Build My Version}
+      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-https://${DOMAIN}}
       PEXELS_API_KEY: ${PEXELS_API_KEY:-}
       TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
       PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
@@ -155,7 +156,8 @@ services:
       - "traefik.http.routers.bmv.entrypoints=websecure"
       - "traefik.http.routers.bmv.tls.certresolver=letsencrypt"
       - "traefik.http.services.bmv.loadbalancer.server.port=8000"
-    mem_limit: 2g
+    # Preview builds (Node + Playwright) need headroom — use a 4GB+ VPS.
+    mem_limit: 3g
     cpus: "2.00"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]

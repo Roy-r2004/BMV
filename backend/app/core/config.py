@@ -68,6 +68,7 @@ class Settings:
     OPENROUTER_API_KEY: str = (os.getenv("OPENROUTER_API_KEY") or "").strip()
     OPENROUTER_BASE_URL: str = (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1").strip()
     OPENROUTER_APP_NAME: str = os.getenv("OPENROUTER_APP_NAME", "Build My Version")
+    OPENROUTER_SITE_URL: str
 
     # Pexels — per-business preview stock photos (optional; curated fallback if empty)
     PEXELS_API_KEY: str = (os.getenv("PEXELS_API_KEY") or "").strip()
@@ -300,6 +301,13 @@ class Settings:
             "CORS_ORIGINS",
             "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5175",
         )
+        # OpenRouter HTTP-Referer — use live https://DOMAIN on Hostinger
+        site = (os.getenv("OPENROUTER_SITE_URL") or "").strip()
+        if not site:
+            site = (self.CORS_ORIGINS.split(",")[0] if self.CORS_ORIGINS else "").strip()
+        if not site.startswith("http"):
+            site = "https://buildmyversion.ai"
+        self.OPENROUTER_SITE_URL = site
         self.UVICORN_RELOAD = os.getenv("UVICORN_RELOAD", "false").strip().lower() in (
             "1", "true", "yes", "on",
         )

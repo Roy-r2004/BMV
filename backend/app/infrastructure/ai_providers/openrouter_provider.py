@@ -44,7 +44,7 @@ class OpenRouterAIProvider(AIProvider):
         return {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://buildmyversion.ai",
+            "HTTP-Referer": settings.OPENROUTER_SITE_URL or "https://buildmyversion.ai",
             "X-Title": self._app_name,
         }
 
