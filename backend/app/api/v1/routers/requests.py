@@ -395,6 +395,20 @@ def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends
     req.updated_at = datetime.utcnow()
     db.commit()
 
+    try:
+        from app.application.services.admin_alerts import emit_alert
+
+        emit_alert(
+            kind="build_requested",
+            severity="warn",
+            title=f"Build requested · #{req.id}",
+            body=f"{req.business_name} · {req.email}",
+            request_id=req.id,
+            dedupe_minutes=5,
+        )
+    except Exception:
+        pass
+
     return BuildRequestResponse(
         id=req.id,
         build_requested=True,

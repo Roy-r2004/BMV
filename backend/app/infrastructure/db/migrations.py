@@ -41,6 +41,25 @@ def run_sqlite_migrations() -> None:
                             "ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
                         )
                     )
+                req_cols = {
+                    row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))
+                }
+                if "generation_cancel" not in req_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE requests ADD COLUMN generation_cancel BOOLEAN DEFAULT 0"
+                        )
+                    )
+                settings_cols = {
+                    row[1]
+                    for row in conn.execute(text("PRAGMA table_info(admin_settings)"))
+                }
+                if settings_cols and "request_budget_usd" not in settings_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE admin_settings ADD COLUMN request_budget_usd FLOAT"
+                        )
+                    )
                 conn.commit()
                 return
 
@@ -56,6 +75,18 @@ def run_sqlite_migrations() -> None:
                     text(
                         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
                         "is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE requests ADD COLUMN IF NOT EXISTS "
+                        "generation_cancel BOOLEAN DEFAULT FALSE"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS "
+                        "request_budget_usd DOUBLE PRECISION"
                     )
                 )
                 conn.commit()

@@ -20,6 +20,8 @@ from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
 from app.application.services import admin_ops
+from app.application.services.admin_alerts import acknowledge_alert, acknowledge_all, list_alerts
+from app.application.services.ai_context import ai_run_scope
 from app.application.services.user_auth import authenticate_user, create_session
 from app.domain.schemas.admin import (
     AdminLoginRequest,
@@ -83,6 +85,7 @@ def get_admin_settings(
         ai_enabled=bool(row.ai_enabled),
         site_chat_enabled=bool(row.site_chat_enabled),
         daily_budget_usd=row.daily_budget_usd,
+        request_budget_usd=getattr(row, "request_budget_usd", None),
         updated_at=row.updated_at,
     )
 
@@ -99,16 +102,24 @@ def patch_admin_settings(
     elif "daily_budget_usd" in body.model_fields_set:
         budget_arg = body.daily_budget_usd
 
+    req_budget_arg: object = ...
+    if body.clear_request_budget:
+        req_budget_arg = None
+    elif "request_budget_usd" in body.model_fields_set:
+        req_budget_arg = body.request_budget_usd
+
     row = admin_ops.update_settings(
         db,
         ai_enabled=body.ai_enabled,
         site_chat_enabled=body.site_chat_enabled,
         daily_budget_usd=budget_arg,
+        request_budget_usd=req_budget_arg,
     )
     return AdminSettingsResponse(
         ai_enabled=bool(row.ai_enabled),
         site_chat_enabled=bool(row.site_chat_enabled),
         daily_budget_usd=row.daily_budget_usd,
+        request_budget_usd=getattr(row, "request_budget_usd", None),
         updated_at=row.updated_at,
     )
 
@@ -123,7 +134,35 @@ def admin_usage(
     return {"days": days, "events": admin_ops.list_usage(db, days=days, limit=limit)}
 
 
-@router.get("/requests", response_model=list[RequestListItem])
+@router.get("/alerts")
+def admin_alerts(
+    unread_only: bool = Query(False),
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    return {"alerts": list_alerts(db, unread_only=unread_only, limit=100)}
+
+
+@router.post("/alerts/{alert_id}/ack")
+def admin_ack_alert(
+    alert_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    if not acknowledge_alert(db, alert_id):
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"success": True}
+
+
+@router.post("/alerts/ack-all")
+def admin_ack_all_alerts(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    return {"success": True, "acked": acknowledge_all(db)}
+
+
+@router.get("/requests")
 def list_requests(
     status: str = Query(None),
     _: bool = Depends(verify_admin),
@@ -132,7 +171,17 @@ def list_requests(
     query = db.query(Request).order_by(Request.created_at.desc())
     if status and status != "all":
         query = query.filter(Request.status == status)
-    return query.all()
+    rows = query.all()
+    costs = admin_ops.costs_for_request_ids(db, [r.id for r in rows])
+    out = []
+    for r in rows:
+        item = RequestListItem.model_validate(r).model_dump()
+        c = costs.get(r.id) or {}
+        item["cost_usd"] = c.get("cost_usd", 0.0)
+        item["ai_calls"] = c.get("calls", 0)
+        item["ai_tokens"] = c.get("tokens", 0)
+        out.append(item)
+    return out
 
 
 @router.get("/requests/{request_id}", response_model=RequestDetail)
@@ -145,6 +194,46 @@ def get_request(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     return req
+
+
+@router.get("/requests/{request_id}/run-log")
+def get_request_run_log(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    data = admin_ops.build_request_run_log(db, request_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return data
+
+
+@router.post("/requests/{request_id}/cancel-generation")
+def cancel_generation(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    req.generation_cancel = True
+    db.commit()
+    return {"success": True, "request_id": request_id, "cancelled": True}
+
+
+@router.post("/requests/{request_id}/clear-cancel")
+def clear_generation_cancel(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    req.generation_cancel = False
+    db.commit()
+    return {"success": True, "request_id": request_id}
 
 
 @router.patch("/requests/{request_id}", response_model=RequestDetail)
@@ -235,7 +324,8 @@ def analyze_screenshot(
     template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
 ):
     try:
-        result = reference_analysis.analyze_screenshot(db, request_id, ai_provider, template_renderer)
+        with ai_run_scope(request_id, purpose="analyze"):
+            result = reference_analysis.analyze_screenshot(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Screenshot analyzed", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
@@ -250,7 +340,8 @@ def generate_blueprint(
     template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
 ):
     try:
-        result = blueprint.generate_mvp_blueprint(db, request_id, ai_provider, template_renderer)
+        with ai_run_scope(request_id, purpose="blueprint"):
+            result = blueprint.generate_mvp_blueprint(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Blueprint generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
@@ -268,13 +359,14 @@ def generate_app_spec(
     """Author/review an AppSpec independently of rollout mode."""
 
     try:
-        result = ensure_approved_app_spec(
-            db,
-            request_id,
-            ai_provider,
-            template_renderer,
-            force_new_revision=force_new_revision,
-        )
+        with ai_run_scope(request_id, purpose="appspec"):
+            result = ensure_approved_app_spec(
+                db,
+                request_id,
+                ai_provider,
+                template_renderer,
+                force_new_revision=force_new_revision,
+            )
         return GenerateResponse(
             success=True,
             message="AppSpec accepted",
@@ -335,7 +427,8 @@ def generate_visual_demo(
     template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
 ):
     try:
-        result = visual_demo.generate_visual_demo(db, request_id, ai_provider, template_renderer)
+        with ai_run_scope(request_id, purpose="demo"):
+            result = visual_demo.generate_visual_demo(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Visual demo generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
@@ -350,7 +443,8 @@ def generate_technical_plan(
     template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
 ):
     try:
-        result = technical_plan.generate_technical_plan(db, request_id, ai_provider, template_renderer)
+        with ai_run_scope(request_id, purpose="tech"):
+            result = technical_plan.generate_technical_plan(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Technical plan generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
@@ -365,7 +459,8 @@ def generate_proposal(
     template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
 ):
     try:
-        result = proposal.generate_proposal(db, request_id, ai_provider, template_renderer)
+        with ai_run_scope(request_id, purpose="proposal"):
+            result = proposal.generate_proposal(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Proposal generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
@@ -380,7 +475,8 @@ def generate_build_plans_admin(
     template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
 ):
     try:
-        result = build_plans.generate_build_plans(db, request_id, ai_provider, template_renderer)
+        with ai_run_scope(request_id, purpose="build_plans"):
+            result = build_plans.generate_build_plans(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Build plans generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))

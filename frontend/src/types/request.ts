@@ -365,6 +365,9 @@ export interface RequestListItem {
   created_at: string;
   business_fit_score: number | null;
   build_requested: boolean;
+  cost_usd?: number;
+  ai_calls?: number;
+  ai_tokens?: number;
 }
 
 export interface RequestDetail {

@@ -10,6 +10,7 @@ import {
 } from '../api/admin';
 import type { RequestDetail } from '../types/request';
 import RequestStatusBadge from '../components/RequestStatusBadge';
+import RequestRunLogPanel from '../components/RequestRunLogPanel';
 import MarkdownViewer from '../components/MarkdownViewer';
 import CopyButton from '../components/CopyButton';
 import VisualDemoPreview from '../components/VisualDemoPreview';
@@ -37,6 +38,7 @@ export default function AdminRequestDetailPage() {
   const [generating, setGenerating] = useState('');
   const [waMessage, setWaMessage] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [runLogKey, setRunLogKey] = useState(0);
 
   const load = async () => {
     if (!id) return;
@@ -48,6 +50,7 @@ export default function AdminRequestDetailPage() {
       setProposal(data.proposal_draft || '');
       const wa = await getWhatsAppMessage(Number(id));
       setWaMessage(wa.message);
+      setRunLogKey((k) => k + 1);
     } catch {
       navigate('/admin/login');
     }
@@ -125,6 +128,8 @@ export default function AdminRequestDetailPage() {
           </Link>
         </div>
       </div>
+
+      <RequestRunLogPanel requestId={request.id} refreshKey={runLogKey} />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

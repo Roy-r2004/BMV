@@ -14,6 +14,7 @@ from app.api.v1.api_router import api_router
 from app.core.config import settings
 from app.infrastructure.logging import configure_logging, get_logger
 from app.domain.models import (  # noqa: F401
+    AdminAlert,
     AdminSettings,
     AiUsageEvent,
     AppSpecRevision,

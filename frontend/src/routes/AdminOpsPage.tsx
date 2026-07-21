@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  ackAdminAlert,
+  ackAllAdminAlerts,
   getAdminOverview,
   hasAdminSession,
   updateAdminSettings,
@@ -54,6 +56,7 @@ export default function AdminOpsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
+  const [requestBudgetInput, setRequestBudgetInput] = useState('');
   const [message, setMessage] = useState('');
 
   const load = useCallback(async () => {
@@ -62,6 +65,9 @@ export default function AdminOpsPage() {
       const data = await getAdminOverview();
       setOverview(data);
       setBudgetInput(data.daily_budget_usd != null ? String(data.daily_budget_usd) : '');
+      setRequestBudgetInput(
+        data.request_budget_usd != null ? String(data.request_budget_usd) : '',
+      );
     } catch {
       navigate('/admin/login');
     } finally {
@@ -134,6 +140,116 @@ export default function AdminOpsPage() {
 
       {message ? <div className="ac-toast">{message}</div> : null}
 
+      {(overview.alerts?.length || 0) > 0 ? (
+        <section className="ac-panel" style={{ marginBottom: '0.9rem' }}>
+          <div className="ac-panel__head">
+            <h2 className="ac-panel__title">Alerts ({overview.unread_alerts ?? overview.alerts?.length})</h2>
+            <button
+              type="button"
+              className="ac-btn"
+              style={{ width: 'auto' }}
+              onClick={async () => {
+                await ackAllAdminAlerts();
+                load();
+              }}
+            >
+              Ack all
+            </button>
+          </div>
+          <ul className="ac-status-list">
+            {(overview.alerts || []).slice(0, 8).map((a) => (
+              <li key={a.id} style={{ gridTemplateColumns: '1fr auto' }}>
+                <div>
+                  <div className="ac-strong">
+                    <span className={a.severity === 'critical' ? 'ac-fail' : a.severity === 'warn' ? 'ac-kpi--warn' : 'ac-ok'}>
+                      [{a.severity}]
+                    </span>{' '}
+                    {a.title}
+                  </div>
+                  <div className="ac-muted" style={{ fontSize: '0.78rem' }}>
+                    {a.body}
+                    {a.request_id ? (
+                      <>
+                        {' · '}
+                        <Link className="ac-row-link" to={`/admin/requests/${a.request_id}`}>
+                          #{a.request_id}
+                        </Link>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="ac-btn"
+                  style={{ width: 'auto', minHeight: '2.2rem' }}
+                  onClick={async () => {
+                    await ackAdminAlert(a.id);
+                    load();
+                  }}
+                >
+                  Ack
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="ac-panel" style={{ marginBottom: '0.9rem' }}>
+        <div className="ac-panel__head">
+          <h2 className="ac-panel__title">Action queue</h2>
+          <span className="ac-muted">{(overview.action_queue || []).length} items</span>
+        </div>
+        {(overview.action_queue || []).length === 0 ? (
+          <p className="ac-ok">Queue clear — nothing urgent.</p>
+        ) : (
+          <div className="ac-table-wrap">
+            <table className="ac-table">
+              <thead>
+                <tr>
+                  <th>Need</th>
+                  <th>Request</th>
+                  <th>Stage</th>
+                  <th>Cost</th>
+                  <th>Why</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {(overview.action_queue || []).map((item) => (
+                  <tr key={`${item.kind}-${item.request_id}`}>
+                    <td>
+                      <span
+                        className={
+                          item.kind === 'failed' || item.kind === 'stuck'
+                            ? 'ac-fail'
+                            : item.kind === 'build_requested'
+                              ? 'ac-ok'
+                              : 'ac-muted'
+                        }
+                      >
+                        {item.kind.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="ac-strong">
+                      #{item.request_id} {item.business_name}
+                    </td>
+                    <td>{item.stage || '—'}{item.pct != null ? ` · ${item.pct}%` : ''}</td>
+                    <td className="ac-num">{money(item.cost_usd)}</td>
+                    <td>{item.reason}</td>
+                    <td>
+                      <Link className="ac-row-link" to={`/admin/requests/${item.request_id}`}>
+                        Open →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <section className="ac-kpis">
         <article className="ac-kpi">
           <p className="ac-kpi__label">Cost today</p>
@@ -162,7 +278,14 @@ export default function AdminOpsPage() {
           <h2 className="ac-panel__title">Control plane</h2>
           <span className="ac-muted">Instant kill switches</span>
         </div>
-        <div className="ac-grid-3" style={{ marginBottom: 0 }}>
+        <div
+          style={{
+            display: 'grid',
+            gap: '0.9rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            marginBottom: 0,
+          }}
+        >
           <div className={`ac-control ${aiOn ? 'ac-control--live' : 'ac-control--off'}`}>
             <div className="ac-control__top">
               <h3 className="ac-control__title">Master AI</h3>
@@ -274,6 +397,61 @@ export default function AdminOpsPage() {
                 </div>
               </div>
             ) : null}
+          </div>
+
+          <div className="ac-control">
+            <div className="ac-control__top">
+              <h3 className="ac-control__title">Per-request cap</h3>
+              <span className="ac-pill ac-pill--muted">
+                {overview.request_budget_usd == null ? 'No cap' : 'Hard stop'}
+              </span>
+            </div>
+            <p className="ac-control__desc">
+              Blocks more AI calls on a single request once this USD total is hit.
+            </p>
+            <div style={{ display: 'flex', gap: '0.45rem', marginBottom: '0.45rem' }}>
+              <input
+                type="number"
+                min={0}
+                step={0.25}
+                placeholder="No cap"
+                value={requestBudgetInput}
+                onChange={(e) => setRequestBudgetInput(e.target.value)}
+                className="ac-input"
+              />
+              <button
+                type="button"
+                disabled={saving}
+                className="ac-btn ac-btn--primary"
+                onClick={() => {
+                  const v = requestBudgetInput.trim();
+                  if (!v) {
+                    patch({ clear_request_budget: true }, 'Request budget cleared');
+                    return;
+                  }
+                  const n = Number(v);
+                  if (Number.isNaN(n) || n < 0) {
+                    setMessage('Enter a valid request budget');
+                    return;
+                  }
+                  patch({ request_budget_usd: n }, `Request cap set to $${n}`);
+                }}
+              >
+                Save
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={saving}
+              className="ac-btn"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() => {
+                setRequestBudgetInput('');
+                patch({ clear_request_budget: true }, 'Request budget cleared');
+              }}
+            >
+              Clear cap
+            </button>
           </div>
         </div>
       </section>

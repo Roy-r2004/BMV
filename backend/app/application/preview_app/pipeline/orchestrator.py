@@ -9,6 +9,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.application.preview_app.ai_budget import request_mutation_boundary
+from app.application.services.ai_context import ai_run_scope
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
@@ -33,6 +34,23 @@ def generate_preview_app(
     template_renderer: TemplateRenderer,
     app_spec_revision_id: int | None = None,
 ) -> dict:
+    with ai_run_scope(request_id, purpose="codegen"):
+        return _generate_preview_app_inner(
+            db,
+            request_id,
+            ai_provider,
+            template_renderer,
+            app_spec_revision_id=app_spec_revision_id,
+        )
+
+
+def _generate_preview_app_inner(
+    db: Session,
+    request_id: int,
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+    app_spec_revision_id: int | None = None,
+) -> dict:
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req:
         raise ValueError(f"Request {request_id} not found")
@@ -41,7 +59,6 @@ def generate_preview_app(
 
     log.info("Starting preview pipeline for request %s", request_id)
     pipeline_watch = WatchBmv(f"preview request={request_id}", log).start()
-
 
     ctx = PipelineContext(
         db=db,
@@ -61,7 +78,7 @@ def generate_preview_app(
         run_build_phase(ctx)
         result = run_finalize(ctx)
         return result
-    except Exception as exc:
+    except Exception:
         raise
 
 

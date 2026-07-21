@@ -51,6 +51,7 @@ class Request(Base):
     reference_metadata = Column(Text, nullable=True)
 
     generation_log = Column(Text, nullable=True)  # JSON progress snapshot written during generation
+    generation_cancel = Column(Boolean, default=False)  # admin cancel flag for live runs
 
     build_requested = Column(Boolean, default=False)
     build_requested_at = Column(DateTime, nullable=True)

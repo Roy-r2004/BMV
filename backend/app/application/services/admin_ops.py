@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from threading import Lock
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -26,6 +26,7 @@ def _settings_snapshot(row: AdminSettings) -> dict:
         "ai_enabled": bool(row.ai_enabled),
         "site_chat_enabled": bool(row.site_chat_enabled),
         "daily_budget_usd": row.daily_budget_usd,
+        "request_budget_usd": getattr(row, "request_budget_usd", None),
     }
 
 # Rough $/1M token fallback when OpenRouter omits usage.cost
@@ -66,6 +67,7 @@ def ensure_settings(db: Session) -> AdminSettings:
         ai_enabled=True,
         site_chat_enabled=bool(settings.SITE_CHAT_ENABLED),
         daily_budget_usd=None,
+        request_budget_usd=None,
     )
     db.add(row)
     db.commit()
@@ -76,12 +78,13 @@ def ensure_settings(db: Session) -> AdminSettings:
 class _SettingsView:
     """Detached settings snapshot safe for closed sessions."""
 
-    __slots__ = ("ai_enabled", "site_chat_enabled", "daily_budget_usd")
+    __slots__ = ("ai_enabled", "site_chat_enabled", "daily_budget_usd", "request_budget_usd")
 
     def __init__(self, data: dict) -> None:
         self.ai_enabled = bool(data["ai_enabled"])
         self.site_chat_enabled = bool(data["site_chat_enabled"])
         self.daily_budget_usd = data["daily_budget_usd"]
+        self.request_budget_usd = data.get("request_budget_usd")
 
 
 def get_settings(db: Session | None = None) -> _SettingsView:
@@ -121,6 +124,7 @@ def update_settings(
     ai_enabled: bool | None = None,
     site_chat_enabled: bool | None = None,
     daily_budget_usd: float | None | object = ...,
+    request_budget_usd: float | None | object = ...,
 ) -> AdminSettings:
     row = ensure_settings(db)
     if ai_enabled is not None:
@@ -129,11 +133,22 @@ def update_settings(
         row.site_chat_enabled = bool(site_chat_enabled)
     if daily_budget_usd is not ...:
         row.daily_budget_usd = daily_budget_usd  # type: ignore[assignment]
+    if request_budget_usd is not ...:
+        row.request_budget_usd = request_budget_usd  # type: ignore[assignment]
     row.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(row)
     invalidate_settings_cache()
     return row
+
+
+def request_cost(db: Session, request_id: int) -> float:
+    val = (
+        db.query(func.coalesce(func.sum(AiUsageEvent.cost_usd), 0.0))
+        .filter(AiUsageEvent.request_id == request_id, AiUsageEvent.success.is_(True))
+        .scalar()
+    )
+    return float(val or 0.0)
 
 
 def cost_since(db: Session, since: datetime) -> float:
@@ -170,9 +185,54 @@ def ai_is_allowed(purpose: str = "pipeline") -> tuple[bool, str]:
             start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
             spent = cost_since(db, start)
             if spent >= float(cfg.daily_budget_usd):
+                try:
+                    from app.application.services.admin_alerts import emit_alert
+
+                    emit_alert(
+                        kind="daily_budget",
+                        severity="critical",
+                        title="Daily AI budget reached",
+                        body=f"${spent:.2f} / ${cfg.daily_budget_usd:.2f}",
+                        dedupe_minutes=60,
+                    )
+                except Exception:
+                    pass
                 return False, f"Daily AI budget reached (${spent:.2f} / ${cfg.daily_budget_usd:.2f})."
         finally:
             db.close()
+
+    # Per-request hard cap (pipeline / vision only)
+    if cfg.request_budget_usd is not None and cfg.request_budget_usd >= 0:
+        from app.application.services.ai_context import get_ai_request_id
+
+        rid = get_ai_request_id()
+        if rid:
+            db = SessionLocal()
+            try:
+                spent = request_cost(db, rid)
+                if spent >= float(cfg.request_budget_usd):
+                    try:
+                        from app.application.services.admin_alerts import emit_alert
+
+                        emit_alert(
+                            kind="request_budget",
+                            severity="critical",
+                            title=f"Request #{rid} hit cost cap",
+                            body=f"${spent:.4f} / ${cfg.request_budget_usd:.2f}",
+                            request_id=rid,
+                            dedupe_minutes=30,
+                        )
+                    except Exception:
+                        pass
+                    return False, (
+                        f"Request AI budget reached (${spent:.4f} / ${cfg.request_budget_usd:.2f})."
+                    )
+                req = db.query(Request).filter(Request.id == rid).first()
+                if req and getattr(req, "generation_cancel", False):
+                    return False, "Generation cancelled by admin."
+            finally:
+                db.close()
+
     return True, ""
 
 
@@ -190,6 +250,14 @@ def record_usage(
     error: str | None = None,
     latency_ms: int | None = None,
 ) -> None:
+    from app.application.services.ai_context import get_ai_purpose, get_ai_request_id
+
+    if request_id is None:
+        request_id = get_ai_request_id()
+    ctx_purpose = get_ai_purpose()
+    if ctx_purpose and purpose in ("unknown", "pipeline", "vision"):
+        purpose = ctx_purpose
+
     if total_tokens <= 0:
         total_tokens = prompt_tokens + completion_tokens
     if cost_usd is None and success:
@@ -311,11 +379,19 @@ def build_overview(db: Session) -> dict:
     cost_today = cost_since(db, day_start)
     cost_7d = cost_since(db, week_start)
 
+    from app.application.services.admin_alerts import list_alerts
+    from app.domain.models.admin_ops import AdminAlert
+
+    unread_alerts = (
+        db.query(func.count(AdminAlert.id)).filter(AdminAlert.acknowledged.is_(False)).scalar() or 0
+    )
+
     return {
         "provider": settings.AI_PROVIDER,
         "ai_enabled": bool(cfg.ai_enabled),
         "site_chat_enabled": bool(cfg.site_chat_enabled),
         "daily_budget_usd": cfg.daily_budget_usd,
+        "request_budget_usd": getattr(cfg, "request_budget_usd", None),
         "requests_total": int(total_requests),
         "requests_today": int(requests_today),
         "by_status": by_status,
@@ -327,12 +403,100 @@ def build_overview(db: Session) -> dict:
         "top_models_today": top_models,
         "recent_failures": [_event_dict(e) for e in failures],
         "recent_usage": [_event_dict(e) for e in recent_usage],
+        "action_queue": build_action_queue(db),
+        "alerts": list_alerts(db, unread_only=True, limit=20),
+        "unread_alerts": int(unread_alerts),
         "budget_remaining_usd": (
             None
             if cfg.daily_budget_usd is None
             else round(max(0.0, float(cfg.daily_budget_usd) - cost_today), 4)
         ),
     }
+
+
+def build_action_queue(db: Session, *, limit: int = 40) -> list[dict]:
+    """Prioritized work items for the admin home screen."""
+    from app.application.services.progress import FAILED_STAGES, is_request_generating, parse_progress_snapshot
+
+    items: list[dict] = []
+    recent = db.query(Request).order_by(Request.updated_at.desc()).limit(120).all()
+    costs = costs_for_request_ids(db, [r.id for r in recent])
+    now = datetime.utcnow()
+
+    for req in recent:
+        snap = parse_progress_snapshot(getattr(req, "generation_log", None))
+        stage = str(snap.get("stage") or "")
+        generating = is_request_generating(req)
+        cost = (costs.get(req.id) or {}).get("cost_usd", 0.0)
+        base = {
+            "request_id": req.id,
+            "business_name": req.business_name,
+            "status": req.status,
+            "stage": stage or None,
+            "pct": snap.get("pct"),
+            "label": snap.get("label"),
+            "cost_usd": cost,
+            "email": req.email,
+            "updated_at": req.updated_at.isoformat() if req.updated_at else None,
+        }
+
+        if req.build_requested and req.status in ("new", "reviewing", "proposal sent", None, ""):
+            items.append({**base, "kind": "build_requested", "priority": 10, "reason": "Customer requested a build"})
+
+        if stage in FAILED_STAGES or req.status == "failed":
+            items.append({**base, "kind": "failed", "priority": 20, "reason": snap.get("label") or "Generation failed"})
+
+        if generating:
+            # Stuck if no update for 20+ minutes
+            stuck = False
+            try:
+                updated = req.updated_at or req.created_at
+                if updated and (now - updated).total_seconds() > 20 * 60:
+                    stuck = True
+            except Exception:
+                pass
+            if stuck:
+                items.append({**base, "kind": "stuck", "priority": 15, "reason": "No progress for 20+ minutes"})
+            else:
+                items.append({**base, "kind": "running", "priority": 40, "reason": snap.get("label") or "Generating"})
+
+        if req.status == "new" and not generating and stage not in FAILED_STAGES:
+            age_h = 0.0
+            try:
+                if req.created_at:
+                    age_h = (now - req.created_at).total_seconds() / 3600
+            except Exception:
+                pass
+            items.append(
+                {
+                    **base,
+                    "kind": "new",
+                    "priority": 30,
+                    "reason": f"New submission ({age_h:.1f}h ago)" if age_h else "New submission",
+                }
+            )
+
+        cfg = get_settings()
+        if cfg.request_budget_usd is not None and cost >= float(cfg.request_budget_usd) * 0.85:
+            items.append(
+                {
+                    **base,
+                    "kind": "cost_warn",
+                    "priority": 25,
+                    "reason": f"Near/over request cap (${cost:.4f})",
+                }
+            )
+
+    # Deduplicate by (request_id, kind), keep highest priority (lowest number)
+    best: dict[tuple[int, str], dict] = {}
+    for it in items:
+        key = (it["request_id"], it["kind"])
+        prev = best.get(key)
+        if prev is None or it["priority"] < prev["priority"]:
+            best[key] = it
+
+    ordered = sorted(best.values(), key=lambda x: (x["priority"], -(x.get("cost_usd") or 0)))
+    return ordered[:limit]
 
 
 def _event_dict(e: AiUsageEvent) -> dict:
@@ -363,3 +527,140 @@ def list_usage(db: Session, *, days: int = 7, limit: int = 200) -> list[dict]:
         .all()
     )
     return [_event_dict(r) for r in rows]
+
+
+def costs_for_request_ids(db: Session, request_ids: list[int]) -> dict[int, dict]:
+    """Aggregate AI spend per request id."""
+    if not request_ids:
+        return {}
+    rows = (
+        db.query(
+            AiUsageEvent.request_id,
+            func.count(AiUsageEvent.id),
+            func.coalesce(func.sum(AiUsageEvent.cost_usd), 0.0),
+            func.coalesce(func.sum(AiUsageEvent.total_tokens), 0),
+            func.coalesce(
+                func.sum(case((AiUsageEvent.success.is_(False), 1), else_=0)),
+                0,
+            ),
+        )
+        .filter(AiUsageEvent.request_id.in_(request_ids))
+        .group_by(AiUsageEvent.request_id)
+        .all()
+    )
+    out: dict[int, dict] = {}
+    for rid, calls, cost, tokens, fails in rows:
+        if rid is None:
+            continue
+        out[int(rid)] = {
+            "calls": int(calls or 0),
+            "cost_usd": round(float(cost or 0), 6),
+            "tokens": int(tokens or 0),
+            "failed_calls": int(fails or 0),
+        }
+    return out
+
+
+def build_request_run_log(db: Session, request_id: int) -> dict | None:
+    """Cost totals + AI events + generation progress log for one request."""
+    from app.application.services.progress import parse_progress_snapshot
+
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        return None
+
+    events = (
+        db.query(AiUsageEvent)
+        .filter(AiUsageEvent.request_id == request_id)
+        .order_by(AiUsageEvent.created_at.asc(), AiUsageEvent.id.asc())
+        .all()
+    )
+    event_dicts = [_event_dict(e) for e in events]
+
+    cost_total = sum(float(e.cost_usd or 0) for e in events if e.success)
+    tokens_total = sum(int(e.total_tokens or 0) for e in events)
+    failed = sum(1 for e in events if not e.success)
+
+    by_purpose: dict[str, dict] = {}
+    by_model: dict[str, dict] = {}
+    for e in events:
+        for bucket, key in ((by_purpose, e.purpose or "unknown"), (by_model, e.model or "unknown")):
+            row = bucket.setdefault(key, {"calls": 0, "cost_usd": 0.0, "tokens": 0, "failed": 0})
+            row["calls"] += 1
+            row["tokens"] += int(e.total_tokens or 0)
+            if e.success:
+                row["cost_usd"] += float(e.cost_usd or 0)
+            else:
+                row["failed"] += 1
+
+    def _sorted(bucket: dict[str, dict]) -> list[dict]:
+        return [
+            {"key": k, **{**v, "cost_usd": round(v["cost_usd"], 6)}}
+            for k, v in sorted(bucket.items(), key=lambda kv: kv[1]["cost_usd"], reverse=True)
+        ]
+
+    progress = parse_progress_snapshot(getattr(req, "generation_log", None))
+    progress_log = progress.get("log") if isinstance(progress.get("log"), list) else []
+
+    # Unified timeline for the admin UI
+    timeline: list[dict] = []
+    for item in progress_log:
+        if not isinstance(item, dict):
+            continue
+        timeline.append(
+            {
+                "kind": "progress",
+                "at": item.get("t"),
+                "message": item.get("msg") or "",
+                "detail": item.get("detail") or "",
+            }
+        )
+    for e in event_dicts:
+        ts = None
+        if e.get("created_at"):
+            try:
+                ts = int(datetime.fromisoformat(e["created_at"]).timestamp())
+            except Exception:
+                ts = None
+        timeline.append(
+            {
+                "kind": "ai",
+                "at": ts,
+                "message": f"{'OK' if e.get('success') else 'FAIL'} · {e.get('purpose')} · {e.get('model')}",
+                "detail": e.get("error") or "",
+                "cost_usd": e.get("cost_usd"),
+                "tokens": e.get("total_tokens"),
+                "latency_ms": e.get("latency_ms"),
+                "success": e.get("success"),
+                "event_id": e.get("id"),
+            }
+        )
+    timeline.sort(key=lambda x: (x.get("at") is None, x.get("at") or 0))
+
+    from app.application.services.progress import is_request_generating
+
+    return {
+        "request_id": request_id,
+        "business_name": req.business_name,
+        "status": req.status,
+        "cost_usd": round(cost_total, 6),
+        "tokens": tokens_total,
+        "calls": len(events),
+        "failed_calls": failed,
+        "is_generating": is_request_generating(req),
+        "cancel_requested": bool(getattr(req, "generation_cancel", False)),
+        "by_purpose": _sorted(by_purpose),
+        "by_model": _sorted(by_model),
+        "usage_events": event_dicts,
+        "progress": {
+            "stage": progress.get("stage"),
+            "label": progress.get("label"),
+            "pct": progress.get("pct"),
+            "detail": progress.get("detail"),
+            "files_done": progress.get("files_done"),
+            "files_total": progress.get("files_total"),
+            "updated_at": progress.get("updated_at"),
+            "log": progress_log,
+        },
+        "timeline": timeline,
+    }

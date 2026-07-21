@@ -54,7 +54,16 @@ class GenerationPipeline:
         self.log = get_logger(self.__class__)
 
     def run(self, db: Session, request_id: int) -> dict:
+        from app.application.services.ai_context import ai_run_scope
+
+        with ai_run_scope(request_id, purpose="pipeline"):
+            return self._run_inner(db, request_id)
+
+    def _run_inner(self, db: Session, request_id: int) -> dict:
         req = get_request(db, request_id)
+        if getattr(req, "generation_cancel", False):
+            req.generation_cancel = False
+            db.commit()
         self.log.info("Starting full generation pipeline for request %s (%s)", request_id, req.business_name)
         pipeline_watch = WatchBmv(f"generation-pipeline request={request_id}", self.log).start()
 

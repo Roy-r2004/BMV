@@ -1,11 +1,38 @@
 import { apiClient, getAdminHeaders } from './client';
 import type { RequestDetail, RequestListItem } from '../types/request';
 
+export type AdminActionItem = {
+  request_id: number;
+  business_name: string;
+  status: string;
+  stage?: string | null;
+  pct?: number | null;
+  label?: string | null;
+  cost_usd?: number;
+  email?: string;
+  updated_at?: string | null;
+  kind: string;
+  priority: number;
+  reason: string;
+};
+
+export type AdminAlert = {
+  id: number;
+  created_at: string | null;
+  kind: string;
+  severity: string;
+  title: string;
+  body: string | null;
+  request_id: number | null;
+  acknowledged: boolean;
+};
+
 export type AdminOverview = {
   provider: string;
   ai_enabled: boolean;
   site_chat_enabled: boolean;
   daily_budget_usd: number | null;
+  request_budget_usd?: number | null;
   budget_remaining_usd: number | null;
   requests_total: number;
   requests_today: number;
@@ -15,6 +42,9 @@ export type AdminOverview = {
   tokens_today: number;
   calls_today: number;
   failed_today: number;
+  unread_alerts?: number;
+  action_queue?: AdminActionItem[];
+  alerts?: AdminAlert[];
   top_models_today: Array<{
     model: string;
     calls: number;
@@ -45,6 +75,7 @@ export type AdminSettings = {
   ai_enabled: boolean;
   site_chat_enabled: boolean;
   daily_budget_usd: number | null;
+  request_budget_usd?: number | null;
   updated_at?: string | null;
 };
 
@@ -106,11 +137,27 @@ export async function updateAdminSettings(body: {
   site_chat_enabled?: boolean;
   daily_budget_usd?: number | null;
   clear_daily_budget?: boolean;
+  request_budget_usd?: number | null;
+  clear_request_budget?: boolean;
 }): Promise<AdminSettings> {
   const { data } = await apiClient.patch('/api/admin/settings', body, {
     headers: getAdminHeaders(),
   });
   return data;
+}
+
+export async function ackAdminAlert(id: number): Promise<void> {
+  await apiClient.post(`/api/admin/alerts/${id}/ack`, null, { headers: getAdminHeaders() });
+}
+
+export async function ackAllAdminAlerts(): Promise<void> {
+  await apiClient.post('/api/admin/alerts/ack-all', null, { headers: getAdminHeaders() });
+}
+
+export async function cancelRequestGeneration(id: number): Promise<void> {
+  await apiClient.post(`/api/admin/requests/${id}/cancel-generation`, null, {
+    headers: getAdminHeaders(),
+  });
 }
 
 export async function listAdminUsage(days = 7, limit = 200): Promise<{ days: number; events: AiUsageEvent[] }> {
@@ -132,6 +179,49 @@ export async function listRequests(status?: string): Promise<RequestListItem[]> 
 
 export async function getRequest(id: number): Promise<RequestDetail> {
   const { data } = await apiClient.get(`/api/admin/requests/${id}`, {
+    headers: getAdminHeaders(),
+  });
+  return data;
+}
+
+export type RequestRunLog = {
+  request_id: number;
+  business_name: string;
+  status: string;
+  cost_usd: number;
+  tokens: number;
+  calls: number;
+  failed_calls: number;
+  is_generating?: boolean;
+  cancel_requested?: boolean;
+  by_purpose: Array<{ key: string; calls: number; cost_usd: number; tokens: number; failed: number }>;
+  by_model: Array<{ key: string; calls: number; cost_usd: number; tokens: number; failed: number }>;
+  usage_events: AiUsageEvent[];
+  progress: {
+    stage?: string;
+    label?: string;
+    pct?: number;
+    detail?: string;
+    files_done?: number;
+    files_total?: number;
+    updated_at?: string;
+    log?: Array<{ t?: number; msg?: string; detail?: string; stage?: string; pct?: number }>;
+  };
+  timeline: Array<{
+    kind: 'progress' | 'ai';
+    at: number | null;
+    message: string;
+    detail?: string;
+    cost_usd?: number | null;
+    tokens?: number | null;
+    latency_ms?: number | null;
+    success?: boolean;
+    event_id?: number;
+  }>;
+};
+
+export async function getRequestRunLog(id: number): Promise<RequestRunLog> {
+  const { data } = await apiClient.get(`/api/admin/requests/${id}/run-log`, {
     headers: getAdminHeaders(),
   });
   return data;

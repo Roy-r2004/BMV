@@ -196,7 +196,17 @@ def emit(
         log.append({
             "t": int(datetime.now(timezone.utc).timestamp()),
             "msg": label,
+            "detail": detail or "",
+            "stage": stage,
+            "pct": max(0, min(100, pct)),
         })
+
+        try:
+            from app.application.services.ai_context import set_ai_purpose
+
+            set_ai_purpose(stage)
+        except Exception:
+            pass
 
         reset = (
             (stage in _RESET_STAGES and prev_stage not in _RESET_STAGES)
@@ -227,11 +237,40 @@ def emit(
             "detail": detail,
             "files_done": clamped_files_done,
             "files_total": clamped_files_total,
-            "log": log[-50:],
+            "log": log[-500:],
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         req.generation_log = json.dumps(snapshot)
         db.commit()
+
+        if stage in FAILED_STAGES:
+            try:
+                from app.application.services.admin_alerts import emit_alert
+
+                emit_alert(
+                    kind="generation_failed",
+                    severity="critical",
+                    title=f"Generation failed · #{req_id}",
+                    body=label or detail or "Pipeline failed",
+                    request_id=req_id,
+                    dedupe_minutes=15,
+                )
+            except Exception:
+                pass
+        elif stage in {"done", "ready"}:
+            try:
+                from app.application.services.admin_alerts import emit_alert
+
+                emit_alert(
+                    kind="generation_ready",
+                    severity="info",
+                    title=f"Preview ready · #{req_id}",
+                    body=label or "Generation complete",
+                    request_id=req_id,
+                    dedupe_minutes=30,
+                )
+            except Exception:
+                pass
     except Exception:
         pass  # Progress tracking must never crash the pipeline

@@ -63,6 +63,8 @@ class Settings:
         "yes",
         "on",
     )
+    # Optional Discord/Slack/generic webhook for admin alerts (POST JSON).
+    ADMIN_ALERT_WEBHOOK_URL: str = (os.getenv("ADMIN_ALERT_WEBHOOK_URL") or "").strip()
 
     # Seed PlateSync demo on boot when gallery is empty (local/dev). Off in production.
     SEED_DEMO: bool = os.getenv("SEED_DEMO", "true").strip().lower() in (

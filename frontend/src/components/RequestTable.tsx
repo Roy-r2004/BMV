@@ -22,6 +22,7 @@ export default function RequestTable({ requests }: Props) {
             <th>Contact</th>
             <th>Status</th>
             <th>Fit</th>
+            <th>AI cost</th>
             <th>Submitted</th>
             <th />
           </tr>
@@ -45,6 +46,13 @@ export default function RequestTable({ requests }: Props) {
                 <RequestStatusBadge status={r.status} />
               </td>
               <td className="ac-num">{r.business_fit_score ?? '—'}</td>
+              <td className="ac-num" title={r.ai_calls ? `${r.ai_calls} calls · ${(r.ai_tokens || 0).toLocaleString()} tokens` : undefined}>
+                {r.cost_usd != null && r.cost_usd > 0
+                  ? `$${r.cost_usd >= 1 ? r.cost_usd.toFixed(2) : r.cost_usd.toFixed(4)}`
+                  : r.ai_calls
+                    ? '$0'
+                    : '—'}
+              </td>
               <td>
                 {new Date(r.created_at).toLocaleDateString(undefined, {
                   month: 'short',

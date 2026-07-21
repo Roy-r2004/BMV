@@ -1,4 +1,4 @@
-from app.domain.models.admin_ops import AdminSettings, AiUsageEvent
+from app.domain.models.admin_ops import AdminAlert, AdminSettings, AiUsageEvent
 from app.domain.models.app_spec import AppSpecRevision
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.request import Request
@@ -16,4 +16,5 @@ __all__ = [
     "SolutionEditMessage",
     "AdminSettings",
     "AiUsageEvent",
+    "AdminAlert",
 ]

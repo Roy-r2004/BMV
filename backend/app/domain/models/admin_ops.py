@@ -1,4 +1,4 @@
-"""Admin ops models — runtime settings + AI usage / cost events."""
+"""Admin ops models — runtime settings + AI usage / cost events + alerts."""
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
@@ -15,6 +15,7 @@ class AdminSettings(Base):
     ai_enabled = Column(Boolean, nullable=False, default=True)
     site_chat_enabled = Column(Boolean, nullable=False, default=True)
     daily_budget_usd = Column(Float, nullable=True)  # None = no cap
+    request_budget_usd = Column(Float, nullable=True)  # hard stop per request
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -39,3 +40,18 @@ class AiUsageEvent(Base):
     success = Column(Boolean, nullable=False, default=True)
     error = Column(Text, nullable=True)
     latency_ms = Column(Integer, nullable=True)
+
+
+class AdminAlert(Base):
+    """In-app ops alerts (budget, failures, build requests, etc.)."""
+
+    __tablename__ = "admin_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    kind = Column(String, nullable=False, index=True)
+    severity = Column(String, nullable=False, default="info")  # info|warn|critical
+    title = Column(String, nullable=False)
+    body = Column(Text, nullable=True)
+    request_id = Column(Integer, nullable=True, index=True)
+    acknowledged = Column(Boolean, nullable=False, default=False)

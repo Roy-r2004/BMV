@@ -84,10 +84,13 @@ class AdminSettingsUpdate(BaseModel):
     # Use null to clear the daily budget cap
     daily_budget_usd: Optional[float] = None
     clear_daily_budget: bool = False
+    request_budget_usd: Optional[float] = None
+    clear_request_budget: bool = False
 
 
 class AdminSettingsResponse(BaseModel):
     ai_enabled: bool
     site_chat_enabled: bool
     daily_budget_usd: Optional[float] = None
+    request_budget_usd: Optional[float] = None
     updated_at: Optional[datetime] = None
