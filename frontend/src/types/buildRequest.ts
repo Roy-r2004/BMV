@@ -5,5 +5,4 @@ export interface BuildRequestContact {
   notes?: string;
   package_id?: 'launch' | 'growth' | 'custom';
   addon_ids?: string[];
-  estimate_from_usd?: number;
 }

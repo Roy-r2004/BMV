@@ -34,7 +34,7 @@ const steps = [
       </svg>
     ),
     title: 'Like what you see? Request the real build',
-    desc: 'Scroll down for your full blueprint and proposal, then ask our team to build the real working product.',
+    desc: 'Scroll down for your blueprint and build packages, then ask our team to build the real working product.',
   },
 ];
 

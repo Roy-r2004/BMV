@@ -12,7 +12,15 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.application.pipelines import blueprint, proposal, reference_analysis, role_pages, technical_plan, visual_demo
+from app.application.pipelines import (
+    blueprint,
+    build_plans,
+    proposal,
+    reference_analysis,
+    role_pages,
+    technical_plan,
+    visual_demo,
+)
 from app.application.pipelines._shared import fallback_visual_demo, get_request
 from app.application.preview_app import generate_preview_app
 from app.application.appspec import (
@@ -232,9 +240,16 @@ class GenerationPipeline:
             pass
 
         try:
-            _emit(db, request_id, "proposal", "Writing build proposal...", 95,
-                  detail="Cost estimate, timeline, and next steps")
+            _emit(db, request_id, "proposal", "Writing build proposal...", 93,
+                  detail="Internal proposal for the team")
             proposal.generate_proposal(db, request_id, self.ai_provider, self.template_renderer)
+        except Exception:
+            pass
+
+        try:
+            _emit(db, request_id, "build_plans", "Writing build packages...", 97,
+                  detail="Launch / Growth / Custom from your preview")
+            build_plans.generate_build_plans(db, request_id, self.ai_provider, self.template_renderer)
         except Exception:
             pass
 

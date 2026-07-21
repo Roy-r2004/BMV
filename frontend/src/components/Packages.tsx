@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { SectionHeading } from './AnimatedSection';
-import { BUILD_PLANS, formatFromUsd } from '../data/buildPlans';
+import { BUILD_PLANS } from '../data/buildPlans';
 
 export default function Packages() {
   return (
@@ -10,7 +10,7 @@ export default function Packages() {
         <SectionHeading
           eyebrow="Packages"
           title="Start free. Choose how we build."
-          subtitle="Soft “from” prices — exact quote after we confirm scope. No online checkout."
+          subtitle="After your live preview we write packages for your business. Pricing is quoted with you — never checkout online."
         />
         <div className="grid md:grid-cols-3 gap-5">
           {BUILD_PLANS.map((pkg, i) => (
@@ -28,10 +28,6 @@ export default function Packages() {
                 </span>
               ) : null}
               <h3 className="font-bold text-lg text-navy mb-0.5">{pkg.name}</h3>
-              <p className="text-xl font-bold text-slate-900 mb-1">
-                {formatFromUsd(pkg.fromUsd)}
-                {pkg.fromUsd != null ? <span className="text-sm font-medium text-slate-500"> USD</span> : null}
-              </p>
               <p className="text-xs font-medium text-slate-500 mb-2">{pkg.timeline}</p>
               <p className="text-slate-500 text-sm mb-4 leading-relaxed">{pkg.tagline}</p>
               <ul className="space-y-2 flex-1">
@@ -54,7 +50,8 @@ export default function Packages() {
           ))}
         </div>
         <p className="mt-6 text-center text-sm text-slate-500">
-          After your live preview you’ll pick a package, optional add-ons, and we’ll confirm the exact quote.
+          After your live preview you’ll pick a package and optional add-ons — we confirm the quote
+          with you.
         </p>
       </div>
     </section>

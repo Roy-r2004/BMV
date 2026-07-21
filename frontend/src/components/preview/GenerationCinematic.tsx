@@ -25,7 +25,7 @@ const STAGE_TO_STEP: Record<string, number> = {
   blueprint: 1, demo: 1, appspec: 1, appspec_failed: 1,
   codegen: 2, architect: 2,
   critic: 3, visual_critic: 3,
-  build: 4, build_done: 4, build_failed: 4, tech: 4, proposal: 4,
+  build: 4, build_done: 4, build_failed: 4, tech: 4, proposal: 4, build_plans: 4,
   done: 5, ready: 5, failed: 4,
 };
 
@@ -338,7 +338,7 @@ export default function GenerationCinematic({
             )}
 
             <p className="text-center text-[11px] text-white/25 max-w-sm leading-relaxed">
-              Keep this tab open — your live site, blueprint, technical plan, and proposal are being built. Typical runs take 5–15 minutes.
+              Keep this tab open — your live site, blueprint, technical plan, and build packages are being built. Typical runs take 5–15 minutes.
             </p>
           </>
         )}

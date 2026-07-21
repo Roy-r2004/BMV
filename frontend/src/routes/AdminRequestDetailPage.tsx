@@ -20,7 +20,8 @@ const GENERATE_ACTIONS = [
   { key: 'generate-blueprint', label: 'Regenerate Blueprint' },
   { key: 'generate-visual-demo', label: 'Generate Visual Demo' },
   { key: 'generate-technical-plan', label: 'Generate Technical Plan' },
-  { key: 'generate-proposal', label: 'Generate Proposal' },
+  { key: 'generate-proposal', label: 'Generate Proposal (admin)' },
+  { key: 'generate-build-plans', label: 'Generate Build Plans' },
   { key: 'generate-full', label: 'Generate Full Pipeline' },
 ];
 

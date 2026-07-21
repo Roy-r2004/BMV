@@ -50,6 +50,17 @@ export async function requestBuild(id: number, contact: BuildRequestContact): Pr
   return data;
 }
 
+export async function generateBuildPlans(
+  id: number,
+): Promise<{ ok: boolean; build_plans: PreviewResponse['build_plans'] }> {
+  const { data } = await apiClient.post(
+    `/api/requests/${id}/generate-build-plans`,
+    {},
+    { timeout: 180000 },
+  );
+  return data;
+}
+
 export async function getChatHistory(id: number): Promise<ChatMessage[]> {
   const { data } = await apiClient.get(`/api/requests/${id}/chat`);
   return data.messages;

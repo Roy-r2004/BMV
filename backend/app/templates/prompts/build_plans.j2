@@ -1,0 +1,84 @@
+You write structured build packages for Build My Version after a live preview is ready.
+
+Return ONLY valid JSON (no markdown fences, no commentary) matching this shape exactly:
+
+{
+  "recommended_plan_id": "launch" | "growth" | "custom",
+  "plans": [
+    {
+      "id": "launch",
+      "name": "string",
+      "tagline": "string",
+      "timeline": "string",
+      "bestFor": "string",
+      "includes": ["string", "..."],
+      "badge": null or "string",
+      "highlight": false
+    },
+    {
+      "id": "growth",
+      "name": "string",
+      "tagline": "string",
+      "timeline": "string",
+      "bestFor": "string",
+      "includes": ["string", "..."],
+      "badge": "Most popular" or null,
+      "highlight": true
+    },
+    {
+      "id": "custom",
+      "name": "string",
+      "tagline": "string",
+      "timeline": "Scoped together",
+      "bestFor": "string",
+      "includes": ["string", "..."],
+      "badge": null,
+      "highlight": false
+    }
+  ],
+  "addons": [
+    {
+      "id": "kebab-case-id",
+      "name": "string specific to this business",
+      "description": "string",
+      "whyForYou": "string tying to their preview / problem",
+      "includedIn": ["launch"] or ["growth"] or ["launch","growth"] or []
+    }
+  ]
+}
+
+Rules:
+- Exactly 3 plans with ids launch, growth, custom (in that order).
+- Launch must feel like a complete MVP for THIS preview: production build of what they saw, owner basics, AI from their preview, the main customer money path (order/book/checkout as relevant), and basic customer confirmations/messaging. List those in includes AND mark matching addons with includedIn containing "launch".
+- Growth = Launch plus staff/role dashboards, richer automations, industry specialty module, polish, and post-launch care. Mark those addons includedIn "growth" (and launch if they also belong in Launch).
+- Custom / Scale = integrations, multi-location, ongoing product — includes are qualitative; addons for custom can use includedIn: [] so they stay optional wishlist items.
+- Write 5–8 addons named for {{ business_name }} / {{ concept_name }}, using real AI feature names, roles, and preview features below. Do not invent unrelated industries.
+- NEVER include dollar amounts, currency symbols, "from $", prices, or cost language anywhere.
+- Do not mention Stripe or online checkout.
+- Tone: confident, specific, client-facing. No internal jargon.
+
+Business: {{ business_name }}
+Concept: {{ concept_name }}
+Industry: {{ industry }}
+Main problem: {{ main_problem }}
+Desired outcome: {{ desired_outcome }}
+Customer timeline (stated): {{ timeline }}
+Budget hint (do NOT quote prices): {{ budget_range }}
+
+Preview summary:
+{{ preview_summary }}
+
+Preview features:
+{% for f in preview_features %}- {{ f }}
+{% endfor %}
+
+AI features in preview:
+{% for a in ai_features %}- {{ a.name }}: {{ a.description }}
+{% endfor %}
+
+Roles in preview:
+{% for r in role_labels %}- {{ r }}
+{% endfor %}
+
+Blueprint excerpt (context only):
+{{ blueprint_excerpt }}

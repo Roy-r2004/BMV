@@ -312,7 +312,27 @@ export interface PreviewResponse {
   what_you_like?: string | null;
   mvp_blueprint?: string | null;
   technical_plan?: string | null;
-  proposal_draft?: string | null;
+  /** AI-written Launch/Growth/Custom + add-ons (no prices). */
+  build_plans?: {
+    recommended_plan_id?: 'launch' | 'growth' | 'custom';
+    plans?: Array<{
+      id: 'launch' | 'growth' | 'custom';
+      name: string;
+      tagline: string;
+      timeline: string;
+      bestFor: string;
+      includes: string[];
+      badge?: string | null;
+      highlight?: boolean;
+    }>;
+    addons?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      whyForYou?: string;
+      includedIn?: Array<'launch' | 'growth'>;
+    }>;
+  } | null;
   build_requested?: boolean;
 }
 

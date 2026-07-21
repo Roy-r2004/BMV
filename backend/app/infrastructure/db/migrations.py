@@ -16,6 +16,7 @@ _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
     ("existing_product_url", "ALTER TABLE requests ADD COLUMN existing_product_url VARCHAR"),
     ("generation_log", "ALTER TABLE requests ADD COLUMN generation_log TEXT"),
     ("ai_features", "ALTER TABLE requests ADD COLUMN ai_features TEXT"),
+    ("build_plans", "ALTER TABLE requests ADD COLUMN build_plans TEXT"),
 ]
 
 

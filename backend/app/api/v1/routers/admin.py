@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep, verify_admin
-from app.application.pipelines import blueprint, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
+from app.application.pipelines import blueprint, build_plans, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
 from app.application.appspec import ensure_approved_app_spec
 from app.application.appspec.repository import (
     AppSpecRepository,
@@ -238,6 +238,21 @@ def generate_proposal(
     try:
         result = proposal.generate_proposal(db, request_id, ai_provider, template_renderer)
         return GenerateResponse(success=True, message="Proposal generated", data=result)
+    except Exception as e:
+        return GenerateResponse(success=False, message=str(e))
+
+
+@router.post("/requests/{request_id}/generate-build-plans", response_model=GenerateResponse)
+def generate_build_plans_admin(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    ai_provider: AIProvider = Depends(get_ai_provider_dep),
+    template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
+):
+    try:
+        result = build_plans.generate_build_plans(db, request_id, ai_provider, template_renderer)
+        return GenerateResponse(success=True, message="Build plans generated", data=result)
     except Exception as e:
         return GenerateResponse(success=False, message=str(e))
 

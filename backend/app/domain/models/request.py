@@ -38,6 +38,8 @@ class Request(Base):
     visual_demo_json = Column(Text, nullable=True)
     technical_plan = Column(Text, nullable=True)
     proposal_draft = Column(Text, nullable=True)
+    # JSON: { recommended_plan_id, plans[], addons[] } — client-facing, no prices
+    build_plans = Column(Text, nullable=True)
 
     business_fit_score = Column(Integer, nullable=True)
     concept_name = Column(String, nullable=True)

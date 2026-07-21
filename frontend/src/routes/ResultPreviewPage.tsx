@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { getPreview, requestBuild } from '../api/requests';
+import { generateBuildPlans, getPreview, requestBuild } from '../api/requests';
 import type { PreviewResponse } from '../types/request';
 import PreviewRefineChat from '../components/PreviewRefineChat';
 import BuildRequestCTA from '../components/BuildRequestCTA';
@@ -252,7 +252,18 @@ export default function ResultPreviewPage() {
           roleLabels={(preview.generated_pages?.preview_app?.roles || []).map(
             (r) => r.label || r.id,
           )}
+          buildPlans={preview.build_plans}
           onRequestBuild={handleRequestBuild}
+          onRegeneratePlans={
+            isDemoView
+              ? undefined
+              : async () => {
+                  const res = await generateBuildPlans(preview.id);
+                  setPreview((prev) =>
+                    prev ? { ...prev, build_plans: res.build_plans ?? prev.build_plans } : prev,
+                  );
+                }
+          }
           buildRequested={preview.build_requested}
           demoView={isDemoView}
         />

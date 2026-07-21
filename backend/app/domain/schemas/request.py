@@ -33,7 +33,8 @@ class PreviewResponse(BaseModel):
     what_you_like: Optional[str] = None
     mvp_blueprint: Optional[str] = None
     technical_plan: Optional[str] = None
-    proposal_draft: Optional[str] = None
+    # Intentionally omitted from client preview: proposal_draft (admin-only).
+    build_plans: Optional[dict[str, Any]] = None
     build_requested: bool = False
 
 

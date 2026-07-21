@@ -8,7 +8,6 @@ import DeliverySection from './DeliverySection';
 import BlueprintShowcase from './BlueprintShowcase';
 import ReferenceAnalysisShowcase from './ReferenceAnalysisShowcase';
 import TechnicalShowcase from './TechnicalShowcase';
-import ProposalShowcase from './ProposalShowcase';
 import { hasReferenceAnalysis } from '../../utils/referenceAnalysis';
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -148,7 +147,7 @@ export default function FullDeliveryPackage({ preview, liveSiteAbove = false, hi
           Your complete business version
         </h2>
         <p className="text-slate-500 mt-2 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-          Live product, strategic blueprint, technical roadmap, and build proposal — all custom for {preview.business_name}.
+          Live product, strategic blueprint, and technical roadmap — all custom for {preview.business_name}.
         </p>
       </motion.div>
 
@@ -235,28 +234,6 @@ export default function FullDeliveryPackage({ preview, liveSiteAbove = false, hi
         )}
       </DeliverySection>
 
-      <DeliverySection
-        id="delivery-proposal"
-        number={num()}
-        eyebrow="Ready to build"
-        title="Your build proposal"
-        subtitle="Scope, deliverables, timeline, and next steps — written specifically for you."
-        defaultOpen
-        highlight
-        accent="violet"
-      >
-        {preview.proposal_draft ? (
-          <ProposalShowcase
-            content={preview.proposal_draft}
-            conceptName={preview.concept_name}
-            aiFeatures={preview.ai_features}
-          />
-        ) : (
-          <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-8 text-center">
-            <p className="text-sm text-slate-500">Proposal will appear here once generation completes.</p>
-          </div>
-        )}
-      </DeliverySection>
     </div>
   );
 }

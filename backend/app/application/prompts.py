@@ -24,6 +24,7 @@ class PromptTemplate:
     MVP_BLUEPRINT = "prompts/mvp_blueprint.j2"
     VISUAL_DEMO = "prompts/visual_demo.j2"
     PROPOSAL = "prompts/proposal.j2"
+    BUILD_PLANS = "prompts/build_plans.j2"
     PREVIEW_EXTRACTION = "prompts/preview_extraction.j2"
     PREVIEW_REFINEMENT = "prompts/preview_refinement.j2"
     HTML_PAGE = "prompts/html_page.j2"

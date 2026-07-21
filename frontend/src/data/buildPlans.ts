@@ -4,8 +4,6 @@ export interface BuildAddon {
   id: string;
   name: string;
   description: string;
-  /** Soft floor in USD; exact quote confirmed manually. */
-  fromUsd: number;
   /** Plans that already include this addon (cannot toggle off as extra). */
   includedIn?: Array<'launch' | 'growth'>;
   /** Why we suggested this for this business (shown as a small hint). */
@@ -16,8 +14,6 @@ export interface BuildPlan {
   id: 'launch' | 'growth' | 'custom';
   name: string;
   tagline: string;
-  /** Soft floor; null = custom quote only */
-  fromUsd: number | null;
   timeline: string;
   highlight?: boolean;
   badge?: string;
@@ -41,7 +37,6 @@ export const BUILD_PLANS: BuildPlan[] = [
     id: 'launch',
     name: 'Launch MVP',
     tagline: 'Ship the preview you just saw — for real.',
-    fromUsd: 1200,
     timeline: '4–8 weeks',
     bestFor: 'Getting live fast with your core customer + owner flows',
     includes: [
@@ -58,7 +53,6 @@ export const BUILD_PLANS: BuildPlan[] = [
     id: 'growth',
     name: 'Growth MVP',
     tagline: 'Launch + staff ops, polish, and post-launch care.',
-    fromUsd: 2800,
     timeline: '8–12 weeks',
     highlight: true,
     badge: 'Most popular',
@@ -76,7 +70,6 @@ export const BUILD_PLANS: BuildPlan[] = [
     id: 'custom',
     name: 'Custom / Scale',
     tagline: 'Integrations, multi-location, or ongoing product.',
-    fromUsd: null,
     timeline: 'Scoped together',
     bestFor: 'Complex ops, POS/CRM links, or a longer partnership',
     includes: [
@@ -157,7 +150,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'ai-pack',
       name: `AI suite for ${brand}`,
       description: `Wire previewed AI live: ${aiNames.join(', ')}.`,
-      fromUsd: 450,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Already in your preview — included in Launch.',
     });
@@ -166,7 +158,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'ai-pack',
       name: `Production-ready ${aiNames[0]}`,
       description: `Take “${aiNames[0]}” from demo to live with your real data and guardrails.`,
-      fromUsd: 350,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch MVP.',
     });
@@ -175,7 +166,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'ai-pack',
       name: `AI assistant for ${brand}`,
       description: 'A branded AI helper trained on your offerings and FAQs.',
-      fromUsd: 350,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch MVP.',
     });
@@ -187,7 +177,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Online ordering + payments',
       description: `Card checkout for ${brand} pickup/orders — cart through paid confirmation.`,
-      fromUsd: 550,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Core Launch path — not an upgrade.',
     });
@@ -196,7 +185,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Booking deposits & payments',
       description: 'Take deposits or full payment when customers book — fewer no-shows.',
-      fromUsd: 500,
       includedIn: ['launch', 'growth'],
       whyForYou: hasNoShow
         ? 'Your brief called out no-shows — covered in Launch.'
@@ -207,7 +195,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Shop checkout + catalog',
       description: 'Sell featured products with real checkout and order status.',
-      fromUsd: 550,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch — showcase becomes revenue.',
     });
@@ -216,7 +203,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Stay / experience booking payments',
       description: 'Secure reservations with deposits and confirmation emails.',
-      fromUsd: 550,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch — paid holds, not open calendars.',
     });
@@ -225,7 +211,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'payments',
       name: 'Payments for your main journey',
       description: 'Checkout wired into the primary action in your preview.',
-      fromUsd: 500,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch so the demo path can collect money.',
     });
@@ -237,7 +222,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'messaging',
       name: 'Order & table confirmations',
       description: 'WhatsApp/SMS for order-ready alerts and reservation reminders.',
-      fromUsd: 350,
       includedIn: ['launch', 'growth'],
       whyForYou: hasNoShow
         ? 'Matches your no-show / phone-order pain — in Launch.'
@@ -248,7 +232,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'messaging',
       name: 'Appointment reminders',
       description: 'WhatsApp/SMS before visits + easy reschedule links.',
-      fromUsd: 350,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch — protects your calendar.',
     });
@@ -257,7 +240,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'messaging',
       name: 'Customer messaging',
       description: 'Confirmations and follow-ups on WhatsApp or SMS.',
-      fromUsd: 350,
       includedIn: ['launch', 'growth'],
       whyForYou: 'Included in Launch — where customers already reply.',
     });
@@ -269,7 +251,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: `Dashboards for ${roles.slice(0, 3).join(' + ')}`,
       description: `Separate live workspaces for each role in your preview.`,
-      fromUsd: 300,
       includedIn: ['growth'],
       whyForYou: 'Your preview already defines these roles.',
     });
@@ -278,7 +259,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: 'Floor + kitchen ops views',
       description: 'Staff queue / ticket board separate from the owner dashboard.',
-      fromUsd: 300,
       includedIn: ['growth'],
       whyForYou: 'Cafe ops need more than one admin screen.',
     });
@@ -287,7 +267,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: 'Front desk + practitioner views',
       description: 'Reception books; practitioners see today’s clients.',
-      fromUsd: 300,
       includedIn: ['growth'],
       whyForYou: 'Two jobs, two screens — fewer mix-ups.',
     });
@@ -296,7 +275,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'roles',
       name: 'Extra staff / partner roles',
       description: 'Additional dashboards beyond the owner view.',
-      fromUsd: 300,
       includedIn: ['growth'],
       whyForYou: 'When more than one person runs the product daily.',
     });
@@ -308,7 +286,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Live menu & allergen data',
       description: 'Editable menu, modifiers, and allergen facts feeding your AI answers.',
-      fromUsd: 400,
       includedIn: ['growth'],
       whyForYou: /allergen|diet/.test(text)
         ? 'Your plan includes allergen / dietary AI.'
@@ -319,7 +296,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Client notes & rebooking',
       description: 'Treatment history, photos, and smart rebook prompts.',
-      fromUsd: 400,
       includedIn: ['growth'],
       whyForYou: 'Repeat visits are the business model.',
     });
@@ -328,7 +304,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Class packs & memberships',
       description: 'Sell packs, track credits, and gate class booking.',
-      fromUsd: 450,
       includedIn: ['growth'],
       whyForYou: 'Studios grow on packs, not one-off visits.',
     });
@@ -337,7 +312,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Inventory & low-stock alerts',
       description: 'Track SKUs and warn before bestsellers run out.',
-      fromUsd: 400,
       includedIn: ['growth'],
       whyForYou: 'Retail dies when the shelf is empty online.',
     });
@@ -346,7 +320,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Class schedule & enrollments',
       description: 'Sessions, seats, and student confirmations.',
-      fromUsd: 400,
       includedIn: ['growth'],
       whyForYou: 'Education needs seats, not a static brochure.',
     });
@@ -355,7 +328,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: 'Job / lead pipeline',
       description: 'Capture leads, assign jobs, and track status to done.',
-      fromUsd: 400,
       includedIn: ['growth'],
       whyForYou: 'Service businesses win on follow-through.',
     });
@@ -364,7 +336,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
       id: 'specialty',
       name: `Domain module for ${brand}`,
       description: 'A custom workflow module matched to your industry preview.',
-      fromUsd: 400,
       includedIn: ['growth'],
       whyForYou: 'Goes beyond a generic website template.',
     });
@@ -375,7 +346,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
     id: 'cinema',
     name: `Cinematic polish for ${brand}`,
     description: 'Hero photography art-direction, motion, and brand-first craft.',
-    fromUsd: 250,
     includedIn: ['growth'],
     whyForYou: 'Makes the live product feel as premium as the preview.',
   });
@@ -384,7 +354,6 @@ export function suggestBusinessAddons(ctx: BuildAddonContext): BuildAddon[] {
     id: 'care',
     name: '30-day care after launch',
     description: 'Priority fixes and small iterations once you’re live.',
-    fromUsd: 200,
     includedIn: ['growth'],
     whyForYou: 'First month is when real customers find edge cases.',
   });
@@ -398,13 +367,60 @@ export const BUILD_ADDONS: BuildAddon[] = suggestBusinessAddons({
   industry: 'general',
 });
 
-export function formatFromUsd(amount: number | null): string {
-  if (amount == null) return 'Custom quote';
-  return `From $${amount.toLocaleString('en-US')}`;
+/** AI / API payload for client build packages (no prices). */
+export interface BuildPlansPayload {
+  recommended_plan_id?: BuildPlan['id'];
+  plans?: BuildPlan[];
+  addons?: BuildAddon[];
 }
 
-export function planBaseFrom(planId: BuildPlan['id']): number | null {
-  return BUILD_PLANS.find((p) => p.id === planId)?.fromUsd ?? null;
+export function normalizeBuildPlansPayload(
+  payload: BuildPlansPayload | null | undefined,
+  fallbackCtx?: BuildAddonContext,
+): { plans: BuildPlan[]; addons: BuildAddon[]; recommendedPlanId: BuildPlan['id'] } {
+  const ids: BuildPlan['id'][] = ['launch', 'growth', 'custom'];
+  const byId = new Map(
+    (payload?.plans || [])
+      .filter((p): p is BuildPlan => Boolean(p && ids.includes(p.id as BuildPlan['id'])))
+      .map((p) => [p.id, p] as const),
+  );
+  const plans = ids.map((id) => {
+    const ai = byId.get(id);
+    const base = BUILD_PLANS.find((p) => p.id === id)!;
+    if (!ai) return base;
+    return {
+      ...base,
+      name: ai.name || base.name,
+      tagline: ai.tagline || base.tagline,
+      timeline: ai.timeline || base.timeline,
+      bestFor: ai.bestFor || base.bestFor,
+      includes: ai.includes?.length ? ai.includes : base.includes,
+      badge: ai.badge ?? base.badge,
+      highlight: id === 'growth' ? true : Boolean(ai.highlight),
+    };
+  });
+
+  const addons =
+    payload?.addons && payload.addons.length > 0
+      ? payload.addons
+          .filter((a) => a?.id && a?.name)
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description || '',
+            whyForYou: a.whyForYou,
+            includedIn: (a.includedIn || []).filter(
+              (x): x is 'launch' | 'growth' => x === 'launch' || x === 'growth',
+            ),
+          }))
+      : suggestBusinessAddons(fallbackCtx || {});
+
+  const recommendedPlanId =
+    payload?.recommended_plan_id && ids.includes(payload.recommended_plan_id)
+      ? payload.recommended_plan_id
+      : 'growth';
+
+  return { plans, addons, recommendedPlanId };
 }
 
 export function addonAvailable(addon: BuildAddon, planId: BuildPlan['id']): boolean {
@@ -417,44 +433,26 @@ export function addonIncluded(addon: BuildAddon, planId: BuildPlan['id']): boole
   return (addon.includedIn || []).includes(planId as 'launch' | 'growth');
 }
 
-/** Soft estimate: plan floor + selected add-ons (custom stays null). */
-export function estimateFromUsd(
-  planId: BuildPlan['id'],
-  selectedAddonIds: string[],
-  catalog: BuildAddon[] = BUILD_ADDONS,
-): number | null {
-  const base = planBaseFrom(planId);
-  if (base == null) return null;
-  const extra = catalog
-    .filter((a) => selectedAddonIds.includes(a.id) && addonAvailable(a, planId))
-    .reduce((sum, a) => sum + a.fromUsd, 0);
-  return base + extra;
-}
-
 export function summarizeSelection(
   planId: BuildPlan['id'],
   selectedAddonIds: string[],
   catalog: BuildAddon[] = BUILD_ADDONS,
+  plans: BuildPlan[] = BUILD_PLANS,
 ): string {
-  const plan = BUILD_PLANS.find((p) => p.id === planId);
+  const plan = plans.find((p) => p.id === planId);
   const included = catalog.filter((a) => addonIncluded(a, planId));
   const extras = catalog.filter(
     (a) => selectedAddonIds.includes(a.id) && addonAvailable(a, planId),
   );
-  const estimate = estimateFromUsd(planId, selectedAddonIds, catalog);
   const parts = [
     `Package: ${plan?.name || planId}`,
-    estimate != null
-      ? `Estimate: ${formatFromUsd(estimate)} USD (soft floor — exact quote after scope)`
-      : 'Estimate: custom quote after scope call',
+    'Pricing: custom quote after scope (no public prices)',
   ];
   if (included.length) {
     parts.push(`Included in package: ${included.map((a) => a.name).join('; ')}`);
   }
   if (extras.length) {
-    parts.push(
-      `Optional add-ons: ${extras.map((a) => `${a.name} (+$${a.fromUsd})`).join('; ')}`,
-    );
+    parts.push(`Optional add-ons: ${extras.map((a) => a.name).join('; ')}`);
   } else {
     parts.push('Optional add-ons: none');
   }

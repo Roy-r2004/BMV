@@ -6,6 +6,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep
+from app.application.pipelines.build_plans import (
+    build_plans_from_request,
+    generate_build_plans,
+)
 from app.application.pipelines.orchestrator import GenerationPipeline
 from app.application.pipelines.role_pages import generate_role_pages
 from app.application.preview_app import generate_preview_app
@@ -46,6 +50,10 @@ pipeline_log = get_logger("RequestPipeline")
 
 _preview_gen_locks: dict[int, threading.Lock] = {}
 _preview_gen_locks_guard = threading.Lock()
+
+def _build_plans_payload(req: Request):
+    return build_plans_from_request(req)
+
 
 def _preview_gen_lock(request_id: int) -> threading.Lock:
     with _preview_gen_locks_guard:
@@ -256,7 +264,7 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         what_you_like=req.what_you_like,
         mvp_blueprint=req.mvp_blueprint,
         technical_plan=req.technical_plan,
-        proposal_draft=req.proposal_draft,
+        build_plans=_build_plans_payload(req),
         build_requested=req.build_requested or False,
     )
 
@@ -338,6 +346,26 @@ def trigger_generate_pages(request_id: int, db: Session = Depends(get_db)):
     ).start()
     return {"ok": True, "status": "started"}
 
+@router.post("/{request_id}/generate-build-plans")
+def trigger_generate_build_plans(
+    request_id: int,
+    db: Session = Depends(get_db),
+    ai_provider: AIProvider = Depends(get_ai_provider_dep),
+    template_renderer: TemplateRenderer = Depends(get_template_renderer_dep),
+):
+    """Regenerate AI build plans for this preview (client-facing packages, no prices)."""
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if not req.mvp_blueprint and not req.preview_summary:
+        raise HTTPException(status_code=400, detail="Preview not ready yet")
+    try:
+        result = generate_build_plans(db, request_id, ai_provider, template_renderer)
+        return {"ok": True, "build_plans": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @router.post("/{request_id}/request-build", response_model=BuildRequestResponse)
 def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends(get_db)):
     req = db.query(Request).filter(Request.id == request_id).first()
@@ -354,8 +382,6 @@ def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends
         note_line += f"\nPackage: {body.package_id.strip()}"
     if body.addon_ids:
         note_line += f"\nAdd-ons: {', '.join(a.strip() for a in body.addon_ids if a and str(a).strip())}"
-    if body.estimate_from_usd is not None:
-        note_line += f"\nSoft estimate from: ${int(body.estimate_from_usd):,} USD"
     if body.notes:
         note_line += f"\nNotes: {body.notes.strip()}"
     if req.admin_notes:
