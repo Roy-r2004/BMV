@@ -117,6 +117,8 @@ class Settings:
     APPSPEC_PROMPT_REVISION: str
     APPSPEC_MAX_CALLS: int
     APPSPEC_MAX_REPAIR_ATTEMPTS: int
+    APPSPEC_MAX_DETERMINISTIC_HEALS: int
+    APPSPEC_FALLBACK_ENABLED: bool
     APPSPEC_MAX_TOKENS: int
     APPSPEC_REPAIR_MAX_TOKENS: int
     APPSPEC_COVERAGE_MAX_TOKENS: int
@@ -226,6 +228,17 @@ class Settings:
             )
         except ValueError:
             self.APPSPEC_MAX_REPAIR_ATTEMPTS = 3
+        try:
+            self.APPSPEC_MAX_DETERMINISTIC_HEALS = max(
+                0, int(os.getenv("APPSPEC_MAX_DETERMINISTIC_HEALS", "4"))
+            )
+        except ValueError:
+            self.APPSPEC_MAX_DETERMINISTIC_HEALS = 4
+        # When AI author/repair cannot clear gates, accept a minimal valid
+        # fallback AppSpec so preview generation stays unblocked.
+        self.APPSPEC_FALLBACK_ENABLED = os.getenv(
+            "APPSPEC_FALLBACK_ENABLED", "true"
+        ).strip().lower() in {"1", "true", "yes", "on"}
         try:
             self.APPSPEC_MAX_TOKENS = max(
                 4000, int(os.getenv("APPSPEC_MAX_TOKENS", "24000"))

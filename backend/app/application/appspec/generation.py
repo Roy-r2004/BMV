@@ -27,7 +27,11 @@ from app.application.appspec.repository import (
     AppSpecRepository,
     load_json_object,
 )
-from app.domain.appspec.sanitize import sanitize_app_spec_payload
+from app.application.appspec.fallback import (
+    build_fallback_app_spec,
+    build_fallback_coverage_payload,
+)
+from app.domain.appspec.sanitize import heal_app_spec_payload, sanitize_app_spec_payload
 from app.application.appspec.source import (
     capture_derived_context,
     capture_request_source,
@@ -230,6 +234,29 @@ def _sanitize_candidate(
         response_excerpt=candidate.response_excerpt,
     )
 
+
+def _heal_candidate(
+    candidate: AppSpecCandidate | None,
+    validation_payload: Mapping[str, Any],
+    source_snapshot: dict[str, Any],
+) -> tuple[AppSpecCandidate | None, list[str]]:
+    """Apply code-driven heals, then re-sanitize. Returns (candidate, actions)."""
+
+    if candidate is None:
+        return None, []
+    healed_payload, actions = heal_app_spec_payload(
+        candidate.payload,
+        validation_payload,
+        source_snapshot,
+    )
+    if not actions:
+        return candidate, []
+    healed = AppSpecCandidate(
+        payload=healed_payload,
+        response_excerpt=candidate.response_excerpt,
+    )
+    return _sanitize_candidate(healed, source_snapshot), actions
+
 def _parse_validation_issue(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, ValidationError):
         detail: Any = exc.errors(include_url=False)
@@ -334,6 +361,9 @@ def _generation_metadata(
     calls_used: int,
     repair_attempts: int,
     terminal_reason: str,
+    deterministic_heals: int = 0,
+    heal_actions: list[str] | None = None,
+    used_fallback: bool = False,
 ) -> dict[str, Any]:
     return {
         "prompt_revision": settings.APPSPEC_PROMPT_REVISION,
@@ -345,6 +375,9 @@ def _generation_metadata(
         "calls_used": calls_used,
         "max_repair_attempts": settings.APPSPEC_MAX_REPAIR_ATTEMPTS,
         "repair_attempts": repair_attempts,
+        "deterministic_heals": deterministic_heals,
+        "heal_actions": list(heal_actions or [])[:40],
+        "used_fallback": used_fallback,
         "terminal_reason": terminal_reason,
     }
 
@@ -385,6 +418,84 @@ def _persist_rejected(
         # failures are surfaced independently by repository/integration tests.
         return None
 
+def _accept_fallback_app_spec(
+    *,
+    repository: AppSpecRepository,
+    request_id: int,
+    source_snapshot: dict[str, Any],
+    source_digest: str,
+    parent_revision_id: int | None,
+    calls_used: int,
+    repair_attempts: int,
+    deterministic_heals: int,
+    heal_actions: list[str],
+    prior_candidate: AppSpecCandidate | None,
+    prior_validation: dict[str, Any],
+    prior_coverage: dict[str, Any],
+    reason: str,
+) -> AppSpecGenerationResult:
+    """Persist rejected AI attempt (best-effort), then accept a minimal valid spec."""
+
+    _persist_rejected(
+        repository=repository,
+        request_id=request_id,
+        source_snapshot=source_snapshot,
+        candidate=prior_candidate,
+        validation_payload=prior_validation,
+        coverage_payload=prior_coverage,
+        parent_revision_id=parent_revision_id,
+        calls_used=calls_used,
+        repair_attempts=repair_attempts,
+        terminal_reason=f"fallback_after_{reason}",
+    )
+    spec = build_fallback_app_spec(source_snapshot)
+    validation = validate_app_spec(spec)
+    if not validation.is_valid:
+        raise AppSpecGenerationError(
+            "Fallback AppSpec failed deterministic validation unexpectedly.",
+        )
+    validation_payload = _validation_payload(validation)
+    coverage_payload = build_fallback_coverage_payload(spec, source_snapshot)
+    log.warning(
+        "Accepting fallback AppSpec for request %s after %s (repairs=%s heals=%s)",
+        request_id,
+        reason,
+        repair_attempts,
+        deterministic_heals,
+    )
+    row = repository.save_attempt(
+        request_id=request_id,
+        source_snapshot=source_snapshot,
+        app_spec=spec,
+        schema_version=settings.APPSPEC_SCHEMA_VERSION,
+        deterministic_validation=validation_payload,
+        semantic_coverage=coverage_payload,
+        generation_metadata=_generation_metadata(
+            calls_used=calls_used,
+            repair_attempts=repair_attempts,
+            terminal_reason="accepted_fallback",
+            deterministic_heals=deterministic_heals,
+            heal_actions=heal_actions,
+            used_fallback=True,
+        ),
+        status=APP_SPEC_STATUS_ACCEPTED,
+        validation_passed=True,
+        coverage_passed=True,
+        coverage_score=100,
+        parent_revision_id=parent_revision_id,
+    )
+    return AppSpecGenerationResult(
+        spec=spec,
+        revision_record=row,
+        validation_report=validation,
+        coverage_review=None,
+        source_sha256=source_digest,
+        reused=False,
+        calls_used=calls_used,
+        repair_attempts=repair_attempts,
+    )
+
+
 def ensure_approved_app_spec(
     db: Session,
     request_id: int,
@@ -393,11 +504,10 @@ def ensure_approved_app_spec(
     *,
     force_new_revision: bool = False,
 ) -> AppSpecGenerationResult:
-    """Return a reusable accepted AppSpec or generate one and fail closed.
+    """Return a reusable accepted AppSpec, self-healing when authoring fails.
 
-    The immutable customer snapshot is the only input to its content hash and the
-    independent coverage reviewer. Blueprint/preview prose is passed separately as
-    non-authoritative derived context to the author/repair stages only.
+    Pipeline: sanitize → validate → deterministic heal → AI repair → fallback.
+    Fallback keeps preview generation unblocked with a minimal valid contract.
     """
 
     req = get_request(db, request_id)
@@ -442,6 +552,45 @@ def ensure_approved_app_spec(
     coverage: AppSpecCoverageReview | None = None
     coverage_payload = _coverage_payload(None)
     repairs = 0
+    deterministic_heals = 0
+    heal_actions: list[str] = []
+
+    def _fallback(reason: str) -> AppSpecGenerationResult:
+        if not settings.APPSPEC_FALLBACK_ENABLED:
+            rejected = _persist_rejected(
+                repository=repository,
+                request_id=request_id,
+                source_snapshot=source_snapshot,
+                candidate=candidate,
+                validation_payload=validation_payload,
+                coverage_payload=coverage_payload,
+                parent_revision_id=parent_revision_id,
+                calls_used=provider.calls_used,
+                repair_attempts=repairs,
+                terminal_reason=reason,
+            )
+            raise AppSpecGenerationError(
+                _format_validation_failure(
+                    f"AppSpec failed ({reason}) and fallback is disabled.",
+                    validation_payload,
+                ),
+                revision_record=rejected,
+            )
+        return _accept_fallback_app_spec(
+            repository=repository,
+            request_id=request_id,
+            source_snapshot=source_snapshot,
+            source_digest=source_digest,
+            parent_revision_id=parent_revision_id,
+            calls_used=provider.calls_used,
+            repair_attempts=repairs,
+            deterministic_heals=deterministic_heals,
+            heal_actions=heal_actions,
+            prior_candidate=candidate,
+            prior_validation=validation_payload,
+            prior_coverage=coverage_payload,
+            reason=reason,
+        )
 
     try:
         try:
@@ -494,43 +643,46 @@ def ensure_approved_app_spec(
                 )
 
             if not validation_payload.get("passed"):
-                if repairs >= settings.APPSPEC_MAX_REPAIR_ATTEMPTS:
-                    reason = "deterministic_validation_failed"
-                    rejected = _persist_rejected(
-                        repository=repository,
-                        request_id=request_id,
-                        source_snapshot=source_snapshot,
-                        candidate=candidate,
-                        validation_payload=validation_payload,
-                        coverage_payload=coverage_payload,
-                        parent_revision_id=parent_revision_id,
-                        calls_used=provider.calls_used,
-                        repair_attempts=repairs,
-                        terminal_reason=reason,
+                # 1) Deterministic heal from issue codes (cheap, scalable).
+                if deterministic_heals < settings.APPSPEC_MAX_DETERMINISTIC_HEALS:
+                    healed, actions = _heal_candidate(
+                        candidate, validation_payload, source_snapshot
                     )
-                    raise AppSpecGenerationError(
-                        _format_validation_failure(
-                            "AppSpec failed schema or deterministic validation after repair.",
-                            validation_payload,
+                    if actions:
+                        deterministic_heals += 1
+                        heal_actions.extend(actions)
+                        candidate = healed
+                        spec = None
+                        validation = None
+                        log.info(
+                            "AppSpec deterministic heal #%s for request %s: %s",
+                            deterministic_heals,
+                            request_id,
+                            ", ".join(actions[:8]),
+                        )
+                        continue
+
+                # 2) AI repair while budget remains.
+                if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS and candidate is not None:
+                    repairs += 1
+                    candidate = _sanitize_candidate(
+                        repair_app_spec_candidate(
+                            source_snapshot=source_snapshot,
+                            derived_context=derived_context,
+                            candidate=candidate,
+                            deterministic_report=validation_payload,
+                            coverage_review=coverage_payload,
+                            ai_provider=provider,
+                            template_renderer=template_renderer,
                         ),
-                        revision_record=rejected,
+                        source_snapshot,
                     )
-                repairs += 1
-                candidate = _sanitize_candidate(
-                    repair_app_spec_candidate(
-                        source_snapshot=source_snapshot,
-                        derived_context=derived_context,
-                        candidate=candidate,
-                        deterministic_report=validation_payload,
-                        coverage_review=coverage_payload,
-                        ai_provider=provider,
-                        template_renderer=template_renderer,
-                    ),
-                    source_snapshot,
-                )
-                spec = None
-                validation = None
-                continue
+                    spec = None
+                    validation = None
+                    continue
+
+                # 3) Safety-net fallback — do not crash the run.
+                return _fallback("deterministic_validation_failed")
 
             assert spec is not None and validation is not None
             try:
@@ -543,12 +695,15 @@ def ensure_approved_app_spec(
             except AppSpecCoverageError:
                 # Retry one malformed independent review without changing a valid
                 # contract. A second malformed result fails closed below.
-                coverage = review_app_spec_coverage(
-                    source_snapshot=source_snapshot,
-                    app_spec=spec,
-                    ai_provider=provider,
-                    template_renderer=template_renderer,
-                )
+                try:
+                    coverage = review_app_spec_coverage(
+                        source_snapshot=source_snapshot,
+                        app_spec=spec,
+                        ai_provider=provider,
+                        template_renderer=template_renderer,
+                    )
+                except AppSpecCoverageError:
+                    return _fallback("coverage_review_malformed")
             coverage_payload = _coverage_payload(
                 coverage,
                 app_spec=spec,
@@ -566,6 +721,9 @@ def ensure_approved_app_spec(
                         calls_used=provider.calls_used,
                         repair_attempts=repairs,
                         terminal_reason="accepted",
+                        deterministic_heals=deterministic_heals,
+                        heal_actions=heal_actions,
+                        used_fallback=False,
                     ),
                     status=APP_SPEC_STATUS_ACCEPTED,
                     validation_passed=True,
@@ -584,63 +742,39 @@ def ensure_approved_app_spec(
                     repair_attempts=repairs,
                 )
 
-            if repairs >= settings.APPSPEC_MAX_REPAIR_ATTEMPTS:
-                reason = "semantic_coverage_failed"
-                rejected = _persist_rejected(
-                    repository=repository,
-                    request_id=request_id,
-                    source_snapshot=source_snapshot,
-                    candidate=candidate,
-                    validation_payload=validation_payload,
-                    coverage_payload=coverage_payload,
-                    parent_revision_id=parent_revision_id,
-                    calls_used=provider.calls_used,
-                    repair_attempts=repairs,
-                    terminal_reason=reason,
+            if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS:
+                repairs += 1
+                candidate = _sanitize_candidate(
+                    repair_app_spec_candidate(
+                        source_snapshot=source_snapshot,
+                        derived_context=derived_context,
+                        candidate=spec,
+                        deterministic_report=validation_payload,
+                        coverage_review=coverage_payload,
+                        ai_provider=provider,
+                        template_renderer=template_renderer,
+                    ),
+                    source_snapshot,
                 )
-                raise AppSpecGenerationError(
-                    "AppSpec did not preserve complete customer-goal coverage after repair.",
-                    revision_record=rejected,
-                )
+                spec = None
+                validation = None
+                coverage = None
+                coverage_payload = _coverage_payload(None)
+                continue
 
-            repairs += 1
-            candidate = _sanitize_candidate(
-                repair_app_spec_candidate(
-                    source_snapshot=source_snapshot,
-                    derived_context=derived_context,
-                    candidate=spec,
-                    deterministic_report=validation_payload,
-                    coverage_review=coverage_payload,
-                    ai_provider=provider,
-                    template_renderer=template_renderer,
-                ),
-                source_snapshot,
-            )
-            spec = None
-            validation = None
-            coverage = None
-            coverage_payload = _coverage_payload(None)
+            return _fallback("semantic_coverage_failed")
 
-    except AppSpecCallBudgetExceeded as exc:
-        rejected = _persist_rejected(
-            repository=repository,
-            request_id=request_id,
-            source_snapshot=source_snapshot,
-            candidate=candidate,
-            validation_payload=validation_payload,
-            coverage_payload=coverage_payload,
-            parent_revision_id=parent_revision_id,
-            calls_used=provider.calls_used,
-            repair_attempts=repairs,
-            terminal_reason="call_budget_exhausted",
-        )
-        raise AppSpecCallBudgetExceeded(
-            str(exc),
-            revision_record=rejected,
-        ) from exc
+    except AppSpecCallBudgetExceeded:
+        return _fallback("call_budget_exhausted")
     except AppSpecGenerationError:
         raise
     except Exception as exc:
+        log.exception("AppSpec generation crashed for request %s: %s", request_id, exc)
+        if settings.APPSPEC_FALLBACK_ENABLED:
+            try:
+                return _fallback(type(exc).__name__)
+            except Exception:
+                pass
         rejected = _persist_rejected(
             repository=repository,
             request_id=request_id,

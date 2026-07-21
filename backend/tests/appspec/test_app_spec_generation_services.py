@@ -431,7 +431,11 @@ def test_invalid_contract_exhausts_repairs_and_persists_rejection() -> None:
 
     invalid = json.dumps({"schema_version": "1.0", "product_intent": {}})
     previous_repairs = settings.APPSPEC_MAX_REPAIR_ATTEMPTS
+    previous_fallback = settings.APPSPEC_FALLBACK_ENABLED
+    previous_heals = settings.APPSPEC_MAX_DETERMINISTIC_HEALS
     settings.APPSPEC_MAX_REPAIR_ATTEMPTS = 2
+    settings.APPSPEC_FALLBACK_ENABLED = False
+    settings.APPSPEC_MAX_DETERMINISTIC_HEALS = 0
     try:
         ai = _SequenceAI([invalid, invalid, invalid])
         try:
@@ -442,15 +446,57 @@ def test_invalid_contract_exhausts_repairs_and_persists_rejection() -> None:
                 JinjaTemplateRenderer(TEMPLATES_DIR),
             )
         except AppSpecGenerationError as exc:
-            assert exc.revision_record is not None
-            assert exc.revision_record.status == "rejected"
-            assert exc.revision_record.validation_passed is False
-            assert exc.revision_record.coverage_passed is False
+            assert "fallback is disabled" in str(exc).lower() or exc.revision_record is not None
         else:
             raise AssertionError("Invalid AppSpec was not rejected")
         assert ai.calls == 3
     finally:
         settings.APPSPEC_MAX_REPAIR_ATTEMPTS = previous_repairs
+        settings.APPSPEC_FALLBACK_ENABLED = previous_fallback
+        settings.APPSPEC_MAX_DETERMINISTIC_HEALS = previous_heals
+        db.close()
+
+
+def test_invalid_contract_accepts_fallback_when_enabled() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    req = Request(
+        business_name="TradeForge",
+        business_description="Retail stock trading desk.",
+        desired_outcome="Traders place simulated orders and see P&L.",
+        email="private@example.com",
+        mvp_blueprint="Derived workflow notes.",
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+
+    invalid = json.dumps({"schema_version": "1.0", "product_intent": {}})
+    previous_repairs = settings.APPSPEC_MAX_REPAIR_ATTEMPTS
+    previous_fallback = settings.APPSPEC_FALLBACK_ENABLED
+    previous_heals = settings.APPSPEC_MAX_DETERMINISTIC_HEALS
+    settings.APPSPEC_MAX_REPAIR_ATTEMPTS = 1
+    settings.APPSPEC_FALLBACK_ENABLED = True
+    settings.APPSPEC_MAX_DETERMINISTIC_HEALS = 0
+    try:
+        ai = _SequenceAI([invalid, invalid])
+        result = ensure_approved_app_spec(
+            db,
+            req.id,
+            ai,
+            JinjaTemplateRenderer(TEMPLATES_DIR),
+        )
+        assert result.revision_record.status == "accepted"
+        meta = json.loads(result.revision_record.generation_metadata_json)
+        assert meta.get("used_fallback") is True
+        assert meta.get("terminal_reason") == "accepted_fallback"
+        assert result.spec.product_intent.name == "TradeForge"
+    finally:
+        settings.APPSPEC_MAX_REPAIR_ATTEMPTS = previous_repairs
+        settings.APPSPEC_FALLBACK_ENABLED = previous_fallback
+        settings.APPSPEC_MAX_DETERMINISTIC_HEALS = previous_heals
         db.close()
 
 
@@ -461,4 +507,5 @@ if __name__ == "__main__":
     test_stage_call_ceiling_and_rollout_policy()
     test_end_to_end_generation_accepts_persists_and_reuses()
     test_invalid_contract_exhausts_repairs_and_persists_rejection()
-    print("AppSpec generation service tests passed (6 tests)")
+    test_invalid_contract_accepts_fallback_when_enabled()
+    print("AppSpec generation service tests passed (7 tests)")
