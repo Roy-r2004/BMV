@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -25,6 +27,7 @@ from app.domain.schemas.admin import (
     RequestUpdate,
 )
 from app.domain.schemas.common import GenerateResponse
+from app.domain.models import AppSpecRevision, PreviewChatMessage
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -77,6 +80,39 @@ def update_request(
     db.commit()
     db.refresh(req)
     return req
+
+
+@router.delete("/requests/{request_id}")
+def delete_request(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """Remove a request (and related preview chat / app-spec rows) from the DB."""
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    label = (req.concept_name or req.business_name or f"#{request_id}").strip()
+    db.query(PreviewChatMessage).filter(PreviewChatMessage.request_id == request_id).delete(
+        synchronize_session=False
+    )
+    # Clear self-FK before bulk-deleting revisions (SQLite)
+    db.query(AppSpecRevision).filter(AppSpecRevision.request_id == request_id).update(
+        {AppSpecRevision.parent_revision_id: None},
+        synchronize_session=False,
+    )
+    db.query(AppSpecRevision).filter(AppSpecRevision.request_id == request_id).delete(
+        synchronize_session=False
+    )
+    db.delete(req)
+    db.commit()
+
+    preview_dir = Path(settings.PREVIEW_APPS_DIR) / str(request_id)
+    if preview_dir.is_dir():
+        shutil.rmtree(preview_dir, ignore_errors=True)
+
+    return {"success": True, "deleted_id": request_id, "label": label}
 
 
 @router.get("/requests/{request_id}/file")

@@ -1,5 +1,4 @@
 import Hero from '../components/Hero';
-import LandingHighlights from '../components/landing/LandingHighlights';
 import HowItWorks from '../components/HowItWorks';
 import ExamplesTeaser from '../components/ExamplesTeaser';
 import UseCases from '../components/UseCases';
@@ -8,7 +7,6 @@ import FAQ from '../components/FAQ';
 import CTASection from '../components/CTASection';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
-import LandingGuide from '../components/landing/LandingGuide';
 
 export default function LandingPage() {
   return (
@@ -17,27 +15,19 @@ export default function LandingPage() {
       <div id="hero">
         <Hero />
       </div>
-      <div id="consultancy">
-        <LandingHighlights />
-      </div>
       <HowItWorks />
-      <div id="examples">
-        <ExamplesTeaser />
-      </div>
+      <ExamplesTeaser />
       <div id="use-cases">
         <UseCases />
       </div>
       <div id="packages">
         <Packages />
       </div>
-      <div id="faq">
-        <FAQ />
-      </div>
+      <FAQ />
       <div id="get-started">
         <CTASection />
       </div>
       <SiteFooter />
-      <LandingGuide />
     </div>
   );
 }

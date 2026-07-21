@@ -8,6 +8,8 @@ interface Props {
   requestId: number;
   conceptName?: string;
   features?: string[];
+  /** Hide browser chrome / role bar — iframe only (e.g. /demo stage). */
+  embedOnly?: boolean;
 }
 
 const ROLE_ICONS: Record<string, ReactElement> = {
@@ -49,6 +51,7 @@ export default function PreviewAppPreview({
   requestId: _requestId,
   conceptName,
   features,
+  embedOnly = false,
 }: Props) {
   const previewApp = pages.preview_app;
   const roles = previewApp?.roles?.length ? previewApp.roles : pages.roles ?? [];
@@ -119,6 +122,31 @@ export default function PreviewAppPreview({
   const url = siteUrl(conceptName ?? 'preview', currentPath);
 
   if (!iframeSrc) return null;
+
+  if (embedOnly) {
+    return (
+      <div ref={rootRef} className="rbp-root rbp-root--embed">
+        <div className="rbp-viewport rbp-viewport--site rbp-viewport--embed relative min-h-[420px]">
+          {isRebuilding && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+              <div className="text-center text-white px-4">
+                <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm font-medium">Loading…</p>
+              </div>
+            </div>
+          )}
+          <iframe
+            ref={iframeRef}
+            key={`${iframeSrc}-${previewApp?.status ?? 'idle'}-${previewApp?.built_at ?? 0}`}
+            title={`${activeRole?.label ?? 'Preview'} — ${conceptName ?? 'Preview'}`}
+            src={iframeSrc}
+            className="rbp-iframe min-h-[420px]"
+            allow="fullscreen"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={rootRef} className="rbp-root">

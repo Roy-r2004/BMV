@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
-const TRUST = ['Free AI preview', 'Ready in minutes', 'Built by our team'];
+const TRUST = ['AI consultancy', 'Find what to automate', 'We build it'];
 
 interface Props {
   eyebrow?: string;
@@ -14,10 +14,10 @@ interface Props {
 }
 
 export default function CinematicCTA({
-  eyebrow = 'Your turn',
-  title = 'Ready to see your business version?',
-  subtitle = 'Share a tool you like and get a custom MVP blueprint with a visual demo — free.',
-  primaryLabel = 'Create My Business Version',
+  eyebrow = 'AI consultancy',
+  title = 'Ready to find what your business should automate?',
+  subtitle = 'Tell us how you work. We map the AI opportunities, show a free preview, then our team builds the real product.',
+  primaryLabel = 'Find my AI fit',
   primaryTo = '/submit',
   secondaryLabel = 'Browse examples',
   secondaryTo = '/examples',

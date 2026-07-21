@@ -7,10 +7,11 @@ import AboutStory from '../components/about/AboutStory';
 import AboutPrinciples from '../components/about/AboutPrinciples';
 import AboutEngineering from '../components/about/AboutEngineering';
 import AboutFinale from '../components/about/AboutFinale';
+import '../styles/about-boom.css';
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="about-boom min-h-screen overflow-x-hidden">
       <SiteNav />
       <AboutHero />
       <AboutManifesto />

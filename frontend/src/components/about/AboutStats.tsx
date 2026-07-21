@@ -1,34 +1,80 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
-const STATS = [
-  { value: '10+', label: 'Production systems shipped', detail: 'SaaS, marketplaces, AI agents' },
-  { value: 'AI', label: 'Core expertise', detail: 'LLMs, agents, computer vision' },
-  { value: 'Full-stack', label: 'End-to-end builds', detail: 'Web, mobile, APIs, infra' },
-  { value: 'Enterprise', label: 'Scale-ready', detail: 'Microservices & real users' },
+const STEPS = [
+  {
+    n: '01',
+    value: 'Diagnose',
+    label: 'What to automate',
+    detail: 'We map your workflow and pin the AI that actually moves the needle.',
+  },
+  {
+    n: '02',
+    value: 'Prove',
+    label: 'With a live preview',
+    detail: 'A clickable product for your business — not a deck, not a mockup PDF.',
+  },
+  {
+    n: '03',
+    value: 'Ship',
+    label: 'Real engineering',
+    detail: 'Our team builds the production system: AI, APIs, UI, infra.',
+  },
+  {
+    n: '04',
+    value: 'Own',
+    label: 'Your version',
+    detail: 'Custom software you run. Inspired by references — never a clone.',
+  },
 ];
 
+const ease = [0.22, 1, 0.36, 1] as const;
+
 export default function AboutStats() {
+  const reduce = useReducedMotion();
+
   return (
-    <section className="relative py-20 sm:py-24 bg-white">
-      <div className="container-max px-4 sm:px-6">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {STATS.map((s, i) => (
-            <motion.div
-              key={s.label}
-              initial={{ opacity: 0, y: 32 }}
+    <section className="about-boom-stats">
+      <div className="container-max px-4 sm:px-6 py-20 sm:py-28">
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.55, ease }}
+          className="about-boom-stats__head"
+        >
+          <p>The method</p>
+          <h2>
+            Four moves.
+            <em> Zero guesswork.</em>
+          </h2>
+          <p className="about-boom-stats__lede">
+            From “we should use AI” to a system your team owns — in a sequence you can feel.
+          </p>
+        </motion.div>
+
+        <div className="about-boom-stats__rail" aria-hidden>
+          <span className="about-boom-stats__rail-line" />
+        </div>
+
+        <ol className="about-boom-stats__grid">
+          {STEPS.map((s, i) => (
+            <motion.li
+              key={s.value}
+              initial={reduce ? false : { opacity: 0, y: 32 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
-              transition={{ delay: i * 0.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              className="about-gradient-ring about-glass rounded-2xl p-6 sm:p-7 group hover:shadow-xl hover:shadow-blue-500/10 transition-shadow duration-500"
+              transition={{ delay: i * 0.1, duration: 0.6, ease }}
+              className="about-boom-stats__card"
             >
-              <p className="text-3xl sm:text-4xl font-bold gradient-text mb-2 group-hover:scale-105 transition-transform origin-left duration-300">
-                {s.value}
-              </p>
-              <p className="font-semibold text-navy text-sm sm:text-base mb-1">{s.label}</p>
-              <p className="text-xs text-slate-500 leading-relaxed">{s.detail}</p>
-            </motion.div>
+              <div className="about-boom-stats__node">
+                <span>{s.n}</span>
+              </div>
+              <p className="about-boom-stats__value">{s.value}</p>
+              <p className="about-boom-stats__label">{s.label}</p>
+              <p className="about-boom-stats__detail">{s.detail}</p>
+            </motion.li>
           ))}
-        </div>
+        </ol>
       </div>
     </section>
   );

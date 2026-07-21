@@ -39,30 +39,30 @@ const steps: {
 }[] = [
   {
     num: '01',
-    title: 'Tell us about your business',
-    desc: 'Share your industry, customers, and the problem you need solved.',
+    title: 'Tell us how you work',
+    desc: 'Share your industry, workflows, and where time or money leaks.',
     icon: icons.business,
     preview: 'business',
   },
   {
     num: '02',
-    title: 'Share a tool you like',
-    desc: 'Paste a link or upload a screenshot of any app or workflow.',
+    title: 'Point to inspiration',
+    desc: 'Optional: a tool or process you admire — we use it as a cue, not a clone.',
     icon: icons.link,
     preview: 'link',
   },
   {
     num: '03',
-    title: 'AI builds your preview',
-    desc: 'Our AI analyzes everything and generates your custom MVP concept.',
+    title: 'We find your AI fit',
+    desc: 'Our consultancy AI maps what to automate, then shows a custom product preview.',
     icon: icons.ai,
     preview: 'ai',
     featured: true,
   },
   {
     num: '04',
-    title: 'Request the build',
-    desc: 'Love the preview? Our team turns it into a real, working product.',
+    title: 'We build it for you',
+    desc: 'Approve the concept and our team ships the real automation product.',
     icon: icons.build,
     preview: 'build',
   },
@@ -123,9 +123,9 @@ export default function HowItWorks() {
 
       <div className="container-max relative px-4 sm:px-6">
         <SectionHeading
-          eyebrow="Process"
-          title="How it works"
-          subtitle="From inspiration to a build-ready MVP concept — powered by AI."
+          eyebrow="AI consultancy"
+          title="How we find what to automate"
+          subtitle="We diagnose the AI and automation opportunities in your business — then prove it with a preview before you build."
         />
 
         <div className="process-flow">

@@ -15,6 +15,7 @@ import AdminLoginPage from './routes/AdminLoginPage';
 import AdminDashboardPage from './routes/AdminDashboardPage';
 import AdminRequestDetailPage from './routes/AdminRequestDetailPage';
 import AdminLayout from './components/AdminLayout';
+import SiteChatWidget from './components/SiteChatWidget';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="requests/:id" element={<AdminRequestDetailPage />} />
           </Route>
         </Routes>
+        <SiteChatWidget />
       </BrowserRouter>
     </AuthProvider>
   );

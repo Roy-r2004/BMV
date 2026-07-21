@@ -37,7 +37,8 @@ const EXAMPLE_ICONS: Record<string, ReactNode> = {
   ),
 };
 
-export function MiniPreview({ accent, tall }: { accent: string; tall?: boolean }) {
+/** Original compact card preview for /examples page */
+export function MiniPreview({ accent, tall }: { example?: ExampleOutput; accent: string; tall?: boolean }) {
   return (
     <div className="mini-screen p-2">
       <div className="flex items-center gap-1 mb-2">
@@ -83,7 +84,7 @@ export default function ExampleCard({ example, featured, index = 0, landing }: P
       {featured ? (
         <div className="grid md:grid-cols-2">
           <div className="p-5 sm:p-8 bg-gradient-to-br from-slate-50/80 to-blue-50/60 relative overflow-hidden">
-            <div className="absolute top-4 left-4 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
+            <div className="absolute top-4 left-4 z-10 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
               Featured
             </div>
             <MiniPreview accent={example.accent} tall />

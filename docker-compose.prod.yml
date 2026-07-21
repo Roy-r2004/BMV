@@ -103,6 +103,8 @@ services:
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+      # Production: never re-seed PlateSync on boot
+      SEED_DEMO: ${SEED_DEMO:-false}
       DATABASE_URL: sqlite:////app/data/buildmyversion.db
       UPLOAD_DIR: /app/data/uploads
       STATIC_DIR: /app/static

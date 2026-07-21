@@ -28,7 +28,10 @@ try:
     Base.metadata.create_all(bind=engine)
     run_sqlite_migrations()
     ensure_upload_dir()
-    seed_demo_if_empty()
+    if settings.SEED_DEMO:
+        seed_demo_if_empty()
+    else:
+        boot_log.info("SEED_DEMO=false — skipping PlateSync demo seed")
 except Exception:
     boot_log.exception(
         "DB bootstrap failed (DATABASE_URL=%s) — app will still start",

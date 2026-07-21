@@ -52,6 +52,14 @@ class Settings:
     # Admin auth
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "change_this_password")
 
+    # Seed PlateSync demo on boot when gallery is empty (local/dev). Off in production.
+    SEED_DEMO: bool = os.getenv("SEED_DEMO", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
     # Uploads
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", str(_APP_DIR / "uploads"))
 
@@ -117,6 +125,8 @@ class Settings:
     CORS_ORIGINS: str
     UVICORN_RELOAD: bool
     LOG_LEVEL: str
+    SITE_CHAT_ENABLED: bool
+    SITE_CHAT_MODEL: str
 
     def __init__(self) -> None:
         # Resolve preview-template from env, repo root, or next to backend/
@@ -312,6 +322,19 @@ class Settings:
             "1", "true", "yes", "on",
         )
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "debug").strip().lower()
+        # Public site guide bot — default cheapest OpenRouter free router
+        self.SITE_CHAT_ENABLED = os.getenv("SITE_CHAT_ENABLED", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        chat_default = (
+            "openrouter/free"
+            if self.AI_PROVIDER == "openrouter"
+            else defaults["text"]
+        )
+        self.SITE_CHAT_MODEL = _env_or("SITE_CHAT_MODEL", chat_default)
 
     @property
     def TEMPLATES_DIR(self) -> Path:

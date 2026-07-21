@@ -3,14 +3,13 @@ import { Link } from 'react-router-dom';
 import { scrollToId } from '../../utils/scroll';
 
 const SECTIONS = [
-  { id: 'hero', label: 'Top', tip: 'Welcome — scroll to see how our consultancy works.' },
-  { id: 'consultancy', label: 'Consultancy', tip: 'Your free AI consultancy preview starts here.' },
+  { id: 'hero', label: 'Top', tip: 'Welcome — create your business version from here.' },
   { id: 'how-it-works', label: 'Process', tip: 'Four steps from idea to build-ready concept.' },
   { id: 'examples', label: 'Examples', tip: 'Real outputs our AI generates for businesses.' },
   { id: 'use-cases', label: 'Use cases', tip: 'Booking apps, dashboards, portals — and more.' },
   { id: 'packages', label: 'Packages', tip: 'Start free. We build when you are ready.' },
   { id: 'faq', label: 'FAQ', tip: 'Common questions — tap any section to jump back.' },
-  { id: 'get-started', label: 'Start', tip: 'Ready? Create your free preview now.' },
+  { id: 'get-started', label: 'Start', tip: 'Ready? Find the AI fit for your business.' },
 ] as const;
 
 function GuideBot({ active }: { active: boolean }) {
