@@ -48,3 +48,6 @@ class BuildRequestBody(BaseModel):
     email: str
     whatsapp: Optional[str] = None
     notes: Optional[str] = None
+    package_id: Optional[str] = None
+    addon_ids: Optional[list[str]] = None
+    estimate_from_usd: Optional[int] = None

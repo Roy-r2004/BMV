@@ -350,6 +350,12 @@ def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends
     note_line = f"Build request from {body.contact_name.strip()} ({body.email.strip()})"
     if body.whatsapp:
         note_line += f" · WhatsApp: {body.whatsapp.strip()}"
+    if body.package_id:
+        note_line += f"\nPackage: {body.package_id.strip()}"
+    if body.addon_ids:
+        note_line += f"\nAdd-ons: {', '.join(a.strip() for a in body.addon_ids if a and str(a).strip())}"
+    if body.estimate_from_usd is not None:
+        note_line += f"\nSoft estimate from: ${int(body.estimate_from_usd):,} USD"
     if body.notes:
         note_line += f"\nNotes: {body.notes.strip()}"
     if req.admin_notes:

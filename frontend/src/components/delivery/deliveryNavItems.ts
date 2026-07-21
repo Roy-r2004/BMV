@@ -17,5 +17,6 @@ export function buildDeliveryNavItems(
     { id: 'delivery-blueprint', label: 'Blueprint', short: 'Plan', ready: Boolean(preview.mvp_blueprint) },
     { id: 'delivery-technical', label: 'Technical', short: 'Tech', ready: Boolean(preview.technical_plan) },
     { id: 'delivery-proposal', label: 'Proposal', short: 'Proposal', ready: Boolean(preview.proposal_draft) },
+    { id: 'build-plans', label: 'Build plans', short: 'Build', ready: true },
   ];
 }
