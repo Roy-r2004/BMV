@@ -51,6 +51,18 @@ class Settings:
 
     # Admin auth
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "change_this_password")
+    # Auto-create / promote this user on boot (no manual SQL). Empty = skip.
+    ADMIN_EMAIL: str = (os.getenv("ADMIN_EMAIL") or "roy.rizkallah@hotmail.com").strip()
+    ADMIN_NAME: str = (os.getenv("ADMIN_NAME") or "Roy").strip()
+    # Account password for ADMIN_EMAIL. Falls back to ADMIN_PASSWORD when blank.
+    ADMIN_USER_PASSWORD: str = (os.getenv("ADMIN_USER_PASSWORD") or "").strip()
+    # Keep bootstrap account password in sync with env on every boot.
+    ADMIN_SYNC_PASSWORD: bool = os.getenv("ADMIN_SYNC_PASSWORD", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
     # Seed PlateSync demo on boot when gallery is empty (local/dev). Off in production.
     SEED_DEMO: bool = os.getenv("SEED_DEMO", "true").strip().lower() in (

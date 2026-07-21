@@ -43,6 +43,10 @@ services:
       - ./backend/.env
     environment:
       # Local runtime values come from the root .env.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-roy.rizkallah@hotmail.com}
+      ADMIN_NAME: ${ADMIN_NAME:-Roy}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:-}
+      ADMIN_SYNC_PASSWORD: ${ADMIN_SYNC_PASSWORD:-true}
       AI_PROVIDER: ${AI_PROVIDER:-openrouter}
       TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
       PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-google/gemini-2.5-flash}

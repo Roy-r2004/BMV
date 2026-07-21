@@ -102,6 +102,10 @@ services:
     restart: unless-stopped
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-roy.rizkallah@hotmail.com}
+      ADMIN_NAME: ${ADMIN_NAME:-Roy}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:-}
+      ADMIN_SYNC_PASSWORD: ${ADMIN_SYNC_PASSWORD:-true}
       ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
       # Production: never re-seed PlateSync on boot
       SEED_DEMO: ${SEED_DEMO:-false}

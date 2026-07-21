@@ -6,7 +6,7 @@ import '../styles/admin-console.css';
 
 function IconOps() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <path d="M4 13h6V4H4v9Zm10 7h6V11h-6v9ZM4 20h6v-5H4v5Zm10-11h6V4h-6v5Z" strokeLinejoin="round" />
     </svg>
   );
@@ -14,7 +14,7 @@ function IconOps() {
 
 function IconRequests() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" strokeLinecap="round" />
     </svg>
   );
@@ -22,16 +22,24 @@ function IconRequests() {
 
 function IconUsage() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
+function IconOut() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M10 5H5v14h5M14 12H5M16 8l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const links = [
-  { to: '/admin', end: true, label: 'Command', icon: <IconOps /> },
-  { to: '/admin/requests', end: false, label: 'Requests', icon: <IconRequests /> },
-  { to: '/admin/usage', end: false, label: 'Usage', icon: <IconUsage /> },
+  { to: '/admin', end: true, label: 'Command', short: 'Ops', icon: <IconOps /> },
+  { to: '/admin/requests', end: false, label: 'Requests', short: 'Inbox', icon: <IconRequests /> },
+  { to: '/admin/usage', end: false, label: 'Usage', short: 'Usage', icon: <IconUsage /> },
 ];
 
 function money(n: number | null | undefined) {
@@ -122,34 +130,49 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      <div>
+      <div className="ac-shell">
         <header className="ac-topbar">
           <div className="ac-topbar__brand">
             <Logo to="/admin" size="sm" theme="dark" />
-            <NavLink to="/admin" end style={{ color: 'inherit', textDecoration: 'none' }}>
-              BMV Ops
-            </NavLink>
-          </div>
-          <nav className="ac-topbar__menu">
-            {links.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                end={l.end}
-                className={({ isActive }) => (isActive ? 'is-active' : undefined)}
-              >
-                {l.label}
+            <div className="ac-topbar__titles">
+              <NavLink to="/admin" end style={{ color: 'inherit', textDecoration: 'none' }}>
+                BMV Ops
               </NavLink>
-            ))}
-            <button type="button" className="ac-btn" style={{ padding: '0.35rem 0.7rem' }} onClick={logout}>
-              Out
-            </button>
-          </nav>
+              <span className="ac-topbar__live">
+                <span className={overview?.ai_enabled ? 'ac-ok' : 'ac-fail'}>
+                  {overview ? (overview.ai_enabled ? 'AI live' : 'AI paused') : '…'}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>{overview ? money(overview.cost_today_usd) : '…'}</span>
+              </span>
+            </div>
+          </div>
+          <button type="button" className="ac-topbar__out" onClick={logout} aria-label="Sign out">
+            <IconOut />
+          </button>
         </header>
 
         <main className="ac-main">
           <Outlet context={{ overview, refreshOverview: loadStatus }} />
         </main>
+
+        <nav className="ac-dock" aria-label="Admin sections">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              className={({ isActive }) => `ac-dock__item${isActive ? ' is-active' : ''}`}
+            >
+              {l.icon}
+              <span>{l.short}</span>
+            </NavLink>
+          ))}
+          <button type="button" className="ac-dock__item ac-dock__item--out" onClick={logout}>
+            <IconOut />
+            <span>Out</span>
+          </button>
+        </nav>
       </div>
     </div>
   );

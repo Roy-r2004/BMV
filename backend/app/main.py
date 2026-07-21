@@ -28,6 +28,7 @@ from app.infrastructure.db.base import Base
 from app.infrastructure.db.migrations import run_sqlite_migrations
 from app.infrastructure.db.session import engine
 from app.infrastructure.storage.file_service import ensure_upload_dir
+from app.application.services.admin_bootstrap import bootstrap_admin
 from app.application.services.demo_seed import seed_demo_if_empty
 
 configure_logging(settings.LOG_LEVEL)
@@ -38,6 +39,7 @@ try:
     Base.metadata.create_all(bind=engine)
     run_sqlite_migrations()
     ensure_upload_dir()
+    bootstrap_admin()
     if settings.SEED_DEMO:
         seed_demo_if_empty()
     else:
