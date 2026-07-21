@@ -1,18 +1,14 @@
-const STATUS_COLORS: Record<string, string> = {
-  new: 'bg-blue-100 text-blue-700',
-  reviewing: 'bg-yellow-100 text-yellow-700',
-  'proposal sent': 'bg-purple-100 text-purple-700',
-  accepted: 'bg-green-100 text-green-700',
-  'in progress': 'bg-orange-100 text-orange-700',
-  delivered: 'bg-teal-100 text-teal-700',
-  lost: 'bg-red-100 text-red-700',
+const STATUS_CLASS: Record<string, string> = {
+  new: 'ac-badge--new',
+  reviewing: 'ac-badge--reviewing',
+  'proposal sent': 'ac-badge--proposal',
+  accepted: 'ac-badge--accepted',
+  'in progress': 'ac-badge--progress',
+  delivered: 'ac-badge--delivered',
+  lost: 'ac-badge--lost',
 };
 
 export default function RequestStatusBadge({ status }: { status: string }) {
-  const color = STATUS_COLORS[status] || 'bg-slate-100 text-slate-700';
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${color}`}>
-      {status}
-    </span>
-  );
+  const cls = STATUS_CLASS[status] || 'ac-badge--default';
+  return <span className={`ac-badge ${cls}`}>{status}</span>;
 }

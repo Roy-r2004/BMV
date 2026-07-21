@@ -12,7 +12,9 @@ import ResultPreviewPage from './routes/ResultPreviewPage';
 import LoginPage from './routes/LoginPage';
 import SignupPage from './routes/SignupPage';
 import AdminLoginPage from './routes/AdminLoginPage';
+import AdminOpsPage from './routes/AdminOpsPage';
 import AdminDashboardPage from './routes/AdminDashboardPage';
+import AdminUsagePage from './routes/AdminUsagePage';
 import AdminRequestDetailPage from './routes/AdminRequestDetailPage';
 import AdminLayout from './components/AdminLayout';
 import SiteChatWidget from './components/SiteChatWidget';
@@ -37,8 +39,10 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboardPage />} />
+            <Route index element={<AdminOpsPage />} />
+            <Route path="requests" element={<AdminDashboardPage />} />
             <Route path="requests/:id" element={<AdminRequestDetailPage />} />
+            <Route path="usage" element={<AdminUsagePage />} />
           </Route>
         </Routes>
         <SiteChatWidget />

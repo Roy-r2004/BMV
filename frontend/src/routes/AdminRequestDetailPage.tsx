@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   getRequest,
   updateRequest,
+  deleteRequest,
   generateAction,
   getWhatsAppMessage,
+  hasAdminSession,
 } from '../api/admin';
 import type { RequestDetail } from '../types/request';
 import RequestStatusBadge from '../components/RequestStatusBadge';
@@ -34,6 +36,7 @@ export default function AdminRequestDetailPage() {
   const [proposal, setProposal] = useState('');
   const [generating, setGenerating] = useState('');
   const [waMessage, setWaMessage] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -51,7 +54,7 @@ export default function AdminRequestDetailPage() {
   };
 
   useEffect(() => {
-    if (!sessionStorage.getItem('admin_password')) {
+    if (!hasAdminSession()) {
       navigate('/admin/login');
       return;
     }
@@ -75,7 +78,27 @@ export default function AdminRequestDetailPage() {
     }
   };
 
-  if (!request) return <p className="text-center py-8">Loading...</p>;
+  const handleDelete = async () => {
+    if (!id || !request) return;
+    const label = request.concept_name || request.business_name || `#${id}`;
+    if (!window.confirm(`Delete request ${label}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await deleteRequest(Number(id));
+      navigate('/admin/requests');
+    } catch {
+      setDeleting(false);
+      window.alert('Delete failed');
+    }
+  };
+
+  if (!request) {
+    return (
+      <div className="ac-page">
+        <p className="ac-empty">Loading request…</p>
+      </div>
+    );
+  }
 
   let visualDemo: VisualDemo | null = null;
   if (request.visual_demo_json) {
@@ -85,15 +108,22 @@ export default function AdminRequestDetailPage() {
   }
 
   return (
-    <div>
-      <Link to="/admin" className="text-accent text-sm hover:underline mb-4 inline-block">&larr; Back to requests</Link>
-
-      <div className="flex items-center justify-between mb-6">
+    <div className="ac-page ac-detail">
+      <div className="ac-hero">
         <div>
-          <h1 className="text-2xl font-bold">{request.business_name}</h1>
-          <p className="text-slate-500">Request #{request.id}</p>
+          <Link to="/admin/requests" className="ac-panel__link" style={{ display: 'inline-block', marginBottom: '0.5rem' }}>
+            ← Back to requests
+          </Link>
+          <p className="ac-hero__eyebrow">Request #{request.id}</p>
+          <h1 className="ac-hero__title">{request.business_name}</h1>
+          <p className="ac-hero__sub">{request.email}{request.industry ? ` · ${request.industry}` : ''}</p>
         </div>
-        <RequestStatusBadge status={request.status} />
+        <div className="ac-actions">
+          <RequestStatusBadge status={request.status} />
+          <Link to={`/result/${request.id}`} target="_blank" className="ac-btn ac-btn--primary">
+            Public preview
+          </Link>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -169,11 +199,12 @@ export default function AdminRequestDetailPage() {
               {GENERATE_ACTIONS.map((a) => (
                 <button
                   key={a.key}
+                  type="button"
                   onClick={() => handleGenerate(a.key)}
                   disabled={!!generating}
-                  className="w-full px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-left"
+                  className="ac-btn w-full justify-start disabled:opacity-50"
                 >
-                  {generating === a.key ? 'Generating...' : a.label}
+                  {generating === a.key ? 'Generating…' : a.label}
                 </button>
               ))}
             </div>
@@ -184,7 +215,7 @@ export default function AdminRequestDetailPage() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-slate-200 mb-3 text-sm"
+              className="ac-input mb-3"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s} className="capitalize">{s}</option>
@@ -195,10 +226,10 @@ export default function AdminRequestDetailPage() {
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
               placeholder="Admin notes..."
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm mb-3"
+              className="ac-input mb-3"
             />
-            <button onClick={handleSave} className="gradient-btn w-full text-sm py-2">
-              Save Notes & Status
+            <button type="button" onClick={handleSave} className="ac-btn ac-btn--primary w-full">
+              Save notes & status
             </button>
           </div>
 
@@ -211,9 +242,9 @@ export default function AdminRequestDetailPage() {
           </div>
 
           {request.build_requested && (
-            <div className="card p-4 bg-green-50 border-green-200">
-              <p className="text-green-700 font-semibold text-sm">Build requested!</p>
-              <p className="text-green-600 text-xs">
+            <div className="ac-control ac-control--live">
+              <p className="ac-control__title">Build requested</p>
+              <p className="ac-control__desc" style={{ marginBottom: 0 }}>
                 {request.build_requested_at && new Date(request.build_requested_at).toLocaleString()}
               </p>
             </div>
@@ -222,9 +253,21 @@ export default function AdminRequestDetailPage() {
           <div className="card p-6 text-sm space-y-2">
             <div><span className="text-slate-500">Fit score:</span> <strong>{request.business_fit_score ?? '—'}</strong></div>
             <div><span className="text-slate-500">Concept:</span> <strong>{request.concept_name || '—'}</strong></div>
-            <Link to={`/result/${request.id}`} target="_blank" className="text-accent hover:underline block mt-2">
-              View public preview &rarr;
-            </Link>
+          </div>
+
+          <div className="ac-control ac-control--off">
+            <h2 className="ac-control__title">Danger zone</h2>
+            <p className="ac-control__desc">
+              Permanently deletes this request, preview chat, app-spec revisions, and preview files.
+            </p>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting || !!generating}
+              className="ac-btn ac-btn--danger disabled:opacity-50"
+            >
+              {deleting ? 'Deleting…' : 'Delete request'}
+            </button>
           </div>
         </div>
       </div>

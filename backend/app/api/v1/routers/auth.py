@@ -10,7 +10,13 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 def _public(user: User) -> UserPublic:
-    return UserPublic(id=user.id, name=user.name, email=user.email, created_at=user.created_at)
+    return UserPublic(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        is_admin=bool(getattr(user, "is_admin", False)),
+        created_at=user.created_at,
+    )
 
 
 @router.post("/signup", response_model=AuthResponse)

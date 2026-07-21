@@ -14,12 +14,6 @@ from app.infrastructure.templating.renderer import get_template_renderer
 __all__ = ["get_db", "verify_admin", "get_current_user", "get_ai_provider_dep", "get_template_renderer_dep"]
 
 
-def verify_admin(x_admin_password: str = Header(...)) -> bool:
-    if x_admin_password != settings.ADMIN_PASSWORD:
-        raise HTTPException(status_code=401, detail="Invalid admin password")
-    return True
-
-
 def _bearer_token(authorization: str | None = Header(default=None)) -> str | None:
     if not authorization:
         return None
@@ -27,6 +21,23 @@ def _bearer_token(authorization: str | None = Header(default=None)) -> str | Non
     if len(parts) == 2 and parts[0].lower() == "bearer":
         return parts[1].strip()
     return None
+
+
+def verify_admin(
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> bool:
+    """Allow shared ADMIN_PASSWORD header or a logged-in is_admin user session."""
+    if x_admin_password and x_admin_password == settings.ADMIN_PASSWORD:
+        return True
+
+    token = _bearer_token(authorization)
+    user = get_user_by_token(db, token)
+    if user and bool(getattr(user, "is_admin", False)):
+        return True
+
+    raise HTTPException(status_code=401, detail="Invalid admin credentials")
 
 
 def get_current_user(

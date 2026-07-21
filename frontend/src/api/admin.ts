@@ -1,8 +1,123 @@
 import { apiClient, getAdminHeaders } from './client';
 import type { RequestDetail, RequestListItem } from '../types/request';
 
-export async function adminLogin(password: string): Promise<{ success: boolean; message: string }> {
-  const { data } = await apiClient.post('/api/admin/login', { password });
+export type AdminOverview = {
+  provider: string;
+  ai_enabled: boolean;
+  site_chat_enabled: boolean;
+  daily_budget_usd: number | null;
+  budget_remaining_usd: number | null;
+  requests_total: number;
+  requests_today: number;
+  by_status: Record<string, number>;
+  cost_today_usd: number;
+  cost_7d_usd: number;
+  tokens_today: number;
+  calls_today: number;
+  failed_today: number;
+  top_models_today: Array<{
+    model: string;
+    calls: number;
+    cost_usd: number;
+    tokens: number;
+  }>;
+  recent_failures: AiUsageEvent[];
+  recent_usage: AiUsageEvent[];
+};
+
+export type AiUsageEvent = {
+  id: number;
+  created_at: string | null;
+  provider: string;
+  model: string;
+  purpose: string;
+  request_id: number | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number | null;
+  success: boolean;
+  error: string | null;
+  latency_ms: number | null;
+};
+
+export type AdminSettings = {
+  ai_enabled: boolean;
+  site_chat_enabled: boolean;
+  daily_budget_usd: number | null;
+  updated_at?: string | null;
+};
+
+export type AdminLoginResult = {
+  success: boolean;
+  message: string;
+  token?: string | null;
+  user?: { id: number; name: string; email: string; is_admin?: boolean } | null;
+};
+
+export async function adminLogin(
+  password: string,
+  email?: string,
+): Promise<AdminLoginResult> {
+  const { data } = await apiClient.post<AdminLoginResult>('/api/admin/login', {
+    password,
+    email: email?.trim() || undefined,
+  });
+  return data;
+}
+
+export function clearAdminSession() {
+  sessionStorage.removeItem('admin_password');
+  sessionStorage.removeItem('admin_token');
+  sessionStorage.removeItem('admin_email');
+}
+
+export function hasAdminSession(): boolean {
+  return Boolean(sessionStorage.getItem('admin_token') || sessionStorage.getItem('admin_password'));
+}
+
+export function persistAdminSession(result: AdminLoginResult, passwordFallback?: string) {
+  if (result.token) {
+    sessionStorage.setItem('admin_token', result.token);
+    sessionStorage.removeItem('admin_password');
+    if (result.user?.email) sessionStorage.setItem('admin_email', result.user.email);
+  } else if (passwordFallback) {
+    sessionStorage.setItem('admin_password', passwordFallback);
+    sessionStorage.removeItem('admin_token');
+  }
+}
+
+export async function getAdminOverview(): Promise<AdminOverview> {
+  const { data } = await apiClient.get('/api/admin/overview', {
+    headers: getAdminHeaders(),
+  });
+  return data;
+}
+
+export async function getAdminSettings(): Promise<AdminSettings> {
+  const { data } = await apiClient.get('/api/admin/settings', {
+    headers: getAdminHeaders(),
+  });
+  return data;
+}
+
+export async function updateAdminSettings(body: {
+  ai_enabled?: boolean;
+  site_chat_enabled?: boolean;
+  daily_budget_usd?: number | null;
+  clear_daily_budget?: boolean;
+}): Promise<AdminSettings> {
+  const { data } = await apiClient.patch('/api/admin/settings', body, {
+    headers: getAdminHeaders(),
+  });
+  return data;
+}
+
+export async function listAdminUsage(days = 7, limit = 200): Promise<{ days: number; events: AiUsageEvent[] }> {
+  const { data } = await apiClient.get('/api/admin/usage', {
+    headers: getAdminHeaders(),
+    params: { days, limit },
+  });
   return data;
 }
 
@@ -24,6 +139,13 @@ export async function getRequest(id: number): Promise<RequestDetail> {
 
 export async function updateRequest(id: number, body: Record<string, unknown>): Promise<RequestDetail> {
   const { data } = await apiClient.patch(`/api/admin/requests/${id}`, body, {
+    headers: getAdminHeaders(),
+  });
+  return data;
+}
+
+export async function deleteRequest(id: number): Promise<{ success: boolean; deleted_id: number; label: string }> {
+  const { data } = await apiClient.delete(`/api/admin/requests/${id}`, {
     headers: getAdminHeaders(),
   });
   return data;

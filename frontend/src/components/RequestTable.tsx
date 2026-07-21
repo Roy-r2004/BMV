@@ -8,37 +8,53 @@ interface Props {
 
 export default function RequestTable({ requests }: Props) {
   if (requests.length === 0) {
-    return <p className="text-slate-500 text-center py-8">No requests found.</p>;
+    return <p className="ac-empty">No requests in this filter.</p>;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="ac-table-wrap">
+      <table className="ac-table">
         <thead>
-          <tr className="border-b border-slate-200 text-left">
-            <th className="py-3 px-2 font-semibold">ID</th>
-            <th className="py-3 px-2 font-semibold">Business</th>
-            <th className="py-3 px-2 font-semibold">Industry</th>
-            <th className="py-3 px-2 font-semibold">Email</th>
-            <th className="py-3 px-2 font-semibold">Status</th>
-            <th className="py-3 px-2 font-semibold">Score</th>
-            <th className="py-3 px-2 font-semibold">Date</th>
-            <th className="py-3 px-2 font-semibold">Actions</th>
+          <tr>
+            <th>ID</th>
+            <th>Business</th>
+            <th>Industry</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th>Fit</th>
+            <th>Submitted</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {requests.map((r) => (
-            <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
-              <td className="py-3 px-2">{r.id}</td>
-              <td className="py-3 px-2 font-medium">{r.business_name}</td>
-              <td className="py-3 px-2 text-slate-600">{r.industry || '—'}</td>
-              <td className="py-3 px-2 text-slate-600">{r.email}</td>
-              <td className="py-3 px-2"><RequestStatusBadge status={r.status} /></td>
-              <td className="py-3 px-2">{r.business_fit_score ?? '—'}</td>
-              <td className="py-3 px-2 text-slate-500">{new Date(r.created_at).toLocaleDateString()}</td>
-              <td className="py-3 px-2">
-                <Link to={`/admin/requests/${r.id}`} className="text-accent hover:underline font-medium">
-                  View
+            <tr key={r.id}>
+              <td className="ac-num">#{r.id}</td>
+              <td>
+                <span className="ac-strong">
+                  {r.build_requested ? <span className="ac-build-dot" title="Build requested" /> : null}
+                  {r.business_name}
+                </span>
+              </td>
+              <td>{r.industry || '—'}</td>
+              <td>
+                <div className="ac-strong" style={{ fontSize: '0.82rem' }}>{r.email}</div>
+                {r.whatsapp ? <div style={{ fontSize: '0.72rem' }}>{r.whatsapp}</div> : null}
+              </td>
+              <td>
+                <RequestStatusBadge status={r.status} />
+              </td>
+              <td className="ac-num">{r.business_fit_score ?? '—'}</td>
+              <td>
+                {new Date(r.created_at).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </td>
+              <td>
+                <Link to={`/admin/requests/${r.id}`} className="ac-row-link">
+                  Open →
                 </Link>
               </td>
             </tr>

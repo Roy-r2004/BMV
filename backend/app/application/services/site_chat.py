@@ -6,6 +6,7 @@ import time
 from collections import defaultdict, deque
 from threading import Lock
 
+from app.application.services.admin_ops import ai_is_allowed
 from app.application.services.site_chat_knowledge import PRICING_SAFE_REPLY, SITE_KNOWLEDGE
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -149,6 +150,13 @@ def reply_site_chat(
     if _is_pricing_question(last_user):
         return PRICING_SAFE_REPLY
 
+    allowed, reason = ai_is_allowed("site_chat")
+    if not allowed:
+        return (
+            f"{reason} You can still browse /submit, /demo, and /solutions while we’re paused. "
+            "What are you trying to automate?"
+        )
+
     if not ai.is_available():
         return (
             "I’m briefly offline, but the short version: we’re an AI consultancy — "
@@ -167,12 +175,22 @@ def reply_site_chat(
 
     model = site_chat_model()
     try:
-        raw = ai.ask_chat(
-            model,
-            llm_messages,
-            max_tokens=_MAX_REPLY_TOKENS,
-            temperature=0.45,
-        )
+        ask = getattr(ai, "ask_chat_purposed", None)
+        if callable(ask):
+            raw = ask(
+                model,
+                llm_messages,
+                purpose="site_chat",
+                max_tokens=_MAX_REPLY_TOKENS,
+                temperature=0.45,
+            )
+        else:
+            raw = ai.ask_chat(
+                model,
+                llm_messages,
+                max_tokens=_MAX_REPLY_TOKENS,
+                temperature=0.45,
+            )
     except Exception as exc:
         log.warning("site chat failed (%s): %s", model, exc)
         return (

@@ -13,7 +13,17 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.api_router import api_router
 from app.core.config import settings
 from app.infrastructure.logging import configure_logging, get_logger
-from app.domain.models import AppSpecRevision, PreviewChatMessage, Request, SolutionEditMessage, SolutionWorkspace, User, UserSession  # noqa: F401
+from app.domain.models import (  # noqa: F401
+    AdminSettings,
+    AiUsageEvent,
+    AppSpecRevision,
+    PreviewChatMessage,
+    Request,
+    SolutionEditMessage,
+    SolutionWorkspace,
+    User,
+    UserSession,
+)
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.migrations import run_sqlite_migrations
 from app.infrastructure.db.session import engine

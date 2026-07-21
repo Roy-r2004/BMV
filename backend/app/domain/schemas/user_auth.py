@@ -18,7 +18,11 @@ class UserPublic(BaseModel):
     id: int
     name: str
     email: str
+    is_admin: bool = False
     created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class AuthResponse(BaseModel):

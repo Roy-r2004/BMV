@@ -21,7 +21,7 @@ _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
 
 
 def run_sqlite_migrations() -> None:
-    """Add any missing columns to the `requests` table. Never raises."""
+    """Add any missing columns. Never raises."""
     url = settings.DATABASE_URL
     try:
         with engine.connect() as conn:
@@ -32,6 +32,15 @@ def run_sqlite_migrations() -> None:
                 for column, ddl in _REQUESTS_TABLE_MIGRATIONS:
                     if column not in existing:
                         conn.execute(text(ddl))
+                user_cols = {
+                    row[1] for row in conn.execute(text("PRAGMA table_info(users)"))
+                }
+                if "is_admin" not in user_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
+                        )
+                    )
                 conn.commit()
                 return
 
@@ -43,6 +52,12 @@ def run_sqlite_migrations() -> None:
                             f"{column} TEXT"
                         )
                     )
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                        "is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                )
                 conn.commit()
     except Exception:
         pass

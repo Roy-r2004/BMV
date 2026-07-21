@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listRequests } from '../api/admin';
+import { hasAdminSession, listRequests } from '../api/admin';
 import type { RequestListItem } from '../types/request';
 import { STATUS_OPTIONS } from '../types/request';
 import RequestTable from '../components/RequestTable';
@@ -9,56 +9,82 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState<RequestListItem[]>([]);
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!sessionStorage.getItem('admin_password')) {
+    if (!hasAdminSession()) {
       navigate('/admin/login');
       return;
     }
-    loadRequests();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await listRequests(filter);
+        if (!cancelled) setRequests(data);
+      } catch {
+        navigate('/admin/login');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [filter, navigate]);
 
-  const loadRequests = async () => {
-    setLoading(true);
-    try {
-      const data = await listRequests(filter);
-      setRequests(data);
-    } catch {
-      navigate('/admin/login');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return requests;
+    return requests.filter((r) =>
+      [r.business_name, r.email, r.industry, r.whatsapp, String(r.id)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [requests, query]);
+
+  const buildCount = requests.filter((r) => r.build_requested).length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Requests</h1>
-        <span className="text-sm text-slate-500">{requests.length} total</span>
-      </div>
+    <div className="ac-page">
+      <header className="ac-hero">
+        <div>
+          <p className="ac-hero__eyebrow">Pipeline</p>
+          <h1 className="ac-hero__title">Requests</h1>
+          <p className="ac-hero__sub">
+            {filtered.length} shown
+            {query ? ` · filtered from ${requests.length}` : ''}
+            {buildCount ? ` · ${buildCount} build requested` : ''}
+          </p>
+        </div>
+        <div className="ac-actions">
+          <input
+            className="ac-input"
+            style={{ width: 'min(100%, 16rem)' }}
+            placeholder="Search business, email, id…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </header>
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="ac-filters">
         {STATUS_OPTIONS.map((s) => (
           <button
             key={s}
+            type="button"
             onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
-              filter === s ? 'bg-accent text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
+            className={`ac-filter${filter === s ? ' is-active' : ''}`}
           >
             {s}
           </button>
         ))}
       </div>
 
-      <div className="card p-4">
-        {loading ? (
-          <p className="text-center py-8 text-slate-500">Loading...</p>
-        ) : (
-          <RequestTable requests={requests} />
-        )}
-      </div>
+      <section className="ac-panel">
+        {loading ? <p className="ac-empty">Loading requests…</p> : <RequestTable requests={filtered} />}
+      </section>
     </div>
   );
 }

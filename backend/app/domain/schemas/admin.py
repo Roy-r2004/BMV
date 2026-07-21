@@ -6,11 +6,14 @@ from pydantic import BaseModel
 
 class AdminLoginRequest(BaseModel):
     password: str
+    email: Optional[str] = None
 
 
 class AdminLoginResponse(BaseModel):
     success: bool
     message: str
+    token: Optional[str] = None
+    user: Optional[dict] = None
 
 
 class RequestListItem(BaseModel):
@@ -73,3 +76,18 @@ class RequestUpdate(BaseModel):
     mvp_blueprint: Optional[str] = None
     technical_plan: Optional[str] = None
     visual_demo_json: Optional[str] = None
+
+
+class AdminSettingsUpdate(BaseModel):
+    ai_enabled: Optional[bool] = None
+    site_chat_enabled: Optional[bool] = None
+    # Use null to clear the daily budget cap
+    daily_budget_usd: Optional[float] = None
+    clear_daily_budget: bool = False
+
+
+class AdminSettingsResponse(BaseModel):
+    ai_enabled: bool
+    site_chat_enabled: bool
+    daily_budget_usd: Optional[float] = None
+    updated_at: Optional[datetime] = None

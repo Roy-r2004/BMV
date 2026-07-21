@@ -19,9 +19,13 @@ from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
+from app.application.services import admin_ops
+from app.application.services.user_auth import authenticate_user, create_session
 from app.domain.schemas.admin import (
     AdminLoginRequest,
     AdminLoginResponse,
+    AdminSettingsResponse,
+    AdminSettingsUpdate,
     RequestDetail,
     RequestListItem,
     RequestUpdate,
@@ -33,10 +37,90 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 @router.post("/login", response_model=AdminLoginResponse)
-def admin_login(body: AdminLoginRequest):
+def admin_login(body: AdminLoginRequest, db: Session = Depends(get_db)):
+    # Preferred: admin user account (email + password)
+    if body.email and body.email.strip():
+        try:
+            user = authenticate_user(db, email=body.email, password=body.password)
+        except HTTPException:
+            return AdminLoginResponse(success=False, message="Invalid email or password")
+        if not bool(getattr(user, "is_admin", False)):
+            return AdminLoginResponse(success=False, message="This account is not an admin")
+        token = create_session(db, user)
+        return AdminLoginResponse(
+            success=True,
+            message="Login successful",
+            token=token,
+            user={
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "is_admin": True,
+            },
+        )
+
+    # Legacy shared password fallback
     if body.password == settings.ADMIN_PASSWORD:
         return AdminLoginResponse(success=True, message="Login successful")
     return AdminLoginResponse(success=False, message="Invalid password")
+
+
+@router.get("/overview")
+def admin_overview(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    return admin_ops.build_overview(db)
+
+
+@router.get("/settings", response_model=AdminSettingsResponse)
+def get_admin_settings(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    row = admin_ops.ensure_settings(db)
+    return AdminSettingsResponse(
+        ai_enabled=bool(row.ai_enabled),
+        site_chat_enabled=bool(row.site_chat_enabled),
+        daily_budget_usd=row.daily_budget_usd,
+        updated_at=row.updated_at,
+    )
+
+
+@router.patch("/settings", response_model=AdminSettingsResponse)
+def patch_admin_settings(
+    body: AdminSettingsUpdate,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    budget_arg: object = ...
+    if body.clear_daily_budget:
+        budget_arg = None
+    elif "daily_budget_usd" in body.model_fields_set:
+        budget_arg = body.daily_budget_usd
+
+    row = admin_ops.update_settings(
+        db,
+        ai_enabled=body.ai_enabled,
+        site_chat_enabled=body.site_chat_enabled,
+        daily_budget_usd=budget_arg,
+    )
+    return AdminSettingsResponse(
+        ai_enabled=bool(row.ai_enabled),
+        site_chat_enabled=bool(row.site_chat_enabled),
+        daily_budget_usd=row.daily_budget_usd,
+        updated_at=row.updated_at,
+    )
+
+
+@router.get("/usage")
+def admin_usage(
+    days: int = Query(7, ge=1, le=90),
+    limit: int = Query(200, ge=1, le=500),
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    return {"days": days, "events": admin_ops.list_usage(db, days=days, limit=limit)}
 
 
 @router.get("/requests", response_model=list[RequestListItem])
@@ -119,12 +203,21 @@ def delete_request(
 def get_request_file(
     request_id: int,
     x_admin_password: str = Header(None, alias="X-Admin-Password"),
+    authorization: str = Header(None),
     admin_password: str = Query(None),
     db: Session = Depends(get_db),
 ):
     password = x_admin_password or admin_password
-    if password != settings.ADMIN_PASSWORD:
-        raise HTTPException(status_code=401, detail="Invalid admin password")
+    allowed = bool(password and password == settings.ADMIN_PASSWORD)
+    if not allowed and authorization:
+        from app.application.services.user_auth import get_user_by_token
+
+        parts = authorization.split(" ", 1)
+        token = parts[1].strip() if len(parts) == 2 and parts[0].lower() == "bearer" else None
+        user = get_user_by_token(db, token)
+        allowed = bool(user and getattr(user, "is_admin", False))
+    if not allowed:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req or not req.reference_file_path:
         raise HTTPException(status_code=404, detail="File not found")

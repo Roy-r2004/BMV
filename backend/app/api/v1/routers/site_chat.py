@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_ai_provider_dep
+from app.application.services.admin_ops import ai_is_allowed
 from app.application.services.site_chat import rate_limit_ok, reply_site_chat
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -34,6 +35,10 @@ def site_chat(
 ):
     if not settings.SITE_CHAT_ENABLED:
         raise HTTPException(status_code=503, detail="Site chat is temporarily unavailable.")
+
+    allowed, reason = ai_is_allowed("site_chat")
+    if not allowed:
+        raise HTTPException(status_code=503, detail=reason or "Site chat is temporarily unavailable.")
 
     client = request.client.host if request.client else "unknown"
     if not rate_limit_ok(client):

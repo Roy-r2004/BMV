@@ -10,9 +10,19 @@ export const apiClient = axios.create({
   baseURL: API_BASE,
 });
 
-export function getAdminHeaders() {
+export function getAdminHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   const password = sessionStorage.getItem('admin_password');
-  return { 'X-Admin-Password': password || '' };
+  const adminToken = sessionStorage.getItem('admin_token');
+  const userToken = localStorage.getItem('bmv_user_token');
+  const token = adminToken || userToken;
+  if (password) headers['X-Admin-Password'] = password;
+  if (token) headers.Authorization = `Bearer ${token}`;
+  // Legacy callers that only send password still work when password is set
+  if (!headers['X-Admin-Password'] && !headers.Authorization) {
+    headers['X-Admin-Password'] = '';
+  }
+  return headers;
 }
 
 export const ROY_WHATSAPP = import.meta.env.VITE_ROY_WHATSAPP_NUMBER || '';

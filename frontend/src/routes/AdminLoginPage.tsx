@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { adminLogin } from '../api/admin';
-import Logo from '../components/Logo';
+import { Link, useNavigate } from 'react-router-dom';
+import { adminLogin, persistAdminSession } from '../api/admin';
+import { setUserToken } from '../api/auth';
+import AuthShell from '../components/AuthShell';
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,13 +16,14 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError('');
     try {
-      const result = await adminLogin(password);
-      if (result.success) {
-        sessionStorage.setItem('admin_password', password);
-        navigate('/admin');
-      } else {
-        setError('Invalid password');
+      const result = await adminLogin(password, email);
+      if (!result.success) {
+        setError(result.message || 'Invalid credentials');
+        return;
       }
+      persistAdminSession(result, email.trim() ? undefined : password);
+      if (result.token) setUserToken(result.token);
+      navigate('/admin');
     } catch {
       setError('Login failed');
     } finally {
@@ -29,29 +32,48 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-off-white px-4">
-      <div className="card p-8 w-full max-w-md">
-        <div className="flex justify-center mb-6">
-          <Logo to="/" size="lg" />
-        </div>
-        <h1 className="text-2xl font-bold mb-6 text-center">Admin Login</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold mb-1.5">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
-              required
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" disabled={loading} className="gradient-btn w-full disabled:opacity-50">
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-      </div>
-    </div>
+    <AuthShell
+      eyebrow="Operations"
+      title="Admin sign in"
+      lead="Use your admin email and password to open the ops dashboard, costs, and request controls."
+      visualTitle="Ops control"
+      visualCopy="Pause AI, watch spend, manage requests, and keep the pipeline under your control."
+      footer={
+        <>
+          Need a public account?{' '}
+          <Link to="/login">User sign in</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="auth-shell__form">
+        <label className="auth-shell__label">
+          Email
+          <input
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="auth-shell__input"
+            placeholder="you@company.com"
+            required
+          />
+        </label>
+        <label className="auth-shell__label">
+          Password
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="auth-shell__input"
+            required
+          />
+        </label>
+        {error ? <p className="auth-shell__error">{error}</p> : null}
+        <button type="submit" disabled={loading} className="gradient-btn auth-shell__submit disabled:opacity-50">
+          {loading ? 'Signing in…' : 'Enter dashboard'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

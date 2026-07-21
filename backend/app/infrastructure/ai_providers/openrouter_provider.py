@@ -3,9 +3,15 @@ from __future__ import annotations
 
 import base64
 import mimetypes
+import time
 
 import requests
 
+from app.application.services.admin_ops import (
+    ai_is_allowed,
+    parse_openrouter_usage,
+    record_usage,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.infrastructure.ai_providers.retry import call_with_retry
@@ -59,7 +65,19 @@ class OpenRouterAIProvider(AIProvider):
         timeout: int = 120,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        purpose: str = "pipeline",
     ) -> str:
+        allowed, reason = ai_is_allowed(purpose)
+        if not allowed:
+            record_usage(
+                provider="openrouter",
+                model=model,
+                purpose=purpose,
+                success=False,
+                error=reason,
+            )
+            raise RuntimeError(reason)
+
         payload: dict = {"model": model, "messages": messages, "stream": False}
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -79,17 +97,40 @@ class OpenRouterAIProvider(AIProvider):
         def _heartbeat(elapsed: float) -> None:
             retry_log.debug("still waiting on %s (%.0fs elapsed)", model, elapsed)
 
-        # Transient network/rate-limit errors are retried automatically so one
-        # flaky call doesn't stall or abort an entire generation stage. Capped
-        # at 2 attempts (was 3) with a 120s timeout (was 300s) — worst case is
-        # now ~4 minutes per call instead of ~15, and the heartbeat print means
-        # a slow-but-working call is now distinguishable from a stuck one in
-        # the logs instead of both looking like total silence.
-        data = call_with_retry(
-            _do_request, attempts=2, base_delay=3,
-            heartbeat_interval=20, on_heartbeat=_heartbeat,
-        )
-        return data["choices"][0]["message"]["content"]
+        started = time.monotonic()
+        try:
+            data = call_with_retry(
+                _do_request,
+                attempts=2,
+                base_delay=3,
+                heartbeat_interval=20,
+                on_heartbeat=_heartbeat,
+            )
+            latency = int((time.monotonic() - started) * 1000)
+            prompt, completion, total, cost = parse_openrouter_usage(data)
+            record_usage(
+                provider="openrouter",
+                model=model,
+                purpose=purpose,
+                prompt_tokens=prompt,
+                completion_tokens=completion,
+                total_tokens=total,
+                cost_usd=cost,
+                success=True,
+                latency_ms=latency,
+            )
+            return data["choices"][0]["message"]["content"]
+        except Exception as exc:
+            latency = int((time.monotonic() - started) * 1000)
+            record_usage(
+                provider="openrouter",
+                model=model,
+                purpose=purpose,
+                success=False,
+                error=str(exc)[:2000],
+                latency_ms=latency,
+            )
+            raise
 
     def ask_chat(
         self,
@@ -98,10 +139,15 @@ class OpenRouterAIProvider(AIProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        # Claude code-gen: low temperature for precise, rule-following output.
         if temperature is None and self._is_claude(model):
             temperature = 0.3
-        return self._chat_completion(model, messages, max_tokens=max_tokens, temperature=temperature)
+        return self._chat_completion(
+            model,
+            messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            purpose="pipeline",
+        )
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         mime, _ = mimetypes.guess_type(image_path)
@@ -118,7 +164,24 @@ class OpenRouterAIProvider(AIProvider):
                 ],
             }
         ]
-        return self._chat_completion(model, messages)
+        return self._chat_completion(model, messages, purpose="vision")
+
+    def ask_chat_purposed(
+        self,
+        model: str,
+        messages: list[dict],
+        *,
+        purpose: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        return self._chat_completion(
+            model,
+            messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            purpose=purpose,
+        )
 
     def is_available(self) -> bool:
         if not self._api_key:
