@@ -66,7 +66,6 @@ _TRADING_HINTS = (
     "blotter",
     "portfolio",
     "equity",
-    "fintech",
     "oms",
     "execution",
     "broker",
@@ -76,16 +75,46 @@ _TRADING_HINTS = (
     "desk",
 )
 
+_ACCOUNTING_HINTS = (
+    "account",
+    "ledger",
+    "invoice",
+    "bookkeep",
+    "expense",
+    "reconcil",
+    "quickbooks",
+    "xero",
+    "freshbooks",
+    "cash flow",
+    "cashflow",
+)
+
 
 def _is_trading_domain(*parts: str) -> bool:
     blob = " ".join(str(p or "") for p in parts).lower()
+    if any(hint in blob for hint in _ACCOUNTING_HINTS):
+        return False
     return any(hint in blob for hint in _TRADING_HINTS)
+
+
+def _is_accounting_domain(*parts: str) -> bool:
+    blob = " ".join(str(p or "") for p in parts).lower()
+    return sum(1 for hint in _ACCOUNTING_HINTS if hint in blob) >= 1
 
 
 def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
     brand_js = json.dumps(brand)
     title_js = json.dumps(title)
-    trading = _is_trading_domain(brand, title)
+    accounting = _is_accounting_domain(brand, title)
+    trading = _is_trading_domain(brand, title) and not accounting
+
+    def _d(accounting_v: str, trading_v: str, default_v: str) -> str:
+        if accounting:
+            return accounting_v
+        if trading:
+            return trading_v
+        return default_v
+
     samples = {
         "hero": (
             f'<MarketingHero brandName={{{brand_js}}} '
@@ -179,80 +208,100 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         ),
         "header": (
             f'<PageHeader title={{seed.hero?.headline || {title_js}}} '
-            + (
-                'description={seed.hero?.subcopy || "Watchlist, blotter, positions, and P&L for the fund book."} '
-                if trading
-                else 'description={seed.hero?.subcopy || "A current view of the work that needs your attention."} '
+            + "description={seed.hero?.subcopy || "
+            + _d(
+                '"Cash, invoices, expenses, and bank matches for today."',
+                '"Watchlist, blotter, positions, and P&L for the fund book."',
+                '"A current view of the work that needs your attention."',
             )
+            + "} "
             + 'meta={<span className="text-sm text-muted">'
-            + ("Markets open · live marks" if trading else "Live")
+            + _d("Books · live", "Markets open · live marks", "Live")
             + "</span>}"
-            + (
+            + _d(
                 ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "New ticket", href: "/ticket" }]}'
-                if trading
-                else ""
+                '{ label: "New invoice", href: "/invoices" }]}',
+                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
+                '{ label: "New ticket", href: "/ticket" }]}',
+                "",
             )
             + " />"
         ),
         "kpis": (
             '<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">'
-            + (
+            + _d(
+                (
+                    '<StatCard label={seed.kpis?.[0]?.label ?? "Cash on hand"} value={seed.kpis?.[0]?.value ?? "48,220"} delta={seed.kpis?.[0]?.delta ?? "+2.1k"} hint={seed.kpis?.[0]?.hint ?? "vs last week"} />'
+                    '<StatCard label={seed.kpis?.[1]?.label ?? "Open invoices"} value={seed.kpis?.[1]?.value ?? "26"} delta={seed.kpis?.[1]?.delta ?? "4 overdue"} hint={seed.kpis?.[1]?.hint ?? "AR"} />'
+                    '<StatCard label={seed.kpis?.[2]?.label ?? "Expenses MTD"} value={seed.kpis?.[2]?.value ?? "12,840"} delta={seed.kpis?.[2]?.delta ?? "+6%"} hint={seed.kpis?.[2]?.hint ?? "vs last month"} />'
+                    '<StatCard label={seed.kpis?.[3]?.label ?? "Unmatched bank"} value={seed.kpis?.[3]?.value ?? "12"} delta={seed.kpis?.[3]?.delta ?? "-3"} hint={seed.kpis?.[3]?.hint ?? "to reconcile"} />'
+                ),
                 (
                     '<StatCard label={seed.kpis?.[0]?.label ?? "Open orders"} value={seed.kpis?.[0]?.value ?? "18"} delta={seed.kpis?.[0]?.delta ?? "+3"} hint={seed.kpis?.[0]?.hint ?? "working on desk"} />'
                     '<StatCard label={seed.kpis?.[1]?.label ?? "Day P&L"} value={seed.kpis?.[1]?.value ?? "+1.24M"} delta={seed.kpis?.[1]?.delta ?? "+0.4%"} hint={seed.kpis?.[1]?.hint ?? "vs NAV"} />'
                     '<StatCard label={seed.kpis?.[2]?.label ?? "Gross exposure"} value={seed.kpis?.[2]?.value ?? "62%"} delta={seed.kpis?.[2]?.delta ?? "-3%"} hint={seed.kpis?.[2]?.hint ?? "limit 75%"} />'
                     '<StatCard label={seed.kpis?.[3]?.label ?? "Fills today"} value={seed.kpis?.[3]?.value ?? "41"} delta={seed.kpis?.[3]?.delta ?? "+6"} hint={seed.kpis?.[3]?.hint ?? "across 9 names"} />'
-                )
-                if trading
-                else (
+                ),
+                (
                     '<StatCard label={seed.kpis?.[0]?.label ?? "Active today"} value={seed.kpis?.[0]?.value ?? "24"} delta={seed.kpis?.[0]?.delta ?? "+8%"} hint={seed.kpis?.[0]?.hint ?? "Compared with last week"} />'
                     '<StatCard label={seed.kpis?.[1]?.label ?? "In progress"} value={seed.kpis?.[1]?.value ?? "11"} delta={seed.kpis?.[1]?.delta ?? "+2"} hint={seed.kpis?.[1]?.hint ?? "Open work items"} />'
                     '<StatCard label={seed.kpis?.[2]?.label ?? "Resolved"} value={seed.kpis?.[2]?.value ?? "93%"} delta={seed.kpis?.[2]?.delta ?? "-2%"} hint={seed.kpis?.[2]?.hint ?? "Rolling 7-day rate"} />'
-                )
+                ),
             )
             + '</div>'
         ),
         "chart": (
             '<ChartCard title={seed.showcaseHeading ?? '
-            + ('"Intraday P&L"' if trading else '"Weekly performance"')
+            + _d('"Cash trend"', '"Intraday P&L"', '"Weekly performance"')
             + '} type="area" dataKey="value" xKey="day" '
-            + (
+            + _d(
+                'data={[{ day: "Mon", value: 42 }, { day: "Tue", value: 44 }, { day: "Wed", value: 43 }, '
+                '{ day: "Thu", value: 46 }, { day: "Fri", value: 48.2 }]} />',
                 'data={[{ day: "09:30", value: 0.4 }, { day: "10:30", value: 0.9 }, '
                 '{ day: "11:30", value: 0.7 }, { day: "13:00", value: 1.1 }, '
-                '{ day: "14:30", value: 1.24 }, { day: "15:45", value: 1.18 }]} />'
-                if trading
-                else 'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }, { day: "Wed", value: 15 }, '
-                '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />'
+                '{ day: "14:30", value: 1.24 }, { day: "15:45", value: 1.18 }]} />',
+                'data={[{ day: "Mon", value: 12 }, { day: "Tue", value: 18 }, { day: "Wed", value: 15 }, '
+                '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />',
             )
         ),
         "filters": (
             '<FilterBar searchPlaceholder="'
-            + ("Search symbols / orders" if trading else "Search records")
+            + _d("Search invoices / expenses", "Search symbols / orders", "Search records")
             + '" filters={[{ id: "all", label: "All", active: true }, { id: "'
-            + ("working" if trading else "open")
+            + _d("overdue", "working", "open")
             + '", label: "'
-            + ("Working" if trading else "Open")
+            + _d("Overdue", "Working", "Open")
             + '", active: false }'
-            + (
+            + _d(
+                ', { id: "sent", label: "Sent", active: false }, '
+                '{ id: "draft", label: "Draft", active: false }',
                 ', { id: "partial", label: "Partial", active: false }, '
-                '{ id: "filled", label: "Filled", active: false }'
-                if trading
-                else ""
+                '{ id: "filled", label: "Filled", active: false }',
+                "",
             )
             + "]} />"
         ),
         "table": (
             '<DataTable columns={['
             '{ key: "name", header: "'
-            + ("Order" if trading else "Name")
+            + _d("Record", "Order", "Name")
             + '" }, '
             '{ key: "status", header: "Status" }, '
             '{ key: "owner", header: "'
-            + ("Desk" if trading else "Owner")
+            + _d("Queue", "Desk", "Owner")
             + '" }'
             ']} rows={(seed.tableRows ?? ['
-            + (
+            + _d(
+                (
+                    '{ id: "t1", name: "INV-1042 · Northwind Co", status: "Sent", owner: "AR" }, '
+                    '{ id: "t2", name: "INV-1041 · Bright Labs", status: "Overdue", owner: "AR" }, '
+                    '{ id: "t3", name: "INV-1040 · Harbor Dental", status: "Draft", owner: "Owner" }, '
+                    '{ id: "t4", name: "INV-1039 · Peak Studio", status: "Paid", owner: "AR" }, '
+                    '{ id: "t5", name: "EXP-332 · Adobe CC", status: "Uncategorized", owner: "Books" }, '
+                    '{ id: "t6", name: "EXP-331 · AWS", status: "Categorized", owner: "Books" }, '
+                    '{ id: "t7", name: "Bank · Deposit 2,480", status: "Unmatched", owner: "Recon" }, '
+                    '{ id: "t8", name: "Bank · Uber 38.20", status: "Matched", owner: "Recon" }'
+                ),
                 (
                     '{ id: "t1", name: "AAPL · BUY 25,000", status: "Working", owner: "Exec trader" }, '
                     '{ id: "t2", name: "MSFT · SELL 12,000", status: "Partial", owner: "Exec trader" }, '
@@ -262,48 +311,55 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
                     '{ id: "t6", name: "JPM · BUY 15,000", status: "Partial", owner: "Exec trader" }, '
                     '{ id: "t7", name: "XOM · SELL 9,000", status: "Working", owner: "Risk" }, '
                     '{ id: "t8", name: "TSLA · BUY 2,100", status: "Rejected", owner: "PM" }'
-                )
-                if trading
-                else (
+                ),
+                (
                     '{ id: "t1", name: "Primary record", status: "In progress", owner: "Ops" }, '
                     '{ id: "t2", name: "Follow-up item", status: "On hold", owner: "Ops" }, '
                     '{ id: "t3", name: "Completed item", status: "Done", owner: "Ops" }'
-                )
+                ),
             )
             + ']).map((row) => ({ name: row.name, status: row.status, owner: row.owner || row.updated || "—" }))} />'
         ),
         "activity": (
             '<ActivityFeed heading="Activity" items={(seed.activity ?? ['
-            + (
+            + _d(
+                (
+                    '{ id: "activity-1", title: "Invoice sent · INV-1042", detail: "Northwind Co · 2,480", time: "Just now" }, '
+                    '{ id: "activity-2", title: "Expense categorized", detail: "Uber · Travel · 38.20", time: "12m ago" }, '
+                    '{ id: "activity-3", title: "Payment received", detail: "Bright Labs · INV-1038", time: "1h ago" }, '
+                    '{ id: "activity-4", title: "Bank feed synced", detail: "Chase *4491 · 18 new lines", time: "2h ago" }'
+                ),
                 (
                     '{ id: "activity-1", title: "Fill · AAPL 10k", detail: "Avg 198.22 · rest working", time: "Just now" }, '
                     '{ id: "activity-2", title: "Ticket staged · NVDA", detail: "Buy 8k @ 905.00", time: "4m ago" }, '
                     '{ id: "activity-3", title: "Risk check passed", detail: "MSFT sell within net limit", time: "11m ago" }, '
                     '{ id: "activity-4", title: "Replace · AMZN", detail: "Qty 3.2k → 2.8k", time: "18m ago" }, '
                     '{ id: "activity-5", title: "Limit warning", detail: "Tech sleeve 28% soft cap", time: "22m ago" }'
-                )
-                if trading
-                else (
+                ),
+                (
                     '{ id: "activity-1", title: "Record updated", detail: "The latest details are ready.", time: "Just now" }, '
                     '{ id: "activity-2", title: "Owner assigned", detail: "Waiting on confirmation.", time: "12m ago" }, '
                     '{ id: "activity-3", title: "Note added", detail: "Internal handoff logged.", time: "1h ago" }'
-                )
+                ),
             )
             + '])} />'
         ),
         "risk": (
             '<RiskQueue heading="'
-            + ("Risk limits" if trading else "Needs attention")
+            + _d("Exceptions", "Risk limits", "Needs attention")
             + '" items={(seed.risk ?? ['
-            + (
+            + _d(
+                (
+                    '{ id: "risk-1", title: "4 invoices overdue", detail: "3,120 total · oldest 12 days", severity: "high" }, '
+                    '{ id: "risk-2", title: "12 unmatched bank lines", detail: "Reconciliation incomplete", severity: "medium" }, '
+                    '{ id: "risk-3", title: "3 expenses uncategorized", detail: "Needs bookkeeper review", severity: "low" }'
+                ),
                 (
                     '{ id: "risk-1", title: "Sector concentration", detail: "Tech sleeve at 28% of NAV", severity: "medium" }, '
                     '{ id: "risk-2", title: "Single-name", detail: "NVDA 9.1% vs 10% hard", severity: "low" }, '
                     '{ id: "risk-3", title: "Gross utilization", detail: "62% of 75% book limit", severity: "low" }'
-                )
-                if trading
-                else
-                '{ id: "risk-1", title: "Follow-up due", detail: "An internal item needs confirmation.", severity: "medium" }'
+                ),
+                '{ id: "risk-1", title: "Follow-up due", detail: "An internal item needs confirmation.", severity: "medium" }',
             )
             + '])} />'
         ),
@@ -517,7 +573,11 @@ def minimal_catalogue_page_scaffold(
         nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
         nav_hook = "  const adminNavItems = useAdminNavItems();\n"
         if skeleton_id == "ops-dashboard":
-            appearance = ' appearance="floor"' if _is_trading_domain(brand, title) else ""
+            appearance = (
+                ' appearance="floor"'
+                if _is_trading_domain(brand, title)
+                else ""
+            )
             body = (
                 "  const { main, rail } = composeSkeletonLayout(SKELETON_ID, slots);\n\n"
                 "  return (\n"

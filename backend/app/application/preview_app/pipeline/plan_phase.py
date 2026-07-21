@@ -123,8 +123,16 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         ensure_internal_desk_architect,
         ensure_internal_desk_experience_plan,
     )
+    from app.application.preview_app.saas_accounting import (
+        ensure_saas_accounting_architect,
+        ensure_saas_accounting_experience_plan,
+    )
 
     plan = ensure_internal_desk_experience_plan(
+        plan,
+        context=industry_context,
+    )
+    plan = ensure_saas_accounting_experience_plan(
         plan,
         context=industry_context,
     )
@@ -187,6 +195,10 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             architect,
         )
     architect = ensure_internal_desk_architect(
+        architect,
+        context=industry_context,
+    )
+    architect = ensure_saas_accounting_architect(
         architect,
         context=industry_context,
     )

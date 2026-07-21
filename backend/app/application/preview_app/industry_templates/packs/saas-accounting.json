@@ -1,0 +1,119 @@
+{
+  "id": "saas-accounting",
+  "label": "SaaS accounting workspace",
+  "industry_tags": [
+    "accounting",
+    "bookkeeping",
+    "bookkeeper",
+    "invoice",
+    "invoicing",
+    "ledger",
+    "expenses",
+    "reconciliation",
+    "payroll",
+    "quickbooks",
+    "xero",
+    "freshbooks",
+    "saas",
+    "fintech",
+    "cashflow",
+    "bookkeeping"
+  ],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
+  "signature_moves": [
+    "OpsShell accounting workspace",
+    "invoice & expense tables",
+    "cash / P&L KPIs",
+    "bank reconciliation queue",
+    "overdue AR risk rail"
+  ],
+  "prompt_hints": [
+    "PRODUCT workspace for SaaS accounting — invoices, expenses, bank reconciliation, reports. Never a marketing landing with Get Started / Explore Forecasts.",
+    "Forbidden: hero marketing, foresight engine pitch pages, Book Now, Access Dashboard as the whole product.",
+    "Required language: invoices, expenses, bank feed, reconcile, chart of accounts, P&L, balance sheet, cash on hand, overdue invoices.",
+    "Dense product UI like QuickBooks/Xero: KPI strip, filters, 8+ invoice/expense rows, activity + exceptions rail.",
+    "Roles are SMB Owner and Bookkeeper — they work inside the product daily."
+  ],
+  "imagery_roles": {
+    "hero": "accountant laptop invoices spreadsheet office",
+    "hero2": "small business owner reviewing financial dashboard",
+    "card1": "invoice document close-up",
+    "card2": "bank reconciliation screen",
+    "card3": "cash flow chart on monitor",
+    "ambient": "clean fintech workspace light"
+  },
+  "mock_seed": {
+    "tone": "accounting-saas",
+    "hero": {
+      "headline": "Books overview",
+      "subcopy": "Cash, invoices, expenses, and bank matches — the work you open every morning.",
+      "primaryCta": { "label": "New invoice", "href": "/invoices" },
+      "secondaryCta": { "label": "Reconcile", "href": "/reconciliation" }
+    },
+    "items": [
+      { "title": "INV-1042 · Northwind Co", "description": "2,480 · Due in 5 days" },
+      { "title": "INV-1041 · Bright Labs", "description": "890 · Overdue 3 days" },
+      { "title": "EXP-332 · Adobe", "description": "54.99 · Software · Uncategorized" },
+      { "title": "Bank · Chase *4491", "description": "12 matches waiting" }
+    ],
+    "features": [
+      { "title": "Invoices", "description": "Draft, send, and track AR in one queue." },
+      { "title": "Expenses", "description": "Categorize spend from cards and receipts." },
+      { "title": "Bank reconciliation", "description": "Match feeds to invoices and expenses fast." }
+    ],
+    "process": [
+      { "title": "Scan cash", "description": "See cash on hand and overdue AR." },
+      { "title": "Clear queues", "description": "Send invoices, categorize expenses." },
+      { "title": "Reconcile", "description": "Match bank lines before month-end." }
+    ],
+    "credentials": [
+      { "title": "Built for daily books", "detail": "Owner + bookkeeper product — not a pitch site." }
+    ],
+    "testimonials": [],
+    "showcaseHeading": "Open invoices",
+    "featuresHeading": "Accounting surfaces",
+    "processHeading": "Invoice → expense → reconcile",
+    "cta": {
+      "heading": "12 bank lines need a match",
+      "description": "Finish reconciliation before you close the period.",
+      "primaryLabel": "Open reconciliation",
+      "primaryHref": "/reconciliation",
+      "secondaryLabel": "View overdue",
+      "secondaryHref": "/invoices"
+    },
+    "footer": {
+      "description": "SaaS accounting workspace — invoices, expenses, bank recon, reports."
+    },
+    "trustLabels": ["Invoices", "Expenses", "Bank recon", "Reports"],
+    "nav_cta": { "label": "Dashboard", "href": "/" },
+    "kpis": [
+      { "label": "Cash on hand", "value": "48,220", "delta": "+2.1k", "hint": "vs last week" },
+      { "label": "Open invoices", "value": "26", "delta": "4 overdue", "hint": "AR" },
+      { "label": "Expenses MTD", "value": "12,840", "delta": "+6%", "hint": "vs last month" },
+      { "label": "Unmatched bank", "value": "12", "delta": "-3", "hint": "to reconcile" }
+    ],
+    "activity": [
+      { "id": "a1", "title": "Invoice sent · INV-1042", "detail": "Northwind Co · 2,480", "time": "Just now" },
+      { "id": "a2", "title": "Expense categorized", "detail": "Uber · Travel · 38.20", "time": "12m ago" },
+      { "id": "a3", "title": "Payment received", "detail": "Bright Labs · INV-1038", "time": "1h ago" },
+      { "id": "a4", "title": "Bank feed synced", "detail": "Chase *4491 · 18 new lines", "time": "2h ago" }
+    ],
+    "risk": [
+      { "id": "r1", "title": "4 invoices overdue", "detail": "3,120 total · oldest 12 days", "severity": "high" },
+      { "id": "r2", "title": "12 unmatched bank lines", "detail": "Reconciliation incomplete", "severity": "medium" },
+      { "id": "r3", "title": "3 expenses uncategorized", "detail": "Needs bookkeeper review", "severity": "low" }
+    ],
+    "tableRows": [
+      { "id": "t1", "name": "INV-1042 · Northwind Co", "status": "Sent", "owner": "AR" },
+      { "id": "t2", "name": "INV-1041 · Bright Labs", "status": "Overdue", "owner": "AR" },
+      { "id": "t3", "name": "INV-1040 · Harbor Dental", "status": "Draft", "owner": "Owner" },
+      { "id": "t4", "name": "INV-1039 · Peak Studio", "status": "Paid", "owner": "AR" },
+      { "id": "t5", "name": "EXP-332 · Adobe CC", "status": "Uncategorized", "owner": "Books" },
+      { "id": "t6", "name": "EXP-331 · AWS", "status": "Categorized", "owner": "Books" },
+      { "id": "t7", "name": "Bank · Deposit 2,480", "status": "Unmatched", "owner": "Recon" },
+      { "id": "t8", "name": "Bank · Uber 38.20", "status": "Matched", "owner": "Recon" }
+    ]
+  }
+}

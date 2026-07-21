@@ -118,12 +118,22 @@ _INTERNAL_DESK_HINTS = (
 )
 
 
-def _sanitize_pages_for_internal_desk(
-    payload: dict[str, Any],
-    source_snapshot: Any,
-) -> None:
-    """Hedge-fund / trading briefs must not lock a public marketing homepage."""
+_ACCOUNTING_HINTS = (
+    "accounting",
+    "bookkeep",
+    "invoice",
+    "ledger",
+    "expense",
+    "reconcil",
+    "quickbooks",
+    "xero",
+    "freshbooks",
+    "cash flow",
+    "cashflow",
+)
 
+
+def _customer_blob(source_snapshot: Any, payload: dict[str, Any]) -> str:
     customer = {}
     if isinstance(source_snapshot, dict):
         customer = dict(source_snapshot.get("customer_input") or {})
@@ -140,9 +150,22 @@ def _sanitize_pages_for_internal_desk(
         )
     ).lower()
     intent = payload.get("product_intent") if isinstance(payload.get("product_intent"), dict) else {}
-    blob = f"{blob} {intent.get('summary', '')} {intent.get('problem', '')} {intent.get('desired_outcome', '')}".lower()
-    hits = sum(1 for hint in _INTERNAL_DESK_HINTS if hint in blob)
-    if hits < 2:
+    return (
+        f"{blob} {intent.get('summary', '')} {intent.get('problem', '')} "
+        f"{intent.get('desired_outcome', '')}"
+    ).lower()
+
+
+def _sanitize_pages_for_internal_desk(
+    payload: dict[str, Any],
+    source_snapshot: Any,
+) -> None:
+    """Hedge-fund / trading / accounting briefs must not lock a public marketing homepage."""
+
+    blob = _customer_blob(source_snapshot, payload)
+    desk_hits = sum(1 for hint in _INTERNAL_DESK_HINTS if hint in blob)
+    accounting_hits = sum(1 for hint in _ACCOUNTING_HINTS if hint in blob)
+    if desk_hits < 2 and accounting_hits < 2:
         return
 
     for page in payload.get("pages") or []:
@@ -150,7 +173,15 @@ def _sanitize_pages_for_internal_desk(
             continue
         route = str(page.get("route") or "")
         primary = bool(page.get("primary"))
-        if primary or route in {"/", "/home", "/desk", "/dashboard", "/trading"}:
+        if primary or route in {
+            "/",
+            "/home",
+            "/desk",
+            "/dashboard",
+            "/trading",
+            "/invoices",
+            "/books",
+        }:
             page["surface"] = "ops"
 
 
