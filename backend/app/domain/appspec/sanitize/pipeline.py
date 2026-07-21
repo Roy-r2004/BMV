@@ -47,6 +47,7 @@ from app.domain.appspec.sanitize.structure import (
     _sanitize_entities,
     _sanitize_page_action_ids,
     _sanitize_page_routes,
+    _sanitize_pages_for_internal_desk,
 )
 
 def sanitize_app_spec_payload(
@@ -88,6 +89,7 @@ def sanitize_app_spec_payload(
     _sanitize_capabilities(sanitized)
     _sanitize_entities(sanitized)
     _sanitize_deferred_scope(sanitized)
+    _sanitize_pages_for_internal_desk(sanitized, source_snapshot)
     _sanitize_page_routes(sanitized)
     _sanitize_page_action_ids(sanitized)
     _sanitize_blocking_open_questions(sanitized)

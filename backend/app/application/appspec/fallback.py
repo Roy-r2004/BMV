@@ -15,6 +15,22 @@ def _short(value: Any, default: str, *, limit: int = 240) -> str:
     return _text(value, default, limit=limit)
 
 
+def _is_trading_desk(customer: Mapping[str, Any]) -> bool:
+    blob = " ".join(
+        str(customer.get(key) or "")
+        for key in (
+            "business_name",
+            "industry",
+            "business_description",
+            "main_problem",
+            "desired_outcome",
+            "target_customers",
+        )
+    ).lower()
+    hints = ("hedge", "trading", "blotter", "oms", "fund", "trader", "execution")
+    return sum(1 for hint in hints if hint in blob) >= 2
+
+
 def build_fallback_app_spec_payload(source_snapshot: Mapping[str, Any]) -> dict[str, Any]:
     """Build a tiny but schema-valid AppSpec from customer input only."""
 
@@ -30,6 +46,19 @@ def build_fallback_app_spec_payload(source_snapshot: Mapping[str, Any]) -> dict[
         f"{name} helps users achieve: {outcome}",
     )
     target = _short(customer.get("target_customers"), "Primary users")
+    trading = _is_trading_desk(customer)
+    home_surface = "ops" if trading else "public"
+    home_name = "Trading Desk" if trading else "Home"
+    home_purpose = (
+        "Internal fund trading desk — blotter, positions, P&L, risk."
+        if trading
+        else "Land users in the core product experience."
+    )
+    home_evidence = (
+        "Order blotter and desk KPIs are visible."
+        if trading
+        else "Primary workflow content is visible on the home experience."
+    )
 
     return {
         "schema_version": "1.0",
@@ -87,10 +116,10 @@ def build_fallback_app_spec_payload(source_snapshot: Mapping[str, Any]) -> dict[
         "pages": [
             {
                 "id": "PAGE-HOME",
-                "name": "Home",
-                "purpose": "Land users in the core product experience.",
+                "name": home_name,
+                "purpose": home_purpose,
                 "route": "/",
-                "surface": "public",
+                "surface": home_surface,
                 "primary": True,
                 "role_ids": ["ROLE-PRIMARY-USER"],
                 "capability_ids": ["CAP-CORE-WORKFLOW"],
@@ -104,7 +133,7 @@ def build_fallback_app_spec_payload(source_snapshot: Mapping[str, Any]) -> dict[
                 "id": "STATE-HOME-READY",
                 "page_id": "PAGE-HOME",
                 "name": "Ready",
-                "description": "Core workflow is visible.",
+                "description": home_evidence,
                 "initial": True,
                 "terminal": True,
                 "evidence_ids": ["EVIDENCE-HOME-CORE"],
@@ -117,7 +146,7 @@ def build_fallback_app_spec_payload(source_snapshot: Mapping[str, Any]) -> dict[
                 "id": "EVIDENCE-HOME-CORE",
                 "page_id": "PAGE-HOME",
                 "name": "Core workflow surface",
-                "description": "Primary workflow content is visible on the home experience.",
+                "description": home_evidence,
                 "kind": "status",
                 "capability_ids": ["CAP-CORE-WORKFLOW"],
             }

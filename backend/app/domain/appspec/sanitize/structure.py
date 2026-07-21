@@ -102,6 +102,58 @@ def _sanitize_capabilities(payload: dict[str, Any]) -> None:
 
         capability["requirement_ids"] = inferred[:1]
 
+_INTERNAL_DESK_HINTS = (
+    "hedge",
+    "trading",
+    "trader",
+    "blotter",
+    "oms",
+    "execution",
+    "fund book",
+    "institutional",
+    "internal desk",
+    "internal trading",
+    "not a saas",
+    "not a retail",
+)
+
+
+def _sanitize_pages_for_internal_desk(
+    payload: dict[str, Any],
+    source_snapshot: Any,
+) -> None:
+    """Hedge-fund / trading briefs must not lock a public marketing homepage."""
+
+    customer = {}
+    if isinstance(source_snapshot, dict):
+        customer = dict(source_snapshot.get("customer_input") or {})
+    blob = " ".join(
+        str(customer.get(key) or "")
+        for key in (
+            "business_name",
+            "industry",
+            "business_description",
+            "main_problem",
+            "desired_outcome",
+            "target_customers",
+            "what_you_like",
+        )
+    ).lower()
+    intent = payload.get("product_intent") if isinstance(payload.get("product_intent"), dict) else {}
+    blob = f"{blob} {intent.get('summary', '')} {intent.get('problem', '')} {intent.get('desired_outcome', '')}".lower()
+    hits = sum(1 for hint in _INTERNAL_DESK_HINTS if hint in blob)
+    if hits < 2:
+        return
+
+    for page in payload.get("pages") or []:
+        if not isinstance(page, dict):
+            continue
+        route = str(page.get("route") or "")
+        primary = bool(page.get("primary"))
+        if primary or route in {"/", "/home", "/desk", "/dashboard", "/trading"}:
+            page["surface"] = "ops"
+
+
 def _sanitize_entities(payload: dict[str, Any]) -> None:
     entity_ids = {
         str(item.get("id"))

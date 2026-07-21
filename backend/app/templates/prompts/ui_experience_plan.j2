@@ -113,6 +113,7 @@ CRITICAL:
 - `section_slots` may contain ONLY IDs from that chosen skeleton's `requiredSections` or `optionalSections`, ordered by `recommendedOrder`; include every non-shell required ID, choose only relevant optional IDs, and NEVER include `shell`
 - Infer `surface`, `skeleton_id`, and `section_slots` when the business context does not state them explicitly; do not invent skeletons or slot IDs
 - Transactional public pages (cart, checkout, order tracking, account, wishlist, login) MUST use `public-utility` — never force hero/testimonial marketing sections onto them. Browsable grids (shop, catalog, compare) use `public-catalog`.
+- INTERNAL hedge-fund / trading / OMS / blotter desks: primary page MUST be `ops-dashboard` (Trading Desk) with surface `ops`. Do NOT plan a public-home marketing landing with "Access Dashboard". The product IS the desk.
 - `public_direction` and `ops_direction` must describe distinct, business-specific customer and operator experiences, not generic "modern/premium dashboard" language
 - Section descriptions must be detailed enough for a developer to build without guessing
 - Design system must reflect THIS industry (luxury spa ≠ gym ≠ law firm)

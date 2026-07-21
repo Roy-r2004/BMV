@@ -119,6 +119,15 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         seed=request_id,
         context=industry_context,
     )
+    from app.application.preview_app.internal_desk import (
+        ensure_internal_desk_architect,
+        ensure_internal_desk_experience_plan,
+    )
+
+    plan = ensure_internal_desk_experience_plan(
+        plan,
+        context=industry_context,
+    )
     imagery_roles = plan.get("imagery_roles") if isinstance(plan.get("imagery_roles"), dict) else None
     if imagery_roles:
         from app.application.services.industry_images import get_images_for_industry
@@ -177,6 +186,10 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             to_architecture_seed(ctx.app_spec_result.spec, ctx.app_spec_scope),
             architect,
         )
+    architect = ensure_internal_desk_architect(
+        architect,
+        context=industry_context,
+    )
     try:
         architect = _normalize_architect(architect, plan)
     except Exception:

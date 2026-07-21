@@ -129,14 +129,40 @@ def _infer_surface(page: dict[str, Any]) -> str:
         "operations",
         "staff",
         "manager",
+        "trader",
+        "portfolio",
+        "execution",
+        "risk",
+        "pm",
     }:
         return "ops"
     if any(
         word in page_type
-        for word in ("dashboard", "operational", "record detail", "settings", "configuration")
+        for word in (
+            "dashboard",
+            "operational",
+            "record detail",
+            "settings",
+            "configuration",
+            "trading",
+            "blotter",
+            "desk",
+        )
     ):
         return "ops"
-    if any(word in text for word in ("dashboard", "back office", "operations", "admin portal")):
+    if any(
+        word in text
+        for word in (
+            "dashboard",
+            "back office",
+            "operations",
+            "admin portal",
+            "blotter",
+            "trading desk",
+            "order ticket",
+            "hedge fund",
+        )
+    ):
         return "ops"
     return "public"
 

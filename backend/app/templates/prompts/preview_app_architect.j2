@@ -66,7 +66,8 @@ RULES:
 - Each route's files_to_generate instructions MUST copy the section list from the matching page in the experience plan
 - CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.
 - `files_to_generate` is only the AI-owned page worklist. Include page entries and nothing else; router, theme, plumbing data, synthesized mock data, bridges, and the UI kit are written by later deterministic pipeline stages.
-- CRITICAL: MUST include at least ONE public marketing landing route (path "/" or "/home", layout "public", component HomePage.tsx). Client always lands on a rich homepage first.
+- Consumer / storefront products: include a public marketing landing at "/" or "/home" (layout "public", HomePage.tsx).
+- INTERNAL desk products (hedge fund, trading, OMS, blotter, portfolio ops, "not a SaaS/client portal"): do NOT build a marketing landing as the product. Primary route "/" MUST be `ops-dashboard` with layout "admin"/surface "ops" (Trading Desk). Forbidden as the whole product: hero + "Access Dashboard" / "Get Started" SaaS homepage.
 - component_file paths must start with src/
 - Do NOT include main.tsx or preview-bridge.ts (already in template)
 - Quality bar: if a feature exists in the plan, there is a DEDICATED PAGE for it. Do not cram 3 features into one generic page.
