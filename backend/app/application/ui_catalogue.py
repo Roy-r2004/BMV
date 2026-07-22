@@ -48,6 +48,12 @@ _SLOT_COMPONENT_DEFAULTS = {
     "activity": "ActivityFeed",
     "risk": "RiskQueue",
     "empty": "EmptyState",
+    # Signature product-face slots (accounting / trading)
+    "pulse": "CashPulseBar",
+    "board": "InvoiceBoard",
+    "recon": "ReconSplit",
+    "blotter": "BlotterTape",
+    "ticker": "DeskTicker",
 }
 
 
