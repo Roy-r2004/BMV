@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ReactElement } from 'react';
-import type { GeneratedPages, PreviewAppInfo } from '../../types/request';
+import type { GeneratedPages, PreviewAppInfo, PreviewAppRole } from '../../types/request';
 import { API_BASE } from '../../api/client';
+import {
+  activeRoutePath,
+  roleViewingBlurb,
+  routesForRole,
+} from './roleRoutes';
 
 interface Props {
   pages: GeneratedPages;
@@ -46,6 +51,31 @@ function previewSrcForPath(base: string, appPath: string): string {
   return `${root}${appPath.startsWith('/') ? appPath : `/${appPath}`}`;
 }
 
+function mergeRoles(
+  previewApp: PreviewAppInfo | undefined,
+  pages: GeneratedPages,
+): PreviewAppRole[] {
+  const fromPreview = previewApp?.roles?.length ? previewApp.roles : [];
+  const fromPages = pages.roles ?? [];
+  if (!fromPreview.length && fromPages.length) {
+    return fromPages.map((r) => ({
+      id: r.id,
+      label: r.label,
+      icon: r.icon,
+      accent: r.accent,
+      defaultPath: r.defaultPath,
+      tagline: r.tagline,
+    }));
+  }
+  return fromPreview.map((r) => {
+    const planRole = fromPages.find((p) => p.id === r.id);
+    return {
+      ...r,
+      tagline: r.tagline || planRole?.tagline,
+    };
+  });
+}
+
 export default function PreviewAppPreview({
   pages,
   requestId: _requestId,
@@ -54,7 +84,8 @@ export default function PreviewAppPreview({
   embedOnly = false,
 }: Props) {
   const previewApp = pages.preview_app;
-  const roles = previewApp?.roles?.length ? previewApp.roles : pages.roles ?? [];
+  const roles = mergeRoles(previewApp, pages);
+  const firstRoleId = roles[0]?.id ?? '';
   const [activeRoleId, setActiveRoleId] = useState<string>(roles[0]?.id ?? '');
   const [currentPath, setCurrentPath] = useState(roles[0]?.defaultPath ?? '/');
   const rootRef = useRef<HTMLDivElement>(null);
@@ -81,6 +112,14 @@ export default function PreviewAppPreview({
     || (Array.isArray(features) && features.length > 0),
   );
   const onAiHub = currentPath === '/ai-features' || currentPath.startsWith('/ai-features?');
+
+  const roleRoutes = routesForRole(
+    previewApp?.routes,
+    activeRole?.id ?? firstRoleId,
+    firstRoleId,
+  );
+  const activeTabPath = onAiHub ? null : activeRoutePath(currentPath, roleRoutes);
+  const viewingBlurb = roleViewingBlurb(activeRole);
 
   const navigatePreview = (nextPath: string) => {
     const path = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
@@ -155,7 +194,6 @@ export default function PreviewAppPreview({
           {conceptName && <span className="rbp-concept-name">{conceptName}</span>}
           <span className="rbp-live-badge">
             <span className="rbp-live-dot" />
-            
           </span>
         </div>
 
@@ -200,6 +238,12 @@ export default function PreviewAppPreview({
         </div>
       </div>
 
+      <div className="rbp-viewing-as" style={{ ['--rbp-accent' as string]: accent }}>
+        <span className="rbp-viewing-as__label">Viewing as</span>
+        <strong className="rbp-viewing-as__role">{activeRole?.label ?? 'Guest'}</strong>
+        <span className="rbp-viewing-as__blurb">{viewingBlurb}</span>
+      </div>
+
       <div className="rbp-browser">
         <div className="rbp-browser__chrome">
           <div className="rbp-chrome__left">
@@ -213,11 +257,33 @@ export default function PreviewAppPreview({
             <span className="rbp-url">{url}</span>
           </div>
           <div className="rbp-chrome__right">
-            <span className="rbp-tab-role-hint" style={{ color: accent, fontSize: '0.65rem', fontWeight: 600 }}>
+            <span className="rbp-tab-role-hint" style={{ color: accent }}>
               {activeRole?.label}
             </span>
           </div>
         </div>
+
+        {roleRoutes.length > 0 ? (
+          <div className="rbp-tabstrip" role="tablist" aria-label={`${activeRole?.label ?? 'Role'} pages`}>
+            {roleRoutes.map((rt) => {
+              const active = activeTabPath === rt.path;
+              return (
+                <button
+                  key={rt.path}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`rbp-tab ${active ? 'rbp-tab--active' : ''}`}
+                  style={active ? { boxShadow: `0 -2px 0 0 ${accent}` } : undefined}
+                  onClick={() => navigatePreview(rt.path)}
+                >
+                  {rt.title}
+                </button>
+              );
+            })}
+            <div className="rbp-tab-spacer" />
+          </div>
+        ) : null}
 
         <div className="rbp-viewport rbp-viewport--site relative min-h-[420px]">
           {refineError && !isRebuilding && (
@@ -246,9 +312,6 @@ export default function PreviewAppPreview({
           />
         </div>
       </div>
-
-      {/* Features live in the delivery package below — keep the iframe tall */}
     </div>
   );
 }
-

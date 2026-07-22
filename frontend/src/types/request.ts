@@ -261,6 +261,8 @@ export interface PreviewAppRole {
   icon?: string;
   accent?: string;
   defaultPath?: string;
+  /** Short line for “Viewing as…” framing in the host chrome. */
+  tagline?: string;
 }
 
 export interface PreviewAppInfo {

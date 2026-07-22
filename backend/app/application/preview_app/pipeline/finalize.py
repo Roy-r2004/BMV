@@ -303,6 +303,10 @@ def run_finalize(ctx: PipelineContext) -> dict:
                 return ar["defaultPath"]
         return "/"
 
+    from app.application.preview_app.host_role_ux import role_tagline
+
+    plan_roles = plan.get("roles") or []
+
     roles_out = [
         {
             "id": ar.get("id"),
@@ -310,6 +314,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
             "icon": ar.get("icon", "users"),
             "accent": accent,
             "defaultPath": ar.get("defaultPath") or _default_path(ar.get("id", "")),
+            "tagline": role_tagline(ar, plan_roles),
         }
         for ar in architect_roles
     ] or [
@@ -319,8 +324,9 @@ def run_finalize(ctx: PipelineContext) -> dict:
             "icon": r.get("icon", "users"),
             "accent": accent,
             "defaultPath": _default_path(r.get("id", "")),
+            "tagline": role_tagline(r, plan_roles),
         }
-        for r in plan.get("roles", [])
+        for r in plan_roles
     ]
 
     persisted_plan = _plan_for_persistence(plan)
