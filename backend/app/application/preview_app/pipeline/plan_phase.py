@@ -159,8 +159,14 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             seed=request_id,
             context=industry_context,
         )
+    # Product Face Contract: normalize intents + materialize mock_seed after packs
+    # (packs are gap-fill only; contract fields already win inside apply_*).
+    from app.application.preview_app.product_face import ensure_product_face_on_plan
+
+    plan = ensure_product_face_on_plan(plan)
     # Re-apply kind lock after packs so marketing voice cannot rewrite chrome.
     plan = apply_product_kind_to_plan(plan, kind_contract)
+    plan = ensure_product_face_on_plan(plan)
     # Legacy forcers kept as validators / last-resort repair for niche keywords.
     from app.application.preview_app.internal_desk import (
         ensure_internal_desk_architect,

@@ -68,6 +68,22 @@ Return ONLY valid JSON:
   "public_direction": "business-specific customer-facing visual and interaction direction",
   "ops_direction": "business-specific operational visual and information-density direction",
   "consistency_rules": ["specific rules for keeping all pages cohesive"],
+  "public_seed": {
+    "hero": {"headline": "customer-facing homepage headline for THIS brand", "subcopy": "one sentence", "primaryCta": {"label": "…", "href": "/…"}, "secondaryCta": {"label": "…", "href": "/…"}},
+    "services": [{"title": "…", "description": "…"}],
+    "features": [{"title": "…", "description": "…"}],
+    "process": [{"title": "…", "description": "…"}],
+    "testimonials": [{"quote": "…", "author": "…", "role": "…"}],
+    "credentials": [{"title": "…", "detail": "…"}],
+    "trustLabels": ["…"]
+  },
+  "ops_seed": {
+    "hero": {"headline": "staff/ops console title — NOT the marketing homepage headline", "subcopy": "what the operator is managing today"},
+    "kpis": [{"label": "metric name for THIS business", "value": "12", "delta": "+2", "hint": "context"}],
+    "items": [{"title": "live board row", "description": "status detail"}],
+    "activity": [{"title": "…", "detail": "…", "when": "Just now"}],
+    "risk": [{"id": "risk-1", "title": "…", "detail": "…", "severity": "medium"}]
+  },
   "feature_coverage": [
     {"feature": "exact feature from blueprint", "role_id": "customer", "page_id": "page-id", "ui_element": "what the user sees"}
   ],
@@ -89,6 +105,7 @@ Return ONLY valid JSON:
           "id": "unique-page-id",
           "title": "Page Title",
           "page_type": "descriptive type",
+          "page_intent": "one of: home | listing | detail | booking | confirm | ops | ai | utility",
           "surface": "public or ops",
           "skeleton_id": "one of: public-home, public-service, public-detail, public-catalog, public-utility, public-booking, ops-dashboard, ops-list, ops-detail, ops-settings",
           "section_slots": ["canonical content slot ids in render order, such as hero, features, cta, footer — never shell"],
@@ -107,6 +124,8 @@ Return ONLY valid JSON:
 
 CRITICAL:
 - Do NOT use generic page sets — derive everything from the blueprint and business context
+- PRODUCT FACE CONTRACT (critical): You own `public_seed` and `ops_seed` in THIS business's words. Ops console copy must NEVER reuse the marketing homepage hero. Staff KPIs/items must match the brief (patients/appointments for a clinic — never restaurant tables/expo tickets unless the brief is hospitality).
+- Every page MUST set `page_intent` from the closed enum (home|listing|detail|booking|confirm|ops|ai|utility). Listings (doctors, services, catalog) use `listing`. Staff dashboards use `ops`.
 - Every preview feature and blueprint module MUST appear in feature_coverage
 - Navigation links must only point to pages that exist in that role's pages array
 - The compact skeleton contract is authoritative. Every page must choose a listed skeleton_id whose `surface` matches the page.

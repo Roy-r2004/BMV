@@ -325,17 +325,28 @@ def enforce_catalogue_page_contract(
             ),
             True,
         )
-    if _is_directory_listing_route(file_path, route) and (
+    is_listing_face = (
+        str(route.get("page_intent") or "").strip().lower() == "listing"
+        or _is_directory_listing_route(file_path, route)
+    )
+    if is_listing_face and (
         "ProductShowcase" not in (content or "")
         or "seed.hero" in (content or "")
         or _DIRECTORY_FACE_MARKER not in (content or "")
     ):
-        return (
-            minimal_catalogue_page_scaffold(
-                file_path, route, brand_name=brand_name
-            ),
-            True,
-        )
+        # Schedule listings (keyword, no intent) still use ScheduleRail — skip those.
+        if (
+            str(route.get("page_intent") or "").strip().lower() != "listing"
+            and _is_schedule_listing_route(file_path, route)
+        ):
+            pass
+        else:
+            return (
+                minimal_catalogue_page_scaffold(
+                    file_path, route, brand_name=brand_name
+                ),
+                True,
+            )
     # Dedicated faces already encode layout; only validate, never rewrite.
     if _is_dedicated_face_page(content):
         if not blocking_contract_errors(validate_catalogue_page_content(content, route)):

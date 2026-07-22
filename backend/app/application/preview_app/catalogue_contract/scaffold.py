@@ -721,7 +721,20 @@ def minimal_catalogue_page_scaffold(
     page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
     action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
     evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
-    if _is_directory_listing_route(file_path, route):
+    # Product Face Contract: page_intent wins over industry/path keywords.
+    intent = str(route.get("page_intent") or "").strip().lower()
+    if intent == "listing":
+        return _directory_listing_scaffold(
+            component=component,
+            brand=brand,
+            title=title,
+            listing_path=str(route.get("path") or "/listing"),
+            page_id=page_id,
+            action_ids=action_ids,
+            evidence_ids=evidence_ids,
+        )
+    # Keyword face pickers — only when intent is absent (legacy / thin contracts).
+    if not intent and _is_directory_listing_route(file_path, route):
         return _directory_listing_scaffold(
             component=component,
             brand=brand,
@@ -731,7 +744,7 @@ def minimal_catalogue_page_scaffold(
             action_ids=action_ids,
             evidence_ids=evidence_ids,
         )
-    if _is_schedule_listing_route(file_path, route):
+    if not intent and _is_schedule_listing_route(file_path, route):
         return _schedule_listing_scaffold(
             component=component,
             brand=brand,

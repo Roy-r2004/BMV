@@ -238,6 +238,14 @@ def _normalize_architect(architect: dict, plan: dict) -> dict:
             source,
             inferred["skeleton_id"],
         )
+        from app.application.preview_app.product_face import normalize_page_intent
+
+        route["page_intent"] = normalize_page_intent(
+            page.get("page_intent") or route.get("page_intent"),
+            path=str(route.get("path") or ""),
+            skeleton_id=str(route.get("skeleton_id") or ""),
+            surface=str(route.get("surface") or ""),
+        )
 
     files = architect.get("files_to_generate") or []
     if not files:

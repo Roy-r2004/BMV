@@ -1,10 +1,21 @@
-"""Stamp a picked industry template onto the experience plan."""
+"""Stamp industry templates onto the experience plan — gap-fill only.
+
+Packs never overwrite Product Face Contract fields. See
+`docs/superpowers/specs/2026-07-23-product-face-contract-design.md`.
+"""
 from __future__ import annotations
 
 from typing import Any
 
 from app.application.preview_app.industry_templates.loader import get_template, pick_template_id
 from app.application.preview_app.industry_templates.seed import normalize_mock_seed
+from app.application.preview_app.product_face import (
+    ensure_product_face_on_plan,
+    extract_product_face,
+    gap_fill_ops_seed_from_pack,
+    gap_fill_public_seed_from_pack,
+    materialize_mock_seed,
+)
 
 
 def _default_imagery_roles(pack: dict[str, Any]) -> dict[str, str]:
@@ -53,13 +64,8 @@ def apply_industry_template_to_plan(
     surface: str = "public",
     context: str | None = None,
 ) -> dict[str, Any]:
-    """Attach template metadata + prompt hints after recipe selection.
-
-    Callers must pass surface=\"ops\" for saas_workspace / internal_ops kinds so
-    public-home packs never stamp marketing voice onto product workspaces.
-    """
-    updated = dict(plan or {})
-    # Respect product_kind lock when present on the plan.
+    """Attach template metadata; pack mock_seed only fills empty product_face slots."""
+    updated = ensure_product_face_on_plan(plan)
     kind = str(updated.get("product_kind") or "")
     if kind in {"saas_workspace", "internal_ops"}:
         surface = "ops"
@@ -71,9 +77,8 @@ def apply_industry_template_to_plan(
     )
     pack = get_template(tid)
     if not pack:
-        # Still emit a default seed so scaffolds can import `@/data/mock` seed.
         if "mock_seed" not in updated:
-            updated["mock_seed"] = normalize_mock_seed(None)
+            updated["mock_seed"] = materialize_mock_seed(extract_product_face(updated))
         return updated
 
     updated["industry_template_id"] = pack["id"]
@@ -87,15 +92,25 @@ def apply_industry_template_to_plan(
         updated["design_system"] = design
 
     roles = pack.get("imagery_roles") if isinstance(pack.get("imagery_roles"), dict) else None
-    updated["imagery_roles"] = {
+    existing_imagery = dict(updated.get("imagery_roles") or {})
+    defaults = {
         str(k): str(v).strip()
         for k, v in (roles or _default_imagery_roles(pack)).items()
         if str(v).strip()
     }
+    # Imagery: fill missing keys only.
+    for k, v in defaults.items():
+        if k not in existing_imagery:
+            existing_imagery[k] = v
+    updated["imagery_roles"] = existing_imagery
 
-    updated["mock_seed"] = normalize_mock_seed(
-        pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None
+    face = extract_product_face(updated)
+    face = gap_fill_public_seed_from_pack(
+        face,
+        pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None,
     )
+    updated["product_face"] = face
+    updated["mock_seed"] = materialize_mock_seed(face)
     return updated
 
 
@@ -106,8 +121,8 @@ def apply_ops_industry_template_to_plan(
     seed: int | None = 0,
     context: str | None = None,
 ) -> dict[str, Any]:
-    """Stamp an ops pack alongside the public pack so owner/staff faces get voice + seed."""
-    updated = dict(plan or {})
+    """Ops pack gap-fills empty ops_seed only — never overwrites contract KPIs/hero."""
+    updated = ensure_product_face_on_plan(plan)
     tid = pick_template_id(
         industry=industry or "",
         surface="ops",
@@ -122,27 +137,14 @@ def apply_ops_industry_template_to_plan(
     updated["ops_template_label"] = pack.get("label") or pack["id"]
     _stamp_pack_voice(updated, pack, key_prefix="ops_template")
 
-    ops_seed = normalize_mock_seed(
-        pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None
+    face = extract_product_face(updated)
+    face = gap_fill_ops_seed_from_pack(
+        face,
+        pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None,
     )
-    public_seed = dict(updated.get("mock_seed") or {})
-    # Keep public marketing copy; merge ops-facing structures for dashboards.
-    # Never let marketing hero drive the staff console title.
-    if ops_seed.get("hero"):
-        public_seed["opsHero"] = ops_seed["hero"]
-    for key in ("kpis", "activity", "risk", "tableRows", "table"):
-        if ops_seed.get(key):
-            public_seed[key] = ops_seed[key]
-    # Ops items become the live board — do not leave restaurant queues on a clinic desk.
-    if ops_seed.get("items"):
-        public_seed["opsItems"] = ops_seed["items"]
-    if not public_seed.get("tone") or public_seed.get("tone") == "branded":
-        # Prefer ops tone when public seed had no ops identity.
-        if ops_seed.get("tone"):
-            public_seed["opsTone"] = ops_seed["tone"]
-    updated["mock_seed"] = public_seed
+    updated["product_face"] = face
+    updated["mock_seed"] = materialize_mock_seed(face)
 
-    # Ops packs rarely own hero photography; only fill missing imagery slots.
     roles = pack.get("imagery_roles") if isinstance(pack.get("imagery_roles"), dict) else None
     if roles:
         existing = dict(updated.get("imagery_roles") or {})

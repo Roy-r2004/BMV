@@ -467,6 +467,11 @@ def _normalize_plan(plan: dict, primary: str, secondary: str) -> dict:
     plan.setdefault("design_direction", "")
     plan.setdefault("consistency_rules", [])
     plan.setdefault("feature_coverage", [])
+    # Product Face Contract seeds — keep LLM-owned copy when present.
+    if not isinstance(plan.get("public_seed"), dict):
+        plan["public_seed"] = {}
+    if not isinstance(plan.get("ops_seed"), dict):
+        plan["ops_seed"] = {}
 
     for i, role in enumerate(plan.get("roles", [])):
         role.setdefault("id", f"role_{i}")
@@ -515,5 +520,13 @@ def _normalize_plan(plan: dict, primary: str, secondary: str) -> dict:
             page["surface"] = inferred["surface"]
             page["skeleton_id"] = inferred["skeleton_id"]
             page["section_slots"] = infer_section_slots(page, page["skeleton_id"])
+            from app.application.preview_app.product_face import normalize_page_intent
+
+            page["page_intent"] = normalize_page_intent(
+                page.get("page_intent") or page.get("page_type"),
+                path=str(page.get("path") or ""),
+                skeleton_id=str(page.get("skeleton_id") or ""),
+                surface=str(page.get("surface") or ""),
+            )
 
     return plan
