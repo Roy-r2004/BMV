@@ -50,6 +50,26 @@ from app.infrastructure.logging import get_logger
 
 cg_log = get_logger("Codegen")
 
+# Signature product faces — keep deterministic scaffolds; AI slot-fill reverts them
+# to generic StatCard/DataTable stacks and kills the distinct product look.
+_SIGNATURE_SKELETONS = frozenset(
+    {
+        "ops-ledger-home",
+        "ops-invoice-board",
+        "ops-recon-split",
+        "ops-blotter-desk",
+        "ops-expense-queue",
+    }
+)
+_SIGNATURE_MARKERS = {
+    "ops-ledger-home": "CashPulseBar",
+    "ops-invoice-board": "InvoiceBoard",
+    "ops-recon-split": "ReconSplit",
+    "ops-blotter-desk": "BlotterTape",
+    "ops-expense-queue": "ExpenseQueue",
+}
+
+
 def _generate_utility_composed_file(
     workspace: Path,
     file_path: str,
@@ -255,6 +275,12 @@ def _generate_catalogue_scaffold_first_file(
     write_file(workspace, file_path, scaffold)
     cg_log.info("scaffold-first wrote %s skeleton=%s", file_path, skeleton_id)
 
+    if skeleton_id in _SIGNATURE_SKELETONS:
+        # Locked face — do not let slot-fill replace CashPulse/InvoiceBoard/etc.
+        record_stubbed_path(workspace, file_path)
+        cg_log.info("signature scaffold locked %s skeleton=%s", file_path, skeleton_id)
+        return scaffold
+
     if not settings.PREVIEW_SCAFFOLD_SLOT_FILL:
         record_stubbed_path(workspace, file_path)
         return scaffold
@@ -328,6 +354,16 @@ def _generate_catalogue_scaffold_first_file(
     # Recipe owns public-home section order even after slot-fill rewrites.
     if str(merged.get("skeleton_id") or "") == "public-home":
         content = lock_recipe_section_order(content, merged)
+
+    marker = _SIGNATURE_MARKERS.get(skeleton_id)
+    if marker and marker not in content:
+        cg_log.warning(
+            "slot_fill dropped signature marker %s on %s — restoring scaffold",
+            marker,
+            file_path,
+        )
+        content = scaffold
+        record_stubbed_path(workspace, file_path)
 
     write_file(workspace, file_path, content)
     return content

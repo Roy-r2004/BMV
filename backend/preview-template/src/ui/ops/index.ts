@@ -12,3 +12,4 @@ export { InvoiceBoard, type InvoiceBoardProps, type InvoiceBoardColumn, type Inv
 export { ReconSplit, type ReconSplitProps, type ReconLine } from './ReconSplit';
 export { BlotterTape, type BlotterTapeProps, type BlotterTapeRow } from './BlotterTape';
 export { DeskTicker, type DeskTickerProps, type DeskTickerItem } from './DeskTicker';
+export { ExpenseQueue, type ExpenseQueueProps, type ExpenseQueueItem } from './ExpenseQueue';

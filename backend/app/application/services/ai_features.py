@@ -20,10 +20,41 @@ MAX_AI_FEATURES = 6
 _CATEGORY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("chat", ("chat", "assistant", "qa", "q&a", "convers", "faq", "bot")),
     ("scheduling", ("schedul", "book", "appoint", "calendar", "slot", "reserv")),
-    ("digest", ("digest", "summary", "report", "brief", "insight", "daily")),
-    ("scoring", ("score", "rank", "priorit", "lead scor", "risk", "qualify")),
+    ("digest", ("digest", "summary", "report", "brief", "insight", "daily", "cash pulse", "books overview")),
+    (
+        "scoring",
+        (
+            "score",
+            "rank",
+            "priorit",
+            "lead scor",
+            "risk",
+            "qualify",
+            "overdue",
+            "collectib",
+            "priority",
+        ),
+    ),
+    (
+        "ops",
+        (
+            "ops",
+            "admin",
+            "dashboard",
+            "triage",
+            "routing",
+            "intake",
+            "reconcil",
+            "match",
+            "bank feed",
+            "categor",
+            "invoice",
+            "expense",
+            "ledger",
+            "bookkeep",
+        ),
+    ),
     ("automation", ("automat", "workflow", "trigger", "chase", "follow-up", "remind")),
-    ("ops", ("ops", "admin", "dashboard", "triage", "routing", "intake")),
 )
 
 # Route path scoring: higher = better home for that AI category.
@@ -119,12 +150,36 @@ def _slugify(value: str, *, fallback: str = "feature") -> str:
     return (text[:48] or fallback).strip("-") or fallback
 
 
-def infer_category(name: str, description: str = "") -> str:
+def infer_category(name: str, description: str = "", *, context: str = "") -> str:
     blob = f"{name} {description}".lower()
     for category, hints in _CATEGORY_HINTS:
         if any(hint in blob for hint in hints):
             return category
+    ctx = (context or "").lower()
+    # Accounting / ops products should not fall through to chat-like automation.
+    if any(
+        h in ctx
+        for h in (
+            "accounting",
+            "invoice",
+            "ledger",
+            "bookkeep",
+            "reconcil",
+            "expense",
+            "trading",
+            "blotter",
+        )
+    ):
+        if any(h in blob for h in ("summary", "digest", "brief", "report", "daily")):
+            return "digest"
+        if any(h in blob for h in ("score", "priorit", "risk", "overdue")):
+            return "scoring"
+        return "ops"
     return "automation"
+
+
+def _context_blob(*parts: str) -> str:
+    return " ".join(str(p or "") for p in parts).lower()
 
 
 _STOPWORDS = {
@@ -434,9 +489,29 @@ def enrich_feature(
 ) -> dict[str, Any]:
     """Add demo script + placement metadata used by contextual panels."""
     out = dict(feature)
-    category = str(out.get("category") or out.get("surface") or "automation").lower()
-    if category not in _DEMO_BY_CATEGORY:
-        category = infer_category(str(out.get("name") or ""), str(out.get("description") or ""))
+    ctx_blob = _context_blob(
+        *(str((context or {}).get(k) or "") for k in (
+            "business_name",
+            "industry",
+            "business_description",
+            "main_problem",
+            "desired_outcome",
+            "concept_name",
+            "mvp_blueprint",
+        ))
+    )
+    category = str(out.get("category") or out.get("surface") or "").lower()
+    if category not in _DEMO_BY_CATEGORY or category in {"automation", "chat"}:
+        # Re-infer for ops/accounting briefs so we don't ship a chat wall.
+        inferred = infer_category(
+            str(out.get("name") or ""),
+            str(out.get("description") or ""),
+            context=ctx_blob,
+        )
+        if category not in _DEMO_BY_CATEGORY or (
+            category in {"automation", "chat"} and inferred != "chat"
+        ):
+            category = inferred
     out["category"] = category
     out["surface"] = str(out.get("surface") or category)
 
@@ -997,6 +1072,7 @@ def ai_feature_hub_page_source(
     page_id: str = PAGE_AI_HUB_ID,
     evidence_ids: list[str] | None = None,
     ops_shell: bool = False,
+    appearance: str | None = None,
 ) -> str:
     """Deterministic interactive hub page for planned AI features."""
     brand = brand_name or "Brand"
@@ -1007,8 +1083,15 @@ def ai_feature_hub_page_source(
         for eid in ev_ids
     )
     feature_json = json.dumps([dict(f) for f in features], ensure_ascii=False)
+    # Only trading desks get dark floor chrome; accounting stays soft ledger.
+    shell_appearance = appearance
+    if ops_shell and shell_appearance is None:
+        shell_appearance = "soft"
+    appearance_attr = (
+        f' appearance={json.dumps(shell_appearance)}' if ops_shell and shell_appearance else ""
+    )
     if ops_shell:
-        return f"""// plan AI feature hub — ops desk chrome (preview basename-safe)
+        return f"""// plan AI feature hub — ops product chrome (preview basename-safe)
 import {{ useAdminNavItems }} from '@/lib/app-nav';
 import {{ aiFeatures }} from '@/data/mock';
 import {{ OpsShell, AiFeatureDeck }} from '@/ui';
@@ -1019,10 +1102,10 @@ export default function AiFeaturesPage() {{
     ? aiFeatures
     : {feature_json};
   return (
-    <OpsShell brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} appearance="floor">
+    <OpsShell brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}}{appearance_attr}>
       <div data-appspec-page={{{json.dumps(page)}}}>
 {evidence_spans}
-        <AiFeatureDeck features={{features}} brandName={{{json.dumps(brand)}}} />
+        <AiFeatureDeck features={{features}} brandName={{{json.dumps(brand)}}} variant="ops" />
       </div>
     </OpsShell>
   );

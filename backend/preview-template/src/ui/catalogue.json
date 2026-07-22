@@ -745,6 +745,17 @@
         "items",
         "className"
       ]
+    },
+    {
+      "name": "ExpenseQueue",
+      "surface": "ops",
+      "path": "ops/ExpenseQueue.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "heading",
+        "items",
+        "className"
+      ]
     }
   ],
   "skeletons": [
@@ -1193,6 +1204,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1257,6 +1269,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1313,6 +1326,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1360,6 +1374,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1414,6 +1429,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1433,6 +1449,54 @@
           "strip"
         ]
       }
+    },
+    {
+      "id": "ops-expense-queue",
+      "surface": "ops",
+      "shell": "OpsShell",
+      "purpose": "Expense triage queue — card grid with review states.",
+      "requiredSections": [
+        "shell",
+        "header",
+        "filters",
+        "expenses"
+      ],
+      "optionalSections": [
+        "empty"
+      ],
+      "recommendedOrder": [
+        "shell",
+        "header",
+        "filters",
+        "expenses",
+        "empty"
+      ],
+      "allowedComponents": [
+        "OpsShell",
+        "PageHeader",
+        "StatCard",
+        "ChartCard",
+        "DataTable",
+        "FilterBar",
+        "ActivityFeed",
+        "EmptyState",
+        "RiskQueue",
+        "CashPulseBar",
+        "InvoiceBoard",
+        "ReconSplit",
+        "BlotterTape",
+        "DeskTicker",
+        "ExpenseQueue",
+        "AiFeaturePanel",
+        "Button",
+        "Input",
+        "Select",
+        "Badge",
+        "Tabs",
+        "Dialog",
+        "UiIcon"
+      ],
+      "supportedVariants": {}
     },
     {
       "id": "ops-list",
@@ -1470,6 +1534,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1517,6 +1582,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",
@@ -1564,6 +1630,7 @@
         "ReconSplit",
         "BlotterTape",
         "DeskTicker",
+        "ExpenseQueue",
         "AiFeaturePanel",
         "Button",
         "Input",

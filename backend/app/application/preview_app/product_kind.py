@@ -26,6 +26,7 @@ _OPS_LEDGER_HOME_SLOTS = ["header", "pulse", "kpis", "filters", "table", "chart"
 _OPS_INVOICE_BOARD_SLOTS = ["header", "filters", "board"]
 _OPS_RECON_SPLIT_SLOTS = ["header", "filters", "recon"]
 _OPS_BLOTTER_DESK_SLOTS = ["header", "ticker", "kpis", "blotter", "chart", "risk", "activity"]
+_OPS_EXPENSE_QUEUE_SLOTS = ["header", "filters", "expenses"]
 _OPS_LIST_SLOTS = ["header", "filters", "table"]
 _PUBLIC_HOME_SLOTS = ["hero", "features", "cta", "footer"]
 
@@ -57,6 +58,8 @@ class PageBlueprint:
             return list(_OPS_RECON_SPLIT_SLOTS)
         if self.skeleton_id == "ops-blotter-desk":
             return list(_OPS_BLOTTER_DESK_SLOTS)
+        if self.skeleton_id == "ops-expense-queue":
+            return list(_OPS_EXPENSE_QUEUE_SLOTS)
         if self.skeleton_id == "ops-settings":
             return ["header", "filters", "table"]
         if self.skeleton_id == "public-home":
@@ -328,8 +331,10 @@ def _accounting_pages() -> tuple[PageBlueprint, ...]:
             "/expenses",
             "expenses",
             "src/pages/ExpensesPage.tsx",
-            "Expense queue with categories, merchants, and uncategorized items.",
+            "Expense triage queue — review, categorize, flag missing receipts.",
             "Adobe 54.99; Uber 38.20 Travel.",
+            "ops-expense-queue",
+            "ops",
         ),
         PageBlueprint(
             "reconciliation",

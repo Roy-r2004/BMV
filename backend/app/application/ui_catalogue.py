@@ -54,6 +54,7 @@ _SLOT_COMPONENT_DEFAULTS = {
     "recon": "ReconSplit",
     "blotter": "BlotterTape",
     "ticker": "DeskTicker",
+    "expenses": "ExpenseQueue",
 }
 
 

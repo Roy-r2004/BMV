@@ -38,6 +38,7 @@ _SLOT_COMPONENT = {
     "recon": "ReconSplit",
     "blotter": "BlotterTape",
     "ticker": "DeskTicker",
+    "expenses": "ExpenseQueue",
 }
 
 _COMPOSE_LAYOUT_SKELETONS = frozenset(
@@ -70,6 +71,7 @@ _SEED_SLOTS = frozenset(
         "recon",
         "blotter",
         "ticker",
+        "expenses",
     }
 )
 
@@ -247,6 +249,7 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
         "recon": "<ReconSplit />",
         "blotter": '<BlotterTape heading="Working blotter" />',
         "ticker": "<DeskTicker />",
+        "expenses": '<ExpenseQueue heading="Expense queue" />',
         "kpis": (
             '<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">'
             + _d(

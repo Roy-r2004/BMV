@@ -27,6 +27,7 @@ export type SkeletonId =
   | 'ops-invoice-board'
   | 'ops-recon-split'
   | 'ops-blotter-desk'
+  | 'ops-expense-queue'
   | 'ops-list'
   | 'ops-detail'
   | 'ops-settings';
@@ -370,6 +371,13 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     requiredProps: [],
     optionalProps: ['items', 'className'],
   },
+  {
+    name: 'ExpenseQueue',
+    surface: 'ops',
+    path: 'ops/ExpenseQueue.tsx',
+    requiredProps: [],
+    optionalProps: ['heading', 'items', 'className'],
+  },
 ] as const;
 
 const PUBLIC_ALLOWED = [
@@ -412,6 +420,7 @@ const OPS_ALLOWED = [
   'ReconSplit',
   'BlotterTape',
   'DeskTicker',
+  'ExpenseQueue',
   'AiFeaturePanel',
   'Button',
   'Input',
@@ -641,6 +650,17 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
       ChartCard: ['area', 'bar'],
       StatCard: ['card', 'strip'],
     },
+  },
+  {
+    id: 'ops-expense-queue',
+    surface: 'ops',
+    shell: 'OpsShell',
+    purpose: 'Expense triage queue — card grid with review states.',
+    requiredSections: ['shell', 'header', 'filters', 'expenses'],
+    optionalSections: ['empty'],
+    recommendedOrder: ['shell', 'header', 'filters', 'expenses', 'empty'],
+    allowedComponents: [...OPS_ALLOWED],
+    supportedVariants: {},
   },
   {
     id: 'ops-list',

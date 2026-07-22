@@ -412,7 +412,12 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
 
     public_nav = _nav_items_for(routes, lambda rt: _layout_for(rt) == "public")
     admin_nav = _pin_ai_features_nav(
-        _nav_items_for(routes, lambda rt: _layout_for(rt) == "admin"),
+        _nav_items_for(
+            routes,
+            lambda rt: _layout_for(rt) == "admin"
+            or str(rt.get("surface") or "").lower() == "ops"
+            or str(rt.get("skeleton_id") or "").startswith("ops"),
+        ),
         routes,
     )
     # Ops-first previews: also surface AI hub in public nav for deep links.
@@ -422,13 +427,18 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
         role_id = role.get("id")
         if not role_id:
             continue
-        navigation_data[role_id] = _pin_ai_features_nav(
+        role_nav = _pin_ai_features_nav(
             _nav_items_for(
                 routes,
                 lambda rt, rid=role_id: rt.get("role_id") == rid,
             ),
             routes,
         )
+        # Ops products often stamp one role_id on every route. Role switchers
+        # still need a full sidebar — fall back to admin chrome so pages open.
+        if len(role_nav) < 2 and admin_nav:
+            role_nav = list(admin_nav)
+        navigation_data[role_id] = role_nav
 
     roles_json = json.dumps(roles_data, indent=2, ensure_ascii=False)
     nav_json = json.dumps(navigation_data, indent=2, ensure_ascii=False)

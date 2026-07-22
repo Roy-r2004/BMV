@@ -107,6 +107,7 @@ export {
   ReconSplit,
   BlotterTape,
   DeskTicker,
+  ExpenseQueue,
   type ActivityFeedItem,
   type ActivityFeedProps,
   type ChartCardProps,
@@ -140,6 +141,8 @@ export {
   type BlotterTapeRow,
   type DeskTickerProps,
   type DeskTickerItem,
+  type ExpenseQueueProps,
+  type ExpenseQueueItem,
 } from './ops';
 
 export {

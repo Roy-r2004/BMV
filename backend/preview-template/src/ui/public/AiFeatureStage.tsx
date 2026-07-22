@@ -169,8 +169,49 @@ export function AiFeatureStage({
   if (category === 'scheduling') {
     return <SchedulingStage feature={feature} brandName={brandName} compact={compact} className={className} />;
   }
+  if (category === 'automation') {
+    return <AutomationStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+  }
+  if (category === 'chat') {
+    return <ChatStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+  }
+  // Unknown categories still get a tool face — never a random chat wall.
+  return <AutomationStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+}
+
+function AutomationStage({
+  feature,
+  brandName,
+  compact,
+  className,
+}: AiFeatureStageProps) {
+  const steps = [
+    { id: '1', label: 'Trigger', text: feature.demo_hint || `${feature.name} detects work` },
+    { id: '2', label: 'Draft', text: resolveDemo(feature, brandName || 'Brand', feature.name) },
+    { id: '3', label: 'Approve', text: `You confirm — ${brandName} runs it` },
+  ];
   return (
-    <ChatStage feature={feature} brandName={brandName} compact={compact} className={className} />
+    <StageChrome feature={feature} category="automation" compact={!!compact} className={className}>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+        Workflow · not a chat
+      </p>
+      <ol className="space-y-2">
+        {steps.map((step, i) => (
+          <li
+            key={step.id}
+            className="rounded-[var(--radius-ui)] border border-border-subtle bg-background/80 px-3.5 py-3"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">
+              {String(i + 1).padStart(2, '0')} · {step.label}
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-foreground">{step.text}</p>
+          </li>
+        ))}
+      </ol>
+      <Button className="mt-4 w-full" size="sm">
+        Run once
+      </Button>
+    </StageChrome>
   );
 }
 

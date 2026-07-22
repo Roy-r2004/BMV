@@ -161,12 +161,14 @@ def write_ai_feature_hub_page(
     features: list[dict[str, Any]],
     evidence_ids: list[str] | None = None,
     ops_shell: bool = False,
+    appearance: str | None = None,
 ) -> str:
     source = ai_feature_hub_page_source(
         brand_name=brand_name,
         features=features,
         evidence_ids=evidence_ids,
         ops_shell=ops_shell,
+        appearance=appearance,
     )
     write_file(workspace, AI_HUB_COMPONENT, source)
     return AI_HUB_COMPONENT
@@ -369,6 +371,13 @@ def ensure_ai_feature_surfaces(
         or str(route.get("layout") or "").lower() == "admin"
         or _architect_is_ops_first(architect)
     )
+    subtype = str(
+        architect.get("product_kind_subtype")
+        or (architect.get("product_kind_contract") or {}).get("subtype")
+        or ""
+    ).lower()
+    recipe = str(architect.get("recipe_id") or "").lower()
+    appearance = "floor" if subtype == "trading" or recipe == "dense-ops-floor" else "soft"
     written = [
         write_ai_feature_hub_page(
             workspace,
@@ -376,6 +385,7 @@ def ensure_ai_feature_surfaces(
             features=features,
             evidence_ids=list(route.get("evidence_ids") or []),
             ops_shell=ops_shell,
+            appearance=appearance if ops_shell else None,
         ),
         "src/data/mock.ts",
     ]

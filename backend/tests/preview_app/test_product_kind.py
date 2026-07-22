@@ -55,6 +55,7 @@ def test_accounting_contract_locks_ops_pages() -> None:
     by_path = {p.path: p for p in contract.pages}
     assert by_path["/invoices"].skeleton_id == "ops-invoice-board"
     assert by_path["/reconciliation"].skeleton_id == "ops-recon-split"
+    assert by_path["/expenses"].skeleton_id == "ops-expense-queue"
 
 
 def test_trading_contract_locks_desk_pages() -> None:

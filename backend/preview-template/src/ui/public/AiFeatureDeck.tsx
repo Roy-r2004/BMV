@@ -15,6 +15,8 @@ export type AiFeatureDeckProps = {
   features: AiFeatureItem[];
   brandName?: string;
   className?: string;
+  /** ops = product tools copy; marketing = consumer chat framing */
+  variant?: 'ops' | 'marketing';
 };
 
 function FeatureStageRow({
@@ -77,11 +79,17 @@ function FeatureStageRow({
   );
 }
 
-export function AiFeatureDeck({ features, brandName = 'Brand', className }: AiFeatureDeckProps) {
+export function AiFeatureDeck({
+  features,
+  brandName = 'Brand',
+  className,
+  variant = 'marketing',
+}: AiFeatureDeckProps) {
   const items = useMemo(
     () => (Array.isArray(features) ? features.filter((f) => f && f.id && f.name) : []),
     [features],
   );
+  const ops = variant === 'ops';
 
   if (!items.length) {
     return (
@@ -95,19 +103,21 @@ export function AiFeatureDeck({ features, brandName = 'Brand', className }: AiFe
     <section
       className={cn('relative isolate overflow-hidden px-6 py-16 sm:px-10 sm:py-20', className)}
       data-ai-feature-deck=""
+      data-ai-deck-variant={variant}
     >
       <div className="ui-mesh opacity-30" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl">
         <MotionReveal>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">
-            AI in your product
+            {ops ? 'AI in the workspace' : 'AI in your product'}
           </p>
           <h2 className="mt-4 max-w-3xl font-display text-[clamp(2.5rem,5.5vw,4.25rem)] leading-[0.95] tracking-[-0.03em] text-foreground">
-            Every AI feature from your plan — live
+            {ops ? 'Product AI tools — try each one' : 'Every AI feature from your plan — live'}
           </h2>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
-            These are the capabilities proposed for {brandName}. Open a conversation below, or jump
-            into the page where each one actually lives.
+            {ops
+              ? `Built for how ${brandName} runs day to day — digests, scoring, routers, and workflows. Not a generic chatbot wall.`
+              : `These are the capabilities proposed for ${brandName}. Try each tool below, or jump into the page where it lives.`}
           </p>
         </MotionReveal>
 
