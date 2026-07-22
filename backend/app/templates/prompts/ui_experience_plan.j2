@@ -113,14 +113,16 @@ CRITICAL:
 - `section_slots` may contain ONLY IDs from that chosen skeleton's `requiredSections` or `optionalSections`, ordered by `recommendedOrder`; include every non-shell required ID, choose only relevant optional IDs, and NEVER include `shell`
 - Infer `surface`, `skeleton_id`, and `section_slots` when the business context does not state them explicitly; do not invent skeletons or slot IDs
 - Transactional public pages (cart, checkout, order tracking, account, wishlist, login) MUST use `public-utility` — never force hero/testimonial marketing sections onto them. Browsable grids (shop, catalog, compare) use `public-catalog`.
-- INTERNAL hedge-fund / trading / OMS / blotter desks: primary page MUST be `ops-dashboard` (Trading Desk) with surface `ops`. Do NOT plan a public-home marketing landing with "Access Dashboard". The product IS the desk.
-- INTERNAL trading desks MUST plan at least 5 ops pages (not one mega-dashboard): Trading Desk, Order Ticket, Order Blotter, Positions & P&L, Risk Limits — each with its own route, dense sample data, and nav link. AI features is an additional hub page when AI is in scope.
-- SaaS accounting / bookkeeping / invoicing products MUST be an ops product workspace (not a marketing foresight landing): Books overview, Invoices, Expenses, Bank reconciliation, Reports, Customers — surface `ops`, skeletons `ops-dashboard`/`ops-list`. Forbidden as the whole product: "Get Started", "Explore Forecasts", public-home hero.
-- PRODUCT_KIND is locked by the system before this plan. If the seed marks pages as `ops` / `ops-dashboard`, you MUST NOT change them to `public-home` or invent a marketing landing. Fill dense product sections inside the locked skeletons only.
+- BRIEF-FIRST INVENTORY (critical): Infer roles and screens from the customer brief and blueprint. YOU own the page list and role list. The system `product_kind` is a chrome/recipe hint and emergency fallback — NOT a ceiling. Do not omit staff/admin/front-desk roles when the brief implies operations. Do not collapse a multi-sided product into Home + AI features only.
+- Clinics / booking / services: if the brief mentions patients AND staff/front desk/admin, plan BOTH a public booking face AND an ops schedule/confirmations face with separate roles. Include Services and Book routes for patients — never ship Home + AI alone.
+- INTERNAL hedge-fund / trading / OMS / blotter desks: primary page should be an ops desk (Trading Desk) with surface `ops`. Do NOT plan a public-home marketing landing with "Access Dashboard" as the whole product.
+- When the brief is trading/OMS: prefer multiple ops pages (Desk, Ticket, Blotter, Positions, Risk) with dense sample data. AI features is an additional hub when AI is in scope.
+- When the brief is accounting/bookkeeping: prefer an ops workspace (books, invoices, expenses, recon, reports) — not a marketing foresight landing. Forbidden as the whole product: "Get Started", "Explore Forecasts", public-home hero only.
+- If the seed marks chrome as `ops`, do not rewrite the primary product into `public-home` MarketingHero. You may still add extra public pages when the brief needs them.
 - `public_direction` and `ops_direction` must describe distinct, business-specific customer and operator experiences, not generic "modern/premium dashboard" language
 - Section descriptions must be detailed enough for a developer to build without guessing
 - Design system must reflect THIS industry (luxury spa ≠ gym ≠ law firm)
-- YOU decide how many roles and pages — no fixed template. A simple product may need 1 role and 3 pages; a complex one may need 3 roles and 15 pages. Match the blueprint, not a checklist. For trading desks, default high (5–8 ops pages).
+- YOU decide how many roles and pages — no fixed template. A simple product may need 1 role and 3 pages; a complex one may need 3 roles and 15 pages. Match the BRIEF, not a hardcoded industry checklist.
 
 ═══ LIVE PRODUCT, NOT A PITCH ═══
 Plan the UI as if the business already shipped this product and the owner uses it daily.

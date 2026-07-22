@@ -67,15 +67,17 @@ RULES:
 - CRITICAL: files_to_generate MUST have EXACTLY ONE "page" entry per route. Count your routes. Count your files_to_generate "page" entries. They MUST match — no exceptions, no merging, no skipping.
 - `files_to_generate` is only the AI-owned page worklist. Include page entries and nothing else; router, theme, plumbing data, synthesized mock data, bridges, and the UI kit are written by later deterministic pipeline stages.
 - Consumer / storefront products: include a public marketing landing at "/" or "/home" (layout "public", HomePage.tsx).
-- INTERNAL desk products (hedge fund, trading, OMS, blotter, portfolio ops, "not a SaaS/client portal"): do NOT build a marketing landing as the product. Primary route "/" MUST be `ops-dashboard` with layout "admin"/surface "ops" (Trading Desk). Forbidden as the whole product: hero + "Access Dashboard" / "Get Started" SaaS homepage.
+- BRIEF-FIRST ROUTES: Emit the routes/roles the experience plan and customer brief require. `product_kind` is chrome guidance + fallback only — do not drop brief-driven admin/staff/booking routes. Prefer the plan's inventory over any hardcoded industry page list.
+- Hybrid products are allowed: public booking pages AND ops/admin pages in one architect when the brief needs both (e.g. clinic patient + front desk).
+- INTERNAL desk products (hedge fund, trading, OMS, blotter): do NOT make a marketing landing the whole product. Primary "/" should be ops desk chrome. Forbidden as the whole product: hero + "Access Dashboard" / "Get Started" SaaS homepage.
 - component_file paths must start with src/
 - Do NOT include main.tsx or preview-bridge.ts (already in template)
 - Quality bar: if a feature exists in the plan, there is a DEDICATED PAGE for it. Do not cram 3 features into one generic page.
 - Nav, PublicLayout, AdminLayout, UiIcons, and every path under `src/ui/` are legacy or template-owned forbidden outputs. Catalogue pages own their single shell and use the immutable kit through `@/ui`.
 - Page instructions must describe the LIVE product UX (what the customer/owner does on screen), never "demo this feature" or BMV pitch language. HomePage instructions must specify brand-voice hero + real storefront sections — not a list of preview_features as marketing cards.
-- If the brief is an internal hedge-fund / trading / OMS / blotter / portfolio desk: design an institutional trading console across MULTIPLE routes (at least Desk `/`, Ticket `/ticket`, Blotter `/blotter`, Positions `/positions`, Risk `/risk`) with dense tables (8+ rows), KPI strips, and risk rails. Forbidden: CRM, client portal, SaaS marketing site, "customer callback", tickets/SLA, booking/leads language. Never ship a single HomePage as the whole product.
-- AI features hub (`/ai-features`) must remain openable from the ops sidebar — never convert it into another ops-dashboard scaffold.
-- SaaS accounting / bookkeeping / invoicing: primary "/" MUST be ops Books overview (cash, invoices, expenses, bank matches). Multi-page product required. Forbidden: marketing foresight engine landing as the product.
-- PRODUCT_KIND lock: when experience plan / seed says `product_kind` is `saas_workspace` or `internal_ops`, every primary route uses OpsShell ops skeletons. Do not emit public-home MarketingHero pages for those kinds.
+- Trading briefs: prefer multiple ops routes (Desk, Ticket, Blotter, Positions, Risk) with dense data. Never ship a single HomePage as the whole product.
+- AI features hub (`/ai-features`) must remain openable — never convert it into another ops-dashboard scaffold.
+- Accounting briefs: prefer multi-page ops books workspace. Forbidden: marketing foresight engine landing as the only product.
+- When `product_kind` is `saas_workspace` or `internal_ops`, primary product chrome should use OpsShell — do not emit public-home MarketingHero as the only app. Extra public routes are OK if the brief needs them.
 - Every page instruction should demand production density: concrete widgets, realistic sample rows, and zero placeholder empty states.
 - Visual quality: pages must feel cinematic and branded — never pale flat Tailwind starters. Instruct brand-token surfaces, recipe atmosphere, intentional motion, and dense real content. Ban gray SaaS / slate-900 / gray-50 defaults.

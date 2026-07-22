@@ -608,32 +608,166 @@ def _is_ai_hub_route(route: dict[str, Any]) -> bool:
     )
 
 
+def _page_path_hint(page: Mapping[str, Any]) -> str:
+    contract_block = page.get("app_spec_contract")
+    if isinstance(contract_block, dict):
+        route = str(contract_block.get("route") or "").strip()
+        if route:
+            return route
+    for key in ("path", "route", "href"):
+        value = str(page.get(key) or "").strip()
+        if value.startswith("/"):
+            return value
+    return ""
+
+
+def _is_marketing_landing(page: Mapping[str, Any]) -> bool:
+    skeleton = str(page.get("skeleton_id") or "")
+    surface = str(page.get("surface") or "")
+    title = str(page.get("title") or "")
+    path = _page_path_hint(page)
+    if skeleton in {"public-home", "public-service"} and path in {"", "/", "/home"}:
+        return True
+    if surface == "public" and path in {"", "/", "/home"}:
+        return bool(
+            re.search(
+                r"home|landing|marketing|foresight|forecast|get started",
+                f"{title} {skeleton}",
+                re.I,
+            )
+        )
+    return bool(
+        re.search(r"foresight|forecast|explore forecasts", title, re.I)
+        and (path in {"", "/", "/home"} or not path)
+    )
+
+
+def _inventory_is_substantive(pages: list[Any]) -> bool:
+    """True when the LLM already proposed a usable multi-page product face."""
+    real = [p for p in pages if isinstance(p, dict) and (p.get("title") or p.get("id"))]
+    if len(real) < 2:
+        return False
+    titles = {
+        str(p.get("title") or p.get("id") or "").casefold()
+        for p in real
+        if str(p.get("title") or p.get("id") or "").strip()
+    }
+    paths = {_page_path_hint(p) for p in real if _page_path_hint(p)}
+    return len(titles) >= 2 or len(paths) >= 2
+
+
+def _routes_are_substantive(routes: list[Any]) -> bool:
+    real = [
+        rt
+        for rt in routes
+        if isinstance(rt, dict)
+        and str(rt.get("path") or "").strip()
+        and not _is_ai_hub_route(rt)
+    ]
+    paths = {str(rt.get("path") or "").rstrip("/") for rt in real}
+    return len(paths) >= 2
+
+
+def _repair_ops_home_chrome(page: dict[str, Any], contract: ProductKindContract) -> bool:
+    """For ops kinds, rewrite only a marketing `/` landing into product chrome."""
+    if contract.kind not in OPS_KINDS or not contract.pages:
+        return False
+    if not _is_marketing_landing(page):
+        return False
+    page.update(_page_plan_dict(contract.pages[0]))
+    return True
+
+
+def _sync_role_nav(role: dict[str, Any], pages: list[dict[str, Any]], contract: ProductKindContract) -> bool:
+    nav = dict(role.get("navigation") or {})
+    bad_labels = (
+        "get started",
+        "explore forecasts",
+        "access dashboard",
+        "sign up",
+    )
+    links = [
+        link
+        for link in (nav.get("links") or [])
+        if isinstance(link, dict)
+        and not any(bad in str(link.get("label") or "").lower() for bad in bad_labels)
+    ]
+    touched = False
+    for page in pages:
+        pid = page.get("id")
+        if not pid or any(link.get("page_id") == pid for link in links):
+            continue
+        links.append(
+            {
+                "label": str(page.get("title") or pid),
+                "page_id": pid,
+                "style": "cta" if page is pages[0] else "link",
+            }
+        )
+        touched = True
+    if links:
+        nav["links"] = links
+        if contract.kind in OPS_KINDS or any(
+            str(p.get("surface") or "") == "ops" for p in pages
+        ):
+            nav.setdefault("type", "sidebar")
+        role["navigation"] = nav
+    return touched
+
+
 def _ensure_role_pages(role: dict[str, Any], contract: ProductKindContract) -> bool:
+    """Merge kind defaults under LLM inventory — never replace a rich brief-driven plan."""
     pages = [p for p in (role.get("pages") or []) if isinstance(p, dict)]
+    touched = False
+    substantive = _inventory_is_substantive(pages)
+
+    if not pages:
+        role["pages"] = [_page_plan_dict(bp) for bp in contract.pages]
+        _sync_role_nav(role, role["pages"], contract)
+        return True
+
+    # Chrome repair only: ops kinds cannot keep a foresight marketing home.
+    if contract.kind in OPS_KINDS:
+        for page in pages:
+            if _repair_ops_home_chrome(page, contract):
+                touched = True
+
+    if substantive:
+        # LLM owns inventory. Fill missing chrome fields only — do not append
+        # the full industry blueprint or overwrite skeleton/slots.
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            if contract.kind in OPS_KINDS and str(page.get("surface") or "") == "ops":
+                page.setdefault("skeleton_id", "ops-list")
+                page.setdefault("section_slots", list(_OPS_LIST_SLOTS))
+            elif contract.kind in PUBLIC_KINDS:
+                page.setdefault("surface", "public")
+                page.setdefault("skeleton_id", "public-home")
+        if _sync_role_nav(role, pages, contract):
+            touched = True
+        role["pages"] = pages
+        return touched
+
+    # Thin / broken plan → seed missing blueprint pages as fallback.
     by_id = {str(p.get("id") or ""): p for p in pages}
     by_title = {str(p.get("title") or "").casefold(): p for p in pages}
-    touched = False
-
     for bp in contract.pages:
         existing = by_id.get(bp.id) or by_title.get(bp.title.casefold())
         if existing is None:
             pages.append(_page_plan_dict(bp))
             touched = True
             continue
-        skeleton = str(existing.get("skeleton_id") or "")
-        surface = str(existing.get("surface") or "")
         if contract.kind in OPS_KINDS and (
-            surface == "public" or skeleton.startswith("public")
+            str(existing.get("surface") or "") == "public"
+            or str(existing.get("skeleton_id") or "").startswith("public")
         ):
             existing.update(_page_plan_dict(bp))
             touched = True
         else:
-            # Lock signature chrome from the kind blueprint (not soft defaults).
-            existing["surface"] = bp.surface
-            existing["skeleton_id"] = bp.skeleton_id
-            existing["section_slots"] = bp.section_slots()
-            existing.setdefault("title", bp.title)
-            existing.setdefault("page_type", bp.page_type)
+            existing.setdefault("surface", bp.surface)
+            existing.setdefault("skeleton_id", bp.skeleton_id)
+            existing.setdefault("section_slots", bp.section_slots())
 
     if contract.kind in OPS_KINDS:
         home = next(
@@ -653,37 +787,8 @@ def _ensure_role_pages(role: dict[str, Any], contract: ProductKindContract) -> b
             touched = True
 
     role["pages"] = pages
-    nav = dict(role.get("navigation") or {})
-    bad_labels = (
-        "get started",
-        "explore forecasts",
-        "access dashboard",
-        "sign up",
-        "book now",
-    )
-    links = [
-        link
-        for link in (nav.get("links") or [])
-        if isinstance(link, dict)
-        and not any(bad in str(link.get("label") or "").lower() for bad in bad_labels)
-    ]
-    for page in pages:
-        pid = page.get("id")
-        if not pid or any(link.get("page_id") == pid for link in links):
-            continue
-        links.append(
-            {
-                "label": str(page.get("title") or pid),
-                "page_id": pid,
-                "style": "cta" if page is pages[0] else "link",
-            }
-        )
+    if _sync_role_nav(role, pages, contract):
         touched = True
-    if links:
-        nav["links"] = links
-        if contract.kind in OPS_KINDS:
-            nav["type"] = "sidebar"
-        role["navigation"] = nav
     return touched
 
 
@@ -691,12 +796,15 @@ def apply_product_kind_to_plan(
     plan: dict[str, Any] | None,
     contract: ProductKindContract,
 ) -> dict[str, Any]:
-    """Lock experience-plan chrome to the product-kind contract."""
+    """Stamp kind chrome/recipe; keep LLM page inventory unless the plan is empty/thin."""
     updated = copy.deepcopy(dict(plan or {}))
     updated["product_kind"] = contract.kind
     updated["product_kind_subtype"] = contract.subtype
     updated["product_kind_contract"] = contract.as_dict()
-    updated["recipe_id"] = contract.recipe_id
+    # Recipe is a default — do not clobber an explicit plan/recipe choice.
+    updated.setdefault("recipe_id", contract.recipe_id)
+    if not updated.get("recipe_id"):
+        updated["recipe_id"] = contract.recipe_id
 
     roles = list(updated.get("roles") or [])
     if not roles:
@@ -705,91 +813,33 @@ def apply_product_kind_to_plan(
     for role in roles:
         if not isinstance(role, dict):
             continue
-        pages = list(role.get("pages") or [])
-        if not pages:
-            role["pages"] = [_page_plan_dict(bp) for bp in contract.pages]
-        elif contract.kind in OPS_KINDS:
-            for page in pages:
-                if not isinstance(page, dict):
-                    continue
-                skeleton = str(page.get("skeleton_id") or "")
-                surface = str(page.get("surface") or "")
-                title = str(page.get("title") or "")
-                is_marketing = (
-                    skeleton in {"public-home", "public-service"}
-                    or (
-                        surface == "public"
-                        and bool(
-                            re.search(
-                                r"home|landing|marketing|foresight|forecast",
-                                f"{title} {skeleton}",
-                                re.I,
-                            )
-                        )
-                    )
-                )
-                if is_marketing or skeleton.startswith("public"):
-                    page.update(_page_plan_dict(contract.pages[0]))
         _ensure_role_pages(role, contract)
 
     direction = str(updated.get("design_direction") or "").strip()
     updated["design_direction"] = (
-        f"{direction} | PRODUCT_KIND={contract.kind}/{contract.subtype}: "
-        f"{contract.design_note}"
+        f"{direction} | PRODUCT_KIND={contract.kind}/{contract.subtype} (chrome default; "
+        f"LLM owns roles/pages from the brief): {contract.design_note}"
     ).strip(" |")
     if contract.kind in OPS_KINDS:
-        updated["ops_direction"] = contract.design_note
-        updated["public_direction"] = (
-            "No consumer marketing site — the product is the workspace itself."
+        updated.setdefault("ops_direction", contract.design_note)
+        updated.setdefault(
+            "public_direction",
+            "Prefer the product workspace. Only add public pages if the brief needs them.",
         )
     updated["roles"] = roles
     return updated
 
 
-def apply_product_kind_to_architect(
-    architect: dict[str, Any] | None,
+def _inject_blueprint_routes(
+    routes: list[dict[str, Any]],
+    files: list[dict[str, Any]],
     contract: ProductKindContract,
-) -> dict[str, Any]:
-    """Lock architect routes/files to the product-kind page set."""
-    updated = copy.deepcopy(dict(architect or {}))
-    updated["product_kind"] = contract.kind
-    updated["product_kind_subtype"] = contract.subtype
-    updated["recipe_id"] = contract.recipe_id
-
-    if contract.kind not in OPS_KINDS:
-        # Storefront/booking: only stamp kind metadata; do not rewrite routes.
-        return updated
-
-    routes = [rt for rt in (updated.get("routes") or []) if isinstance(rt, dict)]
-    role_id = "ROLE-PRIMARY-USER"
-    for role in updated.get("roles") or []:
-        if isinstance(role, dict) and role.get("id"):
-            role_id = str(role["id"])
-            break
-    for rt in routes:
-        if rt.get("role_id"):
-            role_id = str(rt["role_id"])
-            break
-
-    for route in routes:
-        if _is_ai_hub_route(route):
-            continue
-        route["surface"] = "ops"
-        route["layout"] = "admin"
-        if not route.get("skeleton_id") or str(route.get("skeleton_id")).startswith(
-            "public"
-        ):
-            home = contract.pages[0]
-            route["skeleton_id"] = home.skeleton_id
-            route["section_slots"] = home.section_slots()
-        title = str(route.get("title") or "")
-        if re.search(r"foresight|forecast|landing|marketing|get started", title, re.I):
-            route["title"] = contract.pages[0].title
-
+    role_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    """Fallback: add missing blueprint routes when the architect inventory is thin."""
     existing_paths = {str(rt.get("path") or "") for rt in routes}
-    files = [f for f in (updated.get("files_to_generate") or []) if isinstance(f, dict)]
     existing_files = {str(f.get("path") or "").replace("\\", "/") for f in files}
-
+    touched = False
     for bp in contract.pages:
         path = bp.path
         component = bp.component_file
@@ -797,16 +847,15 @@ def apply_product_kind_to_architect(
             for rt in routes:
                 if str(rt.get("path") or "") != path or _is_ai_hub_route(rt):
                     continue
-                rt["surface"] = bp.surface
-                rt["layout"] = "admin" if bp.surface == "ops" else "public"
-                rt["skeleton_id"] = bp.skeleton_id
-                rt["section_slots"] = bp.section_slots()
-                rt["title"] = bp.title
-                rt["page_type"] = bp.page_type
+                rt.setdefault("surface", bp.surface)
+                rt.setdefault("layout", "admin" if bp.surface == "ops" else "public")
+                rt.setdefault("skeleton_id", bp.skeleton_id)
+                rt.setdefault("section_slots", bp.section_slots())
+                rt.setdefault("title", bp.title)
+                rt.setdefault("page_type", bp.page_type)
                 rt.setdefault("component_file", component)
                 rt.setdefault("role_id", role_id)
             continue
-
         routes.append(
             {
                 "path": path,
@@ -822,6 +871,7 @@ def apply_product_kind_to_architect(
                 "purpose": bp.purpose,
             }
         )
+        touched = True
         if component not in existing_files:
             files.append(
                 {
@@ -829,13 +879,76 @@ def apply_product_kind_to_architect(
                     "kind": "page",
                     "path": component,
                     "instructions": (
-                        f"PRODUCT_KIND={contract.kind} page using OpsShell. "
-                        f"{bp.purpose} Dense real product UI — never a marketing hero. "
+                        f"PRODUCT_KIND={contract.kind} fallback page. "
+                        f"{bp.purpose} Real product UI — never a marketing-only hero. "
                         f"Sample: {bp.sample_data_notes}"
                     ),
                 }
             )
             existing_files.add(component)
+    return routes, files, touched
+
+
+def apply_product_kind_to_architect(
+    architect: dict[str, Any] | None,
+    contract: ProductKindContract,
+) -> dict[str, Any]:
+    """Stamp kind metadata; preserve LLM routes; seed blueprint only when thin."""
+    updated = copy.deepcopy(dict(architect or {}))
+    updated["product_kind"] = contract.kind
+    updated["product_kind_subtype"] = contract.subtype
+    updated.setdefault("recipe_id", contract.recipe_id)
+    if not updated.get("recipe_id"):
+        updated["recipe_id"] = contract.recipe_id
+
+    routes = [rt for rt in (updated.get("routes") or []) if isinstance(rt, dict)]
+    files = [f for f in (updated.get("files_to_generate") or []) if isinstance(f, dict)]
+    role_id = "ROLE-PRIMARY-USER"
+    for role in updated.get("roles") or []:
+        if isinstance(role, dict) and role.get("id"):
+            role_id = str(role["id"])
+            break
+    for rt in routes:
+        if rt.get("role_id"):
+            role_id = str(rt["role_id"])
+            break
+
+    substantive = _routes_are_substantive(routes)
+
+    # Chrome repair for ops kinds — do not flatten hybrid public+ops inventories.
+    if contract.kind in OPS_KINDS and contract.pages:
+        home = contract.pages[0]
+        for route in routes:
+            if _is_ai_hub_route(route):
+                continue
+            path = str(route.get("path") or "").rstrip("/") or "/"
+            skeleton = str(route.get("skeleton_id") or "")
+            surface = str(route.get("surface") or "")
+            title = str(route.get("title") or "")
+            marketing_home = path in {"/", "/home"} and (
+                surface == "public"
+                or skeleton.startswith("public")
+                or bool(re.search(r"foresight|forecast|landing|marketing|get started", title, re.I))
+            )
+            if marketing_home:
+                route["surface"] = home.surface
+                route["layout"] = "admin" if home.surface == "ops" else "public"
+                route["skeleton_id"] = home.skeleton_id
+                route["section_slots"] = home.section_slots()
+                route["title"] = home.title
+                continue
+            # Fill missing chrome only; keep LLM surface/layout choices.
+            if surface == "ops" or route.get("layout") == "admin":
+                route.setdefault("surface", "ops")
+                route.setdefault("layout", "admin")
+                route.setdefault("skeleton_id", "ops-list")
+                route.setdefault("section_slots", list(_OPS_LIST_SLOTS))
+
+    if not substantive:
+        routes, files, _ = _inject_blueprint_routes(routes, files, contract, role_id)
+    elif contract.kind in PUBLIC_KINDS:
+        # Public kinds: only gap-fill blueprint pages still missing (e.g. /book).
+        routes, files, _ = _inject_blueprint_routes(routes, files, contract, role_id)
 
     for item in files:
         path = str(item.get("path") or "").replace("\\", "/").lower()
@@ -846,8 +959,9 @@ def apply_product_kind_to_architect(
             continue
         instructions = str(item.get("instructions") or "")
         prefix = (
-            f"PRODUCT_KIND={contract.kind}/{contract.subtype} OpsShell page. "
-            "Never MarketingHero / Get Started / Explore Forecasts as the product. "
+            f"PRODUCT_KIND={contract.kind}/{contract.subtype} chrome default. "
+            "Follow the brief for roles/screens. Never replace a brief-driven admin or "
+            "booking flow with a single marketing hero. "
         )
         if "PRODUCT_KIND=" not in instructions:
             item["instructions"] = (prefix + instructions).strip()
@@ -857,7 +971,7 @@ def apply_product_kind_to_architect(
     direction = str(updated.get("design_direction") or "").strip()
     updated["design_direction"] = (
         f"{direction} | PRODUCT_KIND={contract.kind}/{contract.subtype}: "
-        f"{contract.design_note}"
+        f"LLM-first inventory; {contract.design_note}"
     ).strip(" |")
     return updated
 

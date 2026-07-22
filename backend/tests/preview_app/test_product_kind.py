@@ -163,3 +163,125 @@ def test_storefront_plan_keeps_public_home() -> None:
         contract,
     )
     assert plan["roles"][0]["pages"][0]["skeleton_id"] == "public-home"
+
+
+def test_llm_inventory_wins_over_kind_blueprint() -> None:
+    """Rich brief-driven plans must not be replaced by hardcoded kind pages."""
+    contract = resolve_product_kind_contract(
+        "clinic dental booking appointment patient front desk"
+    )
+    assert contract.kind == "booking_service"
+    plan = {
+        "roles": [
+            {
+                "id": "patient",
+                "label": "Patient",
+                "pages": [
+                    {
+                        "id": "home",
+                        "title": "Clinic home",
+                        "path": "/",
+                        "surface": "public",
+                        "skeleton_id": "public-home",
+                    },
+                    {
+                        "id": "services",
+                        "title": "Doctors",
+                        "path": "/services",
+                        "surface": "public",
+                        "skeleton_id": "public-service",
+                    },
+                    {
+                        "id": "book",
+                        "title": "Book",
+                        "path": "/book",
+                        "surface": "public",
+                        "skeleton_id": "public-booking",
+                    },
+                ],
+            },
+            {
+                "id": "desk",
+                "label": "Front desk",
+                "pages": [
+                    {
+                        "id": "schedule",
+                        "title": "Today's schedule",
+                        "path": "/desk/schedule",
+                        "surface": "ops",
+                        "skeleton_id": "ops-list",
+                    },
+                    {
+                        "id": "confirm",
+                        "title": "Confirmations",
+                        "path": "/desk/confirmations",
+                        "surface": "ops",
+                        "skeleton_id": "ops-list",
+                    },
+                ],
+            },
+        ]
+    }
+    out = apply_product_kind_to_plan(plan, contract)
+    titles = {
+        str(p.get("title"))
+        for role in out["roles"]
+        for p in role.get("pages") or []
+    }
+    assert "Doctors" in titles
+    assert "Book" in titles
+    assert "Today's schedule" in titles
+    # Kind fallback pages must not wipe brief-driven staff screens.
+    assert any(r.get("id") == "desk" for r in out["roles"])
+
+
+def test_architect_keeps_hybrid_public_and_ops_routes() -> None:
+    contract = resolve_product_kind_contract(
+        "clinic booking appointment dental"
+    )
+    architect = {
+        "routes": [
+            {
+                "path": "/",
+                "title": "Home",
+                "surface": "public",
+                "layout": "public",
+                "skeleton_id": "public-home",
+                "component_file": "src/pages/HomePage.tsx",
+            },
+            {
+                "path": "/services",
+                "title": "Doctors",
+                "surface": "public",
+                "layout": "public",
+                "skeleton_id": "public-service",
+                "component_file": "src/pages/ServicesPage.tsx",
+            },
+            {
+                "path": "/book",
+                "title": "Book",
+                "surface": "public",
+                "layout": "public",
+                "skeleton_id": "public-booking",
+                "component_file": "src/pages/BookPage.tsx",
+            },
+            {
+                "path": "/desk",
+                "title": "Front desk",
+                "surface": "ops",
+                "layout": "admin",
+                "skeleton_id": "ops-list",
+                "component_file": "src/pages/FrontDeskPage.tsx",
+                "role_id": "ROLE-DESK",
+            },
+        ],
+        "files_to_generate": [],
+    }
+    out = apply_product_kind_to_architect(architect, contract)
+    paths = {rt["path"] for rt in out["routes"]}
+    assert "/desk" in paths
+    assert "/book" in paths
+    desk = next(rt for rt in out["routes"] if rt["path"] == "/desk")
+    assert desk["surface"] == "ops"
+    home = next(rt for rt in out["routes"] if rt["path"] == "/")
+    assert home["surface"] == "public"
