@@ -247,15 +247,31 @@ def _safe_slot_jsx(
             '</div>'
             '</Card>'
         ),
+        # Ops consoles must not reuse marketing seed.hero (clinic homepage copy on /staff).
         "header": (
-            f'<PageHeader title={{seed.hero?.headline || {title_js}}} '
-            + "description={seed.hero?.subcopy || "
-            + _d(
-                '"Cash, invoices, expenses, and bank matches for today."',
-                '"Watchlist, blotter, positions, and P&L for the fund book."',
-                '"A current view of the work that needs your attention."',
+            (
+                (
+                    f'<PageHeader title={{seed.opsHero?.headline || {title_js}}} '
+                    "description={seed.opsHero?.subcopy || "
+                    + _d(
+                        '"Cash, invoices, expenses, and bank matches for today."',
+                        '"Watchlist, blotter, positions, and P&L for the fund book."',
+                        '"Appointments, check-ins, and the work that needs attention now."',
+                    )
+                    + "} "
+                )
+                if (skeleton_id or "").startswith("ops")
+                else (
+                    f'<PageHeader title={{seed.hero?.headline || {title_js}}} '
+                    "description={seed.hero?.subcopy || "
+                    + _d(
+                        '"Cash, invoices, expenses, and bank matches for today."',
+                        '"Watchlist, blotter, positions, and P&L for the fund book."',
+                        '"A current view of the work that needs your attention."',
+                    )
+                    + "} "
+                )
             )
-            + "} "
             + 'meta={<span className="text-sm text-muted">'
             + _d("Books · live", "Markets open · live marks", "Live")
             + "</span>}"
@@ -264,7 +280,8 @@ def _safe_slot_jsx(
                 '{ label: "New invoice", href: "/invoices" }]}',
                 ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
                 '{ label: "New ticket", href: "/ticket" }]}',
-                "",
+                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
+                '{ label: "Check in", href: "#queue" }]}',
             )
             + " />"
         ),

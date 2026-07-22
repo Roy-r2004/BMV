@@ -37,6 +37,7 @@ TEMPLATE_IDS: tuple[str, ...] = (
     "hedge-fund-trading-desk",
     "owner-kpi-dashboard",
     "staff-floor-ops",
+    "clinic-front-desk-ops",
     "inventory-catalog-ops",
     "leads-crm-list",
     "booking-calendar-ops",

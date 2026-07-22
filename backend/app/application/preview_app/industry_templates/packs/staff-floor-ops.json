@@ -1,7 +1,17 @@
 {
   "id": "staff-floor-ops",
   "label": "Staff floor ops",
-  "industry_tags": ["staff", "floor", "front desk", "shift", "ops floor"],
+  "industry_tags": [
+    "restaurant",
+    "cafe",
+    "hospitality",
+    "host stand",
+    "expo",
+    "patio",
+    "dining floor",
+    "shift floor",
+    "kitchen tickets"
+  ],
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
   "section_order": ["header", "kpis", "filters", "table", "activity", "risk"],

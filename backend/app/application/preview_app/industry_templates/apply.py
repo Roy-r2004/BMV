@@ -127,9 +127,15 @@ def apply_ops_industry_template_to_plan(
     )
     public_seed = dict(updated.get("mock_seed") or {})
     # Keep public marketing copy; merge ops-facing structures for dashboards.
-    for key in ("kpis", "activity", "risk", "tableRows"):
+    # Never let marketing hero drive the staff console title.
+    if ops_seed.get("hero"):
+        public_seed["opsHero"] = ops_seed["hero"]
+    for key in ("kpis", "activity", "risk", "tableRows", "table"):
         if ops_seed.get(key):
             public_seed[key] = ops_seed[key]
+    # Ops items become the live board — do not leave restaurant queues on a clinic desk.
+    if ops_seed.get("items"):
+        public_seed["opsItems"] = ops_seed["items"]
     if not public_seed.get("tone") or public_seed.get("tone") == "branded":
         # Prefer ops tone when public seed had no ops identity.
         if ops_seed.get("tone"):

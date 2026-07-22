@@ -1,7 +1,16 @@
 {
   "id": "booking-calendar-ops",
   "label": "Booking calendar ops",
-  "industry_tags": ["booking", "calendar", "schedule", "appointments", "reservations ops"],
+  "industry_tags": [
+    "booking",
+    "calendar",
+    "schedule",
+    "appointments",
+    "reservations ops",
+    "spa",
+    "salon",
+    "studio schedule"
+  ],
   "recipe_hint": "dense-ops",
   "skeleton_id": "ops-dashboard",
   "section_order": ["header", "kpis", "filters", "table", "chart", "activity"],

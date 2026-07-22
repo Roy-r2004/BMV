@@ -1,0 +1,81 @@
+{
+  "id": "clinic-front-desk-ops",
+  "label": "Clinic front desk ops",
+  "industry_tags": [
+    "clinic",
+    "dental",
+    "dentist",
+    "medical",
+    "healthcare",
+    "patient",
+    "patients",
+    "appointment",
+    "appointments",
+    "front desk",
+    "check-in",
+    "provider"
+  ],
+  "recipe_hint": "dense-ops",
+  "skeleton_id": "ops-dashboard",
+  "section_order": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
+  "signature_moves": ["check-in queue", "appointment KPIs", "no-show risk", "provider load"],
+  "prompt_hints": [
+    "Clinic front desk — appointments, check-ins, and patient flow with calm brand chrome.",
+    "Seed realistic visit rows with times, providers, and rooms; never restaurant tables or expo tickets.",
+    "Copy as care ops (\"Arrived\", \"In chair\", \"No-show risk\") — immersive clinic console."
+  ],
+  "mock_seed": {
+    "tone": "operational",
+    "hero": {
+      "headline": "Today's patient flow",
+      "subcopy": "Check-ins, chair status, and appointments that need a call before they slip.",
+      "primaryCta": { "label": "Check in next", "href": "#queue" },
+      "secondaryCta": { "label": "Open schedule", "href": "#schedule" }
+    },
+    "items": [
+      { "title": "Check-ins waiting · 4", "description": "Longest wait 12m · intake incomplete" },
+      { "title": "In chair · 6", "description": "Dr. Chen · Dr. Miles · Room 2" },
+      { "title": "No-show risk · 2", "description": "1:30 cleaning · 2:15 consult" },
+      { "title": "Open slots · 3", "description": "Same-day · offer to waitlist" }
+    ],
+    "kpis": [
+      { "label": "Arrivals today", "value": "28", "delta": "+4", "hint": "vs yesterday" },
+      { "label": "In chair now", "value": "6", "delta": "2 waiting", "hint": "active visits" },
+      { "label": "No-show risk", "value": "2", "delta": "-1", "hint": "needs SMS" },
+      { "label": "Open slots", "value": "3", "delta": "same-day", "hint": "fill from waitlist" }
+    ],
+    "features": [
+      { "title": "Check-in before the lobby backs up", "description": "Arrivals, incomplete intake, and late patients in one queue." },
+      { "title": "Provider load at a glance", "description": "Who is in chair, who is free, which rooms are blocked." },
+      { "title": "No-show rescue", "description": "Risk flags with one-tap reminders before the slot dies." }
+    ],
+    "process": [
+      { "title": "Scan the board", "description": "Arrivals and chair status first." },
+      { "title": "Clear the queue", "description": "Check in, finish intake, seat the next patient." },
+      { "title": "Protect the schedule", "description": "Call no-show risks and offer open slots." }
+    ],
+    "activity": [
+      { "title": "Patient checked in", "detail": "Maya R. · cleaning · Room 1", "when": "Just now" },
+      { "title": "Intake completed", "detail": "Omar F. · new patient forms", "when": "8m ago" },
+      { "title": "Reminder sent", "detail": "1:30 consult · no-show risk", "when": "22m ago" }
+    ],
+    "risk": [
+      { "id": "risk-1", "title": "No-show risk", "detail": "2:15 cleaning still unconfirmed", "severity": "high" },
+      { "id": "risk-2", "title": "Provider running late", "detail": "Dr. Miles +12m · Room 3", "severity": "medium" }
+    ],
+    "showcaseHeading": "Visit board",
+    "featuresHeading": "Built for the front desk",
+    "processHeading": "Arrive → seat → protect",
+    "cta": {
+      "heading": "Two visits need a call",
+      "description": "Confirm them, then offer the open 3pm slot to the waitlist.",
+      "primaryLabel": "Call next risk",
+      "primaryHref": "#risk",
+      "secondaryLabel": "Fill open slot",
+      "secondaryHref": "#open"
+    },
+    "footer": { "description": "Front desk ops for clinics — patients and appointments, not restaurant tickets." },
+    "trustLabels": ["Check-in queue", "Chair status", "No-show flags", "Same-day fill"],
+    "nav_cta": { "label": "Desk", "href": "/staff/dashboard" }
+  }
+}
