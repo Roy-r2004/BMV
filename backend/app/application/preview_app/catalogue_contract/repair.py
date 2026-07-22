@@ -8,6 +8,7 @@ import re
 from app.application.preview_app.catalogue_contract.imports import normalize_catalogue_page_imports
 from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
+    _is_directory_listing_route,
     _is_schedule_listing_route,
     _safe_slot_jsx,
     minimal_catalogue_page_scaffold,
@@ -19,6 +20,7 @@ from app.application.preview_app.catalogue_contract.slots import (
 from app.application.preview_app.catalogue_contract.validate import (
     _AI_HUB_FACE_MARKER,
     _CONFIRM_FACE_MARKER,
+    _DIRECTORY_FACE_MARKER,
     _SCHEDULE_FACE_MARKER,
     blocking_contract_errors,
     validate_catalogue_page_content,
@@ -197,6 +199,7 @@ def repair_missing_catalogue_slots(
 
     brand = brand_name or "Brand"
     title = str(route.get("title") or "Overview")
+    skeleton_id = str(route.get("skeleton_id") or "")
     ordered_missing = [
         slot for slot in assigned_non_shell_slots(route) if slot in missing
     ]
@@ -204,7 +207,7 @@ def repair_missing_catalogue_slots(
         return content, False
     try:
         injected = "".join(
-            f"\n    {slot}: (\n      {_safe_slot_jsx(slot, brand, title)}\n    ),"
+            f"\n    {slot}: (\n      {_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)}\n    ),"
             for slot in ordered_missing
         )
     except ValueError:
@@ -246,7 +249,8 @@ def repair_missing_catalogue_slots(
         )
 
     needs_images = any(
-        "images." in _safe_slot_jsx(slot, brand, title) for slot in ordered_missing
+        "images." in _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
+        for slot in ordered_missing
     )
     if needs_images and not _IMAGES_IMPORT_RE.search(repaired):
         repaired = "import { images } from '@/data/mock';\n" + repaired
@@ -262,10 +266,11 @@ def repair_missing_catalogue_slots(
 
 
 def _is_dedicated_face_page(content: str) -> bool:
-    """ScheduleRail / ConfirmStage / AI hub faces must not become SkeletonComposer pages."""
+    """Listing / ConfirmStage / AI hub faces must not become SkeletonComposer pages."""
     text = content or ""
     return (
         _SCHEDULE_FACE_MARKER in text
+        or _DIRECTORY_FACE_MARKER in text
         or _CONFIRM_FACE_MARKER in text
         or _AI_HUB_FACE_MARKER in text
         or ("AiFeatureDeck" in text and "aiFeatures" in text)
@@ -312,8 +317,19 @@ def enforce_catalogue_page_contract(
             ):
                 return content, False
         return content, False
-    # Listing routes must keep ScheduleRail — AI catalog clones get replaced.
+    # Listing routes must keep their dedicated face — AI catalog clones get replaced.
     if _is_schedule_listing_route(file_path, route) and "ScheduleRail" not in (content or ""):
+        return (
+            minimal_catalogue_page_scaffold(
+                file_path, route, brand_name=brand_name
+            ),
+            True,
+        )
+    if _is_directory_listing_route(file_path, route) and (
+        "ProductShowcase" not in (content or "")
+        or "seed.hero" in (content or "")
+        or _DIRECTORY_FACE_MARKER not in (content or "")
+    ):
         return (
             minimal_catalogue_page_scaffold(
                 file_path, route, brand_name=brand_name
@@ -324,7 +340,9 @@ def enforce_catalogue_page_contract(
     if _is_dedicated_face_page(content):
         if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
             return content, False
-        if _SCHEDULE_FACE_MARKER in (content or ""):
+        if _SCHEDULE_FACE_MARKER in (content or "") or _DIRECTORY_FACE_MARKER in (
+            content or ""
+        ):
             return (
                 minimal_catalogue_page_scaffold(
                     file_path, route, brand_name=brand_name

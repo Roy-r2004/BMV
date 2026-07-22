@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from app.application.preview_app.catalogue_contract.scaffold import (
+    _is_directory_listing_route,
     _is_schedule_listing_route,
     minimal_catalogue_page_scaffold,
 )
@@ -100,16 +101,32 @@ def evaluate_quality_gate(
                 rel,
             )
 
-    # Schedule listing faces
+    # Schedule / directory listing faces
     for rt in architect.get("routes") or []:
         if not isinstance(rt, dict):
             continue
         rel = str(rt.get("component_file") or "").replace("\\", "/")
-        if not rel or not _is_schedule_listing_route(rel, rt):
+        if not rel:
             continue
         src = _read(workspace, rel)
-        if src and "ScheduleRail" not in src:
-            report.fail("listing_not_schedule_rail", "Listing page missing ScheduleRail", rel)
+        if _is_schedule_listing_route(rel, rt):
+            if src and "ScheduleRail" not in src:
+                report.fail(
+                    "listing_not_schedule_rail",
+                    "Listing page missing ScheduleRail",
+                    rel,
+                )
+        if _is_directory_listing_route(rel, rt):
+            if src and (
+                "ProductShowcase" not in src
+                or "seed.hero" in src
+                or "// directory listing scaffold" not in src
+            ):
+                report.fail(
+                    "listing_not_directory_face",
+                    "Doctor/team page looks like homepage — missing directory face",
+                    rel,
+                )
 
     # Confirmation faces
     for rel in pages:
@@ -359,15 +376,26 @@ def heal_quality_gate(
             write_file(workspace, "src/App.tsx", app2)
             healed.append("src/App.tsx")
 
-    # 3) Schedule listing faces
+    # 3) Schedule / directory listing faces
     for rt in architect.get("routes") or []:
         if not isinstance(rt, dict):
             continue
         rel = str(rt.get("component_file") or "").replace("\\", "/")
-        if not rel or not _is_schedule_listing_route(rel, rt):
+        if not rel:
             continue
         src = _read(workspace, rel)
-        if src and "ScheduleRail" not in src:
+        if _is_schedule_listing_route(rel, rt) and src and "ScheduleRail" not in src:
+            write_file(
+                workspace,
+                rel,
+                minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name),
+            )
+            healed.append(rel)
+        if _is_directory_listing_route(rel, rt) and src and (
+            "ProductShowcase" not in src
+            or "seed.hero" in src
+            or "// directory listing scaffold" not in src
+        ):
             write_file(
                 workspace,
                 rel,

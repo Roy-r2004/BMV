@@ -105,3 +105,68 @@ def test_about_route_keeps_marketing_scaffold() -> None:
     )
     assert "ScheduleRail" not in tsx
     assert "MarketingHero" in tsx
+    # Non-home pages must not reuse homepage seed.hero copy.
+    assert "seed.hero" not in tsx
+    assert "About Us" in tsx
+    assert 'variant="compact"' in tsx
+
+
+def test_doctors_route_uses_directory_face() -> None:
+    tsx = minimal_catalogue_page_scaffold(
+        "src/pages/DoctorsPage.tsx",
+        {
+            "path": "/doctors",
+            "title": "Doctor Listing",
+            "skeleton_id": "public-service",
+            "section_slots": ["hero", "features", "cta", "footer"],
+            "page_id": "doctors",
+        },
+        brand_name="Northside Family Clinic",
+    )
+    assert "// directory listing scaffold" in tsx
+    assert "ProductShowcase" in tsx
+    assert "PageHeader" in tsx
+    assert "seed.hero" not in tsx
+    assert "MarketingHero" not in tsx
+    assert validate_catalogue_page_content(
+        tsx,
+        {
+            "path": "/doctors",
+            "title": "Doctor Listing",
+            "skeleton_id": "public-service",
+        },
+    ) == []
+
+
+def test_enforce_replaces_doctor_home_clone() -> None:
+    architect = {
+        "routes": [
+            {
+                "path": "/doctors",
+                "title": "Doctor Listing",
+                "skeleton_id": "public-service",
+                "section_slots": ["hero", "features", "cta", "footer"],
+                "component_file": "src/pages/DoctorsPage.tsx",
+            }
+        ]
+    }
+    home_clone = """
+import { PublicShell, PublicNav, MarketingHero } from '@/ui';
+import { images, seed } from '@/data/mock';
+export default function DoctorsPage() {
+  return (
+    <PublicShell brandName="Clinic">
+      <MarketingHero brandName="Clinic" headline={seed.hero?.headline} imageSrc={images.hero} />
+    </PublicShell>
+  );
+}
+"""
+    updated, replaced = enforce_catalogue_page_contract(
+        "src/pages/DoctorsPage.tsx",
+        home_clone,
+        architect,
+        brand_name="Northside Family Clinic",
+    )
+    assert replaced is True
+    assert "ProductShowcase" in updated
+    assert "seed.hero" not in updated

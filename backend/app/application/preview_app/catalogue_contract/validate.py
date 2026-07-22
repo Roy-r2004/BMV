@@ -34,6 +34,15 @@ _SCHEDULE_FACE_REQUIRED = (
     "CTABand",
     "BrandFooter",
 )
+_DIRECTORY_FACE_MARKER = "// directory listing scaffold"
+_DIRECTORY_FACE_REQUIRED = (
+    "PublicShell",
+    "PublicNav",
+    "PageHeader",
+    "ProductShowcase",
+    "CTABand",
+    "BrandFooter",
+)
 _CONFIRM_FACE_MARKER = "// composed confirmation page (ConfirmStage)"
 _CONFIRM_FACE_REQUIRED = (
     "PublicShell",
@@ -62,6 +71,24 @@ def _validate_schedule_listing_face(content: str) -> list[str]:
         errors.append("missing @/ui import")
     if "BRAND_MANIFEST" not in text:
         errors.append("missing BRAND_MANIFEST services binding")
+    return errors
+
+
+def _validate_directory_listing_face(content: str) -> list[str]:
+    """Accept doctor/provider directory pages (not homepage MarketingHero clones)."""
+    errors: list[str] = []
+    text = content or ""
+    if _DIRECTORY_FACE_MARKER not in text:
+        return ["directory listing face marker"]
+    for name in _DIRECTORY_FACE_REQUIRED:
+        if name not in text:
+            errors.append(f"missing directory face component:{name}")
+    if "@/ui" not in text:
+        errors.append("missing @/ui import")
+    if "BRAND_MANIFEST" not in text:
+        errors.append("missing BRAND_MANIFEST services binding")
+    if "seed.hero" in text:
+        errors.append("directory face must not reuse seed.hero")
     return errors
 
 
@@ -120,6 +147,8 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
         return []
     if _SCHEDULE_FACE_MARKER in text:
         return _validate_schedule_listing_face(text)
+    if _DIRECTORY_FACE_MARKER in text:
+        return _validate_directory_listing_face(text)
     if _CONFIRM_FACE_MARKER in text or (
         "ConfirmStage" in text and "composed confirmation page" in text
     ):

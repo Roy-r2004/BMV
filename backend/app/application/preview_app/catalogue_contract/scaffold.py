@@ -119,11 +119,19 @@ def _is_accounting_domain(*parts: str) -> bool:
     return sum(1 for hint in _ACCOUNTING_HINTS if hint in blob) >= 1
 
 
-def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
+def _safe_slot_jsx(
+    slot: str,
+    brand: str,
+    title: str,
+    *,
+    skeleton_id: str = "",
+) -> str:
     brand_js = json.dumps(brand)
     title_js = json.dumps(title)
     accounting = _is_accounting_domain(brand, title)
     trading = _is_trading_domain(brand, title) and not accounting
+    # Non-home pages must NOT reuse seed.hero — that makes /doctors look like /.
+    home_hero = skeleton_id in {"", "public-home"}
 
     def _d(accounting_v: str, trading_v: str, default_v: str) -> str:
         if accounting:
@@ -132,15 +140,31 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             return trading_v
         return default_v
 
-    samples = {
-        "hero": (
+    if home_hero:
+        hero_jsx = (
             f'<MarketingHero brandName={{{brand_js}}} '
             f'headline={{seed.hero?.headline || {title_js}}} '
             'subcopy={seed.hero?.subcopy} '
             'primaryCta={seed.hero?.primaryCta} '
             'secondaryCta={seed.hero?.secondaryCta} '
             'imageSrc={images.hero} imageAlt="" />'
-        ),
+        )
+    else:
+        sub_js = json.dumps(
+            f"{title} — browse what’s here, then book. This page is not the homepage story."
+        )
+        hero_jsx = (
+            f'<MarketingHero brandName={{{brand_js}}} '
+            f'headline={{{title_js}}} '
+            f'subcopy={{{sub_js}}} '
+            'variant="compact" '
+            f'primaryCta={{{{ label: "Book a visit", href: "/book-appointment" }}}} '
+            f'secondaryCta={{{{ label: "Back home", href: "/" }}}} '
+            'imageSrc={images.card1} imageAlt="" />'
+        )
+
+    samples = {
+        "hero": hero_jsx,
         "features": (
             '<FeatureBento heading={seed.featuresHeading ?? "Designed to feel alive"} '
             'imagePool={[images.card1, images.card2, images.card3]} '
@@ -409,6 +433,43 @@ _SCHEDULE_HINTS = (
     "booking-list",
 )
 
+# People/provider directories — must not render as another cinematic home hero.
+_DIRECTORY_PATH_SEGMENTS = frozenset(
+    {
+        "doctors",
+        "doctor",
+        "providers",
+        "provider",
+        "dentists",
+        "dentist",
+        "physicians",
+        "physician",
+        "specialists",
+        "specialist",
+        "practitioners",
+        "practitioner",
+        "clinicians",
+        "clinician",
+        "team",
+        "our-team",
+        "meet-the-team",
+        "care-team",
+    }
+)
+
+_DIRECTORY_TITLE_HINTS = (
+    "doctor listing",
+    "doctors",
+    "providers",
+    "meet the team",
+    "our team",
+    "care team",
+    "provider directory",
+    "find a doctor",
+    "our doctors",
+    "our providers",
+)
+
 
 def _route_text_blob(file_path: str, route: dict) -> str:
     parts = [
@@ -421,8 +482,15 @@ def _route_text_blob(file_path: str, route: dict) -> str:
     return " ".join(parts).lower()
 
 
+def _is_ops_path(path: str) -> bool:
+    p = (path or "").lower()
+    return p.startswith(("/staff", "/admin", "/owner", "/ops", "/member", "/desk"))
+
+
 def _is_schedule_listing_route(file_path: str, route: dict) -> bool:
     """Classes/services listings get ScheduleRail — not a home marketing clone."""
+    if _is_directory_listing_route(file_path, route):
+        return False
     skeleton_id = str(route.get("skeleton_id") or "")
     if skeleton_id not in {
         "public-service",
@@ -440,6 +508,29 @@ def _is_schedule_listing_route(file_path: str, route: dict) -> bool:
         return False
     blob = _route_text_blob(file_path, route)
     return any(hint in blob for hint in _SCHEDULE_HINTS)
+
+
+def _is_directory_listing_route(file_path: str, route: dict) -> bool:
+    """Doctor/provider/team directories get a people grid — not the homepage hero."""
+    skeleton_id = str(route.get("skeleton_id") or "")
+    if skeleton_id and skeleton_id not in {
+        "public-service",
+        "public-catalog",
+        "public-detail",
+        "public-home",
+        "public-booking",
+    }:
+        return False
+    path = str(route.get("path") or "").lower().rstrip("/") or "/"
+    if _is_ops_path(path):
+        return False
+    if re.search(r"/:\w+", path) or re.search(r"/\{[^}]+\}", path):
+        return False
+    segments = [s for s in path.strip("/").split("/") if s]
+    if any(seg in _DIRECTORY_PATH_SEGMENTS for seg in segments):
+        return True
+    blob = _route_text_blob(file_path, route)
+    return any(hint in blob for hint in _DIRECTORY_TITLE_HINTS)
 
 
 def _schedule_listing_scaffold(
@@ -522,6 +613,82 @@ export default function {component}() {{
 """
 
 
+def _directory_listing_scaffold(
+    *,
+    component: str,
+    brand: str,
+    title: str,
+    listing_path: str,
+    page_id: str,
+    action_ids: list[str],
+    evidence_ids: list[str],
+) -> str:
+    brand_js = json.dumps(brand)
+    title_js = json.dumps(title)
+    base = (listing_path or "/doctors").rstrip("/") or "/doctors"
+    base_js = json.dumps(base)
+    appspec_attrs = f" data-appspec-page={json.dumps(page_id)}" if page_id else ""
+    span_lines: list[str] = []
+    for action_id in action_ids:
+        span_lines.append(
+            f'        <span className="sr-only" data-appspec-action={json.dumps(action_id)}>'
+            f"{action_id}</span>"
+        )
+    for evidence_id in evidence_ids:
+        span_lines.append(
+            f'        <span className="sr-only" data-appspec-evidence={json.dumps(evidence_id)}>'
+            f"{evidence_id}</span>"
+        )
+    appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
+    return f"""// directory listing scaffold — distinct from home marketing clone
+import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
+import {{ BRAND_MANIFEST, images }} from '@/data/mock';
+import {{ PublicShell, PublicNav, PageHeader, ProductShowcase, CTABand, BrandFooter }} from '@/ui';
+
+const services = Array.isArray(BRAND_MANIFEST?.services) ? BRAND_MANIFEST.services : [];
+const LISTING_BASE = {base_js};
+
+export default function {component}() {{
+  const navItems = usePublicNavItems();
+  const navCta = publicCta();
+  const people = (services.length ? services : [
+    {{ id: 'dr-1', name: 'Dr. Avery Chen', description: 'Family medicine · accepting new patients' }},
+    {{ id: 'dr-2', name: 'Dr. Jordan Miles', description: 'Pediatrics · same-week visits' }},
+    {{ id: 'dr-3', name: 'Dr. Sam Rivera', description: 'Internal medicine · telehealth available' }},
+  ]).map((s: any, i: number) => ({{
+    title: String(s.name || s.title || `Provider ${{i + 1}}`),
+    description: String(s.description || s.specialty || s.role || 'Available for appointments'),
+    imageSrc: [images.card1, images.card2, images.card3][i % 3],
+    imageAlt: String(s.name || s.title || 'Provider'),
+    href: `${{LISTING_BASE}}/${{s.id || i + 1}}`,
+  }}));
+
+  return (
+    <PublicShell brandName={{{brand_js}}} chrome="solid" nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>
+      <div data-skeleton="public-catalog"{appspec_attrs}>{appspec_hook_spans}
+      <PageHeader
+        title={{{title_js}}}
+        description="Browse providers, specialties, and availability — then book the right visit."
+      />
+      <ProductShowcase
+        heading="Meet the team"
+        description="Each card opens a provider profile. Book when you are ready."
+        items={{people}}
+      />
+      <CTABand
+        heading="Ready to schedule?"
+        description="Pick a time online — same team you just reviewed."
+        primaryCta={{{{ label: "Book a visit", href: "/book-appointment" }}}}
+        secondaryCta={{{{ label: "Ask AI assistant", href: "/ai-features" }}}}
+      />
+      <BrandFooter brandName={{{brand_js}}} description="Real providers. Clear booking. Not another homepage clone." />
+      </div>
+    </PublicShell>
+  );
+}}
+"""
+
+
 def minimal_catalogue_page_scaffold(
     file_path: str,
     route: dict,
@@ -537,6 +704,16 @@ def minimal_catalogue_page_scaffold(
     page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
     action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
     evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
+    if _is_directory_listing_route(file_path, route):
+        return _directory_listing_scaffold(
+            component=component,
+            brand=brand,
+            title=title,
+            listing_path=str(route.get("path") or "/doctors"),
+            page_id=page_id,
+            action_ids=action_ids,
+            evidence_ids=evidence_ids,
+        )
     if _is_schedule_listing_route(file_path, route):
         return _schedule_listing_scaffold(
             component=component,
@@ -562,13 +739,16 @@ def minimal_catalogue_page_scaffold(
         if slot_component and slot_component not in components:
             components.append(slot_component)
     slot_lines = "\n".join(
-        f"    {slot}: (\n      {_safe_slot_jsx(slot, brand, title)}\n    ),"
+        f"    {slot}: (\n      {_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)}\n    ),"
         for slot in slots
     )
     path = str(route.get("path") or "")
     is_member = path.startswith("/member") or "/member/" in canonical_workspace_path(file_path)
     uses_seed = any(slot in _SEED_SLOTS for slot in slots)
-    needs_images = any("images." in _safe_slot_jsx(slot, brand, title) for slot in slots)
+    needs_images = any(
+        "images." in _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
+        for slot in slots
+    )
     if uses_seed and needs_images:
         images_import = "import { images, seed } from '@/data/mock';\n"
     elif uses_seed:
