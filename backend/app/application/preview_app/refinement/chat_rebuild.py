@@ -383,7 +383,15 @@ def refine_preview_app_from_chat(
                 plan.get("recipe_id")
                 or (plan.get("design_system") or {}).get("recipe_id")
             )
-            write_index_css(workspace, primary, secondary, font, template_renderer, recipe=recipe)
+            write_index_css(
+                workspace,
+                primary,
+                secondary,
+                font,
+                template_renderer,
+                recipe=recipe,
+                design_system=(plan or {}).get("design_system") or {},
+            )
             write_app_tsx(workspace, architect, template_renderer)
 
         base_path = f"/api/preview-apps/{request_id}"

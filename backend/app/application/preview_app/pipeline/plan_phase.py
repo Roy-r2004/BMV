@@ -191,13 +191,6 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         )
         ctx.images = images
     recipe = get_recipe(plan.get("recipe_id"))
-    log.info(
-        f"    design recipe: {recipe.get('id')} ({recipe.get('label')}) "
-        f"hub={plan.get('hub_variant')} "
-        f"template={plan.get('industry_template_id') or '-'} "
-        f"ops={plan.get('ops_template_id') or '-'} "
-        f"brand_locked={bool((plan.get('design_system') or {}).get('brand_locked'))}"
-    )
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
     if brand_brief:
@@ -210,6 +203,26 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         plan["design_system"] = design_system
         manifest["design_system"] = design_system
         manifest["accent"] = design_system.get("primary_color") or primary
+    # Per-request visual face after recipe + brand lock (fonts respect brand_locked).
+    from app.application.preview_app.design_overlay import apply_design_overlay_to_plan
+
+    plan = apply_design_overlay_to_plan(
+        plan,
+        seed=request_id,
+        context=industry_context or full_context[:800],
+        industry=req.industry or "",
+        business_name=req.business_name or "",
+    )
+    design_system = plan.get("design_system") or design_system
+    manifest["design_system"] = design_system
+    log.info(
+        f"    design recipe: {recipe.get('id')} ({recipe.get('label')}) "
+        f"overlay={design_system.get('design_overlay_id') or '-'} "
+        f"hub={plan.get('hub_variant')} "
+        f"template={plan.get('industry_template_id') or '-'} "
+        f"ops={plan.get('ops_template_id') or '-'} "
+        f"brand_locked={bool(design_system.get('brand_locked'))}"
+    )
     roles_count = len(plan.get("roles", []))
     _emit(db, request_id, "codegen",
           f"Plan ready — {roles_count} role{'s' if roles_count != 1 else ''} · recipe {recipe.get('id')}", 33,

@@ -586,16 +586,21 @@ def write_index_css(
     tokens = dict(resolved.get("tokens") or {})
     fonts = dict(resolved.get("fonts") or {})
     ds = design_system or {}
+    # Per-request overlay (and brand brief) win over recipe kit defaults.
+    overrides = ds.get("token_overrides")
+    if isinstance(overrides, dict):
+        tokens.update({k: v for k, v in overrides.items() if v is not None})
+    if ds.get("font_sans"):
+        fonts["sans"] = ds["font_sans"]
+    if ds.get("font_display"):
+        fonts["display"] = ds["font_display"]
+    if ds.get("font_import"):
+        fonts["import"] = ds["font_import"]
+    if ds.get("font_sans") or ds.get("font_display") or ds.get("font_import"):
+        resolved["fonts"] = fonts
+    if ds.get("font_family"):
+        font_family = str(ds["font_family"])
     if ds.get("brand_locked"):
-        if ds.get("font_sans"):
-            fonts["sans"] = ds["font_sans"]
-        if ds.get("font_display"):
-            fonts["display"] = ds["font_display"]
-        if ds.get("font_import"):
-            fonts["import"] = ds["font_import"]
-            resolved["fonts"] = fonts
-        if ds.get("font_family"):
-            font_family = str(ds["font_family"])
         if ds.get("primary_color"):
             primary = str(ds["primary_color"])
         if ds.get("secondary_color"):
