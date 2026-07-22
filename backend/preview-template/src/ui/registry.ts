@@ -23,6 +23,10 @@ export type SkeletonId =
   | 'public-utility'
   | 'public-booking'
   | 'ops-dashboard'
+  | 'ops-ledger-home'
+  | 'ops-invoice-board'
+  | 'ops-recon-split'
+  | 'ops-blotter-desk'
   | 'ops-list'
   | 'ops-detail'
   | 'ops-settings';
@@ -323,6 +327,49 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     requiredProps: ['heading', 'items'],
     optionalProps: ['onAction', 'className'],
   },
+  {
+    name: 'CashPulseBar',
+    surface: 'ops',
+    path: 'ops/CashPulseBar.tsx',
+    requiredProps: [],
+    optionalProps: ['cashLabel', 'cashValue', 'cashHint', 'items', 'className'],
+  },
+  {
+    name: 'InvoiceBoard',
+    surface: 'ops',
+    path: 'ops/InvoiceBoard.tsx',
+    requiredProps: [],
+    optionalProps: ['heading', 'columns', 'className'],
+  },
+  {
+    name: 'ReconSplit',
+    surface: 'ops',
+    path: 'ops/ReconSplit.tsx',
+    requiredProps: [],
+    optionalProps: [
+      'heading',
+      'bankLabel',
+      'booksLabel',
+      'bankLines',
+      'bookLines',
+      'matchedHint',
+      'className',
+    ],
+  },
+  {
+    name: 'BlotterTape',
+    surface: 'ops',
+    path: 'ops/BlotterTape.tsx',
+    requiredProps: [],
+    optionalProps: ['heading', 'rows', 'className'],
+  },
+  {
+    name: 'DeskTicker',
+    surface: 'ops',
+    path: 'ops/DeskTicker.tsx',
+    requiredProps: [],
+    optionalProps: ['items', 'className'],
+  },
 ] as const;
 
 const PUBLIC_ALLOWED = [
@@ -360,6 +407,11 @@ const OPS_ALLOWED = [
   'ActivityFeed',
   'EmptyState',
   'RiskQueue',
+  'CashPulseBar',
+  'InvoiceBoard',
+  'ReconSplit',
+  'BlotterTape',
+  'DeskTicker',
   'AiFeaturePanel',
   'Button',
   'Input',
@@ -514,6 +566,76 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     requiredSections: ['shell', 'header', 'kpis', 'chart', 'filters', 'table', 'activity'],
     optionalSections: ['risk'],
     recommendedOrder: ['shell', 'header', 'kpis', 'risk', 'chart', 'filters', 'table', 'activity'],
+    allowedComponents: [...OPS_ALLOWED],
+    supportedVariants: {
+      ChartCard: ['area', 'bar'],
+      StatCard: ['card', 'strip'],
+    },
+  },
+  {
+    id: 'ops-ledger-home',
+    surface: 'ops',
+    shell: 'OpsShell',
+    purpose:
+      'Accounting books home — cash pulse, KPIs, invoice queue, cash chart, activity rail.',
+    requiredSections: ['shell', 'header', 'pulse', 'kpis', 'table', 'chart', 'activity'],
+    optionalSections: ['filters', 'risk'],
+    recommendedOrder: [
+      'shell',
+      'header',
+      'pulse',
+      'kpis',
+      'filters',
+      'table',
+      'chart',
+      'activity',
+      'risk',
+    ],
+    allowedComponents: [...OPS_ALLOWED],
+    supportedVariants: {
+      ChartCard: ['area', 'bar'],
+      StatCard: ['card', 'strip'],
+    },
+  },
+  {
+    id: 'ops-invoice-board',
+    surface: 'ops',
+    shell: 'OpsShell',
+    purpose: 'Invoice pipeline as a status board — draft / sent / overdue / paid.',
+    requiredSections: ['shell', 'header', 'filters', 'board'],
+    optionalSections: ['empty'],
+    recommendedOrder: ['shell', 'header', 'filters', 'board', 'empty'],
+    allowedComponents: [...OPS_ALLOWED],
+    supportedVariants: {},
+  },
+  {
+    id: 'ops-recon-split',
+    surface: 'ops',
+    shell: 'OpsShell',
+    purpose: 'Bank vs books reconciliation split pane.',
+    requiredSections: ['shell', 'header', 'recon'],
+    optionalSections: ['filters', 'activity'],
+    recommendedOrder: ['shell', 'header', 'filters', 'recon', 'activity'],
+    allowedComponents: [...OPS_ALLOWED],
+    supportedVariants: {},
+  },
+  {
+    id: 'ops-blotter-desk',
+    surface: 'ops',
+    shell: 'OpsShell',
+    purpose: 'Trading desk — ticker, blotter tape, P&L chart, risk/activity rail.',
+    requiredSections: ['shell', 'header', 'ticker', 'blotter', 'chart', 'activity'],
+    optionalSections: ['kpis', 'risk', 'filters'],
+    recommendedOrder: [
+      'shell',
+      'header',
+      'ticker',
+      'kpis',
+      'blotter',
+      'chart',
+      'risk',
+      'activity',
+    ],
     allowedComponents: [...OPS_ALLOWED],
     supportedVariants: {
       ChartCard: ['area', 'bar'],

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../core/Button';
@@ -151,6 +151,237 @@ export type AiFeatureStageProps = {
 };
 
 export function AiFeatureStage({
+  feature,
+  brandName = 'Brand',
+  compact = false,
+  className,
+}: AiFeatureStageProps) {
+  const category = (feature.category || feature.surface || 'automation').toLowerCase();
+  if (category === 'digest') {
+    return <DigestStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+  }
+  if (category === 'scoring') {
+    return <ScorecardStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+  }
+  if (category === 'ops') {
+    return <OpsRouterStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+  }
+  if (category === 'scheduling') {
+    return <SchedulingStage feature={feature} brandName={brandName} compact={compact} className={className} />;
+  }
+  return (
+    <ChatStage feature={feature} brandName={brandName} compact={compact} className={className} />
+  );
+}
+
+function StageChrome({
+  feature,
+  category,
+  compact,
+  className,
+  children,
+}: {
+  feature: AiFeatureItem;
+  category: string;
+  compact: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'relative flex flex-col overflow-hidden rounded-[calc(var(--radius-ui)+0.85rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)]',
+        compact ? 'min-h-[280px]' : 'min-h-[360px]',
+        className,
+      )}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-70"
+        aria-hidden="true"
+        style={{
+          background:
+            'radial-gradient(80% 55% at 100% 0%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 55%)',
+        }}
+      />
+      <header className="relative z-[1] flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">
+            Live demo · {categoryLabel(category)}
+          </p>
+          <p className="mt-0.5 truncate text-sm font-medium tracking-tight text-foreground">
+            {feature.name}
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-background/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/70 opacity-60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-600" />
+          </span>
+          Ready
+        </span>
+      </header>
+      <div className="relative z-[1] flex-1 p-4 sm:p-5">{children}</div>
+    </div>
+  );
+}
+
+function DigestStage({
+  feature,
+  brandName,
+  compact,
+  className,
+}: AiFeatureStageProps) {
+  const cards = [
+    { id: 'p1', label: 'Priority', text: `Clear overdue AR before noon — 4 invoices block ${brandName} cash.` },
+    { id: 'p2', label: 'Risk', text: 'Bank feed has 12 unmatched lines; 2 look like duplicate payments.' },
+    { id: 'p3', label: 'Win', text: feature.demo_hint || `${feature.name} drafted tomorrow’s books brief automatically.` },
+  ];
+  return (
+    <StageChrome feature={feature} category="digest" compact={!!compact} className={className}>
+      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+        Morning brief · not a chat
+      </p>
+      <div className="space-y-3">
+        {cards.map((card) => (
+          <article
+            key={card.id}
+            className="rounded-[var(--radius-ui)] border border-border-subtle bg-background/80 px-3.5 py-3"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">
+              {card.label}
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-foreground">{card.text}</p>
+          </article>
+        ))}
+      </div>
+      <Button className="mt-5 w-full" size="sm">
+        Open action list
+      </Button>
+    </StageChrome>
+  );
+}
+
+function ScorecardStage({
+  feature,
+  brandName,
+  compact,
+  className,
+}: AiFeatureStageProps) {
+  const score = 84;
+  return (
+    <StageChrome feature={feature} category="scoring" compact={!!compact} className={className}>
+      <div className="flex flex-col items-center text-center">
+        <div className="relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-brand/25 bg-brand/10">
+          <span className="font-display text-4xl font-semibold tabular-nums text-foreground">
+            {score}
+          </span>
+        </div>
+        <p className="mt-4 text-sm font-semibold text-foreground">
+          High intent · {feature.name}
+        </p>
+        <p className="mt-1 max-w-sm text-sm text-muted">
+          {resolveDemo(feature, brandName || 'Brand', feature.name)}
+        </p>
+        <div className="mt-5 grid w-full grid-cols-3 gap-2 text-center">
+          {[
+            ['Signal', 'Strong'],
+            ['Next', 'Call 2h'],
+            ['Owner', 'You'],
+          ].map(([k, v]) => (
+            <div
+              key={k}
+              className="rounded-[var(--radius-ui)] border border-border-subtle bg-background/80 px-2 py-2"
+            >
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted">{k}</p>
+              <p className="mt-1 text-xs font-semibold text-foreground">{v}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </StageChrome>
+  );
+}
+
+function OpsRouterStage({
+  feature,
+  brandName,
+  compact,
+  className,
+}: AiFeatureStageProps) {
+  const items = [
+    { id: '1', title: 'Route unmatched bank lines', owner: 'Books', status: 'Ready' },
+    { id: '2', title: `Assign ${feature.name} checklist`, owner: 'Ops', status: 'Queued' },
+    { id: '3', title: `${brandName} exception triage`, owner: 'AI', status: 'In progress' },
+  ];
+  return (
+    <StageChrome feature={feature} category="ops" compact={!!compact} className={className}>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+        Queue router · tap to assign
+      </p>
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="flex items-center justify-between gap-3 rounded-[var(--radius-ui)] border border-border-subtle bg-background/80 px-3 py-2.5"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
+              <p className="text-xs text-muted">{item.owner}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-border-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+              {item.status}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Button className="mt-4 w-full" size="sm" variant="secondary">
+        Run router
+      </Button>
+    </StageChrome>
+  );
+}
+
+function SchedulingStage({
+  feature,
+  brandName,
+  compact,
+  className,
+}: AiFeatureStageProps) {
+  const slots = ['Thu 10:00', 'Fri 14:30', 'Mon 09:15'];
+  const [picked, setPicked] = useState<string | null>(null);
+  return (
+    <StageChrome feature={feature} category="scheduling" compact={!!compact} className={className}>
+      <p className="mb-1 text-sm font-medium text-foreground">
+        Hold a seat with {feature.name}
+      </p>
+      <p className="mb-4 text-xs text-muted">
+        Best fits for {brandName} — pick one to preview the hold.
+      </p>
+      <div className="grid gap-2">
+        {slots.map((slot) => (
+          <button
+            key={slot}
+            type="button"
+            onClick={() => setPicked(slot)}
+            className={cn(
+              'rounded-[var(--radius-ui)] border px-3.5 py-3 text-left text-sm font-semibold transition',
+              picked === slot
+                ? 'border-brand bg-brand text-white'
+                : 'border-border-subtle bg-background/80 text-foreground hover:border-brand/35',
+            )}
+          >
+            {slot}
+          </button>
+        ))}
+      </div>
+      {picked ? (
+        <p className="mt-4 text-xs text-muted">Held {picked} · confirmation ready</p>
+      ) : null}
+    </StageChrome>
+  );
+}
+
+function ChatStage({
   feature,
   brandName = 'Brand',
   compact = false,

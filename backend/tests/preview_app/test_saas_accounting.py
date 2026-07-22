@@ -54,7 +54,7 @@ def test_experience_plan_kills_marketing_home() -> None:
     pages = out["roles"][0]["pages"]
     assert len(pages) >= 5
     assert pages[0]["surface"] == "ops"
-    assert pages[0]["skeleton_id"] == "ops-dashboard"
+    assert pages[0]["skeleton_id"] == "ops-ledger-home"
     titles = {str(p.get("title") or "") for p in pages}
     assert "Invoices" in titles
     assert "Bank reconciliation" in titles

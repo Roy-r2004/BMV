@@ -47,12 +47,12 @@ def test_experience_plan_expands_to_multi_page_ops_desk() -> None:
     pages = out["roles"][0]["pages"]
     assert len(pages) >= 5
     assert pages[0]["surface"] == "ops"
-    assert pages[0]["skeleton_id"] == "ops-dashboard"
+    assert pages[0]["skeleton_id"] == "ops-blotter-desk"
     titles = {str(p.get("title") or "") for p in pages}
     assert "Order Blotter" in titles
     assert "Risk Limits" in titles
     assert "hero" not in pages[0]["section_slots"]
-    assert "table" in pages[0]["section_slots"]
+    assert "blotter" in pages[0]["section_slots"]
 
 
 def test_architect_forces_ops_surface_and_skips_ai_hub() -> None:
@@ -91,7 +91,7 @@ def test_architect_forces_ops_surface_and_skips_ai_hub() -> None:
     home = next(rt for rt in out["routes"] if rt["path"] == "/")
     hub = next(rt for rt in out["routes"] if rt["path"] == "/ai-features")
     assert home["surface"] == "ops"
-    assert home["skeleton_id"] == "ops-dashboard"
+    assert home["skeleton_id"] == "ops-blotter-desk"
     assert hub["page_type"] == "ai_hub"
     assert hub.get("skeleton_id") in {"", None}
     paths = {rt["path"] for rt in out["routes"]}

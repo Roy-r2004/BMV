@@ -108,7 +108,12 @@ export function composeSkeletonLayout(
 ): ComposedSkeletonLayout {
   const skeleton = assertRequiredSections(skeletonId, slots);
 
-  if (skeletonId === 'ops-dashboard' && slots.activity != null) {
+  const railSkeletons: SkeletonId[] = [
+    'ops-dashboard',
+    'ops-ledger-home',
+    'ops-blotter-desk',
+  ];
+  if (railSkeletons.includes(skeletonId) && slots.activity != null) {
     const mainOrder = resolveOrder(skeleton, slots, order).filter(
       (section) => section !== 'activity',
     );

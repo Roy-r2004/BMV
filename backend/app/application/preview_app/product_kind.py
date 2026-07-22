@@ -22,8 +22,16 @@ OPS_KINDS: frozenset[str] = frozenset({"saas_workspace", "internal_ops"})
 PUBLIC_KINDS: frozenset[str] = frozenset({"storefront", "booking_service"})
 
 _OPS_DASHBOARD_SLOTS = ["header", "kpis", "filters", "table", "chart", "activity", "risk"]
+_OPS_LEDGER_HOME_SLOTS = ["header", "pulse", "kpis", "filters", "table", "chart", "activity"]
+_OPS_INVOICE_BOARD_SLOTS = ["header", "filters", "board"]
+_OPS_RECON_SPLIT_SLOTS = ["header", "filters", "recon"]
+_OPS_BLOTTER_DESK_SLOTS = ["header", "ticker", "kpis", "blotter", "chart", "risk", "activity"]
 _OPS_LIST_SLOTS = ["header", "filters", "table"]
 _PUBLIC_HOME_SLOTS = ["hero", "features", "cta", "footer"]
+
+_OPS_HOME_SKELETONS = frozenset(
+    {"ops-dashboard", "ops-ledger-home", "ops-blotter-desk"}
+)
 
 
 @dataclass(frozen=True)
@@ -41,6 +49,14 @@ class PageBlueprint:
     def section_slots(self) -> list[str]:
         if self.skeleton_id == "ops-dashboard":
             return list(_OPS_DASHBOARD_SLOTS)
+        if self.skeleton_id == "ops-ledger-home":
+            return list(_OPS_LEDGER_HOME_SLOTS)
+        if self.skeleton_id == "ops-invoice-board":
+            return list(_OPS_INVOICE_BOARD_SLOTS)
+        if self.skeleton_id == "ops-recon-split":
+            return list(_OPS_RECON_SPLIT_SLOTS)
+        if self.skeleton_id == "ops-blotter-desk":
+            return list(_OPS_BLOTTER_DESK_SLOTS)
         if self.skeleton_id == "ops-settings":
             return ["header", "filters", "table"]
         if self.skeleton_id == "public-home":
@@ -236,9 +252,9 @@ def _trading_pages() -> tuple[PageBlueprint, ...]:
             "/",
             "trading-desk",
             "src/pages/TradingDeskPage.tsx",
-            "Primary fund desk — watchlist KPIs, working blotter, intraday P&L, risk rail.",
+            "Primary fund desk — ticker, blotter tape, intraday P&L, risk rail.",
             "AAPL BUY 25k Working; Day P&L +1.24M; exposure 62%.",
-            "ops-dashboard",
+            "ops-blotter-desk",
             "ops",
         ),
         PageBlueprint(
@@ -258,6 +274,8 @@ def _trading_pages() -> tuple[PageBlueprint, ...]:
             "src/pages/OrderBlotterPage.tsx",
             "Full working/partial/filled blotter with filters and desk ownership.",
             "AAPL BUY 25k Working; MSFT SELL 12k Partial.",
+            "ops-blotter-desk",
+            "ops",
         ),
         PageBlueprint(
             "positions",
@@ -288,9 +306,9 @@ def _accounting_pages() -> tuple[PageBlueprint, ...]:
             "/",
             "accounting-dashboard",
             "src/pages/BooksDashboardPage.tsx",
-            "Daily accounting home — cash, AR, expenses MTD, unmatched bank lines.",
+            "Daily accounting home — cash pulse, AR queue, expenses, unmatched bank.",
             "Cash 48,220; 26 open invoices; 12 unmatched bank.",
-            "ops-dashboard",
+            "ops-ledger-home",
             "ops",
         ),
         PageBlueprint(
@@ -299,8 +317,10 @@ def _accounting_pages() -> tuple[PageBlueprint, ...]:
             "/invoices",
             "invoices",
             "src/pages/InvoicesPage.tsx",
-            "AR invoice list — draft/sent/overdue/paid with customer and amounts.",
+            "AR invoice pipeline — draft/sent/overdue/paid board.",
             "INV-1042 Northwind 2480 Sent; INV-1041 Overdue.",
+            "ops-invoice-board",
+            "ops",
         ),
         PageBlueprint(
             "expenses",
@@ -317,8 +337,10 @@ def _accounting_pages() -> tuple[PageBlueprint, ...]:
             "/reconciliation",
             "bank-reconciliation",
             "src/pages/BankReconciliationPage.tsx",
-            "Match bank feed lines to invoices and expenses.",
+            "Match bank feed lines to invoices and expenses in a split pane.",
             "Chase *4491 — 12 unmatched.",
+            "ops-recon-split",
+            "ops",
         ),
         PageBlueprint(
             "reports",
@@ -462,11 +484,13 @@ def resolve_product_kind_contract(*parts: str) -> ProductKindContract:
             pages = _generic_saas_pages()
             subtype = "ops"
             note = "Internal ops console — dense OpsShell workspace, never a public landing."
+        recipe = "dense-ops-floor" if subtype == "trading" else "dense-ops"
+        home_sk = pages[0].skeleton_id if pages else "ops-dashboard"
         return ProductKindContract(
             kind="internal_ops",
-            recipe_id="dense-ops",
+            recipe_id=recipe,
             home_surface="ops",
-            home_skeleton_id="ops-dashboard",
+            home_skeleton_id=home_sk,
             pages=pages,
             template_surface="ops",
             design_note=note,
@@ -489,22 +513,25 @@ def resolve_product_kind_contract(*parts: str) -> ProductKindContract:
         ) >= 1:
             pages = _accounting_pages()
             subtype = "accounting"
+            recipe = "dense-ops-ledger"
             note = (
-                "SaaS accounting PRODUCT workspace — invoices, expenses, bank recon; "
+                "SaaS accounting PRODUCT workspace — cash pulse, invoice board, bank recon; "
                 "never a foresight marketing landing."
             )
         else:
             pages = _generic_saas_pages()
             subtype = "generic"
+            recipe = "dense-ops"
             note = (
                 "SaaS product workspace — OpsShell queues and records; "
                 "never a Get Started marketing homepage."
             )
+        home_sk = pages[0].skeleton_id if pages else "ops-dashboard"
         return ProductKindContract(
             kind="saas_workspace",
-            recipe_id="dense-ops",
+            recipe_id=recipe,
             home_surface="ops",
-            home_skeleton_id="ops-dashboard",
+            home_skeleton_id=home_sk,
             pages=pages,
             template_surface="ops",
             design_note=note,
@@ -596,9 +623,12 @@ def _ensure_role_pages(role: dict[str, Any], contract: ProductKindContract) -> b
             existing.update(_page_plan_dict(bp))
             touched = True
         else:
-            existing.setdefault("surface", bp.surface)
-            existing.setdefault("skeleton_id", bp.skeleton_id)
-            existing.setdefault("section_slots", bp.section_slots())
+            # Lock signature chrome from the kind blueprint (not soft defaults).
+            existing["surface"] = bp.surface
+            existing["skeleton_id"] = bp.skeleton_id
+            existing["section_slots"] = bp.section_slots()
+            existing.setdefault("title", bp.title)
+            existing.setdefault("page_type", bp.page_type)
 
     if contract.kind in OPS_KINDS:
         home = next(
@@ -607,7 +637,7 @@ def _ensure_role_pages(role: dict[str, Any], contract: ProductKindContract) -> b
                 for p in pages
                 if isinstance(p, dict)
                 and (
-                    p.get("skeleton_id") == "ops-dashboard"
+                    str(p.get("skeleton_id") or "") in _OPS_HOME_SKELETONS
                     or p.get("id") == contract.pages[0].id
                 )
             ),
@@ -744,8 +774,9 @@ def apply_product_kind_to_architect(
         if not route.get("skeleton_id") or str(route.get("skeleton_id")).startswith(
             "public"
         ):
-            route["skeleton_id"] = "ops-dashboard"
-            route["section_slots"] = list(_OPS_DASHBOARD_SLOTS)
+            home = contract.pages[0]
+            route["skeleton_id"] = home.skeleton_id
+            route["section_slots"] = home.section_slots()
         title = str(route.get("title") or "")
         if re.search(r"foresight|forecast|landing|marketing|get started", title, re.I):
             route["title"] = contract.pages[0].title

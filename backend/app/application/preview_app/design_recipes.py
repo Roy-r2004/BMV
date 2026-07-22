@@ -119,9 +119,119 @@ RECIPES: dict[str, dict[str, Any]] = {
             "scannable lists and metrics with subtle motion on KPI tiles."
         ),
         "industry_keywords": (
-            "logistics fleet warehouse saas b2b software accounting payroll hr staffing "
-            "agency operations manufacturing industrial hedge fund trading trader fintech "
-            "blotter portfolio equity oms execution institutional broker desk risk pnl"
+            "logistics fleet warehouse saas b2b software payroll hr staffing "
+            "agency operations manufacturing industrial"
+        ),
+    },
+    "dense-ops-ledger": {
+        "id": "dense-ops-ledger",
+        "label": "Ledger ops",
+        "blurb": "Light accounting workspace — cash-first, invoice boards, recon split.",
+        "hub_variant": "app",
+        "fonts": {
+            "sans": '"Source Sans 3", "Segoe UI", sans-serif',
+            "display": '"Fraunces", Georgia, serif',
+            "import": "Fraunces:opsz,wght@9..144,500;9..144,600&family=Source+Sans+3:wght@400;500;600;700",
+        },
+        "tokens": {
+            "radius_ui": "0.65rem",
+            "bg_mix": "4%",
+            "fg_mix": "42%",
+            "muted_mix": "30%",
+            "border_mix": "14%",
+            "shadow": "0 22px 44px -30px",
+            "shadow_alpha": "28%",
+            "glow": "6%",
+            "card": "#ffffff",
+            "atmosphere": (
+                "radial-gradient(80% 50% at 0% 0%, color-mix(in srgb, var(--color-brand) 12%, transparent), transparent 55%), "
+                "linear-gradient(180deg, #fbfaf7 0%, color-mix(in srgb, var(--color-brand) 4%, #f4f7f5) 55%, #f7f8fa 100%)"
+            ),
+        },
+        "hero_variant": "compact",
+        "feature_variant": "grid",
+        "chrome": {
+            "shell": "solid",
+            "nav": "minimal",
+            "footer": "compact",
+            "brand": "start",
+        },
+        "section_orders": {
+            "ops-ledger-home": [
+                "header",
+                "pulse",
+                "kpis",
+                "filters",
+                "table",
+                "chart",
+                "activity",
+            ],
+            "ops-invoice-board": ["header", "filters", "board"],
+            "ops-recon-split": ["header", "filters", "recon"],
+            "ops-dashboard": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
+        },
+        "prompt": (
+            "RECIPE dense-ops-ledger: light ledger chrome, cash pulse first, invoice status boards, "
+            "bank/books recon split. Soft paper atmosphere — never a dark trading floor or marketing hero."
+        ),
+        "industry_keywords": (
+            "accounting bookkeeping invoice ledger expense reconciliation quickbooks xero "
+            "freshbooks cash flow ar ap books"
+        ),
+    },
+    "dense-ops-floor": {
+        "id": "dense-ops-floor",
+        "label": "Floor ops",
+        "blurb": "Dark trading desk — ticker, blotter tape, risk-forward density.",
+        "hub_variant": "app",
+        "fonts": {
+            "sans": '"IBM Plex Sans", "Segoe UI", sans-serif',
+            "display": '"IBM Plex Sans", "Segoe UI", sans-serif',
+            "import": "IBM+Plex+Sans:wght@400;500;600;700",
+        },
+        "tokens": {
+            "radius_ui": "0.35rem",
+            "bg_mix": "10%",
+            "fg_mix": "55%",
+            "muted_mix": "38%",
+            "border_mix": "24%",
+            "shadow": "0 20px 40px -28px",
+            "shadow_alpha": "55%",
+            "glow": "10%",
+            "card": "#0b1624",
+            "atmosphere": (
+                "radial-gradient(70% 45% at 10% 0%, color-mix(in srgb, var(--color-brand) 22%, transparent), transparent 55%), "
+                "radial-gradient(50% 40% at 100% 0%, rgba(34,211,238,0.12), transparent 50%), "
+                "linear-gradient(165deg, #050b14 0%, #0a1524 48%, #07101c 100%)"
+            ),
+        },
+        "hero_variant": "compact",
+        "feature_variant": "grid",
+        "chrome": {
+            "shell": "solid",
+            "nav": "minimal",
+            "footer": "compact",
+            "brand": "start",
+        },
+        "section_orders": {
+            "ops-blotter-desk": [
+                "header",
+                "ticker",
+                "kpis",
+                "blotter",
+                "chart",
+                "risk",
+                "activity",
+            ],
+            "ops-dashboard": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
+        },
+        "prompt": (
+            "RECIPE dense-ops-floor: dark desk chrome, live ticker, blotter tape, monospace density, "
+            "BUY/SELL color discipline — never a soft SaaS marketing dashboard."
+        ),
+        "industry_keywords": (
+            "hedge fund trading trader fintech blotter portfolio equity oms execution "
+            "institutional broker desk risk pnl"
         ),
     },
     "warm-service": {

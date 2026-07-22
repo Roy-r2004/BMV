@@ -283,17 +283,27 @@ def heal_quality_gate(
                     continue
                 rt = dict(rt)
                 rt["surface"] = "ops"
-                rt["skeleton_id"] = rt.get("skeleton_id") or "ops-dashboard"
+                # Keep subtype signature skeletons (ledger/blotter); only fill if missing.
+                if not str(rt.get("skeleton_id") or "").startswith("ops"):
+                    rt["skeleton_id"] = contract.home_skeleton_id or "ops-dashboard"
                 if not rt.get("section_slots"):
-                    rt["section_slots"] = [
-                        "header",
-                        "kpis",
-                        "filters",
-                        "table",
-                        "chart",
-                        "activity",
-                        "risk",
-                    ]
+                    home_bp = next(
+                        (p for p in contract.pages if p.path in {"/", "/home"}),
+                        contract.pages[0] if contract.pages else None,
+                    )
+                    rt["section_slots"] = (
+                        home_bp.section_slots()
+                        if home_bp is not None
+                        else [
+                            "header",
+                            "kpis",
+                            "filters",
+                            "table",
+                            "chart",
+                            "activity",
+                            "risk",
+                        ]
+                    )
                 write_file(
                     workspace,
                     rel,

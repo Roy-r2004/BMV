@@ -46,11 +46,15 @@ def test_accounting_contract_locks_ops_pages() -> None:
     )
     assert contract.kind == "saas_workspace"
     assert contract.subtype == "accounting"
-    assert contract.home_skeleton_id == "ops-dashboard"
+    assert contract.home_skeleton_id == "ops-ledger-home"
+    assert contract.recipe_id == "dense-ops-ledger"
     paths = {p.path for p in contract.pages}
     assert "/" in paths
     assert "/invoices" in paths
     assert "/reconciliation" in paths
+    by_path = {p.path: p for p in contract.pages}
+    assert by_path["/invoices"].skeleton_id == "ops-invoice-board"
+    assert by_path["/reconciliation"].skeleton_id == "ops-recon-split"
 
 
 def test_trading_contract_locks_desk_pages() -> None:
@@ -59,6 +63,8 @@ def test_trading_contract_locks_desk_pages() -> None:
     )
     assert contract.kind == "internal_ops"
     assert contract.subtype == "trading"
+    assert contract.recipe_id == "dense-ops-floor"
+    assert contract.home_skeleton_id == "ops-blotter-desk"
     paths = {p.path for p in contract.pages}
     assert "/blotter" in paths
     assert "/ticket" in paths
@@ -86,7 +92,7 @@ def test_plan_kills_marketing_home_for_saas() -> None:
     out = apply_product_kind_to_plan(plan, contract)
     assert out["product_kind"] == "saas_workspace"
     assert out["roles"][0]["pages"][0]["surface"] == "ops"
-    assert out["roles"][0]["pages"][0]["skeleton_id"] == "ops-dashboard"
+    assert out["roles"][0]["pages"][0]["skeleton_id"] == "ops-ledger-home"
     assert len(out["roles"][0]["pages"]) >= 5
 
 
@@ -110,7 +116,7 @@ def test_architect_injects_routes_and_blocks_marketing() -> None:
     out = apply_product_kind_to_architect(architect, contract)
     home = next(rt for rt in out["routes"] if rt["path"] == "/")
     assert home["surface"] == "ops"
-    assert home["skeleton_id"] == "ops-dashboard"
+    assert home["skeleton_id"] == "ops-ledger-home"
     assert "/invoices" in {rt["path"] for rt in out["routes"]}
     assert validate_product_kind_chrome(out) == []
 

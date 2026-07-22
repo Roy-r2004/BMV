@@ -33,7 +33,17 @@ _SLOT_COMPONENT = {
     "activity": "ActivityFeed",
     "risk": "RiskQueue",
     "empty": "EmptyState",
+    "pulse": "CashPulseBar",
+    "board": "InvoiceBoard",
+    "recon": "ReconSplit",
+    "blotter": "BlotterTape",
+    "ticker": "DeskTicker",
 }
+
+_COMPOSE_LAYOUT_SKELETONS = frozenset(
+    {"ops-dashboard", "ops-ledger-home", "ops-blotter-desk"}
+)
+_FLOOR_APPEARANCE_SKELETONS = frozenset({"ops-blotter-desk"})
 
 _SEED_SLOTS = frozenset(
     {
@@ -55,6 +65,11 @@ _SEED_SLOTS = frozenset(
         "table",
         "activity",
         "risk",
+        "pulse",
+        "board",
+        "recon",
+        "blotter",
+        "ticker",
     }
 )
 
@@ -227,6 +242,11 @@ def _safe_slot_jsx(slot: str, brand: str, title: str) -> str:
             )
             + " />"
         ),
+        "pulse": "<CashPulseBar />",
+        "board": '<InvoiceBoard heading="Invoice pipeline" />',
+        "recon": "<ReconSplit />",
+        "blotter": '<BlotterTape heading="Working blotter" />',
+        "ticker": "<DeskTicker />",
         "kpis": (
             '<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">'
             + _d(
@@ -528,7 +548,7 @@ def minimal_catalogue_page_scaffold(
     shell = expected_shell(route)
     slots = assigned_non_shell_slots(route)
     components = [shell, "getSkeleton"]
-    if skeleton_id == "ops-dashboard":
+    if skeleton_id in _COMPOSE_LAYOUT_SKELETONS:
         components.append("composeSkeletonLayout")
     else:
         components.append("SkeletonComposer")
@@ -572,10 +592,13 @@ def minimal_catalogue_page_scaffold(
     if shell == "OpsShell":
         nav_import = "import { useAdminNavItems } from '@/lib/app-nav';\n"
         nav_hook = "  const adminNavItems = useAdminNavItems();\n"
-        if skeleton_id == "ops-dashboard":
+        if skeleton_id in _COMPOSE_LAYOUT_SKELETONS:
             appearance = (
                 ' appearance="floor"'
-                if _is_trading_domain(brand, title)
+                if (
+                    skeleton_id in _FLOOR_APPEARANCE_SKELETONS
+                    or _is_trading_domain(brand, title)
+                )
                 else ""
             )
             body = (
