@@ -19,8 +19,14 @@ MAX_AI_FEATURES = 6
 
 _CATEGORY_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("chat", ("chat", "assistant", "qa", "q&a", "convers", "faq", "bot")),
-    ("scheduling", ("schedul", "book", "appoint", "calendar", "slot", "reserv")),
-    ("digest", ("digest", "summary", "report", "brief", "insight", "daily", "cash pulse", "books overview")),
+    (
+        "scheduling",
+        ("schedul", "booking", "appoint", "calendar", "time slot", "reserv", "book a ", "book now"),
+    ),
+    (
+        "digest",
+        ("digest", "summary", "report", "brief", "insight", "daily", "cash pulse", "books overview"),
+    ),
     (
         "scoring",
         (
