@@ -29,6 +29,7 @@ class PipelineContext:
     template_renderer: TemplateRenderer
     app_spec_revision_id: int | None
     req: Request
+    generator_version: str = "v1"
 
     pipeline_watch: WatchBmv | None = None
 

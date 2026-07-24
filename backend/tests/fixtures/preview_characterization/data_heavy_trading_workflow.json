@@ -1,0 +1,93 @@
+{
+  "fixture_schema_version": "1.0",
+  "fixture_id": "data-heavy-trading-workflow",
+  "category": "data_heavy_trading_workflow",
+  "baseline_generator": "v1",
+  "source": {
+    "kind": "deterministic_contract_only",
+    "captured_at": "2026-07-24T00:00:00Z",
+    "note": "No matching live baseline exists and Phase 0 forbids a paid canary. Routes are frozen from the current deterministic product-kind contract."
+  },
+  "request_input": {
+    "business_name": "Aperture Fund Desk",
+    "industry": "institutional hedge fund trading",
+    "business_description": "An internal data-heavy trading engine with order entry, a live blotter, positions, P&L, and risk limits.",
+    "desired_outcome": "Traders move from ticket to fills to portfolio and risk evidence without a marketing shell."
+  },
+  "app_spec_artifact": {
+    "status": "not_observed",
+    "schema_version": "1.0",
+    "sha256": null,
+    "validation_passed": null,
+    "coverage_passed": null,
+    "coverage_score": null,
+    "pages": [
+      {"id": "trading-desk", "route": "/", "surface": "ops"},
+      {"id": "order-ticket", "route": "/ticket", "surface": "ops"},
+      {"id": "order-blotter", "route": "/blotter", "surface": "ops"},
+      {"id": "positions", "route": "/positions", "surface": "ops"},
+      {"id": "risk-limits", "route": "/risk", "surface": "ops"}
+    ]
+  },
+  "generated_output": {
+    "status": "deterministic_only",
+    "preview_status": "not_run",
+    "routes": [
+      {"path": "/", "component_file": "src/pages/TradingDeskPage.tsx", "surface": "ops", "skeleton_id": "ops-blotter-desk"},
+      {"path": "/ticket", "component_file": "src/pages/OrderTicketPage.tsx", "surface": "ops", "skeleton_id": "ops-list"},
+      {"path": "/blotter", "component_file": "src/pages/OrderBlotterPage.tsx", "surface": "ops", "skeleton_id": "ops-blotter-desk"},
+      {"path": "/positions", "component_file": "src/pages/PositionsPage.tsx", "surface": "ops", "skeleton_id": "ops-list"},
+      {"path": "/risk", "component_file": "src/pages/RiskLimitsPage.tsx", "surface": "ops", "skeleton_id": "ops-list"}
+    ],
+    "generated_files": [
+      "src/pages/TradingDeskPage.tsx",
+      "src/pages/OrderTicketPage.tsx",
+      "src/pages/OrderBlotterPage.tsx",
+      "src/pages/PositionsPage.tsx",
+      "src/pages/RiskLimitsPage.tsx"
+    ],
+    "reported_files_total": 5,
+    "workspace_source_file_count": null,
+    "fallback_pages": [],
+    "route_alignment": {
+      "matched": ["/", "/ticket", "/blotter", "/positions", "/risk"],
+      "missing_from_output": [],
+      "extra_in_output": []
+    }
+  },
+  "ai_calls_by_stage": {
+    "status": "not_observed",
+    "instrumentation": "no paid canary run",
+    "stages": {},
+    "total_calls": null,
+    "total_tokens": null,
+    "recorded_cost_usd": null
+  },
+  "build_result": {
+    "status": "not_observed",
+    "command": "npm exec -- vite build",
+    "initial_succeeded": null,
+    "final_succeeded": null,
+    "attempts": 0,
+    "dist_index_present": null
+  },
+  "quality_gate_result": {
+    "status": "not_observed",
+    "passed": null,
+    "issue_codes": ["not_run"],
+    "healed_codes": []
+  },
+  "elapsed_time": {
+    "status": "not_observed",
+    "seconds": null,
+    "measurement": "no paid canary run"
+  },
+  "scaffold_catalogue_usage": {
+    "status": "deterministic_only",
+    "scaffold_first_enabled": true,
+    "slot_fill_enabled": true,
+    "route_count_with_skeleton": 5,
+    "workspace_files_importing_ui_catalogue": 0,
+    "files_with_scaffold_marker": 0
+  }
+}

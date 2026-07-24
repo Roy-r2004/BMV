@@ -1,0 +1,99 @@
+{
+  "fixture_schema_version": "1.0",
+  "fixture_id": "hybrid-public-operations",
+  "category": "hybrid_public_operations",
+  "baseline_generator": "v1",
+  "source": {
+    "kind": "anonymized_local_observation",
+    "local_request_id": 1,
+    "captured_at": "2026-07-23T07:56:13Z",
+    "note": "Full public clinic and staff operations observation."
+  },
+  "request_input": {
+    "business_name": "Northstar Family Wellness",
+    "industry": "healthcare and wellness clinic",
+    "business_description": "A calm premium clinic with public service discovery, clinician booking, and a staff operations desk.",
+    "desired_outcome": "Patients book online while staff manage appointments, providers, and triage."
+  },
+  "app_spec_artifact": {
+    "status": "observed",
+    "schema_version": "1.0",
+    "sha256": "65502e5ad47a0f9208a14a26d5a91caf114817116b9cbf094002939eb4e425db",
+    "validation_passed": true,
+    "coverage_passed": true,
+    "coverage_score": 95,
+    "pages": [
+      {"id": "PAGE-HOME", "route": "/", "surface": "public"},
+      {"id": "PAGE-CLINICIANS", "route": "/clinicians", "surface": "public"},
+      {"id": "PAGE-BOOK-APPOINTMENT", "route": "/book", "surface": "public"},
+      {"id": "PAGE-STAFF-DASHBOARD", "route": "/staff/dashboard", "surface": "ops"}
+    ]
+  },
+  "generated_output": {
+    "status": "observed",
+    "preview_status": "ready",
+    "routes": [
+      {"path": "/", "component_file": "src/pages/HomePage.tsx", "surface": "public", "skeleton_id": "public-home"},
+      {"path": "/doctors", "component_file": "src/pages/DoctorsPage.tsx", "surface": "public", "skeleton_id": "public-catalog"},
+      {"path": "/book", "component_file": "src/pages/BookPage.tsx", "surface": "public", "skeleton_id": "public-booking"},
+      {"path": "/staff/dashboard", "component_file": "src/pages/staff/DashboardPage.tsx", "surface": "ops", "skeleton_id": "ops-dashboard"},
+      {"path": "/staff/appointments", "component_file": "src/pages/staff/AppointmentsPage.tsx", "surface": "ops", "skeleton_id": "ops-list"},
+      {"path": "/staff/triage", "component_file": "src/pages/staff/TriageQueuePage.tsx", "surface": "ops", "skeleton_id": "ops-expense-queue"},
+      {"path": "/staff/providers", "component_file": "src/pages/staff/ProvidersPage.tsx", "surface": "ops", "skeleton_id": "ops-list"},
+      {"path": "/services", "component_file": "src/pages/ServicesPage.tsx", "surface": "public", "skeleton_id": "public-service"}
+    ],
+    "generated_files": [
+      "src/pages/HomePage.tsx",
+      "src/pages/DoctorsPage.tsx",
+      "src/pages/BookPage.tsx",
+      "src/pages/staff/DashboardPage.tsx",
+      "src/pages/staff/AppointmentsPage.tsx",
+      "src/pages/staff/TriageQueuePage.tsx",
+      "src/pages/staff/ProvidersPage.tsx",
+      "src/pages/ServicesPage.tsx"
+    ],
+    "reported_files_total": 8,
+    "workspace_source_file_count": 89,
+    "fallback_pages": [],
+    "route_alignment": {
+      "matched": ["/", "/book", "/staff/dashboard"],
+      "missing_from_output": ["/clinicians"],
+      "extra_in_output": ["/doctors", "/services", "/staff/appointments", "/staff/providers", "/staff/triage"]
+    }
+  },
+  "ai_calls_by_stage": {
+    "status": "observed",
+    "instrumentation": "ai_run_scope purpose",
+    "stages": {"appspec": 4, "codegen": 6, "build": 0, "quality_gate": 1},
+    "total_calls": 11,
+    "total_tokens": 131179,
+    "recorded_cost_usd": 0.199082
+  },
+  "build_result": {
+    "status": "observed",
+    "command": "npm exec -- vite build",
+    "initial_succeeded": true,
+    "final_succeeded": true,
+    "attempts": 1,
+    "dist_index_present": true
+  },
+  "quality_gate_result": {
+    "status": "observed",
+    "passed": true,
+    "issue_codes": [],
+    "healed_codes": ["count:2"]
+  },
+  "elapsed_time": {
+    "status": "observed",
+    "seconds": 1939,
+    "measurement": "first-to-last generation progress event"
+  },
+  "scaffold_catalogue_usage": {
+    "status": "observed",
+    "scaffold_first_enabled": true,
+    "slot_fill_enabled": true,
+    "route_count_with_skeleton": 8,
+    "workspace_files_importing_ui_catalogue": 12,
+    "files_with_scaffold_marker": 2
+  }
+}

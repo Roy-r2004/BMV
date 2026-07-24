@@ -137,6 +137,7 @@ class Settings:
     PREVIEW_SKIP_VISUAL_CRITIC: bool
     PREVIEW_SCAFFOLD_FIRST: bool
     PREVIEW_SCAFFOLD_SLOT_FILL: bool
+    PREVIEW_GENERATOR_V2: bool
     INTERNAL_BASE_URL: str
     STATIC_DIR: Path | None
     CORS_ORIGINS: str
@@ -328,6 +329,11 @@ class Settings:
         ).strip().lower() in ("1", "true", "yes", "on")
         self.PREVIEW_SCAFFOLD_SLOT_FILL = os.getenv(
             "PREVIEW_SCAFFOLD_SLOT_FILL", "true"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        # Phase-gated preview-generator boundary. The legacy v1 path remains
+        # the default until a later phase is explicitly enabled.
+        self.PREVIEW_GENERATOR_V2 = os.getenv(
+            "PREVIEW_GENERATOR_V2", "false"
         ).strip().lower() in ("1", "true", "yes", "on")
         # Internal-only address Playwright uses to reach this same server's
         # already-running preview-app route — never exposed to end users,

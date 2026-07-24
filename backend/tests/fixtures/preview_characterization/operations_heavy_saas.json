@@ -1,0 +1,101 @@
+{
+  "fixture_schema_version": "1.0",
+  "fixture_id": "operations-heavy-saas",
+  "category": "operations_heavy_saas",
+  "baseline_generator": "v1",
+  "source": {
+    "kind": "anonymized_local_observation",
+    "local_request_id": 3,
+    "captured_at": "2026-07-23T08:39:37Z",
+    "note": "The observed v1 run stopped during the critic stage and never produced a persisted preview result."
+  },
+  "request_input": {
+    "business_name": "Ledgerflow Operations",
+    "industry": "B2B finance operations SaaS",
+    "business_description": "A dense accounts-payable and expense operations workspace for mid-market finance teams.",
+    "desired_outcome": "Controllers work invoice, approval, and risk queues from one operations console."
+  },
+  "app_spec_artifact": {
+    "status": "observed",
+    "schema_version": "1.0",
+    "sha256": "21f52ec20a47fa4bbe8d5102d9c6d61b22bfefe9f92087d7819f40c46337f824",
+    "validation_passed": true,
+    "coverage_passed": true,
+    "coverage_score": 100,
+    "pages": [
+      {"id": "PAGE-OPS-DASHBOARD", "route": "/dashboard", "surface": "ops"},
+      {"id": "PAGE-INVOICE-QUEUE", "route": "/invoices", "surface": "ops"},
+      {"id": "PAGE-APPROVALS", "route": "/approvals", "surface": "ops"}
+    ]
+  },
+  "generated_output": {
+    "status": "observed_incomplete",
+    "preview_status": "not_persisted",
+    "routes": [
+      {"path": "/dashboard", "component_file": "src/pages/controller/OpsDashboardPage.tsx", "surface": "ops", "skeleton_id": "ops-dashboard"},
+      {"path": "/invoices", "component_file": "src/pages/controller/InvoiceQueuePage.tsx", "surface": "ops", "skeleton_id": "ops-list"},
+      {"path": "/approvals", "component_file": "src/pages/controller/ApprovalsQueuePage.tsx", "surface": "ops", "skeleton_id": "ops-list"}
+    ],
+    "generated_files": [
+      "src/pages/BooksDashboard.tsx",
+      "src/pages/BooksDashboardPage.tsx",
+      "src/pages/LoginPage.tsx",
+      "src/pages/HomePage.tsx",
+      "src/pages/controller/InvoiceDetail.tsx",
+      "src/pages/controller/InvoiceDetailPage.tsx",
+      "src/pages/controller/ApprovalsQueue.tsx",
+      "src/pages/controller/OpsDashboard.tsx",
+      "src/pages/controller/RiskDashboard.tsx",
+      "src/pages/controller/Settings.tsx",
+      "src/pages/controller/ApprovalsQueuePage.tsx",
+      "src/pages/controller/InvoiceQueue.tsx",
+      "src/pages/controller/InvoiceQueuePage.tsx",
+      "src/pages/controller/OpsDashboardPage.tsx",
+      "src/pages/controller/RiskDashboardPage.tsx",
+      "src/pages/controller/SettingsPage.tsx"
+    ],
+    "reported_files_total": 16,
+    "workspace_source_file_count": 90,
+    "fallback_pages": [],
+    "route_alignment": {
+      "matched": ["/dashboard", "/invoices", "/approvals"],
+      "missing_from_output": [],
+      "extra_in_output": []
+    }
+  },
+  "ai_calls_by_stage": {
+    "status": "observed_incomplete",
+    "instrumentation": "ai_run_scope purpose",
+    "stages": {"appspec": 2, "codegen": 13, "build": 0, "quality_gate": 0},
+    "total_calls": 15,
+    "total_tokens": 216347,
+    "recorded_cost_usd": 0.370772
+  },
+  "build_result": {
+    "status": "observed_incomplete",
+    "command": "npm exec -- vite build",
+    "initial_succeeded": null,
+    "final_succeeded": null,
+    "attempts": 0,
+    "dist_index_present": false
+  },
+  "quality_gate_result": {
+    "status": "observed_incomplete",
+    "passed": null,
+    "issue_codes": ["not_reached"],
+    "healed_codes": []
+  },
+  "elapsed_time": {
+    "status": "observed_incomplete",
+    "seconds": 1533,
+    "measurement": "first progress event through final recorded critic event"
+  },
+  "scaffold_catalogue_usage": {
+    "status": "observed_incomplete",
+    "scaffold_first_enabled": true,
+    "slot_fill_enabled": true,
+    "route_count_with_skeleton": 3,
+    "workspace_files_importing_ui_catalogue": 10,
+    "files_with_scaffold_marker": 1
+  }
+}

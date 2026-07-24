@@ -1,0 +1,81 @@
+{
+  "fixture_schema_version": "1.0",
+  "fixture_id": "booking-workflow",
+  "category": "booking_workflow",
+  "baseline_generator": "v1",
+  "source": {
+    "kind": "repository_appspec_plus_focused_local_observation",
+    "local_request_id": 1,
+    "captured_at": "2026-07-23T07:56:13Z",
+    "note": "AppSpec is the canonical repository booking fixture; runtime numbers are the full local run containing the focused booking route."
+  },
+  "request_input": {
+    "business_name": "Lumina Studio Booking",
+    "industry": "appointment-based studio",
+    "business_description": "A premium appointment studio where customers choose a service and available time.",
+    "desired_outcome": "Customers submit a booking and see durable confirmation evidence."
+  },
+  "app_spec_artifact": {
+    "status": "observed",
+    "schema_version": "1.0",
+    "sha256": "ea3d51a3a83401a33b4c73b6e786ad267d31e65e24bb156daa7a02c6a12137e8",
+    "validation_passed": true,
+    "coverage_passed": null,
+    "coverage_score": null,
+    "artifact_path": "backend/tests/fixtures/app_spec/valid_booking.json",
+    "pages": [
+      {"id": "PAGE-BOOK", "route": "/book", "surface": "public"}
+    ]
+  },
+  "generated_output": {
+    "status": "focused_observation",
+    "preview_status": "ready",
+    "routes": [
+      {"path": "/book", "component_file": "src/pages/BookPage.tsx", "surface": "public", "skeleton_id": "public-booking"}
+    ],
+    "generated_files": ["src/pages/BookPage.tsx"],
+    "reported_files_total": 8,
+    "workspace_source_file_count": 89,
+    "fallback_pages": [],
+    "route_alignment": {
+      "matched": ["/book"],
+      "missing_from_output": [],
+      "extra_in_output": []
+    }
+  },
+  "ai_calls_by_stage": {
+    "status": "focused_observation",
+    "instrumentation": "full source run; ai_run_scope purpose",
+    "stages": {"appspec": 4, "codegen": 6, "build": 0, "quality_gate": 1},
+    "total_calls": 11,
+    "total_tokens": 131179,
+    "recorded_cost_usd": 0.199082
+  },
+  "build_result": {
+    "status": "focused_observation",
+    "command": "npm exec -- vite build",
+    "initial_succeeded": true,
+    "final_succeeded": true,
+    "attempts": 1,
+    "dist_index_present": true
+  },
+  "quality_gate_result": {
+    "status": "focused_observation",
+    "passed": true,
+    "issue_codes": [],
+    "healed_codes": ["count:2"]
+  },
+  "elapsed_time": {
+    "status": "focused_observation",
+    "seconds": 1939,
+    "measurement": "full source run containing the focused booking workflow"
+  },
+  "scaffold_catalogue_usage": {
+    "status": "focused_observation",
+    "scaffold_first_enabled": true,
+    "slot_fill_enabled": true,
+    "route_count_with_skeleton": 1,
+    "workspace_files_importing_ui_catalogue": 12,
+    "files_with_scaffold_marker": 2
+  }
+}
