@@ -12,3 +12,4 @@ lxml
 markdown
 jinja2
 playwright
+Pillow==12.2.0

@@ -16,6 +16,18 @@ from app.domain.models.runtime_validation import (
     CandidateScreenshotRecord,
     CandidateValidationSummaryRecord,
 )
+from app.domain.models.visual_evaluation import (
+    CandidateBaselineComparisonRecord,
+    CandidateRefinementGenerationRecord,
+    CandidateRefinementPlanRecord,
+    CandidateVisualEvaluationAttemptRecord,
+    CandidateVisualEvidenceBundleRecord,
+    CandidateVisualFindingRecord,
+    CandidateVisualHardGateResultRecord,
+    CandidateVisualReviewerDecisionRecord,
+    CandidateVisualScorecardRecord,
+    CandidateVisualSummaryRecord,
+)
 from app.domain.models.design_contract import DesignContractArtifactRecord
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
@@ -42,6 +54,16 @@ __all__ = [
     "CandidateRuntimeValidationAttemptRecord",
     "CandidateScreenshotRecord",
     "CandidateValidationSummaryRecord",
+    "CandidateBaselineComparisonRecord",
+    "CandidateRefinementGenerationRecord",
+    "CandidateRefinementPlanRecord",
+    "CandidateVisualEvaluationAttemptRecord",
+    "CandidateVisualEvidenceBundleRecord",
+    "CandidateVisualFindingRecord",
+    "CandidateVisualHardGateResultRecord",
+    "CandidateVisualReviewerDecisionRecord",
+    "CandidateVisualScorecardRecord",
+    "CandidateVisualSummaryRecord",
     "DesignContractArtifactRecord",
     "PreviewTierArtifactRecord",
     "ProductStrategyRevision",

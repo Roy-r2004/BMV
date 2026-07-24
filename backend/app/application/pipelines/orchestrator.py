@@ -124,7 +124,22 @@ class GenerationPipeline:
                 (contract.get("preview_contract") or {}).get("status")
                 or "candidate_build_pending"
             )
-            if status == "candidate_runtime_validated":
+            if status == "candidate_visual_accepted":
+                message = "V2 Tier 1 candidate passed visual evaluation"
+                detail = (
+                    "Candidate remains isolated and unserved; promotion is "
+                    "outside Phase 5"
+                )
+            elif status in {
+                "candidate_visual_rejected",
+                "candidate_refinement_failed",
+            }:
+                message = "V2 Tier 1 candidate did not pass visual evaluation"
+                detail = (
+                    "Original and derived evidence were retained; no "
+                    "candidate was promoted or served"
+                )
+            elif status == "candidate_runtime_validated":
                 message = "V2 Tier 1 candidate passed runtime validation"
                 detail = (
                     "Candidate remains isolated and unserved; promotion is "

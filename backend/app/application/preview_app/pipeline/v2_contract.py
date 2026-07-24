@@ -12,6 +12,9 @@ from app.application.preview_contract.service import build_v2_app_spec_contract
 from app.application.runtime_validation.service import (
     validate_v2_candidate_runtime,
 )
+from app.application.visual_evaluation.service import (
+    evaluate_v2_candidate_visuals,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -61,11 +64,25 @@ def run_v2_contract_boundary(
     )
     if not settings.V2_RUNTIME_VALIDATION_ENABLED:
         return phase3b_result
-    return validate_v2_candidate_runtime(
+    phase4_result = validate_v2_candidate_runtime(
         db,
         request_id,
         req=req,
         phase3b_result=phase3b_result,
+    )
+    if (
+        not settings.V2_VISUAL_EVALUATION_ENABLED
+        or (phase4_result.get("preview_contract") or {}).get("status")
+        != "candidate_runtime_validated"
+    ):
+        return phase4_result
+    return evaluate_v2_candidate_visuals(
+        db,
+        request_id,
+        ai_provider,
+        template_renderer,
+        req=req,
+        phase4_result=phase4_result,
     )
 
 

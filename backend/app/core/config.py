@@ -195,6 +195,30 @@ class Settings:
     V2_RUNTIME_MAX_CSS_BYTES: int
     V2_RUNTIME_MAX_DIST_FILES: int
     V2_RUNTIME_MAX_SOURCE_MAPS: int
+    V2_VISUAL_EVALUATION_ENABLED: bool
+    V2_VISUAL_POLICY_REVISION: str
+    V2_VISUAL_CRITIC_MODEL: str
+    V2_VISUAL_REVIEWER_MODEL: str
+    V2_VISUAL_REFINEMENT_MODEL: str
+    V2_VISUAL_TECHNICAL_REPAIR_MODEL: str
+    V2_VISUAL_ECONOMY_FALLBACK_MODEL: str
+    V2_VISUAL_ECONOMY_FALLBACK_ENABLED: bool
+    V2_VISUAL_CRITIC_PROMPT_REVISION: str
+    V2_VISUAL_REVIEWER_PROMPT_REVISION: str
+    V2_VISUAL_REFINEMENT_PROMPT_REVISION: str
+    V2_VISUAL_TECHNICAL_REPAIR_PROMPT_REVISION: str
+    V2_VISUAL_CRITIC_MAX_TOKENS: int
+    V2_VISUAL_REVIEWER_MAX_TOKENS: int
+    V2_VISUAL_REFINEMENT_MAX_TOKENS: int
+    V2_VISUAL_TECHNICAL_REPAIR_MAX_TOKENS: int
+    V2_VISUAL_CRITIC_TIMEOUT_SECONDS: int
+    V2_VISUAL_REVIEWER_TIMEOUT_SECONDS: int
+    V2_VISUAL_REFINEMENT_TIMEOUT_SECONDS: int
+    V2_VISUAL_TECHNICAL_REPAIR_TIMEOUT_SECONDS: int
+    V2_VISUAL_PHASE_TIMEOUT_SECONDS: int
+    V2_VISUAL_MAX_OUTPUT_TOKENS: int
+    V2_VISUAL_MAX_CALLS: int
+    V2_VISUAL_MAX_COST_USD: float
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -677,6 +701,82 @@ class Settings:
             except ValueError:
                 value = default
             setattr(self, field_name, value)
+        self.V2_VISUAL_EVALUATION_ENABLED = os.getenv(
+            "V2_VISUAL_EVALUATION_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_VISUAL_POLICY_REVISION = (
+            os.getenv("V2_VISUAL_POLICY_REVISION", "2026-07-24.1").strip()
+            or "2026-07-24.1"
+        )
+        self.V2_VISUAL_CRITIC_MODEL = _env_or(
+            "V2_VISUAL_CRITIC_MODEL",
+            "openai/gpt-4o",
+        )
+        self.V2_VISUAL_REVIEWER_MODEL = _env_or(
+            "V2_VISUAL_REVIEWER_MODEL",
+            "google/gemini-2.5-flash",
+        )
+        self.V2_VISUAL_REFINEMENT_MODEL = _env_or(
+            "V2_VISUAL_REFINEMENT_MODEL",
+            "openai/gpt-4o",
+        )
+        self.V2_VISUAL_TECHNICAL_REPAIR_MODEL = _env_or(
+            "V2_VISUAL_TECHNICAL_REPAIR_MODEL",
+            "deepseek/deepseek-v4-pro",
+        )
+        self.V2_VISUAL_ECONOMY_FALLBACK_MODEL = _env_or(
+            "V2_VISUAL_ECONOMY_FALLBACK_MODEL",
+            "meta-llama/llama-3.2-11b-vision-instruct",
+        )
+        self.V2_VISUAL_ECONOMY_FALLBACK_ENABLED = os.getenv(
+            "V2_VISUAL_ECONOMY_FALLBACK_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        for field_name in (
+            "V2_VISUAL_CRITIC_PROMPT_REVISION",
+            "V2_VISUAL_REVIEWER_PROMPT_REVISION",
+            "V2_VISUAL_REFINEMENT_PROMPT_REVISION",
+            "V2_VISUAL_TECHNICAL_REPAIR_PROMPT_REVISION",
+        ):
+            setattr(
+                self,
+                field_name,
+                os.getenv(field_name, "2026-07-24.1").strip()
+                or "2026-07-24.1",
+            )
+        visual_integer_settings = (
+            ("V2_VISUAL_CRITIC_MAX_TOKENS", 12000, 1000, 20000),
+            ("V2_VISUAL_REVIEWER_MAX_TOKENS", 10000, 1000, 18000),
+            ("V2_VISUAL_REFINEMENT_MAX_TOKENS", 12000, 1000, 20000),
+            ("V2_VISUAL_TECHNICAL_REPAIR_MAX_TOKENS", 8000, 1000, 12000),
+            ("V2_VISUAL_CRITIC_TIMEOUT_SECONDS", 150, 1, 150),
+            ("V2_VISUAL_REVIEWER_TIMEOUT_SECONDS", 120, 1, 120),
+            ("V2_VISUAL_REFINEMENT_TIMEOUT_SECONDS", 240, 1, 240),
+            ("V2_VISUAL_TECHNICAL_REPAIR_TIMEOUT_SECONDS", 150, 1, 150),
+            ("V2_VISUAL_PHASE_TIMEOUT_SECONDS", 1200, 1, 1200),
+            ("V2_VISUAL_MAX_OUTPUT_TOKENS", 42000, 1000, 42000),
+            ("V2_VISUAL_MAX_CALLS", 6, 2, 6),
+        )
+        for field_name, default, minimum, maximum in visual_integer_settings:
+            try:
+                value = min(
+                    maximum,
+                    max(minimum, int(os.getenv(field_name, str(default)))),
+                )
+            except ValueError:
+                value = default
+            setattr(self, field_name, value)
+        try:
+            self.V2_VISUAL_MAX_COST_USD = min(
+                1.50,
+                max(
+                    0.01,
+                    float(os.getenv("V2_VISUAL_MAX_COST_USD", "1.50")),
+                ),
+            )
+        except ValueError:
+            self.V2_VISUAL_MAX_COST_USD = 1.50
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (
