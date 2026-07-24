@@ -1,6 +1,7 @@
-"""Preview pipeline adapter for the Phase 1B v2 contract-only boundary."""
+"""Preview pipeline adapter for the Phase 2 design-contract boundary."""
 from sqlalchemy.orm import Session
 
+from app.application.design_contract.service import build_v2_design_contract
 from app.application.preview_contract.service import build_v2_app_spec_contract
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -16,13 +17,21 @@ def run_v2_contract_boundary(
     req: Request,
     app_spec_revision_id: int | None,
 ) -> dict:
-    return build_v2_app_spec_contract(
+    phase1_result = build_v2_app_spec_contract(
         db,
         request_id,
         ai_provider,
         template_renderer,
         req=req,
         app_spec_revision_id=app_spec_revision_id,
+    )
+    return build_v2_design_contract(
+        db,
+        request_id,
+        ai_provider,
+        template_renderer,
+        req=req,
+        phase1_result=phase1_result,
     )
 
 

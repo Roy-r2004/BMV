@@ -36,6 +36,7 @@ from app.domain.schemas.common import GenerateResponse
 from app.domain.models import (
     AppSpecRevision,
     CustomerSourceArtifact,
+    DesignContractArtifactRecord,
     PreviewChatMessage,
     PreviewTierArtifactRecord,
     ProductStrategyRevision,
@@ -276,6 +277,15 @@ def delete_request(
     db.query(PreviewChatMessage).filter(PreviewChatMessage.request_id == request_id).delete(
         synchronize_session=False
     )
+    db.query(DesignContractArtifactRecord).filter(
+        DesignContractArtifactRecord.request_id == request_id
+    ).update(
+        {DesignContractArtifactRecord.parent_artifact_id: None},
+        synchronize_session=False,
+    )
+    db.query(DesignContractArtifactRecord).filter(
+        DesignContractArtifactRecord.request_id == request_id
+    ).delete(synchronize_session=False)
     # Clear the cumulative self-FK chain before deleting v2 tier artifacts.
     db.query(PreviewTierArtifactRecord).filter(
         PreviewTierArtifactRecord.request_id == request_id

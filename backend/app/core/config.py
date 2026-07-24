@@ -127,6 +127,22 @@ class Settings:
     APPSPEC_MIN_COVERAGE_SCORE: int
     APPSPEC_PREVIEW_TARGET_PAGES: int
     APPSPEC_PREVIEW_MAX_PAGES: int
+    V2_PRODUCT_STRATEGY_MODEL: str
+    V2_INFORMATION_ARCHITECTURE_MODEL: str
+    V2_DESIGN_DNA_MODEL: str
+    V2_DESIGN_DNA_VISION_MODEL: str
+    V2_PRODUCT_STRATEGY_PROMPT_REVISION: str
+    V2_INFORMATION_ARCHITECTURE_PROMPT_REVISION: str
+    V2_DESIGN_DNA_PROMPT_REVISION: str
+    V2_PRODUCT_STRATEGY_MAX_TOKENS: int
+    V2_INFORMATION_ARCHITECTURE_MAX_TOKENS: int
+    V2_DESIGN_DNA_MAX_TOKENS: int
+    V2_DESIGN_STAGE_MAX_ATTEMPTS: int
+    V2_PRODUCT_STRATEGY_TIMEOUT_SECONDS: int
+    V2_INFORMATION_ARCHITECTURE_TIMEOUT_SECONDS: int
+    V2_DESIGN_DNA_TIMEOUT_SECONDS: int
+    V2_DESIGN_CONTRACT_TIMEOUT_SECONDS: int
+    V2_DESIGN_CONTRACT_MAX_COST_USD: float
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -287,6 +303,97 @@ class Settings:
             self.APPSPEC_PREVIEW_MAX_PAGES = max(
                 self.APPSPEC_PREVIEW_TARGET_PAGES, 10
             )
+        self.V2_PRODUCT_STRATEGY_MODEL = _env_or(
+            "V2_PRODUCT_STRATEGY_MODEL",
+            self.PREVIEW_APP_MODEL,
+        )
+        self.V2_INFORMATION_ARCHITECTURE_MODEL = _env_or(
+            "V2_INFORMATION_ARCHITECTURE_MODEL",
+            self.APPSPEC_MODEL,
+        )
+        self.V2_DESIGN_DNA_MODEL = _env_or(
+            "V2_DESIGN_DNA_MODEL",
+            self.QUALITY_FIX_MODEL,
+        )
+        self.V2_DESIGN_DNA_VISION_MODEL = _env_or(
+            "V2_DESIGN_DNA_VISION_MODEL",
+            self.VISION_MODEL,
+        )
+        self.V2_PRODUCT_STRATEGY_PROMPT_REVISION = (
+            os.getenv(
+                "V2_PRODUCT_STRATEGY_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        self.V2_INFORMATION_ARCHITECTURE_PROMPT_REVISION = (
+            os.getenv(
+                "V2_INFORMATION_ARCHITECTURE_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        self.V2_DESIGN_DNA_PROMPT_REVISION = (
+            os.getenv(
+                "V2_DESIGN_DNA_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        try:
+            self.V2_PRODUCT_STRATEGY_MAX_TOKENS = max(
+                1000,
+                int(os.getenv("V2_PRODUCT_STRATEGY_MAX_TOKENS", "4500")),
+            )
+        except ValueError:
+            self.V2_PRODUCT_STRATEGY_MAX_TOKENS = 4500
+        try:
+            self.V2_INFORMATION_ARCHITECTURE_MAX_TOKENS = max(
+                2000,
+                int(
+                    os.getenv(
+                        "V2_INFORMATION_ARCHITECTURE_MAX_TOKENS",
+                        "9000",
+                    )
+                ),
+            )
+        except ValueError:
+            self.V2_INFORMATION_ARCHITECTURE_MAX_TOKENS = 9000
+        try:
+            self.V2_DESIGN_DNA_MAX_TOKENS = max(
+                1000,
+                int(os.getenv("V2_DESIGN_DNA_MAX_TOKENS", "5000")),
+            )
+        except ValueError:
+            self.V2_DESIGN_DNA_MAX_TOKENS = 5000
+        try:
+            self.V2_DESIGN_STAGE_MAX_ATTEMPTS = min(
+                2,
+                max(
+                    1,
+                    int(os.getenv("V2_DESIGN_STAGE_MAX_ATTEMPTS", "2")),
+                ),
+            )
+        except ValueError:
+            self.V2_DESIGN_STAGE_MAX_ATTEMPTS = 2
+        for field_name, default in (
+            ("V2_PRODUCT_STRATEGY_TIMEOUT_SECONDS", 90),
+            ("V2_INFORMATION_ARCHITECTURE_TIMEOUT_SECONDS", 120),
+            ("V2_DESIGN_DNA_TIMEOUT_SECONDS", 120),
+            ("V2_DESIGN_CONTRACT_TIMEOUT_SECONDS", 300),
+        ):
+            try:
+                value = max(10, int(os.getenv(field_name, str(default))))
+            except ValueError:
+                value = default
+            setattr(self, field_name, value)
+        try:
+            self.V2_DESIGN_CONTRACT_MAX_COST_USD = max(
+                0.01,
+                float(os.getenv("V2_DESIGN_CONTRACT_MAX_COST_USD", "0.25")),
+            )
+        except ValueError:
+            self.V2_DESIGN_CONTRACT_MAX_COST_USD = 0.25
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

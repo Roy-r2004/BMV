@@ -250,7 +250,11 @@ def record_usage(
     error: str | None = None,
     latency_ms: int | None = None,
 ) -> None:
-    from app.application.services.ai_context import get_ai_purpose, get_ai_request_id
+    from app.application.services.ai_context import (
+        get_ai_purpose,
+        get_ai_request_id,
+        observe_ai_usage,
+    )
 
     if request_id is None:
         request_id = get_ai_request_id()
@@ -262,6 +266,22 @@ def record_usage(
         total_tokens = prompt_tokens + completion_tokens
     if cost_usd is None and success:
         cost_usd = _estimate_cost(model, prompt_tokens, completion_tokens)
+
+    observe_ai_usage(
+        {
+            "provider": provider,
+            "model": model,
+            "purpose": purpose,
+            "request_id": request_id,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "cost_usd": float(cost_usd or 0.0),
+            "success": success,
+            "error": error,
+            "latency_ms": int(latency_ms or 0),
+        }
+    )
 
     db = SessionLocal()
     try:

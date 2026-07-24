@@ -19,6 +19,7 @@ from app.domain.models import (  # noqa: F401
     AiUsageEvent,
     AppSpecRevision,
     CustomerSourceArtifact,
+    DesignContractArtifactRecord,
     PreviewChatMessage,
     PreviewTierArtifactRecord,
     ProductStrategyRevision,

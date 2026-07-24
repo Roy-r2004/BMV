@@ -87,11 +87,21 @@ def call_with_retry(
             last_exc = e
             if status not in _RETRYABLE_STATUS_CODES or attempt == attempts:
                 raise
+            from app.application.services.ai_context import (
+                observe_ai_transport_retry,
+            )
+
+            observe_ai_transport_retry()
             retry_log.warning("HTTP %s on attempt %s/%s, retrying", status, attempt, attempts)
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             last_exc = e
             if attempt == attempts:
                 raise
+            from app.application.services.ai_context import (
+                observe_ai_transport_retry,
+            )
+
+            observe_ai_transport_retry()
             retry_log.warning("%s on attempt %s/%s, retrying", type(e).__name__, attempt, attempts)
         time.sleep(min(base_delay * (2 ** (attempt - 1)), max_delay))
     if last_exc:
