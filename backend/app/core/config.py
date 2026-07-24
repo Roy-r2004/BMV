@@ -241,6 +241,16 @@ class Settings:
     V2_TIER3_MAX_OUTPUT_TOKENS: int
     V2_TIER3_MAX_COST_USD: float
     V2_TIER3_MAX_WALL_SECONDS: int
+    V2_PHASE7_ROLLOUT_ENABLED: bool
+    V2_PHASE7_SHADOW_ENABLED: bool
+    V2_PHASE7_PROMOTE_ENABLED: bool
+    V2_PHASE7_ROLLOUT_PERCENT: int
+    V2_PHASE7_REQUEST_ALLOWLIST: tuple[int, ...]
+    V2_PHASE7_CIRCUIT_BREAKER_ENABLED: bool
+    V2_PHASE7_POLICY_REVISION: str
+    V2_PHASE7_ROLLOUT_SALT: str
+    V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE: bool
+    V2_PHASE7_CONFIG_VALID: bool
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -949,6 +959,70 @@ class Settings:
             )
         except ValueError:
             self.V2_TIER3_MAX_WALL_SECONDS = 3600
+        # Phase 7A rollout control plane — fail closed; never serves candidates.
+        self.V2_PHASE7_ROLLOUT_ENABLED = os.getenv(
+            "V2_PHASE7_ROLLOUT_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_SHADOW_ENABLED = os.getenv(
+            "V2_PHASE7_SHADOW_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_PROMOTE_ENABLED = os.getenv(
+            "V2_PHASE7_PROMOTE_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_CIRCUIT_BREAKER_ENABLED = os.getenv(
+            "V2_PHASE7_CIRCUIT_BREAKER_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE = os.getenv(
+            "V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_POLICY_REVISION = _env_or(
+            "V2_PHASE7_POLICY_REVISION",
+            "2026-07-25.1",
+        )
+        self.V2_PHASE7_ROLLOUT_SALT = _env_or(
+            "V2_PHASE7_ROLLOUT_SALT",
+            self.V2_PHASE7_POLICY_REVISION,
+        )
+        self.V2_PHASE7_CONFIG_VALID = True
+        percent_raw = (os.getenv("V2_PHASE7_ROLLOUT_PERCENT") or "0").strip()
+        try:
+            percent = int(percent_raw)
+            if percent < 0 or percent > 100:
+                raise ValueError("percent out of range")
+            self.V2_PHASE7_ROLLOUT_PERCENT = percent
+        except ValueError:
+            # Fail closed: invalid percent disables Phase 7 master semantics.
+            self.V2_PHASE7_ROLLOUT_PERCENT = 0
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_ROLLOUT_ENABLED = False
+            self.V2_PHASE7_SHADOW_ENABLED = False
+            self.V2_PHASE7_PROMOTE_ENABLED = False
+        allowlist_raw = (os.getenv("V2_PHASE7_REQUEST_ALLOWLIST") or "").strip()
+        if not allowlist_raw:
+            self.V2_PHASE7_REQUEST_ALLOWLIST = ()
+        else:
+            tokens = [t.strip() for t in allowlist_raw.split(",") if t.strip()]
+            try:
+                values = []
+                for token in tokens:
+                    if not token.isdigit() or int(token) < 1:
+                        raise ValueError(f"bad allowlist token {token!r}")
+                    values.append(int(token))
+                self.V2_PHASE7_REQUEST_ALLOWLIST = tuple(sorted(set(values)))
+            except ValueError:
+                self.V2_PHASE7_REQUEST_ALLOWLIST = ()
+                self.V2_PHASE7_CONFIG_VALID = False
+                self.V2_PHASE7_ROLLOUT_ENABLED = False
+                self.V2_PHASE7_SHADOW_ENABLED = False
+                self.V2_PHASE7_PROMOTE_ENABLED = False
+        if not self.V2_PHASE7_ROLLOUT_SALT.strip():
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_ROLLOUT_ENABLED = False
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

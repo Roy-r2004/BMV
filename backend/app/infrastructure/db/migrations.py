@@ -11,6 +11,10 @@ from typing import Literal
 from sqlalchemy import Engine, inspect, text
 
 from app.core.config import settings
+from app.infrastructure.db.phase7a_migrations import (
+    migrate_phase7a_rollout,
+    phase7a_schema_version,
+)
 from app.infrastructure.db.session import engine
 
 _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
@@ -731,6 +735,7 @@ def run_sqlite_migrations() -> None:
                 conn.commit()
                 migrate_candidate_revision_target_tier(engine)
                 migrate_tier_orchestration_target_tier(engine)
+                migrate_phase7a_rollout(engine)
                 return
 
             if url.startswith("postgresql"):
@@ -762,6 +767,7 @@ def run_sqlite_migrations() -> None:
                 conn.commit()
                 migrate_candidate_revision_target_tier(engine)
                 migrate_tier_orchestration_target_tier(engine)
+                migrate_phase7a_rollout(engine)
     except Exception:
         pass
 
@@ -770,6 +776,8 @@ __all__ = [
     "assert_candidate_target_tier_constraint",
     "assert_tier_orchestration_target_constraint",
     "migrate_candidate_revision_target_tier",
+    "migrate_phase7a_rollout",
     "migrate_tier_orchestration_target_tier",
+    "phase7a_schema_version",
     "run_sqlite_migrations",
 ]

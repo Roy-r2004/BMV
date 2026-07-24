@@ -37,6 +37,18 @@ from app.domain.models.tier_orchestration import (
     CandidateTierValidationResultRecord,
     CandidateTierVisualOutcomeRecord,
 )
+from app.domain.models.rollout import (
+    PreviewCircuitBreakerPolicyRecord,
+    PreviewCircuitBreakerStateRecord,
+    PreviewLiveCanaryApprovalRecord,
+    PreviewLiveCanaryApprovalStatusEventRecord,
+    PreviewPromotionDecisionRecord,
+    PreviewPromotionDecisionStatusEventRecord,
+    PreviewRolloutAuditEventRecord,
+    PreviewRolloutPolicyRecord,
+    PreviewServingPointerVersionRecord,
+    PreviewShadowEvaluationRecord,
+)
 from app.domain.models.design_contract import DesignContractArtifactRecord
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
@@ -80,6 +92,16 @@ __all__ = [
     "CandidateTierOrchestrationAttemptRecord",
     "CandidateTierValidationResultRecord",
     "CandidateTierVisualOutcomeRecord",
+    "PreviewCircuitBreakerPolicyRecord",
+    "PreviewCircuitBreakerStateRecord",
+    "PreviewLiveCanaryApprovalRecord",
+    "PreviewLiveCanaryApprovalStatusEventRecord",
+    "PreviewPromotionDecisionRecord",
+    "PreviewPromotionDecisionStatusEventRecord",
+    "PreviewRolloutAuditEventRecord",
+    "PreviewRolloutPolicyRecord",
+    "PreviewServingPointerVersionRecord",
+    "PreviewShadowEvaluationRecord",
     "DesignContractArtifactRecord",
     "PreviewTierArtifactRecord",
     "ProductStrategyRevision",
