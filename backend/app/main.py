@@ -20,6 +20,7 @@ from app.domain.models import (  # noqa: F401
     AppSpecRevision,
     CustomerSourceArtifact,
     PreviewChatMessage,
+    PreviewTierArtifactRecord,
     ProductStrategyRevision,
     Request,
     SolutionEditMessage,

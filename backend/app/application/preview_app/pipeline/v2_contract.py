@@ -1,4 +1,4 @@
-"""Preview pipeline adapter for the Phase 1A v2 contract-only boundary."""
+"""Preview pipeline adapter for the Phase 1B v2 contract-only boundary."""
 from sqlalchemy.orm import Session
 
 from app.application.preview_contract.service import build_v2_app_spec_contract

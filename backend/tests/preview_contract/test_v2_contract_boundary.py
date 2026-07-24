@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine
+import pytest
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.application.appspec.repository import load_json_object
@@ -14,11 +15,12 @@ from app.application.preview_app.pipeline.versioning import (
     GENERATOR_V2,
     select_preview_generator,
 )
-from app.application.preview_contract.service import V2_APPSPEC_CONTRACT_READY
+from app.application.preview_contract.service import V2_CONTRACT_READY
 from app.core.config import settings
 from app.domain.models import (  # noqa: F401
     AppSpecRevision,
     CustomerSourceArtifact,
+    PreviewTierArtifactRecord,
     ProductStrategyRevision,
     Request,
 )
@@ -129,7 +131,7 @@ def test_v2_boundary_persists_contract_and_never_reaches_generation_phases(
         monkeypatch.setattr(settings, "APPSPEC_MAX_DETERMINISTIC_HEALS", 0)
 
         def forbidden(*_args, **_kwargs):
-            raise AssertionError("v2 Phase 1A reached a downstream generation phase")
+            raise AssertionError("v2 Phase 1B reached a downstream generation phase")
 
         monkeypatch.setattr(orchestrator, "run_plan_phase", forbidden)
         monkeypatch.setattr(orchestrator, "run_codegen_phase", forbidden)
@@ -151,10 +153,25 @@ def test_v2_boundary_persists_contract_and_never_reaches_generation_phases(
         )
 
         contract = result["preview_contract"]
-        assert contract["status"] == V2_APPSPEC_CONTRACT_READY
-        assert "tier_artifact_ids" not in contract
+        assert contract["status"] == V2_CONTRACT_READY
+        assert list(contract["tier_artifact_refs"]) == [
+            "tier_1",
+            "tier_2",
+            "tier_3",
+        ]
         assert db.query(CustomerSourceArtifact).count() == 1
         assert db.query(ProductStrategyRevision).count() == 1
+        tier_rows = (
+            db.query(PreviewTierArtifactRecord)
+            .order_by(PreviewTierArtifactRecord.tier)
+            .all()
+        )
+        assert [row.tier for row in tier_rows] == [1, 2, 3]
+        assert [row.parent_tier_artifact_id for row in tier_rows] == [
+            None,
+            tier_rows[0].id,
+            tier_rows[1].id,
+        ]
         revision = db.query(AppSpecRevision).one()
         metadata = load_json_object(revision.generation_metadata_json)
         assert metadata["customer_source_artifact_id"] == contract["customer_source_ref"]["id"]
@@ -193,7 +210,7 @@ def test_full_v2_pipeline_returns_immediately_after_contract_boundary(
         expected = {
             "preview_contract": {
                 "generator_version": "v2",
-                "status": V2_APPSPEC_CONTRACT_READY,
+                "status": V2_CONTRACT_READY,
             }
         }
         calls: list[str] = []
@@ -216,7 +233,7 @@ def test_full_v2_pipeline_returns_immediately_after_contract_boundary(
         )
 
         def forbidden(*_args, **_kwargs):
-            raise AssertionError("full v2 pipeline continued past Phase 1A")
+            raise AssertionError("full v2 pipeline continued past Phase 1B")
 
         monkeypatch.setattr(
             full_orchestrator.visual_demo,
@@ -251,5 +268,55 @@ def test_full_v2_pipeline_returns_immediately_after_contract_boundary(
 
         assert result is expected
         assert calls == ["blueprint", "contract"]
+    finally:
+        db.close()
+
+
+def test_contract_ready_summary_failure_rolls_back_every_tier(
+    monkeypatch,
+) -> None:
+    db = _db()
+    try:
+        req = _request(803)
+        db.add(req)
+        db.commit()
+        spec_payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        ai = _FixtureAI([json.dumps(spec_payload), json.dumps(_coverage())])
+
+        monkeypatch.setattr(settings, "APPSPEC_MODEL", "google/gemini-2.5-flash")
+        monkeypatch.setattr(
+            settings,
+            "APPSPEC_REPAIR_MODEL",
+            "google/gemini-2.5-flash",
+        )
+        monkeypatch.setattr(
+            settings,
+            "APPSPEC_V2_COVERAGE_MODEL",
+            "anthropic/claude-haiku-4.5",
+        )
+        monkeypatch.setattr(settings, "APPSPEC_MAX_REPAIR_ATTEMPTS", 0)
+        monkeypatch.setattr(settings, "APPSPEC_MAX_DETERMINISTIC_HEALS", 0)
+
+        def fail_summary_update(_mapper, _connection, target) -> None:
+            if target.generated_pages:
+                raise RuntimeError("forced contract-ready summary failure")
+
+        event.listen(Request, "before_update", fail_summary_update)
+        try:
+            with pytest.raises(RuntimeError, match="contract-ready summary"):
+                orchestrator._run_v2_boundary(
+                    db,
+                    req.id,
+                    ai,
+                    JinjaTemplateRenderer(settings.TEMPLATES_DIR),
+                    app_spec_revision_id=None,
+                    req=req,
+                )
+        finally:
+            event.remove(Request, "before_update", fail_summary_update)
+
+        assert db.query(PreviewTierArtifactRecord).count() == 0
+        db.refresh(req)
+        assert req.generated_pages is None
     finally:
         db.close()

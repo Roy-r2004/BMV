@@ -123,11 +123,11 @@ class GenerationPipeline:
             _emit(
                 db,
                 request_id,
-                "app_spec_contract_ready",
-                "V2 AppSpec contract ready",
+                "contract_ready",
+                "V2 cumulative contract ready",
                 100,
                 detail=(
-                    "Phase 1A stops before planning, codegen, workspace, or build"
+                    "Phase 1B stops before planning, codegen, workspace, or build"
                 ),
             )
             pipeline_watch.stop()

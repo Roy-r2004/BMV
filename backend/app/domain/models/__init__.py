@@ -3,6 +3,7 @@ from app.domain.models.app_spec import AppSpecRevision
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
     CustomerSourceArtifact,
+    PreviewTierArtifactRecord,
     ProductStrategyRevision,
 )
 from app.domain.models.request import Request
@@ -14,6 +15,7 @@ __all__ = [
     "Request",
     "AppSpecRevision",
     "CustomerSourceArtifact",
+    "PreviewTierArtifactRecord",
     "ProductStrategyRevision",
     "PreviewChatMessage",
     "User",

@@ -101,7 +101,7 @@ def _run_v2_boundary(
     app_spec_revision_id: int | None,
     req: Request,
 ) -> dict:
-    """Phase 1A v2 entrypoint: persist the strict contract and stop."""
+    """Phase 1B v2 entrypoint: persist the cumulative contract and stop."""
 
     log.info(
         "Preview generator v2 selected for request %s; building contract only",

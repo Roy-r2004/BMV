@@ -37,6 +37,7 @@ from app.domain.models import (
     AppSpecRevision,
     CustomerSourceArtifact,
     PreviewChatMessage,
+    PreviewTierArtifactRecord,
     ProductStrategyRevision,
 )
 
@@ -275,6 +276,16 @@ def delete_request(
     db.query(PreviewChatMessage).filter(PreviewChatMessage.request_id == request_id).delete(
         synchronize_session=False
     )
+    # Clear the cumulative self-FK chain before deleting v2 tier artifacts.
+    db.query(PreviewTierArtifactRecord).filter(
+        PreviewTierArtifactRecord.request_id == request_id
+    ).update(
+        {PreviewTierArtifactRecord.parent_tier_artifact_id: None},
+        synchronize_session=False,
+    )
+    db.query(PreviewTierArtifactRecord).filter(
+        PreviewTierArtifactRecord.request_id == request_id
+    ).delete(synchronize_session=False)
     # Clear self-FK before bulk-deleting revisions (SQLite)
     db.query(AppSpecRevision).filter(AppSpecRevision.request_id == request_id).update(
         {AppSpecRevision.parent_revision_id: None},
