@@ -32,6 +32,8 @@ class PromptTemplate:
     V2_CANDIDATE_REPAIR = "prompts/v2_candidate_repair.j2"
     V2_TIER2_COMPONENTS = "prompts/v2_tier2_components.j2"
     V2_TIER2_PAGES = "prompts/v2_tier2_pages.j2"
+    V2_TIER3_COMPONENTS = "prompts/v2_tier3_components.j2"
+    V2_TIER3_PAGES = "prompts/v2_tier3_pages.j2"
     TECHNICAL_PLAN = "prompts/technical_plan.j2"
     MVP_BLUEPRINT = "prompts/mvp_blueprint.j2"
     VISUAL_DEMO = "prompts/visual_demo.j2"

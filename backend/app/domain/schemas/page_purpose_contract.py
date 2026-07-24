@@ -48,11 +48,11 @@ class PagePurpose(StrictDesignModel):
     goal: LongText
     role_ids: Tuple[Identifier, ...] = Field(min_length=1, max_length=20)
     requirement_ids: Tuple[Identifier, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=100,
     )
     outcome_requirement_ids: Tuple[Identifier, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=100,
     )
     capability_ids: Tuple[Identifier, ...] = Field(
@@ -65,7 +65,7 @@ class PagePurpose(StrictDesignModel):
     evidence_ids: Tuple[Identifier, ...] = Field(min_length=1, max_length=400)
     journey_ids: Tuple[Identifier, ...] = Field(default=(), max_length=100)
     acceptance_test_ids: Tuple[Identifier, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=200,
     )
     navigation_visibility: Literal["primary", "secondary", "deep_link"]

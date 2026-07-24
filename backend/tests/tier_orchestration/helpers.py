@@ -18,6 +18,13 @@ def _tier_inputs(prompt: str) -> dict:
     )
 
 
+def _tier_3_inputs(prompt: str) -> dict:
+    return json.loads(
+        prompt.split("Tier 3 inputs:\n", 1)[1]
+        .split("\n\nOutput schema:", 1)[0]
+    )
+
+
 def _symbol(identifier: str) -> str:
     return "".join(
         part[:1].upper() + part[1:].lower()
@@ -189,4 +196,116 @@ class Tier2FixtureAI(VisualFixtureAI):
         return json.dumps(payload)
 
 
-__all__ = ["Tier2FixtureAI"]
+class Tier3FixtureAI(Tier2FixtureAI):
+    """Two Tier 3 generation calls plus grouped Phase 5 calls."""
+
+    def ask_chat(
+        self,
+        model: str,
+        messages: list[dict],
+        max_tokens=None,
+        temperature=None,
+    ) -> str:
+        content = messages[0]["content"]
+        prompt = (
+            content
+            if isinstance(content, str)
+            else next(
+                item["text"]
+                for item in content
+                if item["type"] == "text"
+            )
+        )
+        if "Tier 3 inputs:" not in prompt:
+            return super().ask_chat(
+                model,
+                messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        inputs = _tier_3_inputs(prompt)
+        projection = inputs["tier_projection"]
+        if 'batch_kind must be "business_components"' in prompt:
+            stage = "tier_3_components"
+            filtered = dict(inputs)
+            filtered["business_component_plan"] = dict(
+                inputs["business_component_plan"]
+            )
+            filtered["business_component_plan"]["components"] = [
+                item
+                for item in filtered["business_component_plan"]["components"]
+                if item["component_id"].startswith("COMP-T3-")
+            ]
+            payload = component_batch_payload(filtered)
+            for index, file in enumerate(payload["files"]):
+                stripe_width = 22 + ((index * 7) % 61)
+                stripe_height = 18 + ((index * 11) % 47)
+                left_pad = 24 + ((index * 13) % 72)
+                file["source"] = file["source"].replace(
+                    '<section data-bmv-component-id="',
+                    (
+                        '<section style={{background:"#ecfdf5",'
+                        'border:"8px solid #047857",'
+                        f'padding:"48px 48px 48px {left_pad}px",'
+                        'display:"grid",gridTemplateColumns:"1fr 2fr",'
+                        'gap:"32px"}} data-bmv-component-id="'
+                    ),
+                ).replace(
+                    "    </section>",
+                    (
+                        "      <div aria-hidden=\"true\" "
+                        f"style={{{{width:\"{stripe_width}%\","
+                        f"height:\"{stripe_height}px\","
+                        "background:\"#065f46\",borderRadius:\"999px\"}} />\n"
+                        "    </section>"
+                    ),
+                )
+        else:
+            stage = "tier_3_pages"
+            wanted = set(projection["delta"]["page_ids"])
+            filtered = dict(inputs)
+            filtered["page_purpose_contract"] = dict(
+                inputs["page_purpose_contract"]
+            )
+            filtered["page_purpose_contract"]["pages"] = [
+                item
+                for item in filtered["page_purpose_contract"]["pages"]
+                if item["page_id"] in wanted
+            ]
+            filtered["business_component_plan"] = dict(
+                inputs["business_component_plan"]
+            )
+            filtered["business_component_plan"]["page_compositions"] = [
+                item
+                for item in filtered["business_component_plan"][
+                    "page_compositions"
+                ]
+                if item["page_id"] in wanted
+            ]
+            filtered["generated_business_components"] = inputs[
+                "generated_tier_components"
+            ]
+            filtered["required_page_exports"] = {
+                page_id: _symbol(page_id) for page_id in wanted
+            }
+            payload = page_batch_payload(filtered)
+        self.calls.append((stage, model))
+        observe_ai_usage(
+            {
+                "provider": self.name,
+                "model": model,
+                "purpose": stage,
+                "request_id": projection["request_id"],
+                "prompt_tokens": 100,
+                "completion_tokens": 100,
+                "total_tokens": 200,
+                "cost_usd": 0.01,
+                "success": True,
+                "error": None,
+                "latency_ms": 1,
+            }
+        )
+        return json.dumps(payload)
+
+
+__all__ = ["Tier2FixtureAI", "Tier3FixtureAI"]

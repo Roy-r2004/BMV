@@ -107,10 +107,10 @@ def project_page_purpose(
             )
         )
         if (
-            not requirement_ids
-            or not test_ids
+            (tier_number in (1, 2) and not requirement_ids)
+            or (tier_number in (1, 2) and not test_ids)
             or (tier_number == 1 and not journey_ids)
-            or (action_ids and not journey_ids)
+            or (tier_number in (1, 2) and action_ids and not journey_ids)
         ):
             raise CompositionProjectionError(
                 f"Tier {tier_number} page {page.id} lacks closed references."

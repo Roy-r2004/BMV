@@ -53,7 +53,7 @@ class ContentItem(StrictDesignModel):
         max_length=300,
     )
     requirement_ids: Tuple[Identifier, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=100,
     )
 

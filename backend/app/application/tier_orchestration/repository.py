@@ -29,6 +29,12 @@ from app.domain.schemas.tier_orchestration import (
     Tier2ExtensionContracts,
     Tier2PreservationManifest,
     Tier2Telemetry,
+    Tier3Budget,
+    Tier3EffectiveSummary,
+    Tier3ExtensionContracts,
+    Tier3PreservationManifest,
+    Tier3Telemetry,
+    Tier3VisualCallPlan,
 )
 
 
@@ -39,7 +45,14 @@ class Tier2Terminal:
     result: dict[str, Any]
 
 
-class Tier2OrchestrationRepository:
+@dataclass(frozen=True)
+class Tier3Terminal:
+    row: CandidateEffectiveTierSummaryRecord
+    summary: Tier3EffectiveSummary
+    result: dict[str, Any]
+
+
+class _Tier2FindRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -244,7 +257,532 @@ class Tier2OrchestrationRepository:
         }
         return Tier2Terminal(row=row, summary=summary, result=result)
 
-    def get_or_create_attempt(
+
+class _CombinedTierRepository:
+    """Strict append-only Tier 3 persistence over the generalized tables."""
+
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def find_terminal(
+        self,
+        *,
+        request_id: int,
+        resume_identity_sha256: str,
+    ) -> Tier3Terminal | None:
+        attempt = (
+            self.db.query(CandidateTierOrchestrationAttemptRecord)
+            .filter(
+                CandidateTierOrchestrationAttemptRecord.request_id
+                == request_id,
+                CandidateTierOrchestrationAttemptRecord.target_tier == 3,
+                CandidateTierOrchestrationAttemptRecord.resume_identity_sha256
+                == resume_identity_sha256,
+            )
+            .first()
+        )
+        if attempt is None:
+            return None
+        plan = Tier3VisualCallPlan.model_validate(
+            load_json_object(attempt.visual_call_plan_json)
+        )
+        if (
+            canonical_sha256(load_json_object(attempt.upstream_refs_json))
+            != attempt.upstream_refs_sha256
+            or canonical_sha256(
+                Tier3Budget.model_validate(
+                    load_json_object(attempt.budget_json)
+                )
+            )
+            != attempt.budget_sha256
+            or canonical_sha256(plan) != attempt.visual_call_plan_sha256
+        ):
+            raise ValueError("Cached Tier 3 attempt provenance is corrupt")
+        row = (
+            self.db.query(CandidateEffectiveTierSummaryRecord)
+            .filter(
+                CandidateEffectiveTierSummaryRecord.orchestration_attempt_id
+                == attempt.id
+            )
+            .first()
+        )
+        if row is None:
+            return None
+        extension = self.db.get(
+            CandidateTierExtensionManifestRecord,
+            row.tier_extension_manifest_id,
+        )
+        audit = self.db.get(
+            CandidateLowerTierPreservationAuditRecord,
+            row.preservation_audit_id,
+        )
+        generation = self.db.get(
+            CandidateTierGenerationResultRecord,
+            row.tier_generation_result_id,
+        )
+        validation = self.db.get(
+            CandidateTierValidationResultRecord,
+            row.tier_validation_result_id,
+        )
+        visual = self.db.get(
+            CandidateTierVisualOutcomeRecord,
+            row.tier_visual_outcome_id,
+        )
+        if any(
+            item is None
+            for item in (extension, audit, generation, validation, visual)
+        ):
+            raise ValueError("Cached Tier 3 terminal chain is incomplete")
+        chain = (extension, audit, generation, validation, visual, row)
+        for item in chain:
+            if (
+                item.request_id != request_id
+                or item.orchestration_attempt_id != attempt.id
+                or item.target_tier != 3
+                or item.accepted_tier_1_revision_id
+                != attempt.accepted_tier_1_revision_id
+                or item.accepted_tier_1_visual_summary_id
+                != attempt.accepted_tier_1_visual_summary_id
+                or item.accepted_tier_2_revision_id
+                != attempt.accepted_tier_2_revision_id
+                or item.accepted_tier_2_visual_summary_id
+                != attempt.accepted_tier_2_visual_summary_id
+                or item.accepted_tier_2_effective_summary_id
+                != attempt.accepted_tier_2_effective_summary_id
+                or item.lower_tier_effective_summary_sha256
+                != attempt.lower_tier_effective_summary_sha256
+                or item.tier_closure_sha256
+                != attempt.tier_closure_sha256
+                or item.delta_sha256 != attempt.delta_sha256
+                or item.generation_policy_revision
+                != attempt.generation_policy_revision
+            ):
+                raise ValueError("Cached Tier 3 lineage is inconsistent")
+        contracts = Tier3ExtensionContracts.model_validate(
+            load_json_object(extension.manifest_json)
+        )
+        preservation = Tier3PreservationManifest.model_validate(
+            load_json_object(audit.audit_json)
+        )
+        generation_payload = load_json_object(generation.result_json)
+        validation_payload = load_json_object(validation.result_json)
+        visual_payload = load_json_object(visual.outcome_json)
+        preservation_payload = preservation.model_dump(
+            mode="json",
+            exclude={"manifest_sha256"},
+        )
+        if (
+            canonical_sha256(contracts) != extension.manifest_sha256
+            or canonical_sha256(contracts.page_purpose)
+            != contracts.page_purpose_sha256
+            or canonical_sha256(contracts.business_components)
+            != contracts.business_components_sha256
+            or canonical_sha256(contracts.content_data)
+            != contracts.content_data_sha256
+            or canonical_sha256(contracts.interactions)
+            != contracts.interactions_sha256
+            or canonical_sha256(contracts.dependency_graph)
+            != contracts.dependency_graph_sha256
+            or canonical_sha256(preservation) != audit.audit_sha256
+            or canonical_sha256(preservation_payload)
+            != preservation.manifest_sha256
+            or canonical_sha256(generation_payload)
+            != generation.result_sha256
+            or canonical_sha256(validation_payload)
+            != validation.result_sha256
+            or canonical_sha256(visual_payload) != visual.outcome_sha256
+            or generation.passed
+            != bool(generation_payload.get("passed"))
+            or validation.passed
+            != bool(validation_payload.get("passed"))
+            or visual.passed != bool(visual_payload.get("passed"))
+        ):
+            raise ValueError("Cached Tier 3 artifact hash is corrupt")
+        summary = Tier3EffectiveSummary.model_validate(
+            load_json_object(row.summary_json)
+        )
+        if (
+            canonical_sha256(summary) != row.summary_sha256
+            or summary.orchestration_attempt_id != attempt.id
+            or summary.request_id != request_id
+            or summary.tier_3_extension_manifest_id != extension.id
+            or summary.preservation_audit_id != audit.id
+            or summary.tier_generation_result_id != generation.id
+            or summary.tier_validation_result_id != validation.id
+            or summary.tier_visual_outcome_id != visual.id
+            or summary.visual_call_plan != plan
+        ):
+            raise ValueError("Cached Tier 3 effective summary is corrupt")
+        if summary.derived_candidate_revision_id is not None:
+            candidate = self.db.get(
+                CandidateRevisionRecord,
+                summary.derived_candidate_revision_id,
+            )
+            if (
+                candidate is None
+                or candidate.request_id != request_id
+                or candidate.target_tier != 3
+                or candidate.status != "candidate_build_pending"
+                or generation.derived_candidate_revision_id != candidate.id
+            ):
+                raise ValueError("Cached Tier 3 candidate reference is invalid")
+        result = {
+            "preview_contract": {
+                "status": summary.status,
+                "target_tier": 3,
+                "effective_tier_summary": {
+                    "id": row.id,
+                    "sha256": row.summary_sha256,
+                    **summary.model_dump(mode="json"),
+                },
+                "tier_3_cache_hit": True,
+            }
+        }
+        return Tier3Terminal(row=row, summary=summary, result=result)
+
+    def _get_or_create_attempt_tier3(
+        self,
+        *,
+        request_id: int,
+        accepted_tier_1_revision_id: int,
+        accepted_tier_1_visual_summary_id: int,
+        accepted_tier_2_revision_id: int,
+        accepted_tier_2_visual_summary_id: int,
+        accepted_tier_2_effective_summary_id: int,
+        accepted_tier_2_effective_summary_sha256: str,
+        accepted_manifest_sha256: str,
+        tier_closure_sha256: str,
+        delta_sha256: str,
+        generation_policy_revision: str,
+        resume_identity_sha256: str,
+        upstream_refs: dict[str, Any],
+        budget: Tier3Budget,
+        visual_call_plan: Tier3VisualCallPlan,
+    ) -> CandidateTierOrchestrationAttemptRecord:
+        existing = (
+            self.db.query(CandidateTierOrchestrationAttemptRecord)
+            .filter(
+                CandidateTierOrchestrationAttemptRecord.request_id
+                == request_id,
+                CandidateTierOrchestrationAttemptRecord.resume_identity_sha256
+                == resume_identity_sha256,
+            )
+            .first()
+        )
+        upstream_json = canonical_json(upstream_refs)
+        budget_json = canonical_json(budget.model_dump(mode="json"))
+        plan_json = canonical_json(
+            visual_call_plan.model_dump(mode="json")
+        )
+        if existing is not None:
+            if (
+                existing.target_tier != 3
+                or existing.accepted_tier_1_revision_id
+                != accepted_tier_1_revision_id
+                or existing.accepted_tier_1_visual_summary_id
+                != accepted_tier_1_visual_summary_id
+                or existing.accepted_tier_2_revision_id
+                != accepted_tier_2_revision_id
+                or existing.accepted_tier_2_visual_summary_id
+                != accepted_tier_2_visual_summary_id
+                or existing.accepted_tier_2_effective_summary_id
+                != accepted_tier_2_effective_summary_id
+                or existing.lower_tier_effective_summary_sha256
+                != accepted_tier_2_effective_summary_sha256
+                or existing.accepted_manifest_sha256
+                != accepted_manifest_sha256
+                or existing.tier_closure_sha256 != tier_closure_sha256
+                or existing.delta_sha256 != delta_sha256
+                or existing.generation_policy_revision
+                != generation_policy_revision
+                or existing.upstream_refs_json != upstream_json
+                or existing.budget_json != budget_json
+                or existing.visual_call_plan_json != plan_json
+            ):
+                raise ValueError("Tier 3 resume identity has stale provenance")
+            return existing
+        row = CandidateTierOrchestrationAttemptRecord(
+            attempt_uuid=str(uuid.uuid4()),
+            request_id=request_id,
+            accepted_tier_1_revision_id=accepted_tier_1_revision_id,
+            accepted_tier_1_visual_summary_id=(
+                accepted_tier_1_visual_summary_id
+            ),
+            accepted_tier_2_revision_id=accepted_tier_2_revision_id,
+            accepted_tier_2_visual_summary_id=(
+                accepted_tier_2_visual_summary_id
+            ),
+            accepted_tier_2_effective_summary_id=(
+                accepted_tier_2_effective_summary_id
+            ),
+            lower_tier_effective_summary_sha256=(
+                accepted_tier_2_effective_summary_sha256
+            ),
+            target_tier=3,
+            tier_closure_sha256=tier_closure_sha256,
+            delta_sha256=delta_sha256,
+            generation_policy_revision=generation_policy_revision,
+            resume_identity_sha256=resume_identity_sha256,
+            accepted_manifest_sha256=accepted_manifest_sha256,
+            upstream_refs_json=upstream_json,
+            upstream_refs_sha256=canonical_sha256(upstream_refs),
+            budget_json=budget_json,
+            budget_sha256=canonical_sha256(budget),
+            visual_call_plan_json=plan_json,
+            visual_call_plan_sha256=canonical_sha256(visual_call_plan),
+            staging_workspace_relpath=None,
+            status="started",
+        )
+        self.db.add(row)
+        self.db.flush()
+        return row
+
+    def _get_or_create_extension_tier3(
+        self,
+        *,
+        attempt: CandidateTierOrchestrationAttemptRecord,
+        contracts: Tier3ExtensionContracts,
+    ) -> CandidateTierExtensionManifestRecord:
+        payload = contracts.model_dump(mode="json")
+        payload_json = canonical_json(payload)
+        digest = canonical_sha256(payload)
+        existing = (
+            self.db.query(CandidateTierExtensionManifestRecord)
+            .filter(
+                CandidateTierExtensionManifestRecord.orchestration_attempt_id
+                == attempt.id
+            )
+            .first()
+        )
+        if existing is not None:
+            if (
+                existing.manifest_json != payload_json
+                or existing.manifest_sha256 != digest
+            ):
+                raise ValueError(
+                    "Tier 3 extension cache does not exactly match"
+                )
+            return existing
+        common = self._common(attempt)
+        row = CandidateTierExtensionManifestRecord(
+            **common,
+            manifest_json=payload_json,
+            manifest_sha256=digest,
+            page_purpose_sha256=contracts.page_purpose_sha256,
+            business_component_plan_sha256=(
+                contracts.business_components_sha256
+            ),
+            content_data_plan_sha256=contracts.content_data_sha256,
+            interaction_contract_sha256=contracts.interactions_sha256,
+            dependency_graph_sha256=contracts.dependency_graph_sha256,
+        )
+        self.db.add(row)
+        self.db.flush()
+        return row
+
+    @staticmethod
+    def _common(
+        attempt: CandidateTierOrchestrationAttemptRecord,
+    ) -> dict[str, Any]:
+        return {
+            "request_id": attempt.request_id,
+            "accepted_tier_1_revision_id": (
+                attempt.accepted_tier_1_revision_id
+            ),
+            "accepted_tier_1_visual_summary_id": (
+                attempt.accepted_tier_1_visual_summary_id
+            ),
+            "accepted_tier_2_revision_id": (
+                attempt.accepted_tier_2_revision_id
+            ),
+            "accepted_tier_2_visual_summary_id": (
+                attempt.accepted_tier_2_visual_summary_id
+            ),
+            "accepted_tier_2_effective_summary_id": (
+                attempt.accepted_tier_2_effective_summary_id
+            ),
+            "lower_tier_effective_summary_sha256": (
+                attempt.lower_tier_effective_summary_sha256
+            ),
+            "target_tier": 3,
+            "tier_closure_sha256": attempt.tier_closure_sha256,
+            "delta_sha256": attempt.delta_sha256,
+            "generation_policy_revision": (
+                attempt.generation_policy_revision
+            ),
+            "orchestration_attempt_id": attempt.id,
+        }
+
+    def _persist_terminal_tier3(
+        self,
+        *,
+        attempt: CandidateTierOrchestrationAttemptRecord,
+        extension: CandidateTierExtensionManifestRecord,
+        preservation: Tier3PreservationManifest,
+        generation_payload: dict[str, Any],
+        generation_passed: bool,
+        validation_payload: dict[str, Any],
+        validation_passed: bool,
+        visual_payload: dict[str, Any],
+        visual_passed: bool,
+        derived_candidate_revision_id: int | None,
+        phase4_validation_summary_id: int | None,
+        phase5_visual_summary_id: int | None,
+        baseline_comparison_id: int | None,
+        status: str,
+        failure_stage: str | None,
+        fallback_reason: str | None,
+        telemetry: Tier3Telemetry,
+        tier_1_closure_sha256: str,
+        tier_2_closure_sha256: str,
+        tier_2_generation_policy_revision: str,
+        visual_call_plan: Tier3VisualCallPlan,
+    ) -> Tier3Terminal:
+        if (
+            self.db.query(CandidateEffectiveTierSummaryRecord)
+            .filter(
+                CandidateEffectiveTierSummaryRecord.orchestration_attempt_id
+                == attempt.id
+            )
+            .first()
+            is not None
+        ):
+            raise ValueError("Tier 3 attempt is already terminal")
+        common = self._common(attempt)
+        audit = CandidateLowerTierPreservationAuditRecord(
+            **common,
+            tier_extension_manifest_id=extension.id,
+            audit_json=canonical_json(preservation.model_dump(mode="json")),
+            audit_sha256=canonical_sha256(preservation),
+            passed=True,
+        )
+        self.db.add(audit)
+        self.db.flush()
+        generation = CandidateTierGenerationResultRecord(
+            **common,
+            preservation_audit_id=audit.id,
+            derived_candidate_revision_id=derived_candidate_revision_id,
+            result_json=canonical_json(generation_payload),
+            result_sha256=canonical_sha256(generation_payload),
+            passed=generation_passed,
+            provider_call_count=telemetry.generation_call_count,
+            output_tokens=int(generation_payload.get("output_tokens") or 0),
+            cost_usd=float(generation_payload.get("cost_usd") or 0.0),
+            latency_ms=int(generation_payload.get("latency_ms") or 0),
+        )
+        self.db.add(generation)
+        self.db.flush()
+        validation = CandidateTierValidationResultRecord(
+            **common,
+            preservation_audit_id=audit.id,
+            derived_candidate_revision_id=derived_candidate_revision_id,
+            phase4_validation_summary_id=phase4_validation_summary_id,
+            result_json=canonical_json(validation_payload),
+            result_sha256=canonical_sha256(validation_payload),
+            passed=validation_passed,
+        )
+        self.db.add(validation)
+        self.db.flush()
+        visual = CandidateTierVisualOutcomeRecord(
+            **common,
+            preservation_audit_id=audit.id,
+            derived_candidate_revision_id=derived_candidate_revision_id,
+            phase4_validation_summary_id=phase4_validation_summary_id,
+            phase5_visual_summary_id=phase5_visual_summary_id,
+            baseline_comparison_id=baseline_comparison_id,
+            outcome_json=canonical_json(visual_payload),
+            outcome_sha256=canonical_sha256(visual_payload),
+            passed=visual_passed,
+        )
+        self.db.add(visual)
+        self.db.flush()
+        accepted = status == "tier_3_accepted"
+        summary = Tier3EffectiveSummary(
+            status=status,
+            request_id=attempt.request_id,
+            accepted_tier_1_revision_id=attempt.accepted_tier_1_revision_id,
+            accepted_tier_1_visual_summary_id=(
+                attempt.accepted_tier_1_visual_summary_id
+            ),
+            accepted_tier_2_revision_id=attempt.accepted_tier_2_revision_id,
+            accepted_tier_2_visual_summary_id=(
+                attempt.accepted_tier_2_visual_summary_id
+            ),
+            accepted_tier_2_effective_summary_id=(
+                attempt.accepted_tier_2_effective_summary_id
+            ),
+            accepted_tier_2_effective_summary_sha256=(
+                attempt.lower_tier_effective_summary_sha256
+            ),
+            orchestration_attempt_id=attempt.id,
+            tier_3_extension_manifest_id=extension.id,
+            preservation_audit_id=audit.id,
+            tier_generation_result_id=generation.id,
+            tier_validation_result_id=validation.id,
+            tier_visual_outcome_id=visual.id,
+            derived_candidate_revision_id=derived_candidate_revision_id,
+            phase4_validation_summary_id=phase4_validation_summary_id,
+            phase5_visual_summary_id=phase5_visual_summary_id,
+            highest_accepted_tier=3 if accepted else 2,
+            last_accepted_candidate_revision_id=(
+                derived_candidate_revision_id
+                if accepted and derived_candidate_revision_id
+                else attempt.accepted_tier_2_revision_id
+            ),
+            failure_stage=failure_stage,
+            fallback_reason=fallback_reason,
+            tier_1_closure_sha256=tier_1_closure_sha256,
+            tier_2_closure_sha256=tier_2_closure_sha256,
+            tier_3_closure_sha256=attempt.tier_closure_sha256,
+            delta_sha256=attempt.delta_sha256,
+            preservation_audit_sha256=canonical_sha256(preservation),
+            tier_2_generation_policy_revision=(
+                tier_2_generation_policy_revision
+            ),
+            generation_policy_revision=attempt.generation_policy_revision,
+            visual_call_plan=visual_call_plan,
+            telemetry=telemetry,
+            phase4_reused=phase4_validation_summary_id is not None,
+            phase5_reused=phase5_visual_summary_id is not None,
+        )
+        row = CandidateEffectiveTierSummaryRecord(
+            **common,
+            tier_extension_manifest_id=extension.id,
+            preservation_audit_id=audit.id,
+            tier_generation_result_id=generation.id,
+            tier_validation_result_id=validation.id,
+            tier_visual_outcome_id=visual.id,
+            derived_candidate_revision_id=derived_candidate_revision_id,
+            phase4_validation_summary_id=phase4_validation_summary_id,
+            phase5_visual_summary_id=phase5_visual_summary_id,
+            status=status,
+            highest_accepted_tier=summary.highest_accepted_tier,
+            last_accepted_candidate_revision_id=(
+                summary.last_accepted_candidate_revision_id
+            ),
+            summary_json=canonical_json(summary.model_dump(mode="json")),
+            summary_sha256=canonical_sha256(summary),
+        )
+        self.db.add(row)
+        self.db.flush()
+        result = {
+            "preview_contract": {
+                "status": summary.status,
+                "target_tier": 3,
+                "effective_tier_summary": {
+                    "id": row.id,
+                    "sha256": row.summary_sha256,
+                    **summary.model_dump(mode="json"),
+                },
+                "tier_3_generation_result": generation_payload,
+                "tier_3_validation_result": validation_payload,
+                "tier_3_visual_outcome": visual_payload,
+                "tier_3_cache_hit": False,
+            }
+        }
+        return Tier3Terminal(row=row, summary=summary, result=result)
+
+    def _get_or_create_attempt_tier2(
         self,
         *,
         request_id: int,
@@ -311,7 +849,7 @@ class Tier2OrchestrationRepository:
         self.db.flush()
         return row
 
-    def get_or_create_extension(
+    def _get_or_create_extension_tier2(
         self,
         *,
         attempt: CandidateTierOrchestrationAttemptRecord,
@@ -364,7 +902,7 @@ class Tier2OrchestrationRepository:
         self.db.flush()
         return row
 
-    def persist_terminal(
+    def _persist_terminal_tier2(
         self,
         *,
         attempt: CandidateTierOrchestrationAttemptRecord,
@@ -539,7 +1077,32 @@ class Tier2OrchestrationRepository:
         return Tier2Terminal(row=row, summary=summary, result=result)
 
 
+class Tier2OrchestrationRepository(
+    _Tier2FindRepository,
+    _CombinedTierRepository,
+):
+    get_or_create_attempt = (
+        _CombinedTierRepository._get_or_create_attempt_tier2
+    )
+    get_or_create_extension = (
+        _CombinedTierRepository._get_or_create_extension_tier2
+    )
+    persist_terminal = _CombinedTierRepository._persist_terminal_tier2
+
+
+class Tier3OrchestrationRepository(_CombinedTierRepository):
+    get_or_create_attempt = (
+        _CombinedTierRepository._get_or_create_attempt_tier3
+    )
+    get_or_create_extension = (
+        _CombinedTierRepository._get_or_create_extension_tier3
+    )
+    persist_terminal = _CombinedTierRepository._persist_terminal_tier3
+
+
 __all__ = [
     "Tier2OrchestrationRepository",
     "Tier2Terminal",
+    "Tier3OrchestrationRepository",
+    "Tier3Terminal",
 ]

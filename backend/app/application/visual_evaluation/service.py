@@ -660,7 +660,9 @@ def evaluate_v2_candidate_visuals(
     phase4_result: dict[str, Any],
     baseline_phase4_result: dict[str, Any] | None = None,
     baseline_visual_summary_id: int | None = None,
+    baseline_target_tier: int = 1,
     evidence_page_ids: tuple[str, ...] | None = None,
+    evidence_page_groups: tuple[tuple[str, ...], ...] | None = None,
     require_no_baseline_regression: bool = False,
     update_request_bundle: bool = True,
 ) -> dict[str, Any]:
@@ -688,6 +690,7 @@ def evaluate_v2_candidate_visuals(
         critic_capability=routing[0].capability,
         reviewer_capability=routing[1].capability,
         page_ids=evidence_page_ids,
+        forced_page_groups=evidence_page_groups,
     )
     hard_gate = run_hard_gates(context, bundle)
     comparison = None
@@ -710,12 +713,14 @@ def evaluate_v2_candidate_visuals(
             or baseline_summary_row.candidate_revision_id
             != baseline_context.candidate.id
             or baseline_summary_row.status != "candidate_visual_accepted"
-            or baseline_context.candidate.target_tier != 1
-            or context.candidate.target_tier != 2
+            or baseline_context.candidate.target_tier
+            != baseline_target_tier
+            or context.candidate.target_tier
+            != baseline_target_tier + 1
             or baseline_context.screenshots[0].capture_policy_revision
             != context.screenshots[0].capture_policy_revision
         ):
-            raise ValueError("Tier 1 visual baseline is not eligible")
+            raise ValueError("Lower-tier visual baseline is not eligible")
         baseline_page_ids = tuple(
             page_id
             for page_id in (evidence_page_ids or ())
@@ -726,7 +731,9 @@ def evaluate_v2_candidate_visuals(
             }
         )
         if not baseline_page_ids:
-            raise ValueError("Visual regression scope lacks a Tier 1 route")
+            raise ValueError(
+                "Visual regression scope lacks a lower-tier route"
+            )
         baseline_bundle = build_evidence_bundle(
             baseline_context,
             critic_capability=routing[0].capability,
@@ -860,6 +867,8 @@ def evaluate_v2_candidate_visuals(
                     refined_context,
                     critic_capability=routing[0].capability,
                     reviewer_capability=routing[1].capability,
+                    page_ids=evidence_page_ids,
+                    forced_page_groups=evidence_page_groups,
                 )
                 refined_gate = run_hard_gates(
                     refined_context,
@@ -1364,6 +1373,8 @@ def evaluate_v2_candidate_visuals(
         refined_context,
         critic_capability=routing[0].capability,
         reviewer_capability=routing[1].capability,
+        page_ids=evidence_page_ids,
+        forced_page_groups=evidence_page_groups,
     )
     refined_hard_gate = run_hard_gates(refined_context, refined_bundle)
     comparison = _blind_refinement_comparison(

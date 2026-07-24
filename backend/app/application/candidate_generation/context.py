@@ -28,7 +28,10 @@ from app.domain.schemas.content_data_plan import ContentDataPlan
 from app.domain.schemas.interaction_contract import InteractionContract
 from app.domain.schemas.page_purpose_contract import PagePurposeContract
 from app.domain.schemas.preview_candidate import CandidateUpstreamRefs
-from app.domain.schemas.tier_orchestration import Tier2ExtensionContracts
+from app.domain.schemas.tier_orchestration import (
+    Tier2ExtensionContracts,
+    Tier3ExtensionContracts,
+)
 
 
 @dataclass(frozen=True)
@@ -52,6 +55,98 @@ _KINDS_AND_SCHEMAS = (
 )
 
 
+def load_tier_2_extension_context(
+    db: Session,
+    *,
+    request_id: int,
+    extension_ref: dict[str, Any],
+) -> CandidateContext:
+    row = db.get(
+        CandidateTierExtensionManifestRecord,
+        extension_ref.get("id"),
+    )
+    if (
+        row is None
+        or row.request_id != request_id
+        or row.target_tier != 2
+        or row.manifest_sha256 != extension_ref.get("sha256")
+    ):
+        raise ValueError("Accepted Tier 2 extension reference is invalid")
+    contracts = Tier2ExtensionContracts.model_validate(
+        load_json_object(row.manifest_json)
+    )
+    if (
+        composition_artifact_sha256(contracts) != row.manifest_sha256
+        or contracts.projection.tier_2_closure_sha256
+        != row.tier_closure_sha256
+        or contracts.projection.delta_sha256 != row.delta_sha256
+    ):
+        raise ValueError("Accepted Tier 2 extension is corrupt")
+    refs = contracts.page_purpose.contract_refs
+    design_summary = {
+        "status": "design_contract_ready",
+        "design_artifact_refs": {
+            "product_strategy_v2": (
+                refs.product_strategy_v2_ref.model_dump(mode="json")
+            ),
+            "information_architecture": (
+                refs.information_architecture_ref.model_dump(mode="json")
+            ),
+            "design_dna": refs.design_dna_ref.model_dump(mode="json"),
+        },
+    }
+    composition = load_composition_context(
+        db,
+        request_id=request_id,
+        phase2_result={"preview_contract": design_summary},
+    )
+    upstream = CandidateUpstreamRefs(
+        request_id=request_id,
+        target_tier=2,
+        composition_contract_refs=refs,
+        page_purpose_ref={
+            "id": row.orchestration_attempt_id,
+            "artifact_kind": "page_purpose_contract",
+            "schema_version": contracts.page_purpose.schema_version,
+            "sha256": contracts.page_purpose_sha256,
+        },
+        business_component_plan_ref={
+            "id": row.orchestration_attempt_id,
+            "artifact_kind": "business_component_plan",
+            "schema_version": contracts.business_components.schema_version,
+            "sha256": contracts.business_components_sha256,
+        },
+        content_data_plan_ref={
+            "id": row.orchestration_attempt_id,
+            "artifact_kind": "content_data_plan",
+            "schema_version": contracts.content_data.schema_version,
+            "sha256": contracts.content_data_sha256,
+        },
+        interaction_contract_ref={
+            "id": row.orchestration_attempt_id,
+            "artifact_kind": "interaction_contract",
+            "schema_version": contracts.interactions.schema_version,
+            "sha256": contracts.interactions_sha256,
+        },
+        component_dependency_graph_ref={
+            "id": row.orchestration_attempt_id,
+            "artifact_kind": "component_dependency_graph",
+            "schema_version": contracts.dependency_graph.schema_version,
+            "sha256": contracts.dependency_graph_sha256,
+        },
+    )
+    return CandidateContext(
+        composition=composition,
+        refs=upstream,
+        page_purpose=contracts.page_purpose,
+        business_components=contracts.business_components,
+        content_data=contracts.content_data,
+        interactions=contracts.interactions,
+        dependency_graph=contracts.dependency_graph,
+        rows=(),
+    )
+
+
 def load_candidate_context(
     db: Session,
     *,
@@ -61,9 +156,18 @@ def load_candidate_context(
     summary = dict(phase3a_result.get("preview_contract") or {})
     if (
         int(summary.get("target_tier") or 1) == 2
+        and summary.get("cumulative_extension_context") is True
+    ):
+        return load_tier_2_extension_context(
+            db,
+            request_id=request_id,
+            extension_ref=summary.get("tier_extension_manifest_ref") or {},
+        )
+    if (
+        int(summary.get("target_tier") or 1) in (2, 3)
         or summary.get("tier_extension_manifest_ref")
     ):
-        return _load_tier_2_candidate_context(
+        return _load_tier_candidate_context(
             db,
             request_id=request_id,
             summary=summary,
@@ -158,12 +262,15 @@ def load_candidate_context(
     )
 
 
-def _load_tier_2_candidate_context(
+def _load_tier_candidate_context(
     db: Session,
     *,
     request_id: int,
     summary: dict[str, Any],
 ) -> CandidateContext:
+    target_tier = int(summary.get("target_tier") or 2)
+    if target_tier not in (2, 3):
+        raise ValueError("Cumulative candidate target tier is invalid")
     extension_ref = summary.get("tier_extension_manifest_ref") or {}
     row = db.get(
         CandidateTierExtensionManifestRecord,
@@ -172,18 +279,27 @@ def _load_tier_2_candidate_context(
     if (
         row is None
         or row.request_id != request_id
-        or row.target_tier != 2
+        or row.target_tier != target_tier
         or row.manifest_sha256 != extension_ref.get("sha256")
     ):
-        raise ValueError("Tier 2 extension manifest reference is invalid")
-    contracts = Tier2ExtensionContracts.model_validate(
-        load_json_object(row.manifest_json)
+        raise ValueError(
+            f"Tier {target_tier} extension manifest reference is invalid"
+        )
+    contract_type = (
+        Tier3ExtensionContracts
+        if target_tier == 3
+        else Tier2ExtensionContracts
+    )
+    contracts = contract_type.model_validate(load_json_object(row.manifest_json))
+    closure_sha = (
+        contracts.projection.tier_3_closure_sha256
+        if target_tier == 3
+        else contracts.projection.tier_2_closure_sha256
     )
     if (
         composition_artifact_sha256(contracts) != row.manifest_sha256
         or contracts.projection.request_id != request_id
-        or contracts.projection.tier_2_closure_sha256
-        != row.tier_closure_sha256
+        or closure_sha != row.tier_closure_sha256
         or contracts.projection.delta_sha256 != row.delta_sha256
         or contracts.page_purpose_sha256 != row.page_purpose_sha256
         or contracts.business_components_sha256
@@ -193,17 +309,113 @@ def _load_tier_2_candidate_context(
         or contracts.dependency_graph_sha256
         != row.dependency_graph_sha256
     ):
-        raise ValueError("Tier 2 extension manifest provenance is corrupt")
+        raise ValueError(
+            f"Tier {target_tier} extension manifest provenance is corrupt"
+        )
 
     legacy_summary = dict(summary)
     legacy_summary.pop("tier_extension_manifest_ref", None)
-    legacy_summary["target_tier"] = 1
-    legacy_summary["status"] = "composition_contract_ready"
-    legacy = load_candidate_context(
-        db,
-        request_id=request_id,
-        phase3a_result={"preview_contract": legacy_summary},
-    )
+    if target_tier == 3:
+        lower_ref = (
+            summary.get("accepted_tier_2_extension_manifest_ref") or {}
+        )
+        lower_row = db.get(
+            CandidateTierExtensionManifestRecord,
+            lower_ref.get("id"),
+        )
+        if (
+            lower_row is None
+            or lower_row.request_id != request_id
+            or lower_row.target_tier != 2
+            or lower_row.manifest_sha256 != lower_ref.get("sha256")
+        ):
+            raise ValueError(
+                "Accepted Tier 2 extension reference is invalid"
+            )
+        lower_contracts = Tier2ExtensionContracts.model_validate(
+            load_json_object(lower_row.manifest_json)
+        )
+        lower_refs = lower_contracts.page_purpose.contract_refs
+        design_summary = {
+            "status": "design_contract_ready",
+            "design_artifact_refs": {
+                "product_strategy_v2": (
+                    lower_refs.product_strategy_v2_ref.model_dump(
+                        mode="json"
+                    )
+                ),
+                "information_architecture": (
+                    lower_refs.information_architecture_ref.model_dump(
+                        mode="json"
+                    )
+                ),
+                "design_dna": lower_refs.design_dna_ref.model_dump(
+                    mode="json"
+                ),
+            },
+        }
+        composition = load_composition_context(
+            db,
+            request_id=request_id,
+            phase2_result={"preview_contract": design_summary},
+        )
+        legacy_refs = CandidateUpstreamRefs(
+            request_id=request_id,
+            target_tier=2,
+            composition_contract_refs=lower_refs,
+            page_purpose_ref={
+                "id": lower_row.orchestration_attempt_id,
+                "artifact_kind": "page_purpose_contract",
+                "schema_version": lower_contracts.page_purpose.schema_version,
+                "sha256": lower_contracts.page_purpose_sha256,
+            },
+            business_component_plan_ref={
+                "id": lower_row.orchestration_attempt_id,
+                "artifact_kind": "business_component_plan",
+                "schema_version": (
+                    lower_contracts.business_components.schema_version
+                ),
+                "sha256": lower_contracts.business_components_sha256,
+            },
+            content_data_plan_ref={
+                "id": lower_row.orchestration_attempt_id,
+                "artifact_kind": "content_data_plan",
+                "schema_version": lower_contracts.content_data.schema_version,
+                "sha256": lower_contracts.content_data_sha256,
+            },
+            interaction_contract_ref={
+                "id": lower_row.orchestration_attempt_id,
+                "artifact_kind": "interaction_contract",
+                "schema_version": lower_contracts.interactions.schema_version,
+                "sha256": lower_contracts.interactions_sha256,
+            },
+            component_dependency_graph_ref={
+                "id": lower_row.orchestration_attempt_id,
+                "artifact_kind": "component_dependency_graph",
+                "schema_version": (
+                    lower_contracts.dependency_graph.schema_version
+                ),
+                "sha256": lower_contracts.dependency_graph_sha256,
+            },
+        )
+        legacy = CandidateContext(
+            composition=composition,
+            refs=legacy_refs,
+            page_purpose=lower_contracts.page_purpose,
+            business_components=lower_contracts.business_components,
+            content_data=lower_contracts.content_data,
+            interactions=lower_contracts.interactions,
+            dependency_graph=lower_contracts.dependency_graph,
+            rows=(),
+        )
+    else:
+        legacy_summary["target_tier"] = 1
+        legacy_summary["status"] = "composition_contract_ready"
+        legacy = load_candidate_context(
+            db,
+            request_id=request_id,
+            phase3a_result={"preview_contract": legacy_summary},
+        )
     cumulative_pages = {
         page.page_id: page for page in contracts.page_purpose.pages
     }
@@ -358,10 +570,13 @@ def _load_tier_2_candidate_context(
             for item in legacy.dependency_graph.edges
         )
     ):
-        raise ValueError("Tier 2 extension changed inherited Tier 1 truth")
+        raise ValueError(
+            f"Tier {target_tier} extension changed inherited "
+            f"Tier {target_tier - 1} truth"
+        )
     refs = CandidateUpstreamRefs(
         request_id=request_id,
-        target_tier=2,
+        target_tier=target_tier,
         composition_contract_refs=contracts.page_purpose.contract_refs,
         page_purpose_ref={
             "id": row.orchestration_attempt_id,
@@ -406,4 +621,8 @@ def _load_tier_2_candidate_context(
     )
 
 
-__all__ = ["CandidateContext", "load_candidate_context"]
+__all__ = [
+    "CandidateContext",
+    "load_candidate_context",
+    "load_tier_2_extension_context",
+]

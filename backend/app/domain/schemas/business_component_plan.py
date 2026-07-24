@@ -33,7 +33,7 @@ class BusinessComponent(StrictDesignModel):
     page_ids: Tuple[Identifier, ...] = Field(min_length=1, max_length=100)
     role_ids: Tuple[Identifier, ...] = Field(min_length=1, max_length=20)
     requirement_ids: Tuple[Identifier, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=100,
     )
     entity_ids: Tuple[Identifier, ...] = Field(default=(), max_length=50)

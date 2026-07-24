@@ -1,4 +1,4 @@
-"""Append-only Phase 6A Tier 2 orchestration records.
+"""Append-only Phase 6 cumulative tier orchestration records.
 
 These rows link existing Phase 3B/4/5 artifacts; they never duplicate build,
 browser, screenshot, critic, or refinement internals.
@@ -44,6 +44,28 @@ class _TierLineageColumns:
         nullable=False,
         index=True,
     )
+    accepted_tier_2_revision_id = Column(
+        Integer,
+        ForeignKey("candidate_revisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    accepted_tier_2_visual_summary_id = Column(
+        Integer,
+        ForeignKey("candidate_visual_summaries.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    accepted_tier_2_effective_summary_id = Column(
+        Integer,
+        ForeignKey("candidate_effective_tier_summaries.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    lower_tier_effective_summary_sha256 = Column(
+        String(64),
+        nullable=True,
+    )
     target_tier = Column(Integer, nullable=False, default=2)
     tier_closure_sha256 = Column(String(64), nullable=False, index=True)
     delta_sha256 = Column(String(64), nullable=False, index=True)
@@ -63,7 +85,10 @@ class _TierLineageColumns:
 class CandidateTierOrchestrationAttemptRecord(Base):
     __tablename__ = "candidate_tier_orchestration_attempts"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_tier_attempt_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_tier_attempt_target",
+        ),
         CheckConstraint(
             "status IN ('started','succeeded','failed')",
             name="ck_tier_attempt_status",
@@ -101,6 +126,25 @@ class CandidateTierOrchestrationAttemptRecord(Base):
         nullable=False,
         index=True,
     )
+    accepted_tier_2_revision_id = Column(
+        Integer,
+        ForeignKey("candidate_revisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    accepted_tier_2_visual_summary_id = Column(
+        Integer,
+        ForeignKey("candidate_visual_summaries.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    accepted_tier_2_effective_summary_id = Column(
+        Integer,
+        ForeignKey("candidate_effective_tier_summaries.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    lower_tier_effective_summary_sha256 = Column(String(64), nullable=True)
     target_tier = Column(Integer, nullable=False, default=2)
     tier_closure_sha256 = Column(String(64), nullable=False, index=True)
     delta_sha256 = Column(String(64), nullable=False, index=True)
@@ -111,6 +155,8 @@ class CandidateTierOrchestrationAttemptRecord(Base):
     upstream_refs_sha256 = Column(String(64), nullable=False)
     budget_json = Column(Text, nullable=False)
     budget_sha256 = Column(String(64), nullable=False)
+    visual_call_plan_json = Column(Text, nullable=True)
+    visual_call_plan_sha256 = Column(String(64), nullable=True)
     staging_workspace_relpath = Column(String(500), nullable=True)
     status = Column(String(16), nullable=False, default="started")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -119,7 +165,10 @@ class CandidateTierOrchestrationAttemptRecord(Base):
 class CandidateTierExtensionManifestRecord(_TierLineageColumns, Base):
     __tablename__ = "candidate_tier_extension_manifests"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_tier_manifest_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_tier_manifest_target",
+        ),
         UniqueConstraint(
             "orchestration_attempt_id",
             name="uq_tier_manifest_attempt",
@@ -137,7 +186,10 @@ class CandidateTierExtensionManifestRecord(_TierLineageColumns, Base):
 class CandidateLowerTierPreservationAuditRecord(_TierLineageColumns, Base):
     __tablename__ = "candidate_lower_tier_preservation_audits"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_tier_audit_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_tier_audit_target",
+        ),
         UniqueConstraint(
             "orchestration_attempt_id",
             name="uq_tier_audit_attempt",
@@ -156,7 +208,10 @@ class CandidateLowerTierPreservationAuditRecord(_TierLineageColumns, Base):
 class CandidateTierGenerationResultRecord(_TierLineageColumns, Base):
     __tablename__ = "candidate_tier_generation_results"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_tier_generation_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_tier_generation_target",
+        ),
         UniqueConstraint(
             "orchestration_attempt_id",
             name="uq_tier_generation_attempt",
@@ -188,7 +243,10 @@ class CandidateTierGenerationResultRecord(_TierLineageColumns, Base):
 class CandidateTierValidationResultRecord(_TierLineageColumns, Base):
     __tablename__ = "candidate_tier_validation_results"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_tier_validation_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_tier_validation_target",
+        ),
         UniqueConstraint(
             "orchestration_attempt_id",
             name="uq_tier_validation_attempt",
@@ -222,7 +280,10 @@ class CandidateTierValidationResultRecord(_TierLineageColumns, Base):
 class CandidateTierVisualOutcomeRecord(_TierLineageColumns, Base):
     __tablename__ = "candidate_tier_visual_outcomes"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_tier_visual_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_tier_visual_target",
+        ),
         UniqueConstraint(
             "orchestration_attempt_id",
             name="uq_tier_visual_attempt",
@@ -266,14 +327,18 @@ class CandidateTierVisualOutcomeRecord(_TierLineageColumns, Base):
 class CandidateEffectiveTierSummaryRecord(_TierLineageColumns, Base):
     __tablename__ = "candidate_effective_tier_summaries"
     __table_args__ = (
-        CheckConstraint("target_tier = 2", name="ck_effective_tier_target"),
+        CheckConstraint(
+            "target_tier IN (2, 3)",
+            name="ck_effective_tier_target",
+        ),
         CheckConstraint(
             "status IN "
-            "('tier_2_accepted','tier_2_failed_serving_tier_1')",
+            "('tier_2_accepted','tier_2_failed_serving_tier_1',"
+            "'tier_3_accepted','tier_3_failed_serving_tier_2')",
             name="ck_effective_tier_status",
         ),
         CheckConstraint(
-            "highest_accepted_tier IN (1, 2)",
+            "highest_accepted_tier IN (1, 2, 3)",
             name="ck_highest_accepted_tier",
         ),
         UniqueConstraint(

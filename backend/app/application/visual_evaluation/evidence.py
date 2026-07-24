@@ -109,6 +109,7 @@ def _group_by_route(
     *,
     critic: ModelCapabilityResolution,
     reviewer: ModelCapabilityResolution,
+    forced_page_groups: tuple[tuple[str, ...], ...] | None = None,
 ) -> tuple[ImageBundleGroup, ...]:
     max_images = min(critic.max_images, reviewer.max_images)
     max_image_bytes = min(
@@ -131,6 +132,54 @@ def _group_by_route(
             by_page.append((item.page_id, [item]))
         else:
             by_page[-1][1].append(item)
+    if forced_page_groups is not None:
+        page_map = dict(by_page)
+        flattened = tuple(
+            page_id for group in forced_page_groups for page_id in group
+        )
+        if (
+            flattened != tuple(page_id for page_id, _items in by_page)
+            or len(flattened) != len(set(flattened))
+        ):
+            raise ValueError(
+                "Forced visual grouping does not match canonical page order"
+            )
+        groups = []
+        for index, page_ids in enumerate(forced_page_groups):
+            pending = tuple(
+                item for page_id in page_ids for item in page_map[page_id]
+            )
+            byte_count = sum(item.byte_count for item in pending)
+            if (
+                len(pending) > max_images
+                or byte_count > max_aggregate
+                or any(item.byte_count > max_image_bytes for item in pending)
+            ):
+                raise ValueError(
+                    "Forced visual group exceeds base model capability"
+                )
+            groups.append(
+                ImageBundleGroup(
+                    group_index=index,
+                    page_ids=page_ids,
+                    evidence_ids=tuple(
+                        item.evidence_id for item in pending
+                    ),
+                    image_count=len(pending),
+                    aggregate_image_bytes=byte_count,
+                    group_sha256=canonical_sha256(
+                        [
+                            {
+                                "evidence_id": item.evidence_id,
+                                "sha256": item.sha256,
+                                "byte_count": item.byte_count,
+                            }
+                            for item in pending
+                        ]
+                    ),
+                )
+            )
+        return tuple(groups)
     groups: list[ImageBundleGroup] = []
     pending_pages: list[str] = []
     pending: list[ScreenshotVisualEvidence] = []
@@ -186,6 +235,7 @@ def build_evidence_bundle(
     critic_capability: ModelCapabilityResolution,
     reviewer_capability: ModelCapabilityResolution,
     page_ids: tuple[str, ...] | None = None,
+    forced_page_groups: tuple[tuple[str, ...], ...] | None = None,
 ) -> VisualEvidenceBundle:
     viewport_map = {item.name: item for item in VIEWPORTS}
     inspected = []
@@ -241,6 +291,7 @@ def build_evidence_bundle(
         ordered,
         critic=critic_capability,
         reviewer=reviewer_capability,
+        forced_page_groups=forced_page_groups,
     )
     cache_payload = {
         "refs": context.refs.model_dump(mode="json"),

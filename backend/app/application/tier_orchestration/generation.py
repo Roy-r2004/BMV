@@ -45,6 +45,8 @@ from app.application.prompts import PromptTemplate
 from app.application.tier_orchestration.policy import (
     tier_2_generation_policy,
     tier_2_static_repair_policy,
+    tier_3_generation_policy,
+    tier_3_static_repair_policy,
 )
 from app.application.tier_orchestration.preservation import (
     finalize_preservation_audit,
@@ -71,6 +73,8 @@ from app.domain.schemas.preview_candidate import (
 from app.domain.schemas.tier_orchestration import (
     Tier2ExtensionContracts,
     Tier2PreservationManifest,
+    Tier3ExtensionContracts,
+    Tier3PreservationManifest,
 )
 
 
@@ -79,20 +83,84 @@ class BuiltTier2Candidate:
     candidate: CandidateRevisionRecord
     summary: dict
     context: CandidateContext
-    preservation: Tier2PreservationManifest
+    preservation: Tier2PreservationManifest | Tier3PreservationManifest
     validation_report: object
     metrics: tuple[CandidateStageMetrics, ...]
     resumed: bool
     generation_cache_hits: int
 
 
-def _metric(stage: str, started: float) -> CandidateStageMetrics:
+BuiltTier3Candidate = BuiltTier2Candidate
+
+
+@dataclass(frozen=True)
+class _TierGenerationProfile:
+    target_tier: int
+    policy_revision: str
+    component_model: str
+    page_model: str
+    repair_model: str
+    component_prompt_revision: str
+    page_prompt_revision: str
+    max_output_tokens: int
+    max_cost_usd: float
+    max_calls: int
+    max_wall_seconds: int
+    component_prompt: PromptTemplate
+    page_prompt: PromptTemplate
+
+
+def _generation_profile(target_tier: int) -> _TierGenerationProfile:
+    if target_tier == 2:
+        return _TierGenerationProfile(
+            target_tier=2,
+            policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+            component_model=settings.V2_TIER2_COMPONENT_MODEL,
+            page_model=settings.V2_TIER2_PAGE_MODEL,
+            repair_model=settings.V2_TIER2_REPAIR_MODEL,
+            component_prompt_revision=(
+                settings.V2_TIER2_COMPONENT_PROMPT_REVISION
+            ),
+            page_prompt_revision=settings.V2_TIER2_PAGE_PROMPT_REVISION,
+            max_output_tokens=settings.V2_TIER2_MAX_OUTPUT_TOKENS,
+            max_cost_usd=settings.V2_TIER2_MAX_COST_USD,
+            max_calls=settings.V2_TIER2_MAX_CALLS,
+            max_wall_seconds=settings.V2_TIER2_MAX_WALL_SECONDS,
+            component_prompt=PromptTemplate.V2_TIER2_COMPONENTS,
+            page_prompt=PromptTemplate.V2_TIER2_PAGES,
+        )
+    if target_tier == 3:
+        return _TierGenerationProfile(
+            target_tier=3,
+            policy_revision=settings.V2_TIER3_GENERATION_POLICY_REVISION,
+            component_model=settings.V2_TIER3_COMPONENT_MODEL,
+            page_model=settings.V2_TIER3_PAGE_MODEL,
+            repair_model=settings.V2_TIER3_REPAIR_MODEL,
+            component_prompt_revision=(
+                settings.V2_TIER3_COMPONENT_PROMPT_REVISION
+            ),
+            page_prompt_revision=settings.V2_TIER3_PAGE_PROMPT_REVISION,
+            max_output_tokens=settings.V2_TIER3_MAX_OUTPUT_TOKENS,
+            max_cost_usd=settings.V2_TIER3_MAX_COST_USD,
+            max_calls=settings.V2_TIER3_MAX_CALLS,
+            max_wall_seconds=settings.V2_TIER3_MAX_WALL_SECONDS,
+            component_prompt=PromptTemplate.V2_TIER3_COMPONENTS,
+            page_prompt=PromptTemplate.V2_TIER3_PAGES,
+        )
+    raise ValueError("Cumulative generation target must be Tier 2 or Tier 3")
+
+
+def _metric(
+    stage: str,
+    started: float,
+    profile: _TierGenerationProfile,
+) -> CandidateStageMetrics:
     return CandidateStageMetrics(
         stage=stage,
         effective_model="deterministic",
         provider="deterministic",
         model_family="deterministic",
-        prompt_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+        prompt_revision=profile.policy_revision,
         cache_hit=False,
         provider_call_count=0,
         repair_call_count=0,
@@ -229,7 +297,7 @@ def _delta_batch_from_full(
     )
     if not files:
         raise Tier2GenerationContractError(
-            f"Tier 2 {kind} repair has no delta-owned files"
+            f"Cumulative {kind} repair has no delta-owned files"
         )
     return GeneratedCandidateBatch(batch_kind=kind, files=files)
 
@@ -258,13 +326,17 @@ def _repair_issues(report, *, stage: str, owner_ids: set[str]):
     )
 
 
-def _cache_key(stage: str, payload: dict) -> str:
+def _cache_key(
+    stage: str,
+    payload: dict,
+    profile: _TierGenerationProfile,
+) -> str:
     return canonical_sha256(
         {
             "stage": stage,
             "schema_version": "1.0",
             "generation_policy_revision": (
-                settings.V2_TIER2_GENERATION_POLICY_REVISION
+                profile.policy_revision
             ),
             **payload,
         }
@@ -278,9 +350,10 @@ def _stage_provenance(payload: dict) -> str:
 def _prompt_inputs(
     context: CandidateContext,
     *,
-    contracts: Tier2ExtensionContracts,
+    contracts: Tier2ExtensionContracts | Tier3ExtensionContracts,
     accepted_sources: tuple[CandidateSourceFile, ...],
-    preservation: Tier2PreservationManifest,
+    preservation: Tier2PreservationManifest | Tier3PreservationManifest,
+    profile: _TierGenerationProfile,
     stage: str,
     component_delta: GeneratedCandidateBatch | None,
 ) -> dict:
@@ -299,7 +372,7 @@ def _prompt_inputs(
     new_component_ids = tuple(
         item.component_id
         for item in context.business_components.components
-        if item.component_id.startswith("COMP-T2-")
+        if item.component_id.startswith(f"COMP-T{profile.target_tier}-")
     )
     allowed_new = (
         tuple(
@@ -317,10 +390,8 @@ def _prompt_inputs(
         for item in accepted_sources
         if item.path.startswith("src/")
     }
-    return {
-        "target_tier": 2,
-        "tier_2_delta": contracts.projection.delta.model_dump(mode="json"),
-        "tier_2_projection": contracts.projection.model_dump(mode="json"),
+    payload = {
+        "target_tier": profile.target_tier,
         "page_purpose_contract": context.page_purpose.model_dump(mode="json"),
         "business_component_plan": context.business_components.model_dump(
             mode="json"
@@ -332,32 +403,68 @@ def _prompt_inputs(
         ),
         "allowed_new_paths": allowed_new,
         "allowed_ai_edit_paths": allowed_edits,
-        "accepted_tier_1_readonly_sources": readonly,
-        "generated_tier_2_components": (
-            component_delta.model_dump(mode="json")
-            if component_delta
-            else None
-        ),
     }
+    if profile.target_tier == 2:
+        payload.update(
+            {
+                "tier_2_delta": (
+                    contracts.projection.delta.model_dump(mode="json")
+                ),
+                "tier_2_projection": (
+                    contracts.projection.model_dump(mode="json")
+                ),
+                "accepted_tier_1_readonly_sources": readonly,
+                "generated_tier_2_components": (
+                    component_delta.model_dump(mode="json")
+                    if component_delta
+                    else None
+                ),
+            }
+        )
+    else:
+        payload.update(
+            {
+                "tier_delta": (
+                    contracts.projection.delta.model_dump(mode="json")
+                ),
+                "tier_projection": (
+                    contracts.projection.model_dump(mode="json")
+                ),
+                "accepted_lower_tier_readonly_sources": readonly,
+                "generated_tier_components": (
+                    component_delta.model_dump(mode="json")
+                    if component_delta
+                    else None
+                ),
+            }
+        )
+    return payload
 
 
-def build_tier_2_candidate(
+def _build_tier_candidate(
     db,
     *,
     req: Request,
     accepted: CandidateRevisionRecord,
     accepted_workspace: Path,
     inherited_context: CandidateContext,
-    contracts: Tier2ExtensionContracts,
+    contracts: Tier2ExtensionContracts | Tier3ExtensionContracts,
     refs: CandidateUpstreamRefs,
-    preservation: Tier2PreservationManifest,
+    preservation: Tier2PreservationManifest | Tier3PreservationManifest,
     extension_manifest_ref: dict,
     ai_provider,
     template_renderer,
     phase5_summary: dict,
     phase_deadline: float,
+    profile: _TierGenerationProfile,
 ) -> BuiltTier2Candidate:
     started = time.monotonic()
+    target_label = f"Tier {profile.target_tier}"
+    closure_sha = (
+        contracts.projection.tier_3_closure_sha256
+        if profile.target_tier == 3
+        else contracts.projection.tier_2_closure_sha256
+    )
     repository = CandidateRepository(db)
     accepted_rows = _artifact_rows(db, accepted)
     accepted_sources = _accepted_sources(accepted_workspace, accepted_rows)
@@ -368,19 +475,17 @@ def build_tier_2_candidate(
             "tier_1_visual_summary_id": (
                 contracts.projection.accepted_tier_1_visual_summary_id
             ),
-            "tier_2_closure_sha256": (
-                contracts.projection.tier_2_closure_sha256
-            ),
+            "tier_closure_sha256": closure_sha,
             "delta_sha256": contracts.projection.delta_sha256,
             "extension_manifest_ref": extension_manifest_ref,
             "preservation_sha256": preservation.manifest_sha256,
             "dependency_lock_sha256": accepted.dependency_lock_sha256,
             "generation_policy_revision": (
-                settings.V2_TIER2_GENERATION_POLICY_REVISION
+                profile.policy_revision
             ),
-            "component_model": settings.V2_TIER2_COMPONENT_MODEL,
-            "page_model": settings.V2_TIER2_PAGE_MODEL,
-            "repair_model": settings.V2_TIER2_REPAIR_MODEL,
+            "component_model": profile.component_model,
+            "page_model": profile.page_model,
+            "repair_model": profile.repair_model,
             "repair_prompt_revision": (
                 settings.V2_CANDIDATE_REPAIR_PROMPT_REVISION
             ),
@@ -389,21 +494,21 @@ def build_tier_2_candidate(
                 settings.V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS
             ),
             "component_prompt_revision": (
-                settings.V2_TIER2_COMPONENT_PROMPT_REVISION
+                profile.component_prompt_revision
             ),
-            "page_prompt_revision": settings.V2_TIER2_PAGE_PROMPT_REVISION,
+            "page_prompt_revision": profile.page_prompt_revision,
             "budget": {
-                "calls": settings.V2_TIER2_MAX_CALLS,
-                "tokens": settings.V2_TIER2_MAX_OUTPUT_TOKENS,
-                "cost": settings.V2_TIER2_MAX_COST_USD,
-                "wall": settings.V2_TIER2_MAX_WALL_SECONDS,
+                "calls": profile.max_calls,
+                "tokens": profile.max_output_tokens,
+                "cost": profile.max_cost_usd,
+                "wall": profile.max_wall_seconds,
             },
         }
     )
     workspace = open_candidate_workspace(
         request_id=req.id,
         upstream_sha256=upstream,
-        policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+        policy_revision=profile.policy_revision,
     )
     if not workspace.resumed:
         shutil.copytree(
@@ -427,7 +532,7 @@ def build_tier_2_candidate(
     )
     completed: dict[str, str] = {}
     metrics: list[CandidateStageMetrics] = []
-    foundation_metric = _metric("foundation", started)
+    foundation_metric = _metric("foundation", started, profile)
     metrics.append(foundation_metric)
     foundation_row = accepted_rows[0]
 
@@ -451,7 +556,7 @@ def build_tier_2_candidate(
         "delta": contracts.projection.delta_sha256,
         "dependency_lock": accepted.dependency_lock_sha256,
     }
-    data_cache = _cache_key("data_exports", data_inputs)
+    data_cache = _cache_key("data_exports", data_inputs, profile)
     data_provenance = _stage_provenance(data_inputs)
     data_manifest = source_manifest(
         artifact_kind="data_exports",
@@ -463,7 +568,7 @@ def build_tier_2_candidate(
         artifact_kind="data_exports",
         cache_key=data_cache,
     )
-    data_metric = _metric("data_exports", started)
+    data_metric = _metric("data_exports", started, profile)
     if data_row is not None:
         cached = repository.load_cached(
             data_row,
@@ -473,7 +578,7 @@ def build_tier_2_candidate(
             parent_artifact_id=foundation_row.id,
         )
         if cached != data_manifest:
-            raise ValueError("Tier 2 data cache is inconsistent")
+            raise ValueError(f"{target_label} data cache is inconsistent")
         data_metric = candidate_cache_hit_metrics(
             data_row,
             latency_ms=data_metric.latency_ms,
@@ -488,7 +593,7 @@ def build_tier_2_candidate(
             parent_artifact_id=foundation_row.id,
             validation={"passed": True, "deterministic": True},
             validation_passed=True,
-            policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+            policy_revision=profile.policy_revision,
         )
     metrics.append(data_metric)
     write_sources(workspace, data_sources)
@@ -509,7 +614,11 @@ def build_tier_2_candidate(
         for item in cumulative_context.business_components.components
         if item.component_id not in inherited_component_ids
     )
-    component_policy = tier_2_generation_policy("business_components")
+    component_policy = (
+        tier_3_generation_policy("business_components")
+        if profile.target_tier == 3
+        else tier_2_generation_policy("business_components")
+    )
     component_inputs = {
         "accepted_revision": accepted.id,
         "accepted_manifest": accepted.file_manifest_sha256,
@@ -521,7 +630,11 @@ def build_tier_2_candidate(
         "max_tokens": component_policy.max_tokens,
         "dependency_lock": accepted.dependency_lock_sha256,
     }
-    component_cache = _cache_key("business_components", component_inputs)
+    component_cache = _cache_key(
+        "business_components",
+        component_inputs,
+        profile,
+    )
     component_provenance = _stage_provenance(component_inputs)
     component_row = repository.find_cache(
         request_id=req.id,
@@ -545,7 +658,7 @@ def build_tier_2_candidate(
         built = build_ai_batch(
             request_id=req.id,
             policy=component_policy,
-            prompt_template=PromptTemplate.V2_TIER2_COMPONENTS,
+            prompt_template=profile.component_prompt,
             prompt_values={
                 "candidate_inputs_json": canonical_json(
                     _prompt_inputs(
@@ -553,6 +666,7 @@ def build_tier_2_candidate(
                         contracts=contracts,
                         accepted_sources=accepted_sources,
                         preservation=preservation,
+                        profile=profile,
                         stage="business_components",
                         component_delta=None,
                     )
@@ -589,9 +703,15 @@ def build_tier_2_candidate(
                 "full_product_regeneration": False,
             },
             validation_passed=True,
-            policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+            policy_revision=profile.policy_revision,
         )
     metrics.append(component_metric)
+    if component_delta is None:
+        component_delta = _delta_batch_from_full(
+            kind="business_components",
+            full=component_full,
+            accepted_sources=accepted_sources,
+        )
     component_sources = batch_sources(component_full)
     accepted_source_text = {
         item.path: item.source for item in accepted_sources
@@ -609,10 +729,14 @@ def build_tier_2_candidate(
             item.path: sha256_text(item.source)
             for item in (*data_sources, *component_writes)
         },
-        policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+        policy_revision=profile.policy_revision,
     )
 
-    page_policy = tier_2_generation_policy("pages")
+    page_policy = (
+        tier_3_generation_policy("pages")
+        if profile.target_tier == 3
+        else tier_2_generation_policy("pages")
+    )
     page_inputs = {
         **component_inputs,
         "component_artifact": component_row.artifact_sha256,
@@ -621,7 +745,7 @@ def build_tier_2_candidate(
         "prompt": page_policy.prompt_revision,
         "max_tokens": page_policy.max_tokens,
     }
-    page_cache = _cache_key("pages", page_inputs)
+    page_cache = _cache_key("pages", page_inputs, profile)
     page_provenance = _stage_provenance(page_inputs)
     page_row = repository.find_cache(
         request_id=req.id,
@@ -644,7 +768,7 @@ def build_tier_2_candidate(
         built = build_ai_batch(
             request_id=req.id,
             policy=page_policy,
-            prompt_template=PromptTemplate.V2_TIER2_PAGES,
+            prompt_template=profile.page_prompt,
             prompt_values={
                 "candidate_inputs_json": canonical_json(
                     _prompt_inputs(
@@ -652,6 +776,7 @@ def build_tier_2_candidate(
                         contracts=contracts,
                         accepted_sources=accepted_sources,
                         preservation=preservation,
+                        profile=profile,
                         stage="pages",
                         component_delta=component_delta,
                     )
@@ -691,7 +816,7 @@ def build_tier_2_candidate(
                 "full_product_regeneration": False,
             },
             validation_passed=True,
-            policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+            policy_revision=profile.policy_revision,
         )
     metrics.append(page_metric)
     page_sources = batch_sources(page_full)
@@ -727,7 +852,11 @@ def build_tier_2_candidate(
         route_sources=route_sources,
     )
     if not report.passed:
-        repair_policy = tier_2_static_repair_policy()
+        repair_policy = (
+            tier_3_static_repair_policy()
+            if profile.target_tier == 3
+            else tier_2_static_repair_policy()
+        )
         component_issues = _repair_issues(
             report,
             stage="business_components",
@@ -746,7 +875,8 @@ def build_tier_2_candidate(
         )
         if not component_issues and not page_issues:
             raise Tier2GenerationContractError(
-                "Cumulative Tier 1+2 static validation failed outside "
+                f"Cumulative Tier 1..{profile.target_tier} static "
+                "validation failed outside "
                 "the narrow AI repair scope",
                 diagnostics=tuple(
                     canonical_json(item.model_dump(mode="json"))
@@ -754,7 +884,7 @@ def build_tier_2_candidate(
                 ),
             )
         canonical_bindings = {
-            "tier_2_projection": contracts.projection.model_dump(mode="json"),
+            "tier_projection": contracts.projection.model_dump(mode="json"),
             "page_purpose_contract": (
                 cumulative_context.page_purpose.model_dump(mode="json")
             ),
@@ -775,7 +905,8 @@ def build_tier_2_candidate(
         if component_issues:
             if component_metric.cache_hit:
                 raise Tier2GenerationContractError(
-                    "A cached Tier 2 component batch failed static validation"
+                    f"A cached {target_label} component batch failed "
+                    "static validation"
                 )
             component_diagnostics = tuple(
                 canonical_json(item.model_dump(mode="json"))
@@ -792,6 +923,7 @@ def build_tier_2_candidate(
             component_repair_cache = _cache_key(
                 "business_components_repair",
                 component_repair_inputs,
+                profile,
             )
             component_repair_provenance = _stage_provenance(
                 component_repair_inputs
@@ -866,7 +998,7 @@ def build_tier_2_candidate(
                     },
                     validation_passed=True,
                     policy_revision=(
-                        settings.V2_TIER2_GENERATION_POLICY_REVISION
+                        profile.policy_revision
                     ),
                 )
             component_repaired = True
@@ -883,7 +1015,8 @@ def build_tier_2_candidate(
         if page_issues:
             if page_metric.cache_hit:
                 raise Tier2GenerationContractError(
-                    "A cached Tier 2 page batch failed static validation"
+                    f"A cached {target_label} page batch failed static "
+                    "validation"
                 )
             page_diagnostics = tuple(
                 canonical_json(item.model_dump(mode="json"))
@@ -901,6 +1034,7 @@ def build_tier_2_candidate(
             page_repair_cache = _cache_key(
                 "pages_repair",
                 page_repair_inputs,
+                profile,
             )
             page_repair_provenance = _stage_provenance(page_repair_inputs)
             repaired_page_row = repository.find_cache(
@@ -973,7 +1107,7 @@ def build_tier_2_candidate(
                     },
                     validation_passed=True,
                     policy_revision=(
-                        settings.V2_TIER2_GENERATION_POLICY_REVISION
+                        profile.policy_revision
                     ),
                 )
             metrics[3] = page_metric
@@ -1004,7 +1138,11 @@ def build_tier_2_candidate(
                 artifact=page_full,
                 refs=refs,
                 provenance_sha256=_stage_provenance(relink_inputs),
-                cache_key=_cache_key("pages_relink", relink_inputs),
+                cache_key=_cache_key(
+                    "pages_relink",
+                    relink_inputs,
+                    profile,
+                ),
                 metrics=relink_metric,
                 parent_artifact_id=component_row.id,
                 validation={
@@ -1012,7 +1150,7 @@ def build_tier_2_candidate(
                     "deterministic_parent_relink": True,
                 },
                 validation_passed=True,
-                policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+                policy_revision=profile.policy_revision,
             )
         route_sources = build_route_sources(cumulative_context, page_sources)
         write_sources(workspace, route_sources)
@@ -1044,7 +1182,8 @@ def build_tier_2_candidate(
         )
         if not report.passed:
             raise Tier2GenerationContractError(
-                "Cumulative Tier 1+2 static validation failed after the "
+                f"Cumulative Tier 1..{profile.target_tier} static "
+                "validation failed after the "
                 "single narrow repair pass",
                 diagnostics=tuple(
                     canonical_json(item.model_dump(mode="json"))
@@ -1056,10 +1195,10 @@ def build_tier_2_candidate(
         "accepted_manifest": accepted.file_manifest_sha256,
         "page_artifact": page_row.artifact_sha256,
         "ia": refs.composition_contract_refs.information_architecture_ref.sha256,
-        "tier_2": contracts.projection.tier_2_closure_sha256,
+        "tier_closure": closure_sha,
         "dependency_lock": accepted.dependency_lock_sha256,
     }
-    route_cache = _cache_key("routes", route_inputs)
+    route_cache = _cache_key("routes", route_inputs, profile)
     route_provenance = _stage_provenance(route_inputs)
     route_manifest = source_manifest(
         artifact_kind="routes",
@@ -1071,7 +1210,7 @@ def build_tier_2_candidate(
         artifact_kind="routes",
         cache_key=route_cache,
     )
-    route_metric = _metric("routes", started)
+    route_metric = _metric("routes", started, profile)
     if route_row is not None:
         cached = repository.load_cached(
             route_row,
@@ -1081,7 +1220,7 @@ def build_tier_2_candidate(
             parent_artifact_id=page_row.id,
         )
         if cached != route_manifest:
-            raise ValueError("Tier 2 route cache is inconsistent")
+            raise ValueError(f"{target_label} route cache is inconsistent")
         route_metric = candidate_cache_hit_metrics(
             route_row,
             latency_ms=route_metric.latency_ms,
@@ -1096,7 +1235,7 @@ def build_tier_2_candidate(
             parent_artifact_id=page_row.id,
             validation={"passed": True, "deterministic": True},
             validation_passed=True,
-            policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+            policy_revision=profile.policy_revision,
         )
     metrics.append(route_metric)
     validation_inputs = {
@@ -1104,16 +1243,16 @@ def build_tier_2_candidate(
         "data": report.content_data_sha256,
         "routes": report.route_manifest_sha256,
         "preservation": preservation_final.manifest_sha256,
-        "policy": settings.V2_TIER2_GENERATION_POLICY_REVISION,
+        "policy": profile.policy_revision,
     }
-    validation_cache = _cache_key("validation", validation_inputs)
+    validation_cache = _cache_key("validation", validation_inputs, profile)
     validation_provenance = _stage_provenance(validation_inputs)
     validation_row = repository.find_cache(
         request_id=req.id,
         artifact_kind="validation",
         cache_key=validation_cache,
     )
-    validation_metric = _metric("validation", started)
+    validation_metric = _metric("validation", started, profile)
     if validation_row is not None:
         cached = repository.load_cached(
             validation_row,
@@ -1123,7 +1262,9 @@ def build_tier_2_candidate(
             parent_artifact_id=route_row.id,
         )
         if cached != report:
-            raise ValueError("Tier 2 static validation cache is inconsistent")
+            raise ValueError(
+                f"{target_label} static validation cache is inconsistent"
+            )
         validation_metric = candidate_cache_hit_metrics(
             validation_row,
             latency_ms=validation_metric.latency_ms,
@@ -1138,11 +1279,11 @@ def build_tier_2_candidate(
             parent_artifact_id=route_row.id,
             validation={
                 "passed": True,
-                "target_tier": 2,
-                "tier_1_regression_checks": True,
+                "target_tier": profile.target_tier,
+                "lower_tier_regression_checks": True,
             },
             validation_passed=True,
-            policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+            policy_revision=profile.policy_revision,
         )
     metrics.append(validation_metric)
     calls = sum(item.provider_call_count for item in metrics)
@@ -1150,28 +1291,39 @@ def build_tier_2_candidate(
     cost = sum(item.cost_usd for item in metrics)
     if (
         calls > 4
-        or tokens > settings.V2_TIER2_MAX_OUTPUT_TOKENS
-        or cost > settings.V2_TIER2_MAX_COST_USD
+        or tokens > profile.max_output_tokens
+        or cost > profile.max_cost_usd
         or time.monotonic() > phase_deadline
     ):
         raise Tier2GenerationContractError(
-            "Tier 2 generation exceeded aggregate limits"
+            f"{target_label} generation exceeded aggregate limits"
         )
     manifest = source_file_manifest(workspace.staging_path)
     final_path = freeze_candidate_workspace(workspace)
     phase_summary = dict(phase5_summary)
     phase_summary.update(
         {
-            "target_tier": 2,
+            "target_tier": profile.target_tier,
             "tier_extension_manifest_ref": extension_manifest_ref,
             "candidate_lifecycle": [
-                "tier_2_delta_projected",
+                f"tier_{profile.target_tier}_delta_projected",
                 "candidate_generated",
                 "candidate_build_pending",
             ],
             "candidate_resumed": workspace.resumed,
         }
     )
+    if profile.target_tier == 3:
+        lower_extension = phase5_summary.get(
+            "accepted_tier_2_extension_manifest_ref"
+        )
+        if not lower_extension:
+            raise Tier2GenerationContractError(
+                "Tier 3 generation is missing its Tier 2 extension lineage"
+            )
+        phase_summary["accepted_tier_2_extension_manifest_ref"] = (
+            lower_extension
+        )
     candidate, summary = repository.persist_revision(
         req=req,
         revision_uuid=workspace.revision_uuid,
@@ -1180,15 +1332,15 @@ def build_tier_2_candidate(
         dependency_lock_sha256=accepted.dependency_lock_sha256,
         model_manifest={
             "business_components": {
-                "model": settings.V2_TIER2_COMPONENT_MODEL,
-                "prompt_revision": settings.V2_TIER2_COMPONENT_PROMPT_REVISION,
+                "model": profile.component_model,
+                "prompt_revision": profile.component_prompt_revision,
             },
             "pages": {
-                "model": settings.V2_TIER2_PAGE_MODEL,
-                "prompt_revision": settings.V2_TIER2_PAGE_PROMPT_REVISION,
+                "model": profile.page_model,
+                "prompt_revision": profile.page_prompt_revision,
             },
             "repair": {
-                "model": settings.V2_TIER2_REPAIR_MODEL,
+                "model": profile.repair_model,
                 "invoked": any(
                     item.repair_call_count for item in metrics
                 ),
@@ -1207,9 +1359,13 @@ def build_tier_2_candidate(
         failure={},
         metrics=tuple(metrics),
         summary_base=phase_summary,
-        target_tier=2,
-        generator_version="v2-phase6a-tier2",
-        policy_revision=settings.V2_TIER2_GENERATION_POLICY_REVISION,
+        target_tier=profile.target_tier,
+        generator_version=(
+            "v2-phase6a-tier2"
+            if profile.target_tier == 2
+            else "v2-phase6b-tier3"
+        ),
+        policy_revision=profile.policy_revision,
         update_request_bundle=False,
     )
     db.commit()
@@ -1229,4 +1385,31 @@ def build_tier_2_candidate(
     )
 
 
-__all__ = ["BuiltTier2Candidate", "build_tier_2_candidate"]
+def build_tier_2_candidate(
+    db,
+    **kwargs,
+) -> BuiltTier2Candidate:
+    return _build_tier_candidate(
+        db,
+        **kwargs,
+        profile=_generation_profile(2),
+    )
+
+
+def build_tier_3_candidate(
+    db,
+    **kwargs,
+) -> BuiltTier3Candidate:
+    return _build_tier_candidate(
+        db,
+        **kwargs,
+        profile=_generation_profile(3),
+    )
+
+
+__all__ = [
+    "BuiltTier2Candidate",
+    "BuiltTier3Candidate",
+    "build_tier_2_candidate",
+    "build_tier_3_candidate",
+]

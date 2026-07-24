@@ -11,6 +11,8 @@ from app.domain.schemas.preview_candidate import GeneratedCandidateBatch
 from app.domain.schemas.tier_orchestration import (
     Tier2PreservationManifest,
     Tier2Projection,
+    Tier3PreservationManifest,
+    Tier3Projection,
 )
 
 
@@ -23,7 +25,7 @@ class Tier2GenerationContractError(ValueError):
 def validate_delta_batch(
     batch: GeneratedCandidateBatch,
     *,
-    projection: Tier2Projection,
+    projection: Tier2Projection | Tier3Projection,
     new_component_ids: tuple[str, ...],
     allowed_ai_edit_paths: tuple[str, ...],
     existing_paths: tuple[str, ...],
@@ -88,8 +90,8 @@ def validate_delta_batch(
 
 def verify_preservation_after_generation(
     *,
-    initial: Tier2PreservationManifest,
-    final: Tier2PreservationManifest,
+    initial: Tier2PreservationManifest | Tier3PreservationManifest,
+    final: Tier2PreservationManifest | Tier3PreservationManifest,
 ) -> None:
     before = {item.path: item for item in initial.entries}
     after = {item.path: item for item in final.entries}

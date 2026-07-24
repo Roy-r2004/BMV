@@ -39,6 +39,8 @@ from app.domain.schemas.preview_candidate import CandidateUpstreamRefs
 from app.domain.schemas.tier_orchestration import (
     Tier2ExtensionContracts,
     Tier2Projection,
+    Tier3ExtensionContracts,
+    Tier3Projection,
     TierReferenceDelta,
 )
 
@@ -146,6 +148,111 @@ def project_tier_2_delta(
     )
 
 
+def project_tier_3_delta(
+    context: CompositionContext,
+    *,
+    accepted_tier_1_revision_id: int,
+    accepted_tier_1_visual_summary_id: int,
+    accepted_tier_2_revision_id: int,
+    accepted_tier_2_manifest_sha256: str,
+    accepted_tier_2_visual_summary_id: int,
+    accepted_tier_2_effective_summary_id: int,
+    accepted_tier_2_effective_summary_sha256: str,
+) -> Tier3Projection:
+    lower = context.tiers[1]
+    upper = context.tiers[2]
+    fields = type(upper.references).model_fields
+    delta = TierReferenceDelta(
+        **{
+            name: _ordered_delta(
+                getattr(upper.references, name),
+                getattr(lower.references, name),
+            )
+            for name in fields
+        }
+    )
+    delta_sha = canonical_sha256(delta)
+    lower_pages = set(lower.references.page_ids)
+    delta_ids = (
+        set(delta.requirement_ids)
+        | set(delta.action_ids)
+        | set(delta.evidence_ids)
+        | set(delta.state_ids)
+    )
+    integration_page_ids: list[str] = []
+    reasons: list[str] = []
+    trace = {
+        item.requirement_id: item for item in context.app_spec.traceability
+    }
+    for page in context.app_spec.pages:
+        if page.id not in lower_pages:
+            continue
+        linked = (
+            set(page.action_ids)
+            | set(page.evidence_ids)
+            | set(page.state_ids)
+            | {
+                requirement_id
+                for requirement_id, item in trace.items()
+                if page.id in item.page_ids
+            }
+        )
+        if linked & delta_ids:
+            integration_page_ids.append(page.id)
+            reasons.append(
+                "Tier 3 canonical closure adds behavior or evidence to "
+                f"accepted Tier 2 page {page.id}."
+            )
+    inherited = tuple(
+        item
+        for name in fields
+        for item in getattr(lower.references, name)
+        if (
+            name != "page_ids"
+            or item in integration_page_ids
+            or item == context.tiers[0].primary_journey_proof.page_ids[0]
+        )
+    )
+    return Tier3Projection(
+        request_id=context.refs.request_id,
+        accepted_tier_1_revision_id=accepted_tier_1_revision_id,
+        accepted_tier_1_visual_summary_id=accepted_tier_1_visual_summary_id,
+        accepted_tier_2_revision_id=accepted_tier_2_revision_id,
+        accepted_tier_2_manifest_sha256=accepted_tier_2_manifest_sha256,
+        accepted_tier_2_visual_summary_id=accepted_tier_2_visual_summary_id,
+        accepted_tier_2_effective_summary_id=(
+            accepted_tier_2_effective_summary_id
+        ),
+        accepted_tier_2_effective_summary_sha256=(
+            accepted_tier_2_effective_summary_sha256
+        ),
+        tier_1_closure_sha256=canonical_sha256(context.tiers[0]),
+        tier_2_closure_sha256=canonical_sha256(lower),
+        tier_3_closure_sha256=canonical_sha256(upper),
+        delta_sha256=delta_sha,
+        tier_2_references=lower.references,
+        tier_3_references=upper.references,
+        delta=delta,
+        inherited_dependency_ids=inherited,
+        lower_tier_integration_page_ids=tuple(integration_page_ids),
+        integration_justifications=tuple(reasons),
+    )
+
+
+def _projection_target(
+    projection: Tier2Projection | Tier3Projection,
+) -> int:
+    return 3 if isinstance(projection, Tier3Projection) else 2
+
+
+def _projection_upper_references(
+    projection: Tier2Projection | Tier3Projection,
+):
+    if isinstance(projection, Tier3Projection):
+        return projection.tier_3_references
+    return projection.tier_2_references
+
+
 def _seed_value(field):
     if field.enum_values:
         return field.enum_values[0]
@@ -168,7 +275,7 @@ def _extend_components(
     *,
     page_purpose,
     page_ref,
-    projection: Tier2Projection,
+    projection: Tier2Projection | Tier3Projection,
 ) -> BusinessComponentPlan:
     spec = context.app_spec
     refs = page_purpose.contract_refs
@@ -208,7 +315,12 @@ def _extend_components(
             item for item in purpose.requirement_ids
             if item in projection.delta.requirement_ids
         ) or purpose.requirement_ids
-        component_id = _stable_id("COMP-T2", page_id, *requirement_ids)
+        target = _projection_target(projection)
+        component_id = _stable_id(
+            f"COMP-T{target}",
+            page_id,
+            *requirement_ids,
+        )
         domain_language: list[str] = [page.name]
         domain_language.extend(requirements[item].title for item in requirement_ids)
         domain_language.extend(actions[item].name for item in action_ids)
@@ -223,9 +335,9 @@ def _extend_components(
         )
         component = BusinessComponent(
             component_id=component_id,
-            name=f"{page.name} Tier 2 capability",
+            name=f"{page.name} Tier {target} capability",
             purpose=(
-                f"Expose the canonical Tier 2 outcomes for {page.name}, "
+                f"Expose the canonical Tier {target} outcomes for {page.name}, "
                 "including its domain evidence and executable behavior."
             ),
             component_kind=(
@@ -303,7 +415,7 @@ def _extend_content_data(
     page_ref,
     component_plan,
     component_ref,
-    projection: Tier2Projection,
+    projection: Tier2Projection | Tier3Projection,
 ) -> ContentDataPlan:
     spec = context.app_spec
     refs = page_purpose.contract_refs
@@ -330,7 +442,8 @@ def _extend_content_data(
     for evidence_id in projection.delta.evidence_ids:
         item = evidence_map[evidence_id]
         component_id = components_by_page[item.page_id]
-        content_id = _stable_id("CONTENT-T2", evidence_id)
+        target = _projection_target(projection)
+        content_id = _stable_id(f"CONTENT-T{target}", evidence_id)
         if content_id not in existing_content:
             page_requirements = purpose_by_page[item.page_id].requirement_ids
             content_items.append(
@@ -364,7 +477,11 @@ def _extend_content_data(
             if item.requirement_id == requirement_id
         )
         page_id = trace.page_ids[0]
-        content_id = _stable_id("CONTENT-T2-REQ", requirement_id)
+        target = _projection_target(projection)
+        content_id = _stable_id(
+            f"CONTENT-T{target}-REQ",
+            requirement_id,
+        )
         if content_id not in existing_content:
             requirement = requirement_map[requirement_id]
             content_items.append(
@@ -383,7 +500,9 @@ def _extend_content_data(
     needed_entities = tuple(
         dict.fromkeys(
             action_map[action_id].entity_id
-            for action_id in projection.tier_2_references.action_ids
+            for action_id in _projection_upper_references(
+                projection
+            ).action_ids
             if action_map[action_id].entity_id
         )
     )
@@ -400,9 +519,15 @@ def _extend_content_data(
             )
         ) or (page_purpose.pages[0].page_id,)
         collection = DataCollection(
-            collection_id=_stable_id("DATA-T2", entity_id),
+            collection_id=_stable_id(
+                f"DATA-T{_projection_target(projection)}",
+                entity_id,
+            ),
             entity_id=entity_id,
-            purpose=f"Canonical Tier 2 records for {entity.name}.",
+            purpose=(
+                f"Canonical Tier {_projection_target(projection)} "
+                f"records for {entity.name}."
+            ),
             page_ids=relevant_pages,
             component_ids=tuple(
                 dict.fromkeys(components_by_page[item] for item in relevant_pages)
@@ -498,18 +623,25 @@ def _extend_content_data(
     )
 
 
-def build_tier_2_extension_contracts(
+def _build_extension_contracts(
     context: CompositionContext,
     *,
     inherited_page_purpose,
     inherited_components,
     inherited_content_data,
-    projection: Tier2Projection,
+    projection: Tier2Projection | Tier3Projection,
     artifact_record_id: int,
-) -> tuple[Tier2ExtensionContracts, CandidateUpstreamRefs]:
-    tier_refs = context.refs.model_copy(update={"target_tier": 2})
+) -> tuple[
+    Tier2ExtensionContracts | Tier3ExtensionContracts,
+    CandidateUpstreamRefs,
+]:
+    target = _projection_target(projection)
+    tier_refs = context.refs.model_copy(update={"target_tier": target})
     tier_context = replace(context, refs=tier_refs)
-    page_purpose = project_page_purpose(tier_context, tier_number=2)
+    page_purpose = project_page_purpose(
+        tier_context,
+        tier_number=target,
+    )
     page_ref = _artifact_ref(
         record_id=artifact_record_id,
         kind="page_purpose_contract",
@@ -549,7 +681,7 @@ def build_tier_2_extension_contracts(
         component_plan_ref=component_ref,
         content_data_plan=content_data,
         content_data_plan_ref=content_ref,
-        tier_number=2,
+        tier_number=target,
     )
     interaction_ref = _artifact_ref(
         record_id=artifact_record_id,
@@ -572,7 +704,12 @@ def build_tier_2_extension_contracts(
         kind="component_dependency_graph",
         artifact=graph,
     )
-    contracts = Tier2ExtensionContracts(
+    contract_type = (
+        Tier3ExtensionContracts
+        if target == 3
+        else Tier2ExtensionContracts
+    )
+    contracts = contract_type(
         projection=projection,
         page_purpose=page_purpose,
         business_components=components,
@@ -587,7 +724,7 @@ def build_tier_2_extension_contracts(
     )
     refs = CandidateUpstreamRefs(
         request_id=context.refs.request_id,
-        target_tier=2,
+        target_tier=target,
         composition_contract_refs=tier_refs,
         page_purpose_ref=page_ref,
         business_component_plan_ref=component_ref,
@@ -598,7 +735,51 @@ def build_tier_2_extension_contracts(
     return contracts, refs
 
 
-def extension_contract_sha256(contracts: Tier2ExtensionContracts) -> str:
+def build_tier_2_extension_contracts(
+    context: CompositionContext,
+    *,
+    inherited_page_purpose,
+    inherited_components,
+    inherited_content_data,
+    projection: Tier2Projection,
+    artifact_record_id: int,
+) -> tuple[Tier2ExtensionContracts, CandidateUpstreamRefs]:
+    contracts, refs = _build_extension_contracts(
+        context,
+        inherited_page_purpose=inherited_page_purpose,
+        inherited_components=inherited_components,
+        inherited_content_data=inherited_content_data,
+        projection=projection,
+        artifact_record_id=artifact_record_id,
+    )
+    assert isinstance(contracts, Tier2ExtensionContracts)
+    return contracts, refs
+
+
+def build_tier_3_extension_contracts(
+    context: CompositionContext,
+    *,
+    inherited_page_purpose,
+    inherited_components,
+    inherited_content_data,
+    projection: Tier3Projection,
+    artifact_record_id: int,
+) -> tuple[Tier3ExtensionContracts, CandidateUpstreamRefs]:
+    contracts, refs = _build_extension_contracts(
+        context,
+        inherited_page_purpose=inherited_page_purpose,
+        inherited_components=inherited_components,
+        inherited_content_data=inherited_content_data,
+        projection=projection,
+        artifact_record_id=artifact_record_id,
+    )
+    assert isinstance(contracts, Tier3ExtensionContracts)
+    return contracts, refs
+
+
+def extension_contract_sha256(
+    contracts: Tier2ExtensionContracts | Tier3ExtensionContracts,
+) -> str:
     return hashlib.sha256(
         canonical_json(contracts.model_dump(mode="json")).encode("utf-8")
     ).hexdigest()
@@ -606,6 +787,8 @@ def extension_contract_sha256(contracts: Tier2ExtensionContracts) -> str:
 
 __all__ = [
     "build_tier_2_extension_contracts",
+    "build_tier_3_extension_contracts",
     "extension_contract_sha256",
     "project_tier_2_delta",
+    "project_tier_3_delta",
 ]
