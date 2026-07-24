@@ -101,10 +101,10 @@ def _run_v2_boundary(
     app_spec_revision_id: int | None,
     req: Request,
 ) -> dict:
-    """Phase 3A v2 entrypoint: persist composition contracts and stop."""
+    """Phase 3B v2 entrypoint: freeze one unserved Tier 1 candidate."""
 
     log.info(
-        "Preview generator v2 selected for request %s; building contract only",
+        "Preview generator v2 selected for request %s; building candidate only",
         request_id,
     )
     return run_v2_contract_boundary(

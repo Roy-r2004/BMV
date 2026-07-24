@@ -15,7 +15,10 @@ from app.application.preview_app.pipeline.versioning import (
     GENERATOR_V2,
     select_preview_generator,
 )
-from app.application.preview_contract.service import V2_CONTRACT_READY
+from app.application.preview_contract.service import (
+    V2_CONTRACT_READY,
+    build_v2_app_spec_contract,
+)
 from app.core.config import settings
 from app.domain.models import (  # noqa: F401
     AppSpecRevision,
@@ -142,24 +145,13 @@ def test_v2_boundary_persists_contract_and_never_reaches_generation_phases(
             "app.application.preview_app.workspace.get_workspace",
             forbidden,
         )
-        monkeypatch.setattr(
-            "app.application.preview_app.pipeline.v2_contract."
-            "build_v2_design_contract",
-            lambda *_args, phase1_result, **_kwargs: phase1_result,
-        )
-        monkeypatch.setattr(
-            "app.application.preview_app.pipeline.v2_contract."
-            "build_v2_composition_contract",
-            lambda *_args, phase2_result, **_kwargs: phase2_result,
-        )
-
-        result = orchestrator._run_v2_boundary(
+        result = build_v2_app_spec_contract(
             db,
             req.id,
             ai,
             JinjaTemplateRenderer(settings.TEMPLATES_DIR),
-            app_spec_revision_id=None,
             req=req,
+            app_spec_revision_id=None,
         )
 
         contract = result["preview_contract"]
@@ -220,7 +212,7 @@ def test_full_v2_pipeline_returns_immediately_after_contract_boundary(
         expected = {
             "preview_contract": {
                 "generator_version": "v2",
-                "status": V2_CONTRACT_READY,
+                "status": "candidate_build_pending",
             }
         }
         calls: list[str] = []
@@ -243,7 +235,7 @@ def test_full_v2_pipeline_returns_immediately_after_contract_boundary(
         )
 
         def forbidden(*_args, **_kwargs):
-            raise AssertionError("full v2 pipeline continued past Phase 1B")
+            raise AssertionError("full v2 pipeline continued past Phase 3B")
 
         monkeypatch.setattr(
             full_orchestrator.visual_demo,
@@ -314,13 +306,13 @@ def test_contract_ready_summary_failure_rolls_back_every_tier(
         event.listen(Request, "before_update", fail_summary_update)
         try:
             with pytest.raises(RuntimeError, match="contract-ready summary"):
-                orchestrator._run_v2_boundary(
+                build_v2_app_spec_contract(
                     db,
                     req.id,
                     ai,
                     JinjaTemplateRenderer(settings.TEMPLATES_DIR),
-                    app_spec_revision_id=None,
                     req=req,
+                    app_spec_revision_id=None,
                 )
         finally:
             event.remove(Request, "before_update", fail_summary_update)

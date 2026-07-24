@@ -781,23 +781,12 @@ def test_final_summary_failure_rolls_back_graph_and_resume_uses_cache() -> None:
         prepared.db.close()
 
 
-def test_pipeline_stops_at_composition_contract_ready(monkeypatch) -> None:
+def test_phase3a_service_stops_at_composition_contract_ready(
+    monkeypatch,
+) -> None:
     prepared = prepare_phase2(request_id=1320)
     ai = CompositionFixtureAI()
     try:
-        monkeypatch.setattr(
-            "app.application.preview_app.pipeline.v2_contract."
-            "build_v2_app_spec_contract",
-            lambda *_args, **_kwargs: {
-                "preview_contract": {"status": "contract_ready"}
-            },
-        )
-        monkeypatch.setattr(
-            "app.application.preview_app.pipeline.v2_contract."
-            "build_v2_design_contract",
-            lambda *_args, **_kwargs: prepared.phase2_result,
-        )
-
         def forbidden(*_args, **_kwargs):
             raise AssertionError("Phase 3A reached downstream generation")
 
@@ -826,14 +815,7 @@ def test_pipeline_stops_at_composition_contract_ready(monkeypatch) -> None:
             "app.application.preview_app.codegen.generate.generate_file",
             forbidden,
         )
-        result = preview_orchestrator._run_v2_boundary(
-            prepared.db,
-            prepared.req.id,
-            ai,
-            JinjaTemplateRenderer(settings.TEMPLATES_DIR),
-            app_spec_revision_id=None,
-            req=prepared.req,
-        )
+        result = _run(prepared, ai)
         assert result["preview_contract"]["status"] == (
             V2_COMPOSITION_CONTRACT_READY
         )

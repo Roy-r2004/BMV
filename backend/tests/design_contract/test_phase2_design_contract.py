@@ -388,21 +388,10 @@ def test_stage_wall_timeout_fails_closed(monkeypatch) -> None:
         prepared.db.close()
 
 
-def test_v2_boundary_stops_at_design_contract_ready(monkeypatch) -> None:
+def test_phase2_service_stops_at_design_contract_ready(monkeypatch) -> None:
     prepared = prepare_phase1b(request_id=1111)
     ai = DesignFixtureAI()
     try:
-        monkeypatch.setattr(
-            "app.application.preview_app.pipeline.v2_contract."
-            "build_v2_app_spec_contract",
-            lambda *_args, **_kwargs: prepared.phase1_result,
-        )
-        monkeypatch.setattr(
-            "app.application.preview_app.pipeline.v2_contract."
-            "build_v2_composition_contract",
-            lambda *_args, phase2_result, **_kwargs: phase2_result,
-        )
-
         def forbidden(*_args, **_kwargs):
             raise AssertionError("Phase 2 reached a downstream generation path")
 
@@ -415,14 +404,7 @@ def test_v2_boundary_stops_at_design_contract_ready(monkeypatch) -> None:
             "app.application.preview_app.workspace.get_workspace",
             forbidden,
         )
-        result = preview_orchestrator._run_v2_boundary(
-            prepared.db,
-            prepared.req.id,
-            ai,
-            JinjaTemplateRenderer(settings.TEMPLATES_DIR),
-            app_spec_revision_id=None,
-            req=prepared.req,
-        )
+        result = _run(prepared, ai)
         assert result["preview_contract"]["status"] == V2_DESIGN_CONTRACT_READY
         assert len(ai.calls) == 3
     finally:

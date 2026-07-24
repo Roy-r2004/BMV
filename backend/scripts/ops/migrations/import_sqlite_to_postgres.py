@@ -13,6 +13,7 @@ This copies:
   users, user_sessions, requests, customer_source_artifacts,
   product_strategy_revisions, app_spec_revisions, preview_tier_artifacts,
   design_contract_artifacts, composition_contract_artifacts,
+  candidate_artifacts, candidate_revisions,
   preview_chat_messages, solution_workspaces, solution_edit_messages
 
 Safe to re-run: clears destination tables first (in FK-safe order), then inserts.
@@ -38,6 +39,8 @@ TABLES_IN_ORDER = [
     "preview_tier_artifacts",
     "design_contract_artifacts",
     "composition_contract_artifacts",
+    "candidate_artifacts",
+    "candidate_revisions",
     "preview_chat_messages",
     "solution_workspaces",
     "solution_edit_messages",

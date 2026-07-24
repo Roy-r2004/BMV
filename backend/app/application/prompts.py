@@ -27,6 +27,9 @@ class PromptTemplate:
         "prompts/v2_business_component_plan.j2"
     )
     V2_CONTENT_DATA_PLAN = "prompts/v2_content_data_plan.j2"
+    V2_CANDIDATE_COMPONENTS = "prompts/v2_candidate_components.j2"
+    V2_CANDIDATE_PAGES = "prompts/v2_candidate_pages.j2"
+    V2_CANDIDATE_REPAIR = "prompts/v2_candidate_repair.j2"
     TECHNICAL_PLAN = "prompts/technical_plan.j2"
     MVP_BLUEPRINT = "prompts/mvp_blueprint.j2"
     VISUAL_DEMO = "prompts/visual_demo.j2"

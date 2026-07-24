@@ -18,6 +18,8 @@ from app.domain.models import (  # noqa: F401
     AdminSettings,
     AiUsageEvent,
     AppSpecRevision,
+    CandidateArtifactRecord,
+    CandidateRevisionRecord,
     CompositionContractArtifactRecord,
     CustomerSourceArtifact,
     DesignContractArtifactRecord,

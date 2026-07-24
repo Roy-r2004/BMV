@@ -3,6 +3,10 @@ from app.domain.models.app_spec import AppSpecRevision
 from app.domain.models.composition_contract import (
     CompositionContractArtifactRecord,
 )
+from app.domain.models.preview_candidate import (
+    CandidateArtifactRecord,
+    CandidateRevisionRecord,
+)
 from app.domain.models.design_contract import DesignContractArtifactRecord
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
@@ -20,6 +24,8 @@ __all__ = [
     "AppSpecRevision",
     "CustomerSourceArtifact",
     "CompositionContractArtifactRecord",
+    "CandidateArtifactRecord",
+    "CandidateRevisionRecord",
     "DesignContractArtifactRecord",
     "PreviewTierArtifactRecord",
     "ProductStrategyRevision",

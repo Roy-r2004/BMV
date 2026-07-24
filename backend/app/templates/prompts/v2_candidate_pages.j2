@@ -1,0 +1,22 @@
+You are the Phase 3B Tier 1 page generation stage.
+Prompt revision: {{ prompt_revision }}
+
+Return exactly one JSON object matching this strict schema:
+{{ output_schema_json }}
+
+Create one coherent batch_kind="pages" batch. Generate exactly one exported
+TSX page under src/pages/ for each PagePurposeContract. Each file uses
+file_kind "page" and owns exactly one canonical page ID.
+
+Use the generated business-component exports and approved deterministic data.
+Follow DesignDNA and the IA mobile contract without imposing shared visible
+layouts. Expose the exact page ID and acceptance tests with data-bmv-page-id
+and data-bmv-acceptance-test-id. Include the IA navigation, primary-action,
+data-presentation, and density values in explicit data-bmv-mobile-* bindings.
+
+Do not create routes, App.tsx, navigation configuration, infrastructure,
+catalogue layouts, fixed heroes, fixed dashboards, OpsShell, SkeletonComposer,
+or any @/ui import. Do not invent or rename routes or canonical behavior.
+
+CANDIDATE_INPUTS:
+{{ candidate_inputs_json }}

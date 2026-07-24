@@ -123,11 +123,11 @@ class GenerationPipeline:
             _emit(
                 db,
                 request_id,
-                "composition_contract_ready",
-                "V2 composition contract ready",
+                "candidate_build_pending",
+                "V2 Tier 1 candidate passed static validation",
                 100,
                 detail=(
-                    "Phase 3A stops before React, workspace, codegen, or build"
+                    "Candidate is isolated and unserved; build begins in Phase 4"
                 ),
             )
             pipeline_watch.stop()

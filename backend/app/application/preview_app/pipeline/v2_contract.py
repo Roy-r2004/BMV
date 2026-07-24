@@ -1,6 +1,9 @@
-"""Preview adapter for the Phase 3A composition-contract boundary."""
+"""Preview adapter for the Phase 3B immutable-candidate boundary."""
 from sqlalchemy.orm import Session
 
+from app.application.candidate_generation.service import (
+    build_v2_candidate_revision,
+)
 from app.application.composition_contract.service import (
     build_v2_composition_contract,
 )
@@ -36,13 +39,21 @@ def run_v2_contract_boundary(
         req=req,
         phase1_result=phase1_result,
     )
-    return build_v2_composition_contract(
+    phase3a_result = build_v2_composition_contract(
         db,
         request_id,
         ai_provider,
         template_renderer,
         req=req,
         phase2_result=phase2_result,
+    )
+    return build_v2_candidate_revision(
+        db,
+        request_id,
+        ai_provider,
+        template_renderer,
+        req=req,
+        phase3a_result=phase3a_result,
     )
 
 

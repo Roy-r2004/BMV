@@ -99,6 +99,7 @@ class Settings:
     # Preview app build paths
     PREVIEW_TEMPLATE_DIR: Path
     PREVIEW_APPS_DIR: Path
+    PREVIEW_CANDIDATES_DIR: Path
 
     # Model names (resolved below, provider-dependent)
     TEXT_MODEL: str
@@ -155,6 +156,22 @@ class Settings:
     V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS: int
     V2_COMPOSITION_CONTRACT_MAX_CALLS: int
     V2_COMPOSITION_CONTRACT_MAX_COST_USD: float
+    V2_CANDIDATE_POLICY_REVISION: str
+    V2_CANDIDATE_COMPONENT_MODEL: str
+    V2_CANDIDATE_PAGE_MODEL: str
+    V2_CANDIDATE_REPAIR_MODEL: str
+    V2_CANDIDATE_COMPONENT_PROMPT_REVISION: str
+    V2_CANDIDATE_PAGE_PROMPT_REVISION: str
+    V2_CANDIDATE_REPAIR_PROMPT_REVISION: str
+    V2_CANDIDATE_COMPONENT_MAX_TOKENS: int
+    V2_CANDIDATE_PAGE_MAX_TOKENS: int
+    V2_CANDIDATE_REPAIR_MAX_TOKENS: int
+    V2_CANDIDATE_COMPONENT_TIMEOUT_SECONDS: int
+    V2_CANDIDATE_PAGE_TIMEOUT_SECONDS: int
+    V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS: int
+    V2_CANDIDATE_TIMEOUT_SECONDS: int
+    V2_CANDIDATE_MAX_CALLS: int
+    V2_CANDIDATE_MAX_COST_USD: float
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -193,6 +210,12 @@ class Settings:
         self.PREVIEW_TEMPLATE_DIR = next((p for p in candidates if p.is_dir()), candidates[0])
         self.PREVIEW_APPS_DIR = Path(
             os.getenv("PREVIEW_APPS_DIR", str(Path(self.UPLOAD_DIR) / "preview-apps"))
+        )
+        self.PREVIEW_CANDIDATES_DIR = Path(
+            os.getenv(
+                "PREVIEW_CANDIDATES_DIR",
+                str(Path(self.UPLOAD_DIR) / "preview-candidates"),
+            )
         )
 
         provider_key = "openrouter" if self.AI_PROVIDER == "openrouter" else "ollama"
@@ -499,6 +522,90 @@ class Settings:
             )
         except ValueError:
             self.V2_COMPOSITION_CONTRACT_MAX_COST_USD = 0.20
+        self.V2_CANDIDATE_POLICY_REVISION = (
+            os.getenv(
+                "V2_CANDIDATE_POLICY_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        self.V2_CANDIDATE_COMPONENT_MODEL = _env_or(
+            "V2_CANDIDATE_COMPONENT_MODEL",
+            self.PREVIEW_APP_MODEL,
+        )
+        self.V2_CANDIDATE_PAGE_MODEL = _env_or(
+            "V2_CANDIDATE_PAGE_MODEL",
+            self.PREVIEW_APP_MODEL,
+        )
+        self.V2_CANDIDATE_REPAIR_MODEL = _env_or(
+            "V2_CANDIDATE_REPAIR_MODEL",
+            self.FIX_MODEL,
+        )
+        self.V2_CANDIDATE_COMPONENT_PROMPT_REVISION = (
+            os.getenv(
+                "V2_CANDIDATE_COMPONENT_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        self.V2_CANDIDATE_PAGE_PROMPT_REVISION = (
+            os.getenv(
+                "V2_CANDIDATE_PAGE_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        self.V2_CANDIDATE_REPAIR_PROMPT_REVISION = (
+            os.getenv(
+                "V2_CANDIDATE_REPAIR_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        for field_name, default, minimum, maximum in (
+            ("V2_CANDIDATE_COMPONENT_MAX_TOKENS", 24000, 4000, 32000),
+            ("V2_CANDIDATE_PAGE_MAX_TOKENS", 32000, 4000, 48000),
+            ("V2_CANDIDATE_REPAIR_MAX_TOKENS", 10000, 2000, 12000),
+        ):
+            try:
+                value = min(
+                    maximum,
+                    max(minimum, int(os.getenv(field_name, str(default)))),
+                )
+            except ValueError:
+                value = default
+            setattr(self, field_name, value)
+        for field_name, default, maximum in (
+            ("V2_CANDIDATE_COMPONENT_TIMEOUT_SECONDS", 240, 240),
+            ("V2_CANDIDATE_PAGE_TIMEOUT_SECONDS", 300, 300),
+            ("V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS", 150, 150),
+            ("V2_CANDIDATE_TIMEOUT_SECONDS", 600, 600),
+        ):
+            try:
+                value = min(
+                    maximum,
+                    max(10, int(os.getenv(field_name, str(default)))),
+                )
+            except ValueError:
+                value = default
+            setattr(self, field_name, value)
+        try:
+            self.V2_CANDIDATE_MAX_CALLS = min(
+                4,
+                max(
+                    2,
+                    int(os.getenv("V2_CANDIDATE_MAX_CALLS", "4")),
+                ),
+            )
+        except ValueError:
+            self.V2_CANDIDATE_MAX_CALLS = 4
+        try:
+            self.V2_CANDIDATE_MAX_COST_USD = max(
+                0.01,
+                float(os.getenv("V2_CANDIDATE_MAX_COST_USD", "0.25")),
+            )
+        except ValueError:
+            self.V2_CANDIDATE_MAX_COST_USD = 0.25
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

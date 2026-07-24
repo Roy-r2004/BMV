@@ -35,6 +35,8 @@ from app.domain.schemas.admin import (
 from app.domain.schemas.common import GenerateResponse
 from app.domain.models import (
     AppSpecRevision,
+    CandidateArtifactRecord,
+    CandidateRevisionRecord,
     CompositionContractArtifactRecord,
     CustomerSourceArtifact,
     DesignContractArtifactRecord,
@@ -278,6 +280,18 @@ def delete_request(
     db.query(PreviewChatMessage).filter(PreviewChatMessage.request_id == request_id).delete(
         synchronize_session=False
     )
+    db.query(CandidateRevisionRecord).filter(
+        CandidateRevisionRecord.request_id == request_id
+    ).delete(synchronize_session=False)
+    db.query(CandidateArtifactRecord).filter(
+        CandidateArtifactRecord.request_id == request_id
+    ).update(
+        {CandidateArtifactRecord.parent_artifact_id: None},
+        synchronize_session=False,
+    )
+    db.query(CandidateArtifactRecord).filter(
+        CandidateArtifactRecord.request_id == request_id
+    ).delete(synchronize_session=False)
     db.query(CompositionContractArtifactRecord).filter(
         CompositionContractArtifactRecord.request_id == request_id
     ).update(
@@ -326,6 +340,9 @@ def delete_request(
     preview_dir = Path(settings.PREVIEW_APPS_DIR) / str(request_id)
     if preview_dir.is_dir():
         shutil.rmtree(preview_dir, ignore_errors=True)
+    candidate_dir = Path(settings.PREVIEW_CANDIDATES_DIR) / str(request_id)
+    if candidate_dir.is_dir():
+        shutil.rmtree(candidate_dir, ignore_errors=True)
 
     return {"success": True, "deleted_id": request_id, "label": label}
 
