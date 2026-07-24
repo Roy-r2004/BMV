@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.domain.models.preview_candidate import CandidateRevisionRecord
 from app.domain.models.runtime_validation import CandidateValidationSummaryRecord
@@ -29,6 +29,20 @@ def locate_latest_accepted_lineage(
 ) -> AcceptedLineage | None:
     summary = (
         db.query(CandidateEffectiveTierSummaryRecord)
+        .options(
+            load_only(
+                CandidateEffectiveTierSummaryRecord.id,
+                CandidateEffectiveTierSummaryRecord.request_id,
+                CandidateEffectiveTierSummaryRecord.status,
+                CandidateEffectiveTierSummaryRecord.summary_sha256,
+                CandidateEffectiveTierSummaryRecord.highest_accepted_tier,
+                CandidateEffectiveTierSummaryRecord.phase4_validation_summary_id,
+                CandidateEffectiveTierSummaryRecord.phase5_visual_summary_id,
+                CandidateEffectiveTierSummaryRecord.last_accepted_candidate_revision_id,
+                CandidateEffectiveTierSummaryRecord.derived_candidate_revision_id,
+                CandidateEffectiveTierSummaryRecord.accepted_tier_1_revision_id,
+            )
+        )
         .filter(
             CandidateEffectiveTierSummaryRecord.request_id == request_id,
             CandidateEffectiveTierSummaryRecord.status.in_(
@@ -45,8 +59,17 @@ def locate_latest_accepted_lineage(
         or summary.derived_candidate_revision_id
         or summary.accepted_tier_1_revision_id
     )
+    if revision_id is None:
+        return None
     revision = (
         db.query(CandidateRevisionRecord)
+        .options(
+            load_only(
+                CandidateRevisionRecord.id,
+                CandidateRevisionRecord.file_manifest_sha256,
+                CandidateRevisionRecord.upstream_manifest_sha256,
+            )
+        )
         .filter(CandidateRevisionRecord.id == revision_id)
         .one_or_none()
     )
@@ -54,6 +77,12 @@ def locate_latest_accepted_lineage(
     if summary.phase4_validation_summary_id:
         p4 = (
             db.query(CandidateValidationSummaryRecord)
+            .options(
+                load_only(
+                    CandidateValidationSummaryRecord.id,
+                    CandidateValidationSummaryRecord.status,
+                )
+            )
             .filter(
                 CandidateValidationSummaryRecord.id
                 == summary.phase4_validation_summary_id
@@ -66,6 +95,12 @@ def locate_latest_accepted_lineage(
     if summary.phase5_visual_summary_id:
         p5 = (
             db.query(CandidateVisualSummaryRecord)
+            .options(
+                load_only(
+                    CandidateVisualSummaryRecord.id,
+                    CandidateVisualSummaryRecord.status,
+                )
+            )
             .filter(
                 CandidateVisualSummaryRecord.id == summary.phase5_visual_summary_id
             )

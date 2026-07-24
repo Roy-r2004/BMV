@@ -200,7 +200,8 @@ class RolloutRepository:
 
     def apply_pointer_swap(self, **_kwargs: Any) -> None:
         raise RolloutRepositoryError(
-            "production repository has no pointer-swap executor in Phase 7A"
+            "production repository does not expose pointer-swap; "
+            "use PromotionService.apply_* under Phase 7C gates"
         )
 
 

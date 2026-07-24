@@ -1,7 +1,7 @@
-"""Phase 7A/7B rollout diagnostics and shadow-only write surface.
+"""Phase 7A–7C rollout diagnostics, shadow, and allowlist promotion APIs.
 
-GET diagnostics + POST shadow evaluations. No promote/rollback/pointer-swap.
 Roles come from trusted admin auth, never from request JSON.
+Phase 7C writes are request → approve → apply only (no combined endpoint).
 """
 from __future__ import annotations
 
@@ -15,10 +15,22 @@ from app.application.rollout.authorization import (
     RolloutAuthorizationError,
     trusted_actor_from_admin,
 )
+from app.application.rollout.promotion_service import (
+    PromotionService,
+    PromotionServiceError,
+)
 from app.application.rollout.service import RolloutControlPlaneService
 from app.application.rollout.shadow_service import ShadowExecutionError, ShadowService
 from app.application.services.user_auth import get_user_by_token
 from app.core.config import settings
+from app.domain.schemas.promotion import (
+    ApplyResultView,
+    DecisionApprovalBody,
+    DecisionApplyBody,
+    DecisionView,
+    PromotionRequestBody,
+    RollbackRequestBody,
+)
 from app.domain.schemas.rollout import ServingPointerView, TrustedRolloutActor
 from app.domain.schemas.shadow_evaluation import (
     ShadowEvaluationView,
@@ -174,6 +186,294 @@ def start_shadow_evaluation(
         if exc.reason == "flags_off":
             status = 403
         raise HTTPException(status_code=status, detail=exc.reason) from exc
+
+
+def _promotion_http_error(exc: PromotionServiceError) -> HTTPException:
+    if exc.stage in {"idempotency", "pointer"}:
+        status = 409
+    elif exc.stage in {"flags", "allowlist", "sod"} or exc.reason in {
+        "flags_off",
+        "not_allowlisted",
+        "rollout_percent_nonzero",
+    }:
+        status = 403
+    elif exc.stage == "lookup":
+        status = 404
+    else:
+        status = 400
+    return HTTPException(status_code=status, detail=exc.reason)
+
+
+@router.post(
+    "/requests/{request_id}/promotions",
+    response_model=DecisionView,
+)
+def request_promotion(
+    request_id: int,
+    body: PromotionRequestBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> DecisionView:
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    service = PromotionService(db)
+    try:
+        view = service.request_promotion(
+            actor=actor,
+            request_id=request_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PromotionServiceError as exc:
+        db.rollback()
+        raise _promotion_http_error(exc) from exc
+
+
+@router.post(
+    "/promotions/{decision_id}/approvals",
+    response_model=DecisionView,
+)
+def approve_promotion(
+    decision_id: int,
+    body: DecisionApprovalBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> DecisionView:
+    if decision_id < 1:
+        raise HTTPException(status_code=400, detail="invalid decision_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    service = PromotionService(db)
+    try:
+        view = service.approve_promotion(
+            actor=actor,
+            decision_id=decision_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PromotionServiceError as exc:
+        db.rollback()
+        raise _promotion_http_error(exc) from exc
+
+
+@router.post(
+    "/promotions/{decision_id}/apply",
+    response_model=ApplyResultView,
+)
+def apply_promotion(
+    decision_id: int,
+    body: DecisionApplyBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> ApplyResultView:
+    if decision_id < 1:
+        raise HTTPException(status_code=400, detail="invalid decision_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    service = PromotionService(db)
+    try:
+        view = service.apply_promotion(
+            actor=actor,
+            decision_id=decision_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PromotionServiceError as exc:
+        db.rollback()
+        raise _promotion_http_error(exc) from exc
+
+
+@router.post(
+    "/requests/{request_id}/rollbacks",
+    response_model=DecisionView,
+)
+def request_rollback(
+    request_id: int,
+    body: RollbackRequestBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> DecisionView:
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    service = PromotionService(db)
+    try:
+        view = service.request_rollback(
+            actor=actor,
+            request_id=request_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PromotionServiceError as exc:
+        db.rollback()
+        raise _promotion_http_error(exc) from exc
+
+
+@router.post(
+    "/rollbacks/{decision_id}/approvals",
+    response_model=DecisionView,
+)
+def approve_rollback(
+    decision_id: int,
+    body: DecisionApprovalBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> DecisionView:
+    if decision_id < 1:
+        raise HTTPException(status_code=400, detail="invalid decision_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    service = PromotionService(db)
+    try:
+        view = service.approve_rollback(
+            actor=actor,
+            decision_id=decision_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PromotionServiceError as exc:
+        db.rollback()
+        raise _promotion_http_error(exc) from exc
+
+
+@router.post(
+    "/rollbacks/{decision_id}/apply",
+    response_model=ApplyResultView,
+)
+def apply_rollback(
+    decision_id: int,
+    body: DecisionApplyBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> ApplyResultView:
+    if decision_id < 1:
+        raise HTTPException(status_code=400, detail="invalid decision_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    service = PromotionService(db)
+    try:
+        view = service.apply_rollback(
+            actor=actor,
+            decision_id=decision_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PromotionServiceError as exc:
+        db.rollback()
+        raise _promotion_http_error(exc) from exc
+
+
+@router.get(
+    "/requests/{request_id}/promotions",
+    response_model=list[DecisionView],
+)
+def list_promotions(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[DecisionView]:
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    return PromotionService(db).list_promotions(actor=actor, request_id=request_id)
+
+
+@router.get(
+    "/promotions/{decision_id}",
+    response_model=DecisionView,
+)
+def get_promotion(
+    decision_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> DecisionView:
+    if decision_id < 1:
+        raise HTTPException(status_code=400, detail="invalid decision_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return PromotionService(db).get_decision(
+            actor=actor, decision_id=decision_id
+        )
+    except PromotionServiceError as exc:
+        raise _promotion_http_error(exc) from exc
+
+
+@router.get(
+    "/requests/{request_id}/serving-pointer/history",
+    response_model=list[ServingPointerView],
+)
+def get_serving_pointer_history(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[ServingPointerView]:
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    return PromotionService(db).pointer_history(actor=actor, request_id=request_id)
 
 
 __all__ = ["router"]

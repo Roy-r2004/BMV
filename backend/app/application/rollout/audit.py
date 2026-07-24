@@ -20,6 +20,14 @@ PHASE7A_EMITTABLE_EVENTS = frozenset(
         "shadow_started",
         "shadow_completed",
         "shadow_failed",
+        "promotion_requested",
+        "promotion_approved",
+        "promotion_rejected",
+        "pointer_changed",
+        "rollback_requested",
+        "rollback_approved",
+        "rollback_completed",
+        "serving_fallback",
     }
 )
 

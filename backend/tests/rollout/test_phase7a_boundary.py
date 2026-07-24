@@ -18,27 +18,36 @@ def _all_routes():
     return [r for r in api_router.routes if isinstance(r, APIRoute)]
 
 
-def test_no_post_promotion_or_rollback_endpoints() -> None:
+def test_no_combined_or_unsafe_rollout_write_endpoints() -> None:
     for route in _all_routes():
         path = route.path.lower()
         methods = set(route.methods or [])
         if any(m in methods for m in ("POST", "PUT", "PATCH", "DELETE")):
-            assert "promote" not in path
-            assert "rollback" not in path
             assert "pointer-swap" not in path
-            assert "serving-pointer" not in path or methods == {"GET"}
+            assert "auto-rollback" not in path
+            assert "percent" not in path
+            assert "canary" not in path
+            # Serving pointer remains read-only; writes use promotions/rollbacks.
+            if "serving-pointer" in path:
+                assert methods == {"GET"}
 
 
-def test_diagnostic_endpoints_are_get_only_except_shadow_post() -> None:
+def test_diagnostic_endpoints_allow_shadow_and_phase7c_writes() -> None:
     rollout_routes = [
         r for r in _all_routes() if "/admin/rollout" in r.path
     ]
     assert rollout_routes, "expected rollout diagnostics"
+    allowed_post_suffixes = (
+        "/shadow-evaluations",
+        "/promotions",
+        "/approvals",
+        "/apply",
+        "/rollbacks",
+    )
     for route in rollout_routes:
         methods = set(route.methods or [])
-        if route.path.endswith("/shadow-evaluations") and "{request_id}" in route.path:
-            # Phase 7B allows POST shadow-only on this collection path.
-            assert methods <= {"GET", "POST"}
+        if "POST" in methods:
+            assert any(route.path.endswith(s) or s in route.path for s in allowed_post_suffixes)
             continue
         assert methods == {"GET"}
 

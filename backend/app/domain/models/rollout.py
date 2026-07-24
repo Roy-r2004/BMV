@@ -126,6 +126,10 @@ class PreviewPromotionDecisionRecord(Base):
     previous_pointer_version = Column(Integer, nullable=True)
     resulting_pointer_version = Column(Integer, nullable=True)
     decision_sha256 = Column(String(64), nullable=False)
+    # Phase 7C additive intent fields (immutable after insert)
+    expected_pointer_version = Column(Integer, nullable=True)
+    target_pointer_version = Column(Integer, nullable=True)
+    idempotency_payload_sha256 = Column(String(64), nullable=True)
 
 
 class PreviewPromotionDecisionStatusEventRecord(Base):
@@ -135,7 +139,7 @@ class PreviewPromotionDecisionStatusEventRecord(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ("
-            "'requested','rejected','cancelled',"
+            "'requested','approved','rejected','cancelled',"
             "'test_only_simulated','applied')",
             name="ck_promotion_decision_event_status",
         ),

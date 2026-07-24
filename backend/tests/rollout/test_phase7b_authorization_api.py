@@ -81,7 +81,7 @@ def test_client_supplied_roles_rejected() -> None:
         reject_client_supplied_roles({"provider": "openrouter"})
 
 
-def test_api_routes_shadow_only_no_promote() -> None:
+def test_api_routes_shadow_and_phase7c_promotion_surface() -> None:
     routes = [r for r in api_router.routes if isinstance(r, APIRoute)]
     shadow_posts = [
         r
@@ -89,20 +89,31 @@ def test_api_routes_shadow_only_no_promote() -> None:
         if "shadow-evaluations" in r.path and "POST" in (r.methods or set())
     ]
     assert shadow_posts
+    promotion_posts = [
+        r.path
+        for r in routes
+        if "POST" in (r.methods or set())
+        and ("/promotions" in r.path or "/rollbacks" in r.path)
+    ]
+    assert any(p.endswith("/promotions") for p in promotion_posts)
+    assert any("/promotions/{decision_id}/apply" in p for p in promotion_posts)
+    assert any(p.endswith("/rollbacks") for p in promotion_posts)
     for route in routes:
         path = route.path.lower()
         methods = set(route.methods or [])
         if any(m in methods for m in ("POST", "PUT", "PATCH", "DELETE")):
-            assert "promote" not in path
-            assert "rollback" not in path
             assert "pointer-swap" not in path
             assert "canary" not in path or "GET" in methods
+            assert "percent" not in path
+            assert "circuit-breaker" not in path or "GET" in methods
 
 
 def test_preview_apps_unchanged_and_no_shadow_import() -> None:
     source = inspect.getsource(preview_apps)
     assert "shadow" not in source.lower()
     assert "resolve_serving_pointer" not in source
+    assert "promotion_service" not in source
+    assert "PromotionService" not in source
     assert "get_dist_dir" in source
 
 

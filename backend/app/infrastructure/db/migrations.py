@@ -19,6 +19,10 @@ from app.infrastructure.db.phase7b_migrations import (
     migrate_phase7b_shadow,
     phase7b_schema_version,
 )
+from app.infrastructure.db.phase7c_migrations import (
+    migrate_phase7c_promotion,
+    phase7c_schema_version,
+)
 from app.infrastructure.db.session import engine
 
 _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
@@ -741,6 +745,7 @@ def run_sqlite_migrations() -> None:
                 migrate_tier_orchestration_target_tier(engine)
                 migrate_phase7a_rollout(engine)
                 migrate_phase7b_shadow(engine)
+                migrate_phase7c_promotion(engine)
                 return
 
             if url.startswith("postgresql"):
@@ -774,6 +779,7 @@ def run_sqlite_migrations() -> None:
                 migrate_tier_orchestration_target_tier(engine)
                 migrate_phase7a_rollout(engine)
                 migrate_phase7b_shadow(engine)
+                migrate_phase7c_promotion(engine)
     except Exception:
         pass
 
@@ -784,8 +790,10 @@ __all__ = [
     "migrate_candidate_revision_target_tier",
     "migrate_phase7a_rollout",
     "migrate_phase7b_shadow",
+    "migrate_phase7c_promotion",
     "migrate_tier_orchestration_target_tier",
     "phase7a_schema_version",
     "phase7b_schema_version",
+    "phase7c_schema_version",
     "run_sqlite_migrations",
 ]

@@ -31,8 +31,14 @@ def test_role_permissions_matrix() -> None:
     assert actor_has_permission(viewer, "read_diagnostics")
     assert not actor_has_permission(viewer, "compute_promotion_eligibility")
     assert actor_has_permission(operator, "compute_promotion_eligibility")
+    assert actor_has_permission(operator, "request_promotion")
+    assert not actor_has_permission(operator, "apply_promotion")
     assert actor_has_permission(approver, "review_eligibility")
+    assert actor_has_permission(approver, "approve_promotion")
+    assert not actor_has_permission(approver, "apply_promotion")
     assert actor_has_permission(admin, "create_rollout_policy_version")
+    assert actor_has_permission(admin, "apply_promotion")
+    assert actor_has_permission(admin, "apply_rollback")
     for action in FORBIDDEN_PHASE7A_ACTIONS:
         assert not actor_has_permission(admin, action)
 
@@ -62,8 +68,16 @@ def test_separation_of_duties() -> None:
         approver_actor_id="alice",
         dual_role_allowed=True,
         ticket_ref="INC-1",
+        reason="emergency dual-role approved",
     )
     assert emergency.satisfied is True
+    emergency_missing_reason = evaluate_separation_of_duties(
+        requester_actor_id="alice",
+        approver_actor_id="alice",
+        dual_role_allowed=True,
+        ticket_ref="INC-1",
+    )
+    assert emergency_missing_reason.satisfied is False
 
 
 def test_trusted_actor_from_admin() -> None:

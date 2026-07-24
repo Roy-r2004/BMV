@@ -17,8 +17,33 @@ def get_workspace(request_id: int) -> Path:
     return settings.PREVIEW_APPS_DIR / str(request_id)
 
 
-def get_dist_dir(request_id: int) -> Path:
+def _legacy_get_dist_dir(request_id: int) -> Path:
+    """Pre-Phase-7 dist resolution — exact historical behavior."""
     return get_workspace(request_id) / "dist"
+
+
+def get_dist_dir(request_id: int) -> Path:
+    """Resolve preview dist; Option A flag-gated pointer adapter (Phase 7C).
+
+    When Phase 7 rollout/promote flags are off, returns the exact legacy path.
+    When enabled, uses read-only serving resolution with approved fallbacks.
+    Never imports promotion writers or apply transactions on this path.
+    """
+    from app.core import config as app_config
+
+    cfg = app_config.settings
+    if not (
+        cfg.V2_PHASE7_ROLLOUT_ENABLED
+        and cfg.V2_PHASE7_PROMOTE_ENABLED
+        and cfg.V2_PHASE7_CONFIG_VALID
+    ):
+        return _legacy_get_dist_dir(request_id)
+    from app.application.rollout.serving_resolve import resolve_dist_for_serving
+
+    return resolve_dist_for_serving(
+        request_id,
+        legacy_get_dist_dir=_legacy_get_dist_dir,
+    )
 
 
 def prepare_workspace(request_id: int) -> Path:

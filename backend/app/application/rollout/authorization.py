@@ -22,6 +22,8 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
             "start_shadow_evaluation",
+            "request_promotion",
+            "request_rollback",
         }
     ),
     "rollout_approver": frozenset(
@@ -29,6 +31,8 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "read_diagnostics",
             "review_eligibility",
             "review_policy_state",
+            "approve_promotion",
+            "approve_rollback",
         }
     ),
     "rollout_admin": frozenset(
@@ -40,19 +44,24 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "review_policy_state",
             "create_rollout_policy_version",
             "start_shadow_evaluation",
+            "request_promotion",
+            "request_rollback",
+            "approve_promotion",
+            "approve_rollback",
+            "apply_promotion",
+            "apply_rollback",
         }
     ),
 }
 
-# No role may promote or roll back in Phase 7A/7B.
+# Phase 7C: apply is admin-only via apply_*; still forbid auto/percent/canary.
 FORBIDDEN_PHASE7A_ACTIONS = frozenset(
     {
-        "promote",
-        "rollback",
-        "apply_pointer_swap",
         "consume_canary_approval",
         "trip_circuit_breaker",
         "start_live_shadow_regenerate",
+        "auto_rollback",
+        "percentage_serve",
     }
 )
 
@@ -87,12 +96,14 @@ def reject_client_supplied_roles(payload: dict) -> None:
         "rollout_role",
         "authorization_scope",
         "serving_target",
+        "current_pointer",
         "pointer_version",
         "eligibility_result",
         "eligibility_sha256",
         "provider",
         "model",
         "provider_model",
+        "breaker_override",
     )
     for key in banned:
         if key in payload:
@@ -105,32 +116,50 @@ def evaluate_separation_of_duties(
     *,
     requester_actor_id: str,
     approver_actor_id: str | None,
+    apply_actor_id: str | None = None,
     dual_role_allowed: bool = False,
     ticket_ref: str | None = None,
+    reason: str | None = None,
+    require_approver: bool = True,
 ) -> SeparationOfDutiesResult:
     requester = requester_actor_id.strip()
     approver = (approver_actor_id or "").strip() or None
+    apply_actor = (apply_actor_id or "").strip() or None
     same = bool(approver and approver == requester)
+    apply_overlap = bool(
+        apply_actor and apply_actor in {requester, *( [approver] if approver else [] )}
+    )
     reasons: list[str] = []
-    if approver is None:
+
+    if require_approver and approver is None:
         reasons.append("approver_missing")
-        satisfied = False
-    elif same and not dual_role_allowed:
-        reasons.append("same_actor_denied")
-        satisfied = False
-    elif same and dual_role_allowed and not (ticket_ref or "").strip():
-        reasons.append("emergency_dual_role_requires_ticket")
-        satisfied = False
-    else:
-        satisfied = True
+    elif same:
+        if not dual_role_allowed:
+            reasons.append("same_actor_denied")
+        else:
+            if not (ticket_ref or "").strip():
+                reasons.append("emergency_dual_role_requires_ticket")
+            if not (reason or "").strip():
+                reasons.append("emergency_dual_role_requires_reason")
+
+    if apply_actor and apply_overlap:
+        if not dual_role_allowed:
+            reasons.append("apply_actor_same_as_earlier_denied")
+        else:
+            if not (ticket_ref or "").strip():
+                reasons.append("emergency_apply_requires_ticket")
+            if not (reason or "").strip():
+                reasons.append("emergency_apply_requires_reason")
+
+    satisfied = not reasons
     return SeparationOfDutiesResult(
         requester_actor_id=requester,
         approver_actor_id=approver,
-        same_actor=same,
+        same_actor=same or apply_overlap,
         dual_role_allowed=dual_role_allowed,
         ticket_ref=(ticket_ref or None),
         satisfied=satisfied,
-        reasons=tuple(reasons),
+        reasons=tuple(dict.fromkeys(reasons)),
     )
 
 
