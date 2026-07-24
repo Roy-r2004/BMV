@@ -9,6 +9,10 @@ from app.application.composition_contract.service import (
 )
 from app.application.design_contract.service import build_v2_design_contract
 from app.application.preview_contract.service import build_v2_app_spec_contract
+from app.application.runtime_validation.service import (
+    validate_v2_candidate_runtime,
+)
+from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
@@ -47,13 +51,21 @@ def run_v2_contract_boundary(
         req=req,
         phase2_result=phase2_result,
     )
-    return build_v2_candidate_revision(
+    phase3b_result = build_v2_candidate_revision(
         db,
         request_id,
         ai_provider,
         template_renderer,
         req=req,
         phase3a_result=phase3a_result,
+    )
+    if not settings.V2_RUNTIME_VALIDATION_ENABLED:
+        return phase3b_result
+    return validate_v2_candidate_runtime(
+        db,
+        request_id,
+        req=req,
+        phase3b_result=phase3b_result,
     )
 
 

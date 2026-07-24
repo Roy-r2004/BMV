@@ -120,15 +120,34 @@ class GenerationPipeline:
                 self.ai_provider,
                 self.template_renderer,
             )
+            status = str(
+                (contract.get("preview_contract") or {}).get("status")
+                or "candidate_build_pending"
+            )
+            if status == "candidate_runtime_validated":
+                message = "V2 Tier 1 candidate passed runtime validation"
+                detail = (
+                    "Candidate remains isolated and unserved; promotion is "
+                    "outside Phase 4"
+                )
+            elif status in {
+                "candidate_build_failed",
+                "candidate_runtime_failed",
+            }:
+                message = "V2 Tier 1 candidate failed runtime validation"
+                detail = "Diagnostics were retained; no candidate was served"
+            else:
+                message = "V2 Tier 1 candidate passed static validation"
+                detail = (
+                    "Candidate is isolated and unserved; Phase 4 is disabled"
+                )
             _emit(
                 db,
                 request_id,
-                "candidate_build_pending",
-                "V2 Tier 1 candidate passed static validation",
+                status,
+                message,
                 100,
-                detail=(
-                    "Candidate is isolated and unserved; build begins in Phase 4"
-                ),
+                detail=detail,
             )
             pipeline_watch.stop()
             return contract

@@ -73,31 +73,80 @@ def component_batch_payload(inputs: dict) -> dict:
         symbol = _symbol(component_id, "Component")
         interaction = interactions.get(component_id)
         action_rows = []
+        state_declaration = ""
+        import_row = ""
         if interaction:
+            transition = interaction["transitions"][0]
+            import_row = 'import { useState } from "react";\n'
+            state_declaration = (
+                f'  const [activeState, setActiveState] = useState("'
+                f'{transition["from_state_id"]}");\n'
+            )
             transition_ids = [
                 transition["transition_id"]
                 for transition in interaction["transitions"]
             ]
+            input_rows = []
+            for field_id in interaction["input_field_ids"]:
+                input_rows.extend(
+                    [
+                        f'      <label htmlFor="{field_id}">{field_id}</label>',
+                        (
+                            f'      <input id="{field_id}" '
+                            f'data-bmv-field-id="{field_id}" />'
+                        ),
+                    ]
+                )
             action_rows.append(
-                "      <button\n"
+                "\n".join(input_rows)
+                + ("\n" if input_rows else "")
+                + "      <button\n"
                 '        type="button"\n'
                 f'        data-bmv-action-id="{interaction["action_id"]}"\n'
                 f'        data-bmv-transition-id="{transition_ids[0]}"\n'
+                f'        onClick={{() => setActiveState("'
+                f'{transition["to_state_id"]}")}}\n'
                 "      >\n"
                 "        Complete booking\n"
                 "      </button>"
             )
-        state_rows = [
-            f'      <span data-bmv-state-id="{state_id}">{state_id}</span>'
-            for state_id in component["state_ids"]
-        ]
-        evidence_rows = [
-            f'      <p data-bmv-evidence-id="{evidence_id}">{evidence_id}</p>'
-            for evidence_id in component["evidence_ids"]
-        ]
+        state_rows = []
+        for state_id in component["state_ids"]:
+            if interaction:
+                state_rows.append(
+                    f'      {{activeState === "{state_id}" ? '
+                    f'<span data-bmv-state-id="{state_id}">{state_id}</span> '
+                    ": null}"
+                )
+            else:
+                state_rows.append(
+                    f'      <span data-bmv-state-id="{state_id}">'
+                    f"{state_id}</span>"
+                )
+        success_evidence = {
+            evidence_id
+            for transition in (interaction or {}).get("transitions", [])
+            for evidence_id in transition["success_evidence_ids"]
+        }
+        evidence_rows = []
+        for evidence_id in component["evidence_ids"]:
+            if interaction and evidence_id in success_evidence:
+                evidence_rows.append(
+                    f'      <p data-bmv-evidence-id="{evidence_id}" '
+                    f'hidden={{activeState !== "'
+                    f'{interaction["transitions"][0]["to_state_id"]}"}}>'
+                    f"{evidence_id}</p>"
+                )
+            else:
+                evidence_rows.append(
+                    f'      <p data-bmv-evidence-id="{evidence_id}">'
+                    f"{evidence_id}</p>"
+                )
         source = (
-            'import { contentDataPlan } from "../../generated/content-data";\n\n'
+            import_row
+            + 'import { contentDataPlan } from "../../generated/content-data";\n\n'
             f"export function {symbol}() {{\n"
+            f"{state_declaration}"
             "  return (\n"
             f'    <section data-bmv-component-id="{component_id}">\n'
             f"      <h2>{component['name']}</h2>\n"

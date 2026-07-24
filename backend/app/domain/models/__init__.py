@@ -7,6 +7,15 @@ from app.domain.models.preview_candidate import (
     CandidateArtifactRecord,
     CandidateRevisionRecord,
 )
+from app.domain.models.runtime_validation import (
+    CandidateAccessibilityFindingRecord,
+    CandidateBuildAttemptRecord,
+    CandidateJourneyResultRecord,
+    CandidateRouteResultRecord,
+    CandidateRuntimeValidationAttemptRecord,
+    CandidateScreenshotRecord,
+    CandidateValidationSummaryRecord,
+)
 from app.domain.models.design_contract import DesignContractArtifactRecord
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
@@ -26,6 +35,13 @@ __all__ = [
     "CompositionContractArtifactRecord",
     "CandidateArtifactRecord",
     "CandidateRevisionRecord",
+    "CandidateAccessibilityFindingRecord",
+    "CandidateBuildAttemptRecord",
+    "CandidateJourneyResultRecord",
+    "CandidateRouteResultRecord",
+    "CandidateRuntimeValidationAttemptRecord",
+    "CandidateScreenshotRecord",
+    "CandidateValidationSummaryRecord",
     "DesignContractArtifactRecord",
     "PreviewTierArtifactRecord",
     "ProductStrategyRevision",

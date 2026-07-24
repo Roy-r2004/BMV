@@ -14,6 +14,10 @@ This copies:
   product_strategy_revisions, app_spec_revisions, preview_tier_artifacts,
   design_contract_artifacts, composition_contract_artifacts,
   candidate_artifacts, candidate_revisions,
+  candidate_runtime_validation_attempts, candidate_build_attempts,
+  candidate_route_results, candidate_journey_results,
+  candidate_accessibility_findings, candidate_screenshots,
+  candidate_validation_summaries,
   preview_chat_messages, solution_workspaces, solution_edit_messages
 
 Safe to re-run: clears destination tables first (in FK-safe order), then inserts.
@@ -41,6 +45,13 @@ TABLES_IN_ORDER = [
     "composition_contract_artifacts",
     "candidate_artifacts",
     "candidate_revisions",
+    "candidate_runtime_validation_attempts",
+    "candidate_build_attempts",
+    "candidate_route_results",
+    "candidate_journey_results",
+    "candidate_accessibility_findings",
+    "candidate_screenshots",
+    "candidate_validation_summaries",
     "preview_chat_messages",
     "solution_workspaces",
     "solution_edit_messages",

@@ -100,6 +100,7 @@ class Settings:
     PREVIEW_TEMPLATE_DIR: Path
     PREVIEW_APPS_DIR: Path
     PREVIEW_CANDIDATES_DIR: Path
+    PREVIEW_VALIDATIONS_DIR: Path
 
     # Model names (resolved below, provider-dependent)
     TEXT_MODEL: str
@@ -172,6 +173,28 @@ class Settings:
     V2_CANDIDATE_TIMEOUT_SECONDS: int
     V2_CANDIDATE_MAX_CALLS: int
     V2_CANDIDATE_MAX_COST_USD: float
+    V2_RUNTIME_VALIDATION_ENABLED: bool
+    V2_RUNTIME_POLICY_REVISION: str
+    V2_RUNTIME_TYPESCRIPT_TIMEOUT_SECONDS: int
+    V2_RUNTIME_VITE_BUILD_TIMEOUT_SECONDS: int
+    V2_RUNTIME_BUILD_TIMEOUT_SECONDS: int
+    V2_RUNTIME_SERVER_TIMEOUT_SECONDS: int
+    V2_RUNTIME_ROUTE_TIMEOUT_SECONDS: int
+    V2_RUNTIME_JOURNEY_TIMEOUT_SECONDS: int
+    V2_RUNTIME_ACCESSIBILITY_TIMEOUT_SECONDS: int
+    V2_RUNTIME_SCREENSHOT_TIMEOUT_SECONDS: int
+    V2_RUNTIME_PHASE_TIMEOUT_SECONDS: int
+    V2_RUNTIME_MAX_BROWSER_CONTEXTS: int
+    V2_RUNTIME_MAX_BROWSER_PAGES: int
+    V2_RUNTIME_MAX_CONSOLE_DIAGNOSTICS: int
+    V2_RUNTIME_MAX_NETWORK_DIAGNOSTICS: int
+    V2_RUNTIME_MAX_COMMAND_OUTPUT_BYTES: int
+    V2_RUNTIME_MAX_DETERMINISTIC_REPAIRS: int
+    V2_RUNTIME_MAX_DIST_BYTES: int
+    V2_RUNTIME_MAX_JAVASCRIPT_BYTES: int
+    V2_RUNTIME_MAX_CSS_BYTES: int
+    V2_RUNTIME_MAX_DIST_FILES: int
+    V2_RUNTIME_MAX_SOURCE_MAPS: int
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -215,6 +238,12 @@ class Settings:
             os.getenv(
                 "PREVIEW_CANDIDATES_DIR",
                 str(Path(self.UPLOAD_DIR) / "preview-candidates"),
+            )
+        )
+        self.PREVIEW_VALIDATIONS_DIR = Path(
+            os.getenv(
+                "PREVIEW_VALIDATIONS_DIR",
+                str(self.PREVIEW_TEMPLATE_DIR / ".runtime-validation"),
             )
         )
 
@@ -606,6 +635,48 @@ class Settings:
             )
         except ValueError:
             self.V2_CANDIDATE_MAX_COST_USD = 0.25
+        self.V2_RUNTIME_VALIDATION_ENABLED = os.getenv(
+            "V2_RUNTIME_VALIDATION_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_RUNTIME_POLICY_REVISION = (
+            os.getenv(
+                "V2_RUNTIME_POLICY_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        runtime_integer_settings = (
+            ("V2_RUNTIME_TYPESCRIPT_TIMEOUT_SECONDS", 90, 1, 600),
+            ("V2_RUNTIME_VITE_BUILD_TIMEOUT_SECONDS", 120, 1, 600),
+            ("V2_RUNTIME_BUILD_TIMEOUT_SECONDS", 180, 1, 1200),
+            ("V2_RUNTIME_SERVER_TIMEOUT_SECONDS", 20, 1, 120),
+            ("V2_RUNTIME_ROUTE_TIMEOUT_SECONDS", 15, 1, 120),
+            ("V2_RUNTIME_JOURNEY_TIMEOUT_SECONDS", 30, 1, 180),
+            ("V2_RUNTIME_ACCESSIBILITY_TIMEOUT_SECONDS", 15, 1, 120),
+            ("V2_RUNTIME_SCREENSHOT_TIMEOUT_SECONDS", 10, 1, 120),
+            ("V2_RUNTIME_PHASE_TIMEOUT_SECONDS", 600, 1, 3600),
+            ("V2_RUNTIME_MAX_BROWSER_CONTEXTS", 2, 1, 8),
+            ("V2_RUNTIME_MAX_BROWSER_PAGES", 2, 1, 8),
+            ("V2_RUNTIME_MAX_CONSOLE_DIAGNOSTICS", 100, 1, 1000),
+            ("V2_RUNTIME_MAX_NETWORK_DIAGNOSTICS", 100, 1, 1000),
+            ("V2_RUNTIME_MAX_COMMAND_OUTPUT_BYTES", 65536, 1024, 1048576),
+            ("V2_RUNTIME_MAX_DETERMINISTIC_REPAIRS", 1, 0, 1),
+            ("V2_RUNTIME_MAX_DIST_BYTES", 5242880, 1, 104857600),
+            ("V2_RUNTIME_MAX_JAVASCRIPT_BYTES", 2097152, 1, 52428800),
+            ("V2_RUNTIME_MAX_CSS_BYTES", 524288, 1, 10485760),
+            ("V2_RUNTIME_MAX_DIST_FILES", 200, 1, 2000),
+            ("V2_RUNTIME_MAX_SOURCE_MAPS", 0, 0, 100),
+        )
+        for field_name, default, minimum, maximum in runtime_integer_settings:
+            try:
+                value = min(
+                    maximum,
+                    max(minimum, int(os.getenv(field_name, str(default)))),
+                )
+            except ValueError:
+                value = default
+            setattr(self, field_name, value)
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

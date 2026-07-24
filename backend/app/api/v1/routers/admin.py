@@ -36,7 +36,14 @@ from app.domain.schemas.common import GenerateResponse
 from app.domain.models import (
     AppSpecRevision,
     CandidateArtifactRecord,
+    CandidateAccessibilityFindingRecord,
+    CandidateBuildAttemptRecord,
+    CandidateJourneyResultRecord,
+    CandidateRouteResultRecord,
     CandidateRevisionRecord,
+    CandidateRuntimeValidationAttemptRecord,
+    CandidateScreenshotRecord,
+    CandidateValidationSummaryRecord,
     CompositionContractArtifactRecord,
     CustomerSourceArtifact,
     DesignContractArtifactRecord,
@@ -280,6 +287,18 @@ def delete_request(
     db.query(PreviewChatMessage).filter(PreviewChatMessage.request_id == request_id).delete(
         synchronize_session=False
     )
+    for runtime_model in (
+        CandidateValidationSummaryRecord,
+        CandidateScreenshotRecord,
+        CandidateAccessibilityFindingRecord,
+        CandidateJourneyResultRecord,
+        CandidateRouteResultRecord,
+        CandidateBuildAttemptRecord,
+        CandidateRuntimeValidationAttemptRecord,
+    ):
+        db.query(runtime_model).filter(
+            runtime_model.request_id == request_id
+        ).delete(synchronize_session=False)
     db.query(CandidateRevisionRecord).filter(
         CandidateRevisionRecord.request_id == request_id
     ).delete(synchronize_session=False)
@@ -343,6 +362,9 @@ def delete_request(
     candidate_dir = Path(settings.PREVIEW_CANDIDATES_DIR) / str(request_id)
     if candidate_dir.is_dir():
         shutil.rmtree(candidate_dir, ignore_errors=True)
+    validation_dir = Path(settings.PREVIEW_VALIDATIONS_DIR) / str(request_id)
+    if validation_dir.is_dir():
+        shutil.rmtree(validation_dir, ignore_errors=True)
 
     return {"success": True, "deleted_id": request_id, "label": label}
 
