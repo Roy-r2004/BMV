@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.phase7a_migrations import migrate_phase7a_rollout
+from app.infrastructure.db.phase7b_migrations import migrate_phase7b_shadow
 
 
 def enable_test_only_mode() -> None:
@@ -18,7 +19,7 @@ def enable_test_only_mode() -> None:
 
 
 def make_rollout_engine():
-    """Minimal schema for Phase 7A tables + FK parents."""
+    """Minimal schema for Phase 7A/7B tables + FK parents."""
     root = Path(__file__).parent / ".tmp" / uuid.uuid4().hex
     root.mkdir(parents=True)
     engine = create_engine(f"sqlite:///{root / 'phase7a.db'}")
@@ -55,7 +56,11 @@ def make_rollout_engine():
         conn.execute(
             text("INSERT INTO candidate_revisions VALUES (7, 1)")
         )
+        conn.execute(
+            text("INSERT INTO candidate_effective_tier_summaries VALUES (1)")
+        )
     migrate_phase7a_rollout(engine)
+    migrate_phase7b_shadow(engine)
     return engine, root
 
 

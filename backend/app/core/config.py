@@ -251,6 +251,11 @@ class Settings:
     V2_PHASE7_ROLLOUT_SALT: str
     V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE: bool
     V2_PHASE7_CONFIG_VALID: bool
+    V2_PHASE7_SHADOW_MODE: str
+    V2_PHASE7_SHADOW_COMPARE_ENABLED: bool
+    V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED: bool
+    V2_PHASE7_SHADOW_MAX_CONCURRENCY: int
+    V2_PHASE7_SHADOW_MAX_WALL_SECONDS: int
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -1023,6 +1028,47 @@ class Settings:
         if not self.V2_PHASE7_ROLLOUT_SALT.strip():
             self.V2_PHASE7_CONFIG_VALID = False
             self.V2_PHASE7_ROLLOUT_ENABLED = False
+        # Phase 7B shadow execution — fail closed; never serves candidates.
+        mode_raw = _env_or("V2_PHASE7_SHADOW_MODE", "reuse_accepted").strip()
+        allowed_modes = {"reuse_accepted", "regenerate_fixture", "regenerate_live"}
+        if mode_raw not in allowed_modes:
+            self.V2_PHASE7_SHADOW_MODE = "reuse_accepted"
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_ROLLOUT_ENABLED = False
+            self.V2_PHASE7_SHADOW_ENABLED = False
+        else:
+            self.V2_PHASE7_SHADOW_MODE = mode_raw
+        self.V2_PHASE7_SHADOW_COMPARE_ENABLED = os.getenv(
+            "V2_PHASE7_SHADOW_COMPARE_ENABLED",
+            "true",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED = os.getenv(
+            "V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        # Live providers remain unsupported in Phase 7B operational modes.
+        if self.V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED:
+            # Fail closed: never silently allow live regenerate.
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_SHADOW_ENABLED = False
+        try:
+            self.V2_PHASE7_SHADOW_MAX_CONCURRENCY = min(
+                1,
+                max(1, int(os.getenv("V2_PHASE7_SHADOW_MAX_CONCURRENCY", "1"))),
+            )
+        except ValueError:
+            self.V2_PHASE7_SHADOW_MAX_CONCURRENCY = 1
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_SHADOW_ENABLED = False
+        try:
+            self.V2_PHASE7_SHADOW_MAX_WALL_SECONDS = min(
+                3600,
+                max(1, int(os.getenv("V2_PHASE7_SHADOW_MAX_WALL_SECONDS", "3600"))),
+            )
+        except ValueError:
+            self.V2_PHASE7_SHADOW_MAX_WALL_SECONDS = 3600
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_SHADOW_ENABLED = False
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

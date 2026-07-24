@@ -17,7 +17,12 @@ from app.domain.schemas.rollout import (
 PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
     "rollout_viewer": frozenset({"read_diagnostics"}),
     "rollout_operator": frozenset(
-        {"read_diagnostics", "compute_shadow_eligibility", "compute_promotion_eligibility"}
+        {
+            "read_diagnostics",
+            "compute_shadow_eligibility",
+            "compute_promotion_eligibility",
+            "start_shadow_evaluation",
+        }
     ),
     "rollout_approver": frozenset(
         {
@@ -34,19 +39,20 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "review_eligibility",
             "review_policy_state",
             "create_rollout_policy_version",
+            "start_shadow_evaluation",
         }
     ),
 }
 
-# No role may promote or roll back in Phase 7A.
+# No role may promote or roll back in Phase 7A/7B.
 FORBIDDEN_PHASE7A_ACTIONS = frozenset(
     {
         "promote",
         "rollback",
         "apply_pointer_swap",
         "consume_canary_approval",
-        "execute_shadow",
         "trip_circuit_breaker",
+        "start_live_shadow_regenerate",
     }
 )
 
@@ -73,7 +79,21 @@ def require_permission(actor: TrustedRolloutActor, permission: str) -> None:
 
 def reject_client_supplied_roles(payload: dict) -> None:
     """Boundary guard: request JSON must not carry authorization roles."""
-    banned = ("actor_role", "actor_roles", "roles", "rollout_role", "authorization_scope")
+    banned = (
+        "actor_id",
+        "actor_role",
+        "actor_roles",
+        "roles",
+        "rollout_role",
+        "authorization_scope",
+        "serving_target",
+        "pointer_version",
+        "eligibility_result",
+        "eligibility_sha256",
+        "provider",
+        "model",
+        "provider_model",
+    )
     for key in banned:
         if key in payload:
             raise RolloutAuthorizationError(

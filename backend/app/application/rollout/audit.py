@@ -17,6 +17,9 @@ PHASE7A_EMITTABLE_EVENTS = frozenset(
         "eligibility_computed",
         "pointer_resolved",
         "history_mutation_attempted",
+        "shadow_started",
+        "shadow_completed",
+        "shadow_failed",
     }
 )
 
@@ -61,7 +64,7 @@ def append_audit_event(
     metadata: dict[str, Any] | None = None,
 ) -> PreviewRolloutAuditEventRecord:
     if event_type not in PHASE7A_EMITTABLE_EVENTS:
-        raise ValueError(f"Phase 7A cannot emit event_type={event_type!r}")
+        raise ValueError(f"Phase 7 cannot emit event_type={event_type!r}")
     meta = metadata or {}
     meta_json = json.dumps(meta, sort_keys=True, separators=(",", ":"))
     meta_sha = hashlib.sha256(meta_json.encode("utf-8")).hexdigest()

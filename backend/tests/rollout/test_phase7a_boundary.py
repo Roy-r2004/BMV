@@ -29,13 +29,18 @@ def test_no_post_promotion_or_rollback_endpoints() -> None:
             assert "serving-pointer" not in path or methods == {"GET"}
 
 
-def test_diagnostic_endpoints_are_get_only() -> None:
+def test_diagnostic_endpoints_are_get_only_except_shadow_post() -> None:
     rollout_routes = [
         r for r in _all_routes() if "/admin/rollout" in r.path
     ]
-    assert rollout_routes, "expected read-only rollout diagnostics"
+    assert rollout_routes, "expected rollout diagnostics"
     for route in rollout_routes:
-        assert route.methods == {"GET"}
+        methods = set(route.methods or [])
+        if route.path.endswith("/shadow-evaluations") and "{request_id}" in route.path:
+            # Phase 7B allows POST shadow-only on this collection path.
+            assert methods <= {"GET", "POST"}
+            continue
+        assert methods == {"GET"}
 
 
 def test_test_only_harness_unreachable_from_application_routing() -> None:

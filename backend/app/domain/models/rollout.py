@@ -280,6 +280,8 @@ class PreviewShadowEvaluationRecord(Base):
         ),
         UniqueConstraint("evaluation_sha256", name="uq_shadow_evaluation_sha256"),
         Index("ix_shadow_evaluation_request", "request_id", "created_at"),
+        Index("ix_shadow_evaluation_attempt", "shadow_attempt_uuid"),
+        Index("ix_shadow_evaluation_idempotency", "request_id", "idempotency_key"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -309,6 +311,17 @@ class PreviewShadowEvaluationRecord(Base):
     no_serving_mutation = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     evaluation_sha256 = Column(String(64), nullable=False)
+    # Phase 7B additive lineage / idempotency columns
+    shadow_attempt_uuid = Column(String(36), nullable=True, index=True)
+    terminal_of_evaluation_id = Column(
+        Integer,
+        ForeignKey("preview_shadow_evaluations.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    mode = Column(String(32), nullable=True)
+    idempotency_key = Column(String(128), nullable=True)
+    eligibility_sha256 = Column(String(64), nullable=True)
 
 
 class PreviewLiveCanaryApprovalRecord(Base):
