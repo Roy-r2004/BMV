@@ -28,6 +28,15 @@ from app.domain.models.visual_evaluation import (
     CandidateVisualScorecardRecord,
     CandidateVisualSummaryRecord,
 )
+from app.domain.models.tier_orchestration import (
+    CandidateEffectiveTierSummaryRecord,
+    CandidateLowerTierPreservationAuditRecord,
+    CandidateTierExtensionManifestRecord,
+    CandidateTierGenerationResultRecord,
+    CandidateTierOrchestrationAttemptRecord,
+    CandidateTierValidationResultRecord,
+    CandidateTierVisualOutcomeRecord,
+)
 from app.domain.models.design_contract import DesignContractArtifactRecord
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
@@ -64,6 +73,13 @@ __all__ = [
     "CandidateVisualReviewerDecisionRecord",
     "CandidateVisualScorecardRecord",
     "CandidateVisualSummaryRecord",
+    "CandidateEffectiveTierSummaryRecord",
+    "CandidateLowerTierPreservationAuditRecord",
+    "CandidateTierExtensionManifestRecord",
+    "CandidateTierGenerationResultRecord",
+    "CandidateTierOrchestrationAttemptRecord",
+    "CandidateTierValidationResultRecord",
+    "CandidateTierVisualOutcomeRecord",
     "DesignContractArtifactRecord",
     "PreviewTierArtifactRecord",
     "ProductStrategyRevision",

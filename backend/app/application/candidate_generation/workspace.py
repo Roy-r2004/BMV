@@ -109,12 +109,15 @@ def _write_attempt_metadata(
     *,
     upstream_sha256: str,
     completed_artifacts: dict[str, str] | None = None,
+    policy_revision: str | None = None,
 ) -> None:
     payload = {
         "request_id": workspace.request_id,
         "revision_uuid": workspace.revision_uuid,
         "upstream_sha256": upstream_sha256,
-        "policy_revision": settings.V2_CANDIDATE_POLICY_REVISION,
+        "policy_revision": (
+            policy_revision or settings.V2_CANDIDATE_POLICY_REVISION
+        ),
         "completed_artifacts": completed_artifacts or {},
     }
     _attempt_metadata_path(workspace.staging_path).write_text(
@@ -129,11 +132,13 @@ def checkpoint_workspace(
     *,
     upstream_sha256: str,
     completed_artifacts: dict[str, str],
+    policy_revision: str | None = None,
 ) -> None:
     _write_attempt_metadata(
         workspace,
         upstream_sha256=upstream_sha256,
         completed_artifacts=completed_artifacts,
+        policy_revision=policy_revision,
     )
 
 
@@ -142,6 +147,7 @@ def _verified_resume(
     *,
     request_id: int,
     upstream_sha256: str,
+    policy_revision: str | None = None,
 ) -> CandidateWorkspace | None:
     metadata_path = _attempt_metadata_path(staging_path)
     try:
@@ -154,7 +160,7 @@ def _verified_resume(
         payload.get("request_id") != request_id
         or payload.get("upstream_sha256") != upstream_sha256
         or payload.get("policy_revision")
-        != settings.V2_CANDIDATE_POLICY_REVISION
+        != (policy_revision or settings.V2_CANDIDATE_POLICY_REVISION)
     ):
         return None
     for relpath, expected_sha in (
@@ -180,6 +186,7 @@ def open_candidate_workspace(
     *,
     request_id: int,
     upstream_sha256: str,
+    policy_revision: str | None = None,
 ) -> CandidateWorkspace:
     request_root = candidate_root() / str(request_id)
     staging_root = request_root / ".staging"
@@ -191,6 +198,7 @@ def open_candidate_workspace(
             staging_path,
             request_id=request_id,
             upstream_sha256=upstream_sha256,
+            policy_revision=policy_revision,
         )
         if resumed is not None:
             return resumed
@@ -207,6 +215,7 @@ def open_candidate_workspace(
     _write_attempt_metadata(
         workspace,
         upstream_sha256=upstream_sha256,
+        policy_revision=policy_revision,
     )
     return workspace
 

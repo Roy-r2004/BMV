@@ -50,6 +50,11 @@ class CompositionContext:
     def tier_1(self) -> PreviewTierArtifact:
         return self.tiers[0]
 
+    def tier(self, number: int) -> PreviewTierArtifact:
+        if number not in (1, 2, 3):
+            raise ValueError("Tier number must be 1, 2, or 3")
+        return self.tiers[number - 1]
+
 
 def _design_rows(
     db: Session,

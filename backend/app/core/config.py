@@ -219,6 +219,17 @@ class Settings:
     V2_VISUAL_MAX_OUTPUT_TOKENS: int
     V2_VISUAL_MAX_CALLS: int
     V2_VISUAL_MAX_COST_USD: float
+    V2_TIER2_GENERATION_ENABLED: bool
+    V2_TIER2_GENERATION_POLICY_REVISION: str
+    V2_TIER2_COMPONENT_MODEL: str
+    V2_TIER2_PAGE_MODEL: str
+    V2_TIER2_REPAIR_MODEL: str
+    V2_TIER2_COMPONENT_PROMPT_REVISION: str
+    V2_TIER2_PAGE_PROMPT_REVISION: str
+    V2_TIER2_MAX_CALLS: int
+    V2_TIER2_MAX_OUTPUT_TOKENS: int
+    V2_TIER2_MAX_COST_USD: float
+    V2_TIER2_MAX_WALL_SECONDS: int
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -777,6 +788,81 @@ class Settings:
             )
         except ValueError:
             self.V2_VISUAL_MAX_COST_USD = 1.50
+        self.V2_TIER2_GENERATION_ENABLED = os.getenv(
+            "V2_TIER2_GENERATION_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_TIER2_GENERATION_POLICY_REVISION = _env_or(
+            "V2_TIER2_GENERATION_POLICY_REVISION",
+            "2026-07-24.1",
+        )
+        self.V2_TIER2_COMPONENT_MODEL = _env_or(
+            "V2_TIER2_COMPONENT_MODEL",
+            "deepseek/deepseek-v4-pro",
+        )
+        self.V2_TIER2_PAGE_MODEL = _env_or(
+            "V2_TIER2_PAGE_MODEL",
+            "deepseek/deepseek-v4-pro",
+        )
+        self.V2_TIER2_REPAIR_MODEL = _env_or(
+            "V2_TIER2_REPAIR_MODEL",
+            "z-ai/glm-5.2",
+        )
+        self.V2_TIER2_COMPONENT_PROMPT_REVISION = _env_or(
+            "V2_TIER2_COMPONENT_PROMPT_REVISION",
+            "2026-07-24.1",
+        )
+        self.V2_TIER2_PAGE_PROMPT_REVISION = _env_or(
+            "V2_TIER2_PAGE_PROMPT_REVISION",
+            "2026-07-24.1",
+        )
+        try:
+            self.V2_TIER2_MAX_CALLS = min(
+                10,
+                max(4, int(os.getenv("V2_TIER2_MAX_CALLS", "10"))),
+            )
+        except ValueError:
+            self.V2_TIER2_MAX_CALLS = 10
+        try:
+            self.V2_TIER2_MAX_OUTPUT_TOKENS = min(
+                118_000,
+                max(
+                    1,
+                    int(
+                        os.getenv(
+                            "V2_TIER2_MAX_OUTPUT_TOKENS",
+                            "118000",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_TIER2_MAX_OUTPUT_TOKENS = 118_000
+        try:
+            self.V2_TIER2_MAX_COST_USD = min(
+                1.75,
+                max(
+                    0.01,
+                    float(os.getenv("V2_TIER2_MAX_COST_USD", "1.75")),
+                ),
+            )
+        except ValueError:
+            self.V2_TIER2_MAX_COST_USD = 1.75
+        try:
+            self.V2_TIER2_MAX_WALL_SECONDS = min(
+                2400,
+                max(
+                    1,
+                    int(
+                        os.getenv(
+                            "V2_TIER2_MAX_WALL_SECONDS",
+                            "2400",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_TIER2_MAX_WALL_SECONDS = 2400
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

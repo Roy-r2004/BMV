@@ -387,6 +387,7 @@ def derive_candidate(
     workspace = open_candidate_workspace(
         request_id=context.refs.request_id,
         upstream_sha256=upstream,
+        policy_revision=context.candidate.policy_revision,
     )
     if workspace.resumed:
         shutil.rmtree(workspace.staging_path)
@@ -483,7 +484,7 @@ def derive_candidate(
         revision_uuid=workspace.revision_uuid,
         request_id=context.refs.request_id,
         revision=revision_number,
-        target_tier=1,
+        target_tier=context.candidate.target_tier,
         status="candidate_build_pending",
         generator_version="v2-phase5-refined",
         policy_revision="2026-07-24.1",
@@ -528,7 +529,7 @@ def derive_candidate(
         "id": row.id,
         "revision_uuid": row.revision_uuid,
         "revision": row.revision,
-        "target_tier": 1,
+        "target_tier": context.candidate.target_tier,
         "workspace_relpath": row.workspace_relpath,
         "file_manifest_sha256": row.file_manifest_sha256,
     }

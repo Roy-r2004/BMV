@@ -49,7 +49,7 @@ CandidateFileKind = Literal[
 
 class CandidateUpstreamRefs(StrictDesignModel):
     request_id: StrictInt = Field(ge=1)
-    target_tier: Literal[1] = 1
+    target_tier: Literal[1, 2, 3] = 1
     composition_contract_refs: CompositionContractRefs
     page_purpose_ref: CompositionArtifactRef
     business_component_plan_ref: CompositionArtifactRef
@@ -61,6 +61,8 @@ class CandidateUpstreamRefs(StrictDesignModel):
     def _kinds_and_request(self) -> "CandidateUpstreamRefs":
         if self.request_id != self.composition_contract_refs.request_id:
             raise ValueError("Candidate and composition request IDs must match")
+        if self.target_tier != self.composition_contract_refs.target_tier:
+            raise ValueError("Candidate and composition target tiers must match")
         expected = (
             (self.page_purpose_ref, "page_purpose_contract"),
             (self.business_component_plan_ref, "business_component_plan"),

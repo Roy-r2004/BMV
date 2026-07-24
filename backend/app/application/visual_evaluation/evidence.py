@@ -185,6 +185,7 @@ def build_evidence_bundle(
     *,
     critic_capability: ModelCapabilityResolution,
     reviewer_capability: ModelCapabilityResolution,
+    page_ids: tuple[str, ...] | None = None,
 ) -> VisualEvidenceBundle:
     viewport_map = {item.name: item for item in VIEWPORTS}
     inspected = []
@@ -213,7 +214,7 @@ def build_evidence_bundle(
                 **details,
             )
         )
-    ordered = tuple(inspected)
+    all_ordered = tuple(inspected)
     if canonical_sha256(
         [
             {
@@ -222,10 +223,20 @@ def build_evidence_bundle(
                 "viewport": item.viewport,
                 "sha256": item.sha256,
             }
-            for item in ordered
+            for item in all_ordered
         ]
     ) != context.refs.screenshot_set_sha256:
         raise ValueError("Screenshot-set hash changed during inspection")
+    if page_ids is not None:
+        wanted = set(page_ids)
+        known = {item.page_id for item in all_ordered}
+        if not wanted or not wanted.issubset(known):
+            raise ValueError("Visual evidence scope references unknown pages")
+        ordered = tuple(
+            item for item in all_ordered if item.page_id in wanted
+        )
+    else:
+        ordered = all_ordered
     groups = _group_by_route(
         ordered,
         critic=critic_capability,
@@ -242,7 +253,11 @@ def build_evidence_bundle(
             reviewer_capability.model_dump(mode="json"),
         ],
     }
-    first = context.screenshots[0]
+    first = next(
+        item
+        for item in context.screenshots
+        if item.page_id == ordered[0].page_id
+    )
     return VisualEvidenceBundle(
         refs=context.refs,
         capture_policy_revision=first.capture_policy_revision,

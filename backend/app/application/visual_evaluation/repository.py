@@ -318,6 +318,7 @@ class VisualEvaluationRepository:
         refinement_output: RefinementOutput | None = None,
         technical_repair_output: RefinementOutput | None = None,
         parent_attempt_id: int | None = None,
+        update_request_bundle: bool = True,
     ) -> tuple[CandidateVisualSummaryRecord, str]:
         if (
             req.id != refs.request_id
@@ -650,28 +651,29 @@ class VisualEvaluationRepository:
             cost_usd=summary.cost_usd,
             latency_ms=summary.latency_ms,
         )
-        bundle_json: dict[str, Any] = {}
-        if req.generated_pages:
-            try:
-                loaded = json.loads(req.generated_pages)
-                if isinstance(loaded, dict):
-                    bundle_json = loaded
-            except Exception:
-                pass
-        preview = dict(bundle_json.get("preview_contract") or {})
-        preview.update(
-            {
-                "status": summary.status,
-                "visual_evaluation_summary": {
-                    "id": summary_row.id,
-                    "attempt_uuid": attempt.attempt_uuid,
-                    "sha256": summary_row.artifact_sha256,
-                    "repairability": summary.repairability,
-                },
-            }
-        )
-        bundle_json["preview_contract"] = preview
-        req.generated_pages = json.dumps(bundle_json, ensure_ascii=False)
+        if update_request_bundle:
+            bundle_json: dict[str, Any] = {}
+            if req.generated_pages:
+                try:
+                    loaded = json.loads(req.generated_pages)
+                    if isinstance(loaded, dict):
+                        bundle_json = loaded
+                except Exception:
+                    pass
+            preview = dict(bundle_json.get("preview_contract") or {})
+            preview.update(
+                {
+                    "status": summary.status,
+                    "visual_evaluation_summary": {
+                        "id": summary_row.id,
+                        "attempt_uuid": attempt.attempt_uuid,
+                        "sha256": summary_row.artifact_sha256,
+                        "repairability": summary.repairability,
+                    },
+                }
+            )
+            bundle_json["preview_contract"] = preview
+            req.generated_pages = json.dumps(bundle_json, ensure_ascii=False)
         self.db.flush()
         return summary_row, attempt.attempt_uuid
 

@@ -64,6 +64,7 @@ from app.domain.models import (
     CandidateRefinementGenerationRecord,
     CandidateRevisionRecord,
     CandidateValidationSummaryRecord,
+    CandidateVisualSummaryRecord,
     Request,
 )
 from app.domain.schemas.visual_evaluation import (
@@ -87,6 +88,10 @@ def _contracts_payload(context: VisualEvaluationContext) -> str:
             "source": composition.source.model_dump(mode="json"),
             "app_spec": composition.app_spec.model_dump(mode="json"),
             "tier_1": composition.tier_1.model_dump(mode="json"),
+            "target_tier": context.candidate.target_tier,
+            "target_tier_contract": composition.tier(
+                context.candidate.target_tier
+            ).model_dump(mode="json"),
             "product_strategy_v2": (
                 composition.product_strategy_v2.model_dump(mode="json")
             ),
@@ -460,6 +465,170 @@ def _blind_refinement_comparison(
     }
 
 
+def _blind_tier_baseline_comparison(
+    baseline_context,
+    baseline_bundle,
+    candidate_context,
+    candidate_bundle,
+    *,
+    reviewer_capability,
+) -> dict[str, Any]:
+    baseline_identity = artifact_sha256(
+        {
+            "candidate_revision_id": baseline_context.candidate.id,
+            "candidate_manifest_sha256": (
+                baseline_context.refs.candidate_manifest_sha256
+            ),
+            "screenshot_set_sha256": (
+                baseline_context.refs.screenshot_set_sha256
+            ),
+        }
+    )
+    candidate_identity = artifact_sha256(
+        {
+            "candidate_revision_id": candidate_context.candidate.id,
+            "candidate_manifest_sha256": (
+                candidate_context.refs.candidate_manifest_sha256
+            ),
+            "screenshot_set_sha256": (
+                candidate_context.refs.screenshot_set_sha256
+            ),
+        }
+    )
+    attempt_hash = artifact_sha256(
+        {
+            "baseline": baseline_identity,
+            "candidate": candidate_identity,
+            "policy": settings.V2_VISUAL_POLICY_REVISION,
+        }
+    )
+    first, second = blind_label_order(
+        baseline_identity,
+        candidate_identity,
+        attempt_hash=attempt_hash,
+    )
+    label_candidate = "a" if first == candidate_identity else "b"
+    bundles = {
+        baseline_identity: baseline_bundle,
+        candidate_identity: candidate_bundle,
+    }
+    baseline_pages = {
+        item.page_id for item in baseline_bundle.ordered_screenshots
+    }
+    shared_fallback_pages = tuple(
+        dict.fromkeys(
+            item.page_id
+            for item in candidate_bundle.ordered_screenshots
+            if item.page_id in baseline_pages
+        )
+    )
+    paths_by_group = {}
+    manifests = {}
+    for group in candidate_bundle.grouping_manifest:
+        matched_pages = tuple(
+            page_id for page_id in group.page_ids
+            if page_id in baseline_pages
+        )
+        candidate_only_pages = tuple(
+            page_id for page_id in group.page_ids
+            if page_id not in baseline_pages
+        )
+        if not matched_pages:
+            if not shared_fallback_pages:
+                raise ValueError(
+                    "Scoped visual evaluation has no matched baseline route"
+                )
+            matched_pages = (shared_fallback_pages[0],)
+        ordered_paths: list[Path] = []
+        label_manifest = {}
+        for label, identity in (("a", first), ("b", second)):
+            bundle = bundles[identity]
+            rows = tuple(
+                item for item in bundle.ordered_screenshots
+                if item.page_id in matched_pages
+            )
+            expected = {
+                (page_id, viewport)
+                for page_id in matched_pages
+                for viewport in ("mobile", "tablet", "desktop")
+            }
+            if {
+                (item.page_id, item.viewport) for item in rows
+            } != expected:
+                raise ValueError(
+                    "Tier 1 baseline lacks an exact semantic route/viewport "
+                    "match"
+                )
+            label_manifest[label] = [
+                {
+                    "blind_evidence_id": (
+                        f"{label.upper()}-{item.evidence_id}"
+                    ),
+                    "route": item.route,
+                    "viewport": item.viewport,
+                    "image_order": len(ordered_paths) + index,
+                }
+                for index, item in enumerate(rows)
+            ]
+            ordered_paths.extend(
+                evidence_absolute_paths(
+                    bundle,
+                    tuple(item.evidence_id for item in rows),
+                )
+            )
+        candidate_only = tuple(
+            item for item in candidate_bundle.ordered_screenshots
+            if item.page_id in candidate_only_pages
+        )
+        candidate_only_manifest = [
+            {
+                "evidence_id": item.evidence_id,
+                "route": item.route,
+                "viewport": item.viewport,
+                "image_order": len(ordered_paths) + index,
+                "comparison": "absolute_tier_2_route",
+            }
+            for index, item in enumerate(candidate_only)
+        ]
+        ordered_paths.extend(
+            evidence_absolute_paths(
+                candidate_bundle,
+                tuple(item.evidence_id for item in candidate_only),
+            )
+        )
+        if (
+            len(ordered_paths) > reviewer_capability.max_images
+            or sum(path.stat().st_size for path in ordered_paths)
+            > reviewer_capability.max_aggregate_image_bytes
+            or any(
+                path.stat().st_size > reviewer_capability.max_image_bytes
+                for path in ordered_paths
+            )
+        ):
+            raise ValueError("Tier 1 blind comparison exceeds reviewer limits")
+        paths_by_group[group.group_index] = tuple(ordered_paths)
+        manifests[group.group_index] = canonical_json(
+            {
+                "attempt_hash": attempt_hash,
+                "labels": label_manifest,
+                "candidate_only_new_tier_routes": candidate_only_manifest,
+                "candidate_creation_times_withheld": True,
+                "accepted_identity_withheld": True,
+                "same_policy_baseline_required": True,
+            }
+        )
+    return {
+        "attempt_hash": attempt_hash,
+        "first": first,
+        "second": second,
+        "candidate_label": label_candidate,
+        "baseline_identity": baseline_identity,
+        "candidate_identity": candidate_identity,
+        "paths_by_group": paths_by_group,
+        "manifest_by_group": manifests,
+    }
+
+
 def _not_worse(
     original_acceptance,
     refined_acceptance,
@@ -489,6 +658,11 @@ def evaluate_v2_candidate_visuals(
     *,
     req: Request,
     phase4_result: dict[str, Any],
+    baseline_phase4_result: dict[str, Any] | None = None,
+    baseline_visual_summary_id: int | None = None,
+    evidence_page_ids: tuple[str, ...] | None = None,
+    require_no_baseline_regression: bool = False,
+    update_request_bundle: bool = True,
 ) -> dict[str, Any]:
     """Evaluate one immutable runtime-validated Tier 1 candidate."""
 
@@ -513,12 +687,73 @@ def evaluate_v2_candidate_visuals(
         context,
         critic_capability=routing[0].capability,
         reviewer_capability=routing[1].capability,
+        page_ids=evidence_page_ids,
     )
     hard_gate = run_hard_gates(context, bundle)
-    baseline = resolve_baseline(
-        context,
-        attempt_hash=artifact_sha256(context.refs),
-    )
+    comparison = None
+    baseline_identity = None
+    if baseline_phase4_result is not None:
+        if baseline_visual_summary_id is None:
+            raise ValueError("Explicit baseline visual summary is required")
+        baseline_context = load_visual_evaluation_context(
+            db,
+            request_id=request_id,
+            phase4_result=baseline_phase4_result,
+        )
+        baseline_summary_row = db.get(
+            CandidateVisualSummaryRecord,
+            baseline_visual_summary_id,
+        )
+        if (
+            baseline_summary_row is None
+            or baseline_summary_row.request_id != request_id
+            or baseline_summary_row.candidate_revision_id
+            != baseline_context.candidate.id
+            or baseline_summary_row.status != "candidate_visual_accepted"
+            or baseline_context.candidate.target_tier != 1
+            or context.candidate.target_tier != 2
+            or baseline_context.screenshots[0].capture_policy_revision
+            != context.screenshots[0].capture_policy_revision
+        ):
+            raise ValueError("Tier 1 visual baseline is not eligible")
+        baseline_page_ids = tuple(
+            page_id
+            for page_id in (evidence_page_ids or ())
+            if page_id
+            in {
+                item.page_id
+                for item in baseline_context.contracts.page_purpose.pages
+            }
+        )
+        if not baseline_page_ids:
+            raise ValueError("Visual regression scope lacks a Tier 1 route")
+        baseline_bundle = build_evidence_bundle(
+            baseline_context,
+            critic_capability=routing[0].capability,
+            reviewer_capability=routing[1].capability,
+            page_ids=baseline_page_ids,
+        )
+        comparison = _blind_tier_baseline_comparison(
+            baseline_context,
+            baseline_bundle,
+            context,
+            bundle,
+            reviewer_capability=routing[1].capability,
+        )
+        baseline_identity = comparison["baseline_identity"]
+        baseline = CandidateBaselineComparison(
+            mode="absolute_only",
+            reason=(
+                "A same-policy Tier 1 baseline was validated; blind "
+                "comparison is completed only after reviewer scoring."
+            ),
+            attempt_hash=comparison["attempt_hash"],
+        )
+    else:
+        baseline = resolve_baseline(
+            context,
+            attempt_hash=artifact_sha256(context.refs),
+        )
     eval_key = evaluation_cache_key(
         refs=context.refs,
         bundle=bundle,
@@ -526,7 +761,7 @@ def evaluate_v2_candidate_visuals(
         limits=limits,
         score_bands=bands,
         acceptance=acceptance_rules,
-        baseline_identity=None,
+        baseline_identity=baseline_identity,
     )
     repository = VisualEvaluationRepository(db)
     cached = repository.load_complete_cache(
@@ -540,6 +775,17 @@ def evaluate_v2_candidate_visuals(
         limits=limits,
     )
     if cached is not None:
+        if require_no_baseline_regression and (
+            cached.baseline.mode != "blind_pair"
+            or baseline_identity
+            not in {
+                cached.baseline.label_a_identity_sha256,
+                cached.baseline.label_b_identity_sha256,
+            }
+        ):
+            raise ValueError(
+                "Cached scoped result lacks its accepted baseline"
+            )
         if cached.summary.repairability == "rejected_repairable":
             generation_row = (
                 db.query(CandidateRefinementGenerationRecord)
@@ -703,6 +949,7 @@ def evaluate_v2_candidate_visuals(
                 generation=None,
                 metrics=(),
                 summary=summary,
+                update_request_bundle=update_request_bundle,
             )
             db.commit()
         except Exception:
@@ -732,13 +979,58 @@ def evaluate_v2_candidate_visuals(
         deadline=deadline,
         metrics_before=(),
         subject="original",
+        comparison=comparison,
     )
+    if comparison is not None:
+        baseline = CandidateBaselineComparison(
+            mode="blind_pair",
+            reason=(
+                "Accepted baseline and cumulative candidate were compared "
+                "under the same Phase 4 capture and Phase 5 evaluation "
+                "policies."
+            ),
+            attempt_hash=comparison["attempt_hash"],
+            label_a_identity_sha256=comparison["first"],
+            label_b_identity_sha256=comparison["second"],
+            dimensions=reviewer.comparative_dimensions,
+        )
     calculation = compute_acceptance(
         critic,
         reviewer,
         hard_gate,
         acceptance_rules,
     )
+    if require_no_baseline_regression:
+        candidate_label = comparison["candidate_label"] if comparison else ""
+        no_regression = (
+            len(reviewer.comparative_dimensions) == 6
+            and (
+                (
+                    reviewer.comparative_result
+                    == f"{candidate_label}_preferred"
+                    and all(
+                        item.preferred in {candidate_label, "equal"}
+                        for item in reviewer.comparative_dimensions
+                    )
+                )
+                or (
+                    reviewer.comparative_result == "inconclusive"
+                    and all(
+                        item.preferred == "equal"
+                        for item in reviewer.comparative_dimensions
+                    )
+                )
+            )
+        )
+        calculation = calculation.model_copy(
+            update={
+                "threshold_checks": (
+                    *calculation.threshold_checks,
+                    ("tier_1_no_material_regression", no_regression),
+                ),
+                "accepted": calculation.accepted and no_regression,
+            }
+        )
     findings: tuple[VisualFinding, ...] = (
         *critic.findings,
         *reviewer.blocking_findings,
@@ -782,6 +1074,7 @@ def evaluate_v2_candidate_visuals(
                 generation=None,
                 metrics=metrics,
                 summary=summary,
+                update_request_bundle=update_request_bundle,
             )
             db.commit()
         except Exception:
@@ -848,6 +1141,7 @@ def evaluate_v2_candidate_visuals(
             generation=None,
             metrics=metrics,
             summary=original_summary,
+            update_request_bundle=update_request_bundle,
         )
         db.commit()
     except Exception:
@@ -917,6 +1211,7 @@ def evaluate_v2_candidate_visuals(
                 generation=None,
                 metrics=failure_metrics,
                 summary=failure_summary,
+                update_request_bundle=update_request_bundle,
             )
             db.commit()
         except Exception:
@@ -1206,6 +1501,7 @@ def evaluate_v2_candidate_visuals(
             technical_repair_output=(
                 technical.artifact if technical else None
             ),
+            update_request_bundle=update_request_bundle,
         )
         db.commit()
     except Exception:

@@ -299,21 +299,41 @@ def load_visual_evaluation_context(
         for row in journey_rows
     )
     artifacts = (*routes, *journeys, *accessibility, *screenshots)
-    if (
-        not all(item.refs == runtime_summary.refs for item in artifacts)
-        or not all(item.build_hash == build_result.build_hash for item in artifacts)
-        or not all(item.passed for item in (*routes, *journeys, *accessibility))
-        or tuple(artifact_sha256(item) for item in routes)
-        != runtime_summary.route_result_hashes
-        or tuple(artifact_sha256(item) for item in journeys)
-        != runtime_summary.journey_result_hashes
-        or tuple(artifact_sha256(item) for item in accessibility)
-        != runtime_summary.accessibility_result_hashes
-        or tuple(item.sha256 for item in screenshots)
-        != runtime_summary.screenshot_hashes
-        or len(journeys) != runtime_summary.expected_journey_count
-    ):
-        raise ValueError("Phase 4 evidence is stale, failing, or cross-request")
+    evidence_checks = {
+        "refs": all(item.refs == runtime_summary.refs for item in artifacts),
+        "build_hash": all(
+            item.build_hash == build_result.build_hash for item in artifacts
+        ),
+        "passed": all(
+            item.passed for item in (*routes, *journeys, *accessibility)
+        ),
+        "route_hashes": (
+            tuple(artifact_sha256(item) for item in routes)
+            == runtime_summary.route_result_hashes
+        ),
+        "journey_hashes": (
+            tuple(artifact_sha256(item) for item in journeys)
+            == runtime_summary.journey_result_hashes
+        ),
+        "accessibility_hashes": (
+            tuple(artifact_sha256(item) for item in accessibility)
+            == runtime_summary.accessibility_result_hashes
+        ),
+        "screenshot_hashes": (
+            tuple(item.sha256 for item in screenshots)
+            == runtime_summary.screenshot_hashes
+        ),
+        "journey_count": (
+            len(journeys) == runtime_summary.expected_journey_count
+        ),
+    }
+    if not all(evidence_checks.values()):
+        failed = ",".join(
+            name for name, passed in evidence_checks.items() if not passed
+        )
+        raise ValueError(
+            "Phase 4 evidence is stale, failing, or cross-request: " + failed
+        )
     screenshot_set_sha256 = canonical_sha256(
         [
             {
@@ -325,7 +345,6 @@ def load_visual_evaluation_context(
             for item in screenshots
         ]
     )
-    rows = contracts.rows
     refs = VisualEvaluationRefs(
         request_id=request_id,
         candidate_revision_id=candidate.id,
@@ -340,11 +359,17 @@ def load_visual_evaluation_context(
         design_contract_refs=(
             contracts.refs.composition_contract_refs.design_contract_refs
         ),
-        page_purpose_sha256=rows[0].artifact_sha256,
-        business_component_plan_sha256=rows[1].artifact_sha256,
-        content_data_plan_sha256=rows[2].artifact_sha256,
-        interaction_contract_sha256=rows[3].artifact_sha256,
-        component_dependency_graph_sha256=rows[4].artifact_sha256,
+        page_purpose_sha256=contracts.refs.page_purpose_ref.sha256,
+        business_component_plan_sha256=(
+            contracts.refs.business_component_plan_ref.sha256
+        ),
+        content_data_plan_sha256=contracts.refs.content_data_plan_ref.sha256,
+        interaction_contract_sha256=(
+            contracts.refs.interaction_contract_ref.sha256
+        ),
+        component_dependency_graph_sha256=(
+            contracts.refs.component_dependency_graph_ref.sha256
+        ),
     )
     return VisualEvaluationContext(
         candidate=candidate,

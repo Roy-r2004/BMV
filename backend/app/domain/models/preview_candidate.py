@@ -83,7 +83,7 @@ class CandidateRevisionRecord(Base):
     __tablename__ = "candidate_revisions"
     __table_args__ = (
         CheckConstraint(
-            "target_tier = 1",
+            "target_tier IN (1, 2, 3)",
             name="ck_candidate_revision_target_tier",
         ),
         CheckConstraint(

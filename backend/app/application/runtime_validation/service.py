@@ -261,6 +261,7 @@ def validate_v2_candidate_runtime(
     *,
     req: Request,
     phase3b_result: dict[str, Any],
+    update_request_bundle: bool = True,
 ) -> dict[str, Any]:
     """Build and validate one Phase 3B candidate without AI or promotion."""
 
@@ -466,6 +467,7 @@ def validate_v2_candidate_runtime(
                 accessibility=(),
                 screenshots=(),
                 summary=summary,
+                update_request_bundle=update_request_bundle,
             )
             db.commit()
         except Exception:
@@ -567,6 +569,40 @@ def validate_v2_candidate_runtime(
         journeys = bundle.journeys
         accessibility = bundle.accessibility
         screenshots = bundle.screenshots
+        # Browser work may complete concurrently. Persist and hash the matrix
+        # in canonical contract order so cumulative tiers are reproducible.
+        page_order = {
+            page.page_id: index
+            for index, page in enumerate(
+                context.contracts.page_purpose.pages
+            )
+        }
+        viewport_order = {
+            viewport.name: index
+            for index, viewport in enumerate(VIEWPORTS)
+        }
+        matrix_key = lambda item: (
+            page_order[item.page_id],
+            viewport_order[item.viewport],
+        )
+        routes = tuple(sorted(routes, key=matrix_key))
+        accessibility = tuple(sorted(accessibility, key=matrix_key))
+        screenshots = tuple(sorted(screenshots, key=matrix_key))
+        action_order = {
+            interaction.action_id: index
+            for index, interaction in enumerate(
+                context.contracts.interactions.interactions
+            )
+        }
+        journeys = tuple(
+            sorted(
+                journeys,
+                key=lambda item: (
+                    action_order.get(item.action_id, 10_000),
+                    item.journey_id,
+                ),
+            )
+        )
         network_diagnostics = bundle.network_diagnostics
         _ensure_deadline(deadline)
     except Exception as exc:
@@ -604,6 +640,7 @@ def validate_v2_candidate_runtime(
             accessibility=accessibility,
             screenshots=screenshots,
             summary=summary,
+            update_request_bundle=update_request_bundle,
         )
         db.commit()
         return _result_payload(
@@ -698,6 +735,7 @@ def validate_v2_candidate_runtime(
             accessibility=accessibility,
             screenshots=screenshots,
             summary=summary,
+            update_request_bundle=update_request_bundle,
         )
         db.commit()
     except Exception:

@@ -63,7 +63,7 @@ class PagePurpose(StrictDesignModel):
     action_ids: Tuple[Identifier, ...] = Field(default=(), max_length=400)
     transition_ids: Tuple[Identifier, ...] = Field(default=(), max_length=500)
     evidence_ids: Tuple[Identifier, ...] = Field(min_length=1, max_length=400)
-    journey_ids: Tuple[Identifier, ...] = Field(min_length=1, max_length=100)
+    journey_ids: Tuple[Identifier, ...] = Field(default=(), max_length=100)
     acceptance_test_ids: Tuple[Identifier, ...] = Field(
         min_length=1,
         max_length=200,

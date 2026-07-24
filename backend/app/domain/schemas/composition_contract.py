@@ -30,7 +30,7 @@ CompositionArtifactKind = Literal[
 
 class CompositionContractRefs(StrictDesignModel):
     request_id: StrictInt = Field(ge=1)
-    target_tier: Literal[1] = 1
+    target_tier: Literal[1, 2, 3] = 1
     design_contract_refs: DesignContractRefs
     product_strategy_v2_ref: DesignArtifactRef
     information_architecture_ref: DesignArtifactRef

@@ -26,9 +26,11 @@ class CompositionProjectionError(ValueError):
 
 def project_page_purpose(
     context: CompositionContext,
+    *,
+    tier_number: int = 1,
 ) -> PagePurposeContract:
     spec = context.app_spec
-    tier = context.tier_1
+    tier = context.tier(tier_number)
     refs = tier.references
     tier_pages = set(refs.page_ids)
     tier_requirements = set(refs.requirement_ids)
@@ -104,9 +106,14 @@ def project_page_purpose(
                 or test.journey_id in journey_ids
             )
         )
-        if not requirement_ids or not journey_ids or not test_ids:
+        if (
+            not requirement_ids
+            or not test_ids
+            or (tier_number == 1 and not journey_ids)
+            or (action_ids and not journey_ids)
+        ):
             raise CompositionProjectionError(
-                f"Tier 1 page {page.id} lacks closed contract references."
+                f"Tier {tier_number} page {page.id} lacks closed references."
             )
         pages.append(
             PagePurpose(
@@ -181,11 +188,13 @@ def _success_evidence_ids(
     *,
     transition_id: str,
     to_state_id: str,
+    tier_number: int = 1,
 ) -> tuple[str, ...]:
-    allowed = set(context.tier_1.references.evidence_ids)
+    tier = context.tier(tier_number)
+    allowed = set(tier.references.evidence_ids)
     gathered: set[str] = set()
     for journey in context.app_spec.journeys:
-        if journey.id not in context.tier_1.references.journey_ids:
+        if journey.id not in tier.references.journey_ids:
             continue
         for step in journey.steps:
             if step.transition_id == transition_id:
@@ -209,6 +218,7 @@ def project_interactions(
     component_plan_ref: CompositionArtifactRef,
     content_data_plan: ContentDataPlan,
     content_data_plan_ref: CompositionArtifactRef,
+    tier_number: int = 1,
 ) -> InteractionContract:
     spec = context.app_spec
     trigger_by_action = {
@@ -223,14 +233,14 @@ def project_interactions(
     tests = {
         test.id: test
         for test in spec.acceptance_tests
-        if test.id in context.tier_1.references.acceptance_test_ids
+        if test.id in context.tier(tier_number).references.acceptance_test_ids
     }
     journeys = {
         journey.id: journey
         for journey in spec.journeys
-        if journey.id in context.tier_1.references.journey_ids
+        if journey.id in context.tier(tier_number).references.journey_ids
     }
-    tier_action_ids = set(context.tier_1.references.action_ids)
+    tier_action_ids = set(context.tier(tier_number).references.action_ids)
     interactions: list[InteractionProjection] = []
     for action in spec.actions:
         if action.id not in tier_action_ids:
@@ -253,7 +263,8 @@ def project_interactions(
         action_transitions = tuple(
             transition
             for transition in spec.transitions
-            if transition.id in context.tier_1.references.transition_ids
+            if transition.id
+            in context.tier(tier_number).references.transition_ids
             and transition.action_id == action.id
         )
         if not action_transitions:
@@ -280,6 +291,7 @@ def project_interactions(
                 context,
                 transition_id=transition.id,
                 to_state_id=transition.to_state_id,
+                tier_number=tier_number,
             )
             if not success_evidence:
                 raise CompositionProjectionError(

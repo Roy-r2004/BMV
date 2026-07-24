@@ -15,6 +15,9 @@ from app.application.runtime_validation.service import (
 from app.application.visual_evaluation.service import (
     evaluate_v2_candidate_visuals,
 )
+from app.application.tier_orchestration.service import (
+    orchestrate_v2_tier_2,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -76,13 +79,26 @@ def run_v2_contract_boundary(
         != "candidate_runtime_validated"
     ):
         return phase4_result
-    return evaluate_v2_candidate_visuals(
+    phase5_result = evaluate_v2_candidate_visuals(
         db,
         request_id,
         ai_provider,
         template_renderer,
         req=req,
         phase4_result=phase4_result,
+    )
+    if (
+        (phase5_result.get("preview_contract") or {}).get("status")
+        != "candidate_visual_accepted"
+    ):
+        return phase5_result
+    return orchestrate_v2_tier_2(
+        db,
+        request_id,
+        ai_provider,
+        template_renderer,
+        req=req,
+        phase5_result=phase5_result,
     )
 
 

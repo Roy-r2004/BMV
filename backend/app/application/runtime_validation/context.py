@@ -12,6 +12,7 @@ from app.application.candidate_generation.context import (
     CandidateContext,
     load_candidate_context,
 )
+from app.application.appspec.source import canonical_json
 from app.core.config import settings
 from app.domain.models import CandidateRevisionRecord
 from app.domain.schemas.runtime_validation import RuntimeValidationRefs
@@ -67,6 +68,12 @@ def load_runtime_validation_context(
         request_id=request_id,
         phase3a_result={"preview_contract": phase3a_summary},
     )
+    if (
+        row.target_tier != contracts.refs.target_tier
+        or row.upstream_manifest_json
+        != canonical_json(contracts.refs.model_dump(mode="json"))
+    ):
+        raise ValueError("Candidate cumulative contract references changed")
     refs = RuntimeValidationRefs(
         request_id=request_id,
         candidate_revision_id=row.id,

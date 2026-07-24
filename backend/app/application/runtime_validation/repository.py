@@ -417,6 +417,7 @@ class RuntimeValidationRepository:
         accessibility: tuple[AccessibilityRouteResult, ...],
         screenshots: tuple[ScreenshotEvidence, ...],
         summary: RuntimeValidationSummary,
+        update_request_bundle: bool = True,
     ) -> CandidateValidationSummaryRecord:
         if (
             req.id != attempt.request_id
@@ -585,31 +586,34 @@ class RuntimeValidationRepository:
             summary_sha256=artifact_sha256(summary),
         )
         self.db.add(row)
-        bundle: dict[str, Any] = {}
-        if req.generated_pages:
-            try:
-                loaded = json.loads(req.generated_pages)
-                if isinstance(loaded, dict):
-                    bundle = loaded
-            except Exception:
-                pass
-        preview = dict(bundle.get("preview_contract") or {})
-        preview.update(
-            {
-                "status": summary.status,
-                "runtime_validation_summary": {
-                    "id": None,
-                    "attempt_uuid": summary.attempt_uuid,
-                    "sha256": row.summary_sha256,
-                },
-            }
-        )
-        bundle["preview_contract"] = preview
-        req.generated_pages = json.dumps(bundle, ensure_ascii=False)
-        self.db.flush()
-        preview["runtime_validation_summary"]["id"] = row.id
-        bundle["preview_contract"] = preview
-        req.generated_pages = json.dumps(bundle, ensure_ascii=False)
+        if update_request_bundle:
+            bundle: dict[str, Any] = {}
+            if req.generated_pages:
+                try:
+                    loaded = json.loads(req.generated_pages)
+                    if isinstance(loaded, dict):
+                        bundle = loaded
+                except Exception:
+                    pass
+            preview = dict(bundle.get("preview_contract") or {})
+            preview.update(
+                {
+                    "status": summary.status,
+                    "runtime_validation_summary": {
+                        "id": None,
+                        "attempt_uuid": summary.attempt_uuid,
+                        "sha256": row.summary_sha256,
+                    },
+                }
+            )
+            bundle["preview_contract"] = preview
+            req.generated_pages = json.dumps(bundle, ensure_ascii=False)
+            self.db.flush()
+            preview["runtime_validation_summary"]["id"] = row.id
+            bundle["preview_contract"] = preview
+            req.generated_pages = json.dumps(bundle, ensure_ascii=False)
+        else:
+            self.db.flush()
         return row
 
 

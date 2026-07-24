@@ -122,6 +122,7 @@ class CandidateRepository:
         validation: dict[str, Any],
         validation_passed: bool,
         cacheable: bool = True,
+        policy_revision: str = CANDIDATE_POLICY_REVISION,
     ) -> CandidateArtifactRecord:
         expected_parent_kind = {
             "foundation": None,
@@ -172,7 +173,7 @@ class CandidateRepository:
             request_id=refs.request_id,
             artifact_kind=metrics.stage,
             schema_version=str(payload.get("schema_version") or ""),
-            policy_revision=CANDIDATE_POLICY_REVISION,
+            policy_revision=policy_revision,
             prompt_revision=metrics.prompt_revision,
             effective_model=metrics.effective_model,
             provider=metrics.provider,
@@ -214,6 +215,10 @@ class CandidateRepository:
         failure: dict[str, Any],
         metrics: tuple[CandidateStageMetrics, ...],
         summary_base: dict[str, Any],
+        target_tier: int = 1,
+        generator_version: str = CANDIDATE_GENERATOR_VERSION,
+        policy_revision: str = CANDIDATE_POLICY_REVISION,
+        update_request_bundle: bool = True,
     ) -> tuple[CandidateRevisionRecord, dict[str, Any]]:
         revision = int(
             self.db.query(func.max(CandidateRevisionRecord.revision))
@@ -230,10 +235,10 @@ class CandidateRepository:
             revision_uuid=revision_uuid,
             request_id=req.id,
             revision=revision,
-            target_tier=1,
+            target_tier=target_tier,
             status=status,
-            generator_version=CANDIDATE_GENERATOR_VERSION,
-            policy_revision=CANDIDATE_POLICY_REVISION,
+            generator_version=generator_version,
+            policy_revision=policy_revision,
             upstream_manifest_json=canonical_json(
                 refs.model_dump(mode="json")
             ),
@@ -298,16 +303,17 @@ class CandidateRepository:
             },
             "failure": failure,
         }
-        bundle: dict[str, Any] = {}
-        if req.generated_pages:
-            try:
-                loaded = json.loads(req.generated_pages)
-                if isinstance(loaded, dict):
-                    bundle = loaded
-            except Exception:
-                pass
-        bundle["preview_contract"] = summary
-        req.generated_pages = json.dumps(bundle, ensure_ascii=False)
+        if update_request_bundle:
+            bundle: dict[str, Any] = {}
+            if req.generated_pages:
+                try:
+                    loaded = json.loads(req.generated_pages)
+                    if isinstance(loaded, dict):
+                        bundle = loaded
+                except Exception:
+                    pass
+            bundle["preview_contract"] = summary
+            req.generated_pages = json.dumps(bundle, ensure_ascii=False)
         return row, summary
 
 
