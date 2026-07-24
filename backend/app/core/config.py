@@ -143,6 +143,18 @@ class Settings:
     V2_DESIGN_DNA_TIMEOUT_SECONDS: int
     V2_DESIGN_CONTRACT_TIMEOUT_SECONDS: int
     V2_DESIGN_CONTRACT_MAX_COST_USD: float
+    V2_BUSINESS_COMPONENT_MODEL: str
+    V2_CONTENT_DATA_MODEL: str
+    V2_BUSINESS_COMPONENT_PROMPT_REVISION: str
+    V2_CONTENT_DATA_PROMPT_REVISION: str
+    V2_BUSINESS_COMPONENT_MAX_TOKENS: int
+    V2_CONTENT_DATA_MAX_TOKENS: int
+    V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS: int
+    V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS: int
+    V2_CONTENT_DATA_TIMEOUT_SECONDS: int
+    V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS: int
+    V2_COMPOSITION_CONTRACT_MAX_CALLS: int
+    V2_COMPOSITION_CONTRACT_MAX_COST_USD: float
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -394,6 +406,99 @@ class Settings:
             )
         except ValueError:
             self.V2_DESIGN_CONTRACT_MAX_COST_USD = 0.25
+        self.V2_BUSINESS_COMPONENT_MODEL = _env_or(
+            "V2_BUSINESS_COMPONENT_MODEL",
+            self.PREVIEW_APP_MODEL,
+        )
+        self.V2_CONTENT_DATA_MODEL = _env_or(
+            "V2_CONTENT_DATA_MODEL",
+            self.CODER_MODEL,
+        )
+        self.V2_BUSINESS_COMPONENT_PROMPT_REVISION = (
+            os.getenv(
+                "V2_BUSINESS_COMPONENT_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        self.V2_CONTENT_DATA_PROMPT_REVISION = (
+            os.getenv(
+                "V2_CONTENT_DATA_PROMPT_REVISION",
+                "2026-07-24.1",
+            ).strip()
+            or "2026-07-24.1"
+        )
+        try:
+            self.V2_BUSINESS_COMPONENT_MAX_TOKENS = max(
+                2000,
+                int(
+                    os.getenv(
+                        "V2_BUSINESS_COMPONENT_MAX_TOKENS",
+                        "8000",
+                    )
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MAX_TOKENS = 8000
+        try:
+            self.V2_CONTENT_DATA_MAX_TOKENS = max(
+                2000,
+                int(os.getenv("V2_CONTENT_DATA_MAX_TOKENS", "10000")),
+            )
+        except ValueError:
+            self.V2_CONTENT_DATA_MAX_TOKENS = 10000
+        try:
+            self.V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS = min(
+                2,
+                max(
+                    1,
+                    int(
+                        os.getenv(
+                            "V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS",
+                            "2",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS = 2
+        for field_name, default in (
+            ("V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS", 120),
+            ("V2_CONTENT_DATA_TIMEOUT_SECONDS", 120),
+            ("V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS", 240),
+        ):
+            try:
+                value = max(10, int(os.getenv(field_name, str(default))))
+            except ValueError:
+                value = default
+            setattr(self, field_name, value)
+        try:
+            self.V2_COMPOSITION_CONTRACT_MAX_CALLS = min(
+                4,
+                max(
+                    2,
+                    int(
+                        os.getenv(
+                            "V2_COMPOSITION_CONTRACT_MAX_CALLS",
+                            "4",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_COMPOSITION_CONTRACT_MAX_CALLS = 4
+        try:
+            self.V2_COMPOSITION_CONTRACT_MAX_COST_USD = max(
+                0.01,
+                float(
+                    os.getenv(
+                        "V2_COMPOSITION_CONTRACT_MAX_COST_USD",
+                        "0.20",
+                    )
+                ),
+            )
+        except ValueError:
+            self.V2_COMPOSITION_CONTRACT_MAX_COST_USD = 0.20
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

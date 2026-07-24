@@ -147,6 +147,11 @@ def test_v2_boundary_persists_contract_and_never_reaches_generation_phases(
             "build_v2_design_contract",
             lambda *_args, phase1_result, **_kwargs: phase1_result,
         )
+        monkeypatch.setattr(
+            "app.application.preview_app.pipeline.v2_contract."
+            "build_v2_composition_contract",
+            lambda *_args, phase2_result, **_kwargs: phase2_result,
+        )
 
         result = orchestrator._run_v2_boundary(
             db,

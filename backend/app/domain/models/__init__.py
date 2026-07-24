@@ -1,5 +1,8 @@
 from app.domain.models.admin_ops import AdminAlert, AdminSettings, AiUsageEvent
 from app.domain.models.app_spec import AppSpecRevision
+from app.domain.models.composition_contract import (
+    CompositionContractArtifactRecord,
+)
 from app.domain.models.design_contract import DesignContractArtifactRecord
 from app.domain.models.preview_chat_message import PreviewChatMessage
 from app.domain.models.preview_contract import (
@@ -16,6 +19,7 @@ __all__ = [
     "Request",
     "AppSpecRevision",
     "CustomerSourceArtifact",
+    "CompositionContractArtifactRecord",
     "DesignContractArtifactRecord",
     "PreviewTierArtifactRecord",
     "ProductStrategyRevision",

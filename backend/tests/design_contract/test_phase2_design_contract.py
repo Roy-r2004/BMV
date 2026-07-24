@@ -397,6 +397,11 @@ def test_v2_boundary_stops_at_design_contract_ready(monkeypatch) -> None:
             "build_v2_app_spec_contract",
             lambda *_args, **_kwargs: prepared.phase1_result,
         )
+        monkeypatch.setattr(
+            "app.application.preview_app.pipeline.v2_contract."
+            "build_v2_composition_contract",
+            lambda *_args, phase2_result, **_kwargs: phase2_result,
+        )
 
         def forbidden(*_args, **_kwargs):
             raise AssertionError("Phase 2 reached a downstream generation path")

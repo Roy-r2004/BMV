@@ -18,6 +18,7 @@ from app.domain.models import (  # noqa: F401
     AdminSettings,
     AiUsageEvent,
     AppSpecRevision,
+    CompositionContractArtifactRecord,
     CustomerSourceArtifact,
     DesignContractArtifactRecord,
     PreviewChatMessage,

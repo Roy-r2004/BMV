@@ -35,6 +35,7 @@ from app.domain.schemas.admin import (
 from app.domain.schemas.common import GenerateResponse
 from app.domain.models import (
     AppSpecRevision,
+    CompositionContractArtifactRecord,
     CustomerSourceArtifact,
     DesignContractArtifactRecord,
     PreviewChatMessage,
@@ -277,6 +278,15 @@ def delete_request(
     db.query(PreviewChatMessage).filter(PreviewChatMessage.request_id == request_id).delete(
         synchronize_session=False
     )
+    db.query(CompositionContractArtifactRecord).filter(
+        CompositionContractArtifactRecord.request_id == request_id
+    ).update(
+        {CompositionContractArtifactRecord.parent_artifact_id: None},
+        synchronize_session=False,
+    )
+    db.query(CompositionContractArtifactRecord).filter(
+        CompositionContractArtifactRecord.request_id == request_id
+    ).delete(synchronize_session=False)
     db.query(DesignContractArtifactRecord).filter(
         DesignContractArtifactRecord.request_id == request_id
     ).update(

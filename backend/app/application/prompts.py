@@ -23,6 +23,10 @@ class PromptTemplate:
     V2_PRODUCT_STRATEGY = "prompts/v2_product_strategy.j2"
     V2_INFORMATION_ARCHITECTURE = "prompts/v2_information_architecture.j2"
     V2_DESIGN_DNA = "prompts/v2_design_dna.j2"
+    V2_BUSINESS_COMPONENT_PLAN = (
+        "prompts/v2_business_component_plan.j2"
+    )
+    V2_CONTENT_DATA_PLAN = "prompts/v2_content_data_plan.j2"
     TECHNICAL_PLAN = "prompts/technical_plan.j2"
     MVP_BLUEPRINT = "prompts/mvp_blueprint.j2"
     VISUAL_DEMO = "prompts/visual_demo.j2"
