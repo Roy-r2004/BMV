@@ -27,6 +27,11 @@ from app.application.appspec.repository import (
     AppSpecRepository,
     load_json_object,
 )
+from app.application.appspec.policy import (
+    AppSpecGenerationPolicy,
+    ModelFamilyAssignment,
+    resolve_model_assignment,
+)
 from app.application.appspec.fallback import (
     build_fallback_app_spec,
     build_fallback_coverage_payload,
@@ -93,6 +98,16 @@ class AppSpecGenerationResult:
     reused: bool
     calls_used: int
     repair_attempts: int
+
+
+@dataclass(frozen=True)
+class _ResolvedGenerationPolicy:
+    policy: AppSpecGenerationPolicy
+    author_model: str
+    repair_model: str
+    coverage_model: str
+    model_families: ModelFamilyAssignment | None
+    allow_fallback: bool
 
 class _StageLimitedAIProvider:
     """Small per-stage ceiling layered over the request-wide provider budget."""
@@ -364,13 +379,27 @@ def _generation_metadata(
     deterministic_heals: int = 0,
     heal_actions: list[str] | None = None,
     used_fallback: bool = False,
+    complete: bool = False,
+    runtime_policy: _ResolvedGenerationPolicy | None = None,
 ) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "prompt_revision": settings.APPSPEC_PROMPT_REVISION,
         "schema_version": settings.APPSPEC_SCHEMA_VERSION,
-        "author_model": settings.APPSPEC_MODEL,
-        "repair_model": settings.APPSPEC_REPAIR_MODEL,
-        "coverage_model": settings.APPSPEC_COVERAGE_MODEL,
+        "author_model": (
+            runtime_policy.author_model
+            if runtime_policy
+            else settings.APPSPEC_MODEL
+        ),
+        "repair_model": (
+            runtime_policy.repair_model
+            if runtime_policy
+            else settings.APPSPEC_REPAIR_MODEL
+        ),
+        "coverage_model": (
+            runtime_policy.coverage_model
+            if runtime_policy
+            else settings.APPSPEC_COVERAGE_MODEL
+        ),
         "max_calls": settings.APPSPEC_MAX_CALLS,
         "calls_used": calls_used,
         "max_repair_attempts": settings.APPSPEC_MAX_REPAIR_ATTEMPTS,
@@ -380,6 +409,25 @@ def _generation_metadata(
         "used_fallback": used_fallback,
         "terminal_reason": terminal_reason,
     }
+    if runtime_policy and runtime_policy.policy.name != "legacy_v1":
+        payload.update(dict(runtime_policy.policy.metadata))
+        payload.update(
+            {
+                "policy": runtime_policy.policy.name,
+                "complete": bool(complete and not used_fallback),
+                "coverage_review_kind": "independent_model",
+                "model_families": (
+                    {
+                        "author": runtime_policy.model_families.author,
+                        "repair": runtime_policy.model_families.repair,
+                        "coverage": runtime_policy.model_families.coverage,
+                    }
+                    if runtime_policy.model_families
+                    else {}
+                ),
+            }
+        )
+    return payload
 
 def _persist_rejected(
     *,
@@ -393,6 +441,7 @@ def _persist_rejected(
     calls_used: int,
     repair_attempts: int,
     terminal_reason: str,
+    runtime_policy: _ResolvedGenerationPolicy | None = None,
 ) -> AppSpecRevision | None:
     try:
         return repository.save_attempt(
@@ -406,6 +455,7 @@ def _persist_rejected(
                 calls_used=calls_used,
                 repair_attempts=repair_attempts,
                 terminal_reason=terminal_reason,
+                runtime_policy=runtime_policy,
             ),
             status=APP_SPEC_STATUS_REJECTED,
             validation_passed=False,
@@ -433,6 +483,7 @@ def _accept_fallback_app_spec(
     prior_validation: dict[str, Any],
     prior_coverage: dict[str, Any],
     reason: str,
+    runtime_policy: _ResolvedGenerationPolicy | None = None,
 ) -> AppSpecGenerationResult:
     """Persist rejected AI attempt (best-effort), then accept a minimal valid spec."""
 
@@ -447,6 +498,7 @@ def _accept_fallback_app_spec(
         calls_used=calls_used,
         repair_attempts=repair_attempts,
         terminal_reason=f"fallback_after_{reason}",
+        runtime_policy=runtime_policy,
     )
     spec = build_fallback_app_spec(source_snapshot)
     validation = validate_app_spec(spec)
@@ -477,6 +529,7 @@ def _accept_fallback_app_spec(
             deterministic_heals=deterministic_heals,
             heal_actions=heal_actions,
             used_fallback=True,
+            runtime_policy=runtime_policy,
         ),
         status=APP_SPEC_STATUS_ACCEPTED,
         validation_passed=True,
@@ -503,6 +556,9 @@ def ensure_approved_app_spec(
     template_renderer: TemplateRenderer,
     *,
     force_new_revision: bool = False,
+    source_snapshot_override: Mapping[str, Any] | None = None,
+    derived_context_override: Mapping[str, Any] | None = None,
+    policy: AppSpecGenerationPolicy | None = None,
 ) -> AppSpecGenerationResult:
     """Return a reusable accepted AppSpec, self-healing when authoring fails.
 
@@ -510,19 +566,62 @@ def ensure_approved_app_spec(
     Fallback keeps preview generation unblocked with a minimal valid contract.
     """
 
+    active_policy = policy or AppSpecGenerationPolicy()
+    (
+        author_model,
+        repair_model,
+        coverage_model,
+        model_families,
+    ) = resolve_model_assignment(active_policy)
+    runtime_policy = _ResolvedGenerationPolicy(
+        policy=active_policy,
+        author_model=author_model,
+        repair_model=repair_model,
+        coverage_model=coverage_model,
+        model_families=model_families,
+        allow_fallback=(
+            settings.APPSPEC_FALLBACK_ENABLED
+            if active_policy.allow_fallback is None
+            else active_policy.allow_fallback
+        ),
+    )
+
     req = get_request(db, request_id)
     log.info("Ensuring approved AppSpec for request %s (force_new=%s)", request_id, force_new_revision)
-    source_snapshot = capture_request_source(req)
-    derived_context = capture_derived_context(req)
+    source_snapshot = dict(
+        source_snapshot_override
+        if source_snapshot_override is not None
+        else capture_request_source(req)
+    )
+    derived_context = dict(
+        derived_context_override
+        if derived_context_override is not None
+        else capture_derived_context(req)
+    )
     source_digest = calculate_source_sha256(source_snapshot)
     repository = AppSpecRepository(db)
 
     if not force_new_revision:
-        existing = repository.latest_accepted(
-            request_id,
-            source_sha256=source_digest,
-            schema_version=settings.APPSPEC_SCHEMA_VERSION,
-        )
+        if active_policy.require_complete:
+            strategy_digest = str(
+                active_policy.metadata.get("product_strategy_sha256") or ""
+            )
+            if not strategy_digest:
+                raise ValueError(
+                    "A strict AppSpec policy requires product_strategy_sha256."
+                )
+            existing = repository.latest_complete(
+                request_id,
+                source_sha256=source_digest,
+                schema_version=settings.APPSPEC_SCHEMA_VERSION,
+                product_strategy_sha256=strategy_digest,
+            )
+        else:
+            existing = repository.latest_accepted(
+                request_id,
+                source_sha256=source_digest,
+                schema_version=settings.APPSPEC_SCHEMA_VERSION,
+            )
         if existing:
             try:
                 spec = AppSpec.model_validate(load_json_object(existing.app_spec_json))
@@ -556,7 +655,7 @@ def ensure_approved_app_spec(
     heal_actions: list[str] = []
 
     def _fallback(reason: str) -> AppSpecGenerationResult:
-        if not settings.APPSPEC_FALLBACK_ENABLED:
+        if not runtime_policy.allow_fallback:
             rejected = _persist_rejected(
                 repository=repository,
                 request_id=request_id,
@@ -568,6 +667,7 @@ def ensure_approved_app_spec(
                 calls_used=provider.calls_used,
                 repair_attempts=repairs,
                 terminal_reason=reason,
+                runtime_policy=runtime_policy,
             )
             raise AppSpecGenerationError(
                 _format_validation_failure(
@@ -590,6 +690,7 @@ def ensure_approved_app_spec(
             prior_validation=validation_payload,
             prior_coverage=coverage_payload,
             reason=reason,
+            runtime_policy=runtime_policy,
         )
 
     try:
@@ -600,6 +701,7 @@ def ensure_approved_app_spec(
                     derived_context=derived_context,
                     ai_provider=provider,
                     template_renderer=template_renderer,
+                    model=runtime_policy.author_model,
                 ),
                 source_snapshot,
             )
@@ -674,6 +776,7 @@ def ensure_approved_app_spec(
                             coverage_review=coverage_payload,
                             ai_provider=provider,
                             template_renderer=template_renderer,
+                            model=runtime_policy.repair_model,
                         ),
                         source_snapshot,
                     )
@@ -691,6 +794,7 @@ def ensure_approved_app_spec(
                     app_spec=spec,
                     ai_provider=provider,
                     template_renderer=template_renderer,
+                    model=runtime_policy.coverage_model,
                 )
             except AppSpecCoverageError:
                 # Retry one malformed independent review without changing a valid
@@ -701,6 +805,7 @@ def ensure_approved_app_spec(
                         app_spec=spec,
                         ai_provider=provider,
                         template_renderer=template_renderer,
+                        model=runtime_policy.coverage_model,
                     )
                 except AppSpecCoverageError:
                     return _fallback("coverage_review_malformed")
@@ -724,6 +829,8 @@ def ensure_approved_app_spec(
                         deterministic_heals=deterministic_heals,
                         heal_actions=heal_actions,
                         used_fallback=False,
+                        complete=active_policy.require_complete,
+                        runtime_policy=runtime_policy,
                     ),
                     status=APP_SPEC_STATUS_ACCEPTED,
                     validation_passed=True,
@@ -753,6 +860,7 @@ def ensure_approved_app_spec(
                         coverage_review=coverage_payload,
                         ai_provider=provider,
                         template_renderer=template_renderer,
+                        model=runtime_policy.repair_model,
                     ),
                     source_snapshot,
                 )
@@ -770,7 +878,7 @@ def ensure_approved_app_spec(
         raise
     except Exception as exc:
         log.exception("AppSpec generation crashed for request %s: %s", request_id, exc)
-        if settings.APPSPEC_FALLBACK_ENABLED:
+        if runtime_policy.allow_fallback:
             try:
                 return _fallback(type(exc).__name__)
             except Exception:
@@ -786,6 +894,7 @@ def ensure_approved_app_spec(
             calls_used=provider.calls_used,
             repair_attempts=repairs,
             terminal_reason=type(exc).__name__,
+            runtime_policy=runtime_policy,
         )
         raise AppSpecGenerationError(
             f"AppSpec generation failed closed: {exc}",

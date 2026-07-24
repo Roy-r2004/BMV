@@ -95,17 +95,17 @@ def test_enabling_v2_does_not_move_an_existing_unmarked_preview(monkeypatch) -> 
     assert json.loads(request.generated_pages) == existing
 
 
-def test_new_preview_can_select_v2_and_phase0_delegates_to_v1_engine(monkeypatch) -> None:
+def test_new_preview_can_select_v2_contract_boundary(monkeypatch) -> None:
     selection = select_preview_generator(_request(), v2_enabled=True)
     assert selection == GeneratorSelection(GENERATOR_V2, "flag_enabled_new_preview")
 
     seen: dict[str, object] = {}
 
-    def frozen_v1(*_args, **kwargs):
+    def contract_boundary(*_args, **kwargs):
         seen.update(kwargs)
-        return {"delegated": True}
+        return {"preview_contract": {"status": "app_spec_contract_ready"}}
 
-    monkeypatch.setattr(orchestrator, "_run_v1_pipeline", frozen_v1)
+    monkeypatch.setattr(orchestrator, "run_v2_contract_boundary", contract_boundary)
     actual = orchestrator._run_v2_boundary(
         object(),
         41,
@@ -115,8 +115,11 @@ def test_new_preview_can_select_v2_and_phase0_delegates_to_v1_engine(monkeypatch
         req=_request(),
     )
 
-    assert actual == {"delegated": True}
-    assert seen["generator_version"] == GENERATOR_V2
+    assert actual == {
+        "preview_contract": {"status": "app_spec_contract_ready"}
+    }
+    assert seen["app_spec_revision_id"] is None
+    assert seen["req"].id == 41
 
 
 def test_enabled_flag_dispatches_a_new_preview_through_v2(monkeypatch) -> None:

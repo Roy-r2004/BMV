@@ -113,6 +113,7 @@ class Settings:
     APPSPEC_MODEL: str
     APPSPEC_REPAIR_MODEL: str
     APPSPEC_COVERAGE_MODEL: str
+    APPSPEC_V2_COVERAGE_MODEL: str
     APPSPEC_MODE: str
     APPSPEC_SCHEMA_VERSION: str
     APPSPEC_PROMPT_REVISION: str
@@ -219,6 +220,12 @@ class Settings:
         # a different model from the authoring pass instead of self-grading.
         self.APPSPEC_COVERAGE_MODEL = _env_or(
             "APPSPEC_COVERAGE_MODEL", self.CRITIC_MODEL
+        )
+        # v2 validates that this reviewer belongs to a different model family
+        # before it makes any provider call. v1 continues using the legacy
+        # APPSPEC_COVERAGE_MODEL setting above.
+        self.APPSPEC_V2_COVERAGE_MODEL = _env_or(
+            "APPSPEC_V2_COVERAGE_MODEL", self.CRITIC_MODEL
         )
         try:
             self.APPSPEC_MAX_CALLS = max(2, int(os.getenv("APPSPEC_MAX_CALLS", "6")))

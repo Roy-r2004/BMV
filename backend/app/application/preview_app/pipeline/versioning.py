@@ -1,8 +1,7 @@
 """Preview-generator version selection.
 
-Phase 0 deliberately keeps the v2 execution path behaviorally identical to
-v1. This module is the narrow boundary that later phases can replace without
-changing how legacy previews are selected.
+This module is the narrow boundary that keeps legacy previews on v1 while a
+new v2 preview progresses through contract stages.
 """
 from __future__ import annotations
 
@@ -39,6 +38,9 @@ def _preview_metadata(generated_pages: object) -> tuple[dict, bool]:
         return {}, True
     if not isinstance(payload, dict):
         return {}, True
+    preview_contract = payload.get("preview_contract")
+    if isinstance(preview_contract, dict):
+        return preview_contract, True
     preview_app = payload.get("preview_app")
     return (preview_app if isinstance(preview_app, dict) else {}), True
 

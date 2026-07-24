@@ -10,7 +10,8 @@ Or:
   python backend/scripts/import_sqlite_to_postgres.py --sqlite backend/buildmyversion.db --postgres "postgresql://..."
 
 This copies:
-  users, user_sessions, requests, app_spec_revisions, preview_chat_messages,
+  users, user_sessions, requests, customer_source_artifacts,
+  product_strategy_revisions, app_spec_revisions, preview_chat_messages,
   solution_workspaces, solution_edit_messages
 
 Safe to re-run: clears destination tables first (in FK-safe order), then inserts.
@@ -30,6 +31,8 @@ TABLES_IN_ORDER = [
     "users",
     "user_sessions",
     "requests",
+    "customer_source_artifacts",
+    "product_strategy_revisions",
     "app_spec_revisions",
     "preview_chat_messages",
     "solution_workspaces",

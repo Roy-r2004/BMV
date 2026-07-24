@@ -33,7 +33,12 @@ from app.domain.schemas.admin import (
     RequestUpdate,
 )
 from app.domain.schemas.common import GenerateResponse
-from app.domain.models import AppSpecRevision, PreviewChatMessage
+from app.domain.models import (
+    AppSpecRevision,
+    CustomerSourceArtifact,
+    PreviewChatMessage,
+    ProductStrategyRevision,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -278,6 +283,12 @@ def delete_request(
     db.query(AppSpecRevision).filter(AppSpecRevision.request_id == request_id).delete(
         synchronize_session=False
     )
+    db.query(ProductStrategyRevision).filter(
+        ProductStrategyRevision.request_id == request_id
+    ).delete(synchronize_session=False)
+    db.query(CustomerSourceArtifact).filter(
+        CustomerSourceArtifact.request_id == request_id
+    ).delete(synchronize_session=False)
     db.delete(req)
     db.commit()
 

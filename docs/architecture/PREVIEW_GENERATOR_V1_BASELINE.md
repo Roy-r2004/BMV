@@ -244,6 +244,29 @@ or mock-data synthesis involved in these failures. The test environment also
 reports an existing non-fatal warning because `backend/.pytest_cache` is not
 writable.
 
+### Phase 1A Windows test-environment note
+
+The Phase 1A full-suite comparison re-observed the same three unrelated
+failures above. It also encountered 16 setup errors in tests that request
+pytest's `tmp_path` fixture because Windows denied access to the shared pytest
+temporary root:
+
+```text
+C:\Users\User\AppData\Local\Temp\pytest-of-User
+```
+
+Explicit full-suite `--basetemp` attempts under `C:\tmp` and the workspace
+likewise failed when pytest tried to create or recreate the base directory.
+The affected tests did not reach their test bodies. The resulting diagnostic
+run was `228 passed, 3 failed, 16 errors`; the three failures were exactly the
+baseline failures listed above, and every setup error was the temporary-path
+ACL condition.
+
+This machine-level ACL issue is not treated as a product regression. Phase 1A
+uses isolated suites that do not depend on the inaccessible shared temporary
+root. Those suites cover the new persistence rollback/failure behavior and
+the frozen v1/v2 boundary separately.
+
 ## Phase 0 latency and cost impact
 
 The default v1 path adds one local flag check and no payload marker. When the

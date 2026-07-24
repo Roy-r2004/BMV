@@ -23,6 +23,10 @@ from app.application.pipelines import (
 )
 from app.application.pipelines._shared import fallback_visual_demo, get_request
 from app.application.preview_app import generate_preview_app
+from app.application.preview_app.pipeline.versioning import (
+    GENERATOR_V2,
+    select_preview_generator,
+)
 from app.application.appspec import (
     AppSpecGenerationError,
     app_spec_is_required,
@@ -93,6 +97,41 @@ class GenerationPipeline:
         _emit(db, request_id, "blueprint",
               f"Blueprint complete — {req.concept_name or req.business_name}", 22,
               detail=f"Concept named: {req.concept_name or 'processing...'}")
+
+        generator_selection = select_preview_generator(
+            req,
+            v2_enabled=settings.PREVIEW_GENERATOR_V2,
+        )
+        if generator_selection.version == GENERATOR_V2:
+            _emit(
+                db,
+                request_id,
+                "appspec",
+                "Defining the v2 product contract...",
+                23,
+                detail=(
+                    "Immutable source, inferred strategy, and independently "
+                    "reviewed AppSpec"
+                ),
+            )
+            contract = generate_preview_app(
+                db,
+                request_id,
+                self.ai_provider,
+                self.template_renderer,
+            )
+            _emit(
+                db,
+                request_id,
+                "app_spec_contract_ready",
+                "V2 AppSpec contract ready",
+                100,
+                detail=(
+                    "Phase 1A stops before planning, codegen, workspace, or build"
+                ),
+            )
+            pipeline_watch.stop()
+            return contract
 
         approved_app_spec = None
         mode = app_spec_mode()

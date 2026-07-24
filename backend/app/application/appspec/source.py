@@ -12,6 +12,10 @@ from app.application.services.ai_features import (
     parse_ai_features,
 )
 from app.domain.models.request import Request
+from app.domain.schemas.customer_source import (
+    CUSTOMER_SOURCE_SCHEMA_VERSION,
+    CustomerSourceSnapshotV2,
+)
 
 
 SOURCE_SCHEMA_VERSION = "1.0"
@@ -135,6 +139,50 @@ def capture_request_source(req: Request) -> dict[str, Any]:
             ),
         },
     }
+
+
+def capture_request_source_v2(req: Request) -> CustomerSourceSnapshotV2:
+    """Capture the immutable v2 customer source without inferred fields.
+
+    In particular, ``ai_features`` and every blueprint/preview field are
+    excluded even when they are present on the request. Those values belong to
+    the separately persisted ProductStrategy.
+    """
+
+    request_id = getattr(req, "id", None)
+    if request_id is None:
+        raise ValueError("A persisted request id is required for v2 source capture.")
+    return CustomerSourceSnapshotV2.model_validate(
+        {
+            "source_schema_version": CUSTOMER_SOURCE_SCHEMA_VERSION,
+            "request_id": request_id,
+            "request_created_at": getattr(req, "created_at", None),
+            "customer_input": {
+                "business_name": getattr(req, "business_name", None),
+                "industry": getattr(req, "industry", None),
+                "business_description": getattr(req, "business_description", None),
+                "target_customers": getattr(req, "target_customers", None),
+                "main_problem": getattr(req, "main_problem", None),
+                "reference_url": getattr(req, "reference_url", None),
+                "what_you_like": getattr(req, "what_you_like", None),
+                "desired_outcome": getattr(req, "desired_outcome", None),
+                "project_type": getattr(req, "project_type", None),
+                "existing_product_url": getattr(req, "existing_product_url", None),
+                "needs_ai": getattr(req, "needs_ai", None),
+                "budget_range": getattr(req, "budget_range", None),
+                "timeline": getattr(req, "timeline", None),
+            },
+            "reference_evidence": {
+                "reference_metadata": _parsed_json_or_text(
+                    getattr(req, "reference_metadata", None)
+                ),
+                "screenshot_analysis": getattr(req, "screenshot_analysis", None),
+                "uploaded_file": _file_evidence(
+                    getattr(req, "reference_file_path", None)
+                ),
+            },
+        }
+    )
 
 
 def capture_derived_context(req: Request) -> dict[str, Any]:

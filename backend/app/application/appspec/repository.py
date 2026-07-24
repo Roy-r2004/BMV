@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.application.appspec.source import canonical_json, source_sha256
+from app.core.config import settings
 from app.domain.models.app_spec import (
     APP_SPEC_STATUS_ACCEPTED,
     APP_SPEC_STATUS_REJECTED,
@@ -92,6 +93,62 @@ def revision_summary(revision: AppSpecRevision) -> dict[str, Any]:
     }
 
 
+def app_spec_revision_is_complete(
+    revision: AppSpecRevision,
+    *,
+    source_sha256: str | None = None,
+    product_strategy_sha256: str | None = None,
+) -> bool:
+    """Strict v2 completeness predicate; legacy acceptance is not enough."""
+
+    if (
+        revision.status != APP_SPEC_STATUS_ACCEPTED
+        or not revision.validation_passed
+        or not revision.coverage_passed
+    ):
+        return False
+    if source_sha256 is not None and revision.source_sha256 != source_sha256:
+        return False
+    metadata = load_json_object(revision.generation_metadata_json)
+    validation = load_json_object(revision.deterministic_validation_json)
+    coverage = load_json_object(revision.semantic_coverage_json)
+    if (
+        metadata.get("policy") != "v2_strict"
+        or metadata.get("generator_version") != "v2"
+        or metadata.get("complete") is not True
+        or metadata.get("used_fallback") is not False
+        or metadata.get("coverage_review_kind") != "independent_model"
+        or not isinstance(metadata.get("customer_source_artifact_id"), int)
+        or not isinstance(metadata.get("product_strategy_revision_id"), int)
+    ):
+        return False
+    if not (validation.get("passed") or validation.get("is_valid")):
+        return False
+    if (
+        coverage.get("verdict") != "pass"
+        or not coverage.get("goal_coverage")
+        or revision.coverage_score is None
+        or revision.coverage_score < settings.APPSPEC_MIN_COVERAGE_SCORE
+    ):
+        return False
+    families = metadata.get("model_families")
+    if not isinstance(families, dict):
+        return False
+    author = families.get("author")
+    repair = families.get("repair")
+    reviewer = families.get("coverage")
+    if not author or not repair or not reviewer:
+        return False
+    if reviewer in {author, repair}:
+        return False
+    if (
+        product_strategy_sha256 is not None
+        and metadata.get("product_strategy_sha256") != product_strategy_sha256
+    ):
+        return False
+    return True
+
+
 class AppSpecRepository:
     """Store and retrieve immutable AppSpec attempts for one SQLAlchemy session."""
 
@@ -125,6 +182,43 @@ class AppSpecRepository:
             .filter(AppSpecRevision.request_id == request_id)
             .order_by(AppSpecRevision.revision.desc(), AppSpecRevision.id.desc())
             .first()
+        )
+
+    def latest_complete(
+        self,
+        request_id: int,
+        *,
+        source_sha256: str,
+        schema_version: str,
+        product_strategy_sha256: str,
+    ) -> AppSpecRevision | None:
+        candidates = (
+            self.db.query(AppSpecRevision)
+            .filter(
+                AppSpecRevision.request_id == request_id,
+                AppSpecRevision.status == APP_SPEC_STATUS_ACCEPTED,
+                AppSpecRevision.validation_passed.is_(True),
+                AppSpecRevision.coverage_passed.is_(True),
+                AppSpecRevision.source_sha256 == source_sha256,
+                AppSpecRevision.schema_version == schema_version,
+            )
+            .order_by(
+                AppSpecRevision.revision.desc(),
+                AppSpecRevision.id.desc(),
+            )
+            .all()
+        )
+        return next(
+            (
+                row
+                for row in candidates
+                if app_spec_revision_is_complete(
+                    row,
+                    source_sha256=source_sha256,
+                    product_strategy_sha256=product_strategy_sha256,
+                )
+            ),
+            None,
         )
 
     def get_revision(self, request_id: int, revision: int) -> AppSpecRevision | None:

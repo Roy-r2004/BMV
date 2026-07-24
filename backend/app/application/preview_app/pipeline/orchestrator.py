@@ -23,9 +23,11 @@ from app.application.preview_app.pipeline.plan_phase import run_plan_phase
 from app.application.preview_app.pipeline.polish_phase import run_polish_phase
 from app.application.preview_app.pipeline.versioning import (
     GENERATOR_V1,
-    GENERATOR_V2,
     dispatch_preview_generator,
     select_preview_generator,
+)
+from app.application.preview_app.pipeline.v2_contract import (
+    run_v2_contract_boundary,
 )
 from app.core.config import settings
 from app.infrastructure.logging import WatchBmv, get_logger
@@ -99,20 +101,19 @@ def _run_v2_boundary(
     app_spec_revision_id: int | None,
     req: Request,
 ) -> dict:
-    """Phase 0 v2 entrypoint: identify v2, then delegate to the v1 engine."""
+    """Phase 1A v2 entrypoint: persist the strict contract and stop."""
 
     log.info(
-        "Preview generator v2 selected for request %s; using Phase 0 v1 engine",
+        "Preview generator v2 selected for request %s; building contract only",
         request_id,
     )
-    return _run_v1_pipeline(
+    return run_v2_contract_boundary(
         db,
         request_id,
         ai_provider,
         template_renderer,
         app_spec_revision_id=app_spec_revision_id,
         req=req,
-        generator_version=GENERATOR_V2,
     )
 
 
@@ -128,8 +129,8 @@ def _run_v1_pipeline(
 ) -> dict:
     """Run the frozen v1 phase sequence.
 
-    Phase 0's v2 boundary intentionally delegates here. Later phases can
-    replace the v2 entrypoint while leaving this function untouched.
+    The v2 contract boundary never calls this function. Keeping this sequence
+    isolated protects legacy preview generation from v2 contract changes.
     """
 
     log.info("Starting preview pipeline for request %s", request_id)
