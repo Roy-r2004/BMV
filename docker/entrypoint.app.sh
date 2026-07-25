@@ -36,6 +36,11 @@ else
   echo "AI_PROVIDER=${AI_PROVIDER} — skipping Ollama wait."
 fi
 
-echo "Starting BuildMyVersion API on port ${PORT:-8000}..."
 cd /app/backend
+if [ ! -f "${PREVIEW_TEMPLATE_DIR}/node_modules/typescript/package.json" ]; then
+  echo "preview-template node_modules missing typescript; running npm ci..."
+  npm ci --prefix "${PREVIEW_TEMPLATE_DIR}"
+fi
+
+echo "Starting BuildMyVersion API on port ${PORT:-8000}..."
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

@@ -23,8 +23,13 @@ if [ "${AI_PROVIDER:-}" = "ollama" ]; then
   done
 fi
 
-echo "Starting BuildMyVersion API on port ${PORT:-8000}..."
 cd /app/backend
+if [ ! -f "${PREVIEW_TEMPLATE_DIR}/node_modules/typescript/package.json" ]; then
+  echo "preview-template node_modules missing typescript; running npm ci..."
+  npm ci --prefix "${PREVIEW_TEMPLATE_DIR}"
+fi
+
+echo "Starting BuildMyVersion API on port ${PORT:-8000}..."
 
 UVICORN_ARGS=(--host 0.0.0.0 --port "${PORT:-8000}")
 if [ "${UVICORN_RELOAD:-false}" = "true" ] || [ "${UVICORN_RELOAD:-false}" = "1" ]; then

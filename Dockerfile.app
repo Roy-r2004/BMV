@@ -63,10 +63,16 @@ RUN playwright install-deps chromium \
 COPY backend/ ./
 COPY --from=frontend-build /app/frontend/dist /app/static
 COPY docker/entrypoint.app.sh /entrypoint.sh
+# Runtime validation + candidate builds invoke tsc/vite from the template
+# node_modules tree. Without this install the image only has package.json.
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh \
     && mkdir -p /app/data/uploads /app/data/preview-apps \
       /app/data/preview-candidates /app/data/runtime-validation \
-    && test -f preview-template/package.json
+    && test -f preview-template/package.json \
+    && test -f preview-template/package-lock.json \
+    && npm ci --prefix preview-template \
+    && test -f preview-template/node_modules/typescript/package.json \
+    && test -f preview-template/node_modules/vite/package.json
 
 VOLUME ["/app/data"]
 

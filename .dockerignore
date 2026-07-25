@@ -13,6 +13,10 @@ backend/app/uploads/*
 # Node
 frontend/node_modules
 frontend/dist
+backend/preview-template/node_modules
+backend/preview-template/dist
+backend/preview-template/.runtime-validation-tests
+backend/preview-template/.runtime-validation
 
 # Env & local
 .env
