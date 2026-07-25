@@ -1,7 +1,8 @@
-"""Phase 7A–7D rollout diagnostics, shadow, promotion, and breaker APIs.
+"""Phase 7A–7E rollout diagnostics, shadow, promotion, breaker, and ops APIs.
 
 Roles come from trusted admin auth, never from request JSON.
 Phase 7C writes are request → approve → apply only (no combined endpoint).
+Phase 7E ops surfaces are read-only except admin alert acknowledgement.
 """
 from __future__ import annotations
 
@@ -21,6 +22,8 @@ from app.application.rollout.breaker_service import (
     BreakerService,
     BreakerServiceError,
 )
+from app.application.rollout.ops_alerts import OpsAlertError, OpsAlertService
+from app.application.rollout.ops_service import OpsService, OpsServiceError
 from app.application.rollout.promotion_service import (
     PromotionService,
     PromotionServiceError,
@@ -39,6 +42,14 @@ from app.domain.schemas.breaker import (
     BreakerManualOpenBody,
     BreakerMetricSampleView,
     BreakerStateView,
+)
+from app.domain.schemas.ops import (
+    AlertAckBody,
+    AlertView,
+    OpsBreakerBudgetView,
+    OpsOverviewView,
+    OpsRequestDrilldownView,
+    OpsRunbookView,
 )
 from app.domain.schemas.promotion import (
     ApplyResultView,
@@ -693,6 +704,164 @@ def post_breaker_auto_rollbacks_run(
         return results
     except RolloutAuthorizationError as exc:
         db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+def _ops_http_error(exc: OpsServiceError | OpsAlertError) -> HTTPException:
+    if exc.stage in {"flags", "authz"} or exc.reason in {
+        "ops_dashboard_disabled",
+        "not_found",
+    }:
+        status = 404 if exc.reason == "not_found" else 403
+    elif exc.stage == "lookup":
+        status = 404
+    elif exc.stage == "idempotency":
+        status = 409
+    else:
+        status = 400
+    return HTTPException(status_code=status, detail=exc.reason)
+
+
+@router.get("/ops/overview", response_model=OpsOverviewView)
+def get_ops_overview(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> OpsOverviewView:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        view = OpsService(db).overview(actor=actor)
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/ops/breaker-budget", response_model=OpsBreakerBudgetView)
+def get_ops_breaker_budget(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> OpsBreakerBudgetView:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return OpsService(db).breaker_budget(actor=actor)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/ops/requests/{request_id}", response_model=OpsRequestDrilldownView)
+def get_ops_request_drilldown(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> OpsRequestDrilldownView:
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return OpsService(db).request_drilldown(actor=actor, request_id=request_id)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except OpsServiceError as exc:
+        raise _ops_http_error(exc) from exc
+
+
+@router.get("/ops/alerts", response_model=list[AlertView])
+def get_ops_alerts(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[AlertView]:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        views = OpsAlertService(db).list_alerts(actor=actor)
+        db.commit()
+        return views
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/ops/alerts/{alert_id}", response_model=AlertView)
+def get_ops_alert(
+    alert_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> AlertView:
+    if alert_id < 1:
+        raise HTTPException(status_code=400, detail="invalid alert_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return OpsAlertService(db).get_alert(actor=actor, alert_id=alert_id)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except OpsAlertError as exc:
+        raise _ops_http_error(exc) from exc
+
+
+@router.post("/ops/alerts/{alert_id}/ack", response_model=AlertView)
+def post_ops_alert_ack(
+    alert_id: int,
+    body: AlertAckBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> AlertView:
+    if alert_id < 1:
+        raise HTTPException(status_code=400, detail="invalid alert_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        view = OpsAlertService(db).acknowledge(
+            actor=actor,
+            alert_id=alert_id,
+            body=body,
+            client_payload=body.model_dump(mode="json"),
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except OpsAlertError as exc:
+        db.rollback()
+        raise _ops_http_error(exc) from exc
+
+
+@router.get("/ops/runbook", response_model=OpsRunbookView)
+def get_ops_runbook(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> OpsRunbookView:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return OpsService(db).runbook(actor=actor)
+    except RolloutAuthorizationError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 

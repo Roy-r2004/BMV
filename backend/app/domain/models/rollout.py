@@ -509,6 +509,62 @@ class PreviewBreakerAutoRollbackClaimRecord(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
+class PreviewRolloutAlertEventRecord(Base):
+    """Immutable Phase 7E alert event; status lives in append-only status events."""
+
+    __tablename__ = "preview_rollout_alert_events"
+    __table_args__ = (
+        UniqueConstraint("dedupe_key", name="uq_rollout_alert_dedupe"),
+        UniqueConstraint("alert_sha256", name="uq_rollout_alert_sha"),
+        Index("ix_rollout_alert_class", "alert_class"),
+        Index("ix_rollout_alert_severity", "severity"),
+        Index("ix_rollout_alert_created", "created_at"),
+        Index("ix_rollout_alert_scope", "scope_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_class = Column(String(64), nullable=False)
+    severity = Column(String(16), nullable=False)
+    scope_key = Column(String(128), nullable=False)
+    source_event_type = Column(String(64), nullable=False)
+    source_event_id = Column(String(128), nullable=False)
+    source_sha256 = Column(String(64), nullable=False)
+    policy_revision = Column(String(64), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    payload_sha256 = Column(String(64), nullable=False)
+    dedupe_key = Column(String(256), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    alert_sha256 = Column(String(64), nullable=False)
+
+
+class PreviewRolloutAlertStatusEventRecord(Base):
+    """Append-only alert status lineage: recorded / acknowledged / suppressed."""
+
+    __tablename__ = "preview_rollout_alert_status_events"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('recorded','acknowledged','suppressed')",
+            name="ck_rollout_alert_status",
+        ),
+        UniqueConstraint("event_sha256", name="uq_rollout_alert_status_sha"),
+        Index("ix_rollout_alert_status_alert", "alert_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_id = Column(
+        Integer,
+        ForeignKey("preview_rollout_alert_events.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(String(32), nullable=False)
+    actor_id = Column(String(128), nullable=False)
+    reason = Column(Text, nullable=False)
+    ticket_ref = Column(String(128), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    event_sha256 = Column(String(64), nullable=False)
+
+
 _STRICT_APPEND_ONLY_TYPES = (
     PreviewRolloutPolicyRecord,
     PreviewPromotionDecisionRecord,
@@ -521,6 +577,8 @@ _STRICT_APPEND_ONLY_TYPES = (
     PreviewCircuitBreakerStateRecord,
     PreviewBreakerMetricSampleRecord,
     PreviewBreakerAutoRollbackClaimRecord,
+    PreviewRolloutAlertEventRecord,
+    PreviewRolloutAlertStatusEventRecord,
 )
 
 _POINTER_IMMUTABLE_ATTRS = (
@@ -573,6 +631,8 @@ __all__ = [
     "PreviewLiveCanaryApprovalStatusEventRecord",
     "PreviewPromotionDecisionRecord",
     "PreviewPromotionDecisionStatusEventRecord",
+    "PreviewRolloutAlertEventRecord",
+    "PreviewRolloutAlertStatusEventRecord",
     "PreviewRolloutAuditEventRecord",
     "PreviewRolloutPolicyRecord",
     "PreviewServingPointerVersionRecord",

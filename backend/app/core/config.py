@@ -250,6 +250,9 @@ class Settings:
     V2_PHASE7_AUTO_ROLLBACK_ENABLED: bool
     V2_PHASE7_AUTO_ROLLBACK_LOOKBACK_SECONDS: int
     V2_PHASE7_BREAKER_EVAL_MAX_REQUESTS: int
+    V2_PHASE7_OPS_DASHBOARD_ENABLED: bool
+    V2_PHASE7_OPS_ALERTS_ENABLED: bool
+    V2_PHASE7_OPS_ALERT_LOOKBACK_SECONDS: int
     V2_PHASE7_POLICY_REVISION: str
     V2_PHASE7_ROLLOUT_SALT: str
     V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE: bool
@@ -1005,6 +1008,22 @@ class Settings:
         except ValueError:
             self.V2_PHASE7_BREAKER_EVAL_MAX_REQUESTS = 50
             _breaker_cfg_invalid = True
+        self.V2_PHASE7_OPS_DASHBOARD_ENABLED = os.getenv(
+            "V2_PHASE7_OPS_DASHBOARD_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_OPS_ALERTS_ENABLED = os.getenv(
+            "V2_PHASE7_OPS_ALERTS_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        try:
+            self.V2_PHASE7_OPS_ALERT_LOOKBACK_SECONDS = max(
+                1,
+                int(os.getenv("V2_PHASE7_OPS_ALERT_LOOKBACK_SECONDS", "3600")),
+            )
+        except ValueError:
+            self.V2_PHASE7_OPS_ALERT_LOOKBACK_SECONDS = 3600
+            _breaker_cfg_invalid = True
         self.V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE = os.getenv(
             "V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE",
             "false",
@@ -1022,6 +1041,8 @@ class Settings:
             self.V2_PHASE7_CONFIG_VALID = False
             self.V2_PHASE7_CIRCUIT_BREAKER_ENABLED = False
             self.V2_PHASE7_AUTO_ROLLBACK_ENABLED = False
+            self.V2_PHASE7_OPS_DASHBOARD_ENABLED = False
+            self.V2_PHASE7_OPS_ALERTS_ENABLED = False
         percent_raw = (os.getenv("V2_PHASE7_ROLLOUT_PERCENT") or "0").strip()
         try:
             percent = int(percent_raw)

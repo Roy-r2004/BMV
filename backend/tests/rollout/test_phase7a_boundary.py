@@ -51,6 +51,7 @@ def test_diagnostic_endpoints_allow_shadow_and_phase7c_writes() -> None:
         "/breaker/close",
         "/breaker/disable",
         "/breaker/auto-rollbacks/run",
+        "/ops/alerts/",
     )
     for route in rollout_routes:
         methods = set(route.methods or [])

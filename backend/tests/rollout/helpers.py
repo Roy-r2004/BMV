@@ -14,14 +14,17 @@ from app.infrastructure.db.phase7a_migrations import migrate_phase7a_rollout
 from app.infrastructure.db.phase7b_migrations import migrate_phase7b_shadow
 from app.infrastructure.db.phase7c_migrations import migrate_phase7c_promotion
 from app.infrastructure.db.phase7d_migrations import migrate_phase7d_breaker
+from app.infrastructure.db.phase7e_migrations import migrate_phase7e_ops
 
 
 def enable_test_only_mode() -> None:
     os.environ["PHASE7A_TEST_ONLY_MODE"] = "1"
 
 
-def make_rollout_engine(*, phase7c: bool = True, phase7d: bool = False):
-    """Minimal schema for Phase 7A/7B/7C/7D tables + FK parents.
+def make_rollout_engine(
+    *, phase7c: bool = True, phase7d: bool = False, phase7e: bool = False
+):
+    """Minimal schema for Phase 7A/7B/7C/7D/7E tables + FK parents.
 
     Phase 7C columns are migrated by default because ORM models include them.
     """
@@ -110,6 +113,10 @@ def make_rollout_engine(*, phase7c: bool = True, phase7d: bool = False):
         migrate_phase7c_promotion(engine)
     if phase7d:
         migrate_phase7d_breaker(engine)
+    if phase7e:
+        if not phase7d:
+            migrate_phase7d_breaker(engine)
+        migrate_phase7e_ops(engine)
     return engine, root
 
 
@@ -119,6 +126,10 @@ def make_phase7c_engine():
 
 def make_phase7d_engine():
     return make_rollout_engine(phase7c=True, phase7d=True)
+
+
+def make_phase7e_engine():
+    return make_rollout_engine(phase7c=True, phase7d=True, phase7e=True)
 
 
 def make_session(engine):
@@ -143,6 +154,7 @@ __all__ = [
     "import_rollout_models",
     "make_phase7c_engine",
     "make_phase7d_engine",
+    "make_phase7e_engine",
     "make_rollout_engine",
     "make_session",
 ]

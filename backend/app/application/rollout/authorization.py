@@ -15,11 +15,15 @@ from app.domain.schemas.rollout import (
 
 
 PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
-    "rollout_viewer": frozenset({"read_diagnostics", "read_breaker"}),
+    "rollout_viewer": frozenset(
+        {"read_diagnostics", "read_breaker", "read_ops", "read_alerts"}
+    ),
     "rollout_operator": frozenset(
         {
             "read_diagnostics",
             "read_breaker",
+            "read_ops",
+            "read_alerts",
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
             "start_shadow_evaluation",
@@ -31,6 +35,8 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
         {
             "read_diagnostics",
             "read_breaker",
+            "read_ops",
+            "read_alerts",
             "review_eligibility",
             "review_policy_state",
             "approve_promotion",
@@ -41,6 +47,9 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
         {
             "read_diagnostics",
             "read_breaker",
+            "read_ops",
+            "read_alerts",
+            "ack_alerts",
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
             "review_eligibility",
@@ -111,6 +120,13 @@ def reject_client_supplied_roles(payload: dict) -> None:
         "model",
         "provider_model",
         "breaker_override",
+        "severity",
+        "alert_severity",
+        "source_event_id",
+        "source_sha256",
+        "policy_revision",
+        "breaker_state",
+        "pointer",
     )
     for key in banned:
         if key in payload:
