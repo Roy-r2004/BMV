@@ -524,6 +524,93 @@ def test_role_default_page_without_journey_stays_out_of_tier1() -> None:
     assert "PAGE-ADMIN-DASHBOARD" not in tiers[0].references.page_ids
 
 
+def test_orphan_navigate_action_stays_out_of_tier1() -> None:
+    """Navigate actions on Tier 1 pages must not enter without a journey step.
+
+    Production smoke failed when ACTION-NAVIGATE-ADMIN-DASHBOARD expanded from
+    a journey page into Tier 1, then interaction projection required a
+    journey-backed acceptance test that did not exist.
+    """
+
+    payload = _tiered_spec().model_dump(mode="json")
+    payload["pages"].append(
+        {
+            "id": "PAGE-ADMIN-DASHBOARD",
+            "name": "Admin dashboard",
+            "purpose": "Operator overview.",
+            "route": "/admin",
+            "surface": "ops",
+            "primary": False,
+            "role_ids": ["ROLE-CUSTOMER"],
+            "capability_ids": ["CAP-BOOK"],
+            "state_ids": ["STATE-ADMIN-READY"],
+            "action_ids": [],
+            "evidence_ids": ["EVIDENCE-ADMIN"],
+        }
+    )
+    payload["states"].append(
+        {
+            "id": "STATE-ADMIN-READY",
+            "page_id": "PAGE-ADMIN-DASHBOARD",
+            "name": "Ready",
+            "description": "Dashboard is ready.",
+            "initial": True,
+            "terminal": True,
+            "evidence_ids": ["EVIDENCE-ADMIN"],
+        }
+    )
+    payload["evidence"].append(
+        {
+            "id": "EVIDENCE-ADMIN",
+            "page_id": "PAGE-ADMIN-DASHBOARD",
+            "name": "Admin summary",
+            "description": "Operator summary is visible.",
+            "kind": "text",
+            "capability_ids": ["CAP-BOOK"],
+        }
+    )
+    payload["actions"].append(
+        {
+            "id": "ACTION-NAVIGATE-ADMIN-DASHBOARD",
+            "page_id": "PAGE-BOOK",
+            "role_id": "ROLE-CUSTOMER",
+            "name": "Open admin dashboard",
+            "description": "Jump to the operator dashboard.",
+            "kind": "navigate",
+            "capability_ids": ["CAP-BOOK"],
+            "entity_id": None,
+            "input_label": None,
+        }
+    )
+    payload["transitions"].append(
+        {
+            "id": "TRANSITION-NAVIGATE-ADMIN",
+            "action_id": "ACTION-NAVIGATE-ADMIN-DASHBOARD",
+            "from_state_id": "STATE-DRAFT",
+            "to_state_id": "STATE-ADMIN-READY",
+            "description": "Navigate to the operator dashboard.",
+            "preconditions": [],
+            "postconditions": ["Admin dashboard is visible"],
+            "effects": [],
+        }
+    )
+    payload["pages"][0]["action_ids"] = [
+        "ACTION-SUBMIT",
+        "ACTION-NAVIGATE-ADMIN-DASHBOARD",
+    ]
+    spec = AppSpec.model_validate(payload)
+    assert validate_app_spec(spec).is_valid, validate_app_spec(spec).model_dump()
+    _, _, strategy, context = _strategy_and_context()
+    tiers = build_preview_tiers(
+        spec=spec,
+        strategy=strategy,
+        context=context,
+    )
+    assert "ACTION-SUBMIT" in tiers[0].references.action_ids
+    assert "ACTION-NAVIGATE-ADMIN-DASHBOARD" not in tiers[0].references.action_ids
+    assert "PAGE-ADMIN-DASHBOARD" not in tiers[0].references.page_ids
+
+
 def test_graph_closure_fails_closed_for_unknown_and_deferred_references() -> None:
     spec = _tiered_spec()
     with pytest.raises(TierBuildError, match="unknown canonical IDs"):

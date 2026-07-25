@@ -217,7 +217,15 @@ def expand_tier_graph(
                 getattr(page, "capability_ids"),
             )
             changed |= _add_many(refs["state_ids"], getattr(page, "state_ids"))
-            changed |= _add_many(refs["action_ids"], getattr(page, "action_ids"))
+            # Navigate actions often deep-link to ops pages without a Tier 1
+            # journey/test. Only journey steps should pull them into the tier.
+            page_actions = [
+                action_id
+                for action_id in getattr(page, "action_ids")
+                if action_id in actions
+                and getattr(actions[action_id], "kind") != "navigate"
+            ]
+            changed |= _add_many(refs["action_ids"], page_actions)
             changed |= _add_many(
                 refs["evidence_ids"],
                 getattr(page, "evidence_ids"),
