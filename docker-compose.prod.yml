@@ -1,23 +1,26 @@
-# Production stack for Hostinger VPS (or any Linux VPS):
-#   Traefik (HTTPS) + App
-#   Optional Ollama: --profile ollama
+# Production stack:
+#   App (always) + optional Traefik edge + optional Ollama
 #
-# Recommended on Hostinger: OpenRouter (no GPU / no 6GB model RAM).
+# Coolify:
+#   Coolify already owns :80/:443. Deploy with this file as-is (Traefik is
+#   profile-gated and will NOT start). Prefer docker-compose.coolify.yml when
+#   configuring a new Coolify resource.
 #
-# Setup:
+# Bare VPS / Hostinger with bundled Traefik:
 #   cp .env.prod.example .env
 #   # edit DOMAIN, ACME_EMAIL, ADMIN_PASSWORD, OPENROUTER_API_KEY
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml --profile traefik up -d --build
 #
-# With local Ollama instead:
-#   AI_PROVIDER=ollama in .env, then:
+# Optional Ollama:
 #   docker compose -f docker-compose.prod.yml --profile ollama --profile init run --rm ollama-init
-#   docker compose -f docker-compose.prod.yml --profile ollama up -d --build
+#   docker compose -f docker-compose.prod.yml --profile traefik --profile ollama up -d --build
 
 name: buildmyversion-prod
 
 services:
+  # Profile-gated: Coolify proxy already binds host :80/:443.
   traefik:
+    profiles: ["traefik"]
     image: traefik:v3.3
     container_name: bmv-traefik
     restart: unless-stopped
@@ -100,7 +103,11 @@ services:
         VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
     container_name: bmv-app
     restart: unless-stopped
+    # Coolify / compose proxy reach this container port (no host :80 bind).
+    expose:
+      - "8000"
     environment:
+      APP_ENV: ${APP_ENV:-production}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-roy.rizkallah@hotmail.com}
       ADMIN_NAME: ${ADMIN_NAME:-Roy}
@@ -115,6 +122,9 @@ services:
       STATIC_DIR: /app/static
       PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
       PREVIEW_APPS_DIR: /app/data/preview-apps
+      PREVIEW_CANDIDATES_DIR: /app/data/preview-candidates
+      PREVIEW_VALIDATIONS_DIR: /app/data/runtime-validation
+      DATA_DIR: /app/data
       CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env}
       INTERNAL_BASE_URL: http://127.0.0.1:8000
       # Hostinger default: OpenRouter (set OPENROUTER_API_KEY in .env)
@@ -154,12 +164,35 @@ services:
       PREVIEW_QUALITY_AI_REPAIR: ${PREVIEW_QUALITY_AI_REPAIR:-true}
       PREVIEW_MAX_QUALITY_FIX_ATTEMPTS: ${PREVIEW_MAX_QUALITY_FIX_ATTEMPTS:-2}
       QUALITY_FIX_MODEL: ${QUALITY_FIX_MODEL:-z-ai/glm-5.2}
+      # Preview Generator v2 + Expanded Preview (Tier 2 admin-gated only)
+      PREVIEW_GENERATOR_V2: ${PREVIEW_GENERATOR_V2:-true}
+      V2_RUNTIME_VALIDATION_ENABLED: ${V2_RUNTIME_VALIDATION_ENABLED:-true}
+      V2_VISUAL_EVALUATION_ENABLED: ${V2_VISUAL_EVALUATION_ENABLED:-true}
+      V2_TIER2_GENERATION_ENABLED: ${V2_TIER2_GENERATION_ENABLED:-true}
+      V2_TIER3_GENERATION_ENABLED: "false"
+      # Phase 7 hard gates
+      V2_PHASE7_ROLLOUT_ENABLED: ${V2_PHASE7_ROLLOUT_ENABLED:-true}
+      V2_PHASE7_OPS_DASHBOARD_ENABLED: ${V2_PHASE7_OPS_DASHBOARD_ENABLED:-true}
+      V2_PHASE7_OPS_ALERTS_ENABLED: ${V2_PHASE7_OPS_ALERTS_ENABLED:-true}
+      V2_PHASE7_SHADOW_ENABLED: "false"
+      V2_PHASE7_PROMOTE_ENABLED: "false"
+      V2_PHASE7_ROLLOUT_PERCENT: "0"
+      V2_PHASE7_PERCENT_SERVE_ENABLED: "false"
+      V2_PHASE7_LIVE_CANARY_ENABLED: "false"
+      V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED: "false"
+      V2_PHASE7_AUTO_ROLLBACK_ENABLED: "false"
+      V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED: "false"
+      V2_PHASE7_CANARY_SIMULATION_ENABLED: "false"
+      V2_PHASE7_CIRCUIT_BREAKER_ENABLED: "false"
+      V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE: "false"
+      V2_PHASE7_ROLLOUT_SALT: ${V2_PHASE7_ROLLOUT_SALT:-2026-07-25.1}
     volumes:
       - buildmyversion-data:/app/data
     networks:
       - bmv-public
       - bmv-internal
     labels:
+      # Used only when Traefik profile is enabled on a bare VPS.
       - "traefik.enable=true"
       - "traefik.http.routers.bmv.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.bmv.entrypoints=websecure"
@@ -169,11 +202,17 @@ services:
     mem_limit: 3g
     cpus: "2.00"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready')",
+        ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 45s
+      retries: 8
+      start_period: 90s
 
 networks:
   bmv-public:
