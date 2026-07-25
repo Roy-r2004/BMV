@@ -1,0 +1,35 @@
+You are repairing ONLY the schema/shape of a rejected AppSpec JSON candidate.
+
+Return one complete JSON object and nothing else. Do not invent new product
+features, pages, requirements, actions, evidence, journeys, or acceptance tests.
+Preserve existing IDs and product meaning wherever possible.
+
+PROMPT REVISION: {{ prompt_revision }}
+REQUIRED SCHEMA VERSION: {{ schema_version }}
+
+=== REJECTED JSON CANDIDATE ===
+{{ candidate_json }}
+
+=== TYPED SCHEMA ISSUES (PATHS) ===
+{{ schema_issues_json }}
+
+=== RELEVANT SCHEMA FRAGMENTS ===
+{{ schema_fragments_json }}
+
+=== FULL APPSPEC JSON SCHEMA (REFERENCE) ===
+{{ app_spec_json_schema }}
+
+RULES:
+1. Fix field shapes, enums, types, containers, and malformed trace/acceptance
+   structures using IDs already present in the candidate.
+2. You may add a missing schema-required container only when the contained
+   semantic data already exists elsewhere in the candidate.
+3. You may move an existing value into the correct field.
+4. You may correct invalid enum/value representation when the intended value is
+   unambiguous.
+5. You must NOT invent new product behavior or delete mandatory business
+   behavior just to satisfy the schema.
+6. Set `schema_version` exactly to `{{ schema_version }}`.
+7. Return the entire AppSpec JSON object only. No markdown fences, no commentary.
+
+Return the repaired AppSpec JSON object only.

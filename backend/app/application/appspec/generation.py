@@ -17,6 +17,7 @@ from app.application.appspec.builder import (
     parse_app_spec_candidate,
     repair_app_spec_candidate,
 )
+from app.application.appspec.schema_repair import repair_app_spec_schema_candidate
 from app.application.appspec.coverage import (
     AppSpecCoverageError,
     AppSpecCoverageReview,
@@ -37,12 +38,19 @@ from app.application.appspec.fallback import (
     build_fallback_coverage_payload,
 )
 from app.domain.appspec.sanitize import (
+    build_rejected_candidate_artifact,
+    classify_schema_parse_exception,
     heal_app_spec_payload,
+    normalize_app_spec_preparse,
     repair_app_spec_graph,
+    repair_trace_evidence_mismatch,
     sanitize_app_spec_payload,
     validation_has_repairable_graph_issues,
+    validation_has_safe_trace_evidence_repair,
 )
 from app.domain.appspec.sanitize.graph_repair import GraphRepairResult
+from app.domain.appspec.sanitize.schema_diagnostics import payload_sha256
+from app.domain.appspec.sanitize.trace_evidence_repair import TraceEvidenceRepairResult
 from app.application.appspec.source import (
     capture_derived_context,
     capture_request_source,
@@ -240,6 +248,27 @@ def _coverage_payload(
 def _candidate_payload(candidate: AppSpecCandidate | None) -> dict[str, Any]:
     return dict(candidate.payload) if candidate else {}
 
+
+def _clone_candidate(
+    candidate: AppSpecCandidate,
+    payload: dict[str, Any],
+    *,
+    repair_type: str = "",
+    parent_payload_sha256: str = "",
+) -> AppSpecCandidate:
+    return AppSpecCandidate(
+        payload=payload,
+        response_excerpt=candidate.response_excerpt,
+        raw_response_sha256=candidate.raw_response_sha256,
+        raw_char_count=candidate.raw_char_count,
+        json_extraction=candidate.json_extraction,
+        parent_payload_sha256=parent_payload_sha256
+        or candidate.parent_payload_sha256
+        or payload_sha256(candidate.payload),
+        repair_type=repair_type or candidate.repair_type,
+    )
+
+
 def _sanitize_candidate(
     candidate: AppSpecCandidate | None,
     source_snapshot: dict[str, Any],
@@ -255,10 +284,7 @@ def _sanitize_candidate(
     ai_features = ai_features_from_source(source_snapshot)
     if ai_features:
         sanitized = bind_ai_features_to_app_spec(sanitized, ai_features)
-    return AppSpecCandidate(
-        payload=sanitized,
-        response_excerpt=candidate.response_excerpt,
-    )
+    return _clone_candidate(candidate, sanitized)
 
 
 def _heal_candidate(
@@ -277,9 +303,11 @@ def _heal_candidate(
     )
     if not actions:
         return candidate, []
-    healed = AppSpecCandidate(
-        payload=healed_payload,
-        response_excerpt=candidate.response_excerpt,
+    healed = _clone_candidate(
+        candidate,
+        healed_payload,
+        repair_type="deterministic_heal",
+        parent_payload_sha256=payload_sha256(candidate.payload),
     )
     return _sanitize_candidate(healed, source_snapshot), actions
 
@@ -297,25 +325,37 @@ def _graph_repair_candidate(
     repair = repair_app_spec_graph(candidate.payload, validation_payload)
     if repair.refused_reasons or not repair.applied:
         return candidate, repair
-    repaired = AppSpecCandidate(
-        payload=repair.payload,
-        response_excerpt=candidate.response_excerpt,
+    repaired = _clone_candidate(
+        candidate,
+        repair.payload,
+        repair_type="deterministic_graph_repair",
+        parent_payload_sha256=repair.original_sha256,
     )
     return _sanitize_candidate(repaired, source_snapshot), repair
 
+
+def _trace_evidence_repair_candidate(
+    candidate: AppSpecCandidate | None,
+    validation_payload: Mapping[str, Any],
+    source_snapshot: dict[str, Any],
+) -> tuple[AppSpecCandidate | None, TraceEvidenceRepairResult]:
+    empty = TraceEvidenceRepairResult(payload={})
+    if candidate is None:
+        return None, empty
+    repair = repair_trace_evidence_mismatch(candidate.payload, validation_payload)
+    if repair.refused_reasons or not repair.applied:
+        return candidate, repair
+    repaired = _clone_candidate(
+        candidate,
+        repair.payload,
+        repair_type="deterministic_trace_repair",
+        parent_payload_sha256=repair.original_sha256,
+    )
+    return _sanitize_candidate(repaired, source_snapshot), repair
+
+
 def _parse_validation_issue(exc: Exception) -> dict[str, Any]:
-    if isinstance(exc, ValidationError):
-        detail: Any = exc.errors(include_url=False)
-    else:
-        detail = str(exc)
-    return {
-        "severity": "blocking",
-        "code": "app_spec_schema_parse_failed",
-        "message": "Candidate did not validate against the AppSpec schema.",
-        "path": "",
-        "related_ids": [],
-        "detail": detail,
-    }
+    return classify_schema_parse_exception(exc)
 
 def _schema_version_issue(spec: AppSpec) -> dict[str, Any] | None:
     actual = str(getattr(spec, "schema_version", ""))
@@ -413,6 +453,8 @@ def _generation_metadata(
     complete: bool = False,
     runtime_policy: _ResolvedGenerationPolicy | None = None,
     graph_repair_audit: Mapping[str, Any] | None = None,
+    schema_diagnostics: Mapping[str, Any] | None = None,
+    lineage_audit: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "prompt_revision": settings.APPSPEC_PROMPT_REVISION,
@@ -441,6 +483,8 @@ def _generation_metadata(
         "used_fallback": used_fallback,
         "terminal_reason": terminal_reason,
         "graph_repair": dict(graph_repair_audit or {}),
+        "schema_diagnostics": dict(schema_diagnostics or {}),
+        "lineage": dict(lineage_audit or {}),
     }
     if runtime_policy and runtime_policy.policy.name != "legacy_v1":
         payload.update(dict(runtime_policy.policy.metadata))
@@ -478,6 +522,8 @@ def _persist_rejected(
     deterministic_heals: int = 0,
     heal_actions: list[str] | None = None,
     graph_repair_audit: Mapping[str, Any] | None = None,
+    schema_diagnostics: Mapping[str, Any] | None = None,
+    lineage_audit: Mapping[str, Any] | None = None,
 ) -> AppSpecRevision | None:
     try:
         return repository.save_attempt(
@@ -495,6 +541,8 @@ def _persist_rejected(
                 heal_actions=heal_actions,
                 runtime_policy=runtime_policy,
                 graph_repair_audit=graph_repair_audit,
+                schema_diagnostics=schema_diagnostics,
+                lineage_audit=lineage_audit,
             ),
             status=APP_SPEC_STATUS_REJECTED,
             validation_passed=False,
@@ -697,6 +745,92 @@ def ensure_approved_app_spec(
     graph_repair_audit: dict[str, Any] = {}
     graph_repair_source_revision_id: int | None = None
     saw_graph_issues = False
+    preparse_normalizations = 0
+    schema_ai_repairs = 0
+    trace_evidence_repairs = 0
+    schema_diagnostics: dict[str, Any] = {}
+    lineage_audit: dict[str, Any] = {"attempts": []}
+    attempt_number = 0
+    persisted_schema_payload_hashes: set[str] = set()
+
+    def _record_lineage(entry: Mapping[str, Any]) -> None:
+        lineage_audit.setdefault("attempts", []).append(dict(entry))
+        lineage_audit["attempts"] = lineage_audit["attempts"][:40]
+
+    def _persist_schema_rejection(
+        *,
+        terminal_reason: str,
+        parse_issue: Mapping[str, Any] | None,
+        repair_type: str | None = None,
+        before_sha256: str | None = None,
+        after_sha256: str | None = None,
+        changed_paths: list[str] | None = None,
+        parent_id: int | None = None,
+    ) -> AppSpecRevision | None:
+        nonlocal attempt_number, schema_diagnostics, graph_repair_source_revision_id
+        attempt_number += 1
+        artifact = build_rejected_candidate_artifact(
+            request_id=request_id,
+            attempt_number=attempt_number,
+            provider=str(getattr(ai_provider, "name", "unknown") or "unknown"),
+            model=runtime_policy.author_model,
+            prompt_revision=settings.APPSPEC_PROMPT_REVISION,
+            raw_response=(candidate.response_excerpt if candidate else None),
+            raw_response_sha256=(
+                candidate.raw_response_sha256 if candidate else None
+            ),
+            candidate_payload=_candidate_payload(candidate),
+            json_extraction=(
+                dict(candidate.json_extraction or {}) if candidate else {}
+            ),
+            schema_issue=parse_issue,
+            estimated_tokens=(
+                max(1, (candidate.raw_char_count + 3) // 4) if candidate else None
+            ),
+            finish_reason=None,
+            terminal_result=terminal_reason,
+            parent_revision_id=parent_id
+            or graph_repair_source_revision_id
+            or parent_revision_id,
+            repair_type=repair_type,
+            before_sha256=before_sha256,
+            after_sha256=after_sha256,
+            changed_paths=changed_paths,
+        )
+        schema_diagnostics = artifact
+        row = _persist_rejected(
+            repository=repository,
+            request_id=request_id,
+            source_snapshot=source_snapshot,
+            candidate=candidate,
+            validation_payload=validation_payload,
+            coverage_payload=coverage_payload,
+            parent_revision_id=parent_id
+            or graph_repair_source_revision_id
+            or parent_revision_id,
+            calls_used=provider.calls_used,
+            repair_attempts=repairs,
+            terminal_reason=terminal_reason,
+            runtime_policy=runtime_policy,
+            deterministic_heals=deterministic_heals,
+            heal_actions=heal_actions,
+            graph_repair_audit=graph_repair_audit,
+            schema_diagnostics=artifact,
+            lineage_audit=lineage_audit,
+        )
+        if row is not None:
+            graph_repair_source_revision_id = row.id
+            _record_lineage(
+                {
+                    "revision_id": row.id,
+                    "revision": row.revision,
+                    "terminal_reason": terminal_reason,
+                    "repair_type": repair_type,
+                    "app_spec_sha256": row.app_spec_sha256,
+                    "parent_revision_id": row.parent_revision_id,
+                }
+            )
+        return row
 
     def _fallback(reason: str) -> AppSpecGenerationResult:
         if not runtime_policy.allow_fallback:
@@ -717,6 +851,8 @@ def ensure_approved_app_spec(
                 deterministic_heals=deterministic_heals,
                 heal_actions=heal_actions,
                 graph_repair_audit=graph_repair_audit,
+                schema_diagnostics=schema_diagnostics,
+                lineage_audit=lineage_audit,
             )
             raise AppSpecGenerationError(
                 _format_validation_failure(
@@ -755,6 +891,23 @@ def ensure_approved_app_spec(
                 source_snapshot,
             )
         except AppSpecBuildError as exc:
+            malformed = classify_schema_parse_exception(exc)
+            # Prefer malformed_json child when authoring JSON extraction failed.
+            if "json" in str(exc).lower():
+                malformed = {
+                    **malformed,
+                    "issues": [
+                        {
+                            "severity": "blocking",
+                            "code": "malformed_json",
+                            "message": str(exc),
+                            "path": "",
+                            "related_ids": [],
+                            "error_type": type(exc).__name__,
+                            "offending_value_type": "str",
+                        }
+                    ],
+                }
             validation_payload = _validation_payload(
                 None,
                 extra_issues=[
@@ -764,13 +917,27 @@ def ensure_approved_app_spec(
                         "message": str(exc),
                         "path": "",
                         "related_ids": [],
-                    }
+                    },
+                    malformed,
+                    *list(malformed.get("issues") or []),
                 ],
+            )
+            candidate = AppSpecCandidate(
+                payload={},
+                response_excerpt=exc.response_excerpt,
+                raw_response_sha256=exc.raw_response_sha256,
+                raw_char_count=len(exc.response_excerpt or ""),
+                json_extraction=exc.json_extraction,
+            )
+            _persist_schema_rejection(
+                terminal_reason="authoring_output_invalid",
+                parse_issue=malformed,
+                repair_type=None,
             )
 
         while True:
             parse_issue: dict[str, Any] | None = None
-            if candidate is not None:
+            if candidate is not None and candidate.payload:
                 try:
                     spec = parse_app_spec_candidate(candidate)
                 except Exception as exc:
@@ -811,14 +978,90 @@ def ensure_approved_app_spec(
                     extra_issues=extra_issues,
                 )
             elif parse_issue:
+                children = [
+                    item
+                    for item in (parse_issue.get("issues") or [])
+                    if isinstance(item, dict)
+                ]
                 validation_payload = _validation_payload(
                     None,
-                    extra_issues=[parse_issue],
+                    extra_issues=[parse_issue, *children],
                 )
 
             if not validation_payload.get("passed"):
                 if validation_has_repairable_graph_issues(validation_payload):
                     saw_graph_issues = True
+
+                has_schema_parse = any(
+                    str(issue.get("code") or "") == "app_spec_schema_parse_failed"
+                    for issue in (validation_payload.get("issues") or [])
+                    if isinstance(issue, Mapping)
+                )
+
+                # 0a) Persist rejected schema candidate diagnostics (immutable).
+                if has_schema_parse and candidate is not None:
+                    sha = payload_sha256(candidate.payload)
+                    if sha not in persisted_schema_payload_hashes:
+                        persisted_schema_payload_hashes.add(sha)
+                        _persist_schema_rejection(
+                            terminal_reason="schema_parse_failed",
+                            parse_issue=parse_issue
+                            or next(
+                                (
+                                    issue
+                                    for issue in (
+                                        validation_payload.get("issues") or []
+                                    )
+                                    if isinstance(issue, Mapping)
+                                    and issue.get("code")
+                                    == "app_spec_schema_parse_failed"
+                                ),
+                                None,
+                            ),
+                            repair_type=candidate.repair_type or None,
+                            before_sha256=candidate.parent_payload_sha256 or None,
+                            after_sha256=sha,
+                        )
+
+                # Empty authoring payload cannot be repaired meaningfully.
+                if candidate is not None and not candidate.payload:
+                    return _fallback("deterministic_validation_failed")
+
+                # 0b) Deterministic pre-parse normalization (once).
+                if (
+                    has_schema_parse
+                    and preparse_normalizations < 1
+                    and candidate is not None
+                    and candidate.payload
+                ):
+                    original_sha = payload_sha256(candidate.payload)
+                    normalized = normalize_app_spec_preparse(candidate.payload)
+                    preparse_normalizations = 1
+                    if normalized.applied:
+                        candidate = _clone_candidate(
+                            candidate,
+                            normalized.payload,
+                            repair_type="deterministic_schema_normalization",
+                            parent_payload_sha256=original_sha,
+                        )
+                        candidate = _sanitize_candidate(candidate, source_snapshot)
+                        _record_lineage(
+                            {
+                                "repair_type": "deterministic_schema_normalization",
+                                "original_sha256": normalized.original_sha256,
+                                "result_sha256": normalized.normalized_sha256,
+                                "changed_paths": normalized.changed_paths[:40],
+                                "actions": normalized.actions[:40],
+                            }
+                        )
+                        log.info(
+                            "AppSpec pre-parse normalization for request %s: %s",
+                            request_id,
+                            ", ".join(normalized.actions[:8]),
+                        )
+                        spec = None
+                        validation = None
+                        continue
 
                 # 1) Deterministic heal from issue codes (cheap, scalable).
                 if deterministic_heals < settings.APPSPEC_MAX_DETERMINISTIC_HEALS:
@@ -836,6 +1079,64 @@ def ensure_approved_app_spec(
                             deterministic_heals,
                             request_id,
                             ", ".join(actions[:8]),
+                        )
+                        continue
+
+                # 1b) Bounded deterministic trace-evidence repair (once, safe only).
+                if (
+                    trace_evidence_repairs < 1
+                    and candidate is not None
+                    and validation_has_safe_trace_evidence_repair(
+                        candidate.payload, validation_payload
+                    )
+                ):
+                    original_row = _persist_rejected(
+                        repository=repository,
+                        request_id=request_id,
+                        source_snapshot=source_snapshot,
+                        candidate=candidate,
+                        validation_payload=validation_payload,
+                        coverage_payload=coverage_payload,
+                        parent_revision_id=parent_revision_id,
+                        calls_used=provider.calls_used,
+                        repair_attempts=repairs,
+                        terminal_reason="pre_trace_evidence_repair",
+                        runtime_policy=runtime_policy,
+                        deterministic_heals=deterministic_heals,
+                        heal_actions=heal_actions,
+                        graph_repair_audit=graph_repair_audit,
+                        schema_diagnostics=schema_diagnostics,
+                        lineage_audit=lineage_audit,
+                    )
+                    if original_row is not None:
+                        graph_repair_source_revision_id = original_row.id
+                    repaired_candidate, repair = _trace_evidence_repair_candidate(
+                        candidate, validation_payload, source_snapshot
+                    )
+                    trace_evidence_repairs = 1
+                    graph_repair_audit = {
+                        **graph_repair_audit,
+                        "trace_evidence_repair": {
+                            "repair_type": "deterministic_trace_repair",
+                            "original_revision_id": (
+                                original_row.id if original_row else None
+                            ),
+                            "original_sha256": repair.original_sha256,
+                            "repaired_sha256": repair.repaired_sha256,
+                            "changed_paths": repair.changed_paths[:80],
+                            "actions": repair.actions[:80],
+                            "refused_reasons": repair.refused_reasons[:40],
+                            "result": repair.result_label,
+                        },
+                    }
+                    if repair.applied and repaired_candidate is not None:
+                        candidate = repaired_candidate
+                        spec = None
+                        validation = None
+                        log.info(
+                            "AppSpec trace-evidence repair for request %s: %s",
+                            request_id,
+                            ", ".join(repair.actions[:8]),
                         )
                         continue
 
@@ -867,6 +1168,8 @@ def ensure_approved_app_spec(
                             "result": "pending",
                             "validation_errors_before": pre_repair_errors[:40],
                         },
+                        schema_diagnostics=schema_diagnostics,
+                        lineage_audit=lineage_audit,
                     )
                     if original_row is not None:
                         graph_repair_source_revision_id = original_row.id
@@ -904,10 +1207,77 @@ def ensure_approved_app_spec(
                         ", ".join(repair.refused_reasons[:8]) or "no_changes",
                     )
 
+                # 2b) Bounded AI schema repair (once) for remaining parse failures.
+                if (
+                    has_schema_parse
+                    and schema_ai_repairs < 1
+                    and candidate is not None
+                    and candidate.payload
+                ):
+                    schema_ai_repairs = 1
+                    parent_sha = payload_sha256(candidate.payload)
+                    parent_row_id = graph_repair_source_revision_id
+                    try:
+                        repaired = repair_app_spec_schema_candidate(
+                            candidate=candidate,
+                            schema_issue=parse_issue
+                            or {
+                                "code": "app_spec_schema_parse_failed",
+                                "issues": [
+                                    issue
+                                    for issue in (
+                                        validation_payload.get("issues") or []
+                                    )
+                                    if isinstance(issue, Mapping)
+                                ],
+                            },
+                            ai_provider=provider,
+                            template_renderer=template_renderer,
+                            model=runtime_policy.repair_model,
+                        )
+                    except Exception as exc:
+                        log.info(
+                            "AppSpec AI schema repair failed for request %s: %s",
+                            request_id,
+                            exc,
+                        )
+                        return _fallback("deterministic_validation_failed")
+                    candidate = _sanitize_candidate(repaired, source_snapshot)
+                    _record_lineage(
+                        {
+                            "repair_type": "ai_schema_repair",
+                            "original_sha256": parent_sha,
+                            "result_sha256": payload_sha256(
+                                candidate.payload if candidate else {}
+                            ),
+                            "parent_revision_id": parent_row_id,
+                            "model": runtime_policy.repair_model,
+                        }
+                    )
+                    graph_repair_audit = {
+                        **graph_repair_audit,
+                        "ai_schema_repair": {
+                            "repair_type": "ai_schema_repair",
+                            "attempt": 1,
+                            "model": runtime_policy.repair_model,
+                            "original_sha256": parent_sha,
+                            "result_sha256": payload_sha256(
+                                candidate.payload if candidate else {}
+                            ),
+                        },
+                    }
+                    spec = None
+                    validation = None
+                    continue
+
+                # Schema failures fail closed after the single schema-repair attempt.
+                if has_schema_parse and schema_ai_repairs >= 1:
+                    return _fallback("deterministic_validation_failed")
+
                 # 3) AI repair — at most once after graph-membership failures.
                 ai_budget = (
                     1
-                    if (saw_graph_issues or graph_repairs)
+                    if (saw_graph_issues or graph_repairs or trace_evidence_repairs)
                     else settings.APPSPEC_MAX_REPAIR_ATTEMPTS
                 )
                 if repairs < ai_budget and candidate is not None:

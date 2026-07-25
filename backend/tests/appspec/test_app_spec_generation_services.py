@@ -437,7 +437,8 @@ def test_invalid_contract_exhausts_repairs_and_persists_rejection() -> None:
     settings.APPSPEC_FALLBACK_ENABLED = False
     settings.APPSPEC_MAX_DETERMINISTIC_HEALS = 0
     try:
-        ai = _SequenceAI([invalid, invalid, invalid])
+        # author + one bounded AI schema repair, then fail closed
+        ai = _SequenceAI([invalid, invalid])
         try:
             ensure_approved_app_spec(
                 db,
@@ -449,7 +450,7 @@ def test_invalid_contract_exhausts_repairs_and_persists_rejection() -> None:
             assert "fallback is disabled" in str(exc).lower() or exc.revision_record is not None
         else:
             raise AssertionError("Invalid AppSpec was not rejected")
-        assert ai.calls == 3
+        assert ai.calls == 2
     finally:
         settings.APPSPEC_MAX_REPAIR_ATTEMPTS = previous_repairs
         settings.APPSPEC_FALLBACK_ENABLED = previous_fallback

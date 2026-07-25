@@ -8,6 +8,7 @@ belong to ``app_spec_generation``.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.application.prompts import PromptTemplate
 from app.core.config import settings
+from app.domain.appspec.sanitize.preparse_normalize import extract_json_object_text
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.schemas.app_spec import AppSpec
@@ -26,9 +28,18 @@ from app.shared.json_utils import extract_json_from_text
 class AppSpecBuildError(RuntimeError):
     """The authoring model did not return a usable AppSpec candidate."""
 
-    def __init__(self, message: str, *, response_excerpt: str = "") -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        response_excerpt: str = "",
+        raw_response_sha256: str = "",
+        json_extraction: Mapping[str, Any] | None = None,
+    ) -> None:
         super().__init__(message)
         self.response_excerpt = response_excerpt
+        self.raw_response_sha256 = raw_response_sha256
+        self.json_extraction = dict(json_extraction or {})
 
 
 @dataclass(frozen=True)
@@ -37,6 +48,11 @@ class AppSpecCandidate:
 
     payload: dict[str, Any]
     response_excerpt: str = ""
+    raw_response_sha256: str = ""
+    raw_char_count: int = 0
+    json_extraction: Mapping[str, Any] | None = None
+    parent_payload_sha256: str = ""
+    repair_type: str = ""
 
 
 def _jsonable(value: Any) -> Any:
@@ -68,19 +84,41 @@ def _canonical_json(value: Any) -> str:
 
 
 def _parse_candidate(raw: str) -> AppSpecCandidate:
+    text = raw or ""
+    raw_sha = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+    extracted_text, extraction_meta = extract_json_object_text(text)
     try:
-        payload = extract_json_from_text(raw)
+        if extracted_text is not None:
+            payload = json.loads(extracted_text)
+            extraction_meta = {**extraction_meta, "ok": True}
+        else:
+            payload = extract_json_from_text(text)
+            extraction_meta = {
+                **extraction_meta,
+                "method": extraction_meta.get("method") or "shared_extract",
+                "ok": True,
+            }
     except Exception as exc:
         raise AppSpecBuildError(
             f"AppSpec model output was not valid JSON: {exc}",
-            response_excerpt=(raw or "")[:2000],
+            response_excerpt=text[:2000],
+            raw_response_sha256=raw_sha,
+            json_extraction={**extraction_meta, "ok": False, "error": str(exc)},
         ) from exc
     if not isinstance(payload, dict):
         raise AppSpecBuildError(
             "AppSpec model output must be one JSON object.",
-            response_excerpt=(raw or "")[:2000],
+            response_excerpt=text[:2000],
+            raw_response_sha256=raw_sha,
+            json_extraction={**extraction_meta, "ok": False, "error": "not_object"},
         )
-    return AppSpecCandidate(payload=payload, response_excerpt=(raw or "")[:2000])
+    return AppSpecCandidate(
+        payload=payload,
+        response_excerpt=text[:2000],
+        raw_response_sha256=raw_sha,
+        raw_char_count=len(text),
+        json_extraction=extraction_meta,
+    )
 
 
 def app_spec_json_schema() -> dict[str, Any]:

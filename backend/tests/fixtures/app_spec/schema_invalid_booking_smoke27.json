@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "Schema Broken Booking",
+    "summary": "Intentionally schema-invalid candidate for diagnostics.",
+    "problem": "Customers book by phone.",
+    "desired_outcome": "Customers can book online.",
+    "target_users": "Studio customers",
+    "success_metrics": ["Bookings confirmed"]
+  },
+  "requirements": [
+    {
+      "id": "REQ-BOOK",
+      "title": "Book",
+      "description": "Submit a booking.",
+      "priority": "MUST",
+      "verification_mode": "interaction",
+      "source_refs": "customer_input.desired_outcome"
+    }
+  ],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "Books appointments.",
+      "goals": ["Book"],
+      "default_page_id": "PAGE-BOOK"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-BOOK",
+      "name": "Book",
+      "description": "Booking capability.",
+      "requirement_ids": ["REQ-BOOK"],
+      "role_ids": ["ROLE-CUSTOMER"],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-BOOK",
+      "name": "Book",
+      "purpose": "Booking page.",
+      "route": "/book",
+      "surface": "PUBLIC",
+      "primary": true,
+      "role_ids": ["ROLE-CUSTOMER"],
+      "capability_ids": ["CAP-BOOK"],
+      "state_ids": ["STATE-READY"],
+      "action_ids": [],
+      "evidence_ids": ["EVIDENCE-FORM"],
+      "_meta": {"note": "non-authoritative"}
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-READY",
+      "page_id": "PAGE-BOOK",
+      "name": "Ready",
+      "description": "Ready to book.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": ["EVIDENCE-FORM"]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-FORM",
+      "page_id": "PAGE-BOOK",
+      "name": "Form",
+      "description": "Booking form.",
+      "kind": "form",
+      "capability_ids": ["CAP-BOOK"]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-BOOK",
+      "name": "Book test",
+      "description": "Customer can book.",
+      "requirement_ids": ["REQ-BOOK"],
+      "journey_id": null,
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Form is visible.",
+          "page_id": "PAGE-BOOK",
+          "evidence_id": "EVIDENCE-FORM"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-BOOK",
+      "capability_ids": ["CAP-BOOK"],
+      "page_ids": ["PAGE-BOOK"],
+      "evidence_ids": ["EVIDENCE-FORM"],
+      "journey_ids": [],
+      "acceptance_test_ids": ["TEST-BOOK"]
+    }
+  ],
+  "generator_notes": "drop me",
+  "unexpected_top_level": true
+}

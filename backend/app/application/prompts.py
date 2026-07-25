@@ -19,6 +19,7 @@ class PromptTemplate:
     REFERENCE_URL_ANALYSIS = "prompts/reference_url_analysis.j2"
     APP_SPEC = "prompts/app_spec.j2"
     APP_SPEC_REPAIR = "prompts/app_spec_repair.j2"
+    APP_SPEC_SCHEMA_REPAIR = "prompts/app_spec_schema_repair.j2"
     APP_SPEC_COVERAGE = "prompts/app_spec_coverage.j2"
     V2_PRODUCT_STRATEGY = "prompts/v2_product_strategy.j2"
     V2_INFORMATION_ARCHITECTURE = "prompts/v2_information_architecture.j2"

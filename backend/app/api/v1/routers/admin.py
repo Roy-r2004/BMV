@@ -477,6 +477,103 @@ def list_app_specs(
     ]
 
 
+@router.get("/requests/{request_id}/appspec-attempts")
+def list_appspec_attempts(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """Trusted admin diagnostics for AppSpec authoring/repair attempts."""
+
+    req = db.query(Request).filter(Request.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    rows = AppSpecRepository(db).list_revisions(request_id)
+    attempts: list[dict] = []
+    for row in rows:
+        metadata = load_json_object(row.generation_metadata_json)
+        validation = load_json_object(row.deterministic_validation_json)
+        diagnostics = metadata.get("schema_diagnostics") or {}
+        issues = [
+            issue
+            for issue in (validation.get("issues") or [])
+            if isinstance(issue, dict)
+        ]
+        typed_issues = [
+            {
+                "code": issue.get("code"),
+                "path": issue.get("path"),
+                "message": issue.get("message"),
+                "error_type": issue.get("error_type"),
+                "offending_value_type": issue.get("offending_value_type"),
+            }
+            for issue in issues
+            if issue.get("code")
+            and issue.get("code") != "app_spec_schema_parse_failed"
+        ]
+        # Prefer persisted typed children from diagnostics when present.
+        if diagnostics.get("schema_validation_errors"):
+            typed_issues = [
+                {
+                    "code": issue.get("code"),
+                    "path": issue.get("path"),
+                    "message": issue.get("message"),
+                    "error_type": issue.get("error_type"),
+                    "offending_value_type": issue.get("offending_value_type"),
+                }
+                for issue in diagnostics.get("schema_validation_errors") or []
+                if isinstance(issue, dict)
+            ]
+        attempts.append(
+            {
+                "id": row.id,
+                "revision": row.revision,
+                "status": row.status,
+                "parent_revision_id": row.parent_revision_id,
+                "app_spec_sha256": row.app_spec_sha256,
+                "validation_passed": row.validation_passed,
+                "coverage_passed": row.coverage_passed,
+                "provider": diagnostics.get("provider")
+                or metadata.get("author_model"),
+                "model": diagnostics.get("model")
+                or metadata.get("author_model")
+                or metadata.get("repair_model"),
+                "prompt_revision": diagnostics.get("prompt_revision")
+                or metadata.get("prompt_revision"),
+                "terminal_result": diagnostics.get("terminal_result")
+                or metadata.get("terminal_reason"),
+                "typed_issue_codes": [
+                    issue.get("code") for issue in typed_issues if issue.get("code")
+                ],
+                "typed_issues": typed_issues,
+                "json_paths": [
+                    issue.get("path") for issue in typed_issues if issue.get("path")
+                ],
+                "repair_attempts": {
+                    "graph_repair": metadata.get("graph_repair") or {},
+                    "lineage": metadata.get("lineage") or {},
+                    "deterministic_heals": metadata.get("deterministic_heals"),
+                    "repair_attempts": metadata.get("repair_attempts"),
+                },
+                "hashes": {
+                    "app_spec_sha256": row.app_spec_sha256,
+                    "raw_response_sha256": diagnostics.get("raw_response_sha256"),
+                    "original_sha256": diagnostics.get("original_sha256"),
+                    "result_sha256": diagnostics.get("result_sha256"),
+                },
+                "redacted_candidate_excerpt": diagnostics.get("redacted_candidate"),
+                "created_at": row.created_at,
+                "validated_at": row.validated_at,
+            }
+        )
+    return {
+        "request_id": request_id,
+        "attempt_count": len(attempts),
+        "attempts": attempts,
+    }
+
+
 @router.get("/requests/{request_id}/app-specs/{revision}")
 def get_app_spec_revision(
     request_id: int,
