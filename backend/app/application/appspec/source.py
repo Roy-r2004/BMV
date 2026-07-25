@@ -33,6 +33,9 @@ def _customer_ai_features(req: Request) -> list:
 
 def _json_ready(value: Any) -> Any:
     """Convert common domain/Pydantic values into deterministic JSON values."""
+    if isinstance(value, BaseException):
+        # Pydantic error ctx often embeds ValueError/Exception objects.
+        return f"{type(value).__name__}: {value}"
     if hasattr(value, "model_dump"):
         return _json_ready(value.model_dump(mode="json"))
     if isinstance(value, Mapping):

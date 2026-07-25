@@ -42,6 +42,8 @@ class AppSpecCandidate:
 def _jsonable(value: Any) -> Any:
     if value is None:
         return None
+    if isinstance(value, BaseException):
+        return f"{type(value).__name__}: {value}"
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
     if dataclasses.is_dataclass(value):
