@@ -458,6 +458,72 @@ def test_graph_closure_reaches_a_fixed_point_from_acceptance_test() -> None:
     assert expand_tier_graph(spec, refs) == refs
 
 
+def test_role_default_page_without_journey_stays_out_of_tier1() -> None:
+    """Role entry pages must not leak into Tier 1 without closed journey proof.
+
+    Production smoke failed when an admin default dashboard entered Tier 1 via
+    role expansion, then composition rejected it for missing closed references.
+    """
+
+    payload = _tiered_spec().model_dump(mode="json")
+    payload["roles"].append(
+        {
+            "id": "ROLE-ADMIN",
+            "name": "Admin",
+            "description": "Studio operator.",
+            "goals": ["Review bookings"],
+            "default_page_id": "PAGE-ADMIN-DASHBOARD",
+        }
+    )
+    payload["capabilities"][0]["role_ids"] = ["ROLE-CUSTOMER", "ROLE-ADMIN"]
+    payload["pages"].append(
+        {
+            "id": "PAGE-ADMIN-DASHBOARD",
+            "name": "Admin dashboard",
+            "purpose": "Operator overview without a Tier 1 journey.",
+            "route": "/admin",
+            "surface": "ops",
+            "primary": False,
+            "role_ids": ["ROLE-ADMIN"],
+            "capability_ids": ["CAP-BOOK"],
+            "state_ids": ["STATE-ADMIN-READY"],
+            "action_ids": [],
+            "evidence_ids": ["EVIDENCE-ADMIN"],
+        }
+    )
+    payload["states"].append(
+        {
+            "id": "STATE-ADMIN-READY",
+            "page_id": "PAGE-ADMIN-DASHBOARD",
+            "name": "Ready",
+            "description": "Dashboard is ready.",
+            "initial": True,
+            "terminal": True,
+            "evidence_ids": ["EVIDENCE-ADMIN"],
+        }
+    )
+    payload["evidence"].append(
+        {
+            "id": "EVIDENCE-ADMIN",
+            "page_id": "PAGE-ADMIN-DASHBOARD",
+            "name": "Admin summary",
+            "description": "Operator summary is visible.",
+            "kind": "text",
+            "capability_ids": ["CAP-BOOK"],
+        }
+    )
+    spec = AppSpec.model_validate(payload)
+    assert validate_app_spec(spec).is_valid
+    _, _, strategy, context = _strategy_and_context()
+    tiers = build_preview_tiers(
+        spec=spec,
+        strategy=strategy,
+        context=context,
+    )
+    assert "ROLE-ADMIN" in tiers[0].references.role_ids
+    assert "PAGE-ADMIN-DASHBOARD" not in tiers[0].references.page_ids
+
+
 def test_graph_closure_fails_closed_for_unknown_and_deferred_references() -> None:
     spec = _tiered_spec()
     with pytest.raises(TierBuildError, match="unknown canonical IDs"):

@@ -177,12 +177,11 @@ def expand_tier_graph(
                 trace.acceptance_test_ids,
             )
 
-        for role_id in tuple(refs["role_ids"]):
-            role = roles[role_id]
-            changed |= _add_many(
-                refs["page_ids"],
-                [getattr(role, "default_page_id")],
-            )
+        # Do not expand role.default_page_id into the tier. Operator/default
+        # entry pages often lack journey/test closure; pulling them in here
+        # makes Phase 3A page-purpose projection fail closed for the whole run.
+        # Roles still enter via journeys/pages/capabilities; entry pages join
+        # only when a journey, requirement trace, action, or evidence reaches them.
 
         for entity_id in tuple(refs["entity_ids"]):
             entity = entities[entity_id]
