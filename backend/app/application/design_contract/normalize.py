@@ -1,7 +1,19 @@
 """Deterministic heals for Phase 2 AI artifacts before strict validation."""
 from __future__ import annotations
 
-from app.application.design_contract.validation import DesignValidationContext
+from app.application.design_contract.validation import (
+    DesignValidationContext,
+    _page_journey_ids,
+    _page_requirement_ids,
+)
+from app.domain.schemas.design_contract import DesignArtifactRef
+from app.domain.schemas.information_architecture import (
+    InformationArchitecture,
+    MobileBehavior,
+    NavigationGroup,
+    PageArchitecture,
+    RoleRouteAccess,
+)
 from app.domain.schemas.product_strategy import (
     DifferentiatorV2,
     PrioritizedOutcomeV2,
@@ -9,6 +21,14 @@ from app.domain.schemas.product_strategy import (
     StrategyAssumptionV2,
     StrategyRiskV2,
     SurfaceStrategyV2,
+)
+
+_DEFAULT_MOBILE = MobileBehavior(
+    navigation="collapsed_menu",
+    primary_action="sticky",
+    content_priority=("primary outcome",),
+    data_presentation="stacked_cards",
+    density_adjustment="preserve",
 )
 
 
@@ -188,4 +208,143 @@ def normalize_product_strategy_v2(
     )
 
 
-__all__ = ["normalize_product_strategy_v2"]
+def normalize_information_architecture(
+    artifact: InformationArchitecture,
+    *,
+    context: DesignValidationContext,
+    product_strategy_ref: DesignArtifactRef,
+) -> InformationArchitecture:
+    """Force page/role contracts to match the canonical AppSpec exactly.
+
+    Authors often drift on role_ids, actions, evidence, or accessible pages.
+    Those fields are deterministic from AppSpec and should not fail the stage.
+    """
+
+    spec = context.app_spec
+    active_ids = set(context.tiers[2].references.requirement_ids)
+    by_page_id = {page.page_id: page for page in artifact.pages}
+    pages: list[PageArchitecture] = []
+    for page in spec.pages:
+        prior = by_page_id.get(page.id)
+        visibility = (
+            prior.navigation_visibility if prior is not None else "primary"
+        )
+        deep_link_reason = (
+            prior.deep_link_reason
+            if prior is not None and visibility == "deep_link"
+            else (
+                "Secondary detail reached from the primary journey."
+                if visibility == "deep_link"
+                else None
+            )
+        )
+        pages.append(
+            PageArchitecture(
+                page_id=page.id,
+                route=page.route,
+                surface=page.surface,
+                purpose=(
+                    prior.purpose
+                    if prior is not None
+                    else (page.purpose or f"Support {page.id}.")
+                ),
+                role_ids=page.role_ids,
+                required_outcome_requirement_ids=_page_requirement_ids(
+                    spec, page.id, active_ids
+                ),
+                required_action_ids=page.action_ids,
+                required_evidence_ids=page.evidence_ids,
+                journey_ids=_page_journey_ids(spec, page.id),
+                navigation_visibility=visibility,
+                deep_link_reason=deep_link_reason,
+                mobile=prior.mobile if prior is not None else _DEFAULT_MOBILE,
+            )
+        )
+
+    role_access = tuple(
+        RoleRouteAccess(
+            role_id=role.id,
+            entry_page_id=role.default_page_id,
+            accessible_page_ids=tuple(
+                page.id for page in spec.pages if role.id in page.role_ids
+            ),
+        )
+        for role in spec.roles
+    )
+
+    visible_pages = [
+        page for page in pages if page.navigation_visibility != "deep_link"
+    ]
+    groups: list[NavigationGroup] = []
+    for surface in ("public", "ops"):
+        surface_pages = tuple(
+            page.page_id for page in visible_pages if page.surface == surface
+        )
+        if not surface_pages:
+            continue
+        roles = tuple(
+            sorted(
+                {
+                    role_id
+                    for page in pages
+                    if page.surface == surface
+                    for role_id in page.role_ids
+                }
+            )
+        )
+        if not roles and spec.roles:
+            roles = (spec.roles[0].id,)
+        prior_group = next(
+            (
+                group
+                for group in artifact.navigation_groups
+                if group.surface == surface
+            ),
+            None,
+        )
+        groups.append(
+            NavigationGroup(
+                id=(
+                    prior_group.id
+                    if prior_group is not None
+                    else f"NAV-{surface.upper()}"
+                ),
+                label=(
+                    prior_group.label
+                    if prior_group is not None
+                    else f"{surface.title()} navigation"
+                ),
+                surface=surface,
+                role_ids=roles or (spec.roles[0].id,),
+                page_ids=surface_pages,
+            )
+        )
+    if not groups and visible_pages:
+        groups.append(
+            NavigationGroup(
+                id="NAV-PRIMARY",
+                label="Primary navigation",
+                surface=visible_pages[0].surface,
+                role_ids=visible_pages[0].role_ids[:1] or (spec.roles[0].id,),
+                page_ids=tuple(page.page_id for page in visible_pages),
+            )
+        )
+
+    return InformationArchitecture(
+        schema_version=artifact.schema_version,
+        contract_refs=context.refs,
+        product_strategy_ref=product_strategy_ref,
+        navigation_principle=artifact.navigation_principle,
+        navigation_groups=tuple(groups),
+        role_access=role_access,
+        pages=tuple(pages),
+        mobile_global_behavior=artifact.mobile_global_behavior,
+        preserves_canonical_routes=True,
+        preserves_all_tier_3_pages=True,
+    )
+
+
+__all__ = [
+    "normalize_information_architecture",
+    "normalize_product_strategy_v2",
+]

@@ -18,6 +18,7 @@ from app.application.design_contract.builder import (
     build_structured_artifact,
 )
 from app.application.design_contract.normalize import (
+    normalize_information_architecture,
     normalize_product_strategy_v2,
 )
 from app.application.design_contract.cache import (
@@ -439,6 +440,11 @@ def build_v2_design_contract(
         deadline=deadline,
         parent_artifact_id=strategy.row.id,
         upstream_hashes=(strategy.ref.sha256, strategy.row.cache_key),
+        normalize=lambda artifact: normalize_information_architecture(
+            artifact,
+            context=contract.validation_context,
+            product_strategy_ref=strategy.ref,
+        ),
     )
     if (
         strategy.metrics.cost_usd + ia.metrics.cost_usd
