@@ -715,6 +715,10 @@ def test_navigate_on_journey_without_acceptance_test_is_pruned_from_tier1() -> N
         context=context,
     )
     assert "ACTION-NAVIGATE-ADMIN-DASHBOARD" not in tiers[0].references.action_ids
+    # Untested journey steps must not expand destination pages into Tier 1.
+    assert "PAGE-ADMIN-DASHBOARD" not in tiers[0].references.page_ids
+    assert "STATE-ADMIN-READY" not in tiers[0].references.state_ids
+    assert "EVIDENCE-ADMIN" not in tiers[0].references.evidence_ids
 
 
 def test_graph_closure_fails_closed_for_unknown_and_deferred_references() -> None:

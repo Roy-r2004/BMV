@@ -298,6 +298,16 @@ def expand_tier_graph(
                 refs["state_ids"],
                 [getattr(journey, "start_state_id")],
             )
+            # Only expand steps when an in-tier acceptance test covers this
+            # journey. Untested hops (often navigate → ops pages) otherwise
+            # pull orphan pages into the tier and fail page-purpose closure.
+            journey_has_test = any(
+                test_id in acceptance_tests
+                and getattr(acceptance_tests[test_id], "journey_id") == journey_id
+                for test_id in refs["acceptance_test_ids"]
+            )
+            if not journey_has_test:
+                continue
             for step in getattr(journey, "steps"):
                 changed |= _add_many(
                     refs["action_ids"],
