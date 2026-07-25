@@ -36,7 +36,13 @@ from app.application.appspec.fallback import (
     build_fallback_app_spec,
     build_fallback_coverage_payload,
 )
-from app.domain.appspec.sanitize import heal_app_spec_payload, sanitize_app_spec_payload
+from app.domain.appspec.sanitize import (
+    heal_app_spec_payload,
+    repair_app_spec_graph,
+    sanitize_app_spec_payload,
+    validation_has_repairable_graph_issues,
+)
+from app.domain.appspec.sanitize.graph_repair import GraphRepairResult
 from app.application.appspec.source import (
     capture_derived_context,
     capture_request_source,
@@ -277,6 +283,26 @@ def _heal_candidate(
     )
     return _sanitize_candidate(healed, source_snapshot), actions
 
+
+def _graph_repair_candidate(
+    candidate: AppSpecCandidate | None,
+    validation_payload: Mapping[str, Any],
+    source_snapshot: dict[str, Any],
+) -> tuple[AppSpecCandidate | None, GraphRepairResult]:
+    """Apply one bounded membership graph repair, then re-sanitize."""
+
+    empty = GraphRepairResult(payload={})
+    if candidate is None:
+        return None, empty
+    repair = repair_app_spec_graph(candidate.payload, validation_payload)
+    if repair.refused_reasons or not repair.applied:
+        return candidate, repair
+    repaired = AppSpecCandidate(
+        payload=repair.payload,
+        response_excerpt=candidate.response_excerpt,
+    )
+    return _sanitize_candidate(repaired, source_snapshot), repair
+
 def _parse_validation_issue(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, ValidationError):
         detail: Any = exc.errors(include_url=False)
@@ -386,6 +412,7 @@ def _generation_metadata(
     used_fallback: bool = False,
     complete: bool = False,
     runtime_policy: _ResolvedGenerationPolicy | None = None,
+    graph_repair_audit: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "prompt_revision": settings.APPSPEC_PROMPT_REVISION,
@@ -413,6 +440,7 @@ def _generation_metadata(
         "heal_actions": list(heal_actions or [])[:40],
         "used_fallback": used_fallback,
         "terminal_reason": terminal_reason,
+        "graph_repair": dict(graph_repair_audit or {}),
     }
     if runtime_policy and runtime_policy.policy.name != "legacy_v1":
         payload.update(dict(runtime_policy.policy.metadata))
@@ -447,6 +475,9 @@ def _persist_rejected(
     repair_attempts: int,
     terminal_reason: str,
     runtime_policy: _ResolvedGenerationPolicy | None = None,
+    deterministic_heals: int = 0,
+    heal_actions: list[str] | None = None,
+    graph_repair_audit: Mapping[str, Any] | None = None,
 ) -> AppSpecRevision | None:
     try:
         return repository.save_attempt(
@@ -460,7 +491,10 @@ def _persist_rejected(
                 calls_used=calls_used,
                 repair_attempts=repair_attempts,
                 terminal_reason=terminal_reason,
+                deterministic_heals=deterministic_heals,
+                heal_actions=heal_actions,
                 runtime_policy=runtime_policy,
+                graph_repair_audit=graph_repair_audit,
             ),
             status=APP_SPEC_STATUS_REJECTED,
             validation_passed=False,
@@ -567,8 +601,9 @@ def ensure_approved_app_spec(
 ) -> AppSpecGenerationResult:
     """Return a reusable accepted AppSpec, self-healing when authoring fails.
 
-    Pipeline: sanitize → validate → deterministic heal → AI repair → fallback.
-    Fallback keeps preview generation unblocked with a minimal valid contract.
+    Pipeline: sanitize → validate → deterministic heal → deterministic graph
+    repair (at most once) → AI repair (at most once after graph failures) →
+    fallback only when explicitly enabled.
     """
 
     active_policy = policy or AppSpecGenerationPolicy()
@@ -658,6 +693,10 @@ def ensure_approved_app_spec(
     repairs = 0
     deterministic_heals = 0
     heal_actions: list[str] = []
+    graph_repairs = 0
+    graph_repair_audit: dict[str, Any] = {}
+    graph_repair_source_revision_id: int | None = None
+    saw_graph_issues = False
 
     def _fallback(reason: str) -> AppSpecGenerationResult:
         if not runtime_policy.allow_fallback:
@@ -668,11 +707,16 @@ def ensure_approved_app_spec(
                 candidate=candidate,
                 validation_payload=validation_payload,
                 coverage_payload=coverage_payload,
-                parent_revision_id=parent_revision_id,
+                parent_revision_id=(
+                    graph_repair_source_revision_id or parent_revision_id
+                ),
                 calls_used=provider.calls_used,
                 repair_attempts=repairs,
                 terminal_reason=reason,
                 runtime_policy=runtime_policy,
+                deterministic_heals=deterministic_heals,
+                heal_actions=heal_actions,
+                graph_repair_audit=graph_repair_audit,
             )
             raise AppSpecGenerationError(
                 _format_validation_failure(
@@ -773,6 +817,9 @@ def ensure_approved_app_spec(
                 )
 
             if not validation_payload.get("passed"):
+                if validation_has_repairable_graph_issues(validation_payload):
+                    saw_graph_issues = True
+
                 # 1) Deterministic heal from issue codes (cheap, scalable).
                 if deterministic_heals < settings.APPSPEC_MAX_DETERMINISTIC_HEALS:
                     healed, actions = _heal_candidate(
@@ -792,9 +839,80 @@ def ensure_approved_app_spec(
                         )
                         continue
 
-                # 2) AI repair while budget remains.
-                if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS and candidate is not None:
+                # 2) Bounded deterministic graph/membership repair (once).
+                if (
+                    graph_repairs < 1
+                    and candidate is not None
+                    and validation_has_repairable_graph_issues(validation_payload)
+                ):
+                    pre_repair_errors = list(
+                        validation_payload.get("issues") or []
+                    )
+                    original_row = _persist_rejected(
+                        repository=repository,
+                        request_id=request_id,
+                        source_snapshot=source_snapshot,
+                        candidate=candidate,
+                        validation_payload=validation_payload,
+                        coverage_payload=coverage_payload,
+                        parent_revision_id=parent_revision_id,
+                        calls_used=provider.calls_used,
+                        repair_attempts=repairs,
+                        terminal_reason="pre_graph_repair",
+                        runtime_policy=runtime_policy,
+                        deterministic_heals=deterministic_heals,
+                        heal_actions=heal_actions,
+                        graph_repair_audit={
+                            "repair_type": "deterministic_graph_repair",
+                            "result": "pending",
+                            "validation_errors_before": pre_repair_errors[:40],
+                        },
+                    )
+                    if original_row is not None:
+                        graph_repair_source_revision_id = original_row.id
+                    repaired_candidate, repair = _graph_repair_candidate(
+                        candidate, validation_payload, source_snapshot
+                    )
+                    graph_repairs = 1
+                    graph_repair_audit = {
+                        "request_id": request_id,
+                        "original_revision_id": (
+                            original_row.id if original_row else None
+                        ),
+                        "original_sha256": repair.original_sha256,
+                        "repaired_sha256": repair.repaired_sha256,
+                        "repair_type": "deterministic_graph_repair",
+                        "validation_errors_before": pre_repair_errors[:40],
+                        "changed_paths": repair.changed_paths[:80],
+                        "actions": repair.actions[:80],
+                        "refused_reasons": repair.refused_reasons[:40],
+                        "result": repair.result_label,
+                    }
+                    if repair.applied and repaired_candidate is not None:
+                        candidate = repaired_candidate
+                        spec = None
+                        validation = None
+                        log.info(
+                            "AppSpec graph repair for request %s: %s",
+                            request_id,
+                            ", ".join(repair.actions[:8]),
+                        )
+                        continue
+                    log.info(
+                        "AppSpec graph repair refused for request %s: %s",
+                        request_id,
+                        ", ".join(repair.refused_reasons[:8]) or "no_changes",
+                    )
+
+                # 3) AI repair — at most once after graph-membership failures.
+                ai_budget = (
+                    1
+                    if (saw_graph_issues or graph_repairs)
+                    else settings.APPSPEC_MAX_REPAIR_ATTEMPTS
+                )
+                if repairs < ai_budget and candidate is not None:
                     repairs += 1
+                    pre_ai_errors = list(validation_payload.get("issues") or [])
                     candidate = _sanitize_candidate(
                         repair_app_spec_candidate(
                             source_snapshot=source_snapshot,
@@ -808,11 +926,24 @@ def ensure_approved_app_spec(
                         ),
                         source_snapshot,
                     )
+                    graph_repair_audit = {
+                        **graph_repair_audit,
+                        "ai_repair": {
+                            "repair_type": "ai_appspec_repair",
+                            "attempt": repairs,
+                            "model": runtime_policy.repair_model,
+                            "provider": str(
+                                getattr(ai_provider, "name", "unknown")
+                                or "unknown"
+                            ),
+                            "validation_errors_before": pre_ai_errors[:40],
+                        },
+                    }
                     spec = None
                     validation = None
                     continue
 
-                # 3) Safety-net fallback — do not crash the run.
+                # 4) Safety-net fallback — only when explicitly enabled.
                 return _fallback("deterministic_validation_failed")
 
             assert spec is not None and validation is not None
@@ -843,6 +974,12 @@ def ensure_approved_app_spec(
                 source_snapshot=source_snapshot,
             )
             if coverage_payload.get("passed"):
+                if graph_repair_audit.get("result") == "repaired":
+                    graph_repair_audit = {
+                        **graph_repair_audit,
+                        "validation_errors_after": [],
+                        "result": "repaired",
+                    }
                 row = repository.save_attempt(
                     request_id=request_id,
                     source_snapshot=source_snapshot,
@@ -859,12 +996,15 @@ def ensure_approved_app_spec(
                         used_fallback=False,
                         complete=active_policy.require_complete,
                         runtime_policy=runtime_policy,
+                        graph_repair_audit=graph_repair_audit,
                     ),
                     status=APP_SPEC_STATUS_ACCEPTED,
                     validation_passed=True,
                     coverage_passed=True,
                     coverage_score=coverage.score,
-                    parent_revision_id=parent_revision_id,
+                    parent_revision_id=(
+                        graph_repair_source_revision_id or parent_revision_id
+                    ),
                 )
                 return AppSpecGenerationResult(
                     spec=spec,
@@ -918,11 +1058,16 @@ def ensure_approved_app_spec(
             candidate=candidate,
             validation_payload=validation_payload,
             coverage_payload=coverage_payload,
-            parent_revision_id=parent_revision_id,
+            parent_revision_id=(
+                graph_repair_source_revision_id or parent_revision_id
+            ),
             calls_used=provider.calls_used,
             repair_attempts=repairs,
             terminal_reason=type(exc).__name__,
             runtime_policy=runtime_policy,
+            deterministic_heals=deterministic_heals,
+            heal_actions=heal_actions,
+            graph_repair_audit=graph_repair_audit,
         )
         raise AppSpecGenerationError(
             f"AppSpec generation failed closed: {exc}",
