@@ -22,9 +22,12 @@ def _text(value: Any, fallback: str = "") -> str:
 
 
 def _slug(value: str, *, prefix: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-")[:48]
+    # Truncate then re-strip: [:48] alone can leave a trailing hyphen and
+    # fail ProductStrategy Identifier validation.
+    slug = re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-")
+    slug = slug[:48].strip("-")
     if not slug or not slug[0].isalpha():
-        slug = f"{prefix}-{slug or 'item'}"
+        slug = f"{prefix}-{slug or 'item'}".strip("-")[:48].strip("-")
     return slug
 
 
