@@ -35,6 +35,8 @@ from app.application.composition_contract.normalize import (
     normalize_content_data_plan,
 )
 from app.application.composition_contract.projections import (
+    project_business_component_plan,
+    project_content_data_plan,
     project_interactions,
     project_page_purpose,
 )
@@ -248,6 +250,7 @@ def _resolve_ai(
     template_renderer: TemplateRenderer,
     deadline: float,
     normalize: Callable[[ArtifactT], ArtifactT] | None = None,
+    deterministic_fallback: Callable[[], ArtifactT] | None = None,
 ) -> ResolvedCompositionArtifact:
     cache_key = composition_cache_key(
         refs=context.refs,
@@ -266,18 +269,67 @@ def _resolve_ai(
     )
     if cached is not None:
         return cached
-    built = build_ai_composition_artifact(
-        request_id=context.refs.request_id,
-        policy=policy,
-        schema=schema,
-        prompt_template=prompt_template,
-        prompt_values={"stage_input_json": stage_input_json},
-        validator=validator,
-        ai_provider=ai_provider,
-        template_renderer=template_renderer,
-        phase_deadline=deadline,
-        normalize=normalize,
-    )
+    try:
+        built = build_ai_composition_artifact(
+            request_id=context.refs.request_id,
+            policy=policy,
+            schema=schema,
+            prompt_template=prompt_template,
+            prompt_values={"stage_input_json": stage_input_json},
+            validator=validator,
+            ai_provider=ai_provider,
+            template_renderer=template_renderer,
+            phase_deadline=deadline,
+            normalize=normalize,
+        )
+    except CompositionStageError as exc:
+        if deterministic_fallback is None:
+            raise
+        message = str(exc).casefold()
+        # Never mask phase/stage deadline or hard timeouts with a fallback.
+        if "deadline" in message or "timeout" in message:
+            raise
+        started = time.monotonic()
+        artifact = deterministic_fallback()
+        validation = validator(artifact)
+        if not validation.passed:
+            raise CompositionStageError(
+                f"{policy.stage} deterministic fallback failed validation "
+                f"issues={[issue.code for issue in validation.issues[:8]]}.",
+                stage=policy.stage,
+            ) from None
+        metrics = CompositionStageMetrics(
+            stage=policy.stage,
+            effective_model=policy.model,
+            provider="deterministic_fallback",
+            model_family=policy.model_family,
+            prompt_revision=policy.prompt_revision,
+            cache_hit=False,
+            provider_call_count=0,
+            validation_retry_count=0,
+            validation_retry_reasons=(),
+            transport_retry_count=0,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            cost_usd=0.0,
+            latency_ms=int((time.monotonic() - started) * 1000),
+        )
+        persisted = repository.stage_artifact(
+            artifact_kind=policy.stage,
+            artifact=artifact,
+            refs=context.refs,
+            cache_key=cache_key,
+            metrics=metrics,
+            validation=validation,
+            parent_artifact_id=parent_artifact_id,
+        )
+        return ResolvedCompositionArtifact(
+            artifact=artifact,
+            row=persisted.row,
+            ref=composition_artifact_ref(persisted.row),
+            metrics=metrics,
+        )
     persisted = repository.stage_artifact(
         artifact_kind=policy.stage,
         artifact=built.artifact,
@@ -427,6 +479,11 @@ def build_v2_composition_contract(
             page_purpose=page.artifact,
             page_purpose_ref=page.ref,
         ),
+        deterministic_fallback=lambda: project_business_component_plan(
+            context,
+            page_purpose=page.artifact,
+            page_purpose_ref=page.ref,
+        ),
     )
     _check_usage(db, (page.metrics, component.metrics))
     if not component.metrics.cache_hit:
@@ -469,6 +526,13 @@ def build_v2_composition_contract(
         normalize=lambda artifact: normalize_content_data_plan(
             artifact,
             context=context,
+            page_purpose=page.artifact,
+            page_purpose_ref=page.ref,
+            component_plan=component.artifact,
+            component_plan_ref=component.ref,
+        ),
+        deterministic_fallback=lambda: project_content_data_plan(
+            context,
             page_purpose=page.artifact,
             page_purpose_ref=page.ref,
             component_plan=component.artifact,

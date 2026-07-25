@@ -677,6 +677,27 @@ def test_corrupt_deterministic_cache_fails_without_provider_call() -> None:
         prepared.db.close()
 
 
+def test_content_data_ai_failure_falls_back_to_projection(monkeypatch) -> None:
+    prepared = prepare_phase2(request_id=1324)
+    ai = CompositionFixtureAI()
+    monkeypatch.setattr(settings, "V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS", 1)
+    ai.invalid_stage_responses["content_data_plan"] = ["not-json-{"]
+    try:
+        result = _run(prepared, ai)
+        assert result["preview_contract"]["status"] == (
+            V2_COMPOSITION_CONTRACT_READY
+        )
+        content = next(
+            row
+            for row in _rows(prepared)
+            if row.artifact_kind == "content_data_plan"
+        )
+        assert content.provider == "deterministic_fallback"
+        assert content.validation_passed is True
+    finally:
+        prepared.db.close()
+
+
 def test_stage_timeout_fails_closed(monkeypatch) -> None:
     prepared = prepare_phase2(request_id=1318)
 

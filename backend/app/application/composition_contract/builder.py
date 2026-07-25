@@ -185,6 +185,8 @@ def build_ai_composition_artifact(
                     detail = (
                         f" issues={issue_codes}" if issue_codes else ""
                     )
+                    if not issue_codes and parse_error is not None:
+                        detail = f" error={parse_error}"
                     raise CompositionStageError(
                         f"{policy.stage} failed strict validation.{detail}",
                         stage=policy.stage,

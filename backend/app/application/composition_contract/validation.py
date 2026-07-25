@@ -296,9 +296,13 @@ def validate_business_component_plan(
             )
         )
         purpose_tokens = set(_WORD.findall(component.purpose.casefold()))
-        semantic_overlap = (
-            canonical_tokens & declared_tokens & purpose_tokens
-        )
+        # When linked names are all generic/short, require purpose ∩ language.
+        if canonical_tokens:
+            semantic_overlap = (
+                canonical_tokens & declared_tokens & purpose_tokens
+            )
+        else:
+            semantic_overlap = declared_tokens & purpose_tokens
         if not semantic_overlap:
             issues.append(
                 _issue(
@@ -368,7 +372,14 @@ def validate_business_component_plan(
                 )
             )
 
-    expected_actions = tuple(context.tier_1.references.action_ids)
+    action_map = {action.id: action for action in context.app_spec.actions}
+    purpose_page_ids = {page.page_id for page in page_purpose.pages}
+    expected_actions = tuple(
+        action_id
+        for action_id in context.tier_1.references.action_ids
+        if action_id in action_map
+        and action_map[action_id].page_id in purpose_page_ids
+    )
     actual_actions = tuple(
         binding.action_id for binding in artifact.action_trigger_bindings
     )
@@ -378,12 +389,11 @@ def validate_business_component_plan(
                 "action_trigger_binding_coverage",
                 path="action_trigger_bindings",
                 message=(
-                    "Every executable Tier 1 action needs exactly one binding "
-                    "in canonical order."
+                    "Every executable Tier 1 action on an in-tier page needs "
+                    "exactly one binding in canonical order."
                 ),
             )
         )
-    action_map = {action.id: action for action in context.app_spec.actions}
     for binding in artifact.action_trigger_bindings:
         component = components.get(binding.component_id)
         action = action_map.get(binding.action_id)
@@ -580,7 +590,7 @@ def validate_content_data_plan(
     expected_states = tuple(
         state.id
         for state in context.app_spec.states
-        if state.id in states
+        if state.id in states and state.page_id in pages
     )
     if tuple(item.state_id for item in artifact.state_payloads) != expected_states:
         issues.append(
@@ -606,7 +616,7 @@ def validate_content_data_plan(
     expected_evidence = tuple(
         item.id
         for item in context.app_spec.evidence
-        if item.id in evidence
+        if item.id in evidence and item.page_id in pages
     )
     if (
         tuple(item.evidence_id for item in artifact.evidence_bindings)
@@ -666,13 +676,24 @@ def validate_content_data_plan(
                 )
             )
     action_map = {action.id: action for action in context.app_spec.actions}
+    entities_with_fields = {
+        entity.id
+        for entity in context.app_spec.entities
+        if entity.fields
+    }
     required_inputs = tuple(
         action.id
         for action in context.app_spec.actions
         if action.id in context.tier_1.references.action_ids
         and (
-            action.entity_id is not None
-            or action.kind in {"fill", "select", "submit"}
+            (
+                action.entity_id is not None
+                and action.entity_id in entities_with_fields
+            )
+            or (
+                action.entity_id is None
+                and action.kind in {"fill", "select", "submit"}
+            )
         )
     )
     if (

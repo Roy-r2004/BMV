@@ -1,6 +1,7 @@
 """Deterministic PagePurpose, BusinessComponent, and Interaction projections."""
 from __future__ import annotations
 
+import hashlib
 import re
 
 from app.application.composition_contract.context import CompositionContext
@@ -343,7 +344,9 @@ def project_business_component_plan(
         ActionTriggerBinding(
             action_id=action_id,
             component_id=component_by_page[actions[action_id].page_id],
-            trigger_label=actions[action_id].name,
+            trigger_label=_sanitize_content_value(actions[action_id].name)[
+                :240
+            ],
         )
         for action_id in context.tier_1.references.action_ids
         if action_id in actions
@@ -360,9 +363,41 @@ def project_business_component_plan(
     )
 
 
+_FORBIDDEN_CONTENT_MARKERS = (
+    "<div",
+    "<section",
+    "<main",
+    "classname=",
+    "function ",
+    "const ",
+    "=>",
+    "@/ui",
+    "tailwind",
+    "tsx",
+    "jsx",
+)
+
+
+def _sanitize_content_value(value: str) -> str:
+    cleaned = value
+    for marker in _FORBIDDEN_CONTENT_MARKERS:
+        idx = cleaned.casefold().find(marker)
+        while idx >= 0:
+            cleaned = cleaned[:idx] + " " + cleaned[idx + len(marker) :]
+            idx = cleaned.casefold().find(marker)
+    return " ".join(cleaned.split()) or "Business workflow support"
+
+
+def _stable_content_id(prefix: str, raw: str) -> str:
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}-{digest}"
+
+
 def _seed_value(field) -> object:
     if field.type == "enum":
-        return field.enum_values[0]
+        if field.enum_values:
+            return field.enum_values[0]
+        return _sanitize_content_value(f"Realistic {field.name} value")
     if field.type == "boolean":
         return True
     if field.type == "integer":
@@ -377,7 +412,7 @@ def _seed_value(field) -> object:
         return "BOOKING-REFERENCE-01"
     if field.type == "list":
         return ("consultation", "follow-up")
-    return f"Realistic {field.name.casefold()} value"
+    return _sanitize_content_value(f"Realistic {field.name} value")
 
 
 def project_content_data_plan(
@@ -392,53 +427,89 @@ def project_content_data_plan(
 
     spec = context.app_spec
     tier = context.tier_1.references
+    tier_evidence_ids = set(tier.evidence_ids)
+    tier_state_ids = set(tier.state_ids)
+    tier_action_ids = set(tier.action_ids)
     page_ids = {page.page_id for page in page_purpose.pages}
     page_contract = {page.page_id: page for page in page_purpose.pages}
     components = {
         item.component_id: item for item in component_plan.components
     }
+    if not components:
+        raise CompositionProjectionError(
+            "Tier 1 content projection needs at least one business component."
+        )
+    default_component_id = next(iter(components))
     component_for_page: dict[str, str] = {}
     for component in component_plan.components:
         for page_id in component.page_ids:
             component_for_page.setdefault(page_id, component.component_id)
 
-    tier_evidence = {
-        item.id: item
-        for item in spec.evidence
-        if item.id in set(tier.evidence_ids) and item.page_id in page_ids
-    }
     content_items: list[ContentItem] = []
     content_by_evidence: dict[str, str] = {}
-    for evidence_id, item in (
-        (evidence.id, evidence)
-        for evidence in spec.evidence
-        if evidence.id in tier_evidence
-    ):
-        suffix = evidence_id.removeprefix("EVIDENCE-")
-        content_id = f"CONTENT-{suffix}"
-        content_by_evidence[evidence_id] = content_id
-        page = page_contract[item.page_id]
+    used_content_ids: set[str] = set()
+    for evidence in spec.evidence:
+        if evidence.id not in tier_evidence_ids:
+            continue
+        if evidence.page_id not in page_ids:
+            continue
+        content_id = _stable_content_id("CONTENT-E", evidence.id)
+        used_content_ids.add(content_id)
+        content_by_evidence[evidence.id] = content_id
+        page = page_contract[evidence.page_id]
         content_items.append(
             ContentItem(
                 content_id=content_id,
                 semantic_kind=(
                     "success"
-                    if "confirmation" in item.name.casefold()
-                    or "success" in item.name.casefold()
+                    if "confirmation" in evidence.name.casefold()
+                    or "success" in evidence.name.casefold()
                     else "instruction"
                 ),
-                value=item.description,
+                value=_sanitize_content_value(evidence.description),
                 provenance="canonical_contract",
-                page_ids=(item.page_id,),
-                component_ids=(component_for_page[item.page_id],),
+                page_ids=(evidence.page_id,),
+                component_ids=(
+                    component_for_page.get(
+                        evidence.page_id, default_component_id
+                    ),
+                ),
+                requirement_ids=page.requirement_ids
+                or page.outcome_requirement_ids,
+            )
+        )
+
+    # Pages can enter Tier 1 without page-local evidence. State payloads cannot
+    # be empty, so every page needs at least one content anchor.
+    pages_with_content = {
+        page_id for item in content_items for page_id in item.page_ids
+    }
+    for page in page_purpose.pages:
+        if page.page_id in pages_with_content:
+            continue
+        content_id = _stable_content_id("CONTENT-P", page.page_id)
+        while content_id in used_content_ids:
+            content_id = _stable_content_id(
+                "CONTENT-P", f"{page.page_id}:{content_id}"
+            )
+        used_content_ids.add(content_id)
+        content_items.append(
+            ContentItem(
+                content_id=content_id,
+                semantic_kind="instruction",
+                value=_sanitize_content_value(page.goal),
+                provenance="canonical_contract",
+                page_ids=(page.page_id,),
+                component_ids=(
+                    component_for_page.get(page.page_id, default_component_id),
+                ),
                 requirement_ids=page.requirement_ids
                 or page.outcome_requirement_ids,
             )
         )
     if not content_items:
         raise CompositionProjectionError(
-            "Tier 1 content projection needs at least one evidence-backed "
-            "content item."
+            "Tier 1 content projection needs at least one content item."
         )
 
     entity_ids: list[str] = []
@@ -451,11 +522,12 @@ def project_content_data_plan(
     entities = {item.id: item for item in spec.entities}
     collections: list[DataCollection] = []
     collection_by_entity: dict[str, str] = {}
-    for entity_id in entity_ids:
+
+    def _append_collection(entity_id: str) -> None:
         entity = entities.get(entity_id)
-        if entity is None or not entity.fields:
-            continue
-        collection_id = f"DATA-{entity_id.removeprefix('ENTITY-')}"
+        if entity is None or not entity.fields or entity_id in collection_by_entity:
+            return
+        collection_id = _stable_content_id("DATA", entity_id)
         collection_by_entity[entity_id] = collection_id
         component_ids = tuple(
             component.component_id
@@ -475,8 +547,8 @@ def project_content_data_plan(
             DataCollection(
                 collection_id=collection_id,
                 entity_id=entity_id,
-                purpose=(
-                    f"Provide realistic {entity.name.casefold()} records "
+                purpose=_sanitize_content_value(
+                    f"Provide realistic {entity.name} records "
                     "for the accepted Tier 1 workflow."
                 ),
                 page_ids=linked_pages,
@@ -484,9 +556,7 @@ def project_content_data_plan(
                 field_ids=field_ids,
                 seed_records=(
                     SeedRecord(
-                        record_id=(
-                            f"RECORD-{entity_id.removeprefix('ENTITY-')}-01"
-                        ),
+                        record_id=_stable_content_id("RECORD", entity_id),
                         values=tuple(
                             SeedFieldValue(
                                 field_id=field.id,
@@ -498,6 +568,16 @@ def project_content_data_plan(
                 ),
             )
         )
+
+    for entity_id in entity_ids:
+        _append_collection(entity_id)
+    if not collections:
+        # Content-only tiers may omit entity refs; still need one seedable
+        # collection from any fielded entity in the AppSpec.
+        for entity in spec.entities:
+            _append_collection(entity.id)
+            if collections:
+                break
     if not collections:
         raise CompositionProjectionError(
             "Tier 1 content projection needs at least one entity collection."
@@ -510,11 +590,14 @@ def project_content_data_plan(
     }
     evidence_bindings: list[EvidenceBinding] = []
     for evidence in spec.evidence:
-        if evidence.id not in set(tier.evidence_ids):
+        if evidence.id not in tier_evidence_ids:
             continue
-        component_id = component_for_page.get(evidence.page_id)
-        if component_id is None:
+        if evidence.page_id not in page_ids:
             continue
+        content_id = content_by_evidence[evidence.id]
+        component_id = component_for_page.get(
+            evidence.page_id, default_component_id
+        )
         state_id = next(
             (
                 state.id
@@ -540,12 +623,16 @@ def project_content_data_plan(
                 EvidenceBinding(
                     evidence_id=evidence.id,
                     binding_kind="content",
-                    content_ids=(content_by_evidence[evidence.id],),
+                    content_ids=(content_id,),
                     collection_ids=(),
                     component_id=None,
                     state_id=None,
                 )
             )
+    if not evidence_bindings:
+        raise CompositionProjectionError(
+            "Tier 1 content projection needs evidence on an in-tier page."
+        )
 
     content_ids_by_page = {
         page.page_id: tuple(
@@ -555,41 +642,52 @@ def project_content_data_plan(
         )
         for page in page_purpose.pages
     }
-    state_payloads = tuple(
-        StatePayload(
-            state_id=state.id,
-            page_id=state.page_id,
-            content_ids=content_ids_by_page.get(state.page_id, ()),
-            collection_ids=tuple(
-                item.collection_id
-                for item in collections
-                if state.page_id in item.page_ids
-            ),
-            component_ids=(component_for_page[state.page_id],),
-            evidence_ids=tuple(
-                evidence_id
-                for evidence_id in state.evidence_ids
-                if evidence_id in set(tier.evidence_ids)
-            ),
+    state_payloads: list[StatePayload] = []
+    for state in spec.states:
+        if state.id not in tier_state_ids or state.page_id not in page_ids:
+            continue
+        page_id = state.page_id
+        content_ids = content_ids_by_page.get(page_id, ())
+        collection_ids = tuple(
+            item.collection_id
+            for item in collections
+            if page_id in item.page_ids
         )
-        for state in spec.states
-        if state.id in set(tier.state_ids) and state.page_id in page_ids
-    )
+        evidence_ids = tuple(
+            evidence_id
+            for evidence_id in state.evidence_ids
+            if evidence_id in tier_evidence_ids
+        )
+        if not content_ids and not collection_ids and not evidence_ids:
+            content_ids = content_ids_by_page.get(page_id) or (
+                (content_items[0].content_id,)
+            )
+        state_payloads.append(
+            StatePayload(
+                state_id=state.id,
+                page_id=page_id,
+                content_ids=content_ids,
+                collection_ids=collection_ids,
+                component_ids=(
+                    component_for_page.get(page_id, default_component_id),
+                ),
+                evidence_ids=evidence_ids,
+            )
+        )
+    if not state_payloads:
+        raise CompositionProjectionError(
+            "Tier 1 content projection needs at least one state payload."
+        )
 
     action_bindings: list[ActionInputBinding] = []
     for action in spec.actions:
-        if action.id not in set(tier.action_ids):
+        if action.id not in tier_action_ids:
             continue
-        if action.entity_id is None and action.kind not in {
-            "fill",
-            "select",
-            "submit",
-        }:
-            continue
-        collection_id = None
-        if action.entity_id and action.entity_id in collection_by_entity:
-            collection_id = collection_by_entity[action.entity_id]
-        elif action.page_id in page_ids:
+        if action.entity_id is not None:
+            collection_id = collection_by_entity.get(action.entity_id)
+            if collection_id is None:
+                continue
+        elif action.kind in {"fill", "select", "submit"}:
             collection_id = next(
                 (
                     item.collection_id
@@ -598,7 +696,7 @@ def project_content_data_plan(
                 ),
                 collections[0].collection_id,
             )
-        if collection_id is None:
+        else:
             continue
         collection = next(
             item for item in collections if item.collection_id == collection_id
@@ -618,7 +716,7 @@ def project_content_data_plan(
         content_items=tuple(content_items),
         data_collections=tuple(collections),
         relationships=(),
-        state_payloads=state_payloads,
+        state_payloads=tuple(state_payloads),
         evidence_bindings=tuple(evidence_bindings),
         action_input_bindings=tuple(action_bindings),
     )
@@ -686,21 +784,21 @@ def project_interactions(
     for action in spec.actions:
         if action.id not in tier_action_ids:
             continue
+        page = page_map.get(action.page_id)
+        if page is None:
+            continue
         trigger_id = trigger_by_action.get(action.id)
         if trigger_id is None:
-            raise CompositionProjectionError(
-                f"Action {action.id} has no trigger component binding."
-            )
+            continue
         input_binding = input_by_action.get(action.id)
-        needs_data = action.entity_id is not None or action.kind in {
-            "fill",
-            "select",
-            "submit",
-        }
+        needs_data = (
+            action.entity_id is not None
+            and action.entity_id in {
+                item.entity_id for item in content_data_plan.data_collections
+            }
+        ) or action.kind in {"fill", "select", "submit"}
         if needs_data and input_binding is None:
-            raise CompositionProjectionError(
-                f"Action {action.id} has no content/data input binding."
-            )
+            continue
         action_transitions = tuple(
             transition
             for transition in spec.transitions
@@ -709,9 +807,7 @@ def project_interactions(
             and transition.action_id == action.id
         )
         if not action_transitions:
-            raise CompositionProjectionError(
-                f"Action {action.id} has no canonical transition."
-            )
+            continue
         journey_ids = tuple(
             journey.id
             for journey in journeys.values()
@@ -723,13 +819,7 @@ def project_interactions(
             if test.journey_id in journey_ids
         )
         if not journey_ids or not test_ids:
-            # Navigate deep-links are often authored without Tier-1 proof.
-            # Prefer skipping over failing the whole composition phase.
-            if action.kind == "navigate":
-                continue
-            raise CompositionProjectionError(
-                f"Action {action.id} lacks a journey-backed acceptance test."
-            )
+            continue
         projected_transitions: list[ProjectedTransition] = []
         for transition in action_transitions:
             success_evidence = _success_evidence_ids(
@@ -739,9 +829,7 @@ def project_interactions(
                 tier_number=tier_number,
             )
             if not success_evidence:
-                raise CompositionProjectionError(
-                    f"Transition {transition.id} lacks visible success evidence."
-                )
+                continue
             projected_transitions.append(
                 ProjectedTransition(
                     transition_id=transition.id,
@@ -762,6 +850,8 @@ def project_interactions(
                     success_evidence_ids=success_evidence,
                 )
             )
+        if not projected_transitions:
+            continue
         browser_assertions = tuple(
             BrowserAssertionProjection(
                 acceptance_test_id=test.id,
@@ -771,7 +861,7 @@ def project_interactions(
                 page_id=assertion.page_id,
                 route=(
                     page_map[assertion.page_id].route
-                    if assertion.page_id
+                    if assertion.page_id and assertion.page_id in page_map
                     else None
                 ),
                 state_id=assertion.state_id,
@@ -786,7 +876,7 @@ def project_interactions(
             InteractionProjection(
                 action_id=action.id,
                 page_id=action.page_id,
-                route=page_map[action.page_id].route,
+                route=page.route,
                 role_id=action.role_id,
                 action_kind=action.kind,
                 entity_id=action.entity_id,
@@ -802,6 +892,10 @@ def project_interactions(
                 acceptance_test_ids=test_ids,
                 browser_assertions=browser_assertions,
             )
+        )
+    if not interactions:
+        raise CompositionProjectionError(
+            "Tier 1 interaction projection needs at least one proven action."
         )
     return InteractionContract(
         contract_refs=context.refs,

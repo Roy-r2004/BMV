@@ -15,6 +15,13 @@ from app.domain.schemas.content_data_plan import ContentDataPlan, ContentItem
 from app.domain.schemas.page_purpose_contract import PagePurposeContract
 
 _FORBIDDEN_MARKERS = (
+    "<div",
+    "<section",
+    "<main",
+    "classname=",
+    "function ",
+    "const ",
+    "=>",
     "@/ui",
     "catalogue slot",
     "catalog slot",
@@ -176,7 +183,17 @@ def normalize_content_data_plan(
     for item in projected.content_items:
         prior = authored.get(item.content_id)
         if prior is None:
-            content_items.append(item)
+            content_items.append(
+                ContentItem(
+                    content_id=item.content_id,
+                    semantic_kind=item.semantic_kind,
+                    value=_clean_text(item.value)[:4000],
+                    provenance=item.provenance,
+                    page_ids=item.page_ids,
+                    component_ids=item.component_ids,
+                    requirement_ids=item.requirement_ids,
+                )
+            )
             continue
         value = _clean_text(prior.value)
         if value.casefold().strip() in {
@@ -188,7 +205,7 @@ def normalize_content_data_plan(
             "tbd",
             "todo",
         }:
-            value = item.value
+            value = _clean_text(item.value)
         content_items.append(
             ContentItem(
                 content_id=item.content_id,
