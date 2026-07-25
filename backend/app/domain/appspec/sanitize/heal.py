@@ -132,6 +132,178 @@ def _heal_schema_version(payload: dict[str, Any]) -> list[str]:
     return []
 
 
+def _heal_tier1_primary_journey(payload: dict[str, Any]) -> list[str]:
+    """Close the common gap between AppSpec validation and Tier 1 proof selection.
+
+    Tier building needs an interaction requirement whose journey ends in a
+    terminal state with visible success evidence and a journey-backed test.
+    Authors often omit ``terminal`` / visible assertions even when the graph
+    is otherwise valid.
+    """
+
+    applied: list[str] = []
+    requirements = [
+        item for item in (payload.get("requirements") or []) if isinstance(item, dict)
+    ]
+    journeys = [
+        item for item in (payload.get("journeys") or []) if isinstance(item, dict)
+    ]
+    states = [
+        item for item in (payload.get("states") or []) if isinstance(item, dict)
+    ]
+    evidence = [
+        item for item in (payload.get("evidence") or []) if isinstance(item, dict)
+    ]
+    tests = [
+        item
+        for item in (payload.get("acceptance_tests") or [])
+        if isinstance(item, dict)
+    ]
+    traces = [
+        item for item in (payload.get("traceability") or []) if isinstance(item, dict)
+    ]
+    deferred = {
+        str(req_id)
+        for item in (payload.get("deferred_scope") or [])
+        if isinstance(item, dict)
+        for req_id in (item.get("requirement_ids") or [])
+    }
+    state_by_id = {str(item.get("id")): item for item in states if item.get("id")}
+    evidence_by_page: dict[str, list[dict[str, Any]]] = {}
+    for item in evidence:
+        page_id = str(item.get("page_id") or "")
+        if page_id:
+            evidence_by_page.setdefault(page_id, []).append(item)
+
+    interaction_ids = [
+        str(item.get("id"))
+        for item in requirements
+        if item.get("verification_mode") == "interaction"
+        and item.get("id")
+        and str(item.get("id")) not in deferred
+    ]
+    if not interaction_ids or not journeys:
+        return applied
+
+    for requirement_id in interaction_ids:
+        trace = next(
+            (
+                item
+                for item in traces
+                if str(item.get("requirement_id")) == requirement_id
+            ),
+            None,
+        )
+        if trace is None:
+            continue
+        traced_journeys = {
+            str(value) for value in (trace.get("journey_ids") or [])
+        }
+        traced_tests = {
+            str(value) for value in (trace.get("acceptance_test_ids") or [])
+        }
+        for journey in journeys:
+            journey_id = str(journey.get("id") or "")
+            if (
+                not journey_id
+                or journey_id not in traced_journeys
+                or requirement_id
+                not in {
+                    str(value) for value in (journey.get("requirement_ids") or [])
+                }
+            ):
+                continue
+            steps = [
+                step
+                for step in (journey.get("steps") or [])
+                if isinstance(step, dict)
+            ]
+            if not steps:
+                continue
+            last_step = steps[-1]
+            state_id = str(last_step.get("expected_state_id") or "")
+            page_id = str(last_step.get("expected_page_id") or "")
+            state = state_by_id.get(state_id)
+            if state is None:
+                continue
+            if not state.get("terminal"):
+                state["terminal"] = True
+                applied.append(f"mark_terminal:{state_id}")
+
+            step_evidence = [
+                str(value) for value in (last_step.get("evidence_ids") or []) if value
+            ]
+            state_evidence = [
+                str(value) for value in (state.get("evidence_ids") or []) if value
+            ]
+            success_ids = list(dict.fromkeys([*step_evidence, *state_evidence]))
+            if not success_ids:
+                page_evidence = evidence_by_page.get(page_id) or []
+                if page_evidence:
+                    success_ids = [str(page_evidence[0].get("id"))]
+                elif evidence:
+                    success_ids = [str(evidence[0].get("id"))]
+                else:
+                    continue
+                last_step["evidence_ids"] = success_ids
+                state["evidence_ids"] = success_ids
+                applied.append(f"attach_success_evidence:{success_ids[0]}")
+            else:
+                if not step_evidence:
+                    last_step["evidence_ids"] = success_ids[:1]
+                    applied.append("copy_success_evidence_to_step")
+                if not state_evidence:
+                    state["evidence_ids"] = success_ids[:1]
+                    applied.append("copy_success_evidence_to_state")
+
+            success_id = success_ids[0]
+            test = next(
+                (
+                    item
+                    for item in tests
+                    if str(item.get("id") or "") in traced_tests
+                    and str(item.get("journey_id") or "") == journey_id
+                    and requirement_id
+                    in {
+                        str(value)
+                        for value in (item.get("requirement_ids") or [])
+                    }
+                ),
+                None,
+            )
+            if test is None:
+                continue
+            assertions = [
+                assertion
+                for assertion in (test.get("assertions") or [])
+                if isinstance(assertion, dict)
+            ]
+            has_visible = any(
+                assertion.get("kind") == "visible"
+                and str(assertion.get("evidence_id") or "") == success_id
+                for assertion in assertions
+            )
+            if not has_visible:
+                assertions.append(
+                    {
+                        "kind": "visible",
+                        "description": (
+                            "Terminal success evidence is visible after the "
+                            "primary journey."
+                        ),
+                        "page_id": page_id or None,
+                        "state_id": state_id or None,
+                        "evidence_id": success_id,
+                        "expected": "visible",
+                    }
+                )
+                test["assertions"] = assertions
+                applied.append(f"add_visible_assertion:{test.get('id')}")
+            if applied:
+                return applied
+    return applied
+
+
 def heal_app_spec_payload(
     payload: Mapping[str, Any],
     validation_payload: Mapping[str, Any],
@@ -163,6 +335,8 @@ def heal_app_spec_payload(
             applied.extend(_heal_unresolved_source_refs(healed))
         elif code == "app_spec_schema_version_mismatch":
             applied.extend(_heal_schema_version(healed))
+        elif code == "tier1_primary_journey_incomplete":
+            applied.extend(_heal_tier1_primary_journey(healed))
 
     # Always re-normalize source refs when any source-ref issue appeared.
     if any(

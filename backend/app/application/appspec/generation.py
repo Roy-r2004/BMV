@@ -42,6 +42,11 @@ from app.application.appspec.source import (
     capture_request_source,
     source_sha256 as calculate_source_sha256,
 )
+from app.application.preview_contract.tiers import (
+    TierBuildError,
+    select_primary_journey_proof,
+)
+from app.domain.schemas.product_strategy import ProductStrategy
 from app.domain.appspec.validation import (
     ValidationReport,
     validate_app_spec,
@@ -732,11 +737,34 @@ def ensure_approved_app_spec(
                 validation = validate_app_spec(spec)
                 version_issue = _schema_version_issue(spec)
                 source_issues = _source_reference_issues(spec, source_snapshot)
+                extra_issues = (
+                    ([version_issue] if version_issue else []) + source_issues
+                )
+                strategy_payload = (derived_context or {}).get("product_strategy")
+                if (
+                    strategy_payload
+                    and validation.passed
+                    and not version_issue
+                    and not source_issues
+                ):
+                    try:
+                        select_primary_journey_proof(
+                            spec,
+                            ProductStrategy.model_validate(strategy_payload),
+                        )
+                    except (TierBuildError, ValidationError) as exc:
+                        extra_issues.append(
+                            {
+                                "severity": "blocking",
+                                "code": "tier1_primary_journey_incomplete",
+                                "message": str(exc),
+                                "path": "journeys",
+                                "related_ids": [],
+                            }
+                        )
                 validation_payload = _validation_payload(
                     validation,
-                    extra_issues=(
-                        ([version_issue] if version_issue else []) + source_issues
-                    ),
+                    extra_issues=extra_issues,
                 )
             elif parse_issue:
                 validation_payload = _validation_payload(
