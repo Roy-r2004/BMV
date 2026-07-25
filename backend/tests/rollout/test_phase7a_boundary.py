@@ -24,7 +24,10 @@ def test_no_combined_or_unsafe_rollout_write_endpoints() -> None:
         methods = set(route.methods or [])
         if any(m in methods for m in ("POST", "PUT", "PATCH", "DELETE")):
             assert "pointer-swap" not in path
-            assert "auto-rollback" not in path
+            # Phase 7D allows /breaker/auto-rollbacks/run only — not a combined
+            # promote+rollback write shortcut.
+            if "auto-rollback" in path:
+                assert "/breaker/auto-rollbacks" in path
             assert "percent" not in path
             assert "canary" not in path
             # Serving pointer remains read-only; writes use promotions/rollbacks.
@@ -43,6 +46,11 @@ def test_diagnostic_endpoints_allow_shadow_and_phase7c_writes() -> None:
         "/approvals",
         "/apply",
         "/rollbacks",
+        "/breaker/evaluate",
+        "/breaker/open",
+        "/breaker/close",
+        "/breaker/disable",
+        "/breaker/auto-rollbacks/run",
     )
     for route in rollout_routes:
         methods = set(route.methods or [])

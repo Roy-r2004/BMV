@@ -15,10 +15,11 @@ from app.domain.schemas.rollout import (
 
 
 PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
-    "rollout_viewer": frozenset({"read_diagnostics"}),
+    "rollout_viewer": frozenset({"read_diagnostics", "read_breaker"}),
     "rollout_operator": frozenset(
         {
             "read_diagnostics",
+            "read_breaker",
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
             "start_shadow_evaluation",
@@ -29,6 +30,7 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
     "rollout_approver": frozenset(
         {
             "read_diagnostics",
+            "read_breaker",
             "review_eligibility",
             "review_policy_state",
             "approve_promotion",
@@ -38,6 +40,7 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
     "rollout_admin": frozenset(
         {
             "read_diagnostics",
+            "read_breaker",
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
             "review_eligibility",
@@ -50,17 +53,21 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "approve_rollback",
             "apply_promotion",
             "apply_rollback",
+            "evaluate_breaker",
+            "open_breaker",
+            "close_breaker",
+            "disable_breaker",
+            "run_auto_rollback",
         }
     ),
 }
 
-# Phase 7C: apply is admin-only via apply_*; still forbid auto/percent/canary.
+# Still forbid canary consume / percent serve / live regenerate.
+# Breaker open/evaluate/auto-rollback are gated via explicit permissions above.
 FORBIDDEN_PHASE7A_ACTIONS = frozenset(
     {
         "consume_canary_approval",
-        "trip_circuit_breaker",
         "start_live_shadow_regenerate",
-        "auto_rollback",
         "percentage_serve",
     }
 )

@@ -7,6 +7,10 @@ import json
 from sqlalchemy.orm import Session
 
 from app.application.rollout.authorization import evaluate_separation_of_duties
+from app.application.rollout.breaker_service import (
+    BreakerService,
+    human_apply_blocked_by_breaker,
+)
 from app.application.rollout.health_precheck import (
     run_promote_health_precheck,
     verify_rollback_target,
@@ -97,10 +101,9 @@ def compute_apply_eligibility(
     promote = bool(app_config.settings.V2_PHASE7_PROMOTE_ENABLED)
     config_valid = bool(app_config.settings.V2_PHASE7_CONFIG_VALID)
     flags_enabled = master and promote and config_valid
-    breaker: BreakerState = "disabled"
-    if app_config.settings.V2_PHASE7_CIRCUIT_BREAKER_ENABLED:
-        breaker = "closed"
-    breaker_not_open = breaker != "open"
+    breaker: BreakerState = BreakerService(db).current_state()
+    # Phase 7D first cut: human apply fails closed while open or half_open.
+    breaker_not_open = not human_apply_blocked_by_breaker(db)
 
     pointer_matches = current_version == expected_pointer_version
     approved = status == "approved"

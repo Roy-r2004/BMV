@@ -25,6 +25,7 @@ from app.application.rollout.authorization import (
     reject_client_supplied_roles,
     require_permission,
 )
+from app.application.rollout.breaker_metrics import append_metric_sample
 from app.application.rollout.health_precheck import verify_rollback_target
 from app.application.rollout.pointer import resolve_serving_pointer
 from app.application.rollout.repository import RolloutRepository
@@ -623,7 +624,7 @@ class PromotionService:
             summary_sha = summary.summary_sha256
 
         try:
-            apply_pointer_swap_transaction(
+            new_ptr = apply_pointer_swap_transaction(
                 self._db,
                 request_id=decision.request_id,
                 decision=decision,
@@ -640,8 +641,20 @@ class PromotionService:
                 initialize_legacy_first=initialize_legacy,
             )
         except PointerApplyError as exc:
+            self._record_promotion_write_metric(
+                decision=decision,
+                success=False,
+                pointer_version=body.expected_pointer_version,
+                reason=exc.reason,
+            )
             raise PromotionServiceError(exc.reason, stage="pointer") from exc
 
+        self._record_promotion_write_metric(
+            decision=decision,
+            success=True,
+            pointer_version=new_ptr.pointer_version,
+            reason="promote_applied",
+        )
         return ApplyResultView(
             decision=self._decision_view(decision),
             pointer=resolve_serving_pointer(self._db, decision.request_id),
@@ -948,13 +961,63 @@ class PromotionService:
                 initialize_legacy_first=False,
             )
         except PointerApplyError as exc:
+            self._record_promotion_write_metric(
+                decision=decision,
+                success=False,
+                pointer_version=body.expected_pointer_version,
+                reason=exc.reason,
+            )
             raise PromotionServiceError(exc.reason, stage="pointer") from exc
 
+        self._record_promotion_write_metric(
+            decision=decision,
+            success=True,
+            pointer_version=new_pointer.pointer_version,
+            reason="rollback_applied",
+        )
         return ApplyResultView(
             decision=self._decision_view(decision),
             pointer=resolve_serving_pointer(self._db, decision.request_id),
             eligibility_sha256=eligibility.eligibility_sha256,
         )
+
+    def _record_promotion_write_metric(
+        self,
+        *,
+        decision: PreviewPromotionDecisionRecord,
+        success: bool,
+        pointer_version: int | None,
+        reason: str,
+    ) -> None:
+        """Best-effort append for breaker window; never fails the apply path."""
+        if not app_config.settings.V2_PHASE7_CIRCUIT_BREAKER_ENABLED:
+            return
+        try:
+            metric = (
+                "promotion_write_success" if success else "promotion_write_failure"
+            )
+            append_metric_sample(
+                self._db,
+                metric_class=metric,  # type: ignore[arg-type]
+                outcome="success" if success else "failure",
+                policy_revision=app_config.settings.V2_PHASE7_POLICY_REVISION,
+                source_event_hash=_payload_sha(
+                    {
+                        "metric": metric,
+                        "decision_id": decision.id,
+                        "request_id": decision.request_id,
+                        "pointer_version": pointer_version,
+                        "reason": reason,
+                    }
+                ),
+                request_id=decision.request_id,
+                decision_id=decision.id,
+                pointer_version=pointer_version,
+                source_event_id=f"promotion_write:{decision.id}:{reason}",
+                metadata={"reason": reason, "decision_type": decision.decision_type},
+            )
+        except Exception:  # noqa: BLE001
+            return
 
 
 __all__ = ["PromotionService", "PromotionServiceError"]

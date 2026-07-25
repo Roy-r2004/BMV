@@ -118,6 +118,27 @@ def _persist_serving_fallback_audit(
                 event_sha256=event_sha,
             )
         )
+        if app_config.settings.V2_PHASE7_CIRCUIT_BREAKER_ENABLED:
+            # Best-effort sample only — no breaker evaluation/transition here.
+            from app.application.rollout.breaker_metrics import append_metric_sample
+
+            append_metric_sample(
+                db,
+                metric_class="serving_health_failure",
+                outcome="failure",
+                policy_revision=app_config.settings.V2_PHASE7_POLICY_REVISION,
+                source_event_hash=event_sha,
+                request_id=request_id,
+                pointer_version=unhealthy_version,
+                source_event_id=f"serving_fallback:{request_id}:{event_sha[:16]}",
+                metadata={
+                    "fallback_kind": fallback_kind,
+                    "reason": reason,
+                    "no_pointer_mutation": True,
+                    "no_breaker_transition": True,
+                },
+                event_at=created,
+            )
         db.commit()
     except Exception:
         db.rollback()

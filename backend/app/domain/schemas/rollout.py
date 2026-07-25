@@ -63,6 +63,7 @@ class CircuitBreakerPolicyContract(StrictDesignModel):
     open_duration_seconds: StrictInt = Field(default=600, ge=1)
     half_open_probes: StrictInt = Field(default=2, ge=1)
     cost_spike_multiplier: StrictFloat = Field(default=3.0, ge=1.0)
+    p95_serving_latency_enabled: StrictBool = False
     metric_classes: Tuple[MetricClass, ...] = (
         "generation_failure",
         "visual_rejection",

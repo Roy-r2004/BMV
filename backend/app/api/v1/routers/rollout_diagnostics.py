@@ -1,4 +1,4 @@
-"""Phase 7A–7C rollout diagnostics, shadow, and allowlist promotion APIs.
+"""Phase 7A–7D rollout diagnostics, shadow, promotion, and breaker APIs.
 
 Roles come from trusted admin auth, never from request JSON.
 Phase 7C writes are request → approve → apply only (no combined endpoint).
@@ -13,7 +13,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, verify_admin
 from app.application.rollout.authorization import (
     RolloutAuthorizationError,
+    reject_client_supplied_roles,
     trusted_actor_from_admin,
+)
+from app.application.rollout.auto_rollback import AutoRollbackService
+from app.application.rollout.breaker_service import (
+    BreakerService,
+    BreakerServiceError,
 )
 from app.application.rollout.promotion_service import (
     PromotionService,
@@ -23,6 +29,17 @@ from app.application.rollout.service import RolloutControlPlaneService
 from app.application.rollout.shadow_service import ShadowExecutionError, ShadowService
 from app.application.services.user_auth import get_user_by_token
 from app.core.config import settings
+from app.domain.schemas.breaker import (
+    AutoRollbackResultView,
+    BreakerAutoRollbackRunBody,
+    BreakerDisableBody,
+    BreakerEvaluateBody,
+    BreakerEvaluationResult,
+    BreakerManualCloseBody,
+    BreakerManualOpenBody,
+    BreakerMetricSampleView,
+    BreakerStateView,
+)
 from app.domain.schemas.promotion import (
     ApplyResultView,
     DecisionApprovalBody,
@@ -186,6 +203,14 @@ def start_shadow_evaluation(
         if exc.reason == "flags_off":
             status = 403
         raise HTTPException(status_code=status, detail=exc.reason) from exc
+
+
+def _breaker_http_error(exc: BreakerServiceError) -> HTTPException:
+    if exc.stage == "flags":
+        return HTTPException(status_code=403, detail=exc.reason)
+    if exc.stage == "validation":
+        return HTTPException(status_code=400, detail=exc.reason)
+    return HTTPException(status_code=400, detail=exc.reason)
 
 
 def _promotion_http_error(exc: PromotionServiceError) -> HTTPException:
@@ -474,6 +499,201 @@ def get_serving_pointer_history(
         db, x_admin_password=x_admin_password, authorization=authorization
     )
     return PromotionService(db).pointer_history(actor=actor, request_id=request_id)
+
+
+@router.get("/breaker/state", response_model=BreakerStateView)
+def get_breaker_state(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> BreakerStateView:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    view = BreakerService(db).get_state_view(actor=actor)
+    db.commit()
+    return view
+
+
+@router.get("/breaker/history", response_model=list[BreakerStateView])
+def get_breaker_history(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[BreakerStateView]:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    return BreakerService(db).history(actor=actor)
+
+
+@router.get("/breaker/metric-samples", response_model=list[BreakerMetricSampleView])
+def get_breaker_metric_samples(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[BreakerMetricSampleView]:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    return BreakerService(db).list_samples(actor=actor)
+
+
+@router.get("/breaker/auto-rollbacks", response_model=list[AutoRollbackResultView])
+def get_breaker_auto_rollbacks(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[AutoRollbackResultView]:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    return AutoRollbackService(db).list_results(actor=actor)
+
+
+@router.post("/breaker/evaluate", response_model=BreakerEvaluationResult)
+def post_breaker_evaluate(
+    body: BreakerEvaluateBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> BreakerEvaluationResult:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        reject_client_supplied_roles(body.model_dump(mode="json"))
+        result = BreakerService(db).evaluate(
+            actor=actor,
+            reason=body.reason,
+            run_auto_rollback_if_opened=body.run_auto_rollback_if_opened,
+        )
+        db.commit()
+        return result
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except BreakerServiceError as exc:
+        db.rollback()
+        raise _breaker_http_error(exc) from exc
+
+
+@router.post("/breaker/open", response_model=BreakerEvaluationResult)
+def post_breaker_open(
+    body: BreakerManualOpenBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> BreakerEvaluationResult:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        reject_client_supplied_roles(body.model_dump(mode="json"))
+        result = BreakerService(db).manual_open(
+            actor=actor,
+            reason=body.reason,
+            ticket_ref=body.ticket_ref,
+            run_auto_rollback=body.run_auto_rollback,
+        )
+        db.commit()
+        return result
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except BreakerServiceError as exc:
+        db.rollback()
+        raise _breaker_http_error(exc) from exc
+
+
+@router.post("/breaker/close", response_model=BreakerEvaluationResult)
+def post_breaker_close(
+    body: BreakerManualCloseBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> BreakerEvaluationResult:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        reject_client_supplied_roles(body.model_dump(mode="json"))
+        result = BreakerService(db).manual_close(
+            actor=actor, reason=body.reason, ticket_ref=body.ticket_ref
+        )
+        db.commit()
+        return result
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except BreakerServiceError as exc:
+        db.rollback()
+        raise _breaker_http_error(exc) from exc
+
+
+@router.post("/breaker/disable", response_model=BreakerEvaluationResult)
+def post_breaker_disable(
+    body: BreakerDisableBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> BreakerEvaluationResult:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        reject_client_supplied_roles(body.model_dump(mode="json"))
+        result = BreakerService(db).disable(
+            actor=actor, reason=body.reason, ticket_ref=body.ticket_ref
+        )
+        db.commit()
+        return result
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except BreakerServiceError as exc:
+        db.rollback()
+        raise _breaker_http_error(exc) from exc
+
+
+@router.post(
+    "/breaker/auto-rollbacks/run",
+    response_model=list[AutoRollbackResultView],
+)
+def post_breaker_auto_rollbacks_run(
+    body: BreakerAutoRollbackRunBody,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+) -> list[AutoRollbackResultView]:
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        reject_client_supplied_roles(body.model_dump(mode="json"))
+        # Snapshot hash is recomputed server-side; body cannot supply authority.
+        breaker = BreakerService(db)
+        policy_row = breaker.ensure_default_policy(actor_id=actor.actor_id)
+        snap = breaker._compute_snapshot(breaker._policy_from_row(policy_row))
+        results = AutoRollbackService(db).run_for_open_event(
+            actor=actor,
+            open_state_id=body.open_state_id,
+            metric_snapshot_sha256=snap.snapshot_sha256,
+        )
+        db.commit()
+        return results
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 __all__ = ["router"]

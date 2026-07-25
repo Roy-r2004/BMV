@@ -21,7 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     event,
-)
+)  # Float used by canary + breaker metric samples
 from sqlalchemy.orm import Session
 
 from app.infrastructure.db.base import Base
@@ -404,7 +404,7 @@ class PreviewCircuitBreakerPolicyRecord(Base):
 
 
 class PreviewCircuitBreakerStateRecord(Base):
-    """Historical breaker state snapshots — append-only; unused until 7D."""
+    """Append-only breaker state snapshots; current = latest per scope_key."""
 
     __tablename__ = "preview_circuit_breaker_states"
     __table_args__ = (
@@ -431,6 +431,84 @@ class PreviewCircuitBreakerStateRecord(Base):
     state_sha256 = Column(String(64), nullable=False)
 
 
+class PreviewBreakerMetricSampleRecord(Base):
+    """Append-only sliding-window metric samples for Phase 7D."""
+
+    __tablename__ = "preview_breaker_metric_samples"
+    __table_args__ = (
+        UniqueConstraint("sample_sha256", name="uq_breaker_sample_sha256"),
+        UniqueConstraint("source_event_hash", name="uq_breaker_sample_source"),
+        Index("ix_breaker_sample_event_at", "event_at"),
+        Index("ix_breaker_sample_class_event", "metric_class", "event_at"),
+        Index("ix_breaker_sample_request_event", "request_id", "event_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_at = Column(DateTime, nullable=False, index=True)
+    metric_class = Column(String(64), nullable=False)
+    outcome = Column(String(32), nullable=False)
+    request_id = Column(
+        Integer,
+        ForeignKey("requests.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    decision_id = Column(
+        Integer,
+        ForeignKey("preview_promotion_decisions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    pointer_version = Column(Integer, nullable=True)
+    duration_ms = Column(Float, nullable=True)
+    policy_revision = Column(String(64), nullable=False)
+    source_event_id = Column(String(128), nullable=True)
+    source_event_hash = Column(String(64), nullable=False)
+    metadata_json = Column(Text, nullable=False)
+    metadata_sha256 = Column(String(64), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    sample_sha256 = Column(String(64), nullable=False)
+
+
+class PreviewBreakerAutoRollbackClaimRecord(Base):
+    """Idempotency claims for auto-rollback per breaker-open event + request."""
+
+    __tablename__ = "preview_breaker_auto_rollback_claims"
+    __table_args__ = (
+        UniqueConstraint(
+            "open_state_id",
+            "request_id",
+            name="uq_breaker_auto_rb_open_request",
+        ),
+        UniqueConstraint("idempotency_key", name="uq_breaker_auto_rb_idem"),
+        UniqueConstraint("claim_sha256", name="uq_breaker_auto_rb_claim_sha"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    open_state_id = Column(
+        Integer,
+        ForeignKey("preview_circuit_breaker_states.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    request_id = Column(
+        Integer,
+        ForeignKey("requests.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    decision_id = Column(
+        Integer,
+        ForeignKey("preview_promotion_decisions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    expected_pointer_version = Column(Integer, nullable=False)
+    target_pointer_version = Column(Integer, nullable=False)
+    idempotency_key = Column(String(256), nullable=False)
+    claim_sha256 = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 _STRICT_APPEND_ONLY_TYPES = (
     PreviewRolloutPolicyRecord,
     PreviewPromotionDecisionRecord,
@@ -441,6 +519,8 @@ _STRICT_APPEND_ONLY_TYPES = (
     PreviewLiveCanaryApprovalStatusEventRecord,
     PreviewCircuitBreakerPolicyRecord,
     PreviewCircuitBreakerStateRecord,
+    PreviewBreakerMetricSampleRecord,
+    PreviewBreakerAutoRollbackClaimRecord,
 )
 
 _POINTER_IMMUTABLE_ATTRS = (
@@ -485,6 +565,8 @@ def _protect_rollout_history(session, _flush_context, _instances):
 
 
 __all__ = [
+    "PreviewBreakerAutoRollbackClaimRecord",
+    "PreviewBreakerMetricSampleRecord",
     "PreviewCircuitBreakerPolicyRecord",
     "PreviewCircuitBreakerStateRecord",
     "PreviewLiveCanaryApprovalRecord",

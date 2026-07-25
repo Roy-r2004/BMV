@@ -28,6 +28,12 @@ PHASE7A_EMITTABLE_EVENTS = frozenset(
         "rollback_approved",
         "rollback_completed",
         "serving_fallback",
+        "breaker_opened",
+        "breaker_half_open",
+        "breaker_closed",
+        "breaker_disabled",
+        "breaker_evaluated",
+        "breaker_auto_rollback_applied",
     }
 )
 
