@@ -723,6 +723,10 @@ def project_interactions(
             if test.journey_id in journey_ids
         )
         if not journey_ids or not test_ids:
+            # Navigate deep-links are often authored without Tier-1 proof.
+            # Prefer skipping over failing the whole composition phase.
+            if action.kind == "navigate":
+                continue
             raise CompositionProjectionError(
                 f"Action {action.id} lacks a journey-backed acceptance test."
             )

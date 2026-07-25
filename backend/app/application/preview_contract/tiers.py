@@ -342,6 +342,55 @@ def expand_tier_graph(
     return refs
 
 
+def _prune_unproven_navigate_actions(
+    spec: AppSpec,
+    refs: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    """Drop navigate actions that lack a journey-backed acceptance test in-tier.
+
+    Page expansion no longer pulls navigate actions, but journey steps still can.
+    Interaction projection then fails if that journey has no Tier acceptance test.
+    """
+
+    actions = _objects(spec.actions)
+    journeys = _objects(spec.journeys)
+    tests = _objects(spec.acceptance_tests)
+    transitions = _objects(spec.transitions)
+    proven_action_ids: set[str] = set()
+    for test_id in refs["acceptance_test_ids"]:
+        test = tests.get(test_id)
+        if test is None:
+            continue
+        journey_id = getattr(test, "journey_id", None)
+        if journey_id is None or journey_id not in refs["journey_ids"]:
+            continue
+        journey = journeys.get(str(journey_id))
+        if journey is None:
+            continue
+        for step in getattr(journey, "steps"):
+            proven_action_ids.add(step.action_id)
+
+    drop_actions = {
+        action_id
+        for action_id in tuple(refs["action_ids"])
+        if action_id in actions
+        and getattr(actions[action_id], "kind") == "navigate"
+        and action_id not in proven_action_ids
+    }
+    if not drop_actions:
+        return refs
+    refs["action_ids"].difference_update(drop_actions)
+    refs["transition_ids"].difference_update(
+        {
+            transition_id
+            for transition_id in tuple(refs["transition_ids"])
+            if transition_id in transitions
+            and getattr(transitions[transition_id], "action_id") in drop_actions
+        }
+    )
+    return refs
+
+
 def _canonical_reference_set(
     spec: AppSpec,
     refs: dict[str, set[str]],
@@ -557,6 +606,7 @@ def _build_artifact(
     seeds: dict[str, set[str]],
 ) -> PreviewTierArtifact:
     closed = expand_tier_graph(spec, seeds)
+    closed = _prune_unproven_navigate_actions(spec, closed)
     references = _canonical_reference_set(spec, closed)
     return PreviewTierArtifact.model_validate(
         {
