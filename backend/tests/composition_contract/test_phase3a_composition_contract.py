@@ -456,7 +456,7 @@ def test_missing_action_trigger_binding_is_healed() -> None:
         prepared.db.close()
 
 
-def test_missing_success_evidence_binding_fails_closed() -> None:
+def test_missing_success_evidence_binding_is_healed() -> None:
     prepared = prepare_phase2(request_id=1309)
     ai = CompositionFixtureAI()
 
@@ -467,45 +467,30 @@ def test_missing_success_evidence_binding_fails_closed() -> None:
             if item["evidence_id"] != "EVIDENCE-CONFIRMATION"
         ]
 
-    # max attempts is 3 — keep every attempt invalid.
-    ai.stage_mutators["content_data_plan"] = [
-        _mutate(remove_success),
-        _mutate(remove_success),
-        _mutate(remove_success),
-    ]
+    ai.stage_mutators["content_data_plan"] = [_mutate(remove_success)]
     try:
-        with pytest.raises(CompositionStageError) as exc:
-            _run(prepared, ai)
-        assert "evidence_binding_coverage_or_order" in str(
-            exc.value.retry_reasons
-        )
+        result = _run(prepared, ai)
+        assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
             "content_data_plan",
-            "content_data_plan",
-            "content_data_plan",
-        ]
-        assert [row.artifact_kind for row in _rows(prepared)] == [
-            "page_purpose_contract",
-            "business_component_plan",
         ]
     finally:
         prepared.db.close()
 
 
-def test_missing_action_data_binding_fails_closed() -> None:
+def test_missing_action_data_binding_is_healed() -> None:
     prepared = prepare_phase2(request_id=1310)
     ai = CompositionFixtureAI()
     remove = _mutate(
         lambda payload: payload.update({"action_input_bindings": []})
     )
-    ai.stage_mutators["content_data_plan"] = [remove, remove, remove]
+    ai.stage_mutators["content_data_plan"] = [remove]
     try:
-        with pytest.raises(CompositionStageError) as exc:
-            _run(prepared, ai)
-        assert "action_input_binding_coverage_or_order" in str(
-            exc.value.retry_reasons
-        )
+        result = _run(prepared, ai)
+        _page, _components, content, *_rest = _artifacts(prepared, result)
+        assert content.action_input_bindings
+        assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
     finally:
         prepared.db.close()
 

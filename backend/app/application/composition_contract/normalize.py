@@ -4,12 +4,14 @@ from __future__ import annotations
 from app.application.composition_contract.context import CompositionContext
 from app.application.composition_contract.projections import (
     project_business_component_plan,
+    project_content_data_plan,
 )
 from app.domain.schemas.business_component_plan import (
     BusinessComponent,
     BusinessComponentPlan,
 )
 from app.domain.schemas.composition_contract import CompositionArtifactRef
+from app.domain.schemas.content_data_plan import ContentDataPlan, ContentItem
 from app.domain.schemas.page_purpose_contract import PagePurposeContract
 
 _FORBIDDEN_MARKERS = (
@@ -145,4 +147,75 @@ def normalize_business_component_plan(
     )
 
 
-__all__ = ["normalize_business_component_plan"]
+def normalize_content_data_plan(
+    artifact: ContentDataPlan,
+    *,
+    context: CompositionContext,
+    page_purpose: PagePurposeContract,
+    page_purpose_ref: CompositionArtifactRef,
+    component_plan: BusinessComponentPlan,
+    component_plan_ref: CompositionArtifactRef,
+) -> ContentDataPlan:
+    """Force Tier-1 content/data coverage from AppSpec; keep authored copy.
+
+    Binding order, seed shapes, and evidence coverage are deterministic and
+    should not burn Phase 3A retries.
+    """
+
+    projected = project_content_data_plan(
+        context,
+        page_purpose=page_purpose,
+        page_purpose_ref=page_purpose_ref,
+        component_plan=component_plan,
+        component_plan_ref=component_plan_ref,
+    )
+    authored = {
+        item.content_id: item for item in artifact.content_items
+    }
+    content_items: list[ContentItem] = []
+    for item in projected.content_items:
+        prior = authored.get(item.content_id)
+        if prior is None:
+            content_items.append(item)
+            continue
+        value = _clean_text(prior.value)
+        if value.casefold().strip() in {
+            "item 1",
+            "item one",
+            "lorem ipsum",
+            "placeholder",
+            "sample",
+            "tbd",
+            "todo",
+        }:
+            value = item.value
+        content_items.append(
+            ContentItem(
+                content_id=item.content_id,
+                semantic_kind=prior.semantic_kind or item.semantic_kind,
+                value=value[:4000],
+                provenance=prior.provenance or item.provenance,
+                page_ids=item.page_ids,
+                component_ids=item.component_ids,
+                requirement_ids=item.requirement_ids,
+            )
+        )
+
+    return ContentDataPlan(
+        schema_version=projected.schema_version,
+        contract_refs=context.refs,
+        page_purpose_ref=page_purpose_ref,
+        business_component_plan_ref=component_plan_ref,
+        content_items=tuple(content_items),
+        data_collections=projected.data_collections,
+        relationships=projected.relationships,
+        state_payloads=projected.state_payloads,
+        evidence_bindings=projected.evidence_bindings,
+        action_input_bindings=projected.action_input_bindings,
+    )
+
+
+__all__ = [
+    "normalize_business_component_plan",
+    "normalize_content_data_plan",
+]

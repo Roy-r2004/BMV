@@ -12,7 +12,16 @@ from app.domain.schemas.business_component_plan import (
     PageComponentComposition,
 )
 from app.domain.schemas.composition_contract import CompositionArtifactRef
-from app.domain.schemas.content_data_plan import ContentDataPlan
+from app.domain.schemas.content_data_plan import (
+    ActionInputBinding,
+    ContentDataPlan,
+    ContentItem,
+    DataCollection,
+    EvidenceBinding,
+    SeedFieldValue,
+    SeedRecord,
+    StatePayload,
+)
 from app.domain.schemas.interaction_contract import (
     BrowserAssertionProjection,
     InteractionContract,
@@ -351,6 +360,270 @@ def project_business_component_plan(
     )
 
 
+def _seed_value(field) -> object:
+    if field.type == "enum":
+        return field.enum_values[0]
+    if field.type == "boolean":
+        return True
+    if field.type == "integer":
+        return 1
+    if field.type == "number":
+        return 125.0
+    if field.type == "date":
+        return "2026-08-15"
+    if field.type == "datetime":
+        return "2026-08-15T10:00:00Z"
+    if field.type == "reference":
+        return "BOOKING-REFERENCE-01"
+    if field.type == "list":
+        return ("consultation", "follow-up")
+    return f"Realistic {field.name.casefold()} value"
+
+
+def project_content_data_plan(
+    context: CompositionContext,
+    *,
+    page_purpose: PagePurposeContract,
+    page_purpose_ref: CompositionArtifactRef,
+    component_plan: BusinessComponentPlan,
+    component_plan_ref: CompositionArtifactRef,
+) -> ContentDataPlan:
+    """Build a Tier-1-valid content/data plan from page + component contracts."""
+
+    spec = context.app_spec
+    tier = context.tier_1.references
+    page_ids = {page.page_id for page in page_purpose.pages}
+    page_contract = {page.page_id: page for page in page_purpose.pages}
+    components = {
+        item.component_id: item for item in component_plan.components
+    }
+    component_for_page: dict[str, str] = {}
+    for component in component_plan.components:
+        for page_id in component.page_ids:
+            component_for_page.setdefault(page_id, component.component_id)
+
+    tier_evidence = {
+        item.id: item
+        for item in spec.evidence
+        if item.id in set(tier.evidence_ids) and item.page_id in page_ids
+    }
+    content_items: list[ContentItem] = []
+    content_by_evidence: dict[str, str] = {}
+    for evidence_id, item in (
+        (evidence.id, evidence)
+        for evidence in spec.evidence
+        if evidence.id in tier_evidence
+    ):
+        suffix = evidence_id.removeprefix("EVIDENCE-")
+        content_id = f"CONTENT-{suffix}"
+        content_by_evidence[evidence_id] = content_id
+        page = page_contract[item.page_id]
+        content_items.append(
+            ContentItem(
+                content_id=content_id,
+                semantic_kind=(
+                    "success"
+                    if "confirmation" in item.name.casefold()
+                    or "success" in item.name.casefold()
+                    else "instruction"
+                ),
+                value=item.description,
+                provenance="canonical_contract",
+                page_ids=(item.page_id,),
+                component_ids=(component_for_page[item.page_id],),
+                requirement_ids=page.requirement_ids
+                or page.outcome_requirement_ids,
+            )
+        )
+    if not content_items:
+        raise CompositionProjectionError(
+            "Tier 1 content projection needs at least one evidence-backed "
+            "content item."
+        )
+
+    entity_ids: list[str] = []
+    for component in components.values():
+        for entity_id in component.entity_ids:
+            if entity_id not in entity_ids:
+                entity_ids.append(entity_id)
+    if not entity_ids:
+        entity_ids = list(tier.entity_ids)
+    entities = {item.id: item for item in spec.entities}
+    collections: list[DataCollection] = []
+    collection_by_entity: dict[str, str] = {}
+    for entity_id in entity_ids:
+        entity = entities.get(entity_id)
+        if entity is None or not entity.fields:
+            continue
+        collection_id = f"DATA-{entity_id.removeprefix('ENTITY-')}"
+        collection_by_entity[entity_id] = collection_id
+        component_ids = tuple(
+            component.component_id
+            for component in components.values()
+            if entity_id in component.entity_ids
+        ) or tuple(components)
+        linked_pages = tuple(
+            dict.fromkeys(
+                page_id
+                for component_id in component_ids
+                for page_id in components[component_id].page_ids
+                if page_id in page_ids
+            )
+        ) or tuple(page_contract)
+        field_ids = tuple(field.id for field in entity.fields)
+        collections.append(
+            DataCollection(
+                collection_id=collection_id,
+                entity_id=entity_id,
+                purpose=(
+                    f"Provide realistic {entity.name.casefold()} records "
+                    "for the accepted Tier 1 workflow."
+                ),
+                page_ids=linked_pages,
+                component_ids=component_ids,
+                field_ids=field_ids,
+                seed_records=(
+                    SeedRecord(
+                        record_id=(
+                            f"RECORD-{entity_id.removeprefix('ENTITY-')}-01"
+                        ),
+                        values=tuple(
+                            SeedFieldValue(
+                                field_id=field.id,
+                                value=_seed_value(field),
+                            )
+                            for field in entity.fields
+                        ),
+                    ),
+                ),
+            )
+        )
+    if not collections:
+        raise CompositionProjectionError(
+            "Tier 1 content projection needs at least one entity collection."
+        )
+
+    component_state = {
+        (binding.component_id, binding.state_id, evidence_id)
+        for binding in component_plan.component_state_bindings
+        for evidence_id in binding.visible_evidence_ids
+    }
+    evidence_bindings: list[EvidenceBinding] = []
+    for evidence in spec.evidence:
+        if evidence.id not in set(tier.evidence_ids):
+            continue
+        component_id = component_for_page.get(evidence.page_id)
+        if component_id is None:
+            continue
+        state_id = next(
+            (
+                state.id
+                for state in spec.states
+                if state.page_id == evidence.page_id
+                and (component_id, state.id, evidence.id) in component_state
+            ),
+            None,
+        )
+        if state_id is not None:
+            evidence_bindings.append(
+                EvidenceBinding(
+                    evidence_id=evidence.id,
+                    binding_kind="component_state",
+                    content_ids=(),
+                    collection_ids=(),
+                    component_id=component_id,
+                    state_id=state_id,
+                )
+            )
+        else:
+            evidence_bindings.append(
+                EvidenceBinding(
+                    evidence_id=evidence.id,
+                    binding_kind="content",
+                    content_ids=(content_by_evidence[evidence.id],),
+                    collection_ids=(),
+                    component_id=None,
+                    state_id=None,
+                )
+            )
+
+    content_ids_by_page = {
+        page.page_id: tuple(
+            item.content_id
+            for item in content_items
+            if page.page_id in item.page_ids
+        )
+        for page in page_purpose.pages
+    }
+    state_payloads = tuple(
+        StatePayload(
+            state_id=state.id,
+            page_id=state.page_id,
+            content_ids=content_ids_by_page.get(state.page_id, ()),
+            collection_ids=tuple(
+                item.collection_id
+                for item in collections
+                if state.page_id in item.page_ids
+            ),
+            component_ids=(component_for_page[state.page_id],),
+            evidence_ids=tuple(
+                evidence_id
+                for evidence_id in state.evidence_ids
+                if evidence_id in set(tier.evidence_ids)
+            ),
+        )
+        for state in spec.states
+        if state.id in set(tier.state_ids) and state.page_id in page_ids
+    )
+
+    action_bindings: list[ActionInputBinding] = []
+    for action in spec.actions:
+        if action.id not in set(tier.action_ids):
+            continue
+        if action.entity_id is None and action.kind not in {
+            "fill",
+            "select",
+            "submit",
+        }:
+            continue
+        collection_id = None
+        if action.entity_id and action.entity_id in collection_by_entity:
+            collection_id = collection_by_entity[action.entity_id]
+        elif action.page_id in page_ids:
+            collection_id = next(
+                (
+                    item.collection_id
+                    for item in collections
+                    if action.page_id in item.page_ids
+                ),
+                collections[0].collection_id,
+            )
+        if collection_id is None:
+            continue
+        collection = next(
+            item for item in collections if item.collection_id == collection_id
+        )
+        action_bindings.append(
+            ActionInputBinding(
+                action_id=action.id,
+                collection_ids=(collection_id,),
+                field_ids=collection.field_ids,
+            )
+        )
+
+    return ContentDataPlan(
+        contract_refs=context.refs,
+        page_purpose_ref=page_purpose_ref,
+        business_component_plan_ref=component_plan_ref,
+        content_items=tuple(content_items),
+        data_collections=tuple(collections),
+        relationships=(),
+        state_payloads=state_payloads,
+        evidence_bindings=tuple(evidence_bindings),
+        action_input_bindings=tuple(action_bindings),
+    )
+
+
 def _success_evidence_ids(
     context: CompositionContext,
     *,
@@ -538,6 +811,7 @@ def project_interactions(
 __all__ = [
     "CompositionProjectionError",
     "project_business_component_plan",
+    "project_content_data_plan",
     "project_interactions",
     "project_page_purpose",
 ]

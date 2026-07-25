@@ -32,6 +32,7 @@ from app.application.composition_contract.policy import (
 )
 from app.application.composition_contract.normalize import (
     normalize_business_component_plan,
+    normalize_content_data_plan,
 )
 from app.application.composition_contract.projections import (
     project_interactions,
@@ -465,6 +466,14 @@ def build_v2_composition_contract(
         ai_provider=ai_provider,
         template_renderer=template_renderer,
         deadline=deadline,
+        normalize=lambda artifact: normalize_content_data_plan(
+            artifact,
+            context=context,
+            page_purpose=page.artifact,
+            page_purpose_ref=page.ref,
+            component_plan=component.artifact,
+            component_plan_ref=component.ref,
+        ),
     )
     _check_usage(db, (page.metrics, component.metrics, content.metrics))
     if not content.metrics.cache_hit:
