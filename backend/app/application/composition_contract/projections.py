@@ -1,8 +1,16 @@
-"""Deterministic PagePurpose and Interaction projections."""
+"""Deterministic PagePurpose, BusinessComponent, and Interaction projections."""
 from __future__ import annotations
 
+import re
+
 from app.application.composition_contract.context import CompositionContext
-from app.domain.schemas.business_component_plan import BusinessComponentPlan
+from app.domain.schemas.business_component_plan import (
+    ActionTriggerBinding,
+    BusinessComponent,
+    BusinessComponentPlan,
+    ComponentStateBinding,
+    PageComponentComposition,
+)
 from app.domain.schemas.composition_contract import CompositionArtifactRef
 from app.domain.schemas.content_data_plan import ContentDataPlan
 from app.domain.schemas.interaction_contract import (
@@ -18,6 +26,20 @@ from app.domain.schemas.page_purpose_contract import (
     PagePurposeContract,
     ProjectedDesignConstraints,
 )
+
+_WORD = re.compile(r"[a-z0-9]+")
+_BLOCKED_DOMAIN_WORDS = {
+    "action",
+    "business",
+    "component",
+    "content",
+    "data",
+    "display",
+    "information",
+    "page",
+    "show",
+    "user",
+}
 
 
 class CompositionProjectionError(ValueError):
@@ -180,6 +202,152 @@ def project_page_purpose(
             avoid_list=context.design_dna.avoid_list,
         ),
         pages=tuple(pages),
+    )
+
+
+def _domain_words(*sources: str) -> tuple[str, ...]:
+    words: list[str] = []
+    for source in sources:
+        for word in _WORD.findall(source.casefold()):
+            if (
+                len(word) >= 4
+                and word not in _BLOCKED_DOMAIN_WORDS
+                and word not in words
+            ):
+                words.append(word)
+            if len(words) >= 4:
+                return tuple(words)
+    return tuple(words) or ("workflow",)
+
+
+def project_business_component_plan(
+    context: CompositionContext,
+    *,
+    page_purpose: PagePurposeContract,
+    page_purpose_ref: CompositionArtifactRef,
+) -> BusinessComponentPlan:
+    """Build a Tier-1-valid component plan from page purpose + AppSpec."""
+
+    spec = context.app_spec
+    capabilities = {item.id: item for item in spec.capabilities}
+    actions = {item.id: item for item in spec.actions}
+    states = {item.id: item for item in spec.states}
+    components: list[BusinessComponent] = []
+    compositions: list[PageComponentComposition] = []
+    component_by_page: dict[str, str] = {}
+
+    for page in page_purpose.pages:
+        suffix = page.page_id.removeprefix("PAGE-")
+        component_id = f"COMP-{suffix}"
+        component_by_page[page.page_id] = component_id
+        linked_caps = [
+            capabilities[item]
+            for item in page.capability_ids
+            if item in capabilities
+        ]
+        entity_ids: list[str] = []
+        for capability in linked_caps:
+            for entity_id in capability.entity_ids:
+                if entity_id not in entity_ids:
+                    entity_ids.append(entity_id)
+        for action_id in page.action_ids:
+            action = actions.get(action_id)
+            if action is None or not action.entity_id:
+                continue
+            if action.entity_id not in entity_ids:
+                entity_ids.append(action.entity_id)
+        language = _domain_words(
+            " ".join(item.name for item in linked_caps),
+            " ".join(
+                actions[item].name
+                for item in page.action_ids
+                if item in actions
+            ),
+            page.goal,
+        )
+        purpose_terms = " and ".join(language[:2])
+        components.append(
+            BusinessComponent(
+                component_id=component_id,
+                name=f"{suffix.replace('-', ' ').title()} Workspace",
+                purpose=(
+                    f"Coordinate the {purpose_terms} workflow and make its "
+                    "canonical outcome visibly complete."
+                ),
+                component_kind=(
+                    "business_action" if page.action_ids else "business_content"
+                ),
+                domain_language=language,
+                page_ids=(page.page_id,),
+                role_ids=page.role_ids,
+                requirement_ids=page.requirement_ids
+                or page.outcome_requirement_ids,
+                entity_ids=tuple(entity_ids),
+                capability_ids=page.capability_ids,
+                state_ids=page.state_ids,
+                action_ids=page.action_ids,
+                evidence_ids=page.evidence_ids,
+                content_responsibilities=(
+                    f"Explain the next {language[0]} decision clearly.",
+                ),
+                data_responsibilities=(
+                    f"Show the current {language[0]} status and details.",
+                ),
+                interaction_responsibilities=(
+                    (f"Submit the canonical {language[0]} action.",)
+                    if page.action_ids
+                    else ()
+                ),
+                requires_component_ids=(),
+                shared_across_pages=False,
+            )
+        )
+        compositions.append(
+            PageComponentComposition(
+                page_id=page.page_id,
+                ordered_component_ids=(component_id,),
+            )
+        )
+
+    state_bindings: list[ComponentStateBinding] = []
+    for page in page_purpose.pages:
+        component_id = component_by_page[page.page_id]
+        for state_id in page.state_ids:
+            state = states.get(state_id)
+            if state is None:
+                continue
+            evidence_ids = tuple(
+                item
+                for item in state.evidence_ids
+                if item in page.evidence_ids
+            )
+            if evidence_ids:
+                state_bindings.append(
+                    ComponentStateBinding(
+                        component_id=component_id,
+                        state_id=state_id,
+                        visible_evidence_ids=evidence_ids,
+                    )
+                )
+
+    action_bindings = tuple(
+        ActionTriggerBinding(
+            action_id=action_id,
+            component_id=component_by_page[actions[action_id].page_id],
+            trigger_label=actions[action_id].name,
+        )
+        for action_id in context.tier_1.references.action_ids
+        if action_id in actions
+        and actions[action_id].page_id in component_by_page
+    )
+
+    return BusinessComponentPlan(
+        contract_refs=context.refs,
+        page_purpose_ref=page_purpose_ref,
+        components=tuple(components),
+        page_compositions=tuple(compositions),
+        action_trigger_bindings=action_bindings,
+        component_state_bindings=tuple(state_bindings),
     )
 
 
@@ -369,6 +537,7 @@ def project_interactions(
 
 __all__ = [
     "CompositionProjectionError",
+    "project_business_component_plan",
     "project_interactions",
     "project_page_purpose",
 ]

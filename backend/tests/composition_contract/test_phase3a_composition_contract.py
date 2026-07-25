@@ -388,7 +388,7 @@ def test_common_component_name_is_allowed_when_semantically_grounded() -> None:
         prepared.db.close()
 
 
-def test_generic_purpose_fails_semantic_specificity_not_name_check() -> None:
+def test_generic_purpose_is_healed_with_canonical_domain_language() -> None:
     prepared = prepare_phase2(request_id=1307)
     ai = CompositionFixtureAI()
 
@@ -401,62 +401,56 @@ def test_generic_purpose_fails_semantic_specificity_not_name_check() -> None:
             }
         )
 
-    ai.stage_mutators["business_component_plan"] = [
-        _mutate(generic),
-        _mutate(generic),
-    ]
+    ai.stage_mutators["business_component_plan"] = [_mutate(generic)]
     try:
-        with pytest.raises(
-            CompositionStageError,
-            match="failed strict validation",
-        ) as exc:
-            _run(prepared, ai)
-        assert len(ai.calls) == 2
-        assert "component_not_business_specific" in str(
-            exc.value.retry_reasons
+        result = _run(prepared, ai)
+        _page, components, *_rest = _artifacts(prepared, result)
+        first = components.components[0]
+        assert first.name == "AppointmentDashboard"
+        assert any(
+            token in first.purpose.casefold()
+            for token in first.domain_language
         )
-        assert [row.artifact_kind for row in _rows(prepared)] == [
-            "page_purpose_contract"
-        ]
+        assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
+        assert len(ai.calls) == 2
     finally:
         prepared.db.close()
 
 
-def test_missing_page_outcome_component_coverage_fails_closed() -> None:
+def test_missing_page_outcome_component_coverage_is_healed() -> None:
     prepared = prepare_phase2(request_id=1322)
     ai = CompositionFixtureAI()
 
     def remove_outcome(payload):
         payload["components"][0]["requirement_ids"] = ["REQ-GUIDE"]
 
-    ai.stage_mutators["business_component_plan"] = [
-        _mutate(remove_outcome),
-        _mutate(remove_outcome),
-    ]
+    ai.stage_mutators["business_component_plan"] = [_mutate(remove_outcome)]
     try:
-        with pytest.raises(CompositionStageError) as exc:
-            _run(prepared, ai)
-        assert "page_outcome_not_covered" in str(exc.value.retry_reasons)
+        result = _run(prepared, ai)
+        assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
+        assert [stage for stage, _model in ai.calls] == [
+            "business_component_plan",
+            "content_data_plan",
+        ]
     finally:
         prepared.db.close()
 
 
-def test_missing_action_trigger_binding_fails_closed() -> None:
+def test_missing_action_trigger_binding_is_healed() -> None:
     prepared = prepare_phase2(request_id=1308)
     ai = CompositionFixtureAI()
     remove = _mutate(
         lambda payload: payload.update({"action_trigger_bindings": []})
     )
-    ai.stage_mutators["business_component_plan"] = [remove, remove]
+    ai.stage_mutators["business_component_plan"] = [remove]
     try:
-        with pytest.raises(CompositionStageError) as exc:
-            _run(prepared, ai)
-        assert "action_trigger_binding_coverage" in str(
-            exc.value.retry_reasons
-        )
+        result = _run(prepared, ai)
+        _page, components, *_rest = _artifacts(prepared, result)
+        assert components.action_trigger_bindings
+        assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
-            "business_component_plan",
+            "content_data_plan",
         ]
     finally:
         prepared.db.close()
@@ -473,7 +467,9 @@ def test_missing_success_evidence_binding_fails_closed() -> None:
             if item["evidence_id"] != "EVIDENCE-CONFIRMATION"
         ]
 
+    # max attempts is 3 — keep every attempt invalid.
     ai.stage_mutators["content_data_plan"] = [
+        _mutate(remove_success),
         _mutate(remove_success),
         _mutate(remove_success),
     ]
@@ -485,6 +481,7 @@ def test_missing_success_evidence_binding_fails_closed() -> None:
         )
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
+            "content_data_plan",
             "content_data_plan",
             "content_data_plan",
         ]
@@ -502,7 +499,7 @@ def test_missing_action_data_binding_fails_closed() -> None:
     remove = _mutate(
         lambda payload: payload.update({"action_input_bindings": []})
     )
-    ai.stage_mutators["content_data_plan"] = [remove, remove]
+    ai.stage_mutators["content_data_plan"] = [remove, remove, remove]
     try:
         with pytest.raises(CompositionStageError) as exc:
             _run(prepared, ai)

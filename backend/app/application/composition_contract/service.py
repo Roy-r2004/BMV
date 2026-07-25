@@ -30,6 +30,9 @@ from app.application.composition_contract.policy import (
     CompositionStagePolicy,
     resolve_composition_stage_policy,
 )
+from app.application.composition_contract.normalize import (
+    normalize_business_component_plan,
+)
 from app.application.composition_contract.projections import (
     project_interactions,
     project_page_purpose,
@@ -243,6 +246,7 @@ def _resolve_ai(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     deadline: float,
+    normalize: Callable[[ArtifactT], ArtifactT] | None = None,
 ) -> ResolvedCompositionArtifact:
     cache_key = composition_cache_key(
         refs=context.refs,
@@ -271,6 +275,7 @@ def _resolve_ai(
         ai_provider=ai_provider,
         template_renderer=template_renderer,
         phase_deadline=deadline,
+        normalize=normalize,
     )
     persisted = repository.stage_artifact(
         artifact_kind=policy.stage,
@@ -415,6 +420,12 @@ def build_v2_composition_contract(
         ai_provider=ai_provider,
         template_renderer=template_renderer,
         deadline=deadline,
+        normalize=lambda artifact: normalize_business_component_plan(
+            artifact,
+            context=context,
+            page_purpose=page.artifact,
+            page_purpose_ref=page.ref,
+        ),
     )
     _check_usage(db, (page.metrics, component.metrics))
     if not component.metrics.cache_hit:

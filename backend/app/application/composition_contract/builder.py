@@ -109,6 +109,7 @@ def build_ai_composition_artifact(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     phase_deadline: float,
+    normalize: Callable[[ArtifactT], ArtifactT] | None = None,
 ) -> BuiltCompositionArtifact:
     if not policy.ai_authored:
         raise ValueError("Deterministic stages cannot call the AI builder")
@@ -165,6 +166,8 @@ def build_ai_composition_artifact(
                             "Structured output must be one JSON object"
                         )
                     candidate = schema.model_validate(payload)
+                    if normalize is not None:
+                        candidate = normalize(candidate)
                     report = validator(candidate)
                     if report.passed:
                         final_artifact = candidate
@@ -174,8 +177,16 @@ def build_ai_composition_artifact(
                     parse_error = exc
                 reason = _retry_reason(parse_error, report)
                 if attempt + 1 >= policy.max_attempts:
+                    issue_codes = []
+                    if report is not None:
+                        issue_codes = [
+                            issue.code for issue in report.issues[:8]
+                        ]
+                    detail = (
+                        f" issues={issue_codes}" if issue_codes else ""
+                    )
                     raise CompositionStageError(
-                        f"{policy.stage} failed strict validation.",
+                        f"{policy.stage} failed strict validation.{detail}",
                         stage=policy.stage,
                         retry_reasons=tuple(retry_reasons + [reason]),
                     )
