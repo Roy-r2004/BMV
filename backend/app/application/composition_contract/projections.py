@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 
+from app.application.composition_contract.collection_derivation import (
+    resolve_tier1_collection_decision,
+)
 from app.application.composition_contract.context import CompositionContext
 from app.domain.schemas.business_component_plan import (
     ActionTriggerBinding,
@@ -15,9 +19,12 @@ from app.domain.schemas.business_component_plan import (
 from app.domain.schemas.composition_contract import CompositionArtifactRef
 from app.domain.schemas.content_data_plan import (
     ActionInputBinding,
+    CollectionProjectionEvidence,
     ContentDataPlan,
     ContentItem,
     DataCollection,
+    DerivedEntity,
+    DerivedEntityField,
     EvidenceBinding,
     SeedFieldValue,
     SeedRecord,
@@ -54,6 +61,10 @@ _BLOCKED_DOMAIN_WORDS = {
 
 class CompositionProjectionError(ValueError):
     """Canonical projection cannot be completed without invention."""
+
+    def __init__(self, message: str, *, code: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def project_page_purpose(
@@ -571,17 +582,81 @@ def project_content_data_plan(
 
     for entity_id in entity_ids:
         _append_collection(entity_id)
-    if not collections:
-        # Content-only tiers may omit entity refs; still need one seedable
-        # collection from any fielded entity in the AppSpec.
-        for entity in spec.entities:
-            _append_collection(entity.id)
-            if collections:
-                break
-    if not collections:
-        raise CompositionProjectionError(
-            "Tier 1 content projection needs at least one entity collection."
+    # Do not auto-append out-of-tier AppSpec entities here. Derivation may
+    # restore only when Tier 1 business meaning unambiguously matches.
+
+    before_hash = hashlib.sha256(
+        json.dumps(
+            [item.model_dump(mode="json") for item in collections],
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    decision = resolve_tier1_collection_decision(
+        context,
+        page_purpose=page_purpose,
+        component_plan=component_plan,
+        existing_collections=collections,
+        before_projection_hash=before_hash,
+        heal_allowed=True,
+    )
+    if decision.collection is not None and not collections:
+        collections.append(decision.collection)
+        collection_by_entity[decision.collection.entity_id] = (
+            decision.collection.collection_id
         )
+    if not collections and decision.code != "collection_not_required":
+        raise CompositionProjectionError(
+            (
+                f"Tier 1 content projection collection decision "
+                f"{decision.code}: {decision.reason}"
+            ),
+            code=decision.code,
+        )
+
+    collection_projection = CollectionProjectionEvidence(
+        policy_revision=decision.policy_revision,
+        decision=decision.code,
+        reason=decision.reason,
+        required=decision.required,
+        derived=decision.derived,
+        heal_applied=decision.heal_applied,
+        entity_type=decision.entity_type,
+        source_references=tuple(decision.source_references[:80]),
+        collection_schema_hash=decision.collection_schema_hash,
+        seed_hash=decision.seed_hash,
+        before_projection_hash=decision.before_projection_hash,
+        after_projection_hash=decision.after_projection_hash or before_hash,
+        app_spec_sha256=decision.app_spec_sha256,
+        tier1_contract_hash=decision.tier1_contract_hash,
+        collection_id=(
+            decision.collection.collection_id if decision.collection else None
+        ),
+        minimum_seed_count=(
+            len(decision.collection.seed_records) if decision.collection else 0
+        ),
+        derived_entities=(
+            (
+                DerivedEntity(
+                    id=decision.derived_entity.id,
+                    name=decision.derived_entity.name,
+                    description=decision.derived_entity.description,
+                    fields=tuple(
+                        DerivedEntityField(
+                            id=field.id,
+                            name=field.name,
+                            type=field.type,  # type: ignore[arg-type]
+                            required=field.required,
+                        )
+                        for field in decision.derived_entity.fields
+                    ),
+                ),
+            )
+            if decision.derived_entity is not None
+            else ()
+        ),
+    )
 
     component_state = {
         (binding.component_id, binding.state_id, evidence_id)
@@ -688,6 +763,8 @@ def project_content_data_plan(
             if collection_id is None:
                 continue
         elif action.kind in {"fill", "select", "submit"}:
+            if not collections:
+                continue
             collection_id = next(
                 (
                     item.collection_id
@@ -719,6 +796,7 @@ def project_content_data_plan(
         state_payloads=tuple(state_payloads),
         evidence_bindings=tuple(evidence_bindings),
         action_input_bindings=tuple(action_bindings),
+        collection_projection=collection_projection,
     )
 
 

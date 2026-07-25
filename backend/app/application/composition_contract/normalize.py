@@ -229,6 +229,7 @@ def normalize_content_data_plan(
         state_payloads=projected.state_payloads,
         evidence_bindings=projected.evidence_bindings,
         action_input_bindings=projected.action_input_bindings,
+        collection_projection=projected.collection_projection,
     )
 
 

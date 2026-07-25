@@ -1,7 +1,7 @@
 """Structured content and entity-backed data plan for Phase 3A."""
 from __future__ import annotations
 
-from typing import Literal, Tuple, Union
+from typing import Literal, Optional, Tuple, Union
 
 from pydantic import (
     Field,
@@ -157,6 +157,76 @@ class ActionInputBinding(StrictDesignModel):
     field_ids: Tuple[Identifier, ...] = Field(default=(), max_length=100)
 
 
+class DerivedEntityField(StrictDesignModel):
+    id: Identifier
+    name: ShortText
+    type: Literal[
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "date",
+        "datetime",
+        "enum",
+        "reference",
+        "list",
+    ]
+    required: StrictBool = False
+
+
+class DerivedEntity(StrictDesignModel):
+    id: Identifier
+    name: ShortText
+    description: LongText
+    fields: Tuple[DerivedEntityField, ...] = Field(min_length=1, max_length=80)
+
+
+class CollectionProjectionEvidence(StrictDesignModel):
+    """Immutable lineage for Tier 1 collection reuse/derivation decisions."""
+
+    policy_revision: str = Field(min_length=1, max_length=64)
+    decision: Literal[
+        "collection_not_required",
+        "collection_reused",
+        "collection_derived",
+        "collection_missing_required",
+        "collection_ambiguous",
+        "collection_missing_required_fields",
+        "collection_unseedable",
+        "collection_filtered_out_of_tier",
+    ]
+    reason: LongText
+    required: StrictBool = False
+    derived: StrictBool = False
+    heal_applied: StrictBool = False
+    entity_type: Optional[ShortText] = None
+    source_references: Tuple[ShortText, ...] = Field(default=(), max_length=80)
+    collection_schema_hash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    seed_hash: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    before_projection_hash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    after_projection_hash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    app_spec_sha256: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    tier1_contract_hash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    collection_id: Optional[Identifier] = None
+    minimum_seed_count: StrictInt = Field(default=0, ge=0, le=100)
+    derived_entities: Tuple[DerivedEntity, ...] = Field(default=(), max_length=20)
+
+
 class ContentDataPlan(StrictDesignModel):
     schema_version: str = Field(
         default=CONTENT_DATA_PLAN_SCHEMA_VERSION,
@@ -170,7 +240,7 @@ class ContentDataPlan(StrictDesignModel):
         max_length=1000,
     )
     data_collections: Tuple[DataCollection, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=200,
     )
     relationships: Tuple[DataRelationship, ...] = Field(
@@ -189,6 +259,7 @@ class ContentDataPlan(StrictDesignModel):
         default=(),
         max_length=400,
     )
+    collection_projection: Optional[CollectionProjectionEvidence] = None
 
     @model_validator(mode="after")
     def _unique_local_keys_and_kinds(self) -> "ContentDataPlan":
@@ -230,18 +301,33 @@ class ContentDataPlan(StrictDesignModel):
         for name, values in groups:
             if len(values) != len(set(values)):
                 raise ValueError(f"{name} cannot contain duplicate keys")
+        decision = (
+            self.collection_projection.decision
+            if self.collection_projection is not None
+            else None
+        )
+        if not self.data_collections and decision not in {
+            None,
+            "collection_not_required",
+        }:
+            raise ValueError(
+                "data_collections may be empty only when collection_not_required"
+            )
         return self
 
 
 __all__ = [
     "ActionInputBinding",
     "CONTENT_DATA_PLAN_SCHEMA_VERSION",
+    "CollectionProjectionEvidence",
     "ContentDataPlan",
     "ContentItem",
     "DataCollection",
     "DataRelationship",
     "DataScalar",
     "DataValue",
+    "DerivedEntity",
+    "DerivedEntityField",
     "EvidenceBinding",
     "SeedFieldValue",
     "SeedRecord",

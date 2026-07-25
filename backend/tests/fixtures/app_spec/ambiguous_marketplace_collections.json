@@ -1,0 +1,238 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "CrossMarket Hub",
+    "summary": "A marketplace where customers browse products and listings together.",
+    "problem": "Buyers need both product catalog and seller listings in one journey.",
+    "desired_outcome": "Buyers can open product and listing detail pages.",
+    "target_users": ["Marketplace buyers"],
+    "success_metrics": ["Buyers can inspect products and listings"]
+  },
+  "requirements": [
+    {
+      "id": "REQ-MARKET-BROWSE",
+      "title": "Browse products and listings",
+      "description": "A buyer browses products and listings then opens a detail page.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": ["customer_input.desired_outcome"]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-BUYER",
+      "name": "Buyer",
+      "description": "A person browsing marketplace products and listings.",
+      "goals": ["Inspect products and listings"],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-MARKET-BROWSE",
+      "name": "Marketplace browse",
+      "description": "Browse products and listings.",
+      "requirement_ids": ["REQ-MARKET-BROWSE"],
+      "role_ids": ["ROLE-BUYER"],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce products and listings for marketplace browsing.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": ["ROLE-BUYER"],
+      "capability_ids": ["CAP-MARKET-BROWSE"],
+      "state_ids": ["STATE-HOME-READY"],
+      "action_ids": ["ACTION-OPEN-PRODUCT", "ACTION-OPEN-LISTING"],
+      "evidence_ids": ["EVIDENCE-HOME-INTRO"]
+    },
+    {
+      "id": "PAGE-PRODUCT-DETAIL",
+      "name": "Product Detail",
+      "purpose": "Show one selectable product from the catalog.",
+      "route": "/products/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": ["ROLE-BUYER"],
+      "capability_ids": ["CAP-MARKET-BROWSE"],
+      "state_ids": ["STATE-PRODUCT-READY"],
+      "action_ids": [],
+      "evidence_ids": ["EVIDENCE-PRODUCT-SUMMARY"]
+    },
+    {
+      "id": "PAGE-LISTING-DETAIL",
+      "name": "Listing Detail",
+      "purpose": "Show one selectable listing from sellers.",
+      "route": "/listings/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": ["ROLE-BUYER"],
+      "capability_ids": ["CAP-MARKET-BROWSE"],
+      "state_ids": ["STATE-LISTING-READY"],
+      "action_ids": [],
+      "evidence_ids": ["EVIDENCE-LISTING-SUMMARY"]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home intro is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": ["EVIDENCE-HOME-INTRO"]
+    },
+    {
+      "id": "STATE-PRODUCT-READY",
+      "page_id": "PAGE-PRODUCT-DETAIL",
+      "name": "Ready",
+      "description": "Product details are visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": ["EVIDENCE-PRODUCT-SUMMARY"]
+    },
+    {
+      "id": "STATE-LISTING-READY",
+      "page_id": "PAGE-LISTING-DETAIL",
+      "name": "Ready",
+      "description": "Listing details are visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": ["EVIDENCE-LISTING-SUMMARY"]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-PRODUCT",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-BUYER",
+      "name": "Open product",
+      "description": "Open a product detail page.",
+      "kind": "navigate",
+      "capability_ids": ["CAP-MARKET-BROWSE"],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-OPEN-LISTING",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-BUYER",
+      "name": "Open listing",
+      "description": "Open a listing detail page.",
+      "kind": "navigate",
+      "capability_ids": ["CAP-MARKET-BROWSE"],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-PRODUCT",
+      "action_id": "ACTION-OPEN-PRODUCT",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-PRODUCT-READY",
+      "description": "Home navigates to product detail.",
+      "preconditions": ["Home is visible"],
+      "postconditions": ["Product detail is visible"],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-OPEN-LISTING",
+      "action_id": "ACTION-OPEN-LISTING",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-LISTING-READY",
+      "description": "Home navigates to listing detail.",
+      "preconditions": ["Home is visible"],
+      "postconditions": ["Listing detail is visible"],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-INTRO",
+      "page_id": "PAGE-HOME",
+      "name": "Home intro",
+      "description": "Marketplace home introduction is visible.",
+      "kind": "text",
+      "capability_ids": ["CAP-MARKET-BROWSE"]
+    },
+    {
+      "id": "EVIDENCE-PRODUCT-SUMMARY",
+      "page_id": "PAGE-PRODUCT-DETAIL",
+      "name": "Product summary",
+      "description": "Selected product summary is visible.",
+      "kind": "text",
+      "capability_ids": ["CAP-MARKET-BROWSE"]
+    },
+    {
+      "id": "EVIDENCE-LISTING-SUMMARY",
+      "page_id": "PAGE-LISTING-DETAIL",
+      "name": "Listing summary",
+      "description": "Selected listing summary is visible.",
+      "kind": "text",
+      "capability_ids": ["CAP-MARKET-BROWSE"]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-MARKET-BROWSE",
+      "name": "Browse products and listings",
+      "description": "Home to product or listing detail.",
+      "role_id": "ROLE-BUYER",
+      "requirement_ids": ["REQ-MARKET-BROWSE"],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-PRODUCT",
+          "transition_id": "TRANSITION-OPEN-PRODUCT",
+          "expected_page_id": "PAGE-PRODUCT-DETAIL",
+          "expected_state_id": "STATE-PRODUCT-READY",
+          "evidence_ids": ["EVIDENCE-PRODUCT-SUMMARY"]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-MARKET-BROWSE",
+      "name": "Marketplace browse journey",
+      "description": "Buyer can open product detail.",
+      "requirement_ids": ["REQ-MARKET-BROWSE"],
+      "journey_id": "JOURNEY-MARKET-BROWSE",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Product summary is visible.",
+          "page_id": "PAGE-PRODUCT-DETAIL",
+          "evidence_id": "EVIDENCE-PRODUCT-SUMMARY"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-MARKET-BROWSE",
+      "capability_ids": ["CAP-MARKET-BROWSE"],
+      "page_ids": ["PAGE-HOME", "PAGE-PRODUCT-DETAIL", "PAGE-LISTING-DETAIL"],
+      "evidence_ids": [
+        "EVIDENCE-HOME-INTRO",
+        "EVIDENCE-PRODUCT-SUMMARY",
+        "EVIDENCE-LISTING-SUMMARY"
+      ],
+      "journey_ids": ["JOURNEY-MARKET-BROWSE"],
+      "acceptance_test_ids": ["TEST-MARKET-BROWSE"]
+    }
+  ],
+  "deferred_scope": []
+}

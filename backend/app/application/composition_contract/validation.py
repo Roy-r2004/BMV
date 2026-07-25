@@ -481,11 +481,41 @@ def validate_content_data_plan(
         item.collection_id: item for item in artifact.data_collections
     }
     entities = {entity.id: entity for entity in context.app_spec.entities}
+    derived_entities = {
+        entity.id: entity
+        for entity in (
+            (artifact.collection_projection.derived_entities)
+            if artifact.collection_projection is not None
+            else ()
+        )
+    }
     field_map = {
         (entity.id, field.id): field
         for entity in context.app_spec.entities
         for field in entity.fields
     }
+    for entity in derived_entities.values():
+        for field in entity.fields:
+            field_map[(entity.id, field.id)] = field
+    decision = (
+        artifact.collection_projection.decision
+        if artifact.collection_projection is not None
+        else None
+    )
+    if (
+        not artifact.data_collections
+        and decision not in {None, "collection_not_required"}
+    ):
+        issues.append(
+            _issue(
+                decision or "collection_missing_required",
+                message=(
+                    artifact.collection_projection.reason
+                    if artifact.collection_projection is not None
+                    else "Tier 1 content projection needs an entity collection."
+                ),
+            )
+        )
     raw = json.dumps(artifact.model_dump(mode="json")).casefold()
     for marker in _FORBIDDEN_CONTENT_MARKERS:
         if marker in raw:
@@ -517,7 +547,9 @@ def validate_content_data_plan(
                 )
             )
     for index, collection in enumerate(artifact.data_collections):
-        entity = entities.get(collection.entity_id)
+        entity = entities.get(collection.entity_id) or derived_entities.get(
+            collection.entity_id
+        )
         if (
             entity is None
             or not set(collection.page_ids) <= pages

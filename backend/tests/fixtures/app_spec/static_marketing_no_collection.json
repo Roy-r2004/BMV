@@ -1,0 +1,183 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "Harbor Craft Studio",
+    "summary": "A static marketing site for a local craft studio.",
+    "problem": "Visitors need a clear about and contact story without booking.",
+    "desired_outcome": "Visitors can read the studio story and contact details.",
+    "target_users": ["Local visitors"],
+    "success_metrics": ["Visitors can reach the contact page"]
+  },
+  "requirements": [
+    {
+      "id": "REQ-MARKETING-STORY",
+      "title": "Present studio story",
+      "description": "A visitor can read the studio story and open contact information.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": ["customer_input.desired_outcome"]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-VISITOR",
+      "name": "Visitor",
+      "description": "A person reading the studio marketing site.",
+      "goals": ["Learn about the studio"],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-MARKETING-STORY",
+      "name": "Marketing story",
+      "description": "Present narrative studio pages.",
+      "requirement_ids": ["REQ-MARKETING-STORY"],
+      "role_ids": ["ROLE-VISITOR"],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce the studio with a short narrative.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": ["ROLE-VISITOR"],
+      "capability_ids": ["CAP-MARKETING-STORY"],
+      "state_ids": ["STATE-HOME-READY"],
+      "action_ids": ["ACTION-OPEN-CONTACT"],
+      "evidence_ids": ["EVIDENCE-HOME-STORY"]
+    },
+    {
+      "id": "PAGE-CONTACT",
+      "name": "Contact",
+      "purpose": "Show one-off contact details for the studio.",
+      "route": "/contact",
+      "surface": "public",
+      "primary": false,
+      "role_ids": ["ROLE-VISITOR"],
+      "capability_ids": ["CAP-MARKETING-STORY"],
+      "state_ids": ["STATE-CONTACT-READY"],
+      "action_ids": [],
+      "evidence_ids": ["EVIDENCE-CONTACT-DETAILS"]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home narrative is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": ["EVIDENCE-HOME-STORY"]
+    },
+    {
+      "id": "STATE-CONTACT-READY",
+      "page_id": "PAGE-CONTACT",
+      "name": "Ready",
+      "description": "Contact details are visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": ["EVIDENCE-CONTACT-DETAILS"]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-CONTACT",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-VISITOR",
+      "name": "Open contact",
+      "description": "Open the contact page.",
+      "kind": "navigate",
+      "capability_ids": ["CAP-MARKETING-STORY"],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-CONTACT",
+      "action_id": "ACTION-OPEN-CONTACT",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-CONTACT-READY",
+      "description": "Home navigates to contact.",
+      "preconditions": ["Home is visible"],
+      "postconditions": ["Contact details are visible"],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-STORY",
+      "page_id": "PAGE-HOME",
+      "name": "Home story",
+      "description": "Studio narrative is visible.",
+      "kind": "text",
+      "capability_ids": ["CAP-MARKETING-STORY"]
+    },
+    {
+      "id": "EVIDENCE-CONTACT-DETAILS",
+      "page_id": "PAGE-CONTACT",
+      "name": "Contact details",
+      "description": "Studio contact details are visible.",
+      "kind": "text",
+      "capability_ids": ["CAP-MARKETING-STORY"]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-MARKETING-STORY",
+      "name": "Read studio story",
+      "description": "Home to contact narrative path.",
+      "role_id": "ROLE-VISITOR",
+      "requirement_ids": ["REQ-MARKETING-STORY"],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-CONTACT",
+          "transition_id": "TRANSITION-OPEN-CONTACT",
+          "expected_page_id": "PAGE-CONTACT",
+          "expected_state_id": "STATE-CONTACT-READY",
+          "evidence_ids": ["EVIDENCE-CONTACT-DETAILS"]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-MARKETING-STORY",
+      "name": "Marketing story journey",
+      "description": "Visitor can open contact details.",
+      "requirement_ids": ["REQ-MARKETING-STORY"],
+      "journey_id": "JOURNEY-MARKETING-STORY",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Contact details are visible.",
+          "page_id": "PAGE-CONTACT",
+          "evidence_id": "EVIDENCE-CONTACT-DETAILS"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-MARKETING-STORY",
+      "capability_ids": ["CAP-MARKETING-STORY"],
+      "page_ids": ["PAGE-HOME", "PAGE-CONTACT"],
+      "evidence_ids": ["EVIDENCE-HOME-STORY", "EVIDENCE-CONTACT-DETAILS"],
+      "journey_ids": ["JOURNEY-MARKETING-STORY"],
+      "acceptance_test_ids": ["TEST-MARKETING-STORY"]
+    }
+  ],
+  "deferred_scope": []
+}
