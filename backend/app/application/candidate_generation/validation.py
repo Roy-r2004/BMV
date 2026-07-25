@@ -16,6 +16,14 @@ from app.application.candidate_generation.cache import (
 from app.application.candidate_generation.context import CandidateContext
 from app.application.candidate_generation.deterministic import (
     CandidateSourceFile,
+    component_export_symbol,
+)
+from app.application.candidate_generation.component_registry import (
+    build_business_component_registry,
+    build_required_business_component_bindings,
+)
+from app.application.candidate_generation.usage_validation import (
+    validate_business_component_usage,
 )
 from app.application.candidate_generation.workspace import (
     CandidateWorkspace,
@@ -23,10 +31,14 @@ from app.application.candidate_generation.workspace import (
     source_file_manifest,
 )
 from app.core.config import settings
+from app.domain.schemas.business_component_usage import (
+    RequiredBusinessComponentBinding,
+)
 from app.domain.schemas.preview_candidate import (
     CandidateValidationIssue,
     CandidateValidationReport,
     GeneratedCandidateBatch,
+    GeneratedCandidateFile,
 )
 
 
@@ -118,6 +130,7 @@ def validate_generated_batch(
     batch: GeneratedCandidateBatch,
     *,
     context: CandidateContext,
+    required_bindings: tuple[RequiredBusinessComponentBinding, ...] | None = None,
 ) -> tuple[CandidateValidationIssue, ...]:
     issues: list[CandidateValidationIssue] = []
     component_ids = {
@@ -195,16 +208,44 @@ def validate_generated_batch(
     combined = "\n".join(item.source for item in batch.files)
     if batch.batch_kind == "business_components":
         for component in context.business_components.components:
-            owned_sources = "\n".join(
-                item.source
+            owned_files = [
+                item
                 for item in batch.files
                 if component.component_id in item.owner_contract_ids
+            ]
+            owned_sources = "\n".join(item.source for item in owned_files)
+            expected_symbol = component_export_symbol(component.component_id)
+            expected_path = (
+                f"src/components/business/{expected_symbol}.tsx"
             )
             if component.component_id not in owned_sources:
                 issues.append(
                     _issue(
                         "missing_component_hook",
                         "Component ID is not exposed in its owned source.",
+                        related_ids=(component.component_id,),
+                    )
+                )
+            if len(owned_files) == 1 and owned_files[0].path != expected_path:
+                issues.append(
+                    _issue(
+                        "component_module_mismatch",
+                        (
+                            f"Component module must be {expected_path!r}; "
+                            f"got {owned_files[0].path!r}."
+                        ),
+                        path=owned_files[0].path,
+                        related_ids=(component.component_id,),
+                    )
+                )
+            if (
+                f"export function {expected_symbol}" not in owned_sources
+                and f"export const {expected_symbol}" not in owned_sources
+            ):
+                issues.append(
+                    _issue(
+                        "component_symbol_mismatch",
+                        f"Component must export {expected_symbol!r}.",
                         related_ids=(component.component_id,),
                     )
                 )
@@ -236,7 +277,6 @@ def validate_generated_batch(
                         )
                     )
     else:
-        component_import_seen = False
         for page in context.page_purpose.pages:
             owned_sources = "\n".join(
                 item.source
@@ -254,11 +294,6 @@ def validate_generated_batch(
                         related_ids=(page.page_id,),
                     )
                 )
-            if (
-                "components/business" in owned_sources
-                or "@/components/business" in owned_sources
-            ):
-                component_import_seen = True
             for acceptance_id in page.acceptance_test_ids:
                 if (
                     "data-bmv-acceptance-test-id" not in owned_sources
@@ -286,11 +321,22 @@ def validate_generated_batch(
                             related_ids=(page.page_id,),
                         )
                     )
-        if not component_import_seen:
+        if required_bindings is not None:
+            component_paths = {
+                item.component_module_path for item in required_bindings
+            }
+            _evidence, usage_issues = validate_business_component_usage(
+                batch=batch,
+                bindings=required_bindings,
+                component_paths=component_paths,
+            )
+            issues.extend(usage_issues)
+        else:
+            # Fail closed when the service forgot to supply bindings.
             issues.append(
                 _issue(
                     "missing_business_component_usage",
-                    "Tier 1 pages must use generated business components.",
+                    "Tier 1 pages require explicit business-component bindings.",
                 )
             )
     return tuple(issues)
@@ -411,6 +457,7 @@ def validate_candidate_workspace(
         "content_data_hash",
         "ia_mobile_bindings",
         "legacy_scaffold_absence",
+        "business_component_usage",
     )
     issues: list[CandidateValidationIssue] = []
     expected_by_path = {item.path: item for item in expected_sources}
@@ -518,6 +565,55 @@ def validate_candidate_workspace(
                 "Routes or role bindings differ from deterministic projection.",
             )
         )
+
+    component_batch = GeneratedCandidateBatch(
+        batch_kind="business_components",
+        files=tuple(
+            GeneratedCandidateFile(
+                path=item.path,
+                file_kind="business_component",
+                owner_contract_ids=item.owner_contract_ids,
+                source=read_source(workspace, item.path) or item.source,
+            )
+            for item in expected_sources
+            if item.file_kind == "business_component"
+        ),
+    )
+    page_batch = GeneratedCandidateBatch(
+        batch_kind="pages",
+        files=tuple(
+            GeneratedCandidateFile(
+                path=item.path,
+                file_kind="page",
+                owner_contract_ids=item.owner_contract_ids,
+                source=read_source(workspace, item.path) or item.source,
+            )
+            for item in expected_sources
+            if item.file_kind == "page"
+        ),
+    )
+    if component_batch.files and page_batch.files:
+        registry, registry_issues = build_business_component_registry(
+            context=context,
+            component_batch=component_batch,
+        )
+        issues.extend(registry_issues)
+        if registry is not None:
+            bindings, binding_issues = build_required_business_component_bindings(
+                context=context,
+                registry=registry,
+            )
+            issues.extend(binding_issues)
+            if bindings and not binding_issues:
+                _evidence, usage_issues = validate_business_component_usage(
+                    batch=page_batch,
+                    bindings=bindings,
+                    component_paths={
+                        item.component_module_path for item in bindings
+                    },
+                )
+                issues.extend(usage_issues)
+
     return CandidateValidationReport(
         passed=not issues,
         checks=checks,

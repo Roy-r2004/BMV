@@ -9,6 +9,11 @@ Generate every component required by BusinessComponentPlan and the dependency
 graph. Each file must live under src/components/business/, use file_kind
 "business_component", and list exactly the canonical component IDs it owns.
 
+required_component_exports and required_component_modules are authoritative.
+For each component_id, write exactly the listed module path and export that
+exact React symbol (export function <Symbol>). Do not invent alternate paths,
+symbols, or generic substitute components.
+
 Create genuinely business-specific visible product components. Use approved
 data exports and low-level dependencies where useful. Do not create routes,
 App.tsx, entrypoints, infrastructure, pages, fixed shells, catalogue layouts,

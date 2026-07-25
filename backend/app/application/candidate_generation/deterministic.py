@@ -232,6 +232,10 @@ def page_export_symbol(page_id: str) -> str:
     return _symbol(page_id, "Page")
 
 
+def component_export_symbol(component_id: str) -> str:
+    return _symbol(component_id, "Component")
+
+
 def _page_file_map(
     context: CandidateContext,
     page_sources: tuple[CandidateSourceFile, ...],
@@ -391,6 +395,7 @@ __all__ = [
     "build_data_sources",
     "build_foundation_sources",
     "build_route_sources",
+    "component_export_symbol",
     "dependency_lock_sha256",
     "page_export_symbol",
     "source_manifest",

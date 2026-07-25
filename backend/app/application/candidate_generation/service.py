@@ -25,14 +25,23 @@ from app.application.candidate_generation.context import (
     CandidateContext,
     load_candidate_context,
 )
+from app.application.candidate_generation.component_registry import (
+    bindings_prompt_block,
+    build_business_component_registry,
+    build_required_business_component_bindings,
+)
 from app.application.candidate_generation.deterministic import (
     CandidateSourceFile,
     build_data_sources,
     build_foundation_sources,
     build_route_sources,
+    component_export_symbol,
     dependency_lock_sha256,
     page_export_symbol,
     source_manifest,
+)
+from app.application.candidate_generation.page_skeleton import (
+    build_page_skeleton_source,
 )
 from app.application.candidate_generation.policy import (
     CandidateStagePolicy,
@@ -42,6 +51,11 @@ from app.application.candidate_generation.policy import (
 from app.application.candidate_generation.repository import (
     CandidateRepository,
     candidate_cache_hit_metrics,
+)
+from app.application.candidate_generation.usage_validation import (
+    build_usage_evidence,
+    heal_missing_business_component_usage,
+    validate_business_component_usage,
 )
 from app.application.candidate_generation.validation import (
     APPROVED_RUNTIME_PACKAGES,
@@ -64,6 +78,10 @@ from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models import CandidateArtifactRecord, Request
+from app.domain.schemas.business_component_usage import (
+    BusinessComponentUsageEvidence,
+    RequiredBusinessComponentBinding,
+)
 from app.domain.schemas.preview_candidate import (
     CANDIDATE_POLICY_REVISION,
     CANDIDATE_SCHEMA_VERSION,
@@ -84,9 +102,11 @@ class CandidateContractError(RuntimeError):
         message: str,
         *,
         issues: tuple[CandidateValidationIssue, ...],
+        usage_evidence: BusinessComponentUsageEvidence | None = None,
     ) -> None:
         super().__init__(message)
         self.issues = issues
+        self.usage_evidence = usage_evidence
 
 
 @dataclass
@@ -98,6 +118,9 @@ class _Stage:
     metrics: CandidateStageMetrics
     row: CandidateArtifactRecord | None = None
     repair_used: bool = False
+    usage_evidence: BusinessComponentUsageEvidence | None = None
+    deterministic_usage_heal_used: bool = False
+    required_bindings: tuple[RequiredBusinessComponentBinding, ...] = ()
 
 
 def _ensure_deadline(deadline: float) -> None:
@@ -280,6 +303,121 @@ def _ai_stage_input_hashes(
     )
 
 
+def _page_bindings_for_component_batch(
+    *,
+    context: CandidateContext,
+    component_batch: GeneratedCandidateBatch,
+) -> tuple[
+    tuple[RequiredBusinessComponentBinding, ...],
+    dict[str, Any],
+]:
+    registry, registry_issues = build_business_component_registry(
+        context=context,
+        component_batch=component_batch,
+    )
+    if registry_issues or registry is None:
+        raise CandidateContractError(
+            "Business-component registry failed before page generation.",
+            issues=registry_issues,
+        )
+    bindings, binding_issues = build_required_business_component_bindings(
+        context=context,
+        registry=registry,
+    )
+    if binding_issues:
+        raise CandidateContractError(
+            "Required business-component bindings are invalid.",
+            issues=binding_issues,
+        )
+    page_skeletons = {
+        page.page_id: build_page_skeleton_source(
+            page=page,
+            bindings=tuple(
+                item for item in bindings if item.page_id == page.page_id
+            ),
+        )
+        for page in context.page_purpose.pages
+    }
+    prompt_extras = {
+        "business_component_registry": registry.model_dump(mode="json"),
+        "required_business_component_bindings": bindings_prompt_block(bindings),
+        "page_skeletons": page_skeletons,
+        "required_component_exports": {
+            item.component_id: component_export_symbol(item.component_id)
+            for item in context.business_components.components
+        },
+    }
+    return bindings, prompt_extras
+
+
+def _apply_page_usage_guards(
+    *,
+    batch: GeneratedCandidateBatch,
+    context: CandidateContext,
+    bindings: tuple[RequiredBusinessComponentBinding, ...],
+    candidate_revision_uuid: str,
+    ai_repair_used: bool,
+    allow_deterministic_heal: bool,
+) -> tuple[
+    GeneratedCandidateBatch,
+    tuple[CandidateValidationIssue, ...],
+    BusinessComponentUsageEvidence,
+    bool,
+]:
+    component_paths = {item.component_module_path for item in bindings}
+    evidence_items, usage_issues = validate_business_component_usage(
+        batch=batch,
+        bindings=bindings,
+        component_paths=component_paths,
+        repair_attempt=0,
+    )
+    heal_used = False
+    if (
+        allow_deterministic_heal
+        and usage_issues
+        and any(
+            item.code == "missing_business_component_usage"
+            for item in usage_issues
+        )
+    ):
+        batch, before_hashes, heal_used = heal_missing_business_component_usage(
+            batch=batch,
+            bindings=bindings,
+            evidence=evidence_items,
+        )
+        if heal_used:
+            evidence_items, usage_issues = validate_business_component_usage(
+                batch=batch,
+                bindings=bindings,
+                component_paths=component_paths,
+                repair_attempt=1,
+                previous_hashes=before_hashes,
+            )
+
+    other_issues = [
+        item
+        for item in validate_generated_batch(
+            batch,
+            context=context,
+            required_bindings=bindings,
+        )
+        if item.code != "missing_business_component_usage"
+        and not item.code.startswith("business_component_usage_")
+    ]
+    merged = list(other_issues) + list(usage_issues)
+
+    evidence = build_usage_evidence(
+        request_id=context.refs.request_id,
+        candidate_revision_uuid=candidate_revision_uuid,
+        component_plan_hash=context.refs.business_component_plan_ref.sha256,
+        bindings=bindings,
+        items=evidence_items,
+        deterministic_heal_used=heal_used,
+        ai_repair_used=ai_repair_used,
+    )
+    return batch, tuple(merged), evidence, heal_used
+
+
 def _load_or_generate_ai_stage(
     *,
     repository: CandidateRepository,
@@ -292,6 +430,7 @@ def _load_or_generate_ai_stage(
     template_renderer: TemplateRenderer,
     phase_deadline: float,
     component_batch: GeneratedCandidateBatch | None = None,
+    candidate_revision_uuid: str = "",
 ) -> _Stage:
     started = time.monotonic()
     policy = resolve_candidate_stage_policy(stage)
@@ -313,6 +452,16 @@ def _load_or_generate_ai_stage(
         input_hashes=input_hashes,
     )
     provenance = _stage_provenance(input_hashes)
+    page_bindings: tuple[RequiredBusinessComponentBinding, ...] = ()
+    page_prompt_extras: dict[str, Any] = {}
+    if stage == "pages":
+        if component_batch is None:
+            raise ValueError("Page generation requires the component batch.")
+        page_bindings, page_prompt_extras = _page_bindings_for_component_batch(
+            context=context,
+            component_batch=component_batch,
+        )
+
     row = (
         repository.find_cache(
             request_id=context.refs.request_id,
@@ -330,7 +479,19 @@ def _load_or_generate_ai_stage(
             provenance_sha256=provenance,
             parent_artifact_id=parent_row.id,
         )
-        issues = validate_generated_batch(batch, context=context)
+        if stage == "pages":
+            batch, issues, evidence, heal_used = _apply_page_usage_guards(
+                batch=batch,
+                context=context,
+                bindings=page_bindings,
+                candidate_revision_uuid=candidate_revision_uuid,
+                ai_repair_used=False,
+                allow_deterministic_heal=True,
+            )
+        else:
+            issues = validate_generated_batch(batch, context=context)
+            evidence = None
+            heal_used = False
         if issues:
             raise ValueError("Cached AI candidate batch is invalid.")
         return _Stage(
@@ -343,18 +504,32 @@ def _load_or_generate_ai_stage(
                 latency_ms=int((time.monotonic() - started) * 1000),
             ),
             row=row,
+            usage_evidence=evidence,
+            deterministic_usage_heal_used=heal_used,
+            required_bindings=page_bindings,
         )
 
     prompt_inputs = _common_prompt_inputs(context)
     if stage == "pages":
-        if component_batch is None:
-            raise ValueError("Page generation requires the component batch.")
         prompt_inputs["generated_business_components"] = (
             component_batch.model_dump(mode="json")
         )
         prompt_inputs["required_page_exports"] = {
             page.page_id: page_export_symbol(page.page_id)
             for page in context.page_purpose.pages
+        }
+        prompt_inputs.update(page_prompt_extras)
+    elif stage == "business_components":
+        prompt_inputs["required_component_exports"] = {
+            item.component_id: component_export_symbol(item.component_id)
+            for item in context.business_components.components
+        }
+        prompt_inputs["required_component_modules"] = {
+            item.component_id: (
+                f"src/components/business/"
+                f"{component_export_symbol(item.component_id)}.tsx"
+            )
+            for item in context.business_components.components
         }
     built = build_ai_batch(
         request_id=context.refs.request_id,
@@ -372,9 +547,23 @@ def _load_or_generate_ai_stage(
         phase_deadline=phase_deadline,
     )
     batch = deterministic_repair_batch(built.batch)
-    issues = validate_generated_batch(batch, context=context)
     repair_used = False
     metrics = built.metrics
+    heal_used = False
+    evidence: BusinessComponentUsageEvidence | None = None
+
+    if stage == "pages":
+        batch, issues, evidence, heal_used = _apply_page_usage_guards(
+            batch=batch,
+            context=context,
+            bindings=page_bindings,
+            candidate_revision_uuid=candidate_revision_uuid,
+            ai_repair_used=False,
+            allow_deterministic_heal=True,
+        )
+    else:
+        issues = validate_generated_batch(batch, context=context)
+
     if issues:
         repair = repair_policy()
         repaired = repair_ai_batch(
@@ -396,6 +585,11 @@ def _load_or_generate_ai_stage(
                 "interaction_contract": context.interactions.model_dump(
                     mode="json"
                 ),
+                "required_business_component_bindings": (
+                    bindings_prompt_block(page_bindings)
+                    if stage == "pages"
+                    else {}
+                ),
             },
             ai_provider=ai_provider,
             template_renderer=template_renderer,
@@ -403,17 +597,29 @@ def _load_or_generate_ai_stage(
             phase_deadline=phase_deadline,
         )
         batch = deterministic_repair_batch(repaired.batch)
-        issues = validate_generated_batch(batch, context=context)
+        repair_used = True
+        if stage == "pages":
+            batch, issues, evidence, post_heal = _apply_page_usage_guards(
+                batch=batch,
+                context=context,
+                bindings=page_bindings,
+                candidate_revision_uuid=candidate_revision_uuid,
+                ai_repair_used=True,
+                allow_deterministic_heal=not heal_used,
+            )
+            heal_used = heal_used or post_heal
+        else:
+            issues = validate_generated_batch(batch, context=context)
         if issues:
             raise CandidateContractError(
                 f"{stage} failed strict batch validation.",
                 issues=issues,
+                usage_evidence=evidence,
             )
         metrics = combine_generation_and_repair_metrics(
             metrics,
             repaired.metrics,
         )
-        repair_used = True
     return _Stage(
         artifact=batch,
         sources=batch_sources(batch),
@@ -422,6 +628,9 @@ def _load_or_generate_ai_stage(
         metrics=metrics,
         row=None,
         repair_used=repair_used,
+        usage_evidence=evidence,
+        deterministic_usage_heal_used=heal_used,
+        required_bindings=page_bindings,
     )
 
 
@@ -461,6 +670,9 @@ def _gate_issues_for_stage(
             "missing_acceptance_hook",
             "missing_mobile_binding",
             "missing_business_component_usage",
+            "business_component_usage_missing_props",
+            "business_component_usage_ambiguous_usage",
+            "business_component_usage_invalid_binding",
         }
     )
     return tuple(
@@ -481,6 +693,7 @@ def _repair_stage_after_gate(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     phase_deadline: float,
+    candidate_revision_uuid: str = "",
 ) -> bool:
     issues = _gate_issues_for_stage(report, stage_name)
     if not issues or stage.repair_used or stage.metrics.cache_hit:
@@ -504,6 +717,11 @@ def _repair_stage_after_gate(
             "interaction_contract": context.interactions.model_dump(
                 mode="json"
             ),
+            "required_business_component_bindings": (
+                bindings_prompt_block(stage.required_bindings)
+                if stage_name == "pages"
+                else {}
+            ),
         },
         ai_provider=ai_provider,
         template_renderer=template_renderer,
@@ -511,7 +729,21 @@ def _repair_stage_after_gate(
         phase_deadline=phase_deadline,
     )
     batch = deterministic_repair_batch(repaired.batch)
-    batch_issues = validate_generated_batch(batch, context=context)
+    if stage_name == "pages" and stage.required_bindings:
+        batch, batch_issues, evidence, heal_used = _apply_page_usage_guards(
+            batch=batch,
+            context=context,
+            bindings=stage.required_bindings,
+            candidate_revision_uuid=candidate_revision_uuid,
+            ai_repair_used=True,
+            allow_deterministic_heal=not stage.deterministic_usage_heal_used,
+        )
+        stage.usage_evidence = evidence
+        stage.deterministic_usage_heal_used = (
+            stage.deterministic_usage_heal_used or heal_used
+        )
+    else:
+        batch_issues = validate_generated_batch(batch, context=context)
     if batch_issues:
         raise CandidateContractError(
             f"{stage_name} repair violated canonical batch contracts.",
@@ -590,6 +822,7 @@ def _persist_failure(
     metrics: tuple[CandidateStageMetrics, ...],
     exc: Exception,
     contract_failure: bool,
+    usage_evidence: BusinessComponentUsageEvidence | None = None,
 ) -> dict:
     final_path = (
         freeze_candidate_workspace(workspace)
@@ -602,6 +835,11 @@ def _persist_failure(
         kind="contract_validation" if contract_failure else "generation",
     )
     try:
+        summary_base = dict(phase3a_summary)
+        if usage_evidence is not None:
+            summary_base["business_component_usage_evidence"] = (
+                usage_evidence.model_dump(mode="json")
+            )
         _row, summary = repository.persist_revision(
             req=req,
             revision_uuid=workspace.revision_uuid,
@@ -618,7 +856,7 @@ def _persist_failure(
             artifact_rows=(None, None, None, None, None, None),
             failure=failure,
             metrics=metrics,
-            summary_base=phase3a_summary,
+            summary_base=summary_base,
         )
         db.commit()
     except Exception:
@@ -754,6 +992,7 @@ def build_v2_candidate_revision(
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
             component_batch=components.artifact,
+            candidate_revision_uuid=workspace.revision_uuid,
         )
         stages.append(pages)
         write_sources(workspace, pages.sources)
@@ -799,6 +1038,7 @@ def build_v2_candidate_revision(
             ai_provider=ai_provider,
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
+            candidate_revision_uuid=workspace.revision_uuid,
         )
         repaired_pages = _repair_stage_after_gate(
             stage=pages,
@@ -808,6 +1048,7 @@ def build_v2_candidate_revision(
             ai_provider=ai_provider,
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
+            candidate_revision_uuid=workspace.revision_uuid,
         )
         if repaired_components or repaired_pages:
             if repaired_components:
@@ -968,6 +1209,26 @@ def build_v2_candidate_revision(
         manifest = source_file_manifest(workspace.staging_path)
         final_path = freeze_candidate_workspace(workspace)
         metrics = tuple(item.metrics for item in stages)
+        usage_evidence = next(
+            (
+                item.usage_evidence
+                for item in stages
+                if item.usage_evidence is not None
+            ),
+            None,
+        )
+        summary_base = {
+            **phase3a_summary,
+            "candidate_lifecycle": [
+                "candidate_generated",
+                "candidate_build_pending",
+            ],
+            "candidate_resumed": workspace.resumed,
+        }
+        if usage_evidence is not None:
+            summary_base["business_component_usage_evidence"] = (
+                usage_evidence.model_dump(mode="json")
+            )
         _row, summary = repository.persist_revision(
             req=req,
             revision_uuid=workspace.revision_uuid,
@@ -980,19 +1241,20 @@ def build_v2_candidate_revision(
             artifact_rows=tuple(item.row for item in stages),
             failure={},
             metrics=metrics,
-            summary_base={
-                **phase3a_summary,
-                "candidate_lifecycle": [
-                    "candidate_generated",
-                    "candidate_build_pending",
-                ],
-                "candidate_resumed": workspace.resumed,
-            },
+            summary_base=summary_base,
         )
         db.commit()
         return {"preview_contract": summary}
     except CandidateContractError as exc:
         db.rollback()
+        usage_evidence = exc.usage_evidence or next(
+            (
+                item.usage_evidence
+                for item in stages
+                if item.usage_evidence is not None
+            ),
+            None,
+        )
         return _persist_failure(
             db=db,
             repository=CandidateRepository(db),
@@ -1004,9 +1266,18 @@ def build_v2_candidate_revision(
             metrics=tuple(item.metrics for item in stages),
             exc=exc,
             contract_failure=True,
+            usage_evidence=usage_evidence,
         )
     except Exception as exc:
         db.rollback()
+        usage_evidence = next(
+            (
+                item.usage_evidence
+                for item in stages
+                if item.usage_evidence is not None
+            ),
+            None,
+        )
         return _persist_failure(
             db=db,
             repository=CandidateRepository(db),
@@ -1018,6 +1289,7 @@ def build_v2_candidate_revision(
             metrics=tuple(item.metrics for item in stages),
             exc=exc,
             contract_failure=False,
+            usage_evidence=usage_evidence,
         )
 
 

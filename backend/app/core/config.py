@@ -781,16 +781,16 @@ class Settings:
         self.V2_CANDIDATE_COMPONENT_PROMPT_REVISION = (
             os.getenv(
                 "V2_CANDIDATE_COMPONENT_PROMPT_REVISION",
-                "2026-07-24.1",
+                "2026-07-25.1",
             ).strip()
-            or "2026-07-24.1"
+            or "2026-07-25.1"
         )
         self.V2_CANDIDATE_PAGE_PROMPT_REVISION = (
             os.getenv(
                 "V2_CANDIDATE_PAGE_PROMPT_REVISION",
-                "2026-07-24.1",
+                "2026-07-25.1",
             ).strip()
-            or "2026-07-24.1"
+            or "2026-07-25.1"
         )
         self.V2_CANDIDATE_REPAIR_PROMPT_REVISION = (
             os.getenv(
