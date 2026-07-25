@@ -1,12 +1,15 @@
 """Deterministic heals for Phase 2 AI artifacts before strict validation."""
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from app.application.design_contract.validation import (
     DesignValidationContext,
     _page_journey_ids,
     _page_requirement_ids,
 )
 from app.domain.schemas.design_contract import DesignArtifactRef
+from app.domain.schemas.design_dna import ColorTokenDirection, DesignDNA
 from app.domain.schemas.information_architecture import (
     InformationArchitecture,
     MobileBehavior,
@@ -21,6 +24,32 @@ from app.domain.schemas.product_strategy import (
     StrategyAssumptionV2,
     StrategyRiskV2,
     SurfaceStrategyV2,
+)
+
+_FORBIDDEN_DNA_MARKERS = (
+    "@/ui",
+    ".tsx",
+    ".jsx",
+    "classname=",
+    "<div",
+    "<section",
+    "shadcn",
+    "material ui",
+    "chakra ui",
+    "bootstrap component",
+    "tailwind class",
+    "skeleton id",
+    "catalogue slot",
+)
+_COLOR_ROLES = (
+    "background",
+    "surface",
+    "foreground",
+    "muted",
+    "accent",
+    "success",
+    "warning",
+    "danger",
 )
 
 _DEFAULT_MOBILE = MobileBehavior(
@@ -344,7 +373,116 @@ def normalize_information_architecture(
     )
 
 
+def _clean_dna_text(value: str) -> str:
+    cleaned = value
+    for marker in _FORBIDDEN_DNA_MARKERS:
+        idx = cleaned.casefold().find(marker)
+        while idx >= 0:
+            cleaned = cleaned[:idx] + " " + cleaned[idx + len(marker) :]
+            idx = cleaned.casefold().find(marker)
+    return " ".join(cleaned.split()) or "Business-specific visual direction"
+
+
+def _clean_dna_tree(value: Any) -> Any:
+    if isinstance(value, str):
+        return _clean_dna_text(value)
+    if isinstance(value, list):
+        return [_clean_dna_tree(item) for item in value]
+    if isinstance(value, tuple):
+        return [_clean_dna_tree(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _clean_dna_tree(item) for key, item in value.items()}
+    return value
+
+
+def normalize_design_dna(
+    artifact: DesignDNA,
+    *,
+    context: DesignValidationContext,
+    product_strategy_ref: DesignArtifactRef,
+    information_architecture_ref: DesignArtifactRef,
+    expected_reference_mode: Literal["none", "textual_analysis", "vision"],
+) -> DesignDNA:
+    """Repair mechanical DNA gaps without inventing a new visual system."""
+
+    del context  # reserved for future strategy-aware defaults
+    payload = _clean_dna_tree(artifact.model_dump(mode="json"))
+    payload["contract_refs"] = artifact.contract_refs.model_dump(mode="json")
+    payload["product_strategy_ref"] = product_strategy_ref.model_dump(
+        mode="json"
+    )
+    payload["information_architecture_ref"] = (
+        information_architecture_ref.model_dump(mode="json")
+    )
+    payload["reference_mode"] = expected_reference_mode
+
+    by_role = {
+        item.get("semantic_role"): item
+        for item in (payload.get("color_tokens") or [])
+        if isinstance(item, dict) and item.get("semantic_role")
+    }
+    payload["color_tokens"] = [
+        by_role.get(role)
+        or {
+            "semantic_role": role,
+            "direction": f"Business-specific {role} direction.",
+            "contrast_intent": "Maintain readable semantic contrast.",
+        }
+        for role in _COLOR_ROLES
+    ]
+
+    motion = payload.get("motion") or {}
+    band = motion.get("duration_band_ms") or [120, 280]
+    if (
+        not isinstance(band, list)
+        or len(band) != 2
+        or not all(isinstance(item, int) for item in band)
+        or band[0] < 0
+        or band[1] < band[0]
+        or band[1] > 2000
+    ):
+        motion["duration_band_ms"] = [120, 280]
+        payload["motion"] = motion
+
+    avoid = [
+        item
+        for item in (payload.get("avoid_list") or [])
+        if isinstance(item, str) and item.strip()
+    ]
+    while len(avoid) < 3:
+        avoid.append(f"Generic visual filler {len(avoid) + 1}")
+    payload["avoid_list"] = avoid[:30]
+
+    fingerprint = payload.get("fingerprint") or {}
+    traits = [
+        item
+        for item in (fingerprint.get("signature_traits") or [])
+        if isinstance(item, str) and item.strip()
+    ]
+    while len(traits) < 3:
+        traits.append(f"Outcome-led trait {len(traits) + 1}")
+    fingerprint["signature_traits"] = traits[:10]
+    fingerprint.setdefault("name", "Visible Certainty")
+    fingerprint.setdefault(
+        "recurring_motif",
+        "A measured confirmation rhythm.",
+    )
+    fingerprint.setdefault(
+        "differentiation_guard",
+        "Every visual decision must reinforce this business outcome.",
+    )
+    payload["fingerprint"] = fingerprint
+
+    # Re-validate ColorTokenDirection shape after fills.
+    payload["color_tokens"] = [
+        ColorTokenDirection.model_validate(item).model_dump(mode="json")
+        for item in payload["color_tokens"]
+    ]
+    return DesignDNA.model_validate(payload)
+
+
 __all__ = [
+    "normalize_design_dna",
     "normalize_information_architecture",
     "normalize_product_strategy_v2",
 ]

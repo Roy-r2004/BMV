@@ -18,6 +18,7 @@ from app.application.design_contract.builder import (
     build_structured_artifact,
 )
 from app.application.design_contract.normalize import (
+    normalize_design_dna,
     normalize_information_architecture,
     normalize_product_strategy_v2,
 )
@@ -502,6 +503,13 @@ def build_v2_design_contract(
             ia.row.cache_key,
         ),
         vision_image_path=vision_image_path,
+        normalize=lambda artifact: normalize_design_dna(
+            artifact,
+            context=contract.validation_context,
+            product_strategy_ref=strategy.ref,
+            information_architecture_ref=ia.ref,
+            expected_reference_mode=reference_mode,
+        ),
     )
     _ensure_deadline(deadline)
 

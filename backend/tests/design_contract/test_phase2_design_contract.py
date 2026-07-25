@@ -308,7 +308,7 @@ def test_schema_failure_gets_one_validation_retry_with_reason() -> None:
         prepared.db.close()
 
 
-def test_deterministic_route_failure_retries_once_with_reason() -> None:
+def test_deterministic_route_drift_is_healed_without_retry() -> None:
     prepared = prepare_phase1b(request_id=1112)
     ai = DesignFixtureAI()
 
@@ -319,17 +319,12 @@ def test_deterministic_route_failure_retries_once_with_reason() -> None:
     ai.stage_mutators["information_architecture"] = [wrong_route]
     try:
         result = _run(prepared, ai)
-        assert len(ai.calls) == 4
+        assert len(ai.calls) == 3
         metrics = result["preview_contract"]["design_stage_metrics"][
             "information_architecture"
         ]
-        assert metrics["validation_retry_count"] == 1
-        assert "deterministic_validation" in metrics[
-            "validation_retry_reasons"
-        ][0]
-        assert "ia_page_contract_mismatch" in metrics[
-            "validation_retry_reasons"
-        ][0]
+        assert metrics["validation_retry_count"] == 0
+        assert result["preview_contract"]["status"] == "design_contract_ready"
     finally:
         prepared.db.close()
 
