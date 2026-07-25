@@ -12,6 +12,7 @@ from app.application.appspec.builder import (
 )
 from app.application.prompts import PromptTemplate
 from app.core.config import settings
+from app.domain.appspec.sanitize.empty_trace import schema_repair_trace_context
 from app.domain.appspec.sanitize.preparse_normalize import schema_fragments_for_paths
 from app.domain.appspec.sanitize.schema_diagnostics import (
     classify_schema_parse_exception,
@@ -65,6 +66,7 @@ def repair_app_spec_schema_candidate(
     child_issues = list(schema_issue.get("issues") or [])
     paths = [str(item.get("path") or "") for item in child_issues if isinstance(item, Mapping)]
     fragments = schema_fragments_for_paths(paths)
+    trace_context = schema_repair_trace_context(payload, schema_issue=schema_issue)
 
     prompt = template_renderer.render(
         PromptTemplate.APP_SPEC_SCHEMA_REPAIR,
@@ -82,6 +84,7 @@ def repair_app_spec_schema_candidate(
         ),
         schema_fragments_json=_canonical_json(fragments),
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
+        empty_trace_context_json=_canonical_json(trace_context),
     )
     raw = ai_provider.ask_chat(
         model or settings.APPSPEC_REPAIR_MODEL,
@@ -112,9 +115,15 @@ def validate_schema_repaired_candidate(
     try:
         return AppSpec.model_validate(payload), None
     except ValidationError as exc:
-        return None, classify_schema_parse_exception(exc)
+        return None, classify_schema_parse_exception(
+            exc,
+            candidate_payload=payload,
+        )
     except Exception as exc:
-        return None, classify_schema_parse_exception(exc)
+        return None, classify_schema_parse_exception(
+            exc,
+            candidate_payload=payload,
+        )
 
 
 __all__ = [

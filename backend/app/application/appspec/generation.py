@@ -354,8 +354,15 @@ def _trace_evidence_repair_candidate(
     return _sanitize_candidate(repaired, source_snapshot), repair
 
 
-def _parse_validation_issue(exc: Exception) -> dict[str, Any]:
-    return classify_schema_parse_exception(exc)
+def _parse_validation_issue(
+    exc: Exception,
+    *,
+    candidate_payload: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    return classify_schema_parse_exception(
+        exc,
+        candidate_payload=candidate_payload,
+    )
 
 def _schema_version_issue(spec: AppSpec) -> dict[str, Any] | None:
     actual = str(getattr(spec, "schema_version", ""))
@@ -942,7 +949,10 @@ def ensure_approved_app_spec(
                     spec = parse_app_spec_candidate(candidate)
                 except Exception as exc:
                     spec = None
-                    parse_issue = _parse_validation_issue(exc)
+                    parse_issue = _parse_validation_issue(
+                        exc,
+                        candidate_payload=candidate.payload if candidate else None,
+                    )
 
             if spec is not None:
                 validation = validate_app_spec(spec)
@@ -1052,6 +1062,8 @@ def ensure_approved_app_spec(
                                 "result_sha256": normalized.normalized_sha256,
                                 "changed_paths": normalized.changed_paths[:40],
                                 "actions": normalized.actions[:40],
+                                "trace_records": normalized.trace_records[:40],
+                                "refused_reasons": normalized.refused_reasons[:40],
                             }
                         )
                         log.info(

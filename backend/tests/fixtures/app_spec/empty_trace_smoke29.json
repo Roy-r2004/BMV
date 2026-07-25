@@ -1,0 +1,249 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "Lumina Booking",
+    "summary": "A small appointment product for studio customers.",
+    "problem": "Customers currently arrange every appointment through manual messages.",
+    "desired_outcome": "Customers can submit a booking and see durable confirmation evidence.",
+    "target_users": [
+      "Studio customers"
+    ],
+    "success_metrics": [
+      "Every submitted booking displays a confirmation status"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-BOOK",
+      "title": "Book an appointment",
+      "description": "A customer can submit an appointment request and see confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person arranging a studio appointment.",
+      "goals": [
+        "Confirm an appointment"
+      ],
+      "default_page_id": "PAGE-BOOK"
+    }
+  ],
+  "entities": [
+    {
+      "id": "ENTITY-BOOKING",
+      "name": "Booking",
+      "description": "A customer's appointment request.",
+      "fields": [
+        {
+          "id": "FIELD-STATUS",
+          "name": "Status",
+          "description": "The lifecycle status shown to the customer.",
+          "type": "enum",
+          "required": true,
+          "enum_values": [
+            "draft",
+            "confirmed"
+          ],
+          "reference_entity_id": null
+        }
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-BOOK",
+      "name": "Appointment booking",
+      "description": "Submit and confirm an appointment request.",
+      "requirement_ids": [
+        "REQ-BOOK"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": [
+        "ENTITY-BOOKING"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-BOOK",
+      "name": "Book",
+      "purpose": "Let a customer submit an appointment booking.",
+      "route": "/book",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-BOOK"
+      ],
+      "state_ids": [
+        "STATE-DRAFT",
+        "STATE-CONFIRMED"
+      ],
+      "action_ids": [
+        "ACTION-SUBMIT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-FORM",
+        "EVIDENCE-CONFIRMATION"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-DRAFT",
+      "page_id": "PAGE-BOOK",
+      "name": "Draft",
+      "description": "The customer can complete the appointment form.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-FORM"
+      ]
+    },
+    {
+      "id": "STATE-CONFIRMED",
+      "page_id": "PAGE-BOOK",
+      "name": "Confirmed",
+      "description": "The confirmed appointment is visible.",
+      "initial": false,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-SUBMIT",
+      "page_id": "PAGE-BOOK",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit booking",
+      "description": "Validate and submit the customer's appointment request.",
+      "kind": "submit",
+      "capability_ids": [
+        "CAP-BOOK"
+      ],
+      "entity_id": "ENTITY-BOOKING",
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-SUBMIT",
+      "action_id": "ACTION-SUBMIT",
+      "from_state_id": "STATE-DRAFT",
+      "to_state_id": "STATE-CONFIRMED",
+      "description": "Submitting a valid request produces a confirmed booking.",
+      "preconditions": [
+        "The required appointment fields are complete"
+      ],
+      "postconditions": [
+        "A confirmation status is visible"
+      ],
+      "effects": [
+        {
+          "entity_id": "ENTITY-BOOKING",
+          "field_id": "FIELD-STATUS",
+          "operation": "set",
+          "value": "confirmed"
+        }
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-FORM",
+      "page_id": "PAGE-BOOK",
+      "name": "Booking form",
+      "description": "The appointment fields and submit action are visible.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-BOOK"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION",
+      "page_id": "PAGE-BOOK",
+      "name": "Booking confirmation",
+      "description": "A confirmation status and appointment details are visible.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-BOOK"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-BOOK",
+      "name": "Complete a booking",
+      "description": "A customer submits an appointment and sees confirmation.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-BOOK"
+      ],
+      "start_page_id": "PAGE-BOOK",
+      "start_state_id": "STATE-DRAFT",
+      "steps": [
+        {
+          "id": "STEP-SUBMIT",
+          "action_id": "ACTION-SUBMIT",
+          "transition_id": "TRANSITION-SUBMIT",
+          "expected_page_id": "PAGE-BOOK",
+          "expected_state_id": "STATE-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-BOOK",
+      "name": "Booking confirmation is visible",
+      "description": "Prove that submitting the booking produces visible confirmation.",
+      "requirement_ids": [
+        "REQ-BOOK"
+      ],
+      "journey_id": "JOURNEY-BOOK",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "The booking confirmation status is visible.",
+          "page_id": "PAGE-BOOK",
+          "state_id": "STATE-CONFIRMED",
+          "evidence_id": "EVIDENCE-CONFIRMATION",
+          "expected": "confirmed"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-BOOK",
+      "capability_ids": [
+        "CAP-BOOK"
+      ],
+      "page_ids": [
+        "PAGE-BOOK"
+      ],
+      "evidence_ids": [],
+      "journey_ids": [],
+      "acceptance_test_ids": []
+    }
+  ],
+  "deferred_scope": []
+}

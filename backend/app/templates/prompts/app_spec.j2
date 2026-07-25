@@ -49,6 +49,13 @@ CONTRACT RULES:
    -> journeys -> pages -> states/actions/transitions -> evidence -> acceptance
    tests. Populate traceability so a validator can follow every required outcome
    to proof.
+6a. Trace collections: never emit an empty array for a field with minItems=1.
+   Omit optional trace fields when no trace exists (example: omit `journey_ids`
+   rather than `"journey_ids": []`). Required TraceabilityLink fields
+   (`capability_ids`, `page_ids`, `evidence_ids`, `acceptance_test_ids`) must each
+   contain at least one existing canonical ID from the same AppSpec. Never emit
+   empty tuples, placeholder IDs, or null unless the schema allows null.
+   Valid: `"evidence_ids": ["EVIDENCE-CONFIRMATION"]`. Invalid: `"evidence_ids": []`.
 7. Roles describe real actors. Entities describe durable product information and
    business objects, not visual cards or arbitrary mock variables.
 8. Pages define product surfaces and responsibilities. Do not add generic pages

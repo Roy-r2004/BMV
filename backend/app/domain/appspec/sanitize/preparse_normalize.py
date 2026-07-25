@@ -8,6 +8,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from app.domain.appspec.sanitize.empty_trace import normalize_optional_empty_traces
 from app.domain.schemas.app_spec import AppSpec
 
 # Root keys that are never authoritative product content.
@@ -108,6 +109,7 @@ class PreparseNormalizeResult:
     applied: bool = False
     changed_paths: list[str] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
+    trace_records: list[dict[str, Any]] = field(default_factory=list)
     refused_reasons: list[str] = field(default_factory=list)
     original_sha256: str = ""
     normalized_sha256: str = ""
@@ -378,6 +380,17 @@ def normalize_app_spec_preparse(
         parent_key=None,
     )
 
+    # Optional empty trace collections only — never invent or drop required traces.
+    empty_trace = normalize_optional_empty_traces(working)
+    if empty_trace.applied:
+        working = empty_trace.payload
+        changed_paths.extend(empty_trace.changed_paths)
+        actions.extend(empty_trace.actions)
+    if empty_trace.refused_reasons:
+        result.refused_reasons.extend(empty_trace.refused_reasons[:40])
+    if empty_trace.records:
+        result.trace_records = empty_trace.records[:40]
+
     # Drop duplicate empty optional noise only — do not delete required records.
     if actions:
         result.payload = working
@@ -385,6 +398,9 @@ def normalize_app_spec_preparse(
         result.changed_paths = changed_paths[:80]
         result.actions = actions[:80]
         result.normalized_sha256 = _canonical_sha256(working)
+    elif empty_trace.refused_reasons:
+        # Still surface refused required-empty traces even when payload unchanged.
+        result.refused_reasons = empty_trace.refused_reasons[:40]
     return result
 
 

@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
+from app.domain.appspec.sanitize.empty_trace import scan_empty_traces
 from pydantic import ValidationError
 
 TYPED_SCHEMA_ISSUE_CODES = frozenset(
@@ -26,6 +27,8 @@ TYPED_SCHEMA_ISSUE_CODES = frozenset(
         "invalid_action_shape",
         "invalid_evidence_shape",
         "invalid_field_constraint",
+        "empty_required_trace",
+        "empty_optional_trace",
     }
 )
 
@@ -144,7 +147,11 @@ def classify_pydantic_error(err: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def classify_schema_parse_exception(exc: Exception) -> dict[str, Any]:
+def classify_schema_parse_exception(
+    exc: Exception,
+    *,
+    candidate_payload: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build the terminal ``app_spec_schema_parse_failed`` wrapper with child issues."""
 
     children: list[dict[str, Any]] = []
@@ -183,6 +190,40 @@ def classify_schema_parse_exception(exc: Exception) -> dict[str, Any]:
             }
         )
 
+    # Ensure every invalid_trace_shape child retains an exact JSON path.
+    for child in children:
+        if child.get("code") == "invalid_trace_shape" and not child.get("path"):
+            child["message"] = (
+                f"{child.get('message')} (missing JSON path — check loc encoding)"
+            )
+
+    early_trace: list[dict[str, Any]] = []
+    if candidate_payload is not None:
+        early_trace = scan_empty_traces(candidate_payload)
+        # Attach early empty-required diagnostics that pydantic also reported, keeping
+        # both the authoritative invalid_trace_shape path and the precise empty code.
+        pydantic_paths = {
+            str(item.get("path") or "")
+            for item in children
+            if item.get("code") == "invalid_trace_shape"
+        }
+        for issue in early_trace:
+            if issue.get("code") != "empty_required_trace":
+                continue
+            path = str(issue.get("path") or "")
+            if path in pydantic_paths:
+                # Enrich matching pydantic child with precise empty-trace annotation.
+                for child in children:
+                    if (
+                        child.get("code") == "invalid_trace_shape"
+                        and child.get("path") == path
+                    ):
+                        child["empty_trace_code"] = "empty_required_trace"
+                        child["classification"] = "required"
+                        child["original_representation"] = issue.get(
+                            "original_representation"
+                        )
+
     return {
         "severity": "blocking",
         "code": "app_spec_schema_parse_failed",
@@ -191,6 +232,7 @@ def classify_schema_parse_exception(exc: Exception) -> dict[str, Any]:
         "related_ids": [],
         "detail": detail,
         "issues": children,
+        "early_trace_diagnostics": early_trace,
     }
 
 
@@ -284,6 +326,9 @@ def build_rejected_candidate_artifact(
         ),
         "json_extraction": dict(json_extraction or {}),
         "schema_validation_errors": child_issues,
+        "early_trace_diagnostics": list(
+            (schema_issue or {}).get("early_trace_diagnostics") or []
+        )[:80],
         "wrapper_issue": {
             "code": (schema_issue or {}).get("code"),
             "message": (schema_issue or {}).get("message"),

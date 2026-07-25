@@ -13,6 +13,9 @@ REQUIRED SCHEMA VERSION: {{ schema_version }}
 === TYPED SCHEMA ISSUES (PATHS) ===
 {{ schema_issues_json }}
 
+=== EMPTY / TRACE FIELD CONTEXT ===
+{{ empty_trace_context_json }}
+
 === RELEVANT SCHEMA FRAGMENTS ===
 {{ schema_fragments_json }}
 
@@ -30,6 +33,22 @@ RULES:
 5. You must NOT invent new product behavior or delete mandatory business
    behavior just to satisfy the schema.
 6. Set `schema_version` exactly to `{{ schema_version }}`.
-7. Return the entire AppSpec JSON object only. No markdown fences, no commentary.
+7. Never emit an empty array for a field with minItems=1.
+8. Omit optional trace fields (for example `journey_ids`) when no journey proof
+   exists. Do not keep `"journey_ids": []` unless the schema default requires it.
+9. Required trace fields (`capability_ids`, `page_ids`, `evidence_ids`,
+   `acceptance_test_ids`) must contain at least one existing canonical ID from
+   the rejected candidate. Never invent placeholder IDs.
+10. For `invalid_trace_shape` / empty required traces: use only the
+    `available_canonical_ids` listed in EMPTY / TRACE FIELD CONTEXT for that
+    path. You may remove an optional empty trace field, or move an existing
+    canonical ID into the correct required field. You may not invent a
+    requirement, evidence item, journey, page, or acceptance test.
+11. Return the entire AppSpec JSON object only. No markdown fences, no commentary.
+
+Compact examples:
+- Valid optional trace: omit the field
+- Valid required trace: "evidence_ids": ["EVIDENCE-CONFIRMATION"]
+- Invalid: "evidence_ids": []
 
 Return the repaired AppSpec JSON object only.

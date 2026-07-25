@@ -1,6 +1,11 @@
 """AppSpec deterministic sanitizer package."""
 from __future__ import annotations
 
+from app.domain.appspec.sanitize.empty_trace import (
+    EmptyTraceNormalizeResult,
+    normalize_optional_empty_traces,
+    scan_empty_traces,
+)
 from app.domain.appspec.sanitize.graph_repair import (
     GraphRepairResult,
     repair_app_spec_graph,
@@ -23,6 +28,7 @@ from app.domain.appspec.sanitize.trace_evidence_repair import (
 )
 
 __all__ = [
+    "EmptyTraceNormalizeResult",
     "GraphRepairResult",
     "PreparseNormalizeResult",
     "TraceEvidenceRepairResult",
@@ -30,9 +36,11 @@ __all__ = [
     "classify_schema_parse_exception",
     "heal_app_spec_payload",
     "normalize_app_spec_preparse",
+    "normalize_optional_empty_traces",
     "repair_app_spec_graph",
     "repair_trace_evidence_mismatch",
     "sanitize_app_spec_payload",
+    "scan_empty_traces",
     "validation_has_repairable_graph_issues",
     "validation_has_safe_trace_evidence_repair",
 ]
