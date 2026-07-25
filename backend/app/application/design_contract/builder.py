@@ -119,10 +119,11 @@ def build_structured_artifact(
     template_renderer: TemplateRenderer,
     phase_deadline: float,
     vision_image_path: str | None = None,
+    normalize: Callable[[ArtifactT], ArtifactT] | None = None,
 ) -> BuiltDesignArtifact:
     """Generate one valid artifact, retrying only strict validation failures."""
 
-    started = time.monotonic()
+    phase_started = time.monotonic()
     provider_calls = 0
     retry_reasons: list[str] = []
     final_artifact: ArtifactT | None = None
@@ -131,10 +132,8 @@ def build_structured_artifact(
         with capture_ai_stage_telemetry() as captured:
             for attempt in range(policy.max_attempts):
                 remaining_phase = phase_deadline - time.monotonic()
-                remaining_stage = policy.timeout_seconds - (
-                    time.monotonic() - started
-                )
-                timeout = min(remaining_phase, remaining_stage)
+                # Each attempt gets a fresh stage budget so retries are useful.
+                timeout = min(remaining_phase, float(policy.timeout_seconds))
                 if timeout <= 0:
                     raise DesignStageError(
                         f"{policy.stage} exceeded the design-contract deadline.",
@@ -182,6 +181,8 @@ def build_structured_artifact(
                 report: DesignValidationReport | None = None
                 try:
                     candidate = _parse_artifact(raw, schema)
+                    if normalize is not None:
+                        candidate = normalize(candidate)
                     report = validator(candidate)
                     if report.passed:
                         final_artifact = candidate
@@ -194,8 +195,16 @@ def build_structured_artifact(
                     report=report,
                 )
                 if attempt + 1 >= policy.max_attempts:
+                    issue_codes = []
+                    if report is not None:
+                        issue_codes = [
+                            issue.code for issue in report.issues[:8]
+                        ]
+                    detail = (
+                        f" issues={issue_codes}" if issue_codes else ""
+                    )
                     raise DesignStageError(
-                        f"{policy.stage} failed strict validation.",
+                        f"{policy.stage} failed strict validation.{detail}",
                         stage=policy.stage,
                         retry_reasons=tuple(retry_reasons + [reason]),
                     )
@@ -239,7 +248,7 @@ def build_structured_artifact(
         cost_usd=float(
             sum(float(item.get("cost_usd") or 0.0) for item in usage_events)
         ),
-        latency_ms=int((time.monotonic() - started) * 1000),
+        latency_ms=int((time.monotonic() - phase_started) * 1000),
     )
     return BuiltDesignArtifact(
         artifact=final_artifact,

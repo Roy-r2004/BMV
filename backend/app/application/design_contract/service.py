@@ -17,6 +17,9 @@ from app.application.design_contract.builder import (
     DesignStageError,
     build_structured_artifact,
 )
+from app.application.design_contract.normalize import (
+    normalize_product_strategy_v2,
+)
 from app.application.design_contract.cache import (
     artifact_sha256,
     design_cache_key,
@@ -260,6 +263,7 @@ def _cache_or_build(
     parent_artifact_id: int | None,
     upstream_hashes: tuple[str, ...],
     vision_image_path: str | None = None,
+    normalize: Callable[[ArtifactT], ArtifactT] | None = None,
 ) -> ResolvedDesignArtifact:
     _ensure_deadline(deadline)
     cache_key = design_cache_key(
@@ -321,6 +325,7 @@ def _cache_or_build(
         template_renderer=template_renderer,
         phase_deadline=deadline,
         vision_image_path=vision_image_path,
+        normalize=normalize,
     )
     if built.metrics.cost_usd > settings.V2_DESIGN_CONTRACT_MAX_COST_USD:
         raise DesignStageError(
@@ -397,6 +402,10 @@ def build_v2_design_contract(
         deadline=deadline,
         parent_artifact_id=None,
         upstream_hashes=(),
+        normalize=lambda artifact: normalize_product_strategy_v2(
+            artifact,
+            context=contract.validation_context,
+        ),
     )
     if not strategy.metrics.cache_hit:
         db.commit()

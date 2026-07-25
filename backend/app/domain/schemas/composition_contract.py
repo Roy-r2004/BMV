@@ -87,9 +87,9 @@ class CompositionStageMetrics(StrictDesignModel):
     model_family: str = Field(min_length=1, max_length=80)
     prompt_revision: str = Field(min_length=1, max_length=64)
     cache_hit: StrictBool
-    provider_call_count: StrictInt = Field(ge=0, le=2)
-    validation_retry_count: StrictInt = Field(ge=0, le=1)
-    validation_retry_reasons: Tuple[str, ...] = Field(default=(), max_length=1)
+    provider_call_count: StrictInt = Field(ge=0, le=5)
+    validation_retry_count: StrictInt = Field(ge=0, le=4)
+    validation_retry_reasons: Tuple[str, ...] = Field(default=(), max_length=4)
     transport_retry_count: StrictInt = Field(ge=0)
     prompt_tokens: StrictInt = Field(ge=0)
     completion_tokens: StrictInt = Field(ge=0)

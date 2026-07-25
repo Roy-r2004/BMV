@@ -122,7 +122,7 @@ def build_ai_composition_artifact(
             for attempt in range(policy.max_attempts):
                 remaining = min(
                     phase_deadline - time.monotonic(),
-                    policy.timeout_seconds - (time.monotonic() - started),
+                    float(policy.timeout_seconds),
                 )
                 if remaining <= 0:
                     raise CompositionStageError(

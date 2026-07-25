@@ -334,9 +334,12 @@ def test_deterministic_route_failure_retries_once_with_reason() -> None:
         prepared.db.close()
 
 
-def test_two_invalid_outputs_fail_closed_without_fallback_or_persistence() -> None:
+def test_invalid_outputs_fail_closed_without_fallback_or_persistence(
+    monkeypatch,
+) -> None:
     prepared = prepare_phase1b(request_id=1108)
     ai = DesignFixtureAI()
+    monkeypatch.setattr(settings, "V2_DESIGN_STAGE_MAX_ATTEMPTS", 2)
     ai.invalid_stage_responses["product_strategy_v2"] = ["{}", "{}"]
     try:
         with pytest.raises(DesignStageError, match="strict validation"):
