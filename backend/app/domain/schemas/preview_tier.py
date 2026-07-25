@@ -15,7 +15,7 @@ from pydantic import (
 
 
 PREVIEW_TIER_SCHEMA_VERSION = "1.0"
-TIER_SELECTION_POLICY_REVISION = "2026-07-24.1"
+TIER_SELECTION_POLICY_REVISION = "2026-07-25.1"
 
 Identifier = Annotated[
     str,

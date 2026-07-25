@@ -92,7 +92,11 @@ def validate_preview_tiers(
                 )
         try:
             actual_sets = _reference_sets(tier)
-            closed_sets = expand_tier_graph(spec, actual_sets)
+            closed_sets = expand_tier_graph(
+                spec,
+                actual_sets,
+                require_journey_page_closure=(tier.tier == 1),
+            )
             for field in _REFERENCE_FIELDS:
                 if closed_sets[field] != actual_sets[field]:
                     _issue(

@@ -30,7 +30,7 @@ from app.application.preview_contract.tier_validation import (
 )
 from app.application.preview_contract.tiers import (
     TierContractContext,
-    build_preview_tiers,
+    build_preview_tiers_result,
 )
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -134,11 +134,12 @@ def build_v2_app_spec_contract(
             sha256=revision.app_spec_sha256,
         ),
     )
-    tiers = build_preview_tiers(
+    tier_build = build_preview_tiers_result(
         spec=app_spec,
         strategy=strategy,
         context=tier_context,
     )
+    tiers = tier_build.tiers
     tier_validation = validate_preview_tiers(
         tiers,
         spec=app_spec,
@@ -185,6 +186,7 @@ def build_v2_app_spec_contract(
             "tier_2": tier_artifact_ref(persisted_tiers.tier_2),
             "tier_3": tier_artifact_ref(persisted_tiers.tier_3),
         },
+        "tier1_closure_heal": dict(tier_build.tier1_closure_heal),
     }
     bundle = _existing_bundle(req)
     bundle["preview_contract"] = summary

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 from app.domain.appspec.validation import validate_app_spec
 from app.domain.schemas.app_spec import AppSpec, Requirement, TraceabilityLink
@@ -103,8 +103,16 @@ def _add_many(target: set[str], values: Iterable[str]) -> bool:
 def expand_tier_graph(
     spec: AppSpec,
     seeds: dict[str, set[str]],
+    *,
+    require_journey_page_closure: bool = False,
 ) -> dict[str, set[str]]:
-    """Expand canonical references to a fixed point, rejecting deferred leaks."""
+    """Expand canonical references to a fixed point, rejecting deferred leaks.
+
+    When ``require_journey_page_closure`` is true (Tier 1), pages may only enter
+    via journey start/tested steps (or already-seeded journey pages). Trace,
+    evidence, assertion, state, and action ownership edges cannot pull optional
+    hubs such as PAGE-AI-FEATURES into Tier 1 without a journey hop.
+    """
 
     refs = _empty_refs()
     for field in _REFERENCE_FIELDS:
@@ -121,6 +129,38 @@ def expand_tier_graph(
     evidence = _objects(spec.evidence)
     journeys = _objects(spec.journeys)
     acceptance_tests = _objects(spec.acceptance_tests)
+
+    def _journey_reachable_pages() -> set[str]:
+        reachable: set[str] = set()
+        tested_journey_ids = {
+            str(getattr(acceptance_tests[test_id], "journey_id"))
+            for test_id in refs["acceptance_test_ids"]
+            if test_id in acceptance_tests
+            and getattr(acceptance_tests[test_id], "journey_id", None) is not None
+            and str(getattr(acceptance_tests[test_id], "journey_id"))
+            in refs["journey_ids"]
+        }
+        for journey_id in refs["journey_ids"]:
+            if journey_id not in tested_journey_ids:
+                continue
+            journey = journeys[journey_id]
+            reachable.add(getattr(journey, "start_page_id"))
+            for step in getattr(journey, "steps"):
+                reachable.add(step.expected_page_id)
+        return reachable
+
+    def _allow_page(page_id: str) -> bool:
+        if not require_journey_page_closure:
+            return True
+        if page_id in refs["page_ids"]:
+            return True
+        return page_id in _journey_reachable_pages()
+
+    def _add_pages(page_ids: Iterable[str]) -> bool:
+        return _add_many(
+            refs["page_ids"],
+            [page_id for page_id in page_ids if _allow_page(str(page_id))],
+        )
     traces = _trace_map(spec)
     deferred = _deferred_requirement_ids(spec)
     transition_ids_by_action: dict[str, list[str]] = {}
@@ -169,7 +209,7 @@ def expand_tier_graph(
                 refs["capability_ids"],
                 trace.capability_ids,
             )
-            changed |= _add_many(refs["page_ids"], trace.page_ids)
+            changed |= _add_pages(trace.page_ids)
             changed |= _add_many(refs["evidence_ids"], trace.evidence_ids)
             changed |= _add_many(refs["journey_ids"], trace.journey_ids)
             changed |= _add_many(
@@ -233,7 +273,7 @@ def expand_tier_graph(
 
         for state_id in tuple(refs["state_ids"]):
             state = states[state_id]
-            changed |= _add_many(refs["page_ids"], [getattr(state, "page_id")])
+            changed |= _add_pages([getattr(state, "page_id")])
             changed |= _add_many(
                 refs["evidence_ids"],
                 getattr(state, "evidence_ids"),
@@ -241,7 +281,7 @@ def expand_tier_graph(
 
         for action_id in tuple(refs["action_ids"]):
             action = actions[action_id]
-            changed |= _add_many(refs["page_ids"], [getattr(action, "page_id")])
+            changed |= _add_pages([getattr(action, "page_id")])
             changed |= _add_many(refs["role_ids"], [getattr(action, "role_id")])
             changed |= _add_many(
                 refs["capability_ids"],
@@ -277,7 +317,7 @@ def expand_tier_graph(
 
         for evidence_id in tuple(refs["evidence_ids"]):
             item = evidence[evidence_id]
-            changed |= _add_many(refs["page_ids"], [getattr(item, "page_id")])
+            changed |= _add_pages([getattr(item, "page_id")])
             changed |= _add_many(
                 refs["capability_ids"],
                 getattr(item, "capability_ids"),
@@ -290,6 +330,7 @@ def expand_tier_graph(
                 refs["requirement_ids"],
                 getattr(journey, "requirement_ids"),
             )
+            # Journey hops are the Tier 1 authority for page membership.
             changed |= _add_many(
                 refs["page_ids"],
                 [getattr(journey, "start_page_id")],
@@ -340,7 +381,7 @@ def expand_tier_graph(
                 )
             for assertion in getattr(test, "assertions"):
                 if assertion.page_id is not None:
-                    changed |= _add_many(refs["page_ids"], [assertion.page_id])
+                    changed |= _add_pages([assertion.page_id])
                 if assertion.state_id is not None:
                     changed |= _add_many(refs["state_ids"], [assertion.state_id])
                 if assertion.evidence_id is not None:
@@ -614,9 +655,44 @@ def _build_artifact(
     selection_policy_revision: str,
     primary_proof: PrimaryJourneyProof,
     seeds: dict[str, set[str]],
+    closure_audit: dict[str, Any] | None = None,
 ) -> PreviewTierArtifact:
-    closed = expand_tier_graph(spec, seeds)
+    from app.application.preview_contract.tier1_closure_heal import (
+        Tier1ClosureHealError,
+        empty_tier1_closure_audit,
+        heal_tier1_page_closure,
+    )
+
+    closed = expand_tier_graph(
+        spec,
+        seeds,
+        require_journey_page_closure=(tier == 1),
+    )
     closed = _prune_unproven_navigate_actions(spec, closed)
+    if tier == 1:
+        try:
+            closed, audit = heal_tier1_page_closure(
+                spec,
+                closed,
+                primary_proof=primary_proof,
+                request_id=context.request_id,
+                app_spec_revision=context.app_spec_ref.revision,
+            )
+        except Tier1ClosureHealError as exc:
+            raise TierBuildError(str(exc)) from exc
+        # Re-close once under the same Tier 1 page gate so exclusive orphan
+        # removal remains a fixed point for validation.
+        closed = expand_tier_graph(
+            spec,
+            closed,
+            require_journey_page_closure=True,
+        )
+        closed = _prune_unproven_navigate_actions(spec, closed)
+        if closure_audit is not None:
+            closure_audit.clear()
+            closure_audit.update(audit)
+    elif closure_audit is not None and not closure_audit:
+        closure_audit.update(empty_tier1_closure_audit())
     references = _canonical_reference_set(spec, closed)
     return PreviewTierArtifact.model_validate(
         {
@@ -640,6 +716,12 @@ def _build_artifact(
     )
 
 
+@dataclass(frozen=True)
+class PreviewTiersBuildResult:
+    tiers: tuple[PreviewTierArtifact, PreviewTierArtifact, PreviewTierArtifact]
+    tier1_closure_heal: Mapping[str, Any]
+
+
 def build_preview_tiers(
     *,
     spec: AppSpec,
@@ -649,10 +731,28 @@ def build_preview_tiers(
 ) -> tuple[PreviewTierArtifact, PreviewTierArtifact, PreviewTierArtifact]:
     """Build Tier 1/2/3 in memory without persistence or provider calls."""
 
+    return build_preview_tiers_result(
+        spec=spec,
+        strategy=strategy,
+        context=context,
+        selection_policy_revision=selection_policy_revision,
+    ).tiers
+
+
+def build_preview_tiers_result(
+    *,
+    spec: AppSpec,
+    strategy: ProductStrategy,
+    context: TierContractContext,
+    selection_policy_revision: str = TIER_SELECTION_POLICY_REVISION,
+) -> PreviewTiersBuildResult:
+    """Build tiers and return Tier 1 closure-heal audit evidence."""
+
     report = validate_app_spec(spec)
     if not report.is_valid:
         raise TierBuildError("Tier construction requires a valid canonical AppSpec.")
     primary_proof = select_primary_journey_proof(spec, strategy)
+    closure_audit: dict[str, Any] = {}
 
     tier1_seeds = _empty_refs()
     tier1_seeds["requirement_ids"].add(primary_proof.requirement_id)
@@ -669,6 +769,7 @@ def build_preview_tiers(
         selection_policy_revision=selection_policy_revision,
         primary_proof=primary_proof,
         seeds=tier1_seeds,
+        closure_audit=closure_audit,
     )
 
     tier2_seeds = _refs_from_model(tier1.references)
@@ -702,13 +803,18 @@ def build_preview_tiers(
         primary_proof=primary_proof,
         seeds=tier3_seeds,
     )
-    return tier1, tier2, tier3
+    return PreviewTiersBuildResult(
+        tiers=(tier1, tier2, tier3),
+        tier1_closure_heal=dict(closure_audit),
+    )
 
 
 __all__ = [
     "TierBuildError",
     "TierContractContext",
+    "PreviewTiersBuildResult",
     "build_preview_tiers",
+    "build_preview_tiers_result",
     "expand_tier_graph",
     "select_primary_journey_proof",
 ]
