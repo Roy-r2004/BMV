@@ -457,8 +457,9 @@ def test_boundary_no_pointer_swap_no_providers(monkeypatch) -> None:
         assert "manual_close" not in src
         assert "openai" not in src
         assert "playwright" not in src
-        assert "percent_serve" not in src
         assert "consume_canary" not in src
+        # Phase 7F may import percent_serve for read-only canary-gate alerts.
+        assert "apply_pointer_swap" not in src
         # May mention AutoRollbackService only as read of claims table — ensure
         # no write service import
         assert "from app.application.rollout.auto_rollback" not in src

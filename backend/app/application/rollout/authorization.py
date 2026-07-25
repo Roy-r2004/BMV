@@ -16,7 +16,14 @@ from app.domain.schemas.rollout import (
 
 PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
     "rollout_viewer": frozenset(
-        {"read_diagnostics", "read_breaker", "read_ops", "read_alerts"}
+        {
+            "read_diagnostics",
+            "read_breaker",
+            "read_ops",
+            "read_alerts",
+            "read_canaries",
+            "read_targeting",
+        }
     ),
     "rollout_operator": frozenset(
         {
@@ -24,6 +31,8 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "read_breaker",
             "read_ops",
             "read_alerts",
+            "read_canaries",
+            "read_targeting",
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
             "start_shadow_evaluation",
@@ -37,6 +46,8 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "read_breaker",
             "read_ops",
             "read_alerts",
+            "read_canaries",
+            "read_targeting",
             "review_eligibility",
             "review_policy_state",
             "approve_promotion",
@@ -49,6 +60,8 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "read_breaker",
             "read_ops",
             "read_alerts",
+            "read_canaries",
+            "read_targeting",
             "ack_alerts",
             "compute_shadow_eligibility",
             "compute_promotion_eligibility",
@@ -67,17 +80,22 @@ PHASE7A_PERMISSIONS: dict[RolloutRole, frozenset[str]] = {
             "close_breaker",
             "disable_breaker",
             "run_auto_rollback",
+            "request_canary",
+            "approve_canary",
+            "execute_canary",
+            "review_canary",
         }
     ),
 }
 
-# Still forbid canary consume / percent serve / live regenerate.
-# Breaker open/evaluate/auto-rollback are gated via explicit permissions above.
+# Client-facing action names that must never authorize serving mutation.
+# Live canary uses dedicated request/approve/execute/review permissions.
 FORBIDDEN_PHASE7A_ACTIONS = frozenset(
     {
         "consume_canary_approval",
         "start_live_shadow_regenerate",
         "percentage_serve",
+        "mutate_rollout_percent",
     }
 )
 
@@ -119,6 +137,14 @@ def reject_client_supplied_roles(payload: dict) -> None:
         "provider",
         "model",
         "provider_model",
+        "provider_was_live",
+        "execution_mode",
+        "simulation_only",
+        "percent_authorization_eligible",
+        "provider_family",
+        "provider_factory_revision",
+        "network_access_expected",
+        "execution_environment",
         "breaker_override",
         "severity",
         "alert_severity",

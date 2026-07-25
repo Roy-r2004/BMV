@@ -865,4 +865,254 @@ def get_ops_runbook(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
+# --- Phase 7F live canary + targeting diagnostics ---
+
+
+def _canary_http_error(exc: Exception) -> HTTPException:
+    from app.application.rollout.canary_service import CanaryServiceError
+
+    if isinstance(exc, CanaryServiceError):
+        if exc.stage in {"flags"}:
+            return HTTPException(status_code=403, detail=exc.reason)
+        if exc.reason in {
+            "canary_not_found",
+            "execution_not_found",
+        }:
+            return HTTPException(status_code=404, detail=exc.reason)
+        if exc.reason in {
+            "idempotency_conflict",
+            "concurrent_canary_active",
+            "approval_already_used",
+        }:
+            return HTTPException(status_code=409, detail=exc.reason)
+        return HTTPException(status_code=400, detail=exc.reason)
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/canaries")
+def list_canaries(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return CanaryService(db).list_canaries(actor)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/canaries/{approval_id}")
+def get_canary(
+    approval_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return CanaryService(db).get_canary(actor, approval_id)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        raise _canary_http_error(exc) from exc
+
+
+@router.get("/canaries/{approval_id}/executions")
+def list_canary_executions(
+    approval_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return CanaryService(db).list_executions(actor, approval_id)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        raise _canary_http_error(exc) from exc
+
+
+@router.get("/canary-executions/{execution_id}")
+def get_canary_execution(
+    execution_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        return CanaryService(db).get_execution(actor, execution_id)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        raise _canary_http_error(exc) from exc
+
+
+@router.post("/requests/{request_id}/canaries")
+def request_canary(
+    request_id: int,
+    body: dict[str, Any],
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+    from app.domain.schemas.canary import CanaryRequestBody
+
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        parsed = CanaryRequestBody.model_validate(body)
+        view = CanaryService(db).request_canary(
+            actor, request_id, parsed, raw_payload=body
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        db.rollback()
+        raise _canary_http_error(exc) from exc
+
+
+@router.post("/canaries/{approval_id}/approvals")
+def approve_canary(
+    approval_id: int,
+    body: dict[str, Any],
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+    from app.domain.schemas.canary import CanaryApprovalBody
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        parsed = CanaryApprovalBody.model_validate(body)
+        view = CanaryService(db).approve_canary(
+            actor, approval_id, parsed, raw_payload=body
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        db.rollback()
+        raise _canary_http_error(exc) from exc
+
+
+@router.post("/canaries/{approval_id}/execute")
+def execute_canary(
+    approval_id: int,
+    body: dict[str, Any],
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+    from app.domain.schemas.canary import CanaryExecuteBody
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        parsed = CanaryExecuteBody.model_validate(body)
+        view = CanaryService(db).execute_canary(
+            actor, approval_id, parsed, raw_payload=body
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        db.rollback()
+        raise _canary_http_error(exc) from exc
+
+
+@router.post("/canary-executions/{execution_id}/review")
+def review_canary_execution(
+    execution_id: int,
+    body: dict[str, Any],
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.canary_service import CanaryService, CanaryServiceError
+    from app.domain.schemas.canary import CanaryReviewBody
+
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        parsed = CanaryReviewBody.model_validate(body)
+        view = CanaryService(db).review_execution(
+            actor, execution_id, parsed, raw_payload=body
+        )
+        db.commit()
+        return view
+    except RolloutAuthorizationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CanaryServiceError as exc:
+        db.rollback()
+        raise _canary_http_error(exc) from exc
+
+
+@router.get("/targeting/{request_id}")
+def get_targeting_diagnostic(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+    x_admin_password: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+):
+    from app.application.rollout.authorization import require_permission
+    from app.application.rollout.percent_serve import build_targeting_diagnostic
+
+    if request_id < 1:
+        raise HTTPException(status_code=400, detail="invalid request_id")
+    actor = _trusted_rollout_actor(
+        db, x_admin_password=x_admin_password, authorization=authorization
+    )
+    try:
+        require_permission(actor, "read_targeting")
+        return build_targeting_diagnostic(db, request_id)
+    except RolloutAuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
 __all__ = ["router"]

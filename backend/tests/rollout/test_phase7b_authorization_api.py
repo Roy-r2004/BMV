@@ -103,7 +103,9 @@ def test_api_routes_shadow_and_phase7c_promotion_surface() -> None:
         methods = set(route.methods or [])
         if any(m in methods for m in ("POST", "PUT", "PATCH", "DELETE")):
             assert "pointer-swap" not in path
-            assert "canary" not in path or "GET" in methods
+            # Phase 7F canary lifecycle writes are allowlisted; no percent mutation.
+            if "canary" in path:
+                assert "/canaries" in path or "/canary-executions/" in path
             assert "percent" not in path
             assert "circuit-breaker" not in path or "GET" in methods
 

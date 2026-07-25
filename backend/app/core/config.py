@@ -262,6 +262,19 @@ class Settings:
     V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED: bool
     V2_PHASE7_SHADOW_MAX_CONCURRENCY: int
     V2_PHASE7_SHADOW_MAX_WALL_SECONDS: int
+    V2_PHASE7_PERCENT_SERVE_ENABLED: bool
+    V2_PHASE7_PERCENT_REQUIRES_CANARY: bool
+    V2_PHASE7_LIVE_CANARY_ENABLED: bool
+    V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED: bool
+    V2_PHASE7_CANARY_SIMULATION_ENABLED: bool
+    V2_PHASE7_CANARY_MAX_CALLS: int
+    V2_PHASE7_CANARY_MAX_INPUT_TOKENS: int
+    V2_PHASE7_CANARY_MAX_OUTPUT_TOKENS: int
+    V2_PHASE7_CANARY_MAX_COST_USD: float
+    V2_PHASE7_CANARY_MAX_WALL_SECONDS: int
+    V2_PHASE7_CANARY_MAX_RETRIES: int
+    V2_PHASE7_CANARY_PER_CALL_TIMEOUT_SECONDS: int
+    V2_PHASE7_CANARY_APPROVAL_TTL_SECONDS: int
     PREVIEW_SKIP_CRITIC: bool
     PREVIEW_PARALLEL_WORKERS: int
     PREVIEW_MAX_FILES: int
@@ -1118,6 +1131,101 @@ class Settings:
             self.V2_PHASE7_SHADOW_MAX_WALL_SECONDS = 3600
             self.V2_PHASE7_CONFIG_VALID = False
             self.V2_PHASE7_SHADOW_ENABLED = False
+        # Phase 7F percent serve + live canary — defaults fail closed.
+        self.V2_PHASE7_PERCENT_SERVE_ENABLED = os.getenv(
+            "V2_PHASE7_PERCENT_SERVE_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_PERCENT_REQUIRES_CANARY = os.getenv(
+            "V2_PHASE7_PERCENT_REQUIRES_CANARY",
+            "true",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_LIVE_CANARY_ENABLED = os.getenv(
+            "V2_PHASE7_LIVE_CANARY_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        self.V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED = os.getenv(
+            "V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        # Live paid providers stay off unless explicitly enabled (still canary-only).
+        if self.V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED and not (
+            self.V2_PHASE7_LIVE_CANARY_ENABLED and self.V2_PHASE7_CONFIG_VALID
+        ):
+            self.V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED = False
+        # Fixture simulation is never available in production configuration.
+        _app_env = (
+            os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or os.getenv("ENV") or ""
+        ).strip().lower()
+        _is_production = _app_env in ("production", "prod")
+        _sim_requested = os.getenv(
+            "V2_PHASE7_CANARY_SIMULATION_ENABLED",
+            "false",
+        ).strip().lower() in ("1", "true", "yes", "on")
+        if _is_production:
+            self.V2_PHASE7_CANARY_SIMULATION_ENABLED = False
+            if _sim_requested:
+                self.V2_PHASE7_CONFIG_VALID = False
+                self.V2_PHASE7_LIVE_CANARY_ENABLED = False
+        else:
+            self.V2_PHASE7_CANARY_SIMULATION_ENABLED = _sim_requested
+        _canary_cfg_invalid = False
+        try:
+            self.V2_PHASE7_CANARY_MAX_CALLS = min(
+                12, max(1, int(os.getenv("V2_PHASE7_CANARY_MAX_CALLS", "12")))
+            )
+            self.V2_PHASE7_CANARY_MAX_INPUT_TOKENS = max(
+                1, int(os.getenv("V2_PHASE7_CANARY_MAX_INPUT_TOKENS", "50000"))
+            )
+            self.V2_PHASE7_CANARY_MAX_OUTPUT_TOKENS = max(
+                1, int(os.getenv("V2_PHASE7_CANARY_MAX_OUTPUT_TOKENS", "20000"))
+            )
+            self.V2_PHASE7_CANARY_MAX_COST_USD = float(
+                os.getenv("V2_PHASE7_CANARY_MAX_COST_USD", "5.0")
+            )
+            if self.V2_PHASE7_CANARY_MAX_COST_USD <= 0:
+                raise ValueError("cost ceiling must be positive")
+            self.V2_PHASE7_CANARY_MAX_WALL_SECONDS = min(
+                1200,
+                max(1, int(os.getenv("V2_PHASE7_CANARY_MAX_WALL_SECONDS", "1200"))),
+            )
+            self.V2_PHASE7_CANARY_MAX_RETRIES = min(
+                1, max(0, int(os.getenv("V2_PHASE7_CANARY_MAX_RETRIES", "1")))
+            )
+            self.V2_PHASE7_CANARY_PER_CALL_TIMEOUT_SECONDS = min(
+                600,
+                max(
+                    1,
+                    int(os.getenv("V2_PHASE7_CANARY_PER_CALL_TIMEOUT_SECONDS", "120")),
+                ),
+            )
+            self.V2_PHASE7_CANARY_APPROVAL_TTL_SECONDS = max(
+                60,
+                int(os.getenv("V2_PHASE7_CANARY_APPROVAL_TTL_SECONDS", "3600")),
+            )
+        except ValueError:
+            _canary_cfg_invalid = True
+            self.V2_PHASE7_CANARY_MAX_CALLS = 12
+            self.V2_PHASE7_CANARY_MAX_INPUT_TOKENS = 50000
+            self.V2_PHASE7_CANARY_MAX_OUTPUT_TOKENS = 20000
+            self.V2_PHASE7_CANARY_MAX_COST_USD = 5.0
+            self.V2_PHASE7_CANARY_MAX_WALL_SECONDS = 1200
+            self.V2_PHASE7_CANARY_MAX_RETRIES = 1
+            self.V2_PHASE7_CANARY_PER_CALL_TIMEOUT_SECONDS = 120
+            self.V2_PHASE7_CANARY_APPROVAL_TTL_SECONDS = 3600
+        if _canary_cfg_invalid:
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_LIVE_CANARY_ENABLED = False
+            self.V2_PHASE7_PERCENT_SERVE_ENABLED = False
+        # Percent-serve activation while master/promote disabled → fail closed.
+        # Note: ROLLOUT_PERCENT may still be >0 for shadow targeting (7A/7B)
+        # while PERCENT_SERVE_ENABLED remains false — that must not invalidate
+        # the whole Phase 7 plane.
+        if self.V2_PHASE7_PERCENT_SERVE_ENABLED and not (
+            self.V2_PHASE7_ROLLOUT_ENABLED and self.V2_PHASE7_PROMOTE_ENABLED
+        ):
+            self.V2_PHASE7_CONFIG_VALID = False
+            self.V2_PHASE7_PERCENT_SERVE_ENABLED = False
         # Quality bar: critics ON by default so thin/placeholder pages get refined.
         # Set PREVIEW_SKIP_CRITIC=true only for fast local iteration.
         self.PREVIEW_SKIP_CRITIC = os.getenv("PREVIEW_SKIP_CRITIC", "false").strip().lower() in (

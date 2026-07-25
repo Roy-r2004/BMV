@@ -33,6 +33,8 @@ from app.application.rollout.shadow_lineage import locate_latest_accepted_lineag
 from app.core import config as app_config
 from app.domain.models.preview_candidate import CandidateRevisionRecord
 from app.domain.models.rollout import (
+    PreviewLiveCanaryExecutionRecord,
+    PreviewLiveCanaryLifecycleEventRecord,
     PreviewPromotionDecisionRecord,
     PreviewPromotionDecisionStatusEventRecord,
     PreviewServingPointerVersionRecord,
@@ -96,6 +98,58 @@ class PromotionService:
             raise PromotionServiceError(
                 "rollout_percent_nonzero", stage="allowlist"
             )
+
+    def _verify_canary_evidence(
+        self,
+        *,
+        request_id: int,
+        canary_execution_id: int,
+        candidate_revision_id: int,
+        effective_tier_summary_id: int,
+    ) -> None:
+        """Server-side canary evidence check — never trusts client hashes."""
+        from app.application.rollout.canary_policy import compute_policy_identity
+
+        exec_row = (
+            self._db.query(PreviewLiveCanaryExecutionRecord)
+            .filter(PreviewLiveCanaryExecutionRecord.id == canary_execution_id)
+            .one_or_none()
+        )
+        if exec_row is None:
+            raise PromotionServiceError("canary_execution_not_found", stage="canary")
+        if exec_row.result_status != "completed":
+            raise PromotionServiceError("canary_not_completed", stage="canary")
+        if exec_row.request_id != request_id:
+            raise PromotionServiceError("canary_request_mismatch", stage="canary")
+        if exec_row.candidate_revision_id != candidate_revision_id:
+            raise PromotionServiceError("canary_candidate_mismatch", stage="canary")
+        if (
+            exec_row.execution_mode != "live"
+            or not bool(exec_row.provider_was_live)
+            or bool(exec_row.simulation_only)
+            or not bool(exec_row.percent_authorization_eligible)
+        ):
+            raise PromotionServiceError("canary_fixture_not_eligible", stage="canary")
+        reviewed = (
+            self._db.query(PreviewLiveCanaryLifecycleEventRecord)
+            .filter(
+                PreviewLiveCanaryLifecycleEventRecord.approval_id == exec_row.approval_id,
+                PreviewLiveCanaryLifecycleEventRecord.status == "reviewed_accepted",
+            )
+            .first()
+        )
+        if reviewed is None:
+            raise PromotionServiceError("canary_not_reviewed", stage="canary")
+        identity = compute_policy_identity()
+        if exec_row.policy_identity_sha256 != identity.policy_identity_sha256:
+            raise PromotionServiceError("canary_policy_stale", stage="canary")
+        # effective summary match against accepted lineage when present
+        lineage = locate_latest_accepted_lineage(self._db, request_id)
+        if lineage is not None and lineage.effective_summary_id is not None:
+            if lineage.effective_summary_id != effective_tier_summary_id:
+                raise PromotionServiceError(
+                    "canary_effective_summary_mismatch", stage="canary"
+                )
 
     def _append_status(
         self,
@@ -241,6 +295,13 @@ class PromotionService:
             reject_client_supplied_roles(client_payload)
         require_permission(actor, "request_promotion")
         self._require_allowlist_zero_percent(request_id)
+        if body.canary_execution_id is not None:
+            self._verify_canary_evidence(
+                request_id=request_id,
+                canary_execution_id=body.canary_execution_id,
+                candidate_revision_id=body.candidate_revision_id,
+                effective_tier_summary_id=body.effective_tier_summary_id,
+            )
 
         payload_hash = _payload_sha(
             {
@@ -251,6 +312,7 @@ class PromotionService:
                 "expected_pointer_version": body.expected_pointer_version,
                 "reason": body.reason,
                 "ticket_ref": body.ticket_ref,
+                "canary_execution_id": body.canary_execution_id,
             }
         )
         if body.idempotency_key:

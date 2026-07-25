@@ -37,6 +37,8 @@ class PromotionRequestBody(StrictDesignModel):
     reason: NonEmptyText
     ticket_ref: NonEmptyText
     idempotency_key: NonEmptyText | None = None
+    # Optional Phase 7F evidence reference — never bypasses SoD/health/apply.
+    canary_execution_id: StrictInt | None = Field(default=None, ge=1)
 
 
 class RollbackRequestBody(StrictDesignModel):

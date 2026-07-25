@@ -209,6 +209,13 @@ def resolve_dist_for_serving(
     """Resolve dist with pointer verification and approved fallback order."""
     db = SessionLocal()
     try:
+        # Phase 7F: allowlist / sticky-percent gate before any candidate access.
+        from app.application.rollout.percent_serve import evaluate_serve_eligibility
+
+        eligibility = evaluate_serve_eligibility(db, request_id)
+        if eligibility.mode == "legacy":
+            return legacy_get_dist_dir(request_id)
+
         current = (
             db.query(PreviewServingPointerVersionRecord)
             .filter(

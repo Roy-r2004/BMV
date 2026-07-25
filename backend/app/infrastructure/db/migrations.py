@@ -31,6 +31,10 @@ from app.infrastructure.db.phase7e_migrations import (
     migrate_phase7e_ops,
     phase7e_schema_version,
 )
+from app.infrastructure.db.phase7f_migrations import (
+    migrate_phase7f_percent_canary,
+    phase7f_schema_version,
+)
 from app.infrastructure.db.session import engine
 
 _REQUESTS_TABLE_MIGRATIONS: list[tuple[str, str]] = [
@@ -756,6 +760,7 @@ def run_sqlite_migrations() -> None:
                 migrate_phase7c_promotion(engine)
                 migrate_phase7d_breaker(engine)
                 migrate_phase7e_ops(engine)
+                migrate_phase7f_percent_canary(engine)
                 return
 
             if url.startswith("postgresql"):
@@ -792,6 +797,7 @@ def run_sqlite_migrations() -> None:
                 migrate_phase7c_promotion(engine)
                 migrate_phase7d_breaker(engine)
                 migrate_phase7e_ops(engine)
+                migrate_phase7f_percent_canary(engine)
     except Exception:
         pass
 
@@ -805,11 +811,13 @@ __all__ = [
     "migrate_phase7c_promotion",
     "migrate_phase7d_breaker",
     "migrate_phase7e_ops",
+    "migrate_phase7f_percent_canary",
     "migrate_tier_orchestration_target_tier",
     "phase7a_schema_version",
     "phase7b_schema_version",
     "phase7c_schema_version",
     "phase7d_schema_version",
     "phase7e_schema_version",
+    "phase7f_schema_version",
     "run_sqlite_migrations",
 ]

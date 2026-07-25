@@ -357,6 +357,21 @@ class PreviewLiveCanaryApprovalRecord(Base):
     initial_status = Column(String(32), nullable=False, default="approved")
     approval_sha256 = Column(String(64), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    # Phase 7F additive columns (nullable for pre-7F rows).
+    requester_id = Column(String(128), nullable=True)
+    reason = Column(Text, nullable=True)
+    rollout_salt = Column(String(128), nullable=True)
+    provider_manifest_sha256 = Column(String(64), nullable=True)
+    generation_policy_sha256 = Column(String(64), nullable=True)
+    prompt_policy_sha256 = Column(String(64), nullable=True)
+    runtime_policy_sha256 = Column(String(64), nullable=True)
+    comparison_policy_revision = Column(String(64), nullable=True)
+    budget_policy_sha256 = Column(String(64), nullable=True)
+    max_input_tokens = Column(Integer, nullable=True)
+    max_retries = Column(Integer, nullable=True)
+    per_call_timeout_seconds = Column(Integer, nullable=True)
+    policy_identity_sha256 = Column(String(64), nullable=True)
+    idempotency_key = Column(String(256), nullable=True)
 
 
 class PreviewLiveCanaryApprovalStatusEventRecord(Base):
@@ -386,6 +401,134 @@ class PreviewLiveCanaryApprovalStatusEventRecord(Base):
     reason = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     event_sha256 = Column(String(64), nullable=False)
+
+
+class PreviewLiveCanaryLifecycleEventRecord(Base):
+    """Phase 7F append-only canary lifecycle (request→approve→execute→review)."""
+
+    __tablename__ = "preview_live_canary_lifecycle_events"
+    __table_args__ = (
+        UniqueConstraint("event_sha256", name="uq_canary_life_event_sha256"),
+        Index("ix_canary_life_approval", "approval_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    approval_id = Column(
+        Integer,
+        ForeignKey("preview_live_canary_approvals.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(String(32), nullable=False)
+    actor_id = Column(String(128), nullable=False)
+    reason = Column(Text, nullable=False)
+    ticket_ref = Column(String(128), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    event_sha256 = Column(String(64), nullable=False)
+
+
+class PreviewLiveCanaryExecutionRecord(Base):
+    __tablename__ = "preview_live_canary_executions"
+    __table_args__ = (
+        UniqueConstraint("execution_uuid", name="uq_canary_exec_uuid"),
+        UniqueConstraint("idempotency_key", name="uq_canary_exec_idem"),
+        UniqueConstraint("execution_sha256", name="uq_canary_exec_sha256"),
+        Index("ix_canary_exec_request", "request_id", "created_at"),
+        Index("ix_canary_exec_approval", "approval_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    execution_uuid = Column(String(36), nullable=False)
+    approval_id = Column(
+        Integer,
+        ForeignKey("preview_live_canary_approvals.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    request_id = Column(
+        Integer,
+        ForeignKey("requests.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+    provider_manifest_sha256 = Column(String(64), nullable=False)
+    generation_policy_sha256 = Column(String(64), nullable=False)
+    prompt_policy_sha256 = Column(String(64), nullable=False)
+    candidate_revision_id = Column(Integer, nullable=True)
+    effective_tier = Column(Integer, nullable=True)
+    phase4_status = Column(String(64), nullable=True)
+    phase5_status = Column(String(64), nullable=True)
+    provider_calls = Column(Integer, nullable=False, default=0)
+    input_tokens = Column(Integer, nullable=False, default=0)
+    output_tokens = Column(Integer, nullable=False, default=0)
+    estimated_cost_usd = Column(Float, nullable=False, default=0.0)
+    wall_seconds = Column(Float, nullable=False, default=0.0)
+    retries = Column(Integer, nullable=False, default=0)
+    budget_json = Column(Text, nullable=False)
+    comparison_artifact_sha256 = Column(String(64), nullable=True)
+    telemetry_sha256 = Column(String(64), nullable=False)
+    result_status = Column(String(32), nullable=False)
+    failure_reason = Column(Text, nullable=True)
+    no_serving_mutation = Column(Boolean, nullable=False, default=True)
+    pointer_version_before = Column(Integer, nullable=True)
+    pointer_version_after = Column(Integer, nullable=True)
+    policy_identity_sha256 = Column(String(64), nullable=False)
+    idempotency_key = Column(String(256), nullable=False)
+    execution_sha256 = Column(String(64), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    # Phase 7F.2 server-derived provenance (never client authority).
+    execution_mode = Column(String(16), nullable=False, default="fixture")
+    provider_was_live = Column(Boolean, nullable=False, default=False)
+    provider_family = Column(String(64), nullable=True)
+    provider_model = Column(String(128), nullable=True)
+    provider_factory_revision = Column(String(64), nullable=True)
+    network_access_expected = Column(Boolean, nullable=False, default=False)
+    execution_environment = Column(String(64), nullable=True)
+    simulation_only = Column(Boolean, nullable=False, default=True)
+    percent_authorization_eligible = Column(Boolean, nullable=False, default=False)
+    provenance_json = Column(Text, nullable=True)
+
+
+class PreviewLiveCanaryExecutionStatusEventRecord(Base):
+    __tablename__ = "preview_live_canary_execution_status_events"
+    __table_args__ = (
+        UniqueConstraint("event_sha256", name="uq_canary_exec_status_sha256"),
+        Index("ix_canary_exec_status", "execution_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    execution_id = Column(
+        Integer,
+        ForeignKey("preview_live_canary_executions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status = Column(String(32), nullable=False)
+    actor_id = Column(String(128), nullable=False)
+    reason = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    event_sha256 = Column(String(64), nullable=False)
+
+
+class PreviewLiveCanaryExecutionClaimRecord(Base):
+    """Mutable singleton claim for one global active canary execution."""
+
+    __tablename__ = "preview_live_canary_execution_claims"
+    __table_args__ = (
+        UniqueConstraint("claim_sha256", name="uq_canary_exec_claim_sha256"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    execution_id = Column(
+        Integer,
+        ForeignKey("preview_live_canary_executions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    claimed_at = Column(DateTime, nullable=False)
+    released_at = Column(DateTime, nullable=True)
+    claim_sha256 = Column(String(64), nullable=False)
 
 
 class PreviewCircuitBreakerPolicyRecord(Base):
@@ -573,6 +716,9 @@ _STRICT_APPEND_ONLY_TYPES = (
     PreviewShadowEvaluationRecord,
     PreviewLiveCanaryApprovalRecord,
     PreviewLiveCanaryApprovalStatusEventRecord,
+    PreviewLiveCanaryLifecycleEventRecord,
+    PreviewLiveCanaryExecutionRecord,
+    PreviewLiveCanaryExecutionStatusEventRecord,
     PreviewCircuitBreakerPolicyRecord,
     PreviewCircuitBreakerStateRecord,
     PreviewBreakerMetricSampleRecord,
@@ -629,6 +775,10 @@ __all__ = [
     "PreviewCircuitBreakerStateRecord",
     "PreviewLiveCanaryApprovalRecord",
     "PreviewLiveCanaryApprovalStatusEventRecord",
+    "PreviewLiveCanaryLifecycleEventRecord",
+    "PreviewLiveCanaryExecutionRecord",
+    "PreviewLiveCanaryExecutionStatusEventRecord",
+    "PreviewLiveCanaryExecutionClaimRecord",
     "PreviewPromotionDecisionRecord",
     "PreviewPromotionDecisionStatusEventRecord",
     "PreviewRolloutAlertEventRecord",

@@ -382,6 +382,72 @@ def scan_and_persist_alerts(db: Session) -> int:
             }
         )
 
+    # Phase 7F percent-serve observability (non-authoritative; no mutations).
+    if s.V2_PHASE7_PERCENT_SERVE_ENABLED and s.V2_PHASE7_ROLLOUT_PERCENT > 0:
+        candidates.append(
+            {
+                "alert_class": "rollout_percent_enabled",
+                "severity": "info",
+                "scope_key": GLOBAL_BREAKER_SCOPE_KEY,
+                "source_event_type": "percent_serve",
+                "source_event_id": (
+                    f"percent_enabled:{policy_rev}:{s.V2_PHASE7_ROLLOUT_PERCENT}"
+                ),
+                "source_sha256": canonical_sha256(
+                    {
+                        "percent": s.V2_PHASE7_ROLLOUT_PERCENT,
+                        "policy_revision": policy_rev,
+                    }
+                ),
+                "payload": {
+                    "rollout_percent": s.V2_PHASE7_ROLLOUT_PERCENT,
+                    "percent_serve_enabled": True,
+                },
+            }
+        )
+        try:
+            from app.application.rollout.percent_serve import canary_authorization
+
+            auth = canary_authorization(db)
+            if not auth.valid:
+                cls = (
+                    "rollout_percent_blocked_missing_canary"
+                    if auth.reason == "missing_canary"
+                    else "rollout_percent_blocked_stale_canary"
+                )
+                candidates.append(
+                    {
+                        "alert_class": cls,
+                        "severity": "high",
+                        "scope_key": GLOBAL_BREAKER_SCOPE_KEY,
+                        "source_event_type": "percent_serve",
+                        "source_event_id": f"{cls}:{auth.policy_identity_sha256[:16]}",
+                        "source_sha256": auth.policy_identity_sha256,
+                        "payload": {"reason": auth.reason},
+                    }
+                )
+            if s.V2_PHASE7_CIRCUIT_BREAKER_ENABLED:
+                st = BreakerService(db).current_state()
+                if st in ("open", "half_open"):
+                    candidates.append(
+                        {
+                            "alert_class": "rollout_percent_blocked_breaker_state",
+                            "severity": "medium",
+                            "scope_key": GLOBAL_BREAKER_SCOPE_KEY,
+                            "source_event_type": "percent_serve",
+                            "source_event_id": f"percent_breaker:{st}:{policy_rev}",
+                            "source_sha256": canonical_sha256(
+                                {"breaker_state": st, "policy_revision": policy_rev}
+                            ),
+                            "payload": {
+                                "breaker_state": st,
+                                "note": "activation_blocked_not_serving_forced_legacy",
+                            },
+                        }
+                    )
+        except Exception:  # noqa: BLE001
+            pass
+
     # Deterministic candidate order
     candidates.sort(
         key=lambda c: (

@@ -29,6 +29,14 @@ AlertClass = Literal[
     "history_mutation_denied",
     "phase7_config_invalid",
     "alert_storm_suppressed",
+    "live_canary_budget_overrun",
+    "live_canary_failed",
+    "live_canary_aborted",
+    "live_canary_review_rejected",
+    "rollout_percent_enabled",
+    "rollout_percent_blocked_missing_canary",
+    "rollout_percent_blocked_stale_canary",
+    "rollout_percent_blocked_breaker_state",
 ]
 
 AlertSeverity = Literal["info", "medium", "high", "critical"]

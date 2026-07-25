@@ -15,6 +15,7 @@ from app.infrastructure.db.phase7b_migrations import migrate_phase7b_shadow
 from app.infrastructure.db.phase7c_migrations import migrate_phase7c_promotion
 from app.infrastructure.db.phase7d_migrations import migrate_phase7d_breaker
 from app.infrastructure.db.phase7e_migrations import migrate_phase7e_ops
+from app.infrastructure.db.phase7f_migrations import migrate_phase7f_percent_canary
 
 
 def enable_test_only_mode() -> None:
@@ -22,9 +23,13 @@ def enable_test_only_mode() -> None:
 
 
 def make_rollout_engine(
-    *, phase7c: bool = True, phase7d: bool = False, phase7e: bool = False
+    *,
+    phase7c: bool = True,
+    phase7d: bool = False,
+    phase7e: bool = False,
+    phase7f: bool = False,
 ):
-    """Minimal schema for Phase 7A/7B/7C/7D/7E tables + FK parents.
+    """Minimal schema for Phase 7A–7F tables + FK parents.
 
     Phase 7C columns are migrated by default because ORM models include them.
     """
@@ -117,6 +122,12 @@ def make_rollout_engine(
         if not phase7d:
             migrate_phase7d_breaker(engine)
         migrate_phase7e_ops(engine)
+    if phase7f:
+        if not phase7d:
+            migrate_phase7d_breaker(engine)
+        if not phase7e:
+            migrate_phase7e_ops(engine)
+        migrate_phase7f_percent_canary(engine)
     return engine, root
 
 
@@ -130,6 +141,12 @@ def make_phase7d_engine():
 
 def make_phase7e_engine():
     return make_rollout_engine(phase7c=True, phase7d=True, phase7e=True)
+
+
+def make_phase7f_engine():
+    return make_rollout_engine(
+        phase7c=True, phase7d=True, phase7e=True, phase7f=True
+    )
 
 
 def make_session(engine):

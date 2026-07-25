@@ -29,7 +29,16 @@ def test_no_combined_or_unsafe_rollout_write_endpoints() -> None:
             if "auto-rollback" in path:
                 assert "/breaker/auto-rollbacks" in path
             assert "percent" not in path
-            assert "canary" not in path
+            # Phase 7F allows dedicated canary lifecycle writes only.
+            if "canary" in path:
+                assert any(
+                    fragment in path
+                    for fragment in (
+                        "/canaries",
+                        "/canary-executions/",
+                    )
+                )
+                assert "pointer-swap" not in path
             # Serving pointer remains read-only; writes use promotions/rollbacks.
             if "serving-pointer" in path:
                 assert methods == {"GET"}
@@ -52,6 +61,10 @@ def test_diagnostic_endpoints_allow_shadow_and_phase7c_writes() -> None:
         "/breaker/disable",
         "/breaker/auto-rollbacks/run",
         "/ops/alerts/",
+        "/canaries",
+        "/execute",
+        "/canary-executions/",
+        "/review",
     )
     for route in rollout_routes:
         methods = set(route.methods or [])
