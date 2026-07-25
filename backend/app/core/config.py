@@ -384,8 +384,10 @@ class Settings:
         # v2 validates that this reviewer belongs to a different model family
         # before it makes any provider call. v1 continues using the legacy
         # APPSPEC_COVERAGE_MODEL setting above.
+        # Prefer an explicit v2 override; otherwise inherit APPSPEC_COVERAGE_MODEL
+        # so production does not silently self-review with CRITIC_MODEL/Gemini.
         self.APPSPEC_V2_COVERAGE_MODEL = _env_or(
-            "APPSPEC_V2_COVERAGE_MODEL", self.CRITIC_MODEL
+            "APPSPEC_V2_COVERAGE_MODEL", self.APPSPEC_COVERAGE_MODEL
         )
         try:
             self.APPSPEC_MAX_CALLS = max(2, int(os.getenv("APPSPEC_MAX_CALLS", "6")))
@@ -511,20 +513,22 @@ class Settings:
         except ValueError:
             self.V2_DESIGN_DNA_MAX_TOKENS = 5000
         try:
+            # Allow up to 5 retries in production; 2 was too aggressive for
+            # slow OpenRouter models under shared stage budgets.
             self.V2_DESIGN_STAGE_MAX_ATTEMPTS = min(
-                2,
+                5,
                 max(
                     1,
-                    int(os.getenv("V2_DESIGN_STAGE_MAX_ATTEMPTS", "2")),
+                    int(os.getenv("V2_DESIGN_STAGE_MAX_ATTEMPTS", "3")),
                 ),
             )
         except ValueError:
-            self.V2_DESIGN_STAGE_MAX_ATTEMPTS = 2
+            self.V2_DESIGN_STAGE_MAX_ATTEMPTS = 3
         for field_name, default in (
-            ("V2_PRODUCT_STRATEGY_TIMEOUT_SECONDS", 90),
-            ("V2_INFORMATION_ARCHITECTURE_TIMEOUT_SECONDS", 120),
-            ("V2_DESIGN_DNA_TIMEOUT_SECONDS", 120),
-            ("V2_DESIGN_CONTRACT_TIMEOUT_SECONDS", 300),
+            ("V2_PRODUCT_STRATEGY_TIMEOUT_SECONDS", 180),
+            ("V2_INFORMATION_ARCHITECTURE_TIMEOUT_SECONDS", 240),
+            ("V2_DESIGN_DNA_TIMEOUT_SECONDS", 240),
+            ("V2_DESIGN_CONTRACT_TIMEOUT_SECONDS", 900),
         ):
             try:
                 value = max(10, int(os.getenv(field_name, str(default))))
@@ -581,23 +585,23 @@ class Settings:
             self.V2_CONTENT_DATA_MAX_TOKENS = 10000
         try:
             self.V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS = min(
-                2,
+                5,
                 max(
                     1,
                     int(
                         os.getenv(
                             "V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS",
-                            "2",
+                            "3",
                         )
                     ),
                 ),
             )
         except ValueError:
-            self.V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS = 2
+            self.V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS = 3
         for field_name, default in (
-            ("V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS", 120),
-            ("V2_CONTENT_DATA_TIMEOUT_SECONDS", 120),
-            ("V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS", 240),
+            ("V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS", 300),
+            ("V2_CONTENT_DATA_TIMEOUT_SECONDS", 300),
+            ("V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS", 900),
         ):
             try:
                 value = max(10, int(os.getenv(field_name, str(default))))

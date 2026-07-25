@@ -1,7 +1,8 @@
 # Production app image: React static + FastAPI + Node (Vite preview builds) + Playwright
 # Ollama is optional (separate compose profile). Prefer AI_PROVIDER=openrouter on Hostinger.
 
-FROM node:20-alpine AS frontend-build
+# Frontend toolchain needs Node >= 22 (Vite 8 / current npm engines).
+FROM node:22-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
@@ -34,7 +35,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PULL_MODELS=false \
     SEED_DEMO=false \
     APP_ENV=production \
-    PATH="/opt/node/bin:${PATH}"
+    PATH="/opt/node/bin:${PATH}" \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -49,8 +51,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app/backend
 
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt \
-    && playwright install --with-deps --no-shell chromium
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Separate layer + retry: Coolify often kills this step on flaky downloads / OOM.
+RUN playwright install-deps chromium \
+    && (playwright install --no-shell chromium \
+        || (sleep 5 && playwright install --no-shell chromium) \
+        || (sleep 10 && playwright install --no-shell chromium))
 
 # Full backend (app + templates + preview-template for codegen/vite builds)
 COPY backend/ ./
