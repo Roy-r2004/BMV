@@ -213,28 +213,18 @@ def test_both_tier_flags_false_return_exact_phase5_object(
     assert result is phase5
 
 
-def test_tier_3_disabled_returns_exact_phase6a_object_in_pipeline(
+def test_tier_2_flag_does_not_auto_invoke_from_v2_pipeline(
     monkeypatch,
 ) -> None:
+    """Commercial gate: Tier 2 capability flag must not auto-run after Tier 1."""
     phase5 = {
         "preview_contract": {"status": "candidate_visual_accepted"}
-    }
-    phase6a = {
-        "preview_contract": {
-            "status": "tier_2_accepted",
-            "target_tier": 2,
-        }
     }
     _stub_through_phase5(monkeypatch, phase5)
     monkeypatch.setattr(settings, "V2_RUNTIME_VALIDATION_ENABLED", True)
     monkeypatch.setattr(settings, "V2_VISUAL_EVALUATION_ENABLED", True)
     monkeypatch.setattr(settings, "V2_TIER2_GENERATION_ENABLED", True)
     monkeypatch.setattr(settings, "V2_TIER3_GENERATION_ENABLED", False)
-    monkeypatch.setattr(
-        boundary_module,
-        "orchestrate_v2_tier_2",
-        lambda *_args, **_kwargs: phase6a,
-    )
     result = boundary_module.run_v2_contract_boundary(
         None,
         1,
@@ -243,4 +233,5 @@ def test_tier_3_disabled_returns_exact_phase6a_object_in_pipeline(
         req=None,
         app_spec_revision_id=None,
     )
-    assert result is phase6a
+    assert result is phase5
+    assert "orchestrate_v2_tier_2" not in dir(boundary_module)

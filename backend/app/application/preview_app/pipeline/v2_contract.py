@@ -15,12 +15,6 @@ from app.application.runtime_validation.service import (
 from app.application.visual_evaluation.service import (
     evaluate_v2_candidate_visuals,
 )
-from app.application.tier_orchestration.service import (
-    orchestrate_v2_tier_2,
-)
-from app.application.tier_orchestration.tier3_service import (
-    orchestrate_v2_tier_3,
-)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -95,22 +89,10 @@ def run_v2_contract_boundary(
         != "candidate_visual_accepted"
     ):
         return phase5_result
-    phase6a_result = orchestrate_v2_tier_2(
-        db,
-        request_id,
-        ai_provider,
-        template_renderer,
-        req=req,
-        phase5_result=phase5_result,
-    )
-    return orchestrate_v2_tier_3(
-        db,
-        request_id,
-        ai_provider,
-        template_renderer,
-        req=req,
-        phase6a_result=phase6a_result,
-    )
+    # Commercial gate: Tier 2/3 never auto-start after Tier 1 visual acceptance.
+    # Tier 2 runs only via an approved Expanded Preview admin start action.
+    # Tier 3 remains separately admin-controlled and is not invoked here.
+    return phase5_result
 
 
 __all__ = ["run_v2_contract_boundary"]

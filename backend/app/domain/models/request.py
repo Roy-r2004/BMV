@@ -58,6 +58,8 @@ class Request(Base):
 
     visual_demo_generated_at = Column(DateTime, nullable=True)
     generated_pages = Column(Text, nullable=True)
+    # Opaque customer token for Expanded Preview and result-page API access.
+    customer_access_token = Column(String(64), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

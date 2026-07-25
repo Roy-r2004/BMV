@@ -2,8 +2,12 @@ import { apiClient } from './client';
 import type { ChatMessage, ChatSendResponse, PreviewResponse } from '../types/request';
 import type { BuildRequestContact } from '../types/buildRequest';
 import { stripMarkdownFormatting } from '../utils/parseMarkdownSections';
+import { storeRequestAccessToken } from './expandedPreview';
 
 function normalizePreview(data: PreviewResponse): PreviewResponse {
+  if (data.customer_access_token) {
+    storeRequestAccessToken(data.id, data.customer_access_token);
+  }
   return {
     ...data,
     preview_features: (data.preview_features ?? []).map(stripMarkdownFormatting),
@@ -11,13 +15,18 @@ function normalizePreview(data: PreviewResponse): PreviewResponse {
   };
 }
 
-export async function createRequest(formData: FormData): Promise<{ id: number; status: string }> {
+export async function createRequest(
+  formData: FormData,
+): Promise<{ id: number; status: string; customer_access_token?: string }> {
   // The backend now returns immediately and runs generation in the background —
   // the frontend polls /preview and /progress to track completion.
   const { data } = await apiClient.post('/api/requests', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 30000,
   });
+  if (data?.id && data?.customer_access_token) {
+    storeRequestAccessToken(data.id, data.customer_access_token);
+  }
   return data;
 }
 

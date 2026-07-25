@@ -12,6 +12,7 @@ import GenerationCinematic from '../components/preview/GenerationCinematic';
 import VisualDemoPreview from '../components/VisualDemoPreview';
 import PreviewAppPreview from '../components/preview/PreviewAppPreview';
 import RoleBasedPreview from '../components/preview/rolePages/RoleBasedPreview';
+import ExpandedPreviewRequestCard from '../components/ExpandedPreviewRequestCard';
 import DeliveryNavigator from '../components/delivery/DeliveryNavigator';
 import { buildDeliveryNavItems } from '../components/delivery/deliveryNavItems';
 import FullDeliveryPackage from '../components/delivery/FullDeliveryPackage';
@@ -240,6 +241,11 @@ export default function ResultPreviewPage() {
       </section>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-28">
+        <ExpandedPreviewRequestCard
+          requestId={preview.id}
+          accessToken={preview.customer_access_token}
+          demoView={isDemoView}
+        />
         <BuildRequestCTA
           requestId={preview.id}
           conceptName={preview.concept_name}

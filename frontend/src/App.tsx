@@ -16,6 +16,8 @@ import AdminOpsPage from './routes/AdminOpsPage';
 import AdminDashboardPage from './routes/AdminDashboardPage';
 import AdminUsagePage from './routes/AdminUsagePage';
 import AdminRequestDetailPage from './routes/AdminRequestDetailPage';
+import AdminExpandedPreviewQueuePage from './routes/AdminExpandedPreviewQueuePage';
+import AdminExpandedPreviewDetailPage from './routes/AdminExpandedPreviewDetailPage';
 import AdminLayout from './components/AdminLayout';
 import SiteChatWidget from './components/SiteChatWidget';
 import './styles/mobile-shell.css';
@@ -42,6 +44,8 @@ export default function App() {
             <Route index element={<AdminOpsPage />} />
             <Route path="requests" element={<AdminDashboardPage />} />
             <Route path="requests/:id" element={<AdminRequestDetailPage />} />
+            <Route path="expanded-previews" element={<AdminExpandedPreviewQueuePage />} />
+            <Route path="expanded-previews/:id" element={<AdminExpandedPreviewDetailPage />} />
             <Route path="usage" element={<AdminUsagePage />} />
           </Route>
         </Routes>

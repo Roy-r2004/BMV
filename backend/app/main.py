@@ -11,8 +11,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.api_router import api_router
+from app.application.bootstrap.startup import (
+    StartupMigrationError,
+    StartupMigrationResult,
+    bootstrap_database,
+    redact_database_url,
+)
+from app.application.services.admin_bootstrap import bootstrap_admin
+from app.application.services.demo_seed import seed_demo_if_empty
 from app.core.config import settings
-from app.infrastructure.logging import configure_logging, get_logger
 from app.domain.models import (  # noqa: F401
     AdminAlert,
     AdminSettings,
@@ -70,31 +77,44 @@ from app.domain.models import (  # noqa: F401
     User,
     UserSession,
 )
+from app.domain.models.expanded_preview import (  # noqa: F401
+    ExpandedPreviewGenerationClaimRecord,
+    ExpandedPreviewPublicationRecord,
+    ExpandedPreviewRequestRecord,
+    ExpandedPreviewStatusEventRecord,
+)
 from app.infrastructure.db.base import Base
-from app.infrastructure.db.migrations import run_sqlite_migrations
+from app.infrastructure.db.migrations import run_legacy_column_migrations
 from app.infrastructure.db.session import engine
+from app.infrastructure.logging import configure_logging, get_logger
 from app.infrastructure.storage.file_service import ensure_upload_dir
-from app.application.services.admin_bootstrap import bootstrap_admin
-from app.application.services.demo_seed import seed_demo_if_empty
 
 configure_logging(settings.LOG_LEVEL)
 boot_log = get_logger("Boot")
 
-# Never block process start — Render kills deploys that don't bind $PORT in time.
+STARTUP_MIGRATION_RESULT: StartupMigrationResult | None = None
+
+# Fail closed: incomplete schema must not serve traffic.
 try:
-    Base.metadata.create_all(bind=engine)
-    run_sqlite_migrations()
+    STARTUP_MIGRATION_RESULT = bootstrap_database(
+        engine=engine,
+        create_all=Base.metadata.create_all,
+        run_legacy_column_migrations=run_legacy_column_migrations,
+        database_url=settings.DATABASE_URL,
+    )
     ensure_upload_dir()
     bootstrap_admin()
     if settings.SEED_DEMO:
         seed_demo_if_empty()
     else:
         boot_log.info("SEED_DEMO=false — skipping PlateSync demo seed")
-except Exception:
-    boot_log.exception(
-        "DB bootstrap failed (DATABASE_URL=%s) — app will still start",
-        settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else settings.DATABASE_URL,
+except StartupMigrationError as exc:
+    STARTUP_MIGRATION_RESULT = exc.result
+    boot_log.error(
+        "DB bootstrap failed (db=%s) — refusing to start",
+        redact_database_url(settings.DATABASE_URL),
     )
+    raise SystemExit(f"Startup aborted: {exc.result.failure_reason}") from exc
 
 boot_log.info(
     "PREVIEW_TEMPLATE_DIR=%s exists=%s",

@@ -7,11 +7,13 @@ from pydantic import BaseModel
 class RequestCreateResponse(BaseModel):
     id: int
     status: str
+    customer_access_token: str | None = None
 
 
 class PreviewResponse(BaseModel):
     id: int
     business_name: str
+    customer_access_token: str | None = None
     business_fit_score: Optional[int] = None
     concept_name: Optional[str] = None
     preview_summary: Optional[str] = None

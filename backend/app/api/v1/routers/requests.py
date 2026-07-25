@@ -173,6 +173,8 @@ async def create_request(
     if reference_file and reference_file.filename:
         file_path = save_upload(reference_file)
 
+    from app.application.expanded_preview.service import ensure_customer_access_token
+
     req = Request(
         business_name=business_name,
         industry=industry,
@@ -192,6 +194,7 @@ async def create_request(
         whatsapp=whatsapp,
         status="new",
     )
+    ensure_customer_access_token(req)
     db.add(req)
     db.commit()
     db.refresh(req)
@@ -209,7 +212,11 @@ async def create_request(
         daemon=True,
     ).start()
 
-    return RequestCreateResponse(id=req.id, status="created")
+    return RequestCreateResponse(
+        id=req.id,
+        status="created",
+        customer_access_token=req.customer_access_token,
+    )
 
 @router.get("/{request_id}/preview", response_model=PreviewResponse)
 def get_preview(request_id: int, db: Session = Depends(get_db)):
@@ -235,10 +242,15 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
 
     is_generating = is_request_generating(req)
 
+    from app.application.expanded_preview.service import ensure_customer_access_token
+
+    access_token = ensure_customer_access_token(req)
+    db.commit()
 
     return PreviewResponse(
         id=req.id,
         business_name=req.business_name,
+        customer_access_token=access_token,
         business_fit_score=req.business_fit_score,
         concept_name=req.concept_name,
         preview_summary=req.preview_summary,

@@ -60,6 +60,12 @@ from app.domain.models.preview_contract import (
     PreviewTierArtifactRecord,
     ProductStrategyRevision,
 )
+from app.domain.models.expanded_preview import (
+    ExpandedPreviewGenerationClaimRecord,
+    ExpandedPreviewPublicationRecord,
+    ExpandedPreviewRequestRecord,
+    ExpandedPreviewStatusEventRecord,
+)
 from app.domain.models.request import Request
 from app.domain.models.solution_workspace import SolutionEditMessage, SolutionWorkspace
 from app.domain.models.user import User
@@ -67,6 +73,10 @@ from app.domain.models.user_session import UserSession
 
 __all__ = [
     "Request",
+    "ExpandedPreviewGenerationClaimRecord",
+    "ExpandedPreviewPublicationRecord",
+    "ExpandedPreviewRequestRecord",
+    "ExpandedPreviewStatusEventRecord",
     "AppSpecRevision",
     "CustomerSourceArtifact",
     "CompositionContractArtifactRecord",

@@ -712,94 +712,108 @@ def assert_tier_orchestration_target_constraint(bind: Engine) -> None:
             )
 
 
-def run_sqlite_migrations() -> None:
-    """Add any missing columns. Never raises."""
+def run_legacy_column_migrations() -> None:
+    """Add legacy missing columns. Raises on failure (fail-closed)."""
     url = settings.DATABASE_URL
-    try:
-        with engine.connect() as conn:
-            if url.startswith("sqlite"):
-                existing = {
-                    row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))
-                }
-                for column, ddl in _REQUESTS_TABLE_MIGRATIONS:
-                    if column not in existing:
-                        conn.execute(text(ddl))
-                user_cols = {
-                    row[1] for row in conn.execute(text("PRAGMA table_info(users)"))
-                }
-                if "is_admin" not in user_cols:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
-                        )
-                    )
-                req_cols = {
-                    row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))
-                }
-                if "generation_cancel" not in req_cols:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE requests ADD COLUMN generation_cancel BOOLEAN DEFAULT 0"
-                        )
-                    )
-                settings_cols = {
-                    row[1]
-                    for row in conn.execute(text("PRAGMA table_info(admin_settings)"))
-                }
-                if settings_cols and "request_budget_usd" not in settings_cols:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE admin_settings ADD COLUMN request_budget_usd FLOAT"
-                        )
-                    )
-                conn.commit()
-                migrate_candidate_revision_target_tier(engine)
-                migrate_tier_orchestration_target_tier(engine)
-                migrate_phase7a_rollout(engine)
-                migrate_phase7b_shadow(engine)
-                migrate_phase7c_promotion(engine)
-                migrate_phase7d_breaker(engine)
-                migrate_phase7e_ops(engine)
-                migrate_phase7f_percent_canary(engine)
-                return
-
-            if url.startswith("postgresql"):
-                for column, _ddl in _REQUESTS_TABLE_MIGRATIONS:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE requests ADD COLUMN IF NOT EXISTS "
-                            f"{column} TEXT"
-                        )
-                    )
+    with engine.connect() as conn:
+        if url.startswith("sqlite"):
+            existing = {
+                row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))
+            }
+            for column, ddl in _REQUESTS_TABLE_MIGRATIONS:
+                if column not in existing:
+                    conn.execute(text(ddl))
+            user_cols = {
+                row[1] for row in conn.execute(text("PRAGMA table_info(users)"))
+            }
+            if "is_admin" not in user_cols:
                 conn.execute(
                     text(
-                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
-                        "is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+                        "ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
                     )
                 )
+            req_cols = {
+                row[1] for row in conn.execute(text("PRAGMA table_info(requests)"))
+            }
+            if "generation_cancel" not in req_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE requests ADD COLUMN generation_cancel BOOLEAN DEFAULT 0"
+                    )
+                )
+            if "customer_access_token" not in req_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE requests ADD COLUMN customer_access_token VARCHAR(64)"
+                    )
+                )
+            settings_cols = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(admin_settings)"))
+            }
+            if settings_cols and "request_budget_usd" not in settings_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE admin_settings ADD COLUMN request_budget_usd FLOAT"
+                    )
+                )
+            conn.commit()
+            return
+
+        if url.startswith("postgresql"):
+            for column, _ddl in _REQUESTS_TABLE_MIGRATIONS:
                 conn.execute(
                     text(
                         "ALTER TABLE requests ADD COLUMN IF NOT EXISTS "
-                        "generation_cancel BOOLEAN DEFAULT FALSE"
+                        f"{column} TEXT"
                     )
                 )
-                conn.execute(
-                    text(
-                        "ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS "
-                        "request_budget_usd DOUBLE PRECISION"
-                    )
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "is_admin BOOLEAN NOT NULL DEFAULT FALSE"
                 )
-                conn.commit()
-                migrate_candidate_revision_target_tier(engine)
-                migrate_tier_orchestration_target_tier(engine)
-                migrate_phase7a_rollout(engine)
-                migrate_phase7b_shadow(engine)
-                migrate_phase7c_promotion(engine)
-                migrate_phase7d_breaker(engine)
-                migrate_phase7e_ops(engine)
-                migrate_phase7f_percent_canary(engine)
-    except Exception:
-        pass
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE requests ADD COLUMN IF NOT EXISTS "
+                    "generation_cancel BOOLEAN DEFAULT FALSE"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE requests ADD COLUMN IF NOT EXISTS "
+                    "customer_access_token VARCHAR(64)"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE admin_settings ADD COLUMN IF NOT EXISTS "
+                    "request_budget_usd DOUBLE PRECISION"
+                )
+            )
+            conn.commit()
+            return
+
+        raise RuntimeError(f"Unsupported DATABASE_URL scheme for migrations: {url.split(':', 1)[0]}")
+
+
+def run_sqlite_migrations() -> None:
+    """Run legacy column + Phase 7 + commercial migrations. Raises on failure."""
+    from app.infrastructure.db.commercial_migrations import (
+        migrate_commercial_expanded_preview,
+    )
+
+    run_legacy_column_migrations()
+    migrate_candidate_revision_target_tier(engine)
+    migrate_tier_orchestration_target_tier(engine)
+    migrate_phase7a_rollout(engine)
+    migrate_phase7b_shadow(engine)
+    migrate_phase7c_promotion(engine)
+    migrate_phase7d_breaker(engine)
+    migrate_phase7e_ops(engine)
+    migrate_phase7f_percent_canary(engine)
+    migrate_commercial_expanded_preview(engine)
 
 
 __all__ = [
@@ -819,5 +833,6 @@ __all__ = [
     "phase7d_schema_version",
     "phase7e_schema_version",
     "phase7f_schema_version",
+    "run_legacy_column_migrations",
     "run_sqlite_migrations",
 ]

@@ -36,9 +36,24 @@ function IconOut() {
   );
 }
 
+function IconExpanded() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M4 7h16M4 12h10M4 17h7M16 14l4 3-4 3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const links = [
   { to: '/admin', end: true, label: 'Command', short: 'Ops', icon: <IconOps /> },
   { to: '/admin/requests', end: false, label: 'Requests', short: 'Inbox', icon: <IconRequests /> },
+  {
+    to: '/admin/expanded-previews',
+    end: false,
+    label: 'Expanded',
+    short: 'Tier2',
+    icon: <IconExpanded />,
+  },
   { to: '/admin/usage', end: false, label: 'Usage', short: 'Usage', icon: <IconUsage /> },
 ];
 

@@ -288,6 +288,7 @@ export interface GeneratedPages {
 export interface PreviewResponse {
   id: number;
   business_name: string;
+  customer_access_token?: string | null;
   business_fit_score: number | null;
   concept_name: string | null;
   preview_summary: string | null;

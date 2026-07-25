@@ -4,6 +4,8 @@
 #
 # Coolify UI alternative (Dockerfile deploy):
 #   Storages → Add → Destination Path = /app/data
+#
+# Pushing main auto-deploys when Coolify is connected to this repository.
 
 services:
   app:
@@ -11,16 +13,20 @@ services:
       context: .
       dockerfile: Dockerfile.app
       args:
+        # Same-origin API behind Coolify reverse proxy
         VITE_API_BASE_URL: ""
         VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
     restart: unless-stopped
     environment:
+      APP_ENV: production
       SEED_DEMO: "false"
       DATABASE_URL: sqlite:////app/data/buildmyversion.db
       UPLOAD_DIR: /app/data/uploads
       STATIC_DIR: /app/static
       PREVIEW_TEMPLATE_DIR: /app/backend/preview-template
       PREVIEW_APPS_DIR: /app/data/preview-apps
+      PREVIEW_CANDIDATES_DIR: /app/data/preview-candidates
+      PREVIEW_VALIDATIONS_DIR: /app/data/runtime-validation
       DATA_DIR: /app/data
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-roy.rizkallah@hotmail.com}
@@ -40,6 +46,29 @@ services:
       APPSPEC_MODE: ${APPSPEC_MODE:-on}
       APPSPEC_FALLBACK_ENABLED: ${APPSPEC_FALLBACK_ENABLED:-true}
       PORT: "8000"
+      # Preview Generator v2 — public defaults
+      PREVIEW_GENERATOR_V2: "true"
+      V2_RUNTIME_VALIDATION_ENABLED: "true"
+      V2_VISUAL_EVALUATION_ENABLED: "true"
+      # Tier 2 capability only (admin-approved Expanded Preview start); never auto-run
+      V2_TIER2_GENERATION_ENABLED: "true"
+      V2_TIER3_GENERATION_ENABLED: "false"
+      # Phase 7 hard gates — fail closed for public traffic
+      V2_PHASE7_ROLLOUT_ENABLED: ${V2_PHASE7_ROLLOUT_ENABLED:-true}
+      V2_PHASE7_OPS_DASHBOARD_ENABLED: ${V2_PHASE7_OPS_DASHBOARD_ENABLED:-true}
+      V2_PHASE7_OPS_ALERTS_ENABLED: ${V2_PHASE7_OPS_ALERTS_ENABLED:-true}
+      V2_PHASE7_SHADOW_ENABLED: "false"
+      V2_PHASE7_PROMOTE_ENABLED: "false"
+      V2_PHASE7_ROLLOUT_PERCENT: "0"
+      V2_PHASE7_PERCENT_SERVE_ENABLED: "false"
+      V2_PHASE7_LIVE_CANARY_ENABLED: "false"
+      V2_PHASE7_LIVE_CANARY_PROVIDERS_ENABLED: "false"
+      V2_PHASE7_AUTO_ROLLBACK_ENABLED: "false"
+      V2_PHASE7_SHADOW_LIVE_PROVIDERS_ENABLED: "false"
+      V2_PHASE7_CANARY_SIMULATION_ENABLED: "false"
+      V2_PHASE7_CIRCUIT_BREAKER_ENABLED: "false"
+      V2_PHASE7_ALLOW_ADMIN_DUAL_ROLE: "false"
+      V2_PHASE7_ROLLOUT_SALT: ${V2_PHASE7_ROLLOUT_SALT:-2026-07-25.1}
     volumes:
       - bmv-persistent-data:/app/data
     ports:
@@ -50,12 +79,12 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready')",
         ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 45s
+      retries: 8
+      start_period: 90s
 
 volumes:
   bmv-persistent-data:

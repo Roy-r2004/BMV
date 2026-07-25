@@ -27,10 +27,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     STATIC_DIR=/app/static \
     PREVIEW_TEMPLATE_DIR=/app/backend/preview-template \
     PREVIEW_APPS_DIR=/app/data/preview-apps \
+    PREVIEW_CANDIDATES_DIR=/app/data/preview-candidates \
+    PREVIEW_VALIDATIONS_DIR=/app/data/runtime-validation \
     OLLAMA_URL=http://ollama:11434 \
     PORT=8000 \
     PULL_MODELS=false \
     SEED_DEMO=false \
+    APP_ENV=production \
     PATH="/opt/node/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -55,13 +58,14 @@ COPY --from=frontend-build /app/frontend/dist /app/static
 COPY docker/entrypoint.app.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh \
     && mkdir -p /app/data/uploads /app/data/preview-apps \
+      /app/data/preview-candidates /app/data/runtime-validation \
     && test -f preview-template/package.json
 
 VOLUME ["/app/data"]
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=8 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready')" || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
