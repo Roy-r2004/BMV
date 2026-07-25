@@ -15,6 +15,9 @@ from app.application.composition_contract.builder import (
     CompositionStageError,
     build_ai_composition_artifact,
 )
+from app.application.composition_contract.component_plan_runner import (
+    build_business_component_plan_artifact,
+)
 from app.application.composition_contract.cache import (
     composition_artifact_sha256,
     composition_cache_key,
@@ -35,7 +38,6 @@ from app.application.composition_contract.normalize import (
     normalize_content_data_plan,
 )
 from app.application.composition_contract.projections import (
-    project_business_component_plan,
     project_content_data_plan,
     project_interactions,
     project_page_purpose,
@@ -103,6 +105,24 @@ def _ensure_deadline(deadline: float) -> None:
             "The composition-contract phase exceeded its wall timeout.",
             stage="composition_contract",
         )
+
+
+def _persist_bcp_diagnostics(
+    db: Session,
+    req: Request,
+    diagnostics: dict[str, Any],
+) -> None:
+    """Persist redacted BCP reliability diagnostics on the request bundle."""
+
+    if not diagnostics:
+        return
+    bundle = _bundle(req)
+    preview = dict(bundle.get("preview_contract") or {})
+    preview["business_component_plan_reliability"] = diagnostics
+    bundle["preview_contract"] = preview
+    req.generated_pages = json.dumps(bundle, ensure_ascii=False)
+    db.add(req)
+    db.commit()
 
 
 def _deterministic_metrics(
@@ -347,6 +367,92 @@ def _resolve_ai(
     )
 
 
+def _resolve_business_component_plan(
+    *,
+    repository: CompositionContractRepository,
+    context: CompositionContext,
+    req: Request,
+    schema_version: str,
+    policy: CompositionStagePolicy,
+    upstream_hashes: tuple[str, ...],
+    parent_artifact_id: int | None,
+    page_purpose: PagePurposeContract,
+    page_purpose_ref: CompositionArtifactRef,
+    prompt_template: str,
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+    deadline: float,
+) -> ResolvedCompositionArtifact:
+    cache_key = composition_cache_key(
+        refs=context.refs,
+        policy=policy,
+        schema_version=schema_version,
+        upstream_hashes=upstream_hashes,
+    )
+    cached = _cached_or_none(
+        repository=repository,
+        context=context,
+        schema=BusinessComponentPlan,
+        policy=policy,
+        cache_key=cache_key,
+        parent_artifact_id=parent_artifact_id,
+        validator=lambda artifact: validate_business_component_plan(
+            artifact,
+            context=context,
+            page_purpose=page_purpose,
+            page_purpose_ref=page_purpose_ref,
+        ),
+    )
+    if cached is not None:
+        return cached
+    try:
+        built = build_business_component_plan_artifact(
+            request_id=context.refs.request_id,
+            policy=policy,
+            prompt_template=prompt_template,
+            context=context,
+            page_purpose=page_purpose,
+            page_purpose_ref=page_purpose_ref,
+            validator=lambda artifact: validate_business_component_plan(
+                artifact,
+                context=context,
+                page_purpose=page_purpose,
+                page_purpose_ref=page_purpose_ref,
+            ),
+            normalize=lambda artifact: normalize_business_component_plan(
+                artifact,
+                context=context,
+                page_purpose=page_purpose,
+                page_purpose_ref=page_purpose_ref,
+            ),
+            ai_provider=ai_provider,
+            template_renderer=template_renderer,
+            phase_deadline=deadline,
+        )
+    except CompositionStageError as exc:
+        # Never substitute a generic/minimal production plan.
+        if exc.diagnostics:
+            _persist_bcp_diagnostics(repository.db, req, exc.diagnostics)
+        raise
+    if built.diagnostics:
+        _persist_bcp_diagnostics(repository.db, req, built.diagnostics)
+    persisted = repository.stage_artifact(
+        artifact_kind=policy.stage,
+        artifact=built.artifact,
+        refs=context.refs,
+        cache_key=cache_key,
+        metrics=built.metrics,
+        validation=built.validation,
+        parent_artifact_id=parent_artifact_id,
+    )
+    return ResolvedCompositionArtifact(
+        artifact=built.artifact,
+        row=persisted.row,
+        ref=composition_artifact_ref(persisted.row),
+        metrics=built.metrics,
+    )
+
+
 def _stage_input(
     context: CompositionContext,
     **artifacts: BaseModel | CompositionArtifactRef,
@@ -450,40 +556,20 @@ def build_v2_composition_contract(
     component_policy = resolve_composition_stage_policy(
         "business_component_plan"
     )
-    component = _resolve_ai(
+    component = _resolve_business_component_plan(
         repository=repository,
         context=context,
-        schema=BusinessComponentPlan,
+        req=req,
         schema_version=BUSINESS_COMPONENT_PLAN_SCHEMA_VERSION,
         policy=component_policy,
         upstream_hashes=(page.ref.sha256, page.row.cache_key),
         parent_artifact_id=page.row.id,
-        stage_input_json=_stage_input(
-            context,
-            page_purpose_contract=page.artifact,
-            page_purpose_ref=page.ref,
-        ),
+        page_purpose=page.artifact,
+        page_purpose_ref=page.ref,
         prompt_template=PromptTemplate.V2_BUSINESS_COMPONENT_PLAN,
-        validator=lambda artifact: validate_business_component_plan(
-            artifact,
-            context=context,
-            page_purpose=page.artifact,
-            page_purpose_ref=page.ref,
-        ),
         ai_provider=ai_provider,
         template_renderer=template_renderer,
         deadline=deadline,
-        normalize=lambda artifact: normalize_business_component_plan(
-            artifact,
-            context=context,
-            page_purpose=page.artifact,
-            page_purpose_ref=page.ref,
-        ),
-        deterministic_fallback=lambda: project_business_component_plan(
-            context,
-            page_purpose=page.artifact,
-            page_purpose_ref=page.ref,
-        ),
     )
     _check_usage(db, (page.metrics, component.metrics))
     if not component.metrics.cache_hit:
@@ -645,6 +731,8 @@ def build_v2_composition_contract(
         raise
 
     phase2_summary = dict(phase2_result.get("preview_contract") or {})
+    existing_bundle = _bundle(req)
+    existing_preview = dict(existing_bundle.get("preview_contract") or {})
     summary = {
         **phase2_summary,
         "status": V2_COMPOSITION_CONTRACT_READY,
@@ -668,7 +756,10 @@ def build_v2_composition_contract(
             "latency_ms": sum(item.latency_ms for item in metrics),
         },
     }
-    bundle = _bundle(req)
+    reliability = existing_preview.get("business_component_plan_reliability")
+    if reliability is not None:
+        summary["business_component_plan_reliability"] = reliability
+    bundle = existing_bundle
     bundle["preview_contract"] = summary
     req.generated_pages = json.dumps(bundle, ensure_ascii=False)
     try:

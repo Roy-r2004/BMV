@@ -426,6 +426,7 @@ class CompositionFixtureAI:
         messages: list[dict],
         max_tokens: int | None = None,
         temperature: float | None = None,
+        **_kwargs,
     ) -> str:
         prompt = messages[0]["content"]
         if "BusinessComponentPlan stage" in prompt:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import threading
 import time
 
 import requests
@@ -20,10 +21,30 @@ class OllamaAIProvider(AIProvider):
 
     def __init__(self, base_url: str | None = None) -> None:
         self._base_url = base_url or settings.OLLAMA_URL
+        self._lock = threading.Lock()
+        self._active_response: requests.Response | None = None
+        self._active_session: requests.Session | None = None
 
     @property
     def name(self) -> str:
         return "ollama"
+
+    def cancel_inflight(self) -> None:
+        with self._lock:
+            response = self._active_response
+            session = self._active_session
+            self._active_response = None
+            self._active_session = None
+        if response is not None:
+            try:
+                response.close()
+            except Exception:
+                pass
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
 
     def _guard(self, model: str, purpose: str) -> None:
         allowed, reason = ai_is_allowed(purpose)
@@ -44,6 +65,8 @@ class OllamaAIProvider(AIProvider):
         *,
         purpose: str,
         max_tokens: int | None = None,
+        timeout: int = 240,
+        transport_attempts: int = 2,
     ) -> str:
         self._guard(model, purpose)
         payload: dict = {"model": model, "stream": False, "messages": messages}
@@ -51,9 +74,24 @@ class OllamaAIProvider(AIProvider):
             payload["options"] = {"num_predict": max_tokens}
 
         def _do_request() -> dict:
-            response = requests.post(f"{self._base_url}/api/chat", json=payload, timeout=240)
-            response.raise_for_status()
-            return response.json()
+            session = requests.Session()
+            with self._lock:
+                self._active_session = session
+            try:
+                response = session.post(
+                    f"{self._base_url}/api/chat",
+                    json=payload,
+                    timeout=timeout,
+                )
+                with self._lock:
+                    self._active_response = response
+                response.raise_for_status()
+                return response.json()
+            finally:
+                with self._lock:
+                    self._active_response = None
+                    self._active_session = None
+                session.close()
 
         def _heartbeat(elapsed: float) -> None:
             retry_log.debug("still waiting on ollama/%s (%.0fs elapsed)", model, elapsed)
@@ -62,7 +100,7 @@ class OllamaAIProvider(AIProvider):
         try:
             data = call_with_retry(
                 _do_request,
-                attempts=2,
+                attempts=max(1, int(transport_attempts)),
                 base_delay=3,
                 heartbeat_interval=20,
                 on_heartbeat=_heartbeat,
@@ -99,8 +137,20 @@ class OllamaAIProvider(AIProvider):
         messages: list[dict],
         max_tokens: int | None = None,
         temperature: float | None = None,
+        *,
+        timeout_seconds: float | None = None,
+        transport_attempts: int | None = None,
     ) -> str:
-        return self._chat(model, messages, purpose="pipeline", max_tokens=max_tokens)
+        timeout = 240 if timeout_seconds is None else max(1, int(timeout_seconds))
+        attempts = 2 if transport_attempts is None else max(1, int(transport_attempts))
+        return self._chat(
+            model,
+            messages,
+            purpose="pipeline",
+            max_tokens=max_tokens,
+            timeout=timeout,
+            transport_attempts=attempts,
+        )
 
     def ask_chat_purposed(
         self,
@@ -110,8 +160,19 @@ class OllamaAIProvider(AIProvider):
         purpose: str,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        timeout_seconds: float | None = None,
+        transport_attempts: int | None = None,
     ) -> str:
-        return self._chat(model, messages, purpose=purpose, max_tokens=max_tokens)
+        timeout = 240 if timeout_seconds is None else max(1, int(timeout_seconds))
+        attempts = 2 if transport_attempts is None else max(1, int(transport_attempts))
+        return self._chat(
+            model,
+            messages,
+            purpose=purpose,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            transport_attempts=attempts,
+        )
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         purpose = "vision"

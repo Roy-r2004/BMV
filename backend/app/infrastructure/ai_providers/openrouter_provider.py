@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import mimetypes
+import threading
 import time
 
 import requests
@@ -39,10 +40,32 @@ class OpenRouterAIProvider(AIProvider):
         self._api_key = api_key if api_key is not None else settings.OPENROUTER_API_KEY
         self._base_url = base_url or settings.OPENROUTER_BASE_URL
         self._app_name = app_name or settings.OPENROUTER_APP_NAME
+        self._lock = threading.Lock()
+        self._active_response: requests.Response | None = None
+        self._active_session: requests.Session | None = None
 
     @property
     def name(self) -> str:
         return "openrouter"
+
+    def cancel_inflight(self) -> None:
+        """Best-effort cancel of the in-flight HTTP request."""
+
+        with self._lock:
+            response = self._active_response
+            session = self._active_session
+            self._active_response = None
+            self._active_session = None
+        if response is not None:
+            try:
+                response.close()
+            except Exception:
+                pass
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
 
     def _headers(self) -> dict:
         if not self._api_key:
@@ -66,6 +89,7 @@ class OpenRouterAIProvider(AIProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
         purpose: str = "pipeline",
+        transport_attempts: int = 2,
     ) -> str:
         allowed, reason = ai_is_allowed(purpose)
         if not allowed:
@@ -85,14 +109,25 @@ class OpenRouterAIProvider(AIProvider):
             payload["temperature"] = temperature
 
         def _do_request() -> dict:
-            response = requests.post(
-                f"{self._base_url}/chat/completions",
-                headers=self._headers(),
-                json=payload,
-                timeout=timeout,
-            )
-            response.raise_for_status()
-            return response.json()
+            session = requests.Session()
+            with self._lock:
+                self._active_session = session
+            try:
+                response = session.post(
+                    f"{self._base_url}/chat/completions",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=timeout,
+                )
+                with self._lock:
+                    self._active_response = response
+                response.raise_for_status()
+                return response.json()
+            finally:
+                with self._lock:
+                    self._active_response = None
+                    self._active_session = None
+                session.close()
 
         def _heartbeat(elapsed: float) -> None:
             retry_log.debug("still waiting on %s (%.0fs elapsed)", model, elapsed)
@@ -101,7 +136,7 @@ class OpenRouterAIProvider(AIProvider):
         try:
             data = call_with_retry(
                 _do_request,
-                attempts=2,
+                attempts=max(1, int(transport_attempts)),
                 base_delay=3,
                 heartbeat_interval=20,
                 on_heartbeat=_heartbeat,
@@ -138,15 +173,22 @@ class OpenRouterAIProvider(AIProvider):
         messages: list[dict],
         max_tokens: int | None = None,
         temperature: float | None = None,
+        *,
+        timeout_seconds: float | None = None,
+        transport_attempts: int | None = None,
     ) -> str:
         if temperature is None and self._is_claude(model):
             temperature = 0.3
+        timeout = 120 if timeout_seconds is None else max(1, int(timeout_seconds))
+        attempts = 2 if transport_attempts is None else max(1, int(transport_attempts))
         return self._chat_completion(
             model,
             messages,
+            timeout=timeout,
             max_tokens=max_tokens,
             temperature=temperature,
             purpose="pipeline",
+            transport_attempts=attempts,
         )
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
@@ -174,13 +216,19 @@ class OpenRouterAIProvider(AIProvider):
         purpose: str,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        timeout_seconds: float | None = None,
+        transport_attempts: int | None = None,
     ) -> str:
+        timeout = 120 if timeout_seconds is None else max(1, int(timeout_seconds))
+        attempts = 2 if transport_attempts is None else max(1, int(transport_attempts))
         return self._chat_completion(
             model,
             messages,
+            timeout=timeout,
             max_tokens=max_tokens,
             temperature=temperature,
             purpose=purpose,
+            transport_attempts=attempts,
         )
 
     def is_available(self) -> bool:

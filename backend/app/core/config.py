@@ -153,6 +153,14 @@ class Settings:
     V2_CONTENT_DATA_MAX_TOKENS: int
     V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS: int
     V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS: int
+    V2_BUSINESS_COMPONENT_PER_CALL_TIMEOUT_SECONDS: int
+    V2_BUSINESS_COMPONENT_MAX_PROVIDER_CALLS: int
+    V2_BUSINESS_COMPONENT_MAX_RETRIES: int
+    V2_BUSINESS_COMPONENT_MAX_INPUT_TOKENS: int
+    V2_BUSINESS_COMPONENT_MAX_DETERMINISTIC_REPAIR: int
+    V2_BUSINESS_COMPONENT_MAX_AI_REPAIR: int
+    V2_BUSINESS_COMPONENT_MIN_CALL_BUDGET_SECONDS: float
+    V2_BUSINESS_COMPONENT_RECOVERY_MODEL: str
     V2_CONTENT_DATA_TIMEOUT_SECONDS: int
     V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS: int
     V2_COMPOSITION_CONTRACT_MAX_CALLS: int
@@ -553,9 +561,9 @@ class Settings:
         self.V2_BUSINESS_COMPONENT_PROMPT_REVISION = (
             os.getenv(
                 "V2_BUSINESS_COMPONENT_PROMPT_REVISION",
-                "2026-07-24.1",
+                "2026-07-25.1",
             ).strip()
-            or "2026-07-24.1"
+            or "2026-07-25.1"
         )
         self.V2_CONTENT_DATA_PROMPT_REVISION = (
             os.getenv(
@@ -599,7 +607,8 @@ class Settings:
         except ValueError:
             self.V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS = 3
         for field_name, default in (
-            ("V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS", 300),
+            ("V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS", 420),
+            ("V2_BUSINESS_COMPONENT_PER_CALL_TIMEOUT_SECONDS", 180),
             ("V2_CONTENT_DATA_TIMEOUT_SECONDS", 300),
             ("V2_COMPOSITION_CONTRACT_TIMEOUT_SECONDS", 900),
         ):
@@ -608,6 +617,121 @@ class Settings:
             except ValueError:
                 value = default
             setattr(self, field_name, value)
+        # Bound BCP stage wall so it cannot be configured unlimited.
+        self.V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS = min(
+            900,
+            self.V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS,
+        )
+        try:
+            self.V2_BUSINESS_COMPONENT_MAX_PROVIDER_CALLS = min(
+                2,
+                max(
+                    1,
+                    int(
+                        os.getenv(
+                            "V2_BUSINESS_COMPONENT_MAX_PROVIDER_CALLS",
+                            "2",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MAX_PROVIDER_CALLS = 2
+        try:
+            self.V2_BUSINESS_COMPONENT_MAX_RETRIES = min(
+                1,
+                max(
+                    0,
+                    int(
+                        os.getenv(
+                            "V2_BUSINESS_COMPONENT_MAX_RETRIES",
+                            "1",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MAX_RETRIES = 1
+        try:
+            self.V2_BUSINESS_COMPONENT_MAX_INPUT_TOKENS = min(
+                48000,
+                max(
+                    2000,
+                    int(
+                        os.getenv(
+                            "V2_BUSINESS_COMPONENT_MAX_INPUT_TOKENS",
+                            "24000",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MAX_INPUT_TOKENS = 24000
+        try:
+            self.V2_BUSINESS_COMPONENT_MAX_DETERMINISTIC_REPAIR = min(
+                1,
+                max(
+                    0,
+                    int(
+                        os.getenv(
+                            "V2_BUSINESS_COMPONENT_MAX_DETERMINISTIC_REPAIR",
+                            "1",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MAX_DETERMINISTIC_REPAIR = 1
+        try:
+            self.V2_BUSINESS_COMPONENT_MAX_AI_REPAIR = min(
+                1,
+                max(
+                    0,
+                    int(
+                        os.getenv(
+                            "V2_BUSINESS_COMPONENT_MAX_AI_REPAIR",
+                            "1",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MAX_AI_REPAIR = 1
+        try:
+            self.V2_BUSINESS_COMPONENT_MIN_CALL_BUDGET_SECONDS = min(
+                60.0,
+                max(
+                    0.01,
+                    float(
+                        os.getenv(
+                            "V2_BUSINESS_COMPONENT_MIN_CALL_BUDGET_SECONDS",
+                            "15",
+                        )
+                    ),
+                ),
+            )
+        except ValueError:
+            self.V2_BUSINESS_COMPONENT_MIN_CALL_BUDGET_SECONDS = 15.0
+        self.V2_BUSINESS_COMPONENT_RECOVERY_MODEL = (
+            os.getenv(
+                "V2_BUSINESS_COMPONENT_RECOVERY_MODEL",
+                "",
+            ).strip()
+        )
+        # Per-call timeout cannot exceed the stage wall.
+        self.V2_BUSINESS_COMPONENT_PER_CALL_TIMEOUT_SECONDS = min(
+            self.V2_BUSINESS_COMPONENT_PER_CALL_TIMEOUT_SECONDS,
+            self.V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS,
+        )
+        self.V2_BUSINESS_COMPONENT_MIN_CALL_BUDGET_SECONDS = min(
+            self.V2_BUSINESS_COMPONENT_MIN_CALL_BUDGET_SECONDS,
+            float(self.V2_BUSINESS_COMPONENT_PER_CALL_TIMEOUT_SECONDS),
+        )
+        # Output ceiling remains bounded (also clamped above).
+        self.V2_BUSINESS_COMPONENT_MAX_TOKENS = min(
+            16000,
+            max(2000, self.V2_BUSINESS_COMPONENT_MAX_TOKENS),
+        )
         try:
             self.V2_COMPOSITION_CONTRACT_MAX_CALLS = min(
                 4,

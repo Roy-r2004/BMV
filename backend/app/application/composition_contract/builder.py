@@ -5,7 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar  # Any used by error diagnostics
 
 from pydantic import BaseModel, ValidationError
 
@@ -36,10 +36,14 @@ class CompositionStageError(RuntimeError):
         *,
         stage: str,
         retry_reasons: tuple[str, ...] = (),
+        result_class: str | None = None,
+        diagnostics: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.stage = stage
         self.retry_reasons = retry_reasons
+        self.result_class = result_class
+        self.diagnostics = diagnostics or {}
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,7 @@ class BuiltCompositionArtifact:
     artifact: BaseModel
     validation: CompositionValidationReport
     metrics: CompositionStageMetrics
+    diagnostics: dict[str, Any] | None = None
 
 
 def _invoke_with_timeout(

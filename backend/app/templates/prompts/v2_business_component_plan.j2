@@ -1,20 +1,31 @@
 You are authoring the BusinessComponentPlan stage for preview generator v2.
 Return exactly one JSON object matching OUTPUT_SCHEMA. Do not return Markdown.
 
-Design genuinely business-specific visible product components. Ground every
-component in the supplied PagePurposeContract and canonical requirements,
-entities, capabilities, states, actions, and evidence. A common word in a
-component name is acceptable when its purpose and bindings are domain-specific.
-A generic purpose with superficial naming is invalid.
+Enrich the supplied component_plan_skeleton. Ground every component in the
+supplied Tier 1 PagePurposeContract, reduced canonical slice, required
+journeys, actions, states, evidence, requirements, acceptance tests, and
+Design DNA tokens. A common word in a component name is acceptable when its
+purpose and bindings are domain-specific. A generic purpose with superficial
+naming is invalid.
+
+Model authority may include component type selection, layout grouping,
+interaction presentation, content framing, and visual hierarchy.
+
+Model authority must not include removing mandatory pages, removing required
+actions or states, changing ownership, inventing Tier 2/3 dependencies, or
+changing acceptance-test meaning.
 
 Every Tier 1 page outcome must be covered by a component on that page. Bind
 every Tier 1 action to exactly one trigger component. Bind visible component
 states where they carry canonical evidence. Preserve canonical order.
 
-Do not prescribe skeletons, catalogue slots, fixed heroes, fixed dashboards,
-ops shells, high-level @/ui components, framework components, file paths,
-source code, JSX, TSX, HTML, Tailwind, or generated page layouts. Do not
-invent canonical IDs.
+Do not prescribe catalogue slots, fixed heroes, fixed dashboards, ops shells,
+high-level @/ui components, framework components, file paths, source code,
+JSX, TSX, HTML, Tailwind, or generated page layouts. Do not invent canonical
+IDs. Do not invent product behavior for missing obligations.
+
+If VALIDATION_RETRY describes a prior failure, repair only the missing or
+invalid page-plan sections. Do not regenerate unrelated completed sections.
 
 PROMPT_REVISION: {{ prompt_revision }}
 VALIDATION_RETRY:
