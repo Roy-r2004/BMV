@@ -14,9 +14,12 @@ from app.domain.schemas.chat import (
 from app.domain.schemas.common import GenerateResponse
 from app.domain.schemas.demo import DemoListItem, DemoListResponse
 from app.domain.schemas.request import (
+    AdminPreviewDiagnostics,
+    AdminProgressDiagnostics,
     BuildRequestBody,
     BuildRequestResponse,
-    PreviewResponse,
+    CustomerPreviewResponse,
+    CustomerProgressResponse,
     RequestCreateResponse,
 )
 
@@ -35,6 +38,9 @@ __all__ = [
     "DemoListResponse",
     "BuildRequestBody",
     "BuildRequestResponse",
-    "PreviewResponse",
+    "CustomerPreviewResponse",
+    "CustomerProgressResponse",
+    "AdminPreviewDiagnostics",
+    "AdminProgressDiagnostics",
     "RequestCreateResponse",
 ]

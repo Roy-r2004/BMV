@@ -7,34 +7,31 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep
 from app.application.pipelines.build_plans import (
-    build_plans_from_request,
     generate_build_plans,
 )
 from app.application.pipelines.orchestrator import GenerationPipeline
 from app.application.pipelines.role_pages import generate_role_pages
 from app.application.preview_app import generate_preview_app
 from app.application.services.progress import emit as _emit
-from app.application.services.progress import is_request_generating, progress_payload
-from app.application.services.ai_features import ai_features_from_request
-from app.application.services.preview_parser import parse_preview_features
-from app.application.services.preview_refinement import get_chat_history, refine_preview
-from app.application.appspec.repository import (
-    AppSpecRepository,
-    revision_summary,
+from app.application.services.customer_preview import (
+    customer_preview_response,
+    customer_progress_response,
 )
+from app.application.services.preview_refinement import get_chat_history, refine_preview
 from app.application.appspec import (
     app_spec_is_required,
     app_spec_mode,
 )
-from app.application.services.reference_formatter import format_reference_analysis
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
+from app.domain.models.expanded_preview import ExpandedPreviewRequestRecord
 from app.domain.models.request import Request
 from app.domain.schemas.chat import ChatHistoryResponse, ChatMessage, ChatSendRequest, ChatSendResponse
 from app.domain.schemas.request import (
     BuildRequestBody,
     BuildRequestResponse,
-    PreviewResponse,
+    CustomerPreviewResponse,
+    CustomerProgressResponse,
     RequestCreateResponse,
 )
 from app.infrastructure.ai_providers.factory import get_ai_provider
@@ -50,10 +47,6 @@ pipeline_log = get_logger("RequestPipeline")
 
 _preview_gen_locks: dict[int, threading.Lock] = {}
 _preview_gen_locks_guard = threading.Lock()
-
-def _build_plans_payload(req: Request):
-    return build_plans_from_request(req)
-
 
 def _preview_gen_lock(request_id: int) -> threading.Lock:
     with _preview_gen_locks_guard:
@@ -218,66 +211,25 @@ async def create_request(
         customer_access_token=req.customer_access_token,
     )
 
-@router.get("/{request_id}/preview", response_model=PreviewResponse)
+def _expanded_preview_status(db: Session, request_id: int) -> str | None:
+    row = (
+        db.query(ExpandedPreviewRequestRecord)
+        .filter(ExpandedPreviewRequestRecord.request_id == request_id)
+        .order_by(ExpandedPreviewRequestRecord.id.desc())
+        .first()
+    )
+    return str(row.current_status) if row is not None else None
+
+
+@router.get("/{request_id}/preview", response_model=CustomerPreviewResponse)
 def get_preview(request_id: int, db: Session = Depends(get_db)):
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    visual_demo = None
-    if req.visual_demo_json:
-        try:
-            visual_demo = json.loads(req.visual_demo_json)
-        except Exception:
-            pass
-
-    generated_pages = None
-    if req.generated_pages:
-        try:
-            generated_pages = json.loads(req.generated_pages)
-        except Exception:
-            pass
-
-    app_spec_revision = AppSpecRepository(db).latest_accepted(request_id)
-
-    is_generating = is_request_generating(req)
-
-    from app.application.expanded_preview.service import ensure_customer_access_token
-
-    access_token = ensure_customer_access_token(req)
-    db.commit()
-
-    return PreviewResponse(
-        id=req.id,
-        business_name=req.business_name,
-        customer_access_token=access_token,
-        business_fit_score=req.business_fit_score,
-        concept_name=req.concept_name,
-        preview_summary=req.preview_summary,
-        preview_features=parse_preview_features(req.preview_features),
-        ai_features=ai_features_from_request(req),
-        visual_demo=visual_demo,
-        generated_pages=generated_pages,
-        app_spec=(
-            revision_summary(app_spec_revision)
-            if app_spec_revision
-            else None
-        ),
-        status=req.status,
-        is_generating=is_generating,
-        industry=req.industry,
-        timeline=req.timeline,
-        budget_range=req.budget_range,
-        desired_outcome=req.desired_outcome,
-        main_problem=req.main_problem,
-        screenshot_analysis=req.screenshot_analysis,
-        reference_analysis=format_reference_analysis(req),
-        reference_url=req.reference_url,
-        what_you_like=req.what_you_like,
-        mvp_blueprint=req.mvp_blueprint,
-        technical_plan=req.technical_plan,
-        build_plans=_build_plans_payload(req),
-        build_requested=req.build_requested or False,
+    return customer_preview_response(
+        req,
+        expanded_status=_expanded_preview_status(db, request_id),
     )
 
 def _run_preview_app_in_background(request_id: int) -> None:
@@ -427,14 +379,17 @@ def request_build(request_id: int, body: BuildRequestBody, db: Session = Depends
         status=req.status,
     )
 
-@router.get("/{request_id}/progress")
+@router.get("/{request_id}/progress", response_model=CustomerProgressResponse)
 def get_generation_progress(request_id: int, db: Session = Depends(get_db)):
     """Return the live generation progress snapshot for the loading screen."""
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    return progress_payload(req)
+    return customer_progress_response(
+        req,
+        expanded_status=_expanded_preview_status(db, request_id),
+    )
 
 @router.get("/{request_id}/chat", response_model=ChatHistoryResponse)
 def get_request_chat(request_id: int, db: Session = Depends(get_db)):

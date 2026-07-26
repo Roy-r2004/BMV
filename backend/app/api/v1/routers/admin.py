@@ -33,6 +33,10 @@ from app.domain.schemas.admin import (
     RequestListItem,
     RequestUpdate,
 )
+from app.domain.schemas.request import (
+    AdminPreviewDiagnostics,
+    AdminProgressDiagnostics,
+)
 from app.domain.schemas.common import GenerateResponse
 from app.domain.models import (
     AppSpecRevision,
@@ -274,7 +278,10 @@ def get_phase3a_call_ledger(
     return ledger
 
 
-@router.get("/requests/{request_id}/candidate-provider-attempts")
+@router.get(
+    "/requests/{request_id}/candidate-provider-attempts",
+    response_model=AdminPreviewDiagnostics,
+)
 def get_candidate_provider_attempts(
     request_id: int,
     _: bool = Depends(verify_admin),
@@ -335,6 +342,47 @@ def get_candidate_provider_attempts(
             "message": failure.get("message"),
         },
     }
+
+
+@router.get(
+    "/requests/{request_id}/progress-diagnostics",
+    response_model=AdminProgressDiagnostics,
+)
+def get_progress_diagnostics(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """Return raw persisted progress only to authenticated administrators."""
+
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    progress: dict = {}
+    if req.generation_log:
+        try:
+            parsed = json.loads(req.generation_log)
+            if isinstance(parsed, dict):
+                progress = parsed
+        except (TypeError, json.JSONDecodeError):
+            pass
+    preview_contract = None
+    if req.generated_pages:
+        try:
+            bundle = json.loads(req.generated_pages)
+            if isinstance(bundle, dict) and isinstance(
+                bundle.get("preview_contract"),
+                dict,
+            ):
+                preview_contract = bundle["preview_contract"]
+        except (TypeError, json.JSONDecodeError):
+            pass
+    return AdminProgressDiagnostics(
+        request_id=request_id,
+        request_status=str(req.status or "new"),
+        progress=progress,
+        preview_contract=preview_contract,
+    )
 
 
 @router.get("/requests/{request_id}/runtime-validation-attempts")
