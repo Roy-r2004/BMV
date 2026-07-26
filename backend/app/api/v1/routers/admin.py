@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep, verify_admin
 from app.application.pipelines import blueprint, build_plans, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
 from app.application.appspec import ensure_approved_app_spec
+from app.application.candidate_generation.cache import canonical_sha256
 from app.application.appspec.repository import (
     AppSpecRepository,
     load_json_object,
@@ -211,6 +212,89 @@ def get_request(
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     return req
+
+
+@router.get("/requests/{request_id}/runtime-validation-attempts")
+def get_runtime_validation_attempts(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    if db.get(Request, request_id) is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    attempts = (
+        db.query(CandidateRuntimeValidationAttemptRecord)
+        .filter(
+            CandidateRuntimeValidationAttemptRecord.request_id == request_id
+        )
+        .order_by(CandidateRuntimeValidationAttemptRecord.id)
+        .all()
+    )
+    payload = []
+    for attempt in attempts:
+        builds = (
+            db.query(CandidateBuildAttemptRecord)
+            .filter(
+                CandidateBuildAttemptRecord.runtime_attempt_id == attempt.id
+            )
+            .order_by(CandidateBuildAttemptRecord.attempt_sequence)
+            .all()
+        )
+        summary = (
+            db.query(CandidateValidationSummaryRecord)
+            .filter(
+                CandidateValidationSummaryRecord.runtime_attempt_id
+                == attempt.id
+            )
+            .first()
+        )
+        tools = load_json_object(attempt.tool_versions_json)
+        limits = load_json_object(attempt.limits_json)
+        payload.append(
+            {
+                "id": attempt.id,
+                "request_id": attempt.request_id,
+                "candidate_revision_id": attempt.candidate_revision_id,
+                "attempt_uuid": attempt.attempt_uuid,
+                "attempt_sequence": attempt.attempt_sequence,
+                "runtime_policy_revision": attempt.runtime_policy_revision,
+                "environment_fingerprint": canonical_sha256(
+                    {
+                        "tools": tools,
+                        "limits": limits,
+                        "runtime_policy_revision": (
+                            attempt.runtime_policy_revision
+                        ),
+                    }
+                ),
+                "tools": tools,
+                "limits": limits,
+                "workspace_relpath": attempt.workspace_relpath,
+                "resumed_from_attempt_id": attempt.resumed_from_attempt_id,
+                "build_attempts": [
+                    {
+                        "id": build.id,
+                        "attempt_sequence": build.attempt_sequence,
+                        "parent_build_attempt_id": (
+                            build.parent_build_attempt_id
+                        ),
+                        "workspace_relpath": build.workspace_relpath,
+                        "result_sha256": build.result_sha256,
+                        "result": load_json_object(build.result_json),
+                    }
+                    for build in builds
+                ],
+                "summary": (
+                    load_json_object(summary.summary_json)
+                    if summary is not None
+                    else None
+                ),
+                "summary_sha256": (
+                    summary.summary_sha256 if summary is not None else None
+                ),
+            }
+        )
+    return {"request_id": request_id, "attempts": payload}
 
 
 @router.get("/requests/{request_id}/run-log")

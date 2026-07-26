@@ -1,0 +1,23 @@
+{
+  "request_id": 31,
+  "candidate_revision_id": 3,
+  "candidate_revision_uuid": "d0afae4b-44ab-4e95-a5e3-704a5054042d",
+  "runtime_attempt_uuid": "0ef2ef18-304b-45cd-8699-2994d6b1c708",
+  "production_workspace_relpath": "31/d0afae4b-44ab-4e95-a5e3-704a5054042d/attempts/0ef2ef18-304b-45cd-8699-2994d6b1c708/candidate",
+  "terminal_status": "candidate_build_failed",
+  "failure_stage": "typescript_build",
+  "failure_code": "import_resolution_failed",
+  "first_error_location": "src/App.tsx:1:41",
+  "production_node": "v22.14.0",
+  "production_npm": "unrecorded",
+  "production_platform": "python:3.12-slim-bookworm",
+  "production_command": [
+    "node",
+    "/app/backend/preview-template/node_modules/typescript/bin/tsc",
+    "-b",
+    "--pretty",
+    "false"
+  ],
+  "first_error": "TS2307: Cannot find module 'react-router-dom' or its corresponding type declarations.",
+  "source": "trusted production runtime-validation workspace export"
+}

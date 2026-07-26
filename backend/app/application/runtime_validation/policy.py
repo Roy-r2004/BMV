@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import importlib.metadata
 import json
+import os
+import platform
 import subprocess
+import sys
 from pathlib import Path
 
 from app.core.config import settings
@@ -81,6 +84,8 @@ def _browser_bundle_revision() -> str:
         # Entering the Playwright driver does not launch a browser.
         with sync_playwright() as playwright:
             executable = Path(playwright.chromium.executable_path)
+        if not executable.is_file():
+            return "chromium-unavailable"
         parent_names = (executable.parent.name, executable.parent.parent.name)
         revision = next(
             (name for name in parent_names if name.startswith("chromium-")),
@@ -106,12 +111,25 @@ def tool_versions() -> RuntimeToolVersions:
     )
     if node.returncode != 0:
         raise RuntimeError("Node runtime is unavailable")
+    npm = subprocess.run(
+        ["npm.cmd" if os.name == "nt" else "npm", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+        shell=False,
+    )
+    if npm.returncode != 0:
+        raise RuntimeError("npm runtime is unavailable")
     modules = settings.PREVIEW_TEMPLATE_DIR / "node_modules"
     typescript = _package_version(modules / "typescript" / "package.json")
     vite = _package_version(modules / "vite" / "package.json")
     playwright_version = importlib.metadata.version("playwright")
     return RuntimeToolVersions(
         node=node.stdout.strip(),
+        npm=npm.stdout.strip(),
+        platform=platform.platform(),
+        python=sys.version.split()[0],
         typescript=typescript,
         vite=vite,
         playwright=playwright_version,

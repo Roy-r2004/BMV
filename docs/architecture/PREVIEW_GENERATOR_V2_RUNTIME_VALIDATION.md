@@ -235,6 +235,31 @@ identity verification. Cache rows are scoped to one complete prior attempt so
 repeated successful attempts cannot accidentally form an oversized mixed
 result set.
 
+## Pre-build and diagnostic contract
+
+Before execution, Phase 4 validates required candidate files, JSON manifests,
+required scripts, and known host-specific absolute paths. This gate is
+deliberately bounded; TypeScript and Vite remain the authorities for language,
+module-resolution, and production-bundle correctness.
+
+The verified template dependency installation is exposed inside the isolated
+candidate workspace only while TypeScript and Vite run. Candidate-local
+incremental metadata is redirected away from the shared installation, and the
+temporary dependency view and configuration overlay are removed afterward.
+The frozen Phase 3B source and shared dependency tree are hash-checked.
+
+Build and runtime summaries persist a typed `failure_code` and first relevant
+source location where available. Runtime attempts also persist Node, npm,
+Python, platform, TypeScript, Vite, Playwright, browser, policy, limits,
+commands, bounded output, hashes, and repair ancestry.
+
+Trusted operators can inspect this evidence through:
+
+`GET /api/admin/requests/{request_id}/runtime-validation-attempts`
+
+The customer preview contract remains bounded and exposes the terminal status
+and safe typed failure fields without providing an execution surface.
+
 ## Deterministic repair policy
 
 At most one repair is allowed, in a derived validation workspace, for:

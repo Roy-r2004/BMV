@@ -36,11 +36,9 @@ class PreparedRuntimeCandidate:
 def isolated_runtime_paths(monkeypatch):
     token = uuid.uuid4().hex
     root = Path(__file__).resolve().parent / ".runtime" / token
-    validations = (
-        settings.PREVIEW_TEMPLATE_DIR
-        / ".runtime-validation-tests"
-        / token
-    )
+    # Keep validations outside PREVIEW_TEMPLATE_DIR so module resolution
+    # cannot accidentally walk up into template node_modules (prod layout).
+    validations = root / "runtime-validation"
     monkeypatch.setattr(
         settings,
         "PREVIEW_CANDIDATES_DIR",

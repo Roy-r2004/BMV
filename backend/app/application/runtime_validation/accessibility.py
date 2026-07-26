@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import time
 
+from app.application.preview_app.testing.failure_injection import (
+    raise_if_injected,
+)
 from app.domain.schemas.runtime_validation import (
     AccessibilityFinding,
     AccessibilityRouteResult,
@@ -133,6 +136,7 @@ def run_baseline_accessibility_scan(
     route: str,
     viewport: str,
 ) -> AccessibilityRouteResult:
+    raise_if_injected("runtime_accessibility")
     started = time.monotonic()
     raw = page.evaluate(_BASELINE_SCRIPT)
     findings = tuple(AccessibilityFinding.model_validate(item) for item in raw)

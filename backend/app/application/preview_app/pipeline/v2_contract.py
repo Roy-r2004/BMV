@@ -21,6 +21,22 @@ from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
 
 
+class Phase4StatusPreconditionError(ValueError):
+    """Raised when orchestration would invoke Phase 4 on a non-pending candidate."""
+
+
+def ensure_phase4_entry_status(phase3b_result: dict) -> None:
+    """Fail closed before Phase 4 when the Phase 3B terminal status is wrong."""
+
+    summary = dict(phase3b_result.get("preview_contract") or {})
+    status = summary.get("status")
+    if status != "candidate_build_pending":
+        raise Phase4StatusPreconditionError(
+            "phase4_status_precondition: Phase 4 requires "
+            f"candidate_build_pending; got {status!r}"
+        )
+
+
 def run_v2_contract_boundary(
     db: Session,
     request_id: int,
@@ -64,6 +80,7 @@ def run_v2_contract_boundary(
     )
     if not settings.V2_RUNTIME_VALIDATION_ENABLED:
         return phase3b_result
+    ensure_phase4_entry_status(phase3b_result)
     phase4_result = validate_v2_candidate_runtime(
         db,
         request_id,
@@ -95,4 +112,8 @@ def run_v2_contract_boundary(
     return phase5_result
 
 
-__all__ = ["run_v2_contract_boundary"]
+__all__ = [
+    "Phase4StatusPreconditionError",
+    "ensure_phase4_entry_status",
+    "run_v2_contract_boundary",
+]

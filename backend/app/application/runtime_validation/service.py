@@ -15,6 +15,7 @@ from app.application.runtime_validation.browser import (
     run_browser_validation,
 )
 from app.application.runtime_validation.build import (
+    attach_candidate_dependency_view,
     build_cache_keys,
     restore_cached_build,
     run_build_validation,
@@ -58,6 +59,7 @@ from app.core.config import settings
 from app.domain.models import Request
 from app.domain.schemas.runtime_validation import (
     BuildValidationResult,
+    Phase4FailureCode,
     RuntimeValidationSummary,
     ScreenshotEvidence,
 )
@@ -161,6 +163,37 @@ def _restore_cached_screenshots(
     return tuple(restored)
 
 
+def _runtime_failure_code(
+    diagnostics: tuple[str, ...] | list[str],
+) -> Phase4FailureCode:
+    message = "\n".join(diagnostics).lower()
+    if "timeout" in message:
+        return "runtime_timeout"
+    if "browser" in message and (
+        "launch" in message or "executable doesn't exist" in message
+    ):
+        return "browser_launch_failed"
+    if "server" in message and (
+        "startup" in message or "health" in message or "exited" in message
+    ):
+        return "preview_server_failed"
+    if "screenshot" in message:
+        return "screenshot_failed"
+    if "accessibility" in message:
+        return "accessibility_failed"
+    if "journey" in message or "interaction" in message:
+        return "required_interaction_failed"
+    if "required element" in message or "selector" in message:
+        return "required_element_missing"
+    if "request" in message or "network" in message:
+        return "runtime_network_failure"
+    if "console" in message:
+        return "runtime_console_error"
+    if "navigation" in message or "route" in message:
+        return "browser_navigation_failed"
+    return "runtime_unhandled_exception"
+
+
 def _failure_summary(
     *,
     context: RuntimeValidationContext,
@@ -175,6 +208,9 @@ def _failure_summary(
     server_command=None,
     network_diagnostics: tuple[str, ...] = (),
 ) -> RuntimeValidationSummary:
+    failure_code = build_result.failure_code
+    if failure_stage != "build":
+        failure_code = _runtime_failure_code(diagnostics)
     return RuntimeValidationSummary(
         refs=context.refs,
         attempt_uuid=attempt_uuid,
@@ -194,6 +230,8 @@ def _failure_summary(
         server_command=server_command,
         network_diagnostics=network_diagnostics,
         failure_stage=failure_stage,
+        failure_code=failure_code,
+        first_error_location=build_result.first_error_location,
         diagnostics=diagnostics or ("runtime_validation_failed",),
         duration_ms=duration_ms,
     )
@@ -221,12 +259,16 @@ def _result_payload(
             "source_candidate_sha256_after": (
                 summary.source_candidate_sha256_after
             ),
+            "failure_code": summary.failure_code,
+            "first_error_location": summary.first_error_location,
         },
         "runtime_build": {
             "attempt_id": build.row.id,
             "build_hash": build.result.build_hash,
             "dist_manifest_sha256": build.result.dist_manifest_sha256,
             "cache_hit": build.result.cache_hit,
+            "failure_code": build.result.failure_code,
+            "first_error_location": build.result.first_error_location,
             "diagnostics": list(build.result.diagnostics),
             "commands": [
                 {
@@ -241,6 +283,8 @@ def _result_payload(
         "runtime_cache_hits": list(cache_hits),
         "runtime_validation_workspace": workspace_relpath(final_path),
         "runtime_validation": {
+            "failure_code": summary.failure_code,
+            "first_error_location": summary.first_error_location,
             "diagnostics": list(summary.diagnostics),
             "network_diagnostics": list(summary.network_diagnostics),
             "route_result_count": len(summary.route_result_hashes),
@@ -490,6 +534,11 @@ def validate_v2_candidate_runtime(
     screenshots = ()
     network_diagnostics: tuple[str, ...] = ()
     try:
+        # Cache-hit builds skip compile; preview still needs the install view.
+        attach_candidate_dependency_view(
+            active_candidate,
+            settings.PREVIEW_TEMPLATE_DIR / "node_modules",
+        )
         server, _identity = start_preview_server(
             active_candidate,
             expected_candidate_manifest_sha256=(
@@ -722,6 +771,10 @@ def validate_v2_candidate_runtime(
         server_command=server_command,
         network_diagnostics=network_diagnostics,
         failure_stage=None if gates_passed else "runtime_gates",
+        failure_code=(
+            None if gates_passed else _runtime_failure_code(diagnostics)
+        ),
+        first_error_location=None,
         diagnostics=tuple(diagnostics),
         duration_ms=int((time.monotonic() - started) * 1000),
     )

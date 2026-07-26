@@ -9,6 +9,9 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
+from app.application.preview_app.testing.failure_injection import (
+    raise_if_injected,
+)
 from app.application.runtime_validation.accessibility import (
     run_baseline_accessibility_scan,
 )
@@ -604,6 +607,7 @@ def run_browser_validation(
     cached_accessibility: tuple[AccessibilityRouteResult, ...] = (),
     cached_screenshots: tuple[ScreenshotEvidence, ...] = (),
 ) -> BrowserValidationBundle:
+    raise_if_injected("runtime_browser")
     expected_route_count = len(context.contracts.page_purpose.pages) * len(
         VIEWPORTS
     )
@@ -709,6 +713,7 @@ def run_browser_validation(
                             )
                         )
                     if not cached_screenshots:
+                        raise_if_injected("runtime_screenshot")
                         page.set_default_timeout(
                             limits.screenshot_timeout_seconds * 1000
                         )

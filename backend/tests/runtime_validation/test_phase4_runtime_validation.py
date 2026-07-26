@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 from playwright.sync_api import sync_playwright
 
+from app.api.v1.routers.admin import get_runtime_validation_attempts
 from app.application.runtime_validation.accessibility import (
     run_baseline_accessibility_scan,
 )
@@ -293,6 +294,20 @@ def test_real_build_runtime_matrix_journey_accessibility_and_screenshots(
             assert sha256_file(target) == row.screenshot_sha256
         summary = db.query(CandidateValidationSummaryRecord).one()
         assert summary.status == "candidate_runtime_validated"
+        admin_attempts = get_runtime_validation_attempts(
+            prepared.prepared.req.id,
+            True,
+            db,
+        )
+        assert len(admin_attempts["attempts"]) == 1
+        admin_attempt = admin_attempts["attempts"][0]
+        assert admin_attempt["environment_fingerprint"]
+        assert admin_attempt["tools"]["node"]
+        assert admin_attempt["tools"]["npm"]
+        assert admin_attempt["build_attempts"]
+        assert admin_attempt["summary"]["status"] == (
+            "candidate_runtime_validated"
+        )
         build_rows = (
             db.query(CandidateBuildAttemptRecord)
             .order_by(CandidateBuildAttemptRecord.id)
@@ -664,6 +679,11 @@ def test_compile_and_vite_failures_become_bounded_build_results(
         )
         assert result.passed is False
         assert tuple(observed) == expected_commands
+        assert result.failure_code == (
+            "typescript_compile_failed"
+            if failed_command == "typescript_build"
+            else "vite_build_failed"
+        )
         assert any(
             (
                 "TypeScript project build failed"
@@ -984,6 +1004,81 @@ def test_runtime_persistence_is_additive_and_registers_exact_phase4_tables() -> 
         "candidate_validation_summaries",
     }
     assert expected <= set(Base.metadata.tables)
+
+
+def test_admin_runtime_attempt_endpoint_returns_structured_evidence(
+    isolated_runtime_paths,
+) -> None:
+    prepared = prepare_runtime_candidate(request_id=1814)
+    db = prepared.prepared.db
+    try:
+        context = load_runtime_validation_context(
+            db,
+            request_id=prepared.prepared.req.id,
+            phase3b_result=prepared.phase3b_result,
+        )
+        limits = runtime_limits()
+        tools = _tool_fixture()
+        repository = RuntimeValidationRepository(db)
+        attempt = repository.create_attempt(
+            attempt_uuid=str(uuid.uuid4()),
+            refs=context.refs,
+            cache_identity=_attempt_cache_identity(
+                context,
+                tools=tools,
+                limits=limits,
+            ),
+            source_candidate_sha256_before=(
+                context.refs.candidate_manifest_sha256
+            ),
+            tools=tools,
+            limits=limits,
+            workspace_relpath="1814/attempt",
+        )
+        build_result = _failed_build(context, limits).model_copy(
+            update={
+                "failure_code": "import_resolution_failed",
+                "first_error_location": "src/App.tsx:1:41",
+            }
+        )
+        build = repository.persist_build(
+            attempt=attempt,
+            result=build_result,
+            workspace_relpath="1814/attempt/candidate",
+        )
+        summary = _failure_summary(
+            context=context,
+            attempt_uuid=attempt.attempt_uuid,
+            status="candidate_build_failed",
+            source_before=context.refs.candidate_manifest_sha256,
+            source_after=context.refs.candidate_manifest_sha256,
+            build_result=build_result,
+            failure_stage="build",
+            diagnostics=("TS2307: Cannot find module 'react'",),
+            duration_ms=1,
+        )
+        repository.persist_terminal(
+            req=prepared.prepared.req,
+            attempt=attempt,
+            build=build.row,
+            routes=(),
+            journeys=(),
+            accessibility=(),
+            screenshots=(),
+            summary=summary,
+        )
+        db.commit()
+
+        response = get_runtime_validation_attempts(1814, True, db)
+        item = response["attempts"][0]
+        assert item["environment_fingerprint"]
+        assert item["tools"]["node"] == "v24.13.1"
+        assert item["build_attempts"][0]["result"]["failure_code"] == (
+            "import_resolution_failed"
+        )
+        assert item["summary"]["first_error_location"] == "src/App.tsx:1:41"
+    finally:
+        _close(prepared)
 
 
 def test_terminal_persistence_rolls_back_on_storage_failure(

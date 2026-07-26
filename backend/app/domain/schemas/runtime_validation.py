@@ -19,6 +19,29 @@ RuntimeTerminalStatus = Literal[
     "candidate_build_failed",
     "candidate_runtime_failed",
 ]
+Phase4FailureCode = Literal[
+    "package_manifest_invalid",
+    "dependency_install_failed",
+    "dependency_missing",
+    "dependency_version_conflict",
+    "typescript_compile_failed",
+    "vite_build_failed",
+    "import_resolution_failed",
+    "export_symbol_missing",
+    "route_missing",
+    "preview_server_failed",
+    "browser_launch_failed",
+    "browser_navigation_failed",
+    "runtime_console_error",
+    "runtime_unhandled_exception",
+    "runtime_network_failure",
+    "required_element_missing",
+    "required_interaction_failed",
+    "accessibility_failed",
+    "screenshot_failed",
+    "runtime_evidence_persistence_failed",
+    "runtime_timeout",
+]
 ViewportName = Literal["mobile", "tablet", "desktop"]
 FindingSeverity = Literal["info", "minor", "moderate", "serious", "critical"]
 
@@ -46,6 +69,9 @@ class RuntimeValidationRefs(StrictDesignModel):
 
 class RuntimeToolVersions(StrictDesignModel):
     node: str = Field(min_length=1, max_length=80)
+    npm: str = Field(default="unrecorded", min_length=1, max_length=80)
+    platform: str = Field(default="unrecorded", min_length=1, max_length=240)
+    python: str = Field(default="unrecorded", min_length=1, max_length=120)
     typescript: str = Field(min_length=1, max_length=80)
     vite: str = Field(min_length=1, max_length=80)
     playwright: str = Field(min_length=1, max_length=80)
@@ -158,6 +184,8 @@ class BuildValidationResult(StrictDesignModel):
     dist_manifest_sha256: Sha256
     dist_files: Tuple[DistFileRecord, ...] = Field(default=(), max_length=200)
     commands: Tuple[CommandResult, ...] = Field(default=(), max_length=4)
+    failure_code: Phase4FailureCode | None = None
+    first_error_location: str | None = Field(default=None, max_length=500)
     diagnostics: Tuple[str, ...] = Field(default=(), max_length=200)
     duration_ms: StrictInt = Field(ge=0)
 
@@ -395,6 +423,8 @@ class RuntimeValidationSummary(StrictDesignModel):
     server_command: CommandResult | None = None
     network_diagnostics: Tuple[str, ...] = Field(default=(), max_length=100)
     failure_stage: str | None = Field(default=None, max_length=80)
+    failure_code: Phase4FailureCode | None = None
+    first_error_location: str | None = Field(default=None, max_length=500)
     diagnostics: Tuple[str, ...] = Field(default=(), max_length=300)
     duration_ms: StrictInt = Field(ge=0)
 
@@ -434,6 +464,7 @@ __all__ = [
     "FindingSeverity",
     "JourneyStepResult",
     "JourneyValidationResult",
+    "Phase4FailureCode",
     "RUNTIME_VALIDATION_POLICY_REVISION",
     "RUNTIME_VALIDATION_SCHEMA_VERSION",
     "RouteViewportResult",

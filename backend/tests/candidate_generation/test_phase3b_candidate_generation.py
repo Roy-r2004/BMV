@@ -707,6 +707,10 @@ def test_v2_pipeline_stops_before_legacy_codegen_build_and_finalize(
 ) -> None:
     prepared = prepare_phase3a(request_id=1622)
     ai = CandidateFixtureAI()
+    # This boundary asserts Phase 3B terminal status. Local .env may enable
+    # Phase 4/5; pin them off so the test stays environment-independent.
+    monkeypatch.setattr(settings, "V2_RUNTIME_VALIDATION_ENABLED", False)
+    monkeypatch.setattr(settings, "V2_VISUAL_EVALUATION_ENABLED", False)
     monkeypatch.setattr(
         "app.application.preview_app.pipeline.v2_contract."
         "build_v2_app_spec_contract",

@@ -3,13 +3,22 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from app.application.candidate_generation.cache import canonical_sha256
+from app.application.preview_app.npm_shared import (
+    _link_node_modules,
+    _remove_path,
+)
+from app.application.preview_app.testing.failure_injection import (
+    raise_if_injected,
+)
 from app.application.runtime_validation.cache import (
     runtime_cache_key,
     sha256_bytes,
@@ -21,6 +30,10 @@ from app.application.runtime_validation.dist import (
     validate_dist,
     write_build_identity,
 )
+from app.application.runtime_validation.prebuild import (
+    PrebuildValidationError,
+    validate_prebuild,
+)
 from app.application.runtime_validation.workspace import (
     source_manifest_sha256,
 )
@@ -28,10 +41,125 @@ from app.core.config import settings
 from app.domain.schemas.runtime_validation import (
     BuildValidationResult,
     CommandResult,
+    Phase4FailureCode,
     RuntimeLimits,
     RuntimeToolVersions,
     RuntimeValidationRefs,
 )
+
+
+_TSC_LOCATION = re.compile(
+    r"(?m)^(?P<path>[^\r\n(]+)\((?P<line>\d+),(?P<column>\d+)\):\s+error\s+"
+)
+
+
+def _first_command_error_location(result: CommandResult) -> str | None:
+    match = _TSC_LOCATION.search(
+        f"{result.stdout_summary}\n{result.stderr_summary}"
+    )
+    if match is None:
+        return None
+    return (
+        f"{match.group('path').strip()}:{match.group('line')}:"
+        f"{match.group('column')}"
+    )
+
+
+def _command_failure_code(
+    result: CommandResult,
+) -> Phase4FailureCode:
+    if result.timed_out:
+        return "runtime_timeout"
+    output = f"{result.stdout_summary}\n{result.stderr_summary}".lower()
+    if (
+        "ts2307" in output
+        or "cannot find module" in output
+        or "could not resolve" in output
+    ):
+        return "import_resolution_failed"
+    if "ts2305" in output or "has no exported member" in output:
+        return "export_symbol_missing"
+    if result.command_name == "typescript_build":
+        return "typescript_compile_failed"
+    return "vite_build_failed"
+
+
+def attach_candidate_dependency_view(
+    candidate_path: Path,
+    modules: Path,
+) -> dict[Path, bytes]:
+    """Expose the verified template install for build and preview serving.
+
+    Returns original tsconfig bytes so callers can restore overlays. The
+    validation workspace may keep the junction for preview-server startup;
+    frozen Phase 3B source is never linked.
+    """
+    target = candidate_path / "node_modules"
+    originals: dict[Path, bytes] = {}
+    if target.exists() or target.is_symlink():
+        is_junction = bool(
+            getattr(os.path, "isjunction", lambda _path: False)(target)
+        )
+        if not (target.is_symlink() or is_junction):
+            raise RuntimeError(
+                "Candidate workspace contains unmanaged node_modules"
+            )
+        _remove_path(target)
+    for name in ("tsconfig.app.json", "tsconfig.node.json"):
+        path = candidate_path / name
+        if not path.is_file():
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        compiler = payload.get("compilerOptions")
+        if not isinstance(compiler, dict):
+            continue
+        build_info = compiler.get("tsBuildInfoFile")
+        if not isinstance(build_info, str) or "node_modules/.tmp/" not in (
+            build_info.replace("\\", "/")
+        ):
+            continue
+        originals[path] = path.read_bytes()
+        compiler["tsBuildInfoFile"] = (
+            f"./.phase4-cache/{Path(build_info).name}"
+        )
+        path.write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+    _link_node_modules(candidate_path, modules)
+    return originals
+
+
+def detach_candidate_dependency_view(
+    candidate_path: Path,
+    originals: dict[Path, bytes] | None = None,
+) -> None:
+    target = candidate_path / "node_modules"
+    cache = candidate_path / ".phase4-cache"
+    if target.exists() or target.is_symlink():
+        is_junction = bool(
+            getattr(os.path, "isjunction", lambda _path: False)(target)
+        )
+        if target.is_symlink() or is_junction:
+            _remove_path(target)
+    if cache.exists():
+        shutil.rmtree(cache)
+    for path, payload in (originals or {}).items():
+        path.write_bytes(payload)
+
+
+@contextmanager
+def candidate_dependency_view(
+    candidate_path: Path,
+    modules: Path,
+) -> Iterator[None]:
+    """Temporary dependency view that always detaches on exit."""
+    originals = attach_candidate_dependency_view(candidate_path, modules)
+    try:
+        yield
+    finally:
+        detach_candidate_dependency_view(candidate_path, originals)
 
 
 def _bounded(value: str, limit: int) -> str:
@@ -357,7 +485,16 @@ def run_build_validation(
     dependency_before = zero
     dependency_after = zero
     source_after = source_sha_before
+    failure_code: Phase4FailureCode | None = None
+    first_error_location: str | None = None
+    raise_if_injected("runtime_build")
     try:
+        try:
+            validate_prebuild(candidate_path)
+        except PrebuildValidationError as exc:
+            failure_code = exc.code
+            first_error_location = exc.location
+            raise
         template_lock = settings.PREVIEW_TEMPLATE_DIR / "package-lock.json"
         if sha256_file(template_lock) != refs.dependency_lock_sha256:
             raise ValueError("Approved dependency-lock hash changed")
@@ -374,8 +511,15 @@ def run_build_validation(
         guard = verify_network_guard(cwd=candidate_path, limits=limits, env=env)
         commands.append(guard)
         if guard.exit_code != 0 or guard.timed_out:
+            failure_code = (
+                "runtime_timeout"
+                if guard.timed_out
+                else "runtime_network_failure"
+            )
             raise RuntimeError("Network guard could not be verified")
         modules = settings.PREVIEW_TEMPLATE_DIR / "node_modules"
+        # Persist for preview-server startup; validation workspaces are ephemeral.
+        attach_candidate_dependency_view(candidate_path, modules)
         tsc = _command(
             "typescript_build",
             [
@@ -392,10 +536,13 @@ def run_build_validation(
         )
         commands.append(tsc)
         if tsc.exit_code != 0 or tsc.timed_out:
+            failure_code = _command_failure_code(tsc)
+            first_error_location = _first_command_error_location(tsc)
             raise RuntimeError("TypeScript project build failed")
         elapsed = time.monotonic() - started
         remaining = limits.build_stage_timeout_seconds - elapsed
         if remaining <= 0:
+            failure_code = "runtime_timeout"
             raise TimeoutError("Combined build-stage timeout exceeded")
         dist = candidate_path / "dist"
         if dist.exists():
@@ -422,6 +569,8 @@ def run_build_validation(
         )
         commands.append(vite)
         if vite.exit_code != 0 or vite.timed_out:
+            failure_code = _command_failure_code(vite)
+            first_error_location = _first_command_error_location(vite)
             raise RuntimeError("Vite production build failed")
         pre_identity_rows, dist_issues = validate_dist(
             dist,
@@ -491,10 +640,28 @@ def run_build_validation(
             dist_manifest_sha256=final_sha,
             dist_files=final_rows,
             commands=tuple(commands),
+            failure_code=None,
+            first_error_location=None,
             diagnostics=tuple(diagnostics),
             duration_ms=int((time.monotonic() - started) * 1000),
         )
     except Exception as exc:
+        if failure_code is None:
+            message = str(exc).lower()
+            if "dependency is missing" in message:
+                failure_code = "dependency_missing"
+            elif "version mismatch" in message:
+                failure_code = "dependency_version_conflict"
+            elif (
+                "package" in message
+                or "dependency-lock" in message
+                or isinstance(exc, (json.JSONDecodeError, KeyError, TypeError))
+            ):
+                failure_code = "package_manifest_invalid"
+            elif isinstance(exc, TimeoutError):
+                failure_code = "runtime_timeout"
+            else:
+                failure_code = "typescript_compile_failed"
         if not diagnostics:
             diagnostics.append(
                 f"{type(exc).__name__}: {str(exc)[:1000]}"
@@ -541,13 +708,18 @@ def run_build_validation(
             dist_manifest_sha256=zero,
             dist_files=(),
             commands=tuple(commands),
+            failure_code=failure_code,
+            first_error_location=first_error_location,
             diagnostics=tuple(dict.fromkeys(diagnostics)),
             duration_ms=int((time.monotonic() - started) * 1000),
         )
 
 
 __all__ = [
+    "attach_candidate_dependency_view",
     "build_cache_keys",
+    "candidate_dependency_view",
+    "detach_candidate_dependency_view",
     "loopback_only_environment",
     "network_guard_path",
     "restore_cached_build",
