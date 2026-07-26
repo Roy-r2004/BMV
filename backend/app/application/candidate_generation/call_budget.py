@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 from app.core.config import settings
 
-CANDIDATE_CALL_BUDGET_POLICY_REVISION = "2026-07-26.candidate-provider.1"
+CANDIDATE_CALL_BUDGET_POLICY_REVISION = "2026-07-26.candidate-provider.2"
 
 CandidateBudgetCode = Literal[
     "candidate_total_call_budget_exhausted",
@@ -76,6 +76,14 @@ class CandidateProviderAttempt:
     terminal_decision: str
     parent_attempt_id: str = ""
     idempotency_key: str = ""
+    error_type: str = ""
+    error_message_redacted: str = ""
+    error_metadata_keys: list[str] | None = None
+    request_shape_hash: str = ""
+    capability_profile_revision: str = ""
+    retry_decision_reason: str = ""
+    fallback_model_decision: str = ""
+    calls_remaining: int | None = None
 
     def to_diagnostics(self) -> dict[str, Any]:
         return {
@@ -101,6 +109,14 @@ class CandidateProviderAttempt:
             "terminal_decision": self.terminal_decision,
             "parent_attempt_id": self.parent_attempt_id,
             "idempotency_key": self.idempotency_key,
+            "error_type": self.error_type,
+            "error_message_redacted": self.error_message_redacted,
+            "error_metadata_keys": list(self.error_metadata_keys or []),
+            "request_shape_hash": self.request_shape_hash,
+            "capability_profile_revision": self.capability_profile_revision,
+            "retry_decision_reason": self.retry_decision_reason,
+            "fallback_model_decision": self.fallback_model_decision,
+            "calls_remaining": self.calls_remaining,
         }
 
 

@@ -234,17 +234,38 @@ def _load_deterministic_stage(
 
 
 def _common_prompt_inputs(context: CandidateContext) -> dict[str, Any]:
+    """Lean candidate inputs.
+
+    Smoke #34 showed dumping the full AppSpec + strategy + IA into the
+    business_components prompt produced ~38k input tokens against DeepSeek's
+    32k context. Keep authoritative Tier-1 contracts only; omit narrative
+    documents already projected into those contracts.
+    """
+
+    design_dna = context.composition.design_dna
+    design_tokens = {
+        "composition_hierarchy": design_dna.composition.hierarchy,
+        "composition_emphasis": design_dna.composition.emphasis,
+        "public_surface_density": design_dna.density.public_surface,
+        "operations_surface_density": design_dna.density.operations_surface,
+        "motion_character": design_dna.motion.character,
+        "reduced_motion": design_dna.motion.reduced_motion,
+        "avoid_list": list(design_dna.avoid_list),
+        "color_tokens": [
+            {
+                "semantic_role": token.semantic_role,
+                "direction": token.direction,
+                "contrast_intent": token.contrast_intent,
+            }
+            for token in design_dna.color_tokens
+        ],
+        "typography": {
+            "voice": design_dna.typography.voice,
+            "display_direction": design_dna.typography.display_direction,
+            "body_direction": design_dna.typography.body_direction,
+        },
+    }
     return {
-        "canonical_app_spec": context.composition.app_spec.model_dump(
-            mode="json"
-        ),
-        "product_strategy_v2": (
-            context.composition.product_strategy_v2.model_dump(mode="json")
-        ),
-        "information_architecture": (
-            context.composition.information_architecture.model_dump(mode="json")
-        ),
-        "design_dna": context.composition.design_dna.model_dump(mode="json"),
         "page_purpose_contract": context.page_purpose.model_dump(mode="json"),
         "business_component_plan": context.business_components.model_dump(
             mode="json"
@@ -254,12 +275,40 @@ def _common_prompt_inputs(context: CandidateContext) -> dict[str, Any]:
         "component_dependency_graph": context.dependency_graph.model_dump(
             mode="json"
         ),
+        "design_dna_tokens": design_tokens,
         "allowed_dependencies": sorted(APPROVED_RUNTIME_PACKAGES),
         "deterministic_data_export_paths": [
             "src/generated/content-data.ts",
             "src/generated/content-data.json",
             "src/generated/canonical-contracts.ts",
         ],
+        "prompt_projection_meta": {
+            "revision": "2026-07-26.candidate-prompt.2",
+            "omitted_sections": [
+                "full_raw_app_spec",
+                "product_strategy_v2_narrative",
+                "full_information_architecture",
+                "full_design_dna_document",
+            ],
+            "source_refs": {
+                "app_spec_sha256": (
+                    context.refs.composition_contract_refs.design_contract_refs.app_spec_ref.sha256
+                ),
+                "page_purpose_sha256": context.refs.page_purpose_ref.sha256,
+                "business_component_plan_sha256": (
+                    context.refs.business_component_plan_ref.sha256
+                ),
+                "content_data_plan_sha256": (
+                    context.refs.content_data_plan_ref.sha256
+                ),
+                "interaction_contract_sha256": (
+                    context.refs.interaction_contract_ref.sha256
+                ),
+                "component_dependency_graph_sha256": (
+                    context.refs.component_dependency_graph_ref.sha256
+                ),
+            },
+        },
     }
 
 

@@ -241,6 +241,7 @@ class Settings:
     V2_COMPOSITION_CONTRACT_MAX_COST_USD: float
     V2_CANDIDATE_POLICY_REVISION: str
     V2_CANDIDATE_COMPONENT_MODEL: str
+    V2_CANDIDATE_COMPONENT_FALLBACK_MODEL: str
     V2_CANDIDATE_PAGE_MODEL: str
     V2_CANDIDATE_REPAIR_MODEL: str
     V2_CANDIDATE_COMPONENT_PROMPT_REVISION: str
@@ -865,6 +866,12 @@ class Settings:
             "V2_CANDIDATE_COMPONENT_MODEL",
             self.PREVIEW_APP_MODEL,
         )
+        self.V2_CANDIDATE_COMPONENT_FALLBACK_MODEL = (
+            os.getenv(
+                "V2_CANDIDATE_COMPONENT_FALLBACK_MODEL",
+                "",
+            ).strip()
+        )
         self.V2_CANDIDATE_PAGE_MODEL = _env_or(
             "V2_CANDIDATE_PAGE_MODEL",
             self.PREVIEW_APP_MODEL,
@@ -876,9 +883,9 @@ class Settings:
         self.V2_CANDIDATE_COMPONENT_PROMPT_REVISION = (
             os.getenv(
                 "V2_CANDIDATE_COMPONENT_PROMPT_REVISION",
-                "2026-07-25.1",
+                "2026-07-26.2",
             ).strip()
-            or "2026-07-25.1"
+            or "2026-07-26.2"
         )
         self.V2_CANDIDATE_PAGE_PROMPT_REVISION = (
             os.getenv(

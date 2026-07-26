@@ -1,6 +1,8 @@
 """Strict two-call batch generation and node-scoped repair runner."""
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextvars import copy_context
@@ -19,13 +21,23 @@ from app.application.services.ai_context import (
     ai_run_scope,
     capture_ai_stage_telemetry,
 )
+from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.schemas.preview_candidate import (
     CandidateStageMetrics,
     GeneratedCandidateBatch,
 )
-from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
+from app.infrastructure.ai_providers.model_capabilities import (
+    CAPABILITY_PROFILE_REVISION,
+    clamp_max_tokens,
+    estimate_prompt_tokens,
+    resolve_model_capability,
+)
+from app.infrastructure.ai_providers.response_parser import (
+    ProviderGenerationError,
+    ProviderGenerationResult,
+)
 from app.shared.json_utils import extract_json_from_text
 
 
@@ -155,6 +167,77 @@ def _invoke_provider_text(
         )
 
 
+def _request_shape_hash(
+    *,
+    model: str,
+    max_tokens: int,
+    temperature: float,
+    prompt_chars: int,
+    message_count: int = 1,
+) -> str:
+    shape = {
+        "endpoint": "POST /chat/completions",
+        "model": model,
+        "message_roles": ["user"],
+        "message_count": message_count,
+        "content_representation": "string",
+        "approx_input_chars": prompt_chars,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "response_format": None,
+        "json_schema": None,
+        "strict_schema": None,
+        "tools": None,
+        "tool_choice": None,
+        "stream": False,
+        "capability_profile_revision": CAPABILITY_PROFILE_REVISION,
+    }
+    raw = json.dumps(shape, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _local_context_error(
+    *,
+    model: str,
+    estimated_input_tokens: int,
+    context_window: int,
+    request_shape_hash: str,
+) -> ProviderGenerationError:
+    message = (
+        f"Estimated prompt tokens ({estimated_input_tokens}) exceed model "
+        f"context window ({context_window}) for {model}."
+    )
+    result = ProviderGenerationResult(
+        provider="openrouter",
+        model=model,
+        provider_request_id="",
+        response_format="provider_error",
+        text="",
+        structured_payload=None,
+        finish_reason="",
+        input_tokens=estimated_input_tokens,
+        output_tokens=0,
+        total_tokens=estimated_input_tokens,
+        http_status=0,
+        raw_payload_sha256="",
+        is_success=False,
+        error_code="provider_context_length_exceeded",
+        error_message_redacted=message,
+        retryable=False,
+        refusal=False,
+        truncated=False,
+        latency_ms=0,
+        response_top_level_keys=(),
+        cost_usd=None,
+        error_type="context_preflight",
+        error_metadata_keys=("estimated_input_tokens", "context_window"),
+    )
+    # Attach shape hash via diagnostics consumers reading message + result.
+    result_diagnostics = result.to_diagnostics()
+    result_diagnostics["request_shape_hash"] = request_shape_hash
+    return ProviderGenerationError(message, result=result)
+
+
 def _record_provider_error_attempt(
     *,
     budget: CandidateCallBudget | None,
@@ -168,6 +251,9 @@ def _record_provider_error_attempt(
     terminal_decision: str,
     parent_attempt_id: str = "",
     idempotency_key: str = "",
+    request_shape_hash: str = "",
+    retry_decision_reason: str = "",
+    fallback_model_decision: str = "",
 ) -> str:
     attempt_id = budget.new_attempt_id() if budget is not None else ""
     result = exc.result
@@ -198,6 +284,14 @@ def _record_provider_error_attempt(
                 terminal_decision=terminal_decision,
                 parent_attempt_id=parent_attempt_id,
                 idempotency_key=idempotency_key,
+                error_type=result.error_type,
+                error_message_redacted=result.error_message_redacted,
+                error_metadata_keys=list(result.error_metadata_keys),
+                request_shape_hash=request_shape_hash,
+                capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+                retry_decision_reason=retry_decision_reason,
+                fallback_model_decision=fallback_model_decision,
+                calls_remaining=budget.remaining_total(),
             )
         )
     return attempt_id
@@ -215,6 +309,26 @@ def _provider_stage_error(
         provider_error_code=exc.error_code,
         provider_diagnostics=exc.result.to_diagnostics(),
     )
+
+
+def _resolve_effective_model(policy: CandidateStagePolicy) -> tuple[str, str]:
+    """Return (model, fallback_decision)."""
+
+    primary = policy.model
+    fallback = str(
+        getattr(settings, "V2_CANDIDATE_COMPONENT_FALLBACK_MODEL", "") or ""
+    ).strip()
+    if policy.stage != "business_components" or not fallback or fallback == primary:
+        return primary, "primary_only"
+    primary_cap = resolve_model_capability(primary)
+    fallback_cap = resolve_model_capability(fallback)
+    if not primary_cap.known:
+        return primary, "primary_capability_unknown"
+    if not fallback_cap.known:
+        return primary, "fallback_capability_unknown"
+    if fallback_cap.context_window <= primary_cap.context_window:
+        return primary, "fallback_not_larger"
+    return primary, f"fallback_available:{fallback}"
 
 
 def build_ai_batch(
@@ -253,13 +367,84 @@ def build_ai_batch(
         prompt_revision=policy.prompt_revision,
     )
     provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
+    primary_model, fallback_decision = _resolve_effective_model(policy)
+    model = primary_model
+    capability = resolve_model_capability(model)
+    estimated_input = estimate_prompt_tokens(prompt)
+    effective_max_tokens = clamp_max_tokens(
+        requested_max_tokens=policy.max_tokens,
+        estimated_input_tokens=estimated_input,
+        context_window=capability.context_window,
+    )
+    shape_hash = _request_shape_hash(
+        model=model,
+        max_tokens=effective_max_tokens,
+        temperature=policy.temperature,
+        prompt_chars=len(prompt),
+    )
+
+    # If primary context is too small, optionally switch to one approved fallback.
+    fallback_model = str(
+        getattr(settings, "V2_CANDIDATE_COMPONENT_FALLBACK_MODEL", "") or ""
+    ).strip()
+    if (
+        policy.stage == "business_components"
+        and capability.known
+        and estimated_input >= capability.context_window
+        and fallback_model
+        and fallback_model != model
+    ):
+        fallback_cap = resolve_model_capability(fallback_model)
+        if (
+            fallback_cap.known
+            and fallback_cap.context_window > capability.context_window
+        ):
+            model = fallback_model
+            capability = fallback_cap
+            effective_max_tokens = clamp_max_tokens(
+                requested_max_tokens=policy.max_tokens,
+                estimated_input_tokens=estimated_input,
+                context_window=capability.context_window,
+            )
+            shape_hash = _request_shape_hash(
+                model=model,
+                max_tokens=effective_max_tokens,
+                temperature=policy.temperature,
+                prompt_chars=len(prompt),
+            )
+            fallback_decision = f"selected_fallback:{fallback_model}"
+
+    if estimated_input >= capability.context_window or effective_max_tokens <= 0:
+        preflight_exc = _local_context_error(
+            model=model,
+            estimated_input_tokens=estimated_input,
+            context_window=capability.context_window,
+            request_shape_hash=shape_hash,
+        )
+        _record_provider_error_attempt(
+            budget=call_budget,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=policy.stage,
+            ai_provider=ai_provider,
+            model=model,
+            exc=preflight_exc,
+            retry_attempted=False,
+            terminal_decision="fail_closed_preflight",
+            idempotency_key=f"{candidate_revision_uuid}:{policy.stage}:preflight",
+            request_shape_hash=shape_hash,
+            retry_decision_reason="context_preflight_non_retryable",
+            fallback_model_decision=fallback_decision,
+        )
+        raise _provider_stage_error(stage=policy.stage, exc=preflight_exc)
+
     idempotency = f"{candidate_revision_uuid}:{policy.stage}:gen:0"
     if call_budget is not None:
         approved, deny_code = call_budget.approve(
             policy.stage,
             attempt_type="ai",
             provider=provider_name,
-            model=policy.model,
+            model=model,
             idempotency_key=idempotency,
         )
         if not approved:
@@ -276,9 +461,9 @@ def build_ai_batch(
             def invoke() -> str:
                 return _invoke_provider_text(
                     ai_provider=ai_provider,
-                    model=policy.model,
+                    model=model,
                     prompt=prompt,
-                    max_tokens=policy.max_tokens,
+                    max_tokens=effective_max_tokens,
                     temperature=policy.temperature,
                 )
 
@@ -295,13 +480,20 @@ def build_ai_batch(
                     candidate_revision_uuid=candidate_revision_uuid,
                     stage=policy.stage,
                     ai_provider=ai_provider,
-                    model=policy.model,
+                    model=model,
                     exc=exc,
                     retry_attempted=False,
                     terminal_decision=(
                         "retry_pending" if exc.retryable else "fail_closed"
                     ),
                     idempotency_key=idempotency,
+                    request_shape_hash=shape_hash,
+                    retry_decision_reason=(
+                        "retryable_provider_error"
+                        if exc.retryable
+                        else f"non_retryable:{exc.error_code}"
+                    ),
+                    fallback_model_decision=fallback_decision,
                 )
                 if not exc.retryable or call_budget is None:
                     raise _provider_stage_error(
@@ -312,7 +504,7 @@ def build_ai_batch(
                     policy.stage,
                     attempt_type="ai_retry",
                     provider=provider_name,
-                    model=policy.model,
+                    model=model,
                     idempotency_key=retry_key,
                 )
                 if not approved:
@@ -322,12 +514,16 @@ def build_ai_batch(
                         candidate_revision_uuid=candidate_revision_uuid,
                         stage=policy.stage,
                         ai_provider=ai_provider,
-                        model=policy.model,
+                        model=model,
                         exc=exc,
                         retry_attempted=False,
                         terminal_decision="fail_closed_no_budget",
                         parent_attempt_id=parent_attempt,
                         idempotency_key=retry_key,
+                        request_shape_hash=shape_hash,
+                        retry_decision_reason=deny_code
+                        or "candidate_no_budget_for_provider_retry",
+                        fallback_model_decision=fallback_decision,
                     )
                     raise CandidateStageError(
                         (
@@ -362,12 +558,15 @@ def build_ai_batch(
                         candidate_revision_uuid=candidate_revision_uuid,
                         stage=policy.stage,
                         ai_provider=ai_provider,
-                        model=policy.model,
+                        model=model,
                         exc=retry_exc,
                         retry_attempted=True,
                         terminal_decision="fail_closed",
                         parent_attempt_id=parent_attempt,
                         idempotency_key=retry_key,
+                        request_shape_hash=shape_hash,
+                        retry_decision_reason=f"retry_failed:{retry_exc.error_code}",
+                        fallback_model_decision=fallback_decision,
                     )
                     raise _provider_stage_error(
                         stage=policy.stage, exc=retry_exc

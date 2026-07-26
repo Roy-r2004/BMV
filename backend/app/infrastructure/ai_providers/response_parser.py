@@ -5,28 +5,21 @@ Candidate generation and other pipeline stages must consume
 payloads must never be indexed with ``response["choices"]`` outside this
 module.
 
-Policy revision: 2026-07-26.candidate-provider.1
+Policy revision: 2026-07-26.candidate-provider.2
 """
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, Mapping
 
-ProviderErrorCode = Literal[
-    "provider_auth_failed",
-    "provider_rate_limited",
-    "provider_timeout",
-    "provider_server_error",
-    "provider_bad_request",
-    "provider_content_refused",
-    "provider_empty_response",
-    "provider_response_shape_invalid",
-    "provider_malformed_json",
-    "provider_truncated_output",
-    "provider_structured_output_invalid",
-]
+from app.infrastructure.ai_providers.error_classification import (
+    ProviderErrorCode,
+    classify_provider_error,
+    normalize_error_object,
+    redact_error_message,
+)
 
 ProviderResponseFormat = Literal[
     "openai_chat_completion",
@@ -71,6 +64,8 @@ class ProviderGenerationResult:
     latency_ms: int
     response_top_level_keys: tuple[str, ...] = ()
     cost_usd: float | None = None
+    error_type: str = ""
+    error_metadata_keys: tuple[str, ...] = ()
 
     def to_diagnostics(self) -> dict[str, Any]:
         """Redacted diagnostics safe for admin persistence."""
@@ -95,6 +90,8 @@ class ProviderGenerationResult:
             "response_top_level_keys": list(self.response_top_level_keys),
             "cost_usd": self.cost_usd,
             "text_chars": len(self.text or ""),
+            "error_type": self.error_type,
+            "error_metadata_keys": list(self.error_metadata_keys),
             # Never include raw text, prompts, or full payload bodies.
         }
 
@@ -143,15 +140,7 @@ def top_level_keys(body: Any) -> tuple[str, ...]:
 
 
 def redact_provider_message(message: str, *, limit: int = 500) -> str:
-    text = " ".join(str(message or "").split())
-    # Strip anything that looks like a bearer/token fragment.
-    lowered = text
-    for needle in ("bearer ", "api_key", "authorization", "sk-"):
-        idx = lowered.lower().find(needle)
-        if idx >= 0:
-            lowered = lowered[:idx] + "[redacted]"
-            break
-    return lowered[:limit]
+    return redact_error_message(message, limit=limit)
 
 
 def retryable_for_status(http_status: int) -> bool:
@@ -159,21 +148,12 @@ def retryable_for_status(http_status: int) -> bool:
 
 
 def error_code_for_http_status(http_status: int) -> ProviderErrorCode:
-    if http_status in {401, 403}:
-        return "provider_auth_failed"
-    if http_status == 429:
-        return "provider_rate_limited"
-    if http_status == 408:
-        return "provider_timeout"
-    if http_status == 400:
-        return "provider_bad_request"
-    if 500 <= http_status <= 599:
-        return "provider_server_error"
-    if http_status == 404:
-        return "provider_bad_request"
-    if http_status >= 400:
-        return "provider_bad_request"
-    return "provider_server_error"
+    code, _retryable, _message, _keys = classify_provider_error(
+        http_status=http_status,
+        error_obj=None,
+        fallback_message="",
+    )
+    return code
 
 
 def _usage_from_openai(body: Mapping[str, Any]) -> tuple[int, int, int, float | None]:
@@ -242,6 +222,8 @@ def _failure_result(
     output_tokens: int = 0,
     total_tokens: int = 0,
     cost_usd: float | None = None,
+    error_type: str = "",
+    error_metadata_keys: tuple[str, ...] = (),
 ) -> ProviderGenerationResult:
     keys = top_level_keys(body)
     if not provider_request_id and isinstance(body, Mapping):
@@ -274,6 +256,8 @@ def _failure_result(
         latency_ms=max(0, latency_ms),
         response_top_level_keys=keys,
         cost_usd=cost_usd,
+        error_type=error_type,
+        error_metadata_keys=error_metadata_keys,
     )
 
 
@@ -351,34 +335,30 @@ def parse_openai_compatible_chat_response(
         )
 
     if http_status >= 400:
-        code = error_code_for_http_status(http_status)
-        message = ""
         response_format: ProviderResponseFormat = "unknown"
-        refusal = False
+        err_obj: dict[str, Any] = {}
         if isinstance(body, Mapping):
-            if "error" in body and isinstance(body.get("error"), Mapping):
-                err = body["error"]
-                message = str(err.get("message") or err.get("code") or "")
+            if "error" in body:
+                err_obj = normalize_error_object(body.get("error"))
                 response_format = "provider_error"
-                err_type = str(err.get("type") or err.get("code") or "")
-                if _looks_like_refusal(err_type, message):
-                    code = "provider_content_refused"
-                    refusal = True
             elif "detail" in body:
                 detail = body.get("detail")
-                message = (
-                    detail
-                    if isinstance(detail, str)
-                    else redact_provider_message(json.dumps(detail)[:500])
-                )
+                err_obj = {
+                    "message": (
+                        detail
+                        if isinstance(detail, str)
+                        else redact_provider_message(json.dumps(detail)[:500])
+                    )
+                }
                 response_format = "gateway_detail_error"
             else:
-                message = redact_provider_message(str(body)[:500])
-        if not message:
-            message = f"Provider HTTP {http_status}."
-        if refusal or _looks_like_refusal("", message):
-            code = "provider_content_refused"
-            refusal = True
+                err_obj = {"message": redact_provider_message(str(body)[:500])}
+        code, retryable, message, meta_keys = classify_provider_error(
+            http_status=http_status,
+            error_obj=err_obj,
+            fallback_message=f"Provider HTTP {http_status}.",
+        )
+        refusal = code == "provider_content_refused"
         return _failure_result(
             provider=provider,
             model=model,
@@ -389,8 +369,10 @@ def parse_openai_compatible_chat_response(
             error_code=code,
             message=message,
             response_format=response_format,
-            retryable=False if refusal or code == "provider_auth_failed" else None,
+            retryable=retryable,
             refusal=refusal,
+            error_type=str(err_obj.get("type") or err_obj.get("code") or ""),
+            error_metadata_keys=meta_keys,
         )
 
     # Success status path — require a supported shape. Never guess nested text.
@@ -410,19 +392,11 @@ def parse_openai_compatible_chat_response(
 
     # Explicit provider/gateway error payloads on HTTP 200.
     if "error" in body and "choices" not in body:
-        err = body.get("error")
-        message = ""
-        if isinstance(err, Mapping):
-            message = str(err.get("message") or err.get("code") or "upstream error")
-        elif isinstance(err, str):
-            message = err
-        else:
-            message = "Provider error payload without choices."
-        # Prefer server_error when message suggests upstream; else bad_request.
-        code = (
-            "provider_server_error"
-            if "upstream" in message.lower() or "internal" in message.lower()
-            else "provider_bad_request"
+        err_obj = normalize_error_object(body.get("error"))
+        code, retryable, message, meta_keys = classify_provider_error(
+            http_status=http_status,
+            error_obj=err_obj,
+            fallback_message="Provider error payload without choices.",
         )
         return _failure_result(
             provider=provider,
@@ -434,7 +408,10 @@ def parse_openai_compatible_chat_response(
             error_code=code,
             message=message,
             response_format="provider_error",
-            retryable=code == "provider_server_error",
+            retryable=retryable,
+            refusal=code == "provider_content_refused",
+            error_type=str(err_obj.get("type") or err_obj.get("code") or ""),
+            error_metadata_keys=meta_keys,
         )
 
     if "detail" in body and "choices" not in body:

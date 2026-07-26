@@ -20,10 +20,10 @@ def test_missing_choices_never_raises_keyerror() -> None:
         raw_text='{"error":{"message":"upstream error"}}',
     )
     assert result.is_success is False
-    assert result.error_code == "provider_server_error"
+    assert result.error_code == "provider_upstream_unavailable"
     with pytest.raises(ProviderGenerationError) as exc:
         raise_if_unsuccessful(result)
-    assert exc.value.error_code == "provider_server_error"
+    assert exc.value.error_code == "provider_upstream_unavailable"
     assert "'choices'" not in str(exc.value)
 
 
@@ -48,7 +48,7 @@ def test_provider_error_payload_on_200() -> None:
         body={"error": {"message": "upstream error", "type": "server_error"}},
         raw_text='{"error":{"message":"upstream error"}}',
     )
-    assert result.error_code == "provider_server_error"
+    assert result.error_code == "provider_upstream_unavailable"
     assert result.retryable is True
     assert "error" in result.response_top_level_keys
 
