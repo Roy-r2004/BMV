@@ -1,0 +1,317 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "CareNetwork",
+    "summary": "A marketplace where customers browse providers and services together.",
+    "problem": "Buyers need both provider catalog and seller services in one journey.",
+    "desired_outcome": "Buyers can open provider and service detail pages.",
+    "target_users": [
+      "Care network buyers"
+    ],
+    "success_metrics": [
+      "Buyers can inspect providers and services"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-MARKET-BROWSE",
+      "title": "Browse providers and services",
+      "description": "A buyer browses providers and services then opens a detail page.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-BUYER",
+      "name": "Buyer",
+      "description": "A person browsing marketplace providers and services.",
+      "goals": [
+        "Inspect providers and services"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-MARKET-BROWSE",
+      "name": "Care network browse",
+      "description": "Browse providers and services.",
+      "requirement_ids": [
+        "REQ-MARKET-BROWSE"
+      ],
+      "role_ids": [
+        "ROLE-BUYER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce providers and services for marketplace browsing.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-BUYER"
+      ],
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-PROVIDER",
+        "ACTION-OPEN-SERVICE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-INTRO"
+      ]
+    },
+    {
+      "id": "PAGE-PROVIDER-DETAIL",
+      "name": "Provider Detail",
+      "purpose": "Show one selectable provider from the catalog.",
+      "route": "/providers/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-BUYER"
+      ],
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ],
+      "state_ids": [
+        "STATE-PROVIDER-READY"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-PROVIDER-SUMMARY"
+      ]
+    },
+    {
+      "id": "PAGE-SERVICE-DETAIL",
+      "name": "Service Detail",
+      "purpose": "Show one selectable service from sellers.",
+      "route": "/services/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-BUYER"
+      ],
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ],
+      "state_ids": [
+        "STATE-SERVICE-READY"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-SUMMARY"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home intro is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-INTRO"
+      ]
+    },
+    {
+      "id": "STATE-PROVIDER-READY",
+      "page_id": "PAGE-PROVIDER-DETAIL",
+      "name": "Ready",
+      "description": "Provider details are visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-PROVIDER-SUMMARY"
+      ]
+    },
+    {
+      "id": "STATE-SERVICE-READY",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "name": "Ready",
+      "description": "Service details are visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-SUMMARY"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-PROVIDER",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-BUYER",
+      "name": "Open provider",
+      "description": "Open a provider detail page.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-OPEN-SERVICE",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-BUYER",
+      "name": "Open service",
+      "description": "Open a service detail page.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-PROVIDER",
+      "action_id": "ACTION-OPEN-PROVIDER",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-PROVIDER-READY",
+      "description": "Home navigates to provider detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Provider detail is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-OPEN-SERVICE",
+      "action_id": "ACTION-OPEN-SERVICE",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-SERVICE-READY",
+      "description": "Home navigates to service detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Service detail is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-INTRO",
+      "page_id": "PAGE-HOME",
+      "name": "Home intro",
+      "description": "Care network home introduction is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-PROVIDER-SUMMARY",
+      "page_id": "PAGE-PROVIDER-DETAIL",
+      "name": "Provider summary",
+      "description": "Selected provider summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-SERVICE-SUMMARY",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "name": "Service summary",
+      "description": "Selected service summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-MARKET-BROWSE",
+      "name": "Browse providers and services",
+      "description": "Home to provider or service detail.",
+      "role_id": "ROLE-BUYER",
+      "requirement_ids": [
+        "REQ-MARKET-BROWSE"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-PROVIDER",
+          "transition_id": "TRANSITION-OPEN-PROVIDER",
+          "expected_page_id": "PAGE-PROVIDER-DETAIL",
+          "expected_state_id": "STATE-PROVIDER-READY",
+          "evidence_ids": [
+            "EVIDENCE-PROVIDER-SUMMARY"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-MARKET-BROWSE",
+      "name": "Care network browse journey",
+      "description": "Buyer can open provider detail.",
+      "requirement_ids": [
+        "REQ-MARKET-BROWSE"
+      ],
+      "journey_id": "JOURNEY-MARKET-BROWSE",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Provider summary is visible.",
+          "page_id": "PAGE-PROVIDER-DETAIL",
+          "evidence_id": "EVIDENCE-PROVIDER-SUMMARY"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-MARKET-BROWSE",
+      "capability_ids": [
+        "CAP-MARKET-BROWSE"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-PROVIDER-DETAIL",
+        "PAGE-SERVICE-DETAIL"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-INTRO",
+        "EVIDENCE-PROVIDER-SUMMARY",
+        "EVIDENCE-SERVICE-SUMMARY"
+      ],
+      "journey_ids": [
+        "JOURNEY-MARKET-BROWSE"
+      ],
+      "acceptance_test_ids": [
+        "TEST-MARKET-BROWSE"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

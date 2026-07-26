@@ -1,0 +1,416 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "ShopSimple",
+    "summary": "Browse products then place an order.",
+    "problem": "Customers need a simple product order flow.",
+    "desired_outcome": "Home Product Detail Checkout Confirmation",
+    "target_users": [
+      "Shoppers"
+    ],
+    "success_metrics": [
+      "Place an order"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-ORDER-PRODUCT",
+      "title": "Order a selected product",
+      "description": "A customer browses products, opens a product detail, submits an order, and sees confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A shopper.",
+      "goals": [
+        "Order a product"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-ORDER-PRODUCT",
+      "name": "Product ordering",
+      "description": "Browse products and submit an order.",
+      "requirement_ids": [
+        "REQ-ORDER-PRODUCT"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce products and enter the product order journey.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-PRODUCT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "PAGE-PRODUCT-DETAIL",
+      "name": "Product Detail",
+      "purpose": "Show one selectable product before ordering.",
+      "route": "/products/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "state_ids": [
+        "STATE-PRODUCT-READY"
+      ],
+      "action_ids": [
+        "ACTION-SELECT-PRODUCT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-PRODUCT-SUMMARY"
+      ]
+    },
+    {
+      "id": "PAGE-CHECKOUT",
+      "name": "Checkout",
+      "purpose": "Collect customer details to create an order for the selected product.",
+      "route": "/checkout",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "state_ids": [
+        "STATE-ORDER-DRAFT"
+      ],
+      "action_ids": [
+        "ACTION-SUBMIT-ORDER"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "Show the order confirmation message after submit.",
+      "route": "/confirmation",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "state_ids": [
+        "STATE-ORDER-CONFIRMED"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home content is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "STATE-PRODUCT-READY",
+      "page_id": "PAGE-PRODUCT-DETAIL",
+      "name": "Ready",
+      "description": "Product details are visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-PRODUCT-SUMMARY"
+      ]
+    },
+    {
+      "id": "STATE-ORDER-DRAFT",
+      "page_id": "PAGE-CHECKOUT",
+      "name": "Draft",
+      "description": "Customer can complete order fields.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "STATE-ORDER-CONFIRMED",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmed",
+      "description": "Order confirmation is visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-PRODUCT",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse products",
+      "description": "Open the selectable product detail.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SELECT-PRODUCT",
+      "page_id": "PAGE-PRODUCT-DETAIL",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Select product",
+      "description": "Choose the displayed product and continue to checkout.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SUBMIT-ORDER",
+      "page_id": "PAGE-CHECKOUT",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit order",
+      "description": "Submit customer details to create an order.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-PRODUCT",
+      "action_id": "ACTION-OPEN-PRODUCT",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-PRODUCT-READY",
+      "description": "Home navigates into product detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Product detail is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SELECT-PRODUCT",
+      "action_id": "ACTION-SELECT-PRODUCT",
+      "from_state_id": "STATE-PRODUCT-READY",
+      "to_state_id": "STATE-ORDER-DRAFT",
+      "description": "Selecting a product opens checkout.",
+      "preconditions": [
+        "A product is displayed"
+      ],
+      "postconditions": [
+        "Checkout form is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SUBMIT-ORDER",
+      "action_id": "ACTION-SUBMIT-ORDER",
+      "from_state_id": "STATE-ORDER-DRAFT",
+      "to_state_id": "STATE-ORDER-CONFIRMED",
+      "description": "Submitting order shows confirmation.",
+      "preconditions": [
+        "Required order fields are complete"
+      ],
+      "postconditions": [
+        "Confirmation message is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-HERO",
+      "page_id": "PAGE-HOME",
+      "name": "Home hero",
+      "description": "Shop home introduction is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ]
+    },
+    {
+      "id": "EVIDENCE-PRODUCT-SUMMARY",
+      "page_id": "PAGE-PRODUCT-DETAIL",
+      "name": "Product summary",
+      "description": "Selected product summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CUSTOMER-INFO-FORM",
+      "page_id": "PAGE-CHECKOUT",
+      "name": "Customer info form",
+      "description": "Customer details form is visible on checkout.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmation message",
+      "description": "Order confirmation message is visible.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-ORDER-PRODUCT",
+      "name": "Order a product",
+      "description": "Home to product detail to checkout to order confirmation.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-ORDER-PRODUCT"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-PRODUCT",
+          "transition_id": "TRANSITION-OPEN-PRODUCT",
+          "expected_page_id": "PAGE-PRODUCT-DETAIL",
+          "expected_state_id": "STATE-PRODUCT-READY",
+          "evidence_ids": [
+            "EVIDENCE-PRODUCT-SUMMARY"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-SELECT-PRODUCT",
+          "transition_id": "TRANSITION-SELECT-PRODUCT",
+          "expected_page_id": "PAGE-CHECKOUT",
+          "expected_state_id": "STATE-ORDER-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-CUSTOMER-INFO-FORM"
+          ]
+        },
+        {
+          "id": "STEP-3",
+          "action_id": "ACTION-SUBMIT-ORDER",
+          "transition_id": "TRANSITION-SUBMIT-ORDER",
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-ORDER-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-ORDER-PRODUCT",
+      "name": "Order product journey",
+      "description": "Customer can complete the order journey.",
+      "requirement_ids": [
+        "REQ-ORDER-PRODUCT"
+      ],
+      "journey_id": "JOURNEY-ORDER-PRODUCT",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Product summary is visible.",
+          "page_id": "PAGE-PRODUCT-DETAIL",
+          "evidence_id": "EVIDENCE-PRODUCT-SUMMARY"
+        },
+        {
+          "kind": "visible",
+          "description": "Order confirmation message is visible.",
+          "page_id": "PAGE-CONFIRMATION",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-ORDER-PRODUCT",
+      "capability_ids": [
+        "CAP-ORDER-PRODUCT"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-PRODUCT-DETAIL",
+        "PAGE-CHECKOUT",
+        "PAGE-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-PRODUCT-SUMMARY",
+        "EVIDENCE-CUSTOMER-INFO-FORM",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-ORDER-PRODUCT"
+      ],
+      "acceptance_test_ids": [
+        "TEST-ORDER-PRODUCT"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

@@ -1,0 +1,416 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "JobApply",
+    "summary": "Browse jobs then create a application.",
+    "problem": "Customers need a simple job application flow.",
+    "desired_outcome": "Home Job Detail Application Confirmation",
+    "target_users": [
+      "Customers"
+    ],
+    "success_metrics": [
+      "Create a application"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-APPLICATION-JOB",
+      "title": "Application a selected job",
+      "description": "A customer browses jobs, opens a job detail, submits a application, and sees confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person creating a application.",
+      "goals": [
+        "Application a job"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-APPLICATION-JOB",
+      "name": "Job application",
+      "description": "Browse jobs and submit a application.",
+      "requirement_ids": [
+        "REQ-APPLICATION-JOB"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce jobs and enter the job application journey.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-JOB"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "PAGE-JOB-DETAIL",
+      "name": "Job Detail",
+      "purpose": "Show one selectable job before applying.",
+      "route": "/jobs/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "state_ids": [
+        "STATE-JOB-READY"
+      ],
+      "action_ids": [
+        "ACTION-SELECT-JOB"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-JOB-SUMMARY"
+      ]
+    },
+    {
+      "id": "PAGE-APPLICATION",
+      "name": "Application",
+      "purpose": "Collect customer details to create a application for the selected job.",
+      "route": "/application",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "state_ids": [
+        "STATE-APPLICATION-DRAFT"
+      ],
+      "action_ids": [
+        "ACTION-SUBMIT-APPLICATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "Show the application confirmation message after submit.",
+      "route": "/confirmation",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "state_ids": [
+        "STATE-APPLICATION-CONFIRMED"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home content is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "STATE-JOB-READY",
+      "page_id": "PAGE-JOB-DETAIL",
+      "name": "Ready",
+      "description": "Job details are visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-JOB-SUMMARY"
+      ]
+    },
+    {
+      "id": "STATE-APPLICATION-DRAFT",
+      "page_id": "PAGE-APPLICATION",
+      "name": "Draft",
+      "description": "Customer can complete application fields.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "STATE-APPLICATION-CONFIRMED",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmed",
+      "description": "Application confirmation is visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-JOB",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse jobs",
+      "description": "Open the selectable job detail.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SELECT-JOB",
+      "page_id": "PAGE-JOB-DETAIL",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Select job",
+      "description": "Choose the displayed job and continue.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SUBMIT-APPLICATION",
+      "page_id": "PAGE-APPLICATION",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit application",
+      "description": "Submit customer details to create a application.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-JOB",
+      "action_id": "ACTION-OPEN-JOB",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-JOB-READY",
+      "description": "Home navigates into job detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Job detail is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SELECT-JOB",
+      "action_id": "ACTION-SELECT-JOB",
+      "from_state_id": "STATE-JOB-READY",
+      "to_state_id": "STATE-APPLICATION-DRAFT",
+      "description": "Selecting a job opens application.",
+      "preconditions": [
+        "A job is displayed"
+      ],
+      "postconditions": [
+        "Application form is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SUBMIT-APPLICATION",
+      "action_id": "ACTION-SUBMIT-APPLICATION",
+      "from_state_id": "STATE-APPLICATION-DRAFT",
+      "to_state_id": "STATE-APPLICATION-CONFIRMED",
+      "description": "Submitting application shows confirmation.",
+      "preconditions": [
+        "Required application fields are complete"
+      ],
+      "postconditions": [
+        "Confirmation message is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-HERO",
+      "page_id": "PAGE-HOME",
+      "name": "Home hero",
+      "description": "Home introduction is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ]
+    },
+    {
+      "id": "EVIDENCE-JOB-SUMMARY",
+      "page_id": "PAGE-JOB-DETAIL",
+      "name": "Job summary",
+      "description": "Selected job summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CUSTOMER-INFO-FORM",
+      "page_id": "PAGE-APPLICATION",
+      "name": "Customer info form",
+      "description": "Customer details form is visible on application.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmation message",
+      "description": "Application confirmation message is visible.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-APPLICATION-JOB",
+      "name": "Application a job",
+      "description": "Home to job detail to application to confirmation.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-APPLICATION-JOB"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-JOB",
+          "transition_id": "TRANSITION-OPEN-JOB",
+          "expected_page_id": "PAGE-JOB-DETAIL",
+          "expected_state_id": "STATE-JOB-READY",
+          "evidence_ids": [
+            "EVIDENCE-JOB-SUMMARY"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-SELECT-JOB",
+          "transition_id": "TRANSITION-SELECT-JOB",
+          "expected_page_id": "PAGE-APPLICATION",
+          "expected_state_id": "STATE-APPLICATION-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-CUSTOMER-INFO-FORM"
+          ]
+        },
+        {
+          "id": "STEP-3",
+          "action_id": "ACTION-SUBMIT-APPLICATION",
+          "transition_id": "TRANSITION-SUBMIT-APPLICATION",
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-APPLICATION-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-APPLICATION-JOB",
+      "name": "Application job journey",
+      "description": "Customer can complete the application journey.",
+      "requirement_ids": [
+        "REQ-APPLICATION-JOB"
+      ],
+      "journey_id": "JOURNEY-APPLICATION-JOB",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Job summary is visible.",
+          "page_id": "PAGE-JOB-DETAIL",
+          "evidence_id": "EVIDENCE-JOB-SUMMARY"
+        },
+        {
+          "kind": "visible",
+          "description": "Application confirmation message is visible.",
+          "page_id": "PAGE-CONFIRMATION",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-APPLICATION-JOB",
+      "capability_ids": [
+        "CAP-APPLICATION-JOB"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-JOB-DETAIL",
+        "PAGE-APPLICATION",
+        "PAGE-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-JOB-SUMMARY",
+        "EVIDENCE-CUSTOMER-INFO-FORM",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-APPLICATION-JOB"
+      ],
+      "acceptance_test_ids": [
+        "TEST-APPLICATION-JOB"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

@@ -1,0 +1,416 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "LearnSimple",
+    "summary": "Browse courses then create a enrollment.",
+    "problem": "Customers need a simple course enrollment flow.",
+    "desired_outcome": "Home Course Detail Enrollment Confirmation",
+    "target_users": [
+      "Customers"
+    ],
+    "success_metrics": [
+      "Create a enrollment"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-ENROLLMENT-COURSE",
+      "title": "Enrollment a selected course",
+      "description": "A customer browses courses, opens a course detail, submits a enrollment, and sees confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person creating a enrollment.",
+      "goals": [
+        "Enrollment a course"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-ENROLLMENT-COURSE",
+      "name": "Course enrollment",
+      "description": "Browse courses and submit a enrollment.",
+      "requirement_ids": [
+        "REQ-ENROLLMENT-COURSE"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce courses and enter the course enrollment journey.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-COURSE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "PAGE-COURSE-DETAIL",
+      "name": "Course Detail",
+      "purpose": "Show one selectable course before enrolling.",
+      "route": "/courses/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "state_ids": [
+        "STATE-COURSE-READY"
+      ],
+      "action_ids": [
+        "ACTION-SELECT-COURSE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-COURSE-SUMMARY"
+      ]
+    },
+    {
+      "id": "PAGE-ENROLLMENT",
+      "name": "Enrollment",
+      "purpose": "Collect customer details to create a enrollment for the selected course.",
+      "route": "/enrollment",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "state_ids": [
+        "STATE-ENROLLMENT-DRAFT"
+      ],
+      "action_ids": [
+        "ACTION-SUBMIT-ENROLLMENT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "Show the enrollment confirmation message after submit.",
+      "route": "/confirmation",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "state_ids": [
+        "STATE-ENROLLMENT-CONFIRMED"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home content is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "STATE-COURSE-READY",
+      "page_id": "PAGE-COURSE-DETAIL",
+      "name": "Ready",
+      "description": "Course details are visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-COURSE-SUMMARY"
+      ]
+    },
+    {
+      "id": "STATE-ENROLLMENT-DRAFT",
+      "page_id": "PAGE-ENROLLMENT",
+      "name": "Draft",
+      "description": "Customer can complete enrollment fields.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "STATE-ENROLLMENT-CONFIRMED",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmed",
+      "description": "Enrollment confirmation is visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-COURSE",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse courses",
+      "description": "Open the selectable course detail.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SELECT-COURSE",
+      "page_id": "PAGE-COURSE-DETAIL",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Select course",
+      "description": "Choose the displayed course and continue.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SUBMIT-ENROLLMENT",
+      "page_id": "PAGE-ENROLLMENT",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit enrollment",
+      "description": "Submit customer details to create a enrollment.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-COURSE",
+      "action_id": "ACTION-OPEN-COURSE",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-COURSE-READY",
+      "description": "Home navigates into course detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Course detail is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SELECT-COURSE",
+      "action_id": "ACTION-SELECT-COURSE",
+      "from_state_id": "STATE-COURSE-READY",
+      "to_state_id": "STATE-ENROLLMENT-DRAFT",
+      "description": "Selecting a course opens enrollment.",
+      "preconditions": [
+        "A course is displayed"
+      ],
+      "postconditions": [
+        "Enrollment form is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SUBMIT-ENROLLMENT",
+      "action_id": "ACTION-SUBMIT-ENROLLMENT",
+      "from_state_id": "STATE-ENROLLMENT-DRAFT",
+      "to_state_id": "STATE-ENROLLMENT-CONFIRMED",
+      "description": "Submitting enrollment shows confirmation.",
+      "preconditions": [
+        "Required enrollment fields are complete"
+      ],
+      "postconditions": [
+        "Confirmation message is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-HERO",
+      "page_id": "PAGE-HOME",
+      "name": "Home hero",
+      "description": "Home introduction is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-COURSE-SUMMARY",
+      "page_id": "PAGE-COURSE-DETAIL",
+      "name": "Course summary",
+      "description": "Selected course summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CUSTOMER-INFO-FORM",
+      "page_id": "PAGE-ENROLLMENT",
+      "name": "Customer info form",
+      "description": "Customer details form is visible on enrollment.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmation message",
+      "description": "Enrollment confirmation message is visible.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-ENROLLMENT-COURSE",
+      "name": "Enrollment a course",
+      "description": "Home to course detail to enrollment to confirmation.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-ENROLLMENT-COURSE"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-COURSE",
+          "transition_id": "TRANSITION-OPEN-COURSE",
+          "expected_page_id": "PAGE-COURSE-DETAIL",
+          "expected_state_id": "STATE-COURSE-READY",
+          "evidence_ids": [
+            "EVIDENCE-COURSE-SUMMARY"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-SELECT-COURSE",
+          "transition_id": "TRANSITION-SELECT-COURSE",
+          "expected_page_id": "PAGE-ENROLLMENT",
+          "expected_state_id": "STATE-ENROLLMENT-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-CUSTOMER-INFO-FORM"
+          ]
+        },
+        {
+          "id": "STEP-3",
+          "action_id": "ACTION-SUBMIT-ENROLLMENT",
+          "transition_id": "TRANSITION-SUBMIT-ENROLLMENT",
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-ENROLLMENT-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-ENROLLMENT-COURSE",
+      "name": "Enrollment course journey",
+      "description": "Customer can complete the enrollment journey.",
+      "requirement_ids": [
+        "REQ-ENROLLMENT-COURSE"
+      ],
+      "journey_id": "JOURNEY-ENROLLMENT-COURSE",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Course summary is visible.",
+          "page_id": "PAGE-COURSE-DETAIL",
+          "evidence_id": "EVIDENCE-COURSE-SUMMARY"
+        },
+        {
+          "kind": "visible",
+          "description": "Enrollment confirmation message is visible.",
+          "page_id": "PAGE-CONFIRMATION",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-ENROLLMENT-COURSE",
+      "capability_ids": [
+        "CAP-ENROLLMENT-COURSE"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-COURSE-DETAIL",
+        "PAGE-ENROLLMENT",
+        "PAGE-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-COURSE-SUMMARY",
+        "EVIDENCE-CUSTOMER-INFO-FORM",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-ENROLLMENT-COURSE"
+      ],
+      "acceptance_test_ids": [
+        "TEST-ENROLLMENT-COURSE"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

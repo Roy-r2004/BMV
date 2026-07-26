@@ -1,0 +1,416 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "EventJoin",
+    "summary": "Browse events then create a registration.",
+    "problem": "Customers need a simple event registration flow.",
+    "desired_outcome": "Home Event Detail Registration Confirmation",
+    "target_users": [
+      "Customers"
+    ],
+    "success_metrics": [
+      "Create a registration"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-REGISTRATION-EVENT",
+      "title": "Registration a selected event",
+      "description": "A customer browses events, opens a event detail, submits a registration, and sees confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person creating a registration.",
+      "goals": [
+        "Registration a event"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-REGISTRATION-EVENT",
+      "name": "Event registration",
+      "description": "Browse events and submit a registration.",
+      "requirement_ids": [
+        "REQ-REGISTRATION-EVENT"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce events and enter the event registration journey.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-EVENT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "PAGE-EVENT-DETAIL",
+      "name": "Event Detail",
+      "purpose": "Show one selectable event before registering.",
+      "route": "/events/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "state_ids": [
+        "STATE-EVENT-READY"
+      ],
+      "action_ids": [
+        "ACTION-SELECT-EVENT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-EVENT-SUMMARY"
+      ]
+    },
+    {
+      "id": "PAGE-REGISTRATION",
+      "name": "Registration",
+      "purpose": "Collect customer details to create a registration for the selected event.",
+      "route": "/registration",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "state_ids": [
+        "STATE-REGISTRATION-DRAFT"
+      ],
+      "action_ids": [
+        "ACTION-SUBMIT-REGISTRATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "Show the registration confirmation message after submit.",
+      "route": "/confirmation",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "state_ids": [
+        "STATE-REGISTRATION-CONFIRMED"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home content is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "STATE-EVENT-READY",
+      "page_id": "PAGE-EVENT-DETAIL",
+      "name": "Ready",
+      "description": "Event details are visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-EVENT-SUMMARY"
+      ]
+    },
+    {
+      "id": "STATE-REGISTRATION-DRAFT",
+      "page_id": "PAGE-REGISTRATION",
+      "name": "Draft",
+      "description": "Customer can complete registration fields.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "STATE-REGISTRATION-CONFIRMED",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmed",
+      "description": "Registration confirmation is visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-EVENT",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse events",
+      "description": "Open the selectable event detail.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SELECT-EVENT",
+      "page_id": "PAGE-EVENT-DETAIL",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Select event",
+      "description": "Choose the displayed event and continue.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SUBMIT-REGISTRATION",
+      "page_id": "PAGE-REGISTRATION",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit registration",
+      "description": "Submit customer details to create a registration.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-EVENT",
+      "action_id": "ACTION-OPEN-EVENT",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-EVENT-READY",
+      "description": "Home navigates into event detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Event detail is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SELECT-EVENT",
+      "action_id": "ACTION-SELECT-EVENT",
+      "from_state_id": "STATE-EVENT-READY",
+      "to_state_id": "STATE-REGISTRATION-DRAFT",
+      "description": "Selecting a event opens registration.",
+      "preconditions": [
+        "A event is displayed"
+      ],
+      "postconditions": [
+        "Registration form is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SUBMIT-REGISTRATION",
+      "action_id": "ACTION-SUBMIT-REGISTRATION",
+      "from_state_id": "STATE-REGISTRATION-DRAFT",
+      "to_state_id": "STATE-REGISTRATION-CONFIRMED",
+      "description": "Submitting registration shows confirmation.",
+      "preconditions": [
+        "Required registration fields are complete"
+      ],
+      "postconditions": [
+        "Confirmation message is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-HERO",
+      "page_id": "PAGE-HOME",
+      "name": "Home hero",
+      "description": "Home introduction is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ]
+    },
+    {
+      "id": "EVIDENCE-EVENT-SUMMARY",
+      "page_id": "PAGE-EVENT-DETAIL",
+      "name": "Event summary",
+      "description": "Selected event summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CUSTOMER-INFO-FORM",
+      "page_id": "PAGE-REGISTRATION",
+      "name": "Customer info form",
+      "description": "Customer details form is visible on registration.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmation message",
+      "description": "Registration confirmation message is visible.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-REGISTRATION-EVENT",
+      "name": "Registration a event",
+      "description": "Home to event detail to registration to confirmation.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-REGISTRATION-EVENT"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-EVENT",
+          "transition_id": "TRANSITION-OPEN-EVENT",
+          "expected_page_id": "PAGE-EVENT-DETAIL",
+          "expected_state_id": "STATE-EVENT-READY",
+          "evidence_ids": [
+            "EVIDENCE-EVENT-SUMMARY"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-SELECT-EVENT",
+          "transition_id": "TRANSITION-SELECT-EVENT",
+          "expected_page_id": "PAGE-REGISTRATION",
+          "expected_state_id": "STATE-REGISTRATION-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-CUSTOMER-INFO-FORM"
+          ]
+        },
+        {
+          "id": "STEP-3",
+          "action_id": "ACTION-SUBMIT-REGISTRATION",
+          "transition_id": "TRANSITION-SUBMIT-REGISTRATION",
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-REGISTRATION-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-REGISTRATION-EVENT",
+      "name": "Registration event journey",
+      "description": "Customer can complete the registration journey.",
+      "requirement_ids": [
+        "REQ-REGISTRATION-EVENT"
+      ],
+      "journey_id": "JOURNEY-REGISTRATION-EVENT",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Event summary is visible.",
+          "page_id": "PAGE-EVENT-DETAIL",
+          "evidence_id": "EVIDENCE-EVENT-SUMMARY"
+        },
+        {
+          "kind": "visible",
+          "description": "Registration confirmation message is visible.",
+          "page_id": "PAGE-CONFIRMATION",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-REGISTRATION-EVENT",
+      "capability_ids": [
+        "CAP-REGISTRATION-EVENT"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-EVENT-DETAIL",
+        "PAGE-REGISTRATION",
+        "PAGE-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-EVENT-SUMMARY",
+        "EVIDENCE-CUSTOMER-INFO-FORM",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-REGISTRATION-EVENT"
+      ],
+      "acceptance_test_ids": [
+        "TEST-REGISTRATION-EVENT"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

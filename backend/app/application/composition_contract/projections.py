@@ -25,6 +25,7 @@ from app.domain.schemas.content_data_plan import (
     DataCollection,
     DerivedEntity,
     DerivedEntityField,
+    EntityRoleEvidence,
     EvidenceBinding,
     SeedFieldValue,
     SeedRecord,
@@ -656,6 +657,57 @@ def project_content_data_plan(
             if decision.derived_entity is not None
             else ()
         ),
+        result_code=decision.result_code,
+        decision_hash=decision.decision_hash,
+        entity_roles=tuple(
+            EntityRoleEvidence(
+                entity_type=str(item.get("entity_type") or ""),
+                normalized_entity_type=str(
+                    item.get("normalized_entity_type")
+                    or item.get("entity_type")
+                    or ""
+                ),
+                roles=tuple(str(role) for role in (item.get("roles") or ())),
+                positive_signals=tuple(
+                    str(signal) for signal in (item.get("positive_signals") or ())
+                ),
+                negative_signals=tuple(
+                    str(signal) for signal in (item.get("negative_signals") or ())
+                ),
+                score=int(item.get("score") or 0),
+                source_references=tuple(
+                    str(ref) for ref in (item.get("source_references") or ())
+                )[:40],
+                result_code=str(item.get("result_code") or "supporting_entity_excluded"),
+                eligible_primary=bool(item.get("eligible_primary")),
+            )
+            for item in (decision.entity_roles or [])[:40]
+            if item.get("entity_type")
+        ),
+        excluded_transaction_entity_types=tuple(
+            decision.excluded_transaction_entity_types or ()
+        ),
+        ambiguity_candidates_after_classification=tuple(
+            decision.ambiguity_candidates_after_classification or ()
+        ),
+        transactional_entities=tuple(
+            DerivedEntity(
+                id=entity.id,
+                name=entity.name,
+                description=entity.description,
+                fields=tuple(
+                    DerivedEntityField(
+                        id=field.id,
+                        name=field.name,
+                        type=field.type,  # type: ignore[arg-type]
+                        required=field.required,
+                    )
+                    for field in entity.fields
+                ),
+            )
+            for entity in (decision.transactional_entities or ())
+        ),
+        selected_primary_collection=decision.selected_primary_collection,
     )
 
     component_state = {

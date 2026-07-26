@@ -181,6 +181,20 @@ class DerivedEntity(StrictDesignModel):
     fields: Tuple[DerivedEntityField, ...] = Field(min_length=1, max_length=80)
 
 
+class EntityRoleEvidence(StrictDesignModel):
+    """Immutable per-candidate role classification for collection projection."""
+
+    entity_type: ShortText
+    normalized_entity_type: ShortText
+    roles: Tuple[ShortText, ...] = Field(default=(), max_length=12)
+    positive_signals: Tuple[ShortText, ...] = Field(default=(), max_length=40)
+    negative_signals: Tuple[ShortText, ...] = Field(default=(), max_length=40)
+    score: StrictInt = Field(default=0, ge=-1000, le=1000)
+    source_references: Tuple[ShortText, ...] = Field(default=(), max_length=40)
+    result_code: ShortText
+    eligible_primary: StrictBool = False
+
+
 class CollectionProjectionEvidence(StrictDesignModel):
     """Immutable lineage for Tier 1 collection reuse/derivation decisions."""
 
@@ -225,6 +239,25 @@ class CollectionProjectionEvidence(StrictDesignModel):
     collection_id: Optional[Identifier] = None
     minimum_seed_count: StrictInt = Field(default=0, ge=0, le=100)
     derived_entities: Tuple[DerivedEntity, ...] = Field(default=(), max_length=20)
+    result_code: Optional[ShortText] = None
+    decision_hash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    entity_roles: Tuple[EntityRoleEvidence, ...] = Field(default=(), max_length=40)
+    excluded_transaction_entity_types: Tuple[ShortText, ...] = Field(
+        default=(),
+        max_length=40,
+    )
+    ambiguity_candidates_after_classification: Tuple[ShortText, ...] = Field(
+        default=(),
+        max_length=40,
+    )
+    transactional_entities: Tuple[DerivedEntity, ...] = Field(
+        default=(),
+        max_length=20,
+    )
+    selected_primary_collection: Optional[Identifier] = None
 
 
 class ContentDataPlan(StrictDesignModel):

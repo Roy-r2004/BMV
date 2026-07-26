@@ -1,0 +1,416 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "HomesView",
+    "summary": "Browse properties then create a viewing.",
+    "problem": "Customers need a simple property viewing flow.",
+    "desired_outcome": "Home Property Detail Viewing Confirmation",
+    "target_users": [
+      "Customers"
+    ],
+    "success_metrics": [
+      "Create a viewing"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-VIEWING-PROPERTY",
+      "title": "Viewing a selected property",
+      "description": "A customer browses properties, opens a property detail, submits a viewing, and sees confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person creating a viewing.",
+      "goals": [
+        "Viewing a property"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-VIEWING-PROPERTY",
+      "name": "Property viewing",
+      "description": "Browse properties and submit a viewing.",
+      "requirement_ids": [
+        "REQ-VIEWING-PROPERTY"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce properties and enter the property viewing journey.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-PROPERTY"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "PAGE-PROPERTY-DETAIL",
+      "name": "Property Detail",
+      "purpose": "Show one selectable property before requesting a viewing.",
+      "route": "/properties/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "state_ids": [
+        "STATE-PROPERTY-READY"
+      ],
+      "action_ids": [
+        "ACTION-SELECT-PROPERTY"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-PROPERTY-SUMMARY"
+      ]
+    },
+    {
+      "id": "PAGE-VIEWING",
+      "name": "Viewing",
+      "purpose": "Collect customer details to create a viewing for the selected property.",
+      "route": "/viewing",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "state_ids": [
+        "STATE-VIEWING-DRAFT"
+      ],
+      "action_ids": [
+        "ACTION-SUBMIT-VIEWING"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "Show the viewing confirmation message after submit.",
+      "route": "/confirmation",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "state_ids": [
+        "STATE-VIEWING-CONFIRMED"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home content is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "STATE-PROPERTY-READY",
+      "page_id": "PAGE-PROPERTY-DETAIL",
+      "name": "Ready",
+      "description": "Property details are visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-PROPERTY-SUMMARY"
+      ]
+    },
+    {
+      "id": "STATE-VIEWING-DRAFT",
+      "page_id": "PAGE-VIEWING",
+      "name": "Draft",
+      "description": "Customer can complete viewing fields.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-INFO-FORM"
+      ]
+    },
+    {
+      "id": "STATE-VIEWING-CONFIRMED",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmed",
+      "description": "Viewing confirmation is visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-PROPERTY",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse properties",
+      "description": "Open the selectable property detail.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SELECT-PROPERTY",
+      "page_id": "PAGE-PROPERTY-DETAIL",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Select property",
+      "description": "Choose the displayed property and continue.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-SUBMIT-VIEWING",
+      "page_id": "PAGE-VIEWING",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit viewing",
+      "description": "Submit customer details to create a viewing.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-PROPERTY",
+      "action_id": "ACTION-OPEN-PROPERTY",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-PROPERTY-READY",
+      "description": "Home navigates into property detail.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Property detail is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SELECT-PROPERTY",
+      "action_id": "ACTION-SELECT-PROPERTY",
+      "from_state_id": "STATE-PROPERTY-READY",
+      "to_state_id": "STATE-VIEWING-DRAFT",
+      "description": "Selecting a property opens viewing.",
+      "preconditions": [
+        "A property is displayed"
+      ],
+      "postconditions": [
+        "Viewing form is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-SUBMIT-VIEWING",
+      "action_id": "ACTION-SUBMIT-VIEWING",
+      "from_state_id": "STATE-VIEWING-DRAFT",
+      "to_state_id": "STATE-VIEWING-CONFIRMED",
+      "description": "Submitting viewing shows confirmation.",
+      "preconditions": [
+        "Required viewing fields are complete"
+      ],
+      "postconditions": [
+        "Confirmation message is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-HERO",
+      "page_id": "PAGE-HOME",
+      "name": "Home hero",
+      "description": "Home introduction is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ]
+    },
+    {
+      "id": "EVIDENCE-PROPERTY-SUMMARY",
+      "page_id": "PAGE-PROPERTY-DETAIL",
+      "name": "Property summary",
+      "description": "Selected property summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CUSTOMER-INFO-FORM",
+      "page_id": "PAGE-VIEWING",
+      "name": "Customer info form",
+      "description": "Customer details form is visible on viewing.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmation message",
+      "description": "Viewing confirmation message is visible.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-VIEWING-PROPERTY",
+      "name": "Viewing a property",
+      "description": "Home to property detail to viewing to confirmation.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-VIEWING-PROPERTY"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-PROPERTY",
+          "transition_id": "TRANSITION-OPEN-PROPERTY",
+          "expected_page_id": "PAGE-PROPERTY-DETAIL",
+          "expected_state_id": "STATE-PROPERTY-READY",
+          "evidence_ids": [
+            "EVIDENCE-PROPERTY-SUMMARY"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-SELECT-PROPERTY",
+          "transition_id": "TRANSITION-SELECT-PROPERTY",
+          "expected_page_id": "PAGE-VIEWING",
+          "expected_state_id": "STATE-VIEWING-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-CUSTOMER-INFO-FORM"
+          ]
+        },
+        {
+          "id": "STEP-3",
+          "action_id": "ACTION-SUBMIT-VIEWING",
+          "transition_id": "TRANSITION-SUBMIT-VIEWING",
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-VIEWING-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-VIEWING-PROPERTY",
+      "name": "Viewing property journey",
+      "description": "Customer can complete the viewing journey.",
+      "requirement_ids": [
+        "REQ-VIEWING-PROPERTY"
+      ],
+      "journey_id": "JOURNEY-VIEWING-PROPERTY",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Property summary is visible.",
+          "page_id": "PAGE-PROPERTY-DETAIL",
+          "evidence_id": "EVIDENCE-PROPERTY-SUMMARY"
+        },
+        {
+          "kind": "visible",
+          "description": "Viewing confirmation message is visible.",
+          "page_id": "PAGE-CONFIRMATION",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-VIEWING-PROPERTY",
+      "capability_ids": [
+        "CAP-VIEWING-PROPERTY"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-PROPERTY-DETAIL",
+        "PAGE-VIEWING",
+        "PAGE-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-PROPERTY-SUMMARY",
+        "EVIDENCE-CUSTOMER-INFO-FORM",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-VIEWING-PROPERTY"
+      ],
+      "acceptance_test_ids": [
+        "TEST-VIEWING-PROPERTY"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

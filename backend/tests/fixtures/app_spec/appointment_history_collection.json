@@ -1,0 +1,333 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "StudioConnect InstantBook Smoke30",
+    "summary": "Customers browse appointment history and open appointment details.",
+    "problem": "Phone booking is manual and clients need clearer appointment details.",
+    "desired_outcome": "A clickable Home Service Detail Booking Confirmation customer journey.",
+    "target_users": [
+      "Local studio clients"
+    ],
+    "success_metrics": [
+      "Customers can select a service and complete booking"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-APPOINTMENT-HISTORY",
+      "title": "Browse appointment history",
+      "description": "A customer browses appointments in history, opens an appointment detail, and reviews the appointment.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person booking a personal-care service.",
+      "goals": [
+        "Book a service"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-APPOINTMENT-HISTORY",
+      "name": "Appointment history",
+      "description": "Browse and open appointments.",
+      "requirement_ids": [
+        "REQ-APPOINTMENT-HISTORY"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Enter appointment history.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-APPOINTMENTS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "PAGE-APPOINTMENT-HISTORY",
+      "name": "Appointment History",
+      "purpose": "List and browse repeated appointment records for the customer.",
+      "route": "/appointments",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ],
+      "state_ids": [
+        "STATE-APPOINTMENT-LIST"
+      ],
+      "action_ids": [
+        "ACTION-OPEN-APPOINTMENT"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-APPOINTMENT-LIST"
+      ]
+    },
+    {
+      "id": "PAGE-APPOINTMENT-DETAIL",
+      "name": "Appointment Detail",
+      "purpose": "Show one selectable appointment from history.",
+      "route": "/appointments/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ],
+      "state_ids": [
+        "STATE-APPOINTMENT-READY"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-APPOINTMENT-SUMMARY"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-HERO"
+      ]
+    },
+    {
+      "id": "STATE-APPOINTMENT-LIST",
+      "page_id": "PAGE-APPOINTMENT-HISTORY",
+      "name": "Ready",
+      "description": "Appointment list is visible.",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-APPOINTMENT-LIST"
+      ]
+    },
+    {
+      "id": "STATE-APPOINTMENT-READY",
+      "page_id": "PAGE-APPOINTMENT-DETAIL",
+      "name": "Ready",
+      "description": "Appointment detail is visible.",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-APPOINTMENT-SUMMARY"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-OPEN-APPOINTMENTS",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse appointments",
+      "description": "Open the appointment history list.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ],
+      "entity_id": null,
+      "input_label": null
+    },
+    {
+      "id": "ACTION-OPEN-APPOINTMENT",
+      "page_id": "PAGE-APPOINTMENT-HISTORY",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Open appointment",
+      "description": "Select an appointment from the history list.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ],
+      "entity_id": null,
+      "input_label": null
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TRANSITION-OPEN-LIST",
+      "action_id": "ACTION-OPEN-APPOINTMENTS",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-APPOINTMENT-LIST",
+      "description": "Open appointment history.",
+      "preconditions": [
+        "Home is visible"
+      ],
+      "postconditions": [
+        "Appointment list is visible"
+      ],
+      "effects": []
+    },
+    {
+      "id": "TRANSITION-OPEN-DETAIL",
+      "action_id": "ACTION-OPEN-APPOINTMENT",
+      "from_state_id": "STATE-APPOINTMENT-LIST",
+      "to_state_id": "STATE-APPOINTMENT-READY",
+      "description": "Open appointment detail.",
+      "preconditions": [
+        "Appointment list is visible"
+      ],
+      "postconditions": [
+        "Appointment detail is visible"
+      ],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-HERO",
+      "page_id": "PAGE-HOME",
+      "name": "Home hero",
+      "description": "Home is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ]
+    },
+    {
+      "id": "EVIDENCE-APPOINTMENT-LIST",
+      "page_id": "PAGE-APPOINTMENT-HISTORY",
+      "name": "Appointment list",
+      "description": "Repeated appointment cards are visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ]
+    },
+    {
+      "id": "EVIDENCE-APPOINTMENT-SUMMARY",
+      "page_id": "PAGE-APPOINTMENT-DETAIL",
+      "name": "Appointment summary",
+      "description": "Selected appointment summary is visible.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-APPOINTMENT-HISTORY",
+      "name": "Browse appointments",
+      "description": "Home to appointment history list to appointment detail.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-APPOINTMENT-HISTORY"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-OPEN-APPOINTMENTS",
+          "transition_id": "TRANSITION-OPEN-LIST",
+          "expected_page_id": "PAGE-APPOINTMENT-HISTORY",
+          "expected_state_id": "STATE-APPOINTMENT-LIST",
+          "evidence_ids": [
+            "EVIDENCE-APPOINTMENT-LIST"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-OPEN-APPOINTMENT",
+          "transition_id": "TRANSITION-OPEN-DETAIL",
+          "expected_page_id": "PAGE-APPOINTMENT-DETAIL",
+          "expected_state_id": "STATE-APPOINTMENT-READY",
+          "evidence_ids": [
+            "EVIDENCE-APPOINTMENT-SUMMARY"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-APPOINTMENT-HISTORY",
+      "name": "Appointment history journey",
+      "description": "Customer can browse appointments.",
+      "requirement_ids": [
+        "REQ-APPOINTMENT-HISTORY"
+      ],
+      "journey_id": "JOURNEY-APPOINTMENT-HISTORY",
+      "assertions": [
+        {
+          "kind": "visible",
+          "description": "Appointment list is visible.",
+          "page_id": "PAGE-APPOINTMENT-HISTORY",
+          "evidence_id": "EVIDENCE-APPOINTMENT-LIST"
+        },
+        {
+          "kind": "visible",
+          "description": "Appointment summary is visible.",
+          "page_id": "PAGE-APPOINTMENT-DETAIL",
+          "evidence_id": "EVIDENCE-APPOINTMENT-SUMMARY"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-APPOINTMENT-HISTORY",
+      "capability_ids": [
+        "CAP-APPOINTMENT-HISTORY"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-APPOINTMENT-HISTORY",
+        "PAGE-APPOINTMENT-DETAIL"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-APPOINTMENT-LIST",
+        "EVIDENCE-APPOINTMENT-SUMMARY"
+      ],
+      "journey_ids": [
+        "JOURNEY-APPOINTMENT-HISTORY"
+      ],
+      "acceptance_test_ids": [
+        "TEST-APPOINTMENT-HISTORY"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

@@ -12,6 +12,13 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
 from app.application.composition_contract.context import CompositionContext
+from app.application.composition_contract.entity_role_classification import (
+    ENTITY_ROLE_POLICY_REVISION,
+    EntityRoleCandidate,
+    classify_entity_candidates,
+    detect_raw_entity_types,
+    select_primary_collection_types,
+)
 from app.domain.schemas.business_component_plan import BusinessComponentPlan
 from app.domain.schemas.content_data_plan import (
     DataCollection,
@@ -20,7 +27,7 @@ from app.domain.schemas.content_data_plan import (
 )
 from app.domain.schemas.page_purpose_contract import PagePurposeContract
 
-COLLECTION_PROJECTION_POLICY_REVISION = "2026-07-26.1"
+COLLECTION_PROJECTION_POLICY_REVISION = ENTITY_ROLE_POLICY_REVISION
 
 CollectionDecisionCode = Literal[
     "collection_not_required",
@@ -35,7 +42,8 @@ CollectionDecisionCode = Literal[
 
 _WORD = re.compile(r"[a-z0-9]+")
 
-# Repeatable / selectable business nouns that justify a Tier 1 collection.
+# Catalog nouns eligible for seeded Tier 1 collections (transaction nouns live
+# in entity_role_classification and compete only after role ranking).
 _COLLECTION_NOUNS: dict[str, str] = {
     "service": "service",
     "services": "service",
@@ -61,6 +69,10 @@ _COLLECTION_NOUNS: dict[str, str] = {
     "inventory": "inventory_item",
     "inventoryitem": "inventory_item",
     "inventoryitems": "inventory_item",
+    "event": "event",
+    "events": "event",
+    "job": "job",
+    "jobs": "job",
 }
 
 # Nouns that must never alone force a Tier 1 collection.
@@ -134,6 +146,54 @@ _ENTITY_TYPE_META: dict[str, dict[str, str]] = {
         "name": "Appointment",
         "description": "Appointment records for the Tier 1 journey.",
     },
+    "booking": {
+        "entity_id": "ENTITY-BOOKING",
+        "collection_prefix": "COLLECTION-BOOKINGS",
+        "name": "Booking",
+        "description": "Booking transaction created by the Tier 1 journey.",
+    },
+    "order": {
+        "entity_id": "ENTITY-ORDER",
+        "collection_prefix": "COLLECTION-ORDERS",
+        "name": "Order",
+        "description": "Order transaction created by the Tier 1 journey.",
+    },
+    "enrollment": {
+        "entity_id": "ENTITY-ENROLLMENT",
+        "collection_prefix": "COLLECTION-ENROLLMENTS",
+        "name": "Enrollment",
+        "description": "Enrollment transaction created by the Tier 1 journey.",
+    },
+    "viewing": {
+        "entity_id": "ENTITY-VIEWING",
+        "collection_prefix": "COLLECTION-VIEWINGS",
+        "name": "Viewing",
+        "description": "Viewing request transaction created by the Tier 1 journey.",
+    },
+    "registration": {
+        "entity_id": "ENTITY-REGISTRATION",
+        "collection_prefix": "COLLECTION-REGISTRATIONS",
+        "name": "Registration",
+        "description": "Registration transaction created by the Tier 1 journey.",
+    },
+    "application": {
+        "entity_id": "ENTITY-APPLICATION",
+        "collection_prefix": "COLLECTION-APPLICATIONS",
+        "name": "Application",
+        "description": "Application transaction created by the Tier 1 journey.",
+    },
+    "event": {
+        "entity_id": "ENTITY-EVENT",
+        "collection_prefix": "COLLECTION-EVENTS",
+        "name": "Event",
+        "description": "Selectable events shown in the Tier 1 journey.",
+    },
+    "job": {
+        "entity_id": "ENTITY-JOB",
+        "collection_prefix": "COLLECTION-JOBS",
+        "name": "Job",
+        "description": "Selectable jobs shown in the Tier 1 journey.",
+    },
     "menu_item": {
         "entity_id": "ENTITY-MENU-ITEM",
         "collection_prefix": "COLLECTION-MENU-ITEMS",
@@ -197,6 +257,13 @@ class CollectionProjectionDecision:
     after_projection_hash: str | None = None
     app_spec_sha256: str | None = None
     tier1_contract_hash: str | None = None
+    result_code: str | None = None
+    decision_hash: str | None = None
+    entity_roles: list[dict[str, Any]] = field(default_factory=list)
+    excluded_transaction_entity_types: tuple[str, ...] = ()
+    ambiguity_candidates_after_classification: tuple[str, ...] = ()
+    transactional_entities: tuple[DerivedEntitySpec, ...] = ()
+    selected_primary_collection: str | None = None
 
     def to_evidence(self) -> dict[str, Any]:
         entity_payload = None
@@ -215,6 +282,23 @@ class CollectionProjectionDecision:
                     for field in self.derived_entity.fields
                 ],
             }
+        transactional_payload = [
+            {
+                "id": entity.id,
+                "name": entity.name,
+                "description": entity.description,
+                "fields": [
+                    {
+                        "id": field.id,
+                        "name": field.name,
+                        "type": field.type,
+                        "required": field.required,
+                    }
+                    for field in entity.fields
+                ],
+            }
+            for entity in self.transactional_entities
+        ]
         return {
             "policy_revision": self.policy_revision,
             "decision": self.code,
@@ -237,6 +321,17 @@ class CollectionProjectionDecision:
             "minimum_seed_count": (
                 len(self.collection.seed_records) if self.collection else 0
             ),
+            "result_code": self.result_code,
+            "decision_hash": self.decision_hash,
+            "entity_roles": list(self.entity_roles)[:40],
+            "excluded_transaction_entity_types": list(
+                self.excluded_transaction_entity_types
+            ),
+            "ambiguity_candidates_after_classification": list(
+                self.ambiguity_candidates_after_classification
+            ),
+            "transactional_entities": transactional_payload,
+            "selected_primary_collection": self.selected_primary_collection,
         }
 
 
@@ -320,17 +415,13 @@ def _gather_signal_text(
 def detect_collection_entity_types(
     signal_text: str,
 ) -> tuple[str, ...]:
-    """Return sorted unique entity types implied by Tier 1 signal text."""
+    """Return sorted unique raw entity types implied by Tier 1 signal text.
 
-    tokens = _tokens(signal_text)
-    found: set[str] = set()
-    for token in tokens:
-        if token in _NON_COLLECTION_NOUNS:
-            continue
-        mapped = _COLLECTION_NOUNS.get(token)
-        if mapped:
-            found.add(mapped)
-    return tuple(sorted(found))
+    Includes catalog and transactional nouns. Primary-collection selection
+    applies entity-role classification separately.
+    """
+
+    return detect_raw_entity_types(signal_text)
 
 
 def collection_is_required(
@@ -469,6 +560,40 @@ def build_derived_collection(
     return collection, entity
 
 
+def _transaction_entity_spec(entity_type: str) -> DerivedEntitySpec | None:
+    meta = _ENTITY_TYPE_META.get(entity_type)
+    if meta is None:
+        return None
+    return DerivedEntitySpec(
+        id=meta["entity_id"],
+        name=meta["name"],
+        description=(
+            f"Transactional {meta['name']} created after selecting a catalog "
+            "object; not seeded as a Tier 1 browse collection."
+        ),
+        fields=(
+            DerivedEntityFieldSpec(
+                id="FIELD-STATUS",
+                name="Status",
+                type="string",
+                required=True,
+            ),
+            DerivedEntityFieldSpec(
+                id="FIELD-SELECTED-REF",
+                name="Selected catalog reference",
+                type="reference",
+                required=False,
+            ),
+        ),
+    )
+
+
+def _role_fields(
+    ranking_candidates: list[EntityRoleCandidate],
+) -> list[dict[str, Any]]:
+    return [item.model_dump() for item in ranking_candidates]
+
+
 def resolve_tier1_collection_decision(
     context: CompositionContext,
     *,
@@ -488,22 +613,84 @@ def resolve_tier1_collection_decision(
     signal_text, source_refs = _gather_signal_text(
         context, page_purpose, component_plan
     )
-    entity_types = detect_collection_entity_types(signal_text)
+    ranking = classify_entity_candidates(
+        context,
+        page_purpose=page_purpose,
+        component_plan=component_plan,
+        signal_text=signal_text,
+        source_references=source_refs,
+    )
+    raw_entity_types = ranking.raw_entity_types or detect_collection_entity_types(
+        signal_text
+    )
     # Booking page pair without noun tokens still maps to services.
     page_ids = tuple(page.page_id for page in page_purpose.pages)
     page_id_folded = {item.casefold() for item in page_ids}
     if (
-        not entity_types
+        not raw_entity_types
         and any("service" in item for item in page_id_folded)
         and any("book" in item for item in page_id_folded)
     ):
+        raw_entity_types = ("service",)
+
+    primary_types = select_primary_collection_types(ranking)
+    if ranking.result_code == "genuine_primary_collection_ambiguity":
+        entity_types = ranking.ambiguity_candidates_after_classification
+    elif primary_types:
+        entity_types = primary_types
+    elif (
+        any("service" in item for item in page_id_folded)
+        and any("book" in item for item in page_id_folded)
+        and not ranking.excluded_transaction_entity_types
+    ):
         entity_types = ("service",)
+    else:
+        entity_types = ()
 
     required = collection_is_required(
-        entity_types=entity_types,
+        entity_types=entity_types or raw_entity_types,
         signal_text=signal_text,
         page_purpose=page_purpose,
     )
+    # Catalog→transaction false ambiguity: raw may have many nouns, but role
+    # ranking already selected a single primary or excluded transactions.
+    if (
+        required
+        and not entity_types
+        and ranking.result_code == "no_primary_collection_required"
+        and ranking.excluded_transaction_entity_types
+        and not primary_types
+    ):
+        # Transaction-only journey without catalog browse evidence.
+        required = collection_is_required(
+            entity_types=(),
+            signal_text=signal_text,
+            page_purpose=page_purpose,
+        )
+
+    role_payload = _role_fields(ranking.candidates)
+    txn_entities = tuple(
+        spec
+        for entity_type in ranking.excluded_transaction_entity_types
+        if (spec := _transaction_entity_spec(entity_type)) is not None
+    )
+
+    def _base_kwargs() -> dict[str, Any]:
+        return {
+            "source_references": source_refs,
+            "before_projection_hash": before_projection_hash,
+            "app_spec_sha256": app_spec_sha,
+            "tier1_contract_hash": tier1_hash,
+            "entity_roles": role_payload,
+            "excluded_transaction_entity_types": (
+                ranking.excluded_transaction_entity_types
+            ),
+            "ambiguity_candidates_after_classification": (
+                ranking.ambiguity_candidates_after_classification
+            ),
+            "decision_hash": ranking.decision_hash,
+            "transactional_entities": txn_entities,
+        }
 
     if existing:
         return CollectionProjectionDecision(
@@ -512,13 +699,11 @@ def resolve_tier1_collection_decision(
             required=True,
             derived=False,
             collection=existing[0],
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
+            result_code="primary_collection_selected",
+            selected_primary_collection=existing[0].entity_id,
             after_projection_hash=_canonical_hash(
                 [item.model_dump(mode="json") for item in existing]
             ),
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
             collection_schema_hash=_canonical_hash(
                 existing[0].model_dump(mode="json")
             ),
@@ -528,6 +713,7 @@ def resolve_tier1_collection_decision(
                     for record in existing[0].seed_records
                 ]
             ),
+            **_base_kwargs(),
         )
 
     tier_entity_ids = set(context.tier_1.references.entity_ids)
@@ -568,26 +754,62 @@ def resolve_tier1_collection_decision(
                 ),
                 required=True,
                 derived=False,
+                result_code="primary_collection_unseedable",
                 source_references=source_refs
                 + [f"appspec.entities.{item.id}" for item in fieldless_matches[:5]],
                 before_projection_hash=before_projection_hash,
                 app_spec_sha256=app_spec_sha,
                 tier1_contract_hash=tier1_hash,
+                entity_roles=role_payload,
+                excluded_transaction_entity_types=(
+                    ranking.excluded_transaction_entity_types
+                ),
+                ambiguity_candidates_after_classification=(
+                    ranking.ambiguity_candidates_after_classification
+                ),
+                decision_hash=ranking.decision_hash,
+                transactional_entities=txn_entities,
             )
         if len(candidates) > 1 and len({item[1] for item in candidates if item[1]}) > 1:
-            return CollectionProjectionDecision(
-                code="collection_ambiguous",
-                reason=(
-                    "Multiple AppSpec entities could restore a Tier 1 "
-                    "collection; refusing to invent one."
-                ),
-                required=True,
-                derived=False,
-                source_references=source_refs,
-                before_projection_hash=before_projection_hash,
-                app_spec_sha256=app_spec_sha,
-                tier1_contract_hash=tier1_hash,
+            # Apply role ranking to AppSpec restore candidates too.
+            restore_types = tuple(
+                sorted({item[1] for item in candidates if item[1]})
             )
+            if len(restore_types) > 1 and ranking.result_code == (
+                "genuine_primary_collection_ambiguity"
+            ):
+                return CollectionProjectionDecision(
+                    code="collection_ambiguous",
+                    reason=(
+                        "Multiple AppSpec entities could restore a Tier 1 "
+                        "collection; refusing to invent one."
+                    ),
+                    required=True,
+                    derived=False,
+                    result_code="genuine_primary_collection_ambiguity",
+                    **_base_kwargs(),
+                )
+            preferred = set(entity_types) if entity_types else set()
+            if preferred:
+                filtered = [
+                    item for item in candidates if item[1] in preferred
+                ]
+                if filtered:
+                    candidates = filtered
+            if len(candidates) > 1 and len(
+                {item[1] for item in candidates if item[1]}
+            ) > 1:
+                return CollectionProjectionDecision(
+                    code="collection_ambiguous",
+                    reason=(
+                        "Multiple AppSpec entities could restore a Tier 1 "
+                        "collection; refusing to invent one."
+                    ),
+                    required=True,
+                    derived=False,
+                    result_code="genuine_primary_collection_ambiguity",
+                    **_base_kwargs(),
+                )
         if candidates:
             entity, matched_type, in_tier = candidates[0]
             component_ids = tuple(
@@ -637,13 +859,11 @@ def resolve_tier1_collection_decision(
                 heal_applied=True,
                 entity_type=matched_type,
                 collection=collection,
-                source_references=source_refs + [f"appspec.entities.{entity.id}"],
-                before_projection_hash=before_projection_hash,
+                result_code="primary_collection_selected",
+                selected_primary_collection=entity.id,
                 after_projection_hash=_canonical_hash(
                     collection.model_dump(mode="json")
                 ),
-                app_spec_sha256=app_spec_sha,
-                tier1_contract_hash=tier1_hash,
                 collection_schema_hash=_canonical_hash(
                     {
                         "entity_id": entity.id,
@@ -653,6 +873,7 @@ def resolve_tier1_collection_decision(
                 seed_hash=_canonical_hash(
                     [collection.seed_records[0].model_dump(mode="json")]
                 ),
+                **_base_kwargs(),
             )
 
     if not required:
@@ -660,30 +881,31 @@ def resolve_tier1_collection_decision(
             code="collection_not_required",
             reason=(
                 "Tier 1 journey has no unambiguous repeatable/selectable "
-                "business data requiring an entity collection."
+                "business data requiring an entity collection "
+                f"(entity_role_policy={ENTITY_ROLE_POLICY_REVISION})."
             ),
             required=False,
             derived=False,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
+            result_code="no_primary_collection_required",
             after_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            **_base_kwargs(),
         )
 
-    if len(entity_types) > 1:
+    if ranking.result_code == "genuine_primary_collection_ambiguity" or (
+        len(entity_types) > 1
+    ):
+        shown = entity_types or ranking.ambiguity_candidates_after_classification
         return CollectionProjectionDecision(
             code="collection_ambiguous",
             reason=(
                 "Multiple candidate collection entity types were implied "
-                f"({', '.join(entity_types)}); refusing to invent one."
+                f"({', '.join(shown)}); refusing to invent one "
+                f"(entity_role_policy={ENTITY_ROLE_POLICY_REVISION})."
             ),
             required=True,
             derived=False,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            result_code="genuine_primary_collection_ambiguity",
+            **_base_kwargs(),
         )
 
     if not entity_types:
@@ -695,10 +917,8 @@ def resolve_tier1_collection_decision(
             ),
             required=True,
             derived=False,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            result_code="primary_collection_unseedable",
+            **_base_kwargs(),
         )
 
     if not heal_allowed:
@@ -707,10 +927,8 @@ def resolve_tier1_collection_decision(
             reason="Collection heal already consumed; refusing a second inventing pass.",
             required=True,
             derived=False,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            result_code="primary_collection_unseedable",
+            **_base_kwargs(),
         )
 
     entity_type = entity_types[0]
@@ -721,10 +939,8 @@ def resolve_tier1_collection_decision(
             required=True,
             derived=False,
             entity_type=entity_type,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            result_code="primary_collection_unseedable",
+            **_base_kwargs(),
         )
 
     component_ids = tuple(item.component_id for item in component_plan.components)
@@ -735,10 +951,8 @@ def resolve_tier1_collection_decision(
             required=True,
             derived=False,
             entity_type=entity_type,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            result_code="primary_collection_unseedable",
+            **_base_kwargs(),
         )
     if not page_ids:
         return CollectionProjectionDecision(
@@ -747,10 +961,8 @@ def resolve_tier1_collection_decision(
             required=True,
             derived=False,
             entity_type=entity_type,
-            source_references=source_refs,
-            before_projection_hash=before_projection_hash,
-            app_spec_sha256=app_spec_sha,
-            tier1_contract_hash=tier1_hash,
+            result_code="primary_collection_unseedable",
+            **_base_kwargs(),
         )
 
     collection, derived_entity = build_derived_collection(
@@ -759,11 +971,14 @@ def resolve_tier1_collection_decision(
         component_ids=component_ids,
         source_key=f"{tier1_hash or 'tier1'}:{entity_type}",
     )
+    excluded = ", ".join(ranking.excluded_transaction_entity_types) or "none"
     return CollectionProjectionDecision(
         code="collection_derived",
         reason=(
             f"Deterministically derived a {entity_type} collection from "
-            "unambiguous Tier 1 journey/page/action evidence."
+            "Tier 1 journey/page/action evidence after entity-role "
+            f"classification (excluded_transactions={excluded}; "
+            f"entity_role_policy={ENTITY_ROLE_POLICY_REVISION})."
         ),
         required=True,
         derived=True,
@@ -771,23 +986,19 @@ def resolve_tier1_collection_decision(
         entity_type=entity_type,
         collection=collection,
         derived_entity=derived_entity,
-        source_references=source_refs,
-        before_projection_hash=before_projection_hash,
+        result_code="primary_collection_selected",
+        selected_primary_collection=derived_entity.id,
         after_projection_hash=_canonical_hash(collection.model_dump(mode="json")),
-        app_spec_sha256=app_spec_sha,
-        tier1_contract_hash=tier1_hash,
         collection_schema_hash=_canonical_hash(
             {
                 "entity_id": derived_entity.id,
-                "fields": [
-                    {"id": f.id, "type": f.type, "required": f.required}
-                    for f in derived_entity.fields
-                ],
+                "field_ids": [field.id for field in derived_entity.fields],
             }
         ),
         seed_hash=_canonical_hash(
             [collection.seed_records[0].model_dump(mode="json")]
         ),
+        **_base_kwargs(),
     )
 
 
