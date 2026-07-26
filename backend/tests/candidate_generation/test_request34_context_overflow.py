@@ -106,17 +106,18 @@ def test_request34_error_classified_context_overflow() -> None:
 
 def test_candidate_model_capabilities_are_explicit_and_unknown_fails_closed() -> None:
     production = resolve_model_capability("deepseek/deepseek-chat")
-    local = resolve_model_capability("deepseek/deepseek-v4-pro")
+    pages = resolve_model_capability("google/gemini-2.5-flash")
     unknown = resolve_model_capability("deepseek/unprofiled-candidate-model")
 
     assert production.context_window == 32_768
     assert production.known is True
-    assert local.context_window == 32_768
-    assert local.known is True
+    assert pages.context_window == 1_048_576
+    assert pages.known is True
+    assert pages.supports_json_text_mode is True
     assert unknown.context_window == 0
     assert unknown.known is False
     assert production.revision == CAPABILITY_PROFILE_REVISION
-    assert CAPABILITY_PROFILE_REVISION == "2026-07-26.candidate-provider.2"
+    assert CAPABILITY_PROFILE_REVISION == "2026-07-26.candidate-provider.3"
 
 
 def test_max_tokens_clamp_rejects_unusable_output_allowance() -> None:

@@ -1,32 +1,40 @@
 """Explicit OpenRouter model capability profiles for candidate generation.
 
-Policy revision: 2026-07-26.candidate-provider.2
+Policy revision: 2026-07-26.candidate-provider.3
 
 Profiles are repository-owned. Do not infer capability from arbitrary failures.
+Context windows are documented OpenRouter values, except where production
+evidence proved a lower hard limit (deepseek/deepseek-chat → 32768).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-CAPABILITY_PROFILE_REVISION = "2026-07-26.candidate-provider.2"
+CAPABILITY_PROFILE_REVISION = "2026-07-26.candidate-provider.3"
 CONTEXT_RESERVE_TOKENS = 512
 MINIMUM_VALID_OUTPUT_TOKENS = 4_000
 
+# Documented OpenRouter context_length values (API / model cards), except
+# deepseek/deepseek-chat which production request #34 rejected at 32768.
 _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "deepseek/deepseek-chat": 32_768,
-    "deepseek/deepseek-v4-pro": 32_768,
+    "deepseek/deepseek-v4-pro": 1_048_576,
     "deepseek/deepseek-chat-v3": 64_000,
     "deepseek/deepseek-v3": 64_000,
+    "deepseek/deepseek-chat-v3-0324": 163_840,
     "z-ai/glm-5": 128_000,
-    "z-ai/glm-5.2": 128_000,
-    "google/gemini-2.5-flash": 1_000_000,
+    "z-ai/glm-5.2": 1_048_576,
+    "google/gemini-2.5-flash": 1_048_576,
     "google/gemini-2.0-flash": 1_000_000,
     "openai/gpt-4o": 128_000,
     "openai/gpt-4o-mini": 128_000,
     "anthropic/claude-haiku-4.5": 200_000,
     "anthropic/claude-sonnet-4": 200_000,
 }
+
+# Production pages stage model (explicit; never inherit PREVIEW_APP_MODEL).
+APPROVED_CANDIDATE_PAGE_MODEL = "google/gemini-2.5-flash"
 
 
 @dataclass(frozen=True)
@@ -64,7 +72,14 @@ def resolve_model_capability(model: str) -> ModelCapabilityProfile:
             context_window=0,
             known=False,
         )
-    return ModelCapabilityProfile(model=normalized, context_window=window)
+    # GLM 5.2 supports optional reasoning params on OpenRouter; pages still
+    # use plain JSON-text chat completions without enabling them.
+    supports_reasoning = normalized in {"z-ai/glm-5", "z-ai/glm-5.2"}
+    return ModelCapabilityProfile(
+        model=normalized,
+        context_window=window,
+        supports_reasoning_params=supports_reasoning,
+    )
 
 
 def clamp_max_tokens(
@@ -91,6 +106,7 @@ def estimate_prompt_tokens(text: str) -> int:
 
 
 __all__ = [
+    "APPROVED_CANDIDATE_PAGE_MODEL",
     "CAPABILITY_PROFILE_REVISION",
     "CONTEXT_RESERVE_TOKENS",
     "MINIMUM_VALID_OUTPUT_TOKENS",

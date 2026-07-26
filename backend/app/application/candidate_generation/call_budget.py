@@ -84,6 +84,13 @@ class CandidateProviderAttempt:
     retry_decision_reason: str = ""
     fallback_model_decision: str = ""
     calls_remaining: int | None = None
+    context_window: int | None = None
+    estimated_input_tokens: int | None = None
+    requested_output_tokens: int | None = None
+    clamped_output_tokens: int | None = None
+    minimum_output_allowance: int | None = None
+    context_reserve: int | None = None
+    approval_decision: str = ""
 
     def to_diagnostics(self) -> dict[str, Any]:
         return {
@@ -117,6 +124,13 @@ class CandidateProviderAttempt:
             "retry_decision_reason": self.retry_decision_reason,
             "fallback_model_decision": self.fallback_model_decision,
             "calls_remaining": self.calls_remaining,
+            "context_window": self.context_window,
+            "estimated_input_tokens": self.estimated_input_tokens,
+            "requested_output_tokens": self.requested_output_tokens,
+            "clamped_output_tokens": self.clamped_output_tokens,
+            "minimum_output_allowance": self.minimum_output_allowance,
+            "context_reserve": self.context_reserve,
+            "approval_decision": self.approval_decision,
         }
 
 

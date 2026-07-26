@@ -30,6 +30,8 @@ from app.domain.schemas.preview_candidate import (
 )
 from app.infrastructure.ai_providers.model_capabilities import (
     CAPABILITY_PROFILE_REVISION,
+    CONTEXT_RESERVE_TOKENS,
+    MINIMUM_VALID_OUTPUT_TOKENS,
     clamp_max_tokens,
     estimate_prompt_tokens,
     resolve_model_capability,
@@ -238,6 +240,25 @@ def _local_context_error(
     return ProviderGenerationError(message, result=result)
 
 
+def _preflight_fields(
+    *,
+    estimated_input_tokens: int,
+    requested_output_tokens: int,
+    clamped_output_tokens: int,
+    context_window: int,
+    approval_decision: str,
+) -> dict[str, Any]:
+    return {
+        "context_window": int(context_window),
+        "estimated_input_tokens": int(estimated_input_tokens),
+        "requested_output_tokens": int(requested_output_tokens),
+        "clamped_output_tokens": int(clamped_output_tokens),
+        "minimum_output_allowance": MINIMUM_VALID_OUTPUT_TOKENS,
+        "context_reserve": CONTEXT_RESERVE_TOKENS,
+        "approval_decision": approval_decision,
+    }
+
+
 def _record_provider_error_attempt(
     *,
     budget: CandidateCallBudget | None,
@@ -254,6 +275,11 @@ def _record_provider_error_attempt(
     request_shape_hash: str = "",
     retry_decision_reason: str = "",
     fallback_model_decision: str = "",
+    estimated_input_tokens: int | None = None,
+    requested_output_tokens: int | None = None,
+    clamped_output_tokens: int | None = None,
+    context_window: int | None = None,
+    approval_decision: str = "",
 ) -> str:
     attempt_id = budget.new_attempt_id() if budget is not None else ""
     result = exc.result
@@ -292,9 +318,101 @@ def _record_provider_error_attempt(
                 retry_decision_reason=retry_decision_reason,
                 fallback_model_decision=fallback_model_decision,
                 calls_remaining=budget.remaining_total(),
+                context_window=context_window,
+                estimated_input_tokens=estimated_input_tokens,
+                requested_output_tokens=requested_output_tokens,
+                clamped_output_tokens=clamped_output_tokens,
+                minimum_output_allowance=(
+                    MINIMUM_VALID_OUTPUT_TOKENS
+                    if estimated_input_tokens is not None
+                    else None
+                ),
+                context_reserve=(
+                    CONTEXT_RESERVE_TOKENS
+                    if estimated_input_tokens is not None
+                    else None
+                ),
+                approval_decision=approval_decision,
             )
         )
     return attempt_id
+
+
+def _record_preflight_attempt(
+    *,
+    budget: CandidateCallBudget | None,
+    request_id: int,
+    candidate_revision_uuid: str,
+    stage: str,
+    provider_name: str,
+    model: str,
+    request_shape_hash: str,
+    fallback_model_decision: str,
+    estimated_input_tokens: int,
+    requested_output_tokens: int,
+    clamped_output_tokens: int,
+    context_window: int,
+    approval_decision: str,
+    typed_result: str,
+    error_code: str = "",
+    terminal_decision: str = "preflight_passed",
+) -> str:
+    if budget is None:
+        return ""
+    attempt_id = budget.new_attempt_id()
+    budget.record_attempt(
+        CandidateProviderAttempt(
+            attempt_id=attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            substage=stage,
+            provider=provider_name,
+            model=model,
+            http_status=0,
+            response_top_level_keys=[],
+            response_format="preflight",
+            provider_request_id="",
+            raw_payload_sha256="",
+            duration_ms=0,
+            input_tokens=estimated_input_tokens,
+            output_tokens=0,
+            total_tokens=estimated_input_tokens,
+            typed_result=typed_result,
+            error_code=error_code,
+            retryable=False,
+            retry_attempted=False,
+            terminal_decision=terminal_decision,
+            idempotency_key=f"{candidate_revision_uuid}:{stage}:preflight",
+            request_shape_hash=request_shape_hash,
+            capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+            retry_decision_reason="capability_preflight",
+            fallback_model_decision=fallback_model_decision,
+            calls_remaining=budget.remaining_total(),
+            **_preflight_fields(
+                estimated_input_tokens=estimated_input_tokens,
+                requested_output_tokens=requested_output_tokens,
+                clamped_output_tokens=clamped_output_tokens,
+                context_window=context_window,
+                approval_decision=approval_decision,
+            ),
+        )
+    )
+    return attempt_id
+
+
+def _pages_model_configuration_error(
+    *,
+    stage: str,
+    code: str,
+    message: str,
+) -> CandidateStageError:
+    return CandidateStageError(
+        message,
+        stage=stage,
+        diagnostics=(message,),
+        provider_error_code=code,
+        provider_diagnostics={"error_code": code, "stage": stage},
+    )
 
 
 def _provider_stage_error(
@@ -369,6 +487,49 @@ def build_ai_batch(
     provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
     primary_model, fallback_decision = _resolve_effective_model(policy)
     model = primary_model
+
+    # Pages: fail closed on missing/unknown model. Never fall back to component model.
+    if policy.stage == "pages":
+        if not str(model or "").strip():
+            raise _pages_model_configuration_error(
+                stage=policy.stage,
+                code="candidate_page_model_not_configured",
+                message=(
+                    "V2_CANDIDATE_PAGE_MODEL is not configured; "
+                    "pages stage fails closed without falling back to the "
+                    "component model."
+                ),
+            )
+        page_capability = resolve_model_capability(model)
+        if not page_capability.known:
+            _record_preflight_attempt(
+                budget=call_budget,
+                request_id=request_id,
+                candidate_revision_uuid=candidate_revision_uuid,
+                stage=policy.stage,
+                provider_name=provider_name,
+                model=model,
+                request_shape_hash="",
+                fallback_model_decision="primary_only",
+                estimated_input_tokens=0,
+                requested_output_tokens=policy.max_tokens,
+                clamped_output_tokens=0,
+                context_window=0,
+                approval_decision="denied_preflight",
+                typed_result="candidate_page_model_capability_unknown",
+                error_code="candidate_page_model_capability_unknown",
+                terminal_decision="fail_closed_preflight",
+            )
+            raise _pages_model_configuration_error(
+                stage=policy.stage,
+                code="candidate_page_model_capability_unknown",
+                message=(
+                    f"Pages model {model!r} has no explicit capability profile; "
+                    "pages stage fails closed without falling back to the "
+                    "component model."
+                ),
+            )
+
     capability = resolve_model_capability(model)
     estimated_input = estimate_prompt_tokens(prompt)
     effective_max_tokens = clamp_max_tokens(
@@ -384,6 +545,7 @@ def build_ai_batch(
     )
 
     # If primary context is too small, optionally switch to one approved fallback.
+    # Pages never use the component fallback chain.
     fallback_model = str(
         getattr(settings, "V2_CANDIDATE_COMPONENT_FALLBACK_MODEL", "") or ""
     ).strip()
@@ -435,8 +597,30 @@ def build_ai_batch(
             request_shape_hash=shape_hash,
             retry_decision_reason="context_preflight_non_retryable",
             fallback_model_decision=fallback_decision,
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=effective_max_tokens,
+            context_window=capability.context_window,
+            approval_decision="denied_preflight",
         )
         raise _provider_stage_error(stage=policy.stage, exc=preflight_exc)
+
+    _record_preflight_attempt(
+        budget=call_budget,
+        request_id=request_id,
+        candidate_revision_uuid=candidate_revision_uuid,
+        stage=policy.stage,
+        provider_name=provider_name,
+        model=model,
+        request_shape_hash=shape_hash,
+        fallback_model_decision=fallback_decision,
+        estimated_input_tokens=estimated_input,
+        requested_output_tokens=policy.max_tokens,
+        clamped_output_tokens=effective_max_tokens,
+        context_window=capability.context_window,
+        approval_decision="approved_preflight",
+        typed_result="preflight_passed",
+    )
 
     idempotency = f"{candidate_revision_uuid}:{policy.stage}:gen:0"
     if call_budget is not None:

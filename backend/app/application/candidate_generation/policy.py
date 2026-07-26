@@ -49,7 +49,13 @@ def resolve_candidate_stage_policy(
             ai_authored=True,
         )
     if stage == "pages":
-        model = settings.V2_CANDIDATE_PAGE_MODEL
+        model = str(settings.V2_CANDIDATE_PAGE_MODEL or "").strip()
+        if not model:
+            raise ModelFamilyPolicyError(
+                "candidate_page_model_not_configured: "
+                "V2_CANDIDATE_PAGE_MODEL is missing or empty; "
+                "pages stage fails closed before provider calls."
+            )
         return CandidateStagePolicy(
             stage=stage,
             model=model,

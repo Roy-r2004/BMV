@@ -2,6 +2,12 @@
 # In Coolify: use this compose file (or Dockerfile.app) and ensure a persistent
 # volume is mounted at /app/data. SEED_DEMO stays false — no PlateSync reseed.
 #
+# Coolify environment (set explicitly in the Coolify UI / env file):
+#   V2_CANDIDATE_COMPONENT_MODEL=deepseek/deepseek-chat
+#   V2_CANDIDATE_PAGE_MODEL=google/gemini-2.5-flash
+#   Do NOT leave V2_CANDIDATE_PAGE_MODEL unset to inherit PREVIEW_APP_MODEL
+#   (deepseek/deepseek-chat is 32k and fails pages preflight on large prompts).
+#
 # Coolify UI alternative (Dockerfile deploy):
 #   Storages → Add → Destination Path = /app/data
 #
@@ -38,6 +44,9 @@ services:
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
       PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
+      # Pages stage: explicit large-context model (do not inherit PREVIEW_APP_MODEL).
+      V2_CANDIDATE_COMPONENT_MODEL: ${V2_CANDIDATE_COMPONENT_MODEL:-deepseek/deepseek-chat}
+      V2_CANDIDATE_PAGE_MODEL: ${V2_CANDIDATE_PAGE_MODEL:-google/gemini-2.5-flash}
       ARCHITECT_MODEL: ${ARCHITECT_MODEL:-google/gemini-2.5-flash}
       CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
       FIX_MODEL: ${FIX_MODEL:-google/gemini-2.5-flash}

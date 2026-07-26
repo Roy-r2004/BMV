@@ -124,6 +124,8 @@ AI_PROVIDER=openrouter
 OPENROUTER_API_KEY=sk-or-v1-...
 TEXT_MODEL=google/gemini-2.5-flash
 PREVIEW_APP_MODEL=deepseek/deepseek-chat
+V2_CANDIDATE_COMPONENT_MODEL=deepseek/deepseek-chat
+V2_CANDIDATE_PAGE_MODEL=google/gemini-2.5-flash
 CRITIC_MODEL=google/gemini-2.5-flash
 FIX_MODEL=google/gemini-2.5-flash
 ```

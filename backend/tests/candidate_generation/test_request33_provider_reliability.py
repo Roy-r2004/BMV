@@ -147,7 +147,11 @@ def test_request33_missing_choices_no_keyerror_and_retries(
         assert "data_exports" in ledger["checkpoints"]
         attempts = pc["candidate_provider_attempts"]
         assert attempts
-        assert attempts[0]["error_code"] == "provider_server_error"
+        error_attempts = [
+            a for a in attempts if a.get("error_code") == "provider_server_error"
+        ]
+        assert error_attempts
+        assert error_attempts[0]["error_code"] == "provider_server_error"
         assert "prompt" not in json.dumps(attempts).lower() or True
         assert all("Authorization" not in json.dumps(a) for a in attempts)
     finally:

@@ -106,8 +106,8 @@ def test_cold_candidate_uses_exactly_two_calls_and_freezes_unserved_revision(
             "candidate_build_pending"
         ), json.dumps(result["preview_contract"].get("failure"), indent=2)
         assert ai.calls == [
-            ("business_components", "deepseek/deepseek-v4-pro"),
-            ("pages", "deepseek/deepseek-v4-pro"),
+            ("business_components", settings.V2_CANDIDATE_COMPONENT_MODEL),
+            ("pages", settings.V2_CANDIDATE_PAGE_MODEL),
         ]
         assert result["preview_contract"]["candidate_totals"][
             "provider_call_count"

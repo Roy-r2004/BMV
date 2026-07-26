@@ -872,10 +872,19 @@ class Settings:
                 "",
             ).strip()
         )
-        self.V2_CANDIDATE_PAGE_MODEL = _env_or(
-            "V2_CANDIDATE_PAGE_MODEL",
-            self.PREVIEW_APP_MODEL,
+        # Pages must use an explicit large-context model. Do not inherit
+        # PREVIEW_APP_MODEL (often deepseek/deepseek-chat at 32k).
+        from app.infrastructure.ai_providers.model_capabilities import (
+            APPROVED_CANDIDATE_PAGE_MODEL,
         )
+
+        _page_model_raw = os.getenv("V2_CANDIDATE_PAGE_MODEL")
+        if _page_model_raw is None:
+            self.V2_CANDIDATE_PAGE_MODEL = APPROVED_CANDIDATE_PAGE_MODEL
+        else:
+            # Empty string stays empty so pages stage can fail closed.
+            self.V2_CANDIDATE_PAGE_MODEL = _page_model_raw.strip()
+
         self.V2_CANDIDATE_REPAIR_MODEL = _env_or(
             "V2_CANDIDATE_REPAIR_MODEL",
             self.FIX_MODEL,
