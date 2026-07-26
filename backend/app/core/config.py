@@ -14,9 +14,79 @@ from dotenv import load_dotenv
 
 _APP_DIR = Path(__file__).resolve().parent.parent  # backend/app
 _PROJECT_ROOT = _APP_DIR.parent.parent  # repo root
+_INITIAL_ENV_KEYS = frozenset(os.environ)
 # Prefer backend/.env (compose + local), then cwd
 load_dotenv(_APP_DIR.parent / ".env")
 load_dotenv()
+
+_TRUE_BOOLEAN_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_BOOLEAN_VALUES = frozenset({"0", "false", "no", "off"})
+
+
+def _parse_strict_bool(
+    raw: str | None,
+    *,
+    default: bool = False,
+) -> tuple[bool, bool]:
+    """Parse a boolean without treating arbitrary non-empty strings as true.
+
+    Returns ``(value, valid)``. Unset and blank values use the supplied
+    fail-closed default. Malformed values resolve false and are marked invalid
+    so startup/readiness can surface the configuration error.
+    """
+
+    if raw is None or not raw.strip():
+        return default, True
+    normalized = raw.strip().lower()
+    if normalized in _TRUE_BOOLEAN_VALUES:
+        return True, True
+    if normalized in _FALSE_BOOLEAN_VALUES:
+        return False, True
+    return False, False
+
+
+def _dotenv_defines(path: Path, name: str) -> bool:
+    """Return whether a dotenv file defines a key without reading its value."""
+
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            if stripped.split("=", 1)[0].strip() == name:
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def _configuration_source(name: str) -> str:
+    """Describe the winning configuration layer without exposing values."""
+
+    if name in _INITIAL_ENV_KEYS:
+        return "process_environment"
+    backend_dotenv = _APP_DIR.parent / ".env"
+    if _dotenv_defines(backend_dotenv, name):
+        return "backend_dotenv"
+    cwd_dotenv = Path.cwd() / ".env"
+    if cwd_dotenv != backend_dotenv and _dotenv_defines(cwd_dotenv, name):
+        return "cwd_dotenv"
+    return "source_default"
+
+
+def _environment_classification() -> str:
+    raw = (
+        os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or os.getenv("ENV") or ""
+    ).strip().lower()
+    if raw in {"production", "prod"}:
+        return "production"
+    if raw in {"staging", "stage"}:
+        return "staging"
+    if raw in {"test", "testing"}:
+        return "test"
+    if raw in {"development", "dev", "local", ""}:
+        return "development"
+    return "other"
 
 
 def _normalize_database_url(url: str | None) -> str:
@@ -123,6 +193,10 @@ class Settings:
     APPSPEC_MAX_REPAIR_ATTEMPTS: int
     APPSPEC_MAX_DETERMINISTIC_HEALS: int
     APPSPEC_FALLBACK_ENABLED: bool
+    APPSPEC_FALLBACK_CONFIG_SOURCE: str
+    APPSPEC_FALLBACK_CONFIG_VALID: bool
+    APPSPEC_FALLBACK_SAFETY_CODE: str
+    APP_ENVIRONMENT_CLASSIFICATION: str
     APPSPEC_MAX_TOKENS: int
     APPSPEC_REPAIR_MAX_TOKENS: int
     APPSPEC_COVERAGE_MAX_TOKENS: int
@@ -413,11 +487,32 @@ class Settings:
             )
         except ValueError:
             self.APPSPEC_MAX_DETERMINISTIC_HEALS = 4
-        # When AI author/repair cannot clear gates, accept a minimal valid
-        # fallback AppSpec so preview generation stays unblocked.
-        self.APPSPEC_FALLBACK_ENABLED = os.getenv(
-            "APPSPEC_FALLBACK_ENABLED", "true"
-        ).strip().lower() in {"1", "true", "yes", "on"}
+        # AppSpec fallback is fail-closed by default. It may be enabled only by
+        # an explicit, valid non-production override.
+        self.APP_ENVIRONMENT_CLASSIFICATION = _environment_classification()
+        (
+            self.APPSPEC_FALLBACK_ENABLED,
+            self.APPSPEC_FALLBACK_CONFIG_VALID,
+        ) = _parse_strict_bool(
+            os.getenv("APPSPEC_FALLBACK_ENABLED"),
+            default=False,
+        )
+        self.APPSPEC_FALLBACK_CONFIG_SOURCE = _configuration_source(
+            "APPSPEC_FALLBACK_ENABLED"
+        )
+        if not self.APPSPEC_FALLBACK_CONFIG_VALID:
+            self.APPSPEC_FALLBACK_SAFETY_CODE = (
+                "invalid_appspec_fallback_boolean"
+            )
+        elif (
+            self.APP_ENVIRONMENT_CLASSIFICATION == "production"
+            and self.APPSPEC_FALLBACK_ENABLED
+        ):
+            self.APPSPEC_FALLBACK_SAFETY_CODE = (
+                "unsafe_appspec_fallback_enabled"
+            )
+        else:
+            self.APPSPEC_FALLBACK_SAFETY_CODE = "ok"
         try:
             self.APPSPEC_MAX_TOKENS = max(
                 4000, int(os.getenv("APPSPEC_MAX_TOKENS", "24000"))
@@ -1467,6 +1562,40 @@ _DEFAULT_MODELS: dict[str, dict[str, str]] = {
         "html": "openai/gpt-4o",
     },
 }
+
+
+class RuntimeConfigurationError(RuntimeError):
+    """Typed fail-closed runtime configuration error."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
+def appspec_fallback_configuration(
+    config: Settings,
+) -> dict[str, str | bool]:
+    """Return redacted AppSpec fallback safety diagnostics."""
+
+    code = config.APPSPEC_FALLBACK_SAFETY_CODE
+    return {
+        "appspec_fallback_enabled": config.APPSPEC_FALLBACK_ENABLED,
+        "configuration_source": config.APPSPEC_FALLBACK_CONFIG_SOURCE,
+        "environment_classification": (
+            config.APP_ENVIRONMENT_CLASSIFICATION
+        ),
+        "configuration_valid": config.APPSPEC_FALLBACK_CONFIG_VALID,
+        "safety_assertion": "passed" if code == "ok" else "failed",
+        "safety_code": code,
+    }
+
+
+def assert_safe_runtime_configuration(config: Settings) -> None:
+    """Fail startup for malformed or production-unsafe fallback settings."""
+
+    code = config.APPSPEC_FALLBACK_SAFETY_CODE
+    if code != "ok":
+        raise RuntimeConfigurationError(code)
 
 
 settings = Settings()

@@ -19,7 +19,11 @@ from app.application.bootstrap.startup import (
 )
 from app.application.services.admin_bootstrap import bootstrap_admin
 from app.application.services.demo_seed import seed_demo_if_empty
-from app.core.config import settings
+from app.core.config import (
+    RuntimeConfigurationError,
+    assert_safe_runtime_configuration,
+    settings,
+)
 from app.domain.models import (  # noqa: F401
     AdminAlert,
     AdminSettings,
@@ -93,6 +97,14 @@ configure_logging(settings.LOG_LEVEL)
 boot_log = get_logger("Boot")
 
 STARTUP_MIGRATION_RESULT: StartupMigrationResult | None = None
+
+# Fail closed before database/bootstrap work when production fallback policy
+# is unsafe or its boolean value is malformed.
+try:
+    assert_safe_runtime_configuration(settings)
+except RuntimeConfigurationError as exc:
+    boot_log.error("runtime_configuration_unsafe code=%s", exc.code)
+    raise SystemExit(f"Startup aborted: {exc.code}") from exc
 
 # Fail closed: incomplete schema must not serve traffic.
 try:

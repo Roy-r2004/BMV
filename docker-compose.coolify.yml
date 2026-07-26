@@ -44,7 +44,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://buildmyversion.com}
       INTERNAL_BASE_URL: http://127.0.0.1:8000
       APPSPEC_MODE: ${APPSPEC_MODE:-on}
-      APPSPEC_FALLBACK_ENABLED: ${APPSPEC_FALLBACK_ENABLED:-true}
+      APPSPEC_FALLBACK_ENABLED: ${APPSPEC_FALLBACK_ENABLED:-false}
       PORT: "8000"
       # Preview Generator v2 — public defaults
       PREVIEW_GENERATOR_V2: "true"

@@ -16,7 +16,7 @@ from app.application.appspec.repository import (
     load_json_object,
     revision_summary,
 )
-from app.core.config import settings
+from app.core.config import appspec_fallback_configuration, settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
@@ -91,6 +91,25 @@ def admin_overview(
     db: Session = Depends(get_db),
 ):
     return admin_ops.build_overview(db)
+
+
+@router.get("/configuration-safety")
+def configuration_safety(
+    _: bool = Depends(verify_admin),
+):
+    """Return redacted trusted runtime-configuration diagnostics."""
+
+    return {
+        "appspec_fallback": appspec_fallback_configuration(settings),
+        "related_fallbacks": {
+            # No repository settings exist for legacy generator/candidate,
+            # provider-error, or validation-error fallback activation.
+            "legacy_generator_fallback_enabled": False,
+            "legacy_candidate_fallback_enabled": False,
+            "fallback_on_provider_error_enabled": False,
+            "fallback_on_validation_error_enabled": False,
+        },
+    }
 
 
 @router.get("/settings", response_model=AdminSettingsResponse)

@@ -7,7 +7,7 @@ from app.application.bootstrap.startup import (
     verify_schema_ready,
 )
 from app.application.services.ai_status import get_ai_status
-from app.core.config import settings
+from app.core.config import appspec_fallback_configuration, settings
 from app.infrastructure.db.session import engine
 
 router = APIRouter(tags=["health"])
@@ -26,6 +26,16 @@ def health_live():
 
 @router.get("/api/health/ready")
 def health_ready():
+    config_safety = appspec_fallback_configuration(settings)
+    if config_safety["safety_assertion"] != "passed":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "ready": False,
+                "configuration_error": config_safety["safety_code"],
+            },
+        )
     if not database_reachable(engine):
         return JSONResponse(
             status_code=503,
