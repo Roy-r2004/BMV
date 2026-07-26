@@ -10,6 +10,10 @@ from typing import Any, Callable
 from pydantic import ValidationError
 
 from app.application.appspec.source import canonical_json
+from app.application.candidate_generation.call_budget import (
+    CandidateCallBudget,
+    CandidateProviderAttempt,
+)
 from app.application.candidate_generation.policy import CandidateStagePolicy
 from app.application.services.ai_context import (
     ai_run_scope,
@@ -21,6 +25,7 @@ from app.domain.schemas.preview_candidate import (
     CandidateStageMetrics,
     GeneratedCandidateBatch,
 )
+from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
 from app.shared.json_utils import extract_json_from_text
 
 
@@ -31,10 +36,14 @@ class CandidateStageError(RuntimeError):
         *,
         stage: str,
         diagnostics: tuple[str, ...] = (),
+        provider_error_code: str = "",
+        provider_diagnostics: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.stage = stage
         self.diagnostics = diagnostics
+        self.provider_error_code = provider_error_code
+        self.provider_diagnostics = provider_diagnostics or {}
 
 
 @dataclass(frozen=True)
@@ -79,6 +88,7 @@ def _usage_metrics(
     captured,
     repair: bool,
     repair_reason: str | None,
+    provider_call_count: int | None = None,
 ) -> CandidateStageMetrics:
     events = captured.usage_events
     prompt_tokens = sum(int(item.get("prompt_tokens") or 0) for item in events)
@@ -95,6 +105,11 @@ def _usage_metrics(
         )
         for item in events
     )
+    calls = (
+        provider_call_count
+        if provider_call_count is not None
+        else 1
+    )
     return CandidateStageMetrics(
         stage=policy.stage if policy.stage != "validation" else "pages",
         effective_model=policy.model,
@@ -102,7 +117,7 @@ def _usage_metrics(
         model_family=policy.model_family,
         prompt_revision=policy.prompt_revision,
         cache_hit=False,
-        provider_call_count=2 if repair else 1,
+        provider_call_count=calls,
         repair_call_count=1 if repair else 0,
         repair_reason=repair_reason,
         transport_retry_count=captured.transport_retry_count,
@@ -111,6 +126,94 @@ def _usage_metrics(
         total_tokens=total_tokens,
         cost_usd=sum(float(item.get("cost_usd") or 0.0) for item in events),
         latency_ms=int((time.monotonic() - started) * 1000),
+    )
+
+
+def _invoke_provider_text(
+    *,
+    ai_provider: AIProvider,
+    model: str,
+    prompt: str,
+    max_tokens: int,
+    temperature: float,
+) -> str:
+    """Call ask_chat; application owns retries so transport attempts stay at 1."""
+    try:
+        return ai_provider.ask_chat(
+            model,
+            [{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            transport_attempts=1,  # type: ignore[call-arg]
+        )
+    except TypeError:
+        return ai_provider.ask_chat(
+            model,
+            [{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+
+def _record_provider_error_attempt(
+    *,
+    budget: CandidateCallBudget | None,
+    request_id: int,
+    candidate_revision_uuid: str,
+    stage: str,
+    ai_provider: AIProvider,
+    model: str,
+    exc: ProviderGenerationError,
+    retry_attempted: bool,
+    terminal_decision: str,
+    parent_attempt_id: str = "",
+    idempotency_key: str = "",
+) -> str:
+    attempt_id = budget.new_attempt_id() if budget is not None else ""
+    result = exc.result
+    if budget is not None:
+        budget.record_attempt(
+            CandidateProviderAttempt(
+                attempt_id=attempt_id,
+                request_id=request_id,
+                candidate_revision_uuid=candidate_revision_uuid,
+                substage=stage,
+                provider=str(
+                    getattr(ai_provider, "name", result.provider) or result.provider
+                ),
+                model=model,
+                http_status=result.http_status,
+                response_top_level_keys=list(result.response_top_level_keys),
+                response_format=result.response_format,
+                provider_request_id=result.provider_request_id,
+                raw_payload_sha256=result.raw_payload_sha256,
+                duration_ms=result.latency_ms,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+                total_tokens=result.total_tokens,
+                typed_result=result.error_code or "provider_error",
+                error_code=result.error_code,
+                retryable=result.retryable,
+                retry_attempted=retry_attempted,
+                terminal_decision=terminal_decision,
+                parent_attempt_id=parent_attempt_id,
+                idempotency_key=idempotency_key,
+            )
+        )
+    return attempt_id
+
+
+def _provider_stage_error(
+    *,
+    stage: str,
+    exc: ProviderGenerationError,
+) -> CandidateStageError:
+    return CandidateStageError(
+        f"{stage} provider call failed: {exc.error_code}",
+        stage=stage,
+        diagnostics=(exc.result.error_message_redacted,),
+        provider_error_code=exc.error_code,
+        provider_diagnostics=exc.result.to_diagnostics(),
     )
 
 
@@ -123,6 +226,8 @@ def build_ai_batch(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     phase_deadline: float,
+    call_budget: CandidateCallBudget | None = None,
+    candidate_revision_uuid: str = "",
 ) -> BuiltCandidateBatch:
     if not policy.ai_authored or policy.stage not in {
         "business_components",
@@ -147,22 +252,126 @@ def build_ai_batch(
         ),
         prompt_revision=policy.prompt_revision,
     )
+    provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
+    idempotency = f"{candidate_revision_uuid}:{policy.stage}:gen:0"
+    if call_budget is not None:
+        approved, deny_code = call_budget.approve(
+            policy.stage,
+            attempt_type="ai",
+            provider=provider_name,
+            model=policy.model,
+            idempotency_key=idempotency,
+        )
+        if not approved:
+            raise CandidateStageError(
+                f"{policy.stage} denied by candidate call budget ({deny_code}).",
+                stage=policy.stage,
+                provider_error_code=deny_code,
+            )
+
+    calls_used = 1
     with ai_run_scope(request_id, purpose=f"v2_candidate_{policy.stage}"):
         with capture_ai_stage_telemetry() as captured:
 
             def invoke() -> str:
-                return ai_provider.ask_chat(
-                    policy.model,
-                    [{"role": "user", "content": prompt}],
+                return _invoke_provider_text(
+                    ai_provider=ai_provider,
+                    model=policy.model,
+                    prompt=prompt,
                     max_tokens=policy.max_tokens,
                     temperature=policy.temperature,
                 )
 
-            raw = invoke_with_timeout(
-                invoke,
-                timeout_seconds=remaining,
-                stage=policy.stage,
-            )
+            try:
+                raw = invoke_with_timeout(
+                    invoke,
+                    timeout_seconds=remaining,
+                    stage=policy.stage,
+                )
+            except ProviderGenerationError as exc:
+                parent_attempt = _record_provider_error_attempt(
+                    budget=call_budget,
+                    request_id=request_id,
+                    candidate_revision_uuid=candidate_revision_uuid,
+                    stage=policy.stage,
+                    ai_provider=ai_provider,
+                    model=policy.model,
+                    exc=exc,
+                    retry_attempted=False,
+                    terminal_decision=(
+                        "retry_pending" if exc.retryable else "fail_closed"
+                    ),
+                    idempotency_key=idempotency,
+                )
+                if not exc.retryable or call_budget is None:
+                    raise _provider_stage_error(
+                        stage=policy.stage, exc=exc
+                    ) from exc
+                retry_key = f"{candidate_revision_uuid}:{policy.stage}:gen:1"
+                approved, deny_code = call_budget.approve(
+                    policy.stage,
+                    attempt_type="ai_retry",
+                    provider=provider_name,
+                    model=policy.model,
+                    idempotency_key=retry_key,
+                )
+                if not approved:
+                    _record_provider_error_attempt(
+                        budget=call_budget,
+                        request_id=request_id,
+                        candidate_revision_uuid=candidate_revision_uuid,
+                        stage=policy.stage,
+                        ai_provider=ai_provider,
+                        model=policy.model,
+                        exc=exc,
+                        retry_attempted=False,
+                        terminal_decision="fail_closed_no_budget",
+                        parent_attempt_id=parent_attempt,
+                        idempotency_key=retry_key,
+                    )
+                    raise CandidateStageError(
+                        (
+                            f"{policy.stage} provider retry denied "
+                            f"({deny_code or 'candidate_no_budget_for_provider_retry'})."
+                        ),
+                        stage=policy.stage,
+                        diagnostics=(exc.result.error_message_redacted,),
+                        provider_error_code=exc.error_code,
+                        provider_diagnostics=exc.result.to_diagnostics(),
+                    ) from exc
+                if time.monotonic() >= phase_deadline:
+                    raise CandidateStageError(
+                        "Phase 3B wall deadline expired before provider retry.",
+                        stage=policy.stage,
+                        provider_error_code=exc.error_code,
+                        provider_diagnostics=exc.result.to_diagnostics(),
+                    ) from exc
+                calls_used = 2
+                try:
+                    raw = invoke_with_timeout(
+                        invoke,
+                        timeout_seconds=max(
+                            1.0, phase_deadline - time.monotonic()
+                        ),
+                        stage=policy.stage,
+                    )
+                except ProviderGenerationError as retry_exc:
+                    _record_provider_error_attempt(
+                        budget=call_budget,
+                        request_id=request_id,
+                        candidate_revision_uuid=candidate_revision_uuid,
+                        stage=policy.stage,
+                        ai_provider=ai_provider,
+                        model=policy.model,
+                        exc=retry_exc,
+                        retry_attempted=True,
+                        terminal_decision="fail_closed",
+                        parent_attempt_id=parent_attempt,
+                        idempotency_key=retry_key,
+                    )
+                    raise _provider_stage_error(
+                        stage=policy.stage, exc=retry_exc
+                    ) from retry_exc
     try:
         batch = _parse_batch(raw)
     except (ValueError, ValidationError) as exc:
@@ -170,6 +379,7 @@ def build_ai_batch(
             f"{policy.stage} returned invalid structured output.",
             stage=policy.stage,
             diagnostics=(str(exc)[:4000],),
+            provider_error_code="provider_structured_output_invalid",
         ) from exc
     if batch.batch_kind != policy.stage:
         raise CandidateStageError(
@@ -185,6 +395,7 @@ def build_ai_batch(
             captured=captured,
             repair=False,
             repair_reason=None,
+            provider_call_count=calls_used,
         ),
     )
 
@@ -201,6 +412,8 @@ def repair_ai_batch(
     template_renderer: TemplateRenderer,
     prompt_template: str,
     phase_deadline: float,
+    call_budget: CandidateCallBudget | None = None,
+    candidate_revision_uuid: str = "",
 ) -> BuiltCandidateBatch:
     started = time.monotonic()
     remaining = min(
@@ -224,22 +437,57 @@ def repair_ai_batch(
         ),
         prompt_revision=policy.prompt_revision,
     )
+    provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
+    idempotency = f"{candidate_revision_uuid}:{batch_stage}:repair:0"
+    if call_budget is not None:
+        approved, deny_code = call_budget.approve(
+            batch_stage,
+            attempt_type="ai_repair",
+            provider=provider_name,
+            model=policy.model,
+            idempotency_key=idempotency,
+        )
+        if not approved:
+            raise CandidateStageError(
+                f"{batch_stage} repair denied by candidate call budget ({deny_code}).",
+                stage=batch_stage,
+                diagnostics=diagnostics,
+                provider_error_code=deny_code,
+            )
     with ai_run_scope(request_id, purpose=f"v2_candidate_{batch_stage}_repair"):
         with capture_ai_stage_telemetry() as captured:
 
             def invoke() -> str:
-                return ai_provider.ask_chat(
-                    policy.model,
-                    [{"role": "user", "content": prompt}],
+                return _invoke_provider_text(
+                    ai_provider=ai_provider,
+                    model=policy.model,
+                    prompt=prompt,
                     max_tokens=policy.max_tokens,
                     temperature=policy.temperature,
                 )
 
-            raw = invoke_with_timeout(
-                invoke,
-                timeout_seconds=remaining,
-                stage=f"{batch_stage}_repair",
-            )
+            try:
+                raw = invoke_with_timeout(
+                    invoke,
+                    timeout_seconds=remaining,
+                    stage=f"{batch_stage}_repair",
+                )
+            except ProviderGenerationError as exc:
+                _record_provider_error_attempt(
+                    budget=call_budget,
+                    request_id=request_id,
+                    candidate_revision_uuid=candidate_revision_uuid,
+                    stage=batch_stage,
+                    ai_provider=ai_provider,
+                    model=policy.model,
+                    exc=exc,
+                    retry_attempted=False,
+                    terminal_decision="fail_closed",
+                    idempotency_key=idempotency,
+                )
+                raise _provider_stage_error(
+                    stage=batch_stage, exc=exc
+                ) from exc
     try:
         repaired = _parse_batch(raw)
     except Exception as exc:
@@ -247,6 +495,7 @@ def repair_ai_batch(
             "Candidate repair returned invalid structured output.",
             stage=batch_stage,
             diagnostics=diagnostics + (str(exc)[:4000],),
+            provider_error_code="provider_structured_output_invalid",
         ) from exc
     original_paths = tuple(item.path for item in batch.files)
     repaired_paths = tuple(item.path for item in repaired.files)
@@ -267,9 +516,7 @@ def repair_ai_batch(
         repair=True,
         repair_reason=canonical_json(list(diagnostics))[:4000],
     )
-    metrics = metrics.model_copy(
-        update={"stage": batch_stage}
-    )
+    metrics = metrics.model_copy(update={"stage": batch_stage})
     return BuiltCandidateBatch(batch=repaired, metrics=metrics)
 
 
@@ -290,7 +537,9 @@ def combine_generation_and_repair_metrics(
             "prompt_revision": (
                 f"{generation.prompt_revision}+{repair.prompt_revision}"
             )[:64],
-            "provider_call_count": 2,
+            "provider_call_count": (
+                generation.provider_call_count + repair.repair_call_count
+            ),
             "repair_call_count": 1,
             "repair_reason": repair.repair_reason,
             "transport_retry_count": (

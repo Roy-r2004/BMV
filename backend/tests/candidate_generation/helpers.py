@@ -255,6 +255,7 @@ class CandidateFixtureAI:
         messages: list[dict],
         max_tokens: int | None = None,
         temperature: float | None = None,
+        **_kwargs,
     ) -> str:
         prompt = messages[0]["content"]
         repair = "narrow Phase 3B technical repair stage" in prompt

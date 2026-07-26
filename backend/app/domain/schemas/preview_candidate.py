@@ -186,7 +186,7 @@ class CandidateStageMetrics(StrictDesignModel):
     model_family: str = Field(min_length=1, max_length=80)
     prompt_revision: str = Field(min_length=1, max_length=64)
     cache_hit: StrictBool
-    provider_call_count: StrictInt = Field(ge=0, le=2)
+    provider_call_count: StrictInt = Field(ge=0, le=3)
     repair_call_count: StrictInt = Field(ge=0, le=1)
     repair_reason: str | None = Field(default=None, max_length=4000)
     transport_retry_count: StrictInt = Field(ge=0)
@@ -202,10 +202,27 @@ class CandidateStageMetrics(StrictDesignModel):
             raise ValueError("Candidate token totals are inconsistent")
         if self.repair_call_count and not self.repair_reason:
             raise ValueError("AI repair requires a concrete reason")
-        if self.provider_call_count != (
-            (0 if self.cache_hit else 1) + self.repair_call_count
-        ) and self.stage in {"business_components", "pages"}:
-            raise ValueError("AI stage call accounting is inconsistent")
+        if self.stage in {"business_components", "pages"}:
+            # Accounting modes:
+            # - cache hit: 0
+            # - primary only: 1
+            # - primary + one provider-shape retry: 2
+            # - repair-only metrics slice: repair_call_count=1 and provider_call_count=1
+            # - primary (+ optional retry) + repair: 2 or 3
+            if self.cache_hit:
+                if self.provider_call_count != 0:
+                    raise ValueError("AI stage call accounting is inconsistent")
+            elif self.repair_call_count == 1 and self.provider_call_count == 1:
+                # Intermediate repair-slice metrics before combine.
+                pass
+            else:
+                minimum = 1 + self.repair_call_count
+                maximum = 1 + self.repair_call_count + 1  # optional provider retry
+                if (
+                    self.provider_call_count < minimum
+                    or self.provider_call_count > maximum
+                ):
+                    raise ValueError("AI stage call accounting is inconsistent")
         deterministic = {"foundation", "data_exports", "routes", "validation"}
         if self.stage in deterministic and (
             self.provider_call_count

@@ -10,6 +10,12 @@ import requests
 from app.application.services.admin_ops import ai_is_allowed, record_usage
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
+from app.infrastructure.ai_providers.response_parser import (
+    ProviderGenerationError,
+    parse_json_body,
+    parse_ollama_chat_response,
+    raise_if_unsuccessful,
+)
 from app.infrastructure.ai_providers.retry import call_with_retry
 from app.infrastructure.logging import get_logger
 
@@ -73,7 +79,7 @@ class OllamaAIProvider(AIProvider):
         if max_tokens is not None:
             payload["options"] = {"num_predict": max_tokens}
 
-        def _do_request() -> dict:
+        def _do_request() -> tuple[int, object | None, str]:
             session = requests.Session()
             with self._lock:
                 self._active_session = session
@@ -85,8 +91,9 @@ class OllamaAIProvider(AIProvider):
                 )
                 with self._lock:
                     self._active_response = response
-                response.raise_for_status()
-                return response.json()
+                raw_text = response.text or ""
+                body, _malformed = parse_json_body(raw_text)
+                return response.status_code, body, raw_text
             finally:
                 with self._lock:
                     self._active_response = None
@@ -98,7 +105,7 @@ class OllamaAIProvider(AIProvider):
 
         started = time.monotonic()
         try:
-            data = call_with_retry(
+            status, body, raw_text = call_with_retry(
                 _do_request,
                 attempts=max(1, int(transport_attempts)),
                 base_delay=3,
@@ -106,19 +113,40 @@ class OllamaAIProvider(AIProvider):
                 on_heartbeat=_heartbeat,
             )
             latency = int((time.monotonic() - started) * 1000)
-            eval_count = int(data.get("eval_count") or 0)
-            prompt_eval = int(data.get("prompt_eval_count") or 0)
+            parsed = parse_ollama_chat_response(
+                provider="ollama",
+                model=model,
+                http_status=int(status),
+                body=body,
+                raw_text=raw_text,
+                latency_ms=latency,
+            )
+            if not parsed.is_success:
+                record_usage(
+                    provider="ollama",
+                    model=model,
+                    purpose=purpose,
+                    prompt_tokens=parsed.input_tokens,
+                    completion_tokens=parsed.output_tokens,
+                    cost_usd=0.0,
+                    success=False,
+                    error=parsed.error_code or parsed.error_message_redacted,
+                    latency_ms=latency,
+                )
+                raise_if_unsuccessful(parsed)
             record_usage(
                 provider="ollama",
                 model=model,
                 purpose=purpose,
-                prompt_tokens=prompt_eval,
-                completion_tokens=eval_count,
+                prompt_tokens=parsed.input_tokens,
+                completion_tokens=parsed.output_tokens,
                 cost_usd=0.0,
                 success=True,
                 latency_ms=latency,
             )
-            return data["message"]["content"]
+            return parsed.text
+        except ProviderGenerationError:
+            raise
         except Exception as exc:
             latency = int((time.monotonic() - started) * 1000)
             record_usage(
@@ -180,7 +208,7 @@ class OllamaAIProvider(AIProvider):
         with open(image_path, "rb") as file:
             image_base64 = base64.b64encode(file.read()).decode("utf-8")
 
-        def _do_request() -> dict:
+        def _do_request() -> tuple[int, object | None, str]:
             response = requests.post(
                 f"{self._base_url}/api/chat",
                 json={
@@ -192,13 +220,35 @@ class OllamaAIProvider(AIProvider):
                 },
                 timeout=240,
             )
-            response.raise_for_status()
-            return response.json()
+            raw_text = response.text or ""
+            body, _malformed = parse_json_body(raw_text)
+            return response.status_code, body, raw_text
 
         started = time.monotonic()
         try:
-            data = call_with_retry(_do_request, attempts=2, base_delay=3)
+            status, body, raw_text = call_with_retry(
+                _do_request, attempts=2, base_delay=3
+            )
             latency = int((time.monotonic() - started) * 1000)
+            parsed = parse_ollama_chat_response(
+                provider="ollama",
+                model=model,
+                http_status=int(status),
+                body=body,
+                raw_text=raw_text,
+                latency_ms=latency,
+            )
+            if not parsed.is_success:
+                record_usage(
+                    provider="ollama",
+                    model=model,
+                    purpose=purpose,
+                    cost_usd=0.0,
+                    success=False,
+                    error=parsed.error_code or parsed.error_message_redacted,
+                    latency_ms=latency,
+                )
+                raise_if_unsuccessful(parsed)
             record_usage(
                 provider="ollama",
                 model=model,
@@ -207,7 +257,9 @@ class OllamaAIProvider(AIProvider):
                 success=True,
                 latency_ms=latency,
             )
-            return data["message"]["content"]
+            return parsed.text
+        except ProviderGenerationError:
+            raise
         except Exception as exc:
             latency = int((time.monotonic() - started) * 1000)
             record_usage(

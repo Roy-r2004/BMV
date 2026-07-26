@@ -26,14 +26,31 @@ class Phase4StatusPreconditionError(ValueError):
 
 
 def ensure_phase4_entry_status(phase3b_result: dict) -> None:
-    """Fail closed before Phase 4 when the Phase 3B terminal status is wrong."""
+    """Fail closed before Phase 4 when the Phase 3B terminal status is wrong.
+
+    This guard is downstream of candidate generation. When status is
+    ``candidate_failed``, the root cause is the candidate failure already
+    persisted on the preview contract — not Phase 4 itself.
+    """
 
     summary = dict(phase3b_result.get("preview_contract") or {})
     status = summary.get("status")
     if status != "candidate_build_pending":
+        root = ""
+        failure = summary.get("failure") if isinstance(summary.get("failure"), dict) else {}
+        if failure.get("provider_error_code"):
+            root = (
+                f" (candidate root cause: {failure.get('provider_error_code')}; "
+                "Phase 4 did not run)"
+            )
+        elif failure.get("error_type"):
+            root = (
+                f" (candidate root cause: {failure.get('error_type')}; "
+                "Phase 4 did not run)"
+            )
         raise Phase4StatusPreconditionError(
             "phase4_status_precondition: Phase 4 requires "
-            f"candidate_build_pending; got {status!r}"
+            f"candidate_build_pending; got {status!r}{root}"
         )
 
 
@@ -78,6 +95,11 @@ def run_v2_contract_boundary(
         req=req,
         phase3a_result=phase3a_result,
     )
+    phase3b_status = (phase3b_result.get("preview_contract") or {}).get("status")
+    # Candidate provider / contract failures must remain the terminal root cause.
+    # Do not enter Phase 4; phase4_status_precondition is only a guard.
+    if phase3b_status != "candidate_build_pending":
+        return phase3b_result
     if not settings.V2_RUNTIME_VALIDATION_ENABLED:
         return phase3b_result
     ensure_phase4_entry_status(phase3b_result)

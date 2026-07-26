@@ -1,0 +1,19 @@
+{
+  "request_id": 33,
+  "name": "PRODUCTION V2 PHASE3A BUDGET AND PHASE4 SMOKE TEST",
+  "failure_class": "candidate_provider_response_missing_choices",
+  "observed": {
+    "completed_stages": ["foundation", "data_exports"],
+    "failed_substage": "business_components",
+    "provider": "openrouter",
+    "symptom": "KeyError: 'choices'",
+    "progress_misreport": "phase4_status_precondition after candidate_failed",
+    "note": "Exact HTTP body was not persisted pre-fix; reproduced via error payload without choices."
+  },
+  "expected_after_fix": {
+    "no_keyerror": true,
+    "typed_code": "provider_server_error|provider_response_shape_invalid|provider_empty_response",
+    "foundation_data_exports_reused": true,
+    "phase4_not_entered_on_candidate_failed": true
+  }
+}

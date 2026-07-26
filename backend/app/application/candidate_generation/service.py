@@ -15,6 +15,11 @@ from app.application.candidate_generation.builder import (
     combine_generation_and_repair_metrics,
     repair_ai_batch,
 )
+from app.application.candidate_generation.call_budget import (
+    CandidateCallBudget,
+    CandidateStageCheckpoint,
+)
+from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
 from app.application.candidate_generation.cache import (
     candidate_cache_key,
     candidate_upstream_sha256,
@@ -431,6 +436,7 @@ def _load_or_generate_ai_stage(
     phase_deadline: float,
     component_batch: GeneratedCandidateBatch | None = None,
     candidate_revision_uuid: str = "",
+    call_budget: CandidateCallBudget | None = None,
 ) -> _Stage:
     started = time.monotonic()
     policy = resolve_candidate_stage_policy(stage)
@@ -545,6 +551,8 @@ def _load_or_generate_ai_stage(
         ai_provider=ai_provider,
         template_renderer=template_renderer,
         phase_deadline=phase_deadline,
+        call_budget=call_budget,
+        candidate_revision_uuid=candidate_revision_uuid,
     )
     batch = deterministic_repair_batch(built.batch)
     repair_used = False
@@ -595,6 +603,8 @@ def _load_or_generate_ai_stage(
             template_renderer=template_renderer,
             prompt_template=PromptTemplate.V2_CANDIDATE_REPAIR,
             phase_deadline=phase_deadline,
+            call_budget=call_budget,
+            candidate_revision_uuid=candidate_revision_uuid,
         )
         batch = deterministic_repair_batch(repaired.batch)
         repair_used = True
@@ -694,6 +704,7 @@ def _repair_stage_after_gate(
     template_renderer: TemplateRenderer,
     phase_deadline: float,
     candidate_revision_uuid: str = "",
+    call_budget: CandidateCallBudget | None = None,
 ) -> bool:
     issues = _gate_issues_for_stage(report, stage_name)
     if not issues or stage.repair_used or stage.metrics.cache_hit:
@@ -727,6 +738,8 @@ def _repair_stage_after_gate(
         template_renderer=template_renderer,
         prompt_template=PromptTemplate.V2_CANDIDATE_REPAIR,
         phase_deadline=phase_deadline,
+        call_budget=call_budget,
+        candidate_revision_uuid=candidate_revision_uuid,
     )
     batch = deterministic_repair_batch(repaired.batch)
     if stage_name == "pages" and stage.required_bindings:
@@ -799,6 +812,7 @@ def _failure_payload(
         "kind": kind,
         "error_type": type(exc).__name__,
         "message": str(exc)[:4000],
+        "phase4_ran": False,
     }
     if isinstance(exc, CandidateContractError):
         payload["issues"] = [
@@ -807,7 +821,55 @@ def _failure_payload(
     if isinstance(exc, CandidateStageError):
         payload["stage"] = exc.stage
         payload["diagnostics"] = list(exc.diagnostics)
+        if exc.provider_error_code:
+            payload["provider_error_code"] = exc.provider_error_code
+            payload["root_cause"] = "candidate_provider_failure"
+            payload["phase4_note"] = (
+                "Phase 4 did not run; phase4_status_precondition is only a "
+                "downstream guard if orchestration incorrectly continues."
+            )
+        if exc.provider_diagnostics:
+            payload["provider_diagnostics"] = exc.provider_diagnostics
+    if isinstance(exc, ProviderGenerationError):
+        payload.update(exc.to_failure_dict())
     return payload
+
+
+def _persist_completed_stage_rows(
+    *,
+    repository: CandidateRepository,
+    context: CandidateContext,
+    stages: list[_Stage],
+) -> tuple[CandidateArtifactRecord | None, ...]:
+    """Persist completed substages so a later resume can reuse them."""
+    parent_row: CandidateArtifactRecord | None = None
+    rows: list[CandidateArtifactRecord | None] = []
+    for stage in stages:
+        if stage.row is None:
+            try:
+                stage.row = repository.stage_artifact(
+                    artifact=stage.artifact,
+                    refs=context.refs,
+                    provenance_sha256=stage.provenance_sha256,
+                    cache_key=stage.cache_key,
+                    metrics=stage.metrics,
+                    parent_artifact_id=parent_row.id if parent_row else None,
+                    validation={
+                        "passed": True,
+                        "stage": stage.metrics.stage,
+                        "checkpoint": True,
+                    },
+                    validation_passed=True,
+                )
+            except Exception:
+                rows.append(None)
+                continue
+        rows.append(stage.row)
+        parent_row = stage.row
+    padded: list[CandidateArtifactRecord | None] = list(rows)
+    while len(padded) < 6:
+        padded.append(None)
+    return tuple(padded[:6])
 
 
 def _persist_failure(
@@ -823,6 +885,8 @@ def _persist_failure(
     exc: Exception,
     contract_failure: bool,
     usage_evidence: BusinessComponentUsageEvidence | None = None,
+    stages: list[_Stage] | None = None,
+    call_budget: CandidateCallBudget | None = None,
 ) -> dict:
     final_path = (
         freeze_candidate_workspace(workspace)
@@ -835,10 +899,32 @@ def _persist_failure(
         kind="contract_validation" if contract_failure else "generation",
     )
     try:
+        artifact_rows: tuple[CandidateArtifactRecord | None, ...] = (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        if stages:
+            artifact_rows = _persist_completed_stage_rows(
+                repository=repository,
+                context=context,
+                stages=stages,
+            )
         summary_base = dict(phase3a_summary)
         if usage_evidence is not None:
             summary_base["business_component_usage_evidence"] = (
                 usage_evidence.model_dump(mode="json")
+            )
+        if call_budget is not None:
+            summary_base["candidate_call_ledger"] = call_budget.snapshot()
+            summary_base["candidate_provider_attempts"] = (
+                call_budget.attempts_snapshot()
+            )
+            summary_base["candidate_stage_checkpoints"] = call_budget.snapshot().get(
+                "checkpoints"
             )
         _row, summary = repository.persist_revision(
             req=req,
@@ -853,7 +939,7 @@ def _persist_failure(
             model_manifest=_model_manifest(),
             workspace_relpath=workspace_relpath(final_path),
             file_manifest=manifest,
-            artifact_rows=(None, None, None, None, None, None),
+            artifact_rows=artifact_rows,
             failure=failure,
             metrics=metrics,
             summary_base=summary_base,
@@ -897,6 +983,7 @@ def build_v2_candidate_revision(
     phase3a_summary = dict(phase3a_result.get("preview_contract") or {})
     completed: dict[str, str] = {}
     stages: list[_Stage] = []
+    call_budget = CandidateCallBudget.create()
     try:
         foundation_sources = build_foundation_sources(
             settings.PREVIEW_TEMPLATE_DIR
@@ -927,6 +1014,15 @@ def build_v2_candidate_revision(
         completed.update(
             {item.path: sha256_text(item.source) for item in foundation.sources}
         )
+        call_budget.record_checkpoint(
+            CandidateStageCheckpoint(
+                substage="foundation",
+                input_hash=canonical_sha256(list(foundation_input_hashes)),
+                output_hash=canonical_sha256(foundation.artifact),
+                status="completed",
+                idempotency_key=f"{workspace.revision_uuid}:foundation",
+            )
+        )
         checkpoint_workspace(
             workspace,
             upstream_sha256=upstream_sha,
@@ -951,6 +1047,15 @@ def build_v2_candidate_revision(
         )
         stages.append(data)
         write_sources(workspace, data.sources)
+        call_budget.record_checkpoint(
+            CandidateStageCheckpoint(
+                substage="data_exports",
+                input_hash=canonical_sha256(list(data_input_hashes)),
+                output_hash=canonical_sha256(data.artifact),
+                status="completed",
+                idempotency_key=f"{workspace.revision_uuid}:data_exports",
+            )
+        )
         _ensure_deadline(phase_deadline)
 
         components = _load_or_generate_ai_stage(
@@ -968,6 +1073,8 @@ def build_v2_candidate_revision(
             ai_provider=ai_provider,
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
+            candidate_revision_uuid=workspace.revision_uuid,
+            call_budget=call_budget,
         )
         stages.append(components)
         write_sources(workspace, components.sources)
@@ -993,6 +1100,7 @@ def build_v2_candidate_revision(
             phase_deadline=phase_deadline,
             component_batch=components.artifact,
             candidate_revision_uuid=workspace.revision_uuid,
+            call_budget=call_budget,
         )
         stages.append(pages)
         write_sources(workspace, pages.sources)
@@ -1039,6 +1147,7 @@ def build_v2_candidate_revision(
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
             candidate_revision_uuid=workspace.revision_uuid,
+            call_budget=call_budget,
         )
         repaired_pages = _repair_stage_after_gate(
             stage=pages,
@@ -1049,6 +1158,7 @@ def build_v2_candidate_revision(
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
             candidate_revision_uuid=workspace.revision_uuid,
+            call_budget=call_budget,
         )
         if repaired_components or repaired_pages:
             if repaired_components:
@@ -1224,6 +1334,11 @@ def build_v2_candidate_revision(
                 "candidate_build_pending",
             ],
             "candidate_resumed": workspace.resumed,
+            "candidate_call_ledger": call_budget.snapshot(),
+            "candidate_provider_attempts": call_budget.attempts_snapshot(),
+            "candidate_stage_checkpoints": call_budget.snapshot().get(
+                "checkpoints"
+            ),
         }
         if usage_evidence is not None:
             summary_base["business_component_usage_evidence"] = (
@@ -1267,6 +1382,8 @@ def build_v2_candidate_revision(
             exc=exc,
             contract_failure=True,
             usage_evidence=usage_evidence,
+            stages=stages,
+            call_budget=call_budget,
         )
     except Exception as exc:
         db.rollback()
@@ -1290,6 +1407,8 @@ def build_v2_candidate_revision(
             exc=exc,
             contract_failure=False,
             usage_evidence=usage_evidence,
+            stages=stages,
+            call_budget=call_budget,
         )
 
 

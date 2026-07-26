@@ -10,15 +10,80 @@ import requests
 
 from app.application.services.admin_ops import (
     ai_is_allowed,
-    parse_openrouter_usage,
     record_usage,
 )
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
+from app.infrastructure.ai_providers.response_parser import (
+    ProviderGenerationError,
+    parse_json_body,
+    parse_openai_compatible_chat_response,
+    raise_if_unsuccessful,
+    retryable_for_status,
+)
 from app.infrastructure.ai_providers.retry import call_with_retry
 from app.infrastructure.logging import get_logger
 
 retry_log = get_logger("AIRetry")
+
+
+def _openrouter_http_exchange(
+    *,
+    provider_self: "OpenRouterAIProvider",
+    session: requests.Session,
+    url: str,
+    headers: dict,
+    payload: dict,
+    timeout: int,
+) -> tuple[int, object | None, str]:
+    response = session.post(
+        url,
+        headers=headers,
+        json=payload,
+        timeout=timeout,
+    )
+    with provider_self._lock:
+        provider_self._active_response = response
+    if retryable_for_status(response.status_code):
+        # Preserve transport-level retries owned by call_with_retry.
+        raise requests.HTTPError(
+            f"{response.status_code} Server Error for url: {url}",
+            response=response,
+        )
+    raw_text = response.text or ""
+    body, _malformed = parse_json_body(raw_text)
+    return response.status_code, body, raw_text
+
+
+def _result_from_transport_error(
+    *,
+    model: str,
+    exc: Exception,
+    latency_ms: int,
+) -> None:
+    if isinstance(exc, (requests.Timeout, requests.ConnectionError)):
+        parsed = parse_openai_compatible_chat_response(
+            provider="openrouter",
+            model=model,
+            http_status=408,
+            body=None,
+            raw_text="",
+            latency_ms=latency_ms,
+        )
+        raise_if_unsuccessful(parsed)
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        raw_text = exc.response.text or ""
+        body, _ = parse_json_body(raw_text)
+        parsed = parse_openai_compatible_chat_response(
+            provider="openrouter",
+            model=model,
+            http_status=int(exc.response.status_code),
+            body=body,
+            raw_text=raw_text,
+            latency_ms=latency_ms,
+        )
+        raise_if_unsuccessful(parsed)
+    raise exc
 
 _CLAUDE_MODEL_PREFIXES = (
     "anthropic/claude",
@@ -108,21 +173,20 @@ class OpenRouterAIProvider(AIProvider):
         if temperature is not None:
             payload["temperature"] = temperature
 
-        def _do_request() -> dict:
+        def _do_request() -> tuple[int, object | None, str]:
             session = requests.Session()
             with self._lock:
                 self._active_session = session
             try:
-                response = session.post(
-                    f"{self._base_url}/chat/completions",
+                status, body, raw_text = _openrouter_http_exchange(
+                    provider_self=self,
+                    session=session,
+                    url=f"{self._base_url}/chat/completions",
                     headers=self._headers(),
-                    json=payload,
+                    payload=payload,
                     timeout=timeout,
                 )
-                with self._lock:
-                    self._active_response = response
-                response.raise_for_status()
-                return response.json()
+                return status, body, raw_text
             finally:
                 with self._lock:
                     self._active_response = None
@@ -134,27 +198,82 @@ class OpenRouterAIProvider(AIProvider):
 
         started = time.monotonic()
         try:
-            data = call_with_retry(
-                _do_request,
-                attempts=max(1, int(transport_attempts)),
-                base_delay=3,
-                heartbeat_interval=20,
-                on_heartbeat=_heartbeat,
-            )
+            try:
+                status, body, raw_text = call_with_retry(
+                    _do_request,
+                    attempts=max(1, int(transport_attempts)),
+                    base_delay=3,
+                    heartbeat_interval=20,
+                    on_heartbeat=_heartbeat,
+                )
+            except (requests.HTTPError, requests.Timeout, requests.ConnectionError) as exc:
+                latency = int((time.monotonic() - started) * 1000)
+                try:
+                    _result_from_transport_error(
+                        model=model, exc=exc, latency_ms=latency
+                    )
+                except ProviderGenerationError as typed:
+                    record_usage(
+                        provider="openrouter",
+                        model=model,
+                        purpose=purpose,
+                        prompt_tokens=typed.result.input_tokens,
+                        completion_tokens=typed.result.output_tokens,
+                        total_tokens=typed.result.total_tokens,
+                        cost_usd=typed.result.cost_usd,
+                        success=False,
+                        error=typed.error_code,
+                        latency_ms=latency,
+                    )
+                    raise
+                record_usage(
+                    provider="openrouter",
+                    model=model,
+                    purpose=purpose,
+                    success=False,
+                    error=str(exc)[:2000],
+                    latency_ms=latency,
+                )
+                raise
+
             latency = int((time.monotonic() - started) * 1000)
-            prompt, completion, total, cost = parse_openrouter_usage(data)
+            parsed = parse_openai_compatible_chat_response(
+                provider="openrouter",
+                model=model,
+                http_status=int(status),
+                body=body,
+                raw_text=raw_text,
+                latency_ms=latency,
+            )
+            if not parsed.is_success:
+                record_usage(
+                    provider="openrouter",
+                    model=model,
+                    purpose=purpose,
+                    prompt_tokens=parsed.input_tokens,
+                    completion_tokens=parsed.output_tokens,
+                    total_tokens=parsed.total_tokens,
+                    cost_usd=parsed.cost_usd,
+                    success=False,
+                    error=parsed.error_code or parsed.error_message_redacted,
+                    latency_ms=latency,
+                )
+                raise_if_unsuccessful(parsed)
+
             record_usage(
                 provider="openrouter",
                 model=model,
                 purpose=purpose,
-                prompt_tokens=prompt,
-                completion_tokens=completion,
-                total_tokens=total,
-                cost_usd=cost,
+                prompt_tokens=parsed.input_tokens,
+                completion_tokens=parsed.output_tokens,
+                total_tokens=parsed.total_tokens,
+                cost_usd=parsed.cost_usd,
                 success=True,
                 latency_ms=latency,
             )
-            return data["choices"][0]["message"]["content"]
+            return parsed.text
+        except ProviderGenerationError:
+            raise
         except Exception as exc:
             latency = int((time.monotonic() - started) * 1000)
             record_usage(

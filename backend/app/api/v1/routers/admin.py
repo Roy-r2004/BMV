@@ -255,6 +255,69 @@ def get_phase3a_call_ledger(
     return ledger
 
 
+@router.get("/requests/{request_id}/candidate-provider-attempts")
+def get_candidate_provider_attempts(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """Return redacted Phase 3B provider-attempt diagnostics.
+
+    Includes call-ledger totals and per-attempt HTTP/shape metadata.
+    Never returns prompts, secrets, or full provider response bodies.
+    """
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    bundle: dict = {}
+    if req.generated_pages:
+        try:
+            raw = json.loads(req.generated_pages)
+            if isinstance(raw, dict):
+                bundle = raw
+        except (TypeError, json.JSONDecodeError):
+            pass
+
+    preview = bundle.get("preview_contract")
+    if not isinstance(preview, dict):
+        raise HTTPException(
+            status_code=404,
+            detail="Candidate provider attempts not found for this request.",
+        )
+
+    attempts = preview.get("candidate_provider_attempts")
+    ledger = preview.get("candidate_call_ledger")
+    checkpoints = preview.get("candidate_stage_checkpoints")
+    failure = preview.get("failure") if isinstance(preview.get("failure"), dict) else {}
+    if attempts is None and ledger is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Candidate provider attempts not found. "
+                "The request may not have reached Phase 3B, "
+                "or was processed before this feature was deployed."
+            ),
+        )
+
+    return {
+        "request_id": request_id,
+        "status": preview.get("status"),
+        "candidate_call_ledger": ledger,
+        "candidate_stage_checkpoints": checkpoints,
+        "candidate_provider_attempts": attempts or [],
+        "failure": {
+            "kind": failure.get("kind"),
+            "error_type": failure.get("error_type"),
+            "provider_error_code": failure.get("provider_error_code"),
+            "root_cause": failure.get("root_cause"),
+            "phase4_ran": failure.get("phase4_ran"),
+            "stage": failure.get("stage"),
+            "message": failure.get("message"),
+        },
+    }
+
+
 @router.get("/requests/{request_id}/runtime-validation-attempts")
 def get_runtime_validation_attempts(
     request_id: int,
