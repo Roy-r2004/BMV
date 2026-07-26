@@ -7,9 +7,12 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextvars import copy_context
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from app.application.composition_contract.call_budget import Phase3ACallBudget
 
 from app.application.appspec.source import canonical_json
 from app.application.composition_contract.builder import (
@@ -202,6 +205,7 @@ def build_business_component_plan_artifact(
     template_renderer: TemplateRenderer,
     phase_deadline: float,
     budgets: BusinessComponentPlanBudgets | None = None,
+    budget: "Phase3ACallBudget | None" = None,
 ) -> BuiltCompositionArtifact:
     budgets = budgets or resolve_business_component_plan_budgets()
     stage_deadline = StageDeadline.start(
@@ -262,6 +266,7 @@ def build_business_component_plan_artifact(
         *,
         result_class: ResultClass,
         reasons: list[str] | None = None,
+        failure_code: str | None = None,
     ) -> None:
         payload = {
             **diagnostics_base,
@@ -269,6 +274,7 @@ def build_business_component_plan_artifact(
             "attempts": [attempt.__dict__ for attempt in attempts],
             "terminal_result": result_class,
             "redacted_failure_reason": _redact_reason(message),
+            "failure_code": failure_code or "",
         }
         raise CompositionStageError(
             message,
@@ -276,6 +282,7 @@ def build_business_component_plan_artifact(
             retry_reasons=tuple(reasons or retry_reasons),
             result_class=result_class,
             diagnostics=payload,
+            failure_code=failure_code,
         )
 
     if projection.estimated_input_tokens > budgets.max_input_tokens:
@@ -310,6 +317,20 @@ def build_business_component_plan_artifact(
                         "time below minimum safe call budget.",
                         result_class="stage_deadline_exceeded",
                     )
+
+                # Deny BEFORE provider construction when budget is unavailable.
+                if budget is not None:
+                    approved, budget_code = budget.approve(
+                        policy.stage,
+                        attempt_type="ai",
+                        wall_remaining=stage_deadline.remaining(),
+                    )
+                    if not approved:
+                        _raise_terminal(
+                            f"{policy.stage} denied by call budget: {budget_code}.",
+                            result_class="invalid_output",
+                            failure_code=budget_code,
+                        )
 
                 is_recovery = attempt_index > 0
                 model = (

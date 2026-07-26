@@ -15,6 +15,7 @@ from app.application.composition_contract.builder import (
     CompositionStageError,
     build_ai_composition_artifact,
 )
+from app.application.composition_contract.call_budget import Phase3ACallBudget
 from app.application.composition_contract.component_plan_runner import (
     build_business_component_plan_artifact,
 )
@@ -382,6 +383,7 @@ def _resolve_business_component_plan(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     deadline: float,
+    budget: Phase3ACallBudget | None = None,
 ) -> ResolvedCompositionArtifact:
     cache_key = composition_cache_key(
         refs=context.refs,
@@ -404,6 +406,8 @@ def _resolve_business_component_plan(
         ),
     )
     if cached is not None:
+        if budget is not None:
+            budget.record_cache_hit("business_component_plan")
         return cached
     try:
         built = build_business_component_plan_artifact(
@@ -428,6 +432,7 @@ def _resolve_business_component_plan(
             ai_provider=ai_provider,
             template_renderer=template_renderer,
             phase_deadline=deadline,
+            budget=budget,
         )
     except CompositionStageError as exc:
         # Never substitute a generic/minimal production plan.
@@ -436,6 +441,193 @@ def _resolve_business_component_plan(
         raise
     if built.diagnostics:
         _persist_bcp_diagnostics(repository.db, req, built.diagnostics)
+    persisted = repository.stage_artifact(
+        artifact_kind=policy.stage,
+        artifact=built.artifact,
+        refs=context.refs,
+        cache_key=cache_key,
+        metrics=built.metrics,
+        validation=built.validation,
+        parent_artifact_id=parent_artifact_id,
+    )
+    return ResolvedCompositionArtifact(
+        artifact=built.artifact,
+        row=persisted.row,
+        ref=composition_artifact_ref(persisted.row),
+        metrics=built.metrics,
+    )
+
+
+def _resolve_content_data_plan_deterministic_first(
+    *,
+    repository: CompositionContractRepository,
+    context: CompositionContext,
+    policy: CompositionStagePolicy,
+    schema_version: str,
+    upstream_hashes: tuple[str, ...],
+    parent_artifact_id: int,
+    page: ResolvedCompositionArtifact,
+    component: ResolvedCompositionArtifact,
+    stage_input_json: str,
+    prompt_template: str,
+    validator: Callable[[ContentDataPlan], Any],
+    ai_provider: AIProvider,
+    template_renderer: TemplateRenderer,
+    deadline: float,
+    normalize: Callable[[ContentDataPlan], ContentDataPlan] | None,
+    budget: Phase3ACallBudget,
+) -> ResolvedCompositionArtifact:
+    """Deterministic-first resolver for content_data_plan (fixes #32).
+
+    Order of operations:
+    1. Cache hit  → 0 provider calls, ledger cache_hit event.
+    2. Deterministic projection succeeds → 0 provider calls, release reservation.
+    3. Deterministic fails → budget.approve then AI (inside build_ai_composition_artifact).
+    4. AI fails → deterministic fallback (same as legacy fallback path).
+    """
+    cache_key = composition_cache_key(
+        refs=context.refs,
+        policy=policy,
+        schema_version=schema_version,
+        upstream_hashes=upstream_hashes,
+    )
+
+    # Step 1: cache
+    cached = _cached_or_none(
+        repository=repository,
+        context=context,
+        schema=ContentDataPlan,
+        policy=policy,
+        cache_key=cache_key,
+        parent_artifact_id=parent_artifact_id,
+        validator=validator,
+    )
+    if cached is not None:
+        budget.record_cache_hit("content_data_plan")
+        return cached
+
+    # Step 2: attempt deterministic projection
+    started = time.monotonic()
+    det_artifact: ContentDataPlan | None = None
+    det_validation = None
+    try:
+        det_candidate = project_content_data_plan(
+            context,
+            page_purpose=page.artifact,
+            page_purpose_ref=page.ref,
+            component_plan=component.artifact,
+            component_plan_ref=component.ref,
+        )
+        det_validation = validator(det_candidate)
+        if det_validation.passed:
+            det_artifact = det_candidate
+    except Exception:
+        pass  # Deterministic raised; fall through to AI path
+
+    if det_artifact is not None and det_validation is not None:
+        # Deterministic succeeded: 0 provider calls, release the reservation so
+        # BCP repair (and any other stage) can use the freed budget headroom.
+        metrics = _deterministic_metrics(policy, started=started)
+        budget.record_deterministic("content_data_plan")
+        budget.release_reservation("content_data_plan")
+        persisted = repository.stage_artifact(
+            artifact_kind=policy.stage,
+            artifact=det_artifact,
+            refs=context.refs,
+            cache_key=cache_key,
+            metrics=metrics,
+            validation=det_validation,
+            parent_artifact_id=parent_artifact_id,
+        )
+        return ResolvedCompositionArtifact(
+            artifact=det_artifact,
+            row=persisted.row,
+            ref=composition_artifact_ref(persisted.row),
+            metrics=metrics,
+        )
+
+    # Step 3: deterministic failed – try AI (budget.approve is called inside
+    # build_ai_composition_artifact before each provider call).
+    try:
+        built = build_ai_composition_artifact(
+            request_id=context.refs.request_id,
+            policy=policy,
+            schema=ContentDataPlan,
+            prompt_template=prompt_template,
+            prompt_values={"stage_input_json": stage_input_json},
+            validator=validator,
+            ai_provider=ai_provider,
+            template_renderer=template_renderer,
+            phase_deadline=deadline,
+            normalize=normalize,
+            budget=budget,
+        )
+    except CompositionStageError as exc:
+        # Never mask budget denials or timeouts with the deterministic fallback.
+        if exc.failure_code and exc.failure_code.startswith("phase3a_"):
+            raise
+        message = str(exc).casefold()
+        if "deadline" in message or "timeout" in message:
+            raise
+
+        # Step 4: AI failed – deterministic fallback (legacy behaviour preserved)
+        started = time.monotonic()
+        try:
+            fallback = project_content_data_plan(
+                context,
+                page_purpose=page.artifact,
+                page_purpose_ref=page.ref,
+                component_plan=component.artifact,
+                component_plan_ref=component.ref,
+            )
+            fallback_validation = validator(fallback)
+            if not fallback_validation.passed:
+                raise CompositionStageError(
+                    f"{policy.stage} deterministic fallback failed validation "
+                    f"issues={[i.code for i in fallback_validation.issues[:8]]}.",
+                    stage=policy.stage,
+                ) from None
+        except CompositionStageError:
+            raise
+        except Exception as fb_exc:
+            raise CompositionStageError(
+                f"{policy.stage} deterministic fallback raised: {fb_exc}",
+                stage=policy.stage,
+            ) from fb_exc
+        metrics = CompositionStageMetrics(
+            stage=policy.stage,
+            effective_model=policy.model,
+            provider="deterministic_fallback",
+            model_family=policy.model_family,
+            prompt_revision=policy.prompt_revision,
+            cache_hit=False,
+            provider_call_count=0,
+            validation_retry_count=0,
+            validation_retry_reasons=(),
+            transport_retry_count=0,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            cost_usd=0.0,
+            latency_ms=int((time.monotonic() - started) * 1000),
+        )
+        persisted = repository.stage_artifact(
+            artifact_kind=policy.stage,
+            artifact=fallback,
+            refs=context.refs,
+            cache_key=cache_key,
+            metrics=metrics,
+            validation=fallback_validation,
+            parent_artifact_id=parent_artifact_id,
+        )
+        return ResolvedCompositionArtifact(
+            artifact=fallback,
+            row=persisted.row,
+            ref=composition_artifact_ref(persisted.row),
+            metrics=metrics,
+        )
+
+    # AI succeeded
     persisted = repository.stage_artifact(
         artifact_kind=policy.stage,
         artifact=built.artifact,
@@ -483,14 +675,19 @@ def _stage_input(
 def _check_usage(
     db: Session,
     metrics: tuple[CompositionStageMetrics, ...],
+    budget: Phase3ACallBudget | None = None,
 ) -> None:
-    calls = sum(item.provider_call_count for item in metrics)
-    if calls > settings.V2_COMPOSITION_CONTRACT_MAX_CALLS:
-        db.rollback()
-        raise CompositionStageError(
-            "Phase 3A exceeded its provider-call budget.",
-            stage="composition_contract",
-        )
+    # Call-count is now enforced pre-approval; verify ledger consistency.
+    if budget is not None:
+        actual_calls = sum(item.provider_call_count for item in metrics)
+        if actual_calls > budget._total_used:
+            db.rollback()
+            raise CompositionStageError(
+                "Phase 3A call budget counter is inconsistent with stage metrics.",
+                stage="composition_contract",
+                failure_code="phase3a_counter_inconsistent",
+            )
+    # Cost check is retained (cost is not pre-gated by the budget).
     cost = sum(item.cost_usd for item in metrics)
     if cost > settings.V2_COMPOSITION_CONTRACT_MAX_COST_USD:
         db.rollback()
@@ -520,6 +717,8 @@ def build_v2_composition_contract(
     phase2_result: dict[str, Any],
 ) -> dict[str, Any]:
     """Build only Tier 1 composition artifacts, then stop."""
+
+    budget = Phase3ACallBudget.create()
 
     context = load_composition_context(
         db,
@@ -570,19 +769,19 @@ def build_v2_composition_contract(
         ai_provider=ai_provider,
         template_renderer=template_renderer,
         deadline=deadline,
+        budget=budget,
     )
-    _check_usage(db, (page.metrics, component.metrics))
+    _check_usage(db, (page.metrics, component.metrics), budget)
     if not component.metrics.cache_hit:
         db.commit()
     _ensure_deadline(deadline)
 
     content_policy = resolve_composition_stage_policy("content_data_plan")
-    content = _resolve_ai(
+    content = _resolve_content_data_plan_deterministic_first(
         repository=repository,
         context=context,
-        schema=ContentDataPlan,
-        schema_version=CONTENT_DATA_PLAN_SCHEMA_VERSION,
         policy=content_policy,
+        schema_version=CONTENT_DATA_PLAN_SCHEMA_VERSION,
         upstream_hashes=(
             page.ref.sha256,
             page.row.cache_key,
@@ -590,6 +789,8 @@ def build_v2_composition_contract(
             component.row.cache_key,
         ),
         parent_artifact_id=component.row.id,
+        page=page,
+        component=component,
         stage_input_json=_stage_input(
             context,
             page_purpose_contract=page.artifact,
@@ -617,15 +818,9 @@ def build_v2_composition_contract(
             component_plan=component.artifact,
             component_plan_ref=component.ref,
         ),
-        deterministic_fallback=lambda: project_content_data_plan(
-            context,
-            page_purpose=page.artifact,
-            page_purpose_ref=page.ref,
-            component_plan=component.artifact,
-            component_plan_ref=component.ref,
-        ),
+        budget=budget,
     )
-    _check_usage(db, (page.metrics, component.metrics, content.metrics))
+    _check_usage(db, (page.metrics, component.metrics, content.metrics), budget)
     if not content.metrics.cache_hit:
         db.commit()
     _ensure_deadline(deadline)
@@ -723,7 +918,7 @@ def build_v2_composition_contract(
         interaction.metrics,
         graph.metrics,
     )
-    _check_usage(db, metrics)
+    _check_usage(db, metrics, budget)
     try:
         _ensure_deadline(deadline)
     except Exception:
@@ -755,6 +950,8 @@ def build_v2_composition_contract(
             "cost_usd": sum(item.cost_usd for item in metrics),
             "latency_ms": sum(item.latency_ms for item in metrics),
         },
+        # Append-only call ledger; no secrets or prompts.
+        "phase3a_call_ledger": budget.snapshot(),
     }
     reliability = existing_preview.get("business_component_plan_reliability")
     if reliability is not None:

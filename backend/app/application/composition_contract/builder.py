@@ -5,9 +5,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar  # Any used by error diagnostics
+from typing import TYPE_CHECKING, Any, Callable, TypeVar  # Any used by error diagnostics
 
 from pydantic import BaseModel, ValidationError
+
+if TYPE_CHECKING:
+    from app.application.composition_contract.call_budget import Phase3ACallBudget
 
 from app.application.appspec.source import canonical_json
 from app.application.composition_contract.policy import (
@@ -38,12 +41,14 @@ class CompositionStageError(RuntimeError):
         retry_reasons: tuple[str, ...] = (),
         result_class: str | None = None,
         diagnostics: dict[str, Any] | None = None,
+        failure_code: str | None = None,
     ) -> None:
         super().__init__(message)
         self.stage = stage
         self.retry_reasons = retry_reasons
         self.result_class = result_class
         self.diagnostics = diagnostics or {}
+        self.failure_code = failure_code
 
 
 @dataclass(frozen=True)
@@ -115,6 +120,7 @@ def build_ai_composition_artifact(
     template_renderer: TemplateRenderer,
     phase_deadline: float,
     normalize: Callable[[ArtifactT], ArtifactT] | None = None,
+    budget: "Phase3ACallBudget | None" = None,
 ) -> BuiltCompositionArtifact:
     if not policy.ai_authored:
         raise ValueError("Deterministic stages cannot call the AI builder")
@@ -136,6 +142,20 @@ def build_ai_composition_artifact(
                         stage=policy.stage,
                         retry_reasons=tuple(retry_reasons),
                     )
+                # Deny BEFORE provider construction when budget is unavailable.
+                if budget is not None:
+                    approved, budget_code = budget.approve(
+                        policy.stage,
+                        attempt_type="ai",
+                        wall_remaining=remaining,
+                    )
+                    if not approved:
+                        raise CompositionStageError(
+                            f"{policy.stage} denied by call budget: {budget_code}.",
+                            stage=policy.stage,
+                            retry_reasons=tuple(retry_reasons),
+                            failure_code=budget_code,
+                        )
                 prompt = template_renderer.render(
                     prompt_template,
                     **prompt_values,

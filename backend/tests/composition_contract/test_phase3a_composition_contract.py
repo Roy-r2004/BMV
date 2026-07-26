@@ -138,7 +138,8 @@ def test_stage_routing_has_two_ai_stages_and_three_deterministic_stages(
         assert policy.ai_authored is ai_authored
 
 
-def test_cold_path_uses_exactly_two_calls_and_persists_five_artifacts() -> None:
+def test_cold_path_uses_exactly_one_call_and_persists_five_artifacts() -> None:
+    """With deterministic-first content, only BCP makes an AI call (fixes #32)."""
     prepared = prepare_phase2()
     ai = CompositionFixtureAI()
     try:
@@ -146,19 +147,16 @@ def test_cold_path_uses_exactly_two_calls_and_persists_five_artifacts() -> None:
         assert result["preview_contract"]["status"] == (
             V2_COMPOSITION_CONTRACT_READY
         )
+        # Content is now deterministic-first: only BCP uses an AI call
         assert ai.calls == [
             (
                 "business_component_plan",
                 "deepseek/deepseek-v4-pro",
             ),
-            (
-                "content_data_plan",
-                "qwen/qwen-2.5-coder-32b-instruct",
-            ),
         ]
         assert result["preview_contract"]["composition_contract_totals"][
             "provider_call_count"
-        ] == 2
+        ] == 1
         rows = _rows(prepared)
         assert [row.artifact_kind for row in rows] == [
             "page_purpose_contract",
@@ -174,8 +172,9 @@ def test_cold_path_uses_exactly_two_calls_and_persists_five_artifacts() -> None:
             rows[2].id,
             rows[3].id,
         ]
-        assert [row.provider_call_count for row in rows] == [0, 1, 1, 0, 0]
-        assert [row.total_tokens for row in rows] == [0, 200, 200, 0, 0]
+        # content_data_plan is deterministic: 0 provider calls, 0 tokens
+        assert [row.provider_call_count for row in rows] == [0, 1, 0, 0, 0]
+        assert [row.total_tokens for row in rows] == [0, 200, 0, 0, 0]
         page, components, content, interactions, graph = _artifacts(
             prepared,
             result,
@@ -196,7 +195,7 @@ def test_full_cache_hit_revalidates_all_artifacts_and_makes_zero_calls() -> None
         first = _run(prepared, ai)
         calls = len(ai.calls)
         second = _run(prepared, ai)
-        assert calls == 2
+        assert calls == 1  # deterministic-first: only BCP uses AI on cold path
         assert len(ai.calls) == calls
         assert second["preview_contract"]["composition_contract_totals"][
             "provider_call_count"
@@ -383,7 +382,8 @@ def test_common_component_name_is_allowed_when_semantically_grounded() -> None:
         result = _run(prepared, ai)
         _page, components, *_rest = _artifacts(prepared, result)
         assert components.components[0].name == "Dashboard"
-        assert len(ai.calls) == 2
+        # content is deterministic-first: only BCP makes an AI call
+        assert len(ai.calls) == 1
     finally:
         prepared.db.close()
 
@@ -412,7 +412,8 @@ def test_generic_purpose_is_healed_with_canonical_domain_language() -> None:
             for token in first.domain_language
         )
         assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
-        assert len(ai.calls) == 2
+        # content is deterministic-first: only BCP makes an AI call
+        assert len(ai.calls) == 1
     finally:
         prepared.db.close()
 
@@ -428,9 +429,9 @@ def test_missing_page_outcome_component_coverage_is_healed() -> None:
     try:
         result = _run(prepared, ai)
         assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
+        # content is deterministic-first: no content AI call
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
-            "content_data_plan",
         ]
     finally:
         prepared.db.close()
@@ -448,15 +449,17 @@ def test_missing_action_trigger_binding_is_healed() -> None:
         _page, components, *_rest = _artifacts(prepared, result)
         assert components.action_trigger_bindings
         assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
+        # content is deterministic-first: no content AI call
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
-            "content_data_plan",
         ]
     finally:
         prepared.db.close()
 
 
 def test_missing_success_evidence_binding_is_healed() -> None:
+    """With deterministic-first content, the AI mutator is never called;
+    the deterministic projection produces the correct evidence bindings."""
     prepared = prepare_phase2(request_id=1309)
     ai = CompositionFixtureAI()
 
@@ -467,21 +470,24 @@ def test_missing_success_evidence_binding_is_healed() -> None:
             if item["evidence_id"] != "EVIDENCE-CONFIRMATION"
         ]
 
+    # Mutator registered but never consumed (content goes deterministic)
     ai.stage_mutators["content_data_plan"] = [_mutate(remove_success)]
     try:
         result = _run(prepared, ai)
         assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
+        # content is deterministic-first: no content AI call; mutator not consumed
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
-            "content_data_plan",
         ]
     finally:
         prepared.db.close()
 
 
 def test_missing_action_data_binding_is_healed() -> None:
+    """Deterministic-first content produces correct action bindings without AI."""
     prepared = prepare_phase2(request_id=1310)
     ai = CompositionFixtureAI()
+    # Mutator registered but never consumed (content goes deterministic)
     remove = _mutate(
         lambda payload: payload.update({"action_input_bindings": []})
     )
@@ -491,6 +497,8 @@ def test_missing_action_data_binding_is_healed() -> None:
         _page, _components, content, *_rest = _artifacts(prepared, result)
         assert content.action_input_bindings
         assert result["preview_contract"]["status"] == V2_COMPOSITION_CONTRACT_READY
+        # content is deterministic: no AI call
+        assert not any(s == "content_data_plan" for s, _ in ai.calls)
     finally:
         prepared.db.close()
 
@@ -568,15 +576,16 @@ def test_dependency_graph_rejects_component_cycle() -> None:
 
 
 def test_schema_failure_retries_only_failed_ai_stage_with_reason() -> None:
+    """BCP retries only BCP; content is deterministic and never retried via AI."""
     prepared = prepare_phase2(request_id=1313)
     ai = CompositionFixtureAI()
     ai.invalid_stage_responses["business_component_plan"] = ["not-json"]
     try:
         result = _run(prepared, ai)
+        # content is deterministic-first: no content AI call
         assert [stage for stage, _model in ai.calls] == [
             "business_component_plan",
             "business_component_plan",
-            "content_data_plan",
         ]
         metrics = result["preview_contract"]["composition_stage_metrics"][
             "business_component_plan"
@@ -620,9 +629,9 @@ def test_business_plan_change_invalidates_all_downstream_stages(
             "2026-07-24.2",
         )
         result = _run(prepared, ai)
-        assert [stage for stage, _model in ai.calls[2:]] == [
+        # content is deterministic-first: no content AI call even on cache miss
+        assert [stage for stage, _model in ai.calls[1:]] == [
             "business_component_plan",
-            "content_data_plan",
         ]
         metrics = result["preview_contract"]["composition_stage_metrics"]
         assert metrics["page_purpose_contract"]["cache_hit"] is True
@@ -647,9 +656,9 @@ def test_content_plan_change_invalidates_interactions_and_graph(
             "2026-07-24.2",
         )
         result = _run(prepared, ai)
-        assert [stage for stage, _model in ai.calls[2:]] == [
-            "content_data_plan"
-        ]
+        # content is deterministic-first: prompt revision changes cache key,
+        # but deterministic re-projection succeeds (0 AI calls for content)
+        assert not any(s == "content_data_plan" for s, _ in ai.calls[1:])
         metrics = result["preview_contract"]["composition_stage_metrics"]
         assert metrics["business_component_plan"]["cache_hit"] is True
         assert metrics["content_data_plan"]["cache_hit"] is False
@@ -677,10 +686,13 @@ def test_corrupt_deterministic_cache_fails_without_provider_call() -> None:
         prepared.db.close()
 
 
-def test_content_data_ai_failure_falls_back_to_projection(monkeypatch) -> None:
+def test_content_data_deterministic_first_skips_ai_entirely(monkeypatch) -> None:
+    """With deterministic-first content, AI is never called even when an invalid
+    AI response is queued; the deterministic projection is the primary path."""
     prepared = prepare_phase2(request_id=1324)
     ai = CompositionFixtureAI()
     monkeypatch.setattr(settings, "V2_COMPOSITION_AI_STAGE_MAX_ATTEMPTS", 1)
+    # Queue an invalid response that should never be consumed
     ai.invalid_stage_responses["content_data_plan"] = ["not-json-{"]
     try:
         result = _run(prepared, ai)
@@ -692,8 +704,13 @@ def test_content_data_ai_failure_falls_back_to_projection(monkeypatch) -> None:
             for row in _rows(prepared)
             if row.artifact_kind == "content_data_plan"
         )
-        assert content.provider == "deterministic_fallback"
+        # Deterministic-first: provider is "local", not "deterministic_fallback"
+        assert content.provider == "local"
+        assert content.provider_call_count == 0
         assert content.validation_passed is True
+        # The invalid response was never consumed
+        assert len(ai.invalid_stage_responses.get("content_data_plan", [])) == 1
+        assert not any(s == "content_data_plan" for s, _ in ai.calls)
     finally:
         prepared.db.close()
 
@@ -713,7 +730,10 @@ def test_stage_timeout_fails_closed(monkeypatch) -> None:
             "V2_BUSINESS_COMPONENT_TIMEOUT_SECONDS",
             0.01,
         )
-        with pytest.raises(CompositionStageError, match="wall timeout"):
+        with pytest.raises(
+            CompositionStageError,
+            match="wall timeout|stage deadline",
+        ):
             _run(prepared, ai)
         assert [row.artifact_kind for row in _rows(prepared)] == [
             "page_purpose_contract"
@@ -822,6 +842,7 @@ def test_phase3a_service_stops_at_composition_contract_ready(
         assert result["preview_contract"]["status"] == (
             V2_COMPOSITION_CONTRACT_READY
         )
-        assert len(ai.calls) == 2
+        # content is deterministic-first: only BCP makes an AI call
+        assert len(ai.calls) == 1
     finally:
         prepared.db.close()

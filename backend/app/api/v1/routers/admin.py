@@ -214,6 +214,47 @@ def get_request(
     return req
 
 
+@router.get("/requests/{request_id}/phase3a-call-ledger")
+def get_phase3a_call_ledger(
+    request_id: int,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """Return the Phase 3A provider-call ledger for a completed request.
+
+    The ledger is persisted as part of the preview_contract summary and
+    contains the append-only event log, substage caps, and totals.
+    No secrets or prompt content is included.
+    """
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    bundle: dict = {}
+    if req.generated_pages:
+        try:
+            raw = json.loads(req.generated_pages)
+            if isinstance(raw, dict):
+                bundle = raw
+        except (TypeError, json.JSONDecodeError):
+            pass
+
+    preview = bundle.get("preview_contract")
+    ledger = (preview or {}).get("phase3a_call_ledger") if isinstance(preview, dict) else None
+
+    if ledger is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Phase 3A call ledger not found. "
+                "The request may not have completed Phase 3A, "
+                "or was processed before this feature was deployed."
+            ),
+        )
+
+    return ledger
+
+
 @router.get("/requests/{request_id}/runtime-validation-attempts")
 def get_runtime_validation_attempts(
     request_id: int,
