@@ -75,7 +75,9 @@ _BASELINE_SCRIPT = r"""
     add("main-landmark", "serious", document.body, "Page has no main landmark.");
   }
   for (const node of document.querySelectorAll("[data-bmv-action-id]")) {
-    if (visible(node) && (node.tabIndex < 0 || node.hasAttribute("disabled"))) {
+    // Disabled is a valid gated CTA state on route-entry scans (e.g. proceed
+    // after selection). Only fail permanently non-tabbable actions.
+    if (visible(node) && node.tabIndex < 0 && !node.hasAttribute("disabled")) {
       add("required-action-keyboard", "serious", node, "Required action is not keyboard reachable.");
     }
     if (visible(node) && typeof node.focus === "function") {

@@ -37,7 +37,13 @@ def resolve_candidate_stage_policy(
     stage: CandidateArtifactKind,
 ) -> CandidateStagePolicy:
     if stage == "business_components":
-        model = settings.V2_CANDIDATE_COMPONENT_MODEL
+        model = str(settings.V2_CANDIDATE_COMPONENT_MODEL or "").strip()
+        if not model:
+            raise ModelFamilyPolicyError(
+                "candidate_component_model_not_configured: "
+                "V2_CANDIDATE_COMPONENT_MODEL is missing or empty; "
+                "business_components stage fails closed before provider calls."
+            )
         return CandidateStagePolicy(
             stage=stage,
             model=model,
@@ -80,7 +86,7 @@ def resolve_candidate_stage_policy(
     raise ValueError(f"Unknown candidate stage: {stage!r}")
 
 
-CANDIDATE_DETERMINISTIC_REVISION = "2026-07-24.1"
+CANDIDATE_DETERMINISTIC_REVISION = "2026-07-27.8"
 
 
 def repair_policy() -> CandidateStagePolicy:

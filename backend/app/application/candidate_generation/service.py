@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.application.appspec.source import canonical_json
 from app.application.candidate_generation.builder import (
+    BuiltCandidateBatch,
     CandidateStageError,
     build_ai_batch,
     combine_generation_and_repair_metrics,
@@ -17,6 +18,7 @@ from app.application.candidate_generation.builder import (
 )
 from app.application.candidate_generation.call_budget import (
     CandidateCallBudget,
+    CandidateProviderAttempt,
     CandidateStageCheckpoint,
 )
 from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
@@ -66,6 +68,7 @@ from app.application.candidate_generation.validation import (
     APPROVED_RUNTIME_PACKAGES,
     batch_sources,
     deterministic_repair_batch,
+    heal_missing_transition_hooks,
     validate_candidate_workspace,
     validate_generated_batch,
 )
@@ -74,6 +77,7 @@ from app.application.candidate_generation.workspace import (
     checkpoint_workspace,
     freeze_candidate_workspace,
     open_candidate_workspace,
+    read_source,
     source_file_manifest,
     workspace_relpath,
     write_sources,
@@ -126,6 +130,151 @@ class _Stage:
     usage_evidence: BusinessComponentUsageEvidence | None = None
     deterministic_usage_heal_used: bool = False
     required_bindings: tuple[RequiredBusinessComponentBinding, ...] = ()
+    resumed_from_checkpoint: bool = False
+
+
+def _merge_completed_artifacts(
+    completed: dict[str, str],
+    sources: tuple[CandidateSourceFile, ...],
+) -> dict[str, str]:
+    merged = dict(completed)
+    merged.update({item.path: sha256_text(item.source) for item in sources})
+    return merged
+
+
+def _record_stage_checkpoint(
+    *,
+    call_budget: CandidateCallBudget,
+    stage_name: str,
+    provenance_sha256: str,
+    artifact: BaseModel | None,
+    candidate_revision_uuid: str,
+    status: str,
+    provider_attempt_id: str = "",
+    idempotency_key: str = "",
+) -> None:
+    call_budget.record_checkpoint(
+        CandidateStageCheckpoint(
+            substage=stage_name,
+            input_hash=provenance_sha256,
+            output_hash=canonical_sha256(artifact) if artifact is not None else "",
+            status=status,
+            provider_attempt_id=provider_attempt_id,
+            idempotency_key=(
+                idempotency_key
+                or f"{candidate_revision_uuid}:{stage_name}:{status}"
+            ),
+        )
+    )
+
+
+def _serialize_stage_resume_state(stage: _Stage) -> dict[str, Any]:
+    return {
+        "status": "completed",
+        "artifact": stage.artifact.model_dump(mode="json"),
+        "cache_key": stage.cache_key,
+        "provenance_sha256": stage.provenance_sha256,
+        "metrics": stage.metrics.model_dump(mode="json"),
+        "repair_used": stage.repair_used,
+        "deterministic_usage_heal_used": (
+            stage.deterministic_usage_heal_used
+        ),
+        "provider_attempt_id": "",
+        "idempotency_key": "",
+        "source_hashes": {
+            item.path: sha256_text(item.source) for item in stage.sources
+        },
+    }
+
+
+def _persist_in_flight_ai_stage(
+    *,
+    workspace: CandidateWorkspace,
+    upstream_sha: str,
+    completed_artifacts: dict[str, str],
+    completed_stage_state: dict[str, Any],
+    call_budget: CandidateCallBudget,
+    stage_name: str,
+    cache_key: str,
+    provenance_sha256: str,
+    provider_attempt_id: str,
+    idempotency_key: str,
+    provider: str,
+    model: str,
+) -> None:
+    _record_stage_checkpoint(
+        call_budget=call_budget,
+        stage_name=stage_name,
+        provenance_sha256=provenance_sha256,
+        artifact=None,
+        candidate_revision_uuid=workspace.revision_uuid,
+        status="in_flight",
+        provider_attempt_id=provider_attempt_id,
+        idempotency_key=idempotency_key,
+    )
+    completed_stage_state[stage_name] = {
+        "status": "in_flight",
+        "cache_key": cache_key,
+        "provenance_sha256": provenance_sha256,
+        "provider_attempt_id": provider_attempt_id,
+        "idempotency_key": idempotency_key,
+        "provider": provider,
+        "model": model,
+    }
+    checkpoint_workspace(
+        workspace,
+        upstream_sha256=upstream_sha,
+        completed_artifacts=completed_artifacts,
+        completed_stage_state=completed_stage_state,
+        candidate_call_ledger=call_budget.snapshot(),
+        candidate_provider_attempts=call_budget.attempts_snapshot(),
+    )
+
+
+def _persist_completed_ai_stage(
+    *,
+    workspace: CandidateWorkspace,
+    upstream_sha: str,
+    completed_artifacts: dict[str, str],
+    completed_stage_state: dict[str, Any],
+    call_budget: CandidateCallBudget,
+    stage: _Stage,
+    status: str,
+    provider_attempt_id: str = "",
+    idempotency_key: str = "",
+) -> None:
+    existing = completed_stage_state.get(stage.metrics.stage) or {}
+    provider_attempt_id = provider_attempt_id or str(
+        existing.get("provider_attempt_id") or ""
+    )
+    idempotency_key = idempotency_key or str(
+        existing.get("idempotency_key") or ""
+    )
+    _record_stage_checkpoint(
+        call_budget=call_budget,
+        stage_name=stage.metrics.stage,
+        provenance_sha256=stage.provenance_sha256,
+        artifact=stage.artifact,
+        candidate_revision_uuid=workspace.revision_uuid,
+        status=status,
+        provider_attempt_id=provider_attempt_id,
+        idempotency_key=idempotency_key,
+    )
+    payload = _serialize_stage_resume_state(stage)
+    payload["status"] = status
+    payload["provider_attempt_id"] = provider_attempt_id
+    payload["idempotency_key"] = idempotency_key
+    if status != "completed":
+        payload["source_hashes"] = {}
+    completed_stage_state[stage.metrics.stage] = payload
+    checkpoint_workspace(
+        workspace,
+        upstream_sha256=upstream_sha,
+        completed_artifacts=completed_artifacts,
+        completed_stage_state=completed_stage_state,
+        candidate_call_ledger=call_budget.snapshot(),
+        candidate_provider_attempts=call_budget.attempts_snapshot(),
+    )
 
 
 def _ensure_deadline(deadline: float) -> None:
@@ -204,19 +353,40 @@ def _load_deterministic_stage(
         else None
     )
     if row is not None:
-        cached = repository.load_cached(
-            row,
-            schema=CandidateArtifactManifest,
-            request_id=context.refs.request_id,
-            provenance_sha256=provenance,
-            parent_artifact_id=parent_row.id if parent_row else None,
-        )
-        if cached != manifest:
-            raise ValueError("Deterministic candidate cache is not reproducible.")
-        metrics = candidate_cache_hit_metrics(
-            row,
-            latency_ms=int((time.monotonic() - started) * 1000),
-        )
+        try:
+            cached = repository.load_cached(
+                row,
+                schema=CandidateArtifactManifest,
+                request_id=context.refs.request_id,
+                provenance_sha256=provenance,
+                parent_artifact_id=parent_row.id if parent_row else None,
+            )
+        except ValueError:
+            # Stale or provenance-mismatched row under the same cache key.
+            row.cacheable = False
+            repository.db.flush()
+            row = None
+            cached = None
+        else:
+            if cached != manifest:
+                # Builder output changed under an unchanged cache key (for
+                # example after a local deterministic fix). Invalidate and
+                # rebuild instead of failing the whole candidate attempt.
+                row.cacheable = False
+                repository.db.flush()
+                row = None
+                cached = None
+        if row is not None and cached is not None:
+            metrics = candidate_cache_hit_metrics(
+                row,
+                latency_ms=int((time.monotonic() - started) * 1000),
+            )
+        else:
+            metrics = _deterministic_metrics(
+                policy,
+                started=started,
+                cache_hit=False,
+            )
     else:
         metrics = _deterministic_metrics(
             policy,
@@ -483,9 +653,14 @@ def _load_or_generate_ai_stage(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     phase_deadline: float,
+    workspace: CandidateWorkspace,
+    upstream_sha: str,
+    completed_artifacts: dict[str, str],
+    completed_stage_state: dict[str, Any],
     component_batch: GeneratedCandidateBatch | None = None,
     candidate_revision_uuid: str = "",
     call_budget: CandidateCallBudget | None = None,
+    resume_stage_state: dict[str, Any] | None = None,
 ) -> _Stage:
     started = time.monotonic()
     policy = resolve_candidate_stage_policy(stage)
@@ -516,6 +691,129 @@ def _load_or_generate_ai_stage(
             context=context,
             component_batch=component_batch,
         )
+
+    resume_checkpoint = (
+        call_budget.snapshot().get("checkpoints", {}).get(stage)
+        if call_budget is not None
+        else None
+    )
+    resume_status = (
+        str(resume_stage_state.get("status") or "")
+        if isinstance(resume_stage_state, dict)
+        else ""
+    )
+    if (
+        resume_status == "in_flight"
+        and isinstance(resume_stage_state, dict)
+        and resume_stage_state.get("cache_key") == cache_key
+        and resume_stage_state.get("provenance_sha256") == provenance
+    ):
+        raise CandidateStageError(
+            (
+                f"{stage} found an in-flight paid provider attempt without a "
+                "durable output checkpoint; refusing to retry ambiguously."
+            ),
+            stage=stage,
+            provider_error_code="candidate_provider_attempt_in_flight",
+        )
+    if (
+        isinstance(resume_stage_state, dict)
+        and resume_stage_state.get("cache_key") == cache_key
+        and resume_stage_state.get("provenance_sha256") == provenance
+        and resume_status == "completed"
+    ):
+        batch = GeneratedCandidateBatch.model_validate(
+            resume_stage_state.get("artifact") or {}
+        )
+        checkpoint_output_hash = str(
+            (resume_checkpoint or {}).get("output_hash") or ""
+        )
+        if checkpoint_output_hash != canonical_sha256(batch):
+            raise CandidateStageError(
+                f"{stage} checkpoint output hash is corrupt.",
+                stage=stage,
+                provider_error_code="candidate_checkpoint_corrupt",
+            )
+        metrics = CandidateStageMetrics.model_validate(
+            resume_stage_state.get("metrics") or {}
+        )
+        source_hashes = dict(resume_stage_state.get("source_hashes") or {})
+        for source in batch_sources(batch):
+            expected_sha = source_hashes.get(source.path) or completed_artifacts.get(
+                source.path
+            )
+            if not expected_sha or sha256_text(
+                read_source(workspace, source.path)
+            ) != expected_sha:
+                raise CandidateStageError(
+                    f"{stage} checkpoint source hash is corrupt.",
+                    stage=stage,
+                    provider_error_code="candidate_checkpoint_corrupt",
+                )
+        if stage == "pages":
+            batch, issues, evidence, _heal_used = _apply_page_usage_guards(
+                batch=batch,
+                context=context,
+                bindings=page_bindings,
+                candidate_revision_uuid=candidate_revision_uuid,
+                ai_repair_used=bool(resume_stage_state.get("repair_used")),
+                allow_deterministic_heal=False,
+            )
+            heal_used = bool(
+                resume_stage_state.get("deterministic_usage_heal_used")
+            )
+            heal_used = heal_used or _heal_used
+        else:
+            issues = validate_generated_batch(batch, context=context)
+            evidence = None
+            heal_used = False
+        if issues:
+            raise ValueError("Checkpointed AI candidate batch is invalid.")
+        return _Stage(
+            artifact=batch,
+            sources=batch_sources(batch),
+            cache_key=cache_key,
+            provenance_sha256=provenance,
+            metrics=metrics,
+            row=None,
+            repair_used=bool(resume_stage_state.get("repair_used")),
+            usage_evidence=evidence,
+            deterministic_usage_heal_used=heal_used,
+            required_bindings=page_bindings,
+            resumed_from_checkpoint=True,
+        )
+
+    resume_built: Any | None = None
+    if (
+        isinstance(resume_stage_state, dict)
+        and resume_stage_state.get("cache_key") == cache_key
+        and resume_stage_state.get("provenance_sha256") == provenance
+        and resume_status == "parsed_output"
+    ):
+        batch = GeneratedCandidateBatch.model_validate(
+            resume_stage_state.get("artifact") or {}
+        )
+        checkpoint_output_hash = str(
+            (resume_checkpoint or {}).get("output_hash") or ""
+        )
+        if checkpoint_output_hash != canonical_sha256(batch):
+            raise CandidateStageError(
+                f"{stage} parsed-output checkpoint is corrupt.",
+                stage=stage,
+                provider_error_code="candidate_checkpoint_corrupt",
+            )
+        resume_built = {
+            "batch": batch,
+            "metrics": CandidateStageMetrics.model_validate(
+                resume_stage_state.get("metrics") or {}
+            ),
+            "provider_attempt_id": str(
+                resume_stage_state.get("provider_attempt_id") or ""
+            ),
+            "idempotency_key": str(
+                resume_stage_state.get("idempotency_key") or ""
+            ),
+        }
 
     row = (
         repository.find_cache(
@@ -586,23 +884,65 @@ def _load_or_generate_ai_stage(
             )
             for item in context.business_components.components
         }
-    built = build_ai_batch(
-        request_id=context.refs.request_id,
-        policy=policy,
-        prompt_template=(
-            PromptTemplate.V2_CANDIDATE_COMPONENTS
-            if stage == "business_components"
-            else PromptTemplate.V2_CANDIDATE_PAGES
-        ),
-        prompt_values={
-            "candidate_inputs_json": canonical_json(prompt_inputs),
-        },
-        ai_provider=ai_provider,
-        template_renderer=template_renderer,
-        phase_deadline=phase_deadline,
-        call_budget=call_budget,
-        candidate_revision_uuid=candidate_revision_uuid,
-    )
+    if resume_built is None:
+        built = build_ai_batch(
+            request_id=context.refs.request_id,
+            policy=policy,
+            prompt_template=(
+                PromptTemplate.V2_CANDIDATE_COMPONENTS
+                if stage == "business_components"
+                else PromptTemplate.V2_CANDIDATE_PAGES
+            ),
+            prompt_values={
+                "candidate_inputs_json": canonical_json(prompt_inputs),
+            },
+            ai_provider=ai_provider,
+            template_renderer=template_renderer,
+            phase_deadline=phase_deadline,
+            call_budget=call_budget,
+            candidate_revision_uuid=candidate_revision_uuid,
+            on_in_flight=(
+                None
+                if call_budget is None
+                else lambda payload: _persist_in_flight_ai_stage(
+                    workspace=workspace,
+                    upstream_sha=upstream_sha,
+                    completed_artifacts=completed_artifacts,
+                    completed_stage_state=completed_stage_state,
+                    call_budget=call_budget,
+                    stage_name=stage,
+                    cache_key=cache_key,
+                    provenance_sha256=provenance,
+                    provider_attempt_id=str(payload.get("attempt_id") or ""),
+                    idempotency_key=str(
+                        payload.get("idempotency_key") or ""
+                    ),
+                    provider=str(payload.get("provider") or ""),
+                    model=str(payload.get("model") or ""),
+                )
+            ),
+        )
+        parsed_stage = _Stage(
+            artifact=built.batch,
+            sources=batch_sources(built.batch),
+            cache_key=cache_key,
+            provenance_sha256=provenance,
+            metrics=built.metrics,
+        )
+        if call_budget is not None:
+            _persist_completed_ai_stage(
+                workspace=workspace,
+                upstream_sha=upstream_sha,
+                completed_artifacts=completed_artifacts,
+                completed_stage_state=completed_stage_state,
+                call_budget=call_budget,
+                stage=parsed_stage,
+                status="parsed_output",
+                provider_attempt_id=built.provider_attempt_id,
+                idempotency_key=built.idempotency_key,
+            )
+    else:
+        built = BuiltCandidateBatch(**resume_built)
     batch = deterministic_repair_batch(built.batch)
     repair_used = False
     metrics = built.metrics
@@ -619,6 +959,11 @@ def _load_or_generate_ai_stage(
             allow_deterministic_heal=True,
         )
     else:
+        batch, transition_heal_used = heal_missing_transition_hooks(
+            batch,
+            context=context,
+        )
+        heal_used = transition_heal_used
         issues = validate_generated_batch(batch, context=context)
 
     if issues:
@@ -668,6 +1013,11 @@ def _load_or_generate_ai_stage(
             )
             heal_used = heal_used or post_heal
         else:
+            batch, transition_heal_used = heal_missing_transition_hooks(
+                batch,
+                context=context,
+            )
+            heal_used = heal_used or transition_heal_used
             issues = validate_generated_batch(batch, context=context)
         if issues:
             raise CandidateContractError(
@@ -690,6 +1040,7 @@ def _load_or_generate_ai_stage(
         usage_evidence=evidence,
         deterministic_usage_heal_used=heal_used,
         required_bindings=page_bindings,
+        resumed_from_checkpoint=False,
     )
 
 
@@ -805,6 +1156,14 @@ def _repair_stage_after_gate(
             stage.deterministic_usage_heal_used or heal_used
         )
     else:
+        if stage_name == "business_components":
+            batch, transition_heal_used = heal_missing_transition_hooks(
+                batch,
+                context=context,
+            )
+            stage.deterministic_usage_heal_used = (
+                stage.deterministic_usage_heal_used or transition_heal_used
+            )
         batch_issues = validate_generated_batch(batch, context=context)
     if batch_issues:
         raise CandidateContractError(
@@ -937,8 +1296,11 @@ def _persist_failure(
     stages: list[_Stage] | None = None,
     call_budget: CandidateCallBudget | None = None,
 ) -> dict:
+    # Keep staging + .attempt.json so parsed AI output remains resumable.
+    # Freezing on failure previously deleted attempt metadata and forced
+    # paid provider stages to re-run under a fresh call budget.
     final_path = (
-        freeze_candidate_workspace(workspace)
+        workspace.staging_path
         if workspace.staging_path.exists()
         else workspace.final_path
     )
@@ -963,6 +1325,7 @@ def _persist_failure(
                 stages=stages,
             )
         summary_base = dict(phase3a_summary)
+        summary_base["candidate_resumed"] = workspace.resumed
         if usage_evidence is not None:
             summary_base["business_component_usage_evidence"] = (
                 usage_evidence.model_dump(mode="json")
@@ -1030,10 +1393,54 @@ def build_v2_candidate_revision(
         upstream_sha256=upstream_sha,
     )
     phase3a_summary = dict(phase3a_result.get("preview_contract") or {})
-    completed: dict[str, str] = {}
+    resume_state = workspace.resume_state or {}
+    completed_stage_state = dict(
+        resume_state.get("completed_stage_state") or {}
+    )
+    in_flight_stage = next(
+        (
+            name
+            for name, payload in completed_stage_state.items()
+            if isinstance(payload, dict)
+            and str(payload.get("status") or "") == "in_flight"
+        ),
+        "",
+    )
+    completed: dict[str, str] = dict(
+        resume_state.get("completed_artifacts") or {}
+    )
     stages: list[_Stage] = []
     call_budget = CandidateCallBudget.create()
     try:
+        if workspace.resume_invalid_reason:
+            mismatch_stage = "candidate_generation"
+            if "src/pages/" in workspace.resume_invalid_reason:
+                mismatch_stage = "pages"
+            elif "src/components/business/" in workspace.resume_invalid_reason:
+                mismatch_stage = "business_components"
+            raise CandidateStageError(
+                (
+                    "Candidate attempt checkpoint is unreadable or corrupt."
+                    if workspace.resume_invalid_reason
+                    == "attempt_checkpoint_unreadable"
+                    else "Candidate checkpoint source hashes are corrupt."
+                ),
+                stage=mismatch_stage,
+                provider_error_code="candidate_checkpoint_corrupt",
+            )
+        if in_flight_stage:
+            raise CandidateStageError(
+                (
+                    f"{in_flight_stage} has an in-flight paid provider call "
+                    "without a durable output checkpoint."
+                ),
+                stage=in_flight_stage,
+                provider_error_code="candidate_provider_attempt_in_flight",
+            )
+        call_budget = CandidateCallBudget.restore(
+            snapshot=resume_state.get("candidate_call_ledger"),
+            attempts=resume_state.get("candidate_provider_attempts"),
+        )
         foundation_sources = build_foundation_sources(
             settings.PREVIEW_TEMPLATE_DIR
         )
@@ -1060,8 +1467,8 @@ def build_v2_candidate_revision(
         )
         stages.append(foundation)
         write_sources(workspace, foundation.sources)
-        completed.update(
-            {item.path: sha256_text(item.source) for item in foundation.sources}
+        completed = _merge_completed_artifacts(
+            completed, foundation.sources
         )
         call_budget.record_checkpoint(
             CandidateStageCheckpoint(
@@ -1076,6 +1483,9 @@ def build_v2_candidate_revision(
             workspace,
             upstream_sha256=upstream_sha,
             completed_artifacts=completed,
+            completed_stage_state=completed_stage_state,
+            candidate_call_ledger=call_budget.snapshot(),
+            candidate_provider_attempts=call_budget.attempts_snapshot(),
         )
         _ensure_deadline(phase_deadline)
 
@@ -1096,6 +1506,7 @@ def build_v2_candidate_revision(
         )
         stages.append(data)
         write_sources(workspace, data.sources)
+        completed = _merge_completed_artifacts(completed, data.sources)
         call_budget.record_checkpoint(
             CandidateStageCheckpoint(
                 substage="data_exports",
@@ -1104,6 +1515,14 @@ def build_v2_candidate_revision(
                 status="completed",
                 idempotency_key=f"{workspace.revision_uuid}:data_exports",
             )
+        )
+        checkpoint_workspace(
+            workspace,
+            upstream_sha256=upstream_sha,
+            completed_artifacts=completed,
+            completed_stage_state=completed_stage_state,
+            candidate_call_ledger=call_budget.snapshot(),
+            candidate_provider_attempts=call_budget.attempts_snapshot(),
         )
         _ensure_deadline(phase_deadline)
 
@@ -1122,11 +1541,28 @@ def build_v2_candidate_revision(
             ai_provider=ai_provider,
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
+            workspace=workspace,
+            upstream_sha=upstream_sha,
+            completed_artifacts=completed,
+            completed_stage_state=completed_stage_state,
             candidate_revision_uuid=workspace.revision_uuid,
             call_budget=call_budget,
+            resume_stage_state=completed_stage_state.get(
+                "business_components"
+            ),
         )
         stages.append(components)
         write_sources(workspace, components.sources)
+        completed = _merge_completed_artifacts(completed, components.sources)
+        _persist_completed_ai_stage(
+            workspace=workspace,
+            upstream_sha=upstream_sha,
+            completed_artifacts=completed,
+            completed_stage_state=completed_stage_state,
+            call_budget=call_budget,
+            stage=components,
+            status="completed",
+        )
         _check_usage(tuple(item.metrics for item in stages))
         _ensure_deadline(phase_deadline)
 
@@ -1147,12 +1583,27 @@ def build_v2_candidate_revision(
             ai_provider=ai_provider,
             template_renderer=template_renderer,
             phase_deadline=phase_deadline,
+            workspace=workspace,
+            upstream_sha=upstream_sha,
+            completed_artifacts=completed,
+            completed_stage_state=completed_stage_state,
             component_batch=components.artifact,
             candidate_revision_uuid=workspace.revision_uuid,
             call_budget=call_budget,
+            resume_stage_state=completed_stage_state.get("pages"),
         )
         stages.append(pages)
         write_sources(workspace, pages.sources)
+        completed = _merge_completed_artifacts(completed, pages.sources)
+        _persist_completed_ai_stage(
+            workspace=workspace,
+            upstream_sha=upstream_sha,
+            completed_artifacts=completed,
+            completed_stage_state=completed_stage_state,
+            call_budget=call_budget,
+            stage=pages,
+            status="completed",
+        )
         _check_usage(tuple(item.metrics for item in stages))
         _ensure_deadline(phase_deadline)
 

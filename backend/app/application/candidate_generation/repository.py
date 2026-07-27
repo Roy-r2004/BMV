@@ -220,63 +220,129 @@ class CandidateRepository:
         policy_revision: str = CANDIDATE_POLICY_REVISION,
         update_request_bundle: bool = True,
     ) -> tuple[CandidateRevisionRecord, dict[str, Any]]:
-        revision = int(
-            self.db.query(func.max(CandidateRevisionRecord.revision))
-            .filter(CandidateRevisionRecord.request_id == req.id)
-            .scalar()
-            or 0
-        ) + 1
         file_digest = (
             canonical_sha256(file_manifest) if file_manifest else None
         )
         total_calls = sum(item.provider_call_count for item in metrics)
         total_repairs = sum(item.repair_call_count for item in metrics)
-        row = CandidateRevisionRecord(
-            revision_uuid=revision_uuid,
-            request_id=req.id,
-            revision=revision,
-            target_tier=target_tier,
-            status=status,
-            generator_version=generator_version,
-            policy_revision=policy_revision,
-            upstream_manifest_json=canonical_json(
-                refs.model_dump(mode="json")
-            ),
-            upstream_manifest_sha256=candidate_upstream_sha256(refs),
-            dependency_lock_sha256=dependency_lock_sha256,
-            model_manifest_json=canonical_json(model_manifest),
-            workspace_relpath=workspace_relpath,
-            file_manifest_json=canonical_json(file_manifest),
-            file_manifest_sha256=file_digest,
-            foundation_artifact_id=(
-                artifact_rows[0].id if artifact_rows[0] else None
-            ),
-            data_artifact_id=(
-                artifact_rows[1].id if artifact_rows[1] else None
-            ),
-            component_artifact_id=(
-                artifact_rows[2].id if artifact_rows[2] else None
-            ),
-            page_artifact_id=(
-                artifact_rows[3].id if artifact_rows[3] else None
-            ),
-            route_artifact_id=(
-                artifact_rows[4].id if artifact_rows[4] else None
-            ),
-            validation_artifact_id=(
-                artifact_rows[5].id if artifact_rows[5] else None
-            ),
-            failure_json=canonical_json(failure),
-            provider_call_count=total_calls,
-            repair_call_count=total_repairs,
-            prompt_tokens=sum(item.prompt_tokens for item in metrics),
-            completion_tokens=sum(item.completion_tokens for item in metrics),
-            total_tokens=sum(item.total_tokens for item in metrics),
-            cost_usd=sum(item.cost_usd for item in metrics),
-            latency_ms=sum(item.latency_ms for item in metrics),
-            completed_at=datetime.utcnow(),
+        existing = (
+            self.db.query(CandidateRevisionRecord)
+            .filter(CandidateRevisionRecord.revision_uuid == revision_uuid)
+            .one_or_none()
         )
-        self.db.add(row)
+        if workspace_relpath:
+            # Staging-path failures may re-persist the same workspace; clear
+            # stale unique owners so resume can update the same revision.
+            conflicts = (
+                self.db.query(CandidateRevisionRecord)
+                .filter(
+                    CandidateRevisionRecord.workspace_relpath
+                    == workspace_relpath,
+                    CandidateRevisionRecord.revision_uuid != revision_uuid,
+                )
+                .all()
+            )
+            for conflict in conflicts:
+                conflict.workspace_relpath = None
+        if existing is None:
+            revision = int(
+                self.db.query(func.max(CandidateRevisionRecord.revision))
+                .filter(CandidateRevisionRecord.request_id == req.id)
+                .scalar()
+                or 0
+            ) + 1
+            row = CandidateRevisionRecord(
+                revision_uuid=revision_uuid,
+                request_id=req.id,
+                revision=revision,
+                target_tier=target_tier,
+                status=status,
+                generator_version=generator_version,
+                policy_revision=policy_revision,
+                upstream_manifest_json=canonical_json(
+                    refs.model_dump(mode="json")
+                ),
+                upstream_manifest_sha256=candidate_upstream_sha256(refs),
+                dependency_lock_sha256=dependency_lock_sha256,
+                model_manifest_json=canonical_json(model_manifest),
+                workspace_relpath=workspace_relpath,
+                file_manifest_json=canonical_json(file_manifest),
+                file_manifest_sha256=file_digest,
+                foundation_artifact_id=(
+                    artifact_rows[0].id if artifact_rows[0] else None
+                ),
+                data_artifact_id=(
+                    artifact_rows[1].id if artifact_rows[1] else None
+                ),
+                component_artifact_id=(
+                    artifact_rows[2].id if artifact_rows[2] else None
+                ),
+                page_artifact_id=(
+                    artifact_rows[3].id if artifact_rows[3] else None
+                ),
+                route_artifact_id=(
+                    artifact_rows[4].id if artifact_rows[4] else None
+                ),
+                validation_artifact_id=(
+                    artifact_rows[5].id if artifact_rows[5] else None
+                ),
+                failure_json=canonical_json(failure),
+                provider_call_count=total_calls,
+                repair_call_count=total_repairs,
+                prompt_tokens=sum(item.prompt_tokens for item in metrics),
+                completion_tokens=sum(
+                    item.completion_tokens for item in metrics
+                ),
+                total_tokens=sum(item.total_tokens for item in metrics),
+                cost_usd=sum(item.cost_usd for item in metrics),
+                latency_ms=sum(item.latency_ms for item in metrics),
+                completed_at=datetime.utcnow(),
+            )
+            self.db.add(row)
+        else:
+            row = existing
+            row.target_tier = target_tier
+            row.status = status
+            row.generator_version = generator_version
+            row.policy_revision = policy_revision
+            row.upstream_manifest_json = canonical_json(
+                refs.model_dump(mode="json")
+            )
+            row.upstream_manifest_sha256 = candidate_upstream_sha256(refs)
+            row.dependency_lock_sha256 = dependency_lock_sha256
+            row.model_manifest_json = canonical_json(model_manifest)
+            row.workspace_relpath = workspace_relpath
+            row.file_manifest_json = canonical_json(file_manifest)
+            row.file_manifest_sha256 = file_digest
+            row.foundation_artifact_id = (
+                artifact_rows[0].id if artifact_rows[0] else None
+            )
+            row.data_artifact_id = (
+                artifact_rows[1].id if artifact_rows[1] else None
+            )
+            row.component_artifact_id = (
+                artifact_rows[2].id if artifact_rows[2] else None
+            )
+            row.page_artifact_id = (
+                artifact_rows[3].id if artifact_rows[3] else None
+            )
+            row.route_artifact_id = (
+                artifact_rows[4].id if artifact_rows[4] else None
+            )
+            row.validation_artifact_id = (
+                artifact_rows[5].id if artifact_rows[5] else None
+            )
+            row.failure_json = canonical_json(failure)
+            row.provider_call_count = total_calls
+            row.repair_call_count = total_repairs
+            row.prompt_tokens = sum(item.prompt_tokens for item in metrics)
+            row.completion_tokens = sum(
+                item.completion_tokens for item in metrics
+            )
+            row.total_tokens = sum(item.total_tokens for item in metrics)
+            row.cost_usd = sum(item.cost_usd for item in metrics)
+            row.latency_ms = sum(item.latency_ms for item in metrics)
+            row.completed_at = datetime.utcnow()
         self.db.flush()
         summary = {
             **summary_base,

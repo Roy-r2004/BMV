@@ -64,6 +64,8 @@ class CandidateStageError(RuntimeError):
 class BuiltCandidateBatch:
     batch: GeneratedCandidateBatch
     metrics: CandidateStageMetrics
+    provider_attempt_id: str = ""
+    idempotency_key: str = ""
 
 
 def invoke_with_timeout(
@@ -280,8 +282,11 @@ def _record_provider_error_attempt(
     clamped_output_tokens: int | None = None,
     context_window: int | None = None,
     approval_decision: str = "",
+    attempt_id: str = "",
 ) -> str:
-    attempt_id = budget.new_attempt_id() if budget is not None else ""
+    attempt_id = attempt_id or (
+        budget.new_attempt_id() if budget is not None else ""
+    )
     result = exc.result
     if budget is not None:
         budget.record_attempt(
@@ -400,7 +405,7 @@ def _record_preflight_attempt(
     return attempt_id
 
 
-def _pages_model_configuration_error(
+def _stage_model_configuration_error(
     *,
     stage: str,
     code: str,
@@ -460,6 +465,7 @@ def build_ai_batch(
     phase_deadline: float,
     call_budget: CandidateCallBudget | None = None,
     candidate_revision_uuid: str = "",
+    on_in_flight: Callable[[dict[str, Any]], None] | None = None,
 ) -> BuiltCandidateBatch:
     if not policy.ai_authored or policy.stage not in {
         "business_components",
@@ -488,20 +494,37 @@ def build_ai_batch(
     primary_model, fallback_decision = _resolve_effective_model(policy)
     model = primary_model
 
-    # Pages: fail closed on missing/unknown model. Never fall back to component model.
-    if policy.stage == "pages":
+    # Components/pages: fail closed on missing/unknown model. Never inherit
+    # PREVIEW_APP_MODEL or silently fall back to deepseek/deepseek-chat.
+    if policy.stage in {"business_components", "pages"}:
+        if policy.stage == "business_components":
+            not_configured = "candidate_component_model_not_configured"
+            capability_unknown = "candidate_component_model_capability_unknown"
+            stage_label = "business_components"
+            env_name = "V2_CANDIDATE_COMPONENT_MODEL"
+            no_fallback_note = (
+                "business_components stage fails closed without falling back "
+                "to PREVIEW_APP_MODEL or deepseek/deepseek-chat."
+            )
+        else:
+            not_configured = "candidate_page_model_not_configured"
+            capability_unknown = "candidate_page_model_capability_unknown"
+            stage_label = "pages"
+            env_name = "V2_CANDIDATE_PAGE_MODEL"
+            no_fallback_note = (
+                "pages stage fails closed without falling back to the "
+                "component model."
+            )
         if not str(model or "").strip():
-            raise _pages_model_configuration_error(
+            raise _stage_model_configuration_error(
                 stage=policy.stage,
-                code="candidate_page_model_not_configured",
+                code=not_configured,
                 message=(
-                    "V2_CANDIDATE_PAGE_MODEL is not configured; "
-                    "pages stage fails closed without falling back to the "
-                    "component model."
+                    f"{env_name} is not configured; {no_fallback_note}"
                 ),
             )
-        page_capability = resolve_model_capability(model)
-        if not page_capability.known:
+        stage_capability = resolve_model_capability(model)
+        if not stage_capability.known:
             _record_preflight_attempt(
                 budget=call_budget,
                 request_id=request_id,
@@ -516,17 +539,16 @@ def build_ai_batch(
                 clamped_output_tokens=0,
                 context_window=0,
                 approval_decision="denied_preflight",
-                typed_result="candidate_page_model_capability_unknown",
-                error_code="candidate_page_model_capability_unknown",
+                typed_result=capability_unknown,
+                error_code=capability_unknown,
                 terminal_decision="fail_closed_preflight",
             )
-            raise _pages_model_configuration_error(
+            raise _stage_model_configuration_error(
                 stage=policy.stage,
-                code="candidate_page_model_capability_unknown",
+                code=capability_unknown,
                 message=(
-                    f"Pages model {model!r} has no explicit capability profile; "
-                    "pages stage fails closed without falling back to the "
-                    "component model."
+                    f"{stage_label} model {model!r} has no explicit "
+                    f"capability profile; {no_fallback_note}"
                 ),
             )
 
@@ -623,6 +645,10 @@ def build_ai_batch(
     )
 
     idempotency = f"{candidate_revision_uuid}:{policy.stage}:gen:0"
+    current_attempt_id = (
+        call_budget.new_attempt_id() if call_budget is not None else ""
+    )
+    current_idempotency = idempotency
     if call_budget is not None:
         approved, deny_code = call_budget.approve(
             policy.stage,
@@ -637,8 +663,22 @@ def build_ai_batch(
                 stage=policy.stage,
                 provider_error_code=deny_code,
             )
+    if on_in_flight is not None:
+        on_in_flight(
+            {
+                "attempt_id": current_attempt_id,
+                "candidate_revision_uuid": candidate_revision_uuid,
+                "stage": policy.stage,
+                "provider": provider_name,
+                "model": model,
+                "idempotency_key": current_idempotency,
+                "request_shape_hash": shape_hash,
+                "fallback_model_decision": fallback_decision,
+            }
+        )
 
     calls_used = 1
+    successful_parent_attempt_id = ""
     with ai_run_scope(request_id, purpose=f"v2_candidate_{policy.stage}"):
         with capture_ai_stage_telemetry() as captured:
 
@@ -670,6 +710,7 @@ def build_ai_batch(
                     terminal_decision=(
                         "retry_pending" if exc.retryable else "fail_closed"
                     ),
+                    attempt_id=current_attempt_id,
                     idempotency_key=idempotency,
                     request_shape_hash=shape_hash,
                     retry_decision_reason=(
@@ -684,6 +725,7 @@ def build_ai_batch(
                         stage=policy.stage, exc=exc
                     ) from exc
                 retry_key = f"{candidate_revision_uuid}:{policy.stage}:gen:1"
+                retry_attempt_id = call_budget.new_attempt_id()
                 approved, deny_code = call_budget.approve(
                     policy.stage,
                     attempt_type="ai_retry",
@@ -702,6 +744,7 @@ def build_ai_batch(
                         exc=exc,
                         retry_attempted=False,
                         terminal_decision="fail_closed_no_budget",
+                        attempt_id=retry_attempt_id,
                         parent_attempt_id=parent_attempt,
                         idempotency_key=retry_key,
                         request_shape_hash=shape_hash,
@@ -727,6 +770,22 @@ def build_ai_batch(
                         provider_diagnostics=exc.result.to_diagnostics(),
                     ) from exc
                 calls_used = 2
+                successful_parent_attempt_id = parent_attempt
+                current_attempt_id = retry_attempt_id
+                current_idempotency = retry_key
+                if on_in_flight is not None:
+                    on_in_flight(
+                        {
+                            "attempt_id": current_attempt_id,
+                            "candidate_revision_uuid": candidate_revision_uuid,
+                            "stage": policy.stage,
+                            "provider": provider_name,
+                            "model": model,
+                            "idempotency_key": current_idempotency,
+                            "request_shape_hash": shape_hash,
+                            "fallback_model_decision": fallback_decision,
+                        }
+                    )
                 try:
                     raw = invoke_with_timeout(
                         invoke,
@@ -746,6 +805,7 @@ def build_ai_batch(
                         exc=retry_exc,
                         retry_attempted=True,
                         terminal_decision="fail_closed",
+                        attempt_id=current_attempt_id,
                         parent_attempt_id=parent_attempt,
                         idempotency_key=retry_key,
                         request_shape_hash=shape_hash,
@@ -769,17 +829,66 @@ def build_ai_batch(
             f"{policy.stage} returned the wrong batch kind.",
             stage=policy.stage,
         )
+    metrics = _usage_metrics(
+        policy=policy,
+        provider=ai_provider,
+        started=started,
+        captured=captured,
+        repair=False,
+        repair_reason=None,
+        provider_call_count=calls_used,
+    )
+    if call_budget is not None and current_attempt_id:
+        call_budget.record_attempt(
+            CandidateProviderAttempt(
+                attempt_id=current_attempt_id,
+                request_id=request_id,
+                candidate_revision_uuid=candidate_revision_uuid,
+                substage=policy.stage,
+                provider=provider_name,
+                model=model,
+                http_status=200,
+                response_top_level_keys=sorted(
+                    batch.model_dump(mode="json").keys()
+                ),
+                response_format="structured_json",
+                provider_request_id="",
+                raw_payload_sha256=hashlib.sha256(
+                    raw.encode("utf-8")
+                ).hexdigest(),
+                duration_ms=metrics.latency_ms,
+                input_tokens=metrics.prompt_tokens,
+                output_tokens=metrics.completion_tokens,
+                total_tokens=metrics.total_tokens,
+                typed_result="completed",
+                error_code="",
+                retryable=False,
+                retry_attempted=calls_used > 1,
+                terminal_decision="completed",
+                parent_attempt_id=successful_parent_attempt_id,
+                idempotency_key=current_idempotency,
+                error_type="",
+                error_message_redacted="",
+                error_metadata_keys=[],
+                request_shape_hash=shape_hash,
+                capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+                retry_decision_reason="",
+                fallback_model_decision=fallback_decision,
+                calls_remaining=call_budget.remaining_total(),
+                context_window=capability.context_window,
+                estimated_input_tokens=estimated_input,
+                requested_output_tokens=policy.max_tokens,
+                clamped_output_tokens=effective_max_tokens,
+                minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
+                context_reserve=CONTEXT_RESERVE_TOKENS,
+                approval_decision="approved",
+            )
+        )
     return BuiltCandidateBatch(
         batch=batch,
-        metrics=_usage_metrics(
-            policy=policy,
-            provider=ai_provider,
-            started=started,
-            captured=captured,
-            repair=False,
-            repair_reason=None,
-            provider_call_count=calls_used,
-        ),
+        metrics=metrics,
+        provider_attempt_id=current_attempt_id,
+        idempotency_key=current_idempotency,
     )
 
 

@@ -33,8 +33,9 @@ _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "anthropic/claude-sonnet-4": 200_000,
 }
 
-# Production pages stage model (explicit; never inherit PREVIEW_APP_MODEL).
+# Production candidate AI stages (explicit; never inherit PREVIEW_APP_MODEL).
 APPROVED_CANDIDATE_PAGE_MODEL = "google/gemini-2.5-flash"
+APPROVED_CANDIDATE_COMPONENT_MODEL = APPROVED_CANDIDATE_PAGE_MODEL
 
 
 @dataclass(frozen=True)
@@ -105,12 +106,29 @@ def estimate_prompt_tokens(text: str) -> int:
     return max(1, (len(text or "") + 2) // 3)
 
 
+def candidate_stage_capability_diagnostics(model: str) -> dict[str, Any]:
+    """Trusted diagnostics for an effective candidate-stage model."""
+
+    profile = resolve_model_capability(model)
+    return {
+        "model": profile.model,
+        "known": profile.known,
+        "context_window": profile.context_window,
+        "capability_profile_revision": profile.revision,
+        "supports_json_text_mode": profile.supports_json_text_mode,
+        "minimum_output_allowance": MINIMUM_VALID_OUTPUT_TOKENS,
+        "context_reserve": CONTEXT_RESERVE_TOKENS,
+    }
+
+
 __all__ = [
+    "APPROVED_CANDIDATE_COMPONENT_MODEL",
     "APPROVED_CANDIDATE_PAGE_MODEL",
     "CAPABILITY_PROFILE_REVISION",
     "CONTEXT_RESERVE_TOKENS",
     "MINIMUM_VALID_OUTPUT_TOKENS",
     "ModelCapabilityProfile",
+    "candidate_stage_capability_diagnostics",
     "clamp_max_tokens",
     "estimate_prompt_tokens",
     "resolve_model_capability",

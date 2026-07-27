@@ -156,6 +156,12 @@ class GenerationPipeline:
                 detail = (
                     "Candidate is isolated and unserved; Phase 4 is disabled"
                 )
+            if status in {
+                "candidate_contract_failed",
+                "candidate_failed",
+            } or status.endswith("failed") or status.endswith("rejected"):
+                req.status = "failed"
+                db.commit()
             _emit(
                 db,
                 request_id,

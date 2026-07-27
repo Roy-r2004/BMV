@@ -6,6 +6,7 @@ import shutil
 import pytest
 from sqlalchemy import text
 
+from app.application.expanded_preview.access import resolve_customer_actor
 from app.application.expanded_preview.authorization import trusted_actor_from_admin
 from app.application.expanded_preview.service import (
     ExpandedPreviewService,
@@ -70,6 +71,21 @@ def test_customer_can_request_expanded_preview(db_env):
     assert view.status == "under_review"
     assert view.lifecycle_status == "requested"
     assert "internal" not in view.model_dump()
+
+
+def test_expanded_preview_access_migrates_legacy_customer_token(db_env):
+    db, req, _admin, _engine = db_env
+
+    actor = resolve_customer_actor(
+        db,
+        req=req,
+        authorization=None,
+        x_request_access_token="token-acme-1",
+    )
+
+    assert actor == f"customer:access-token:{req.id}"
+    assert req.customer_access_token != "token-acme-1"
+    assert len(req.customer_access_token) == 64
 
 
 def test_duplicate_request_is_idempotent(db_env):

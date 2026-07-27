@@ -2,7 +2,8 @@ import json
 import threading
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep
@@ -103,8 +104,21 @@ def _run_pipeline_in_background(request_id: int) -> None:
     finally:
         bg_db.close()
 
+
+def _retry_generation_allowed(req: Request) -> bool:
+    status = str(getattr(req, "status", "") or "").strip().lower()
+    return status == "stuck" or status.endswith("failed")
+
+
+def _retry_claim_status(req: Request) -> str:
+    return "retrying_generation" if not req.mvp_blueprint else "retrying_preview_app"
+
 @router.post("/{request_id}/retry-generation")
-def retry_generation(request_id: int, db: Session = Depends(get_db)):
+def retry_generation(
+    request_id: int,
+    db: Session = Depends(get_db),
+    x_request_access_token: str | None = Header(default=None),
+):
     """Restart generation for a stuck or failed request.
 
     Pre-blueprint: full `GenerationPipeline`.
@@ -114,32 +128,70 @@ def retry_generation(request_id: int, db: Session = Depends(get_db)):
     req = db.query(Request).filter(Request.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+    if not (x_request_access_token or "").strip():
+        raise HTTPException(
+            status_code=401,
+            detail="X-Request-Access-Token required",
+        )
 
+    from app.application.expanded_preview.service import verify_customer_access_token
 
-    req.status = "new"
-    if not req.mvp_blueprint:
-        _emit(db, request_id, "analyze", "Restarting generation...", 1, detail="Retry requested")
-        threading.Thread(
-            target=_run_pipeline_in_background,
+    if not verify_customer_access_token(
+        db,
+        req=req,
+        token=x_request_access_token,
+    ):
+        raise HTTPException(status_code=403, detail="Invalid request access token")
+    if not _retry_generation_allowed(req):
+        raise HTTPException(
+            status_code=409,
+            detail="Only failed or stuck requests can be retried",
+        )
+    original_status = str(req.status or "")
+    claim_status = _retry_claim_status(req)
+    claim = db.execute(
+        update(Request)
+        .where(
+            Request.id == request_id,
+            Request.status == original_status,
+        )
+        .values(status=claim_status)
+    )
+    if int(claim.rowcount or 0) != 1:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Retry claim lost to another worker")
+    db.commit()
+
+    mode = "full" if not req.mvp_blueprint else "preview_app"
+    target = _run_pipeline_in_background
+    if mode == "full":
+        _emit(
+            db,
+            request_id,
+            "analyze",
+            "Restarting generation...",
+            1,
+            detail="Retry requested",
+        )
+    else:
+        _emit(
+            db,
+            request_id,
+            "codegen",
+            "Retrying live preview build...",
+            28,
+            detail="Restarting UI generation from your blueprint",
+        )
+        target = _run_preview_app_in_background
+
+    with _preview_gen_lock(request_id):
+        thread = threading.Thread(
+            target=target,
             args=(request_id,),
             daemon=True,
-        ).start()
-        return {"ok": True, "status": "restarted", "id": request_id, "mode": "full"}
-
-    _emit(
-        db,
-        request_id,
-        "codegen",
-        "Retrying live preview build...",
-        28,
-        detail="Restarting UI generation from your blueprint",
-    )
-    threading.Thread(
-        target=_run_preview_app_in_background,
-        args=(request_id,),
-        daemon=True,
-    ).start()
-    return {"ok": True, "status": "restarted", "id": request_id, "mode": "preview_app"}
+        )
+    thread.start()
+    return {"ok": True, "status": "restarted", "id": request_id, "mode": mode}
 
 
 @router.post("", response_model=RequestCreateResponse)
@@ -166,7 +218,7 @@ async def create_request(
     if reference_file and reference_file.filename:
         file_path = save_upload(reference_file)
 
-    from app.application.expanded_preview.service import ensure_customer_access_token
+    from app.application.expanded_preview.service import issue_customer_access_token
 
     req = Request(
         business_name=business_name,
@@ -187,7 +239,7 @@ async def create_request(
         whatsapp=whatsapp,
         status="new",
     )
-    ensure_customer_access_token(req)
+    customer_access_token = issue_customer_access_token(req)
     db.add(req)
     db.commit()
     db.refresh(req)
@@ -208,7 +260,7 @@ async def create_request(
     return RequestCreateResponse(
         id=req.id,
         status="created",
-        customer_access_token=req.customer_access_token,
+        customer_access_token=customer_access_token,
     )
 
 def _expanded_preview_status(db: Session, request_id: int) -> str | None:
@@ -241,11 +293,33 @@ def _run_preview_app_in_background(request_id: int) -> None:
         return
     bg_db = SessionLocal()
     try:
-        generate_preview_app(bg_db, request_id, get_ai_provider(), get_template_renderer())
+        result = generate_preview_app(
+            bg_db,
+            request_id,
+            get_ai_provider(),
+            get_template_renderer(),
+        )
+        req = bg_db.query(Request).filter(Request.id == request_id).first()
+        preview_status = str((result.get("preview_contract") or {}).get("status") or "")
+        if req is not None:
+            if preview_status in {
+                "candidate_contract_failed",
+                "candidate_failed",
+            } or preview_status.endswith("failed") or preview_status.endswith("rejected"):
+                req.status = "failed"
+            elif preview_status == "candidate_visual_accepted":
+                req.status = "ready"
+            elif preview_status in {"candidate_build_pending", "candidate_runtime_validated"}:
+                req.status = "reviewing"
+            bg_db.commit()
     except Exception as e:
         pipeline_log.exception("preview app generation failed for request %s", request_id)
         try:
             _emit(bg_db, request_id, "failed", f"Generation failed: {e}", 0)
+            req = bg_db.query(Request).filter(Request.id == request_id).first()
+            if req is not None:
+                req.status = "failed"
+                bg_db.commit()
         except Exception:
             pass
     finally:

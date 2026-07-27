@@ -227,6 +227,93 @@ def create_derived_repair_workspace(
     return target
 
 
+_COMPONENT_ID_CONST = re.compile(
+    r'export const\s+[A-Z0-9_]+_COMPONENT_ID\s*=\s*["\']([^"\']+)["\']'
+)
+_RETURN_ROOT_TAG = re.compile(
+    r"(return\s*\(\s*)(<([A-Za-z][\w.]*)\b)([^>]*?)(/?>)",
+    re.MULTILINE,
+)
+
+
+def _inject_component_dom_marker(source: str, component_id: str) -> str:
+    marker = f'data-bmv-component-id="{component_id}"'
+    if marker in source:
+        return source
+    match = _RETURN_ROOT_TAG.search(source)
+    if match is None:
+        return source
+    attrs = match.group(4)
+    if "data-bmv-component-id=" in attrs:
+        return source
+    replacement = (
+        f"{match.group(1)}{match.group(2)}{attrs} {marker}{match.group(5)}"
+    )
+    return source[: match.start()] + replacement + source[match.end() :]
+
+
+def normalize_phase4_candidate_sources(candidate_path: Path) -> tuple[str, ...]:
+    """Apply root-base, offline asset, and component DOM hook normalization.
+
+    Must run before Vite build so deep routes resolve ``/assets/*`` and Phase 4
+    can observe ``data-bmv-component-id`` markers without an extra AI repair.
+    """
+
+    changed_paths: list[str] = []
+    config = candidate_path / "vite.config.ts"
+    if config.is_file():
+        source = config.read_text(encoding="utf-8")
+        changed = source
+        if "base: './'" in changed:
+            changed = changed.replace("base: './'", "base: '/'")
+        elif 'base: "./"' in changed:
+            changed = changed.replace('base: "./"', "base: '/'")
+        if changed != source:
+            config.write_text(changed, encoding="utf-8", newline="\n")
+            changed_paths.append("vite.config.ts")
+
+    index = candidate_path / "index.html"
+    if index.is_file():
+        index_source = index.read_text(encoding="utf-8")
+        index_changed = "\n".join(
+            line
+            for line in index_source.splitlines()
+            if not (
+                'rel="preconnect"' in line
+                and ("http://" in line or "https://" in line)
+            )
+        ) + "\n"
+        if index_changed != index_source:
+            index.write_text(index_changed, encoding="utf-8", newline="\n")
+            changed_paths.append("index.html")
+
+    business_dir = candidate_path / "src" / "components" / "business"
+    if business_dir.is_dir():
+        for path in sorted(business_dir.glob("*.tsx")):
+            source = path.read_text(encoding="utf-8")
+            match = _COMPONENT_ID_CONST.search(source)
+            if match is None:
+                continue
+            updated = _inject_component_dom_marker(source, match.group(1))
+            if updated != source:
+                path.write_text(updated, encoding="utf-8", newline="\n")
+                changed_paths.append(
+                    str(path.relative_to(candidate_path)).replace("\\", "/")
+                )
+            # Prevent native form submit from racing SPA navigate handlers.
+            source = path.read_text(encoding="utf-8")
+            submit_fixed = source.replace(
+                'type="submit"',
+                'type="button"',
+            )
+            if submit_fixed != source:
+                path.write_text(submit_fixed, encoding="utf-8", newline="\n")
+                rel = str(path.relative_to(candidate_path)).replace("\\", "/")
+                if rel not in changed_paths:
+                    changed_paths.append(rel)
+    return tuple(changed_paths)
+
+
 def apply_deterministic_repair(candidate_path: Path, repair_code: str) -> str:
     allowed = {
         "route_fallback_configuration",
@@ -251,24 +338,11 @@ def apply_deterministic_repair(candidate_path: Path, repair_code: str) -> str:
             1,
         )
     elif repair_code == "asset_path_normalization":
-        changed = changed.replace("base: '/'", "base: './'")
-        index = candidate_path / "index.html"
-        index_source = index.read_text(encoding="utf-8")
-        index_changed = "\n".join(
-            line
-            for line in index_source.splitlines()
-            if not (
-                'rel="preconnect"' in line
-                and ("http://" in line or "https://" in line)
-            )
-        ) + "\n"
-        if index_changed != index_source:
-            index.write_text(
-                index_changed,
-                encoding="utf-8",
-                newline="\n",
-            )
-            changed_paths.append("index.html")
+        changed_paths.extend(normalize_phase4_candidate_sources(candidate_path))
+        # Re-read after normalization; vite.config may already be updated.
+        if config.is_file():
+            changed = config.read_text(encoding="utf-8")
+            source = changed
     elif repair_code == "manifest_wiring":
         # Phase 4 owns its dist identity manifest; source wiring is untouched.
         return "dist_identity_manifest"
@@ -278,7 +352,8 @@ def apply_deterministic_repair(candidate_path: Path, repair_code: str) -> str:
         )
     if changed != source:
         config.write_text(changed, encoding="utf-8", newline="\n")
-        changed_paths.append("vite.config.ts")
+        if "vite.config.ts" not in changed_paths:
+            changed_paths.append("vite.config.ts")
     if not changed_paths:
         raise ValueError("Deterministic repair had no recognized target")
     return ",".join(changed_paths)

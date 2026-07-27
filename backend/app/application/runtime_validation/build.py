@@ -35,6 +35,9 @@ from app.application.runtime_validation.prebuild import (
     validate_prebuild,
 )
 from app.application.runtime_validation.workspace import (
+    normalize_phase4_candidate_sources,
+)
+from app.application.runtime_validation.workspace import (
     source_manifest_sha256,
 )
 from app.core.config import settings
@@ -375,6 +378,7 @@ def build_cache_keys(
             "candidate_manifest_sha256": refs.candidate_manifest_sha256,
             "dependency_lock_sha256": refs.dependency_lock_sha256,
             "runtime_policy_revision": refs.runtime_policy_revision,
+            "phase4_source_normalization_revision": "2026-07-27.2",
             "node": tools.node,
             "typescript": tools.typescript,
             "vite": tools.vite,
@@ -489,6 +493,7 @@ def run_build_validation(
     first_error_location: str | None = None
     raise_if_injected("runtime_build")
     try:
+        normalize_phase4_candidate_sources(candidate_path)
         try:
             validate_prebuild(candidate_path)
         except PrebuildValidationError as exc:

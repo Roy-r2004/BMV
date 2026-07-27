@@ -20,7 +20,7 @@ _ROOT_HAS_CHILDREN_JS = (
 )
 
 
-def _launch_chromium(p):
+def launch_chromium(p):
     """Prefer channel=chromium; fall back to bundled Chromium if channel missing."""
     try:
         # channel="chromium" opts into Chromium's "new" headless mode,
@@ -29,6 +29,8 @@ def _launch_chromium(p):
         # chromium-headless-shell binary — one less browser download to
         # ship, and one fewer place headless-only rendering quirks can
         # diverge from what a real user's browser would show.
+        # Dockerfile.app installs with --no-shell; plain headless=True
+        # requires chromium-headless-shell and fails Phase 4 in that image.
         return p.chromium.launch(headless=True, channel="chromium")
     except Exception as e:
         log.warning(
@@ -36,6 +38,10 @@ def _launch_chromium(p):
             e,
         )
         return p.chromium.launch(headless=True)
+
+
+# Backward-compatible private alias for existing call sites/tests.
+_launch_chromium = launch_chromium
 
 
 def capture_route_screenshot(

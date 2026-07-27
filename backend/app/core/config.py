@@ -862,20 +862,27 @@ class Settings:
             ).strip()
             or "2026-07-24.1"
         )
-        self.V2_CANDIDATE_COMPONENT_MODEL = _env_or(
-            "V2_CANDIDATE_COMPONENT_MODEL",
-            self.PREVIEW_APP_MODEL,
+        # Component and pages stages must use explicit large-context models.
+        # Do not inherit PREVIEW_APP_MODEL (often deepseek/deepseek-chat at 32k).
+        from app.infrastructure.ai_providers.model_capabilities import (
+            APPROVED_CANDIDATE_COMPONENT_MODEL,
+            APPROVED_CANDIDATE_PAGE_MODEL,
         )
+
+        _component_model_raw = os.getenv("V2_CANDIDATE_COMPONENT_MODEL")
+        if _component_model_raw is None:
+            self.V2_CANDIDATE_COMPONENT_MODEL = (
+                APPROVED_CANDIDATE_COMPONENT_MODEL
+            )
+        else:
+            # Empty string stays empty so components stage can fail closed.
+            self.V2_CANDIDATE_COMPONENT_MODEL = _component_model_raw.strip()
+
         self.V2_CANDIDATE_COMPONENT_FALLBACK_MODEL = (
             os.getenv(
                 "V2_CANDIDATE_COMPONENT_FALLBACK_MODEL",
                 "",
             ).strip()
-        )
-        # Pages must use an explicit large-context model. Do not inherit
-        # PREVIEW_APP_MODEL (often deepseek/deepseek-chat at 32k).
-        from app.infrastructure.ai_providers.model_capabilities import (
-            APPROVED_CANDIDATE_PAGE_MODEL,
         )
 
         _page_model_raw = os.getenv("V2_CANDIDATE_PAGE_MODEL")
@@ -1603,6 +1610,32 @@ def appspec_fallback_configuration(
         "configuration_valid": config.APPSPEC_FALLBACK_CONFIG_VALID,
         "safety_assertion": "passed" if code == "ok" else "failed",
         "safety_code": code,
+    }
+
+
+def candidate_model_configuration(
+    config: Settings,
+) -> dict[str, object]:
+    """Trusted diagnostics for effective candidate component/pages models."""
+
+    from app.infrastructure.ai_providers.model_capabilities import (
+        candidate_stage_capability_diagnostics,
+    )
+
+    component_model = str(config.V2_CANDIDATE_COMPONENT_MODEL or "").strip()
+    page_model = str(config.V2_CANDIDATE_PAGE_MODEL or "").strip()
+    return {
+        "component": {
+            "effective_model": component_model,
+            "inherits_preview_app_model": False,
+            **candidate_stage_capability_diagnostics(component_model),
+        },
+        "pages": {
+            "effective_model": page_model,
+            "inherits_preview_app_model": False,
+            **candidate_stage_capability_diagnostics(page_model),
+        },
+        "preview_app_model": str(config.PREVIEW_APP_MODEL or "").strip(),
     }
 
 

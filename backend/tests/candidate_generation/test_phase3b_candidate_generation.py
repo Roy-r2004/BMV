@@ -4,6 +4,7 @@ import json
 import shutil
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,6 +13,7 @@ from app.application.candidate_generation.service import (
 )
 from app.application.appspec.repository import load_json_object
 from app.application.candidate_generation.deterministic import (
+    build_data_sources,
     build_foundation_sources,
 )
 from app.application.candidate_generation.workspace import (
@@ -216,6 +218,441 @@ def test_generated_data_exactly_matches_content_data_plan(
         assert payload["evidence_bindings"]
     finally:
         prepared.db.close()
+
+
+def test_build_data_sources_exports_collision_safe_collection_aliases() -> None:
+    fake_content_data = SimpleNamespace(
+        content_items=(SimpleNamespace(content_id="CONTENT-1"),),
+        data_collections=(
+            SimpleNamespace(
+                collection_id="COLLECTION-SERVICES",
+                entity_id="ENTITY-SERVICE",
+                field_ids=("FIELD-SERVICE-NAME", "FIELD-SERVICE-SLUG"),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-SERVICE-NAME",
+                                value="Cut",
+                            ),
+                            SimpleNamespace(
+                                field_id="FIELD-SERVICE-SLUG",
+                                value="cut",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            SimpleNamespace(
+                collection_id="COLLECTION-SERVICE",
+                entity_id="ENTITY-SERVICE",
+                field_ids=("FIELD-SERVICE-NAME",),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-SERVICE-NAME",
+                                value="Color",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+        ),
+        model_dump=lambda mode="json": {
+            "schema_version": "1.0",
+            "content_items": [{"content_id": "CONTENT-1"}],
+            "data_collections": [
+                {
+                    "collection_id": "COLLECTION-SERVICES",
+                    "entity_id": "ENTITY-SERVICE",
+                    "field_ids": ["FIELD-SERVICE-NAME", "FIELD-SERVICE-SLUG"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {"field_id": "FIELD-SERVICE-NAME", "value": "Cut"},
+                                {"field_id": "FIELD-SERVICE-SLUG", "value": "cut"},
+                            ]
+                        }
+                    ],
+                },
+                {
+                    "collection_id": "COLLECTION-SERVICE",
+                    "entity_id": "ENTITY-SERVICE",
+                    "field_ids": ["FIELD-SERVICE-NAME"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {"field_id": "FIELD-SERVICE-NAME", "value": "Color"}
+                            ]
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+    fake_context = SimpleNamespace(
+        content_data=fake_content_data,
+        page_purpose=SimpleNamespace(
+            pages=(),
+            model_dump=lambda mode="json": {"pages": []},
+        ),
+        interactions=SimpleNamespace(
+            interactions=(),
+            model_dump=lambda mode="json": {"interactions": []},
+        ),
+        refs=SimpleNamespace(
+            content_data_plan_ref=SimpleNamespace(sha256="a" * 64),
+        ),
+    )
+
+    source = next(
+        item.source
+        for item in build_data_sources(fake_context)
+        if item.path == "src/generated/content-data.ts"
+    )
+
+    assert "export const services = " in source
+    assert "export const service = services;" in source
+    assert "export const services2 = " in source
+    assert "export const service2 = services2;" in source
+    assert '"serviceName":"Cut"' in source
+    assert '"serviceSlug":"cut"' in source
+    assert "as const;" in source
+
+
+def test_build_data_sources_exports_booking_fixture_aliases(
+) -> None:
+    fake_content_data = SimpleNamespace(
+        content_items=(SimpleNamespace(content_id="CONTENT-BOOK"),),
+        data_collections=(
+            SimpleNamespace(
+                collection_id="COLLECTION-SERVICE",
+                entity_id="ENTITY-SERVICE",
+                field_ids=(
+                    "FIELD-SERVICE-ID",
+                    "FIELD-SERVICE-NAME",
+                    "FIELD-DURATION-MINUTES",
+                ),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-SERVICE-ID",
+                                value="svc_haircut",
+                            ),
+                            SimpleNamespace(
+                                field_id="FIELD-SERVICE-NAME",
+                                value="Haircut",
+                            ),
+                            SimpleNamespace(
+                                field_id="FIELD-DURATION-MINUTES",
+                                value=45,
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            SimpleNamespace(
+                collection_id="COLLECTION-AVAILABILITY",
+                entity_id="ENTITY-AVAILABILITY",
+                field_ids=("FIELD-AVAILABILITY-DATE",),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-AVAILABILITY-DATE",
+                                value="2026-08-01",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            SimpleNamespace(
+                collection_id="COLLECTION-SLOT",
+                entity_id="ENTITY-SLOT",
+                field_ids=("FIELD-SLOT-DATE", "FIELD-SLOT-TIME"),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-SLOT-DATE",
+                                value="2026-08-01",
+                            ),
+                            SimpleNamespace(
+                                field_id="FIELD-SLOT-TIME",
+                                value="10:00",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            SimpleNamespace(
+                collection_id="COLLECTION-BOOKING",
+                entity_id="ENTITY-BOOKING",
+                field_ids=("FIELD-STATUS",),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-STATUS",
+                                value="draft",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+        ),
+        model_dump=lambda mode="json": {
+            "schema_version": "1.0",
+            "content_items": [{"content_id": "CONTENT-BOOK"}],
+            "data_collections": [
+                {
+                    "collection_id": "COLLECTION-SERVICE",
+                    "entity_id": "ENTITY-SERVICE",
+                    "field_ids": [
+                        "FIELD-SERVICE-ID",
+                        "FIELD-SERVICE-NAME",
+                        "FIELD-DURATION-MINUTES",
+                    ],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {
+                                    "field_id": "FIELD-SERVICE-ID",
+                                    "value": "svc_haircut",
+                                },
+                                {
+                                    "field_id": "FIELD-SERVICE-NAME",
+                                    "value": "Haircut",
+                                },
+                                {
+                                    "field_id": "FIELD-DURATION-MINUTES",
+                                    "value": 45,
+                                },
+                            ]
+                        }
+                    ],
+                },
+                {
+                    "collection_id": "COLLECTION-AVAILABILITY",
+                    "entity_id": "ENTITY-AVAILABILITY",
+                    "field_ids": ["FIELD-AVAILABILITY-DATE"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {
+                                    "field_id": "FIELD-AVAILABILITY-DATE",
+                                    "value": "2026-08-01",
+                                }
+                            ]
+                        }
+                    ],
+                },
+                {
+                    "collection_id": "COLLECTION-SLOT",
+                    "entity_id": "ENTITY-SLOT",
+                    "field_ids": ["FIELD-SLOT-DATE", "FIELD-SLOT-TIME"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {
+                                    "field_id": "FIELD-SLOT-DATE",
+                                    "value": "2026-08-01",
+                                },
+                                {
+                                    "field_id": "FIELD-SLOT-TIME",
+                                    "value": "10:00",
+                                }
+                            ]
+                        }
+                    ],
+                },
+                {
+                    "collection_id": "COLLECTION-BOOKING",
+                    "entity_id": "ENTITY-BOOKING",
+                    "field_ids": ["FIELD-STATUS"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {"field_id": "FIELD-STATUS", "value": "draft"}
+                            ]
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+    fake_context = SimpleNamespace(
+        content_data=fake_content_data,
+        page_purpose=SimpleNamespace(
+            pages=(),
+            model_dump=lambda mode="json": {"pages": []},
+        ),
+        interactions=SimpleNamespace(
+            interactions=(),
+            model_dump=lambda mode="json": {"interactions": []},
+        ),
+        refs=SimpleNamespace(
+            content_data_plan_ref=SimpleNamespace(sha256="b" * 64),
+        ),
+    )
+    source = next(
+        item.source
+        for item in build_data_sources(fake_context)
+        if item.path == "src/generated/content-data.ts"
+    )
+    assert "export const services = " in source
+    assert "export const service = services;" in source
+    assert "export const availability = " in source
+    assert "export const slots = " in source
+    assert "export const slot = slots;" in source
+    assert "export const bookings = " in source
+    assert "export const booking = bookings;" in source
+    assert '"serviceId":"svc_haircut"' in source
+    assert '"id":"svc_haircut"' in source
+    assert '"serviceName":"Haircut"' in source
+    assert '"name":"Haircut"' in source
+    assert '"durationMinutes":45' in source
+    assert '"availabilityDate":"2026-08-01"' in source
+    assert '"date":"2026-08-01"' in source
+    assert '"slotDate":"2026-08-01"' in source
+    assert '"slotTime":"10:00"' in source
+    assert '"time":"10:00"' in source
+    assert "availabilitys" not in source
+
+
+def test_build_data_sources_sanitizes_reserved_and_digit_leading_aliases() -> None:
+    fake_content_data = SimpleNamespace(
+        content_items=(SimpleNamespace(content_id="CONTENT-IDENT"),),
+        data_collections=(
+            SimpleNamespace(
+                collection_id="COLLECTION-CLASS",
+                entity_id="ENTITY-CLASS",
+                field_ids=("FIELD-CLASS-NAME",),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-CLASS-NAME",
+                                value="Yoga",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            SimpleNamespace(
+                collection_id="COLLECTION-DEFAULT",
+                entity_id="ENTITY-DEFAULT",
+                field_ids=("FIELD-DEFAULT-LABEL",),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-DEFAULT-LABEL",
+                                value="Primary",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            SimpleNamespace(
+                collection_id="COLLECTION-2024-SERVICE",
+                entity_id="ENTITY-2024-SERVICE",
+                field_ids=("FIELD-2024-SERVICE-NAME",),
+                seed_records=(
+                    SimpleNamespace(
+                        values=(
+                            SimpleNamespace(
+                                field_id="FIELD-2024-SERVICE-NAME",
+                                value="Audit",
+                            ),
+                        )
+                    ),
+                ),
+            ),
+        ),
+        model_dump=lambda mode="json": {
+            "schema_version": "1.0",
+            "content_items": [{"content_id": "CONTENT-IDENT"}],
+            "data_collections": [
+                {
+                    "collection_id": "COLLECTION-CLASS",
+                    "entity_id": "ENTITY-CLASS",
+                    "field_ids": ["FIELD-CLASS-NAME"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {"field_id": "FIELD-CLASS-NAME", "value": "Yoga"}
+                            ]
+                        }
+                    ],
+                },
+                {
+                    "collection_id": "COLLECTION-DEFAULT",
+                    "entity_id": "ENTITY-DEFAULT",
+                    "field_ids": ["FIELD-DEFAULT-LABEL"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {
+                                    "field_id": "FIELD-DEFAULT-LABEL",
+                                    "value": "Primary",
+                                }
+                            ]
+                        }
+                    ],
+                },
+                {
+                    "collection_id": "COLLECTION-2024-SERVICE",
+                    "entity_id": "ENTITY-2024-SERVICE",
+                    "field_ids": ["FIELD-2024-SERVICE-NAME"],
+                    "seed_records": [
+                        {
+                            "values": [
+                                {
+                                    "field_id": "FIELD-2024-SERVICE-NAME",
+                                    "value": "Audit",
+                                }
+                            ]
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+    fake_context = SimpleNamespace(
+        content_data=fake_content_data,
+        page_purpose=SimpleNamespace(
+            pages=(),
+            model_dump=lambda mode="json": {"pages": []},
+        ),
+        interactions=SimpleNamespace(
+            interactions=(),
+            model_dump=lambda mode="json": {"interactions": []},
+        ),
+        refs=SimpleNamespace(
+            content_data_plan_ref=SimpleNamespace(sha256="c" * 64),
+        ),
+    )
+
+    source = next(
+        item.source
+        for item in build_data_sources(fake_context)
+        if item.path == "src/generated/content-data.ts"
+    )
+
+    assert "export const class = " not in source
+    assert "export const classes = " not in source
+    assert "export const default = " not in source
+    assert "export const defaults = " not in source
+    assert "export const 2024Service = " not in source
+    assert "export const tsClass = " in source
+    assert "export const tsClasses = " in source
+    assert "export const tsDefault = " in source
+    assert "export const tsDefaults = " in source
+    assert "export const ts2024Service = " in source
+    assert "export const ts2024Services = " in source
 
 
 def test_deterministic_routes_preserve_exact_appspec_and_role_access(

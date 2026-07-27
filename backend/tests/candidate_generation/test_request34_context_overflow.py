@@ -214,13 +214,16 @@ def test_request34_after_lean_prompt_omits_full_appspec(
             phase3a_result=prepared.phase3a_result,
         )
         assert captured, "business_components prompt was not captured"
-        production = resolve_model_capability("deepseek/deepseek-chat")
+        # Local lean fixture must stay well below Gemini capacity; do not
+        # reintroduce full-document dumps that blew past DeepSeek 32k in #36.
+        gemini = resolve_model_capability("google/gemini-2.5-flash")
         estimated = estimate_prompt_tokens(captured[0])
+        assert estimated < 120_000
         assert (
             estimated
             + CONTEXT_RESERVE_TOKENS
             + MINIMUM_VALID_OUTPUT_TOKENS
-            <= production.context_window
+            <= gemini.context_window
         )
         assert result["preview_contract"]["status"] in {
             "candidate_build_pending",
@@ -378,8 +381,18 @@ def test_unknown_model_capability_blocks_before_provider_call(monkeypatch) -> No
             call_budget=budget,
             candidate_revision_uuid="rev-unknown-model",
         )
-    assert exc.value.provider_error_code == "provider_context_length_exceeded"
+    assert exc.value.provider_error_code == (
+        "candidate_component_model_capability_unknown"
+    )
     assert budget.remaining_total() == budget.total_max
+    attempt = budget.attempts_snapshot()[-1]
+    assert attempt["approval_decision"] == "denied_preflight"
+    assert attempt["typed_result"] == (
+        "candidate_component_model_capability_unknown"
+    )
+    assert "selected_fallback" not in (
+        attempt.get("fallback_model_decision") or ""
+    )
 
 
 def test_unset_fallback_keeps_primary_model(monkeypatch) -> None:

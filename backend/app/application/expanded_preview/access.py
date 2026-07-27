@@ -6,7 +6,7 @@ import hmac
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.application.expanded_preview.service import ensure_customer_access_token
+from app.application.expanded_preview.service import verify_customer_access_token
 from app.application.services.user_auth import get_user_by_token
 from app.domain.models import Request
 
@@ -23,12 +23,8 @@ def resolve_customer_actor(
     x_request_access_token: str | None,
 ) -> str:
     """Authorize via request access token or matching signed-in customer email."""
-    expected = ensure_customer_access_token(req)
-    if db.is_modified(req):
-        db.commit()
-
     token = (x_request_access_token or "").strip()
-    if token and secrets_compare(token, expected):
+    if token and verify_customer_access_token(db, req=req, token=token):
         return f"customer:access-token:{req.id}"
 
     bearer = None

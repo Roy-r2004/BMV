@@ -39,6 +39,16 @@ _SUBSTAGE_CAPS: dict[str, int] = {
 }
 
 
+def _is_paid_provider_attempt(attempt: CandidateProviderAttempt) -> bool:
+    if attempt.response_format == "preflight":
+        return False
+    if attempt.idempotency_key.endswith(":preflight"):
+        return False
+    if attempt.terminal_decision == "fail_closed_preflight":
+        return False
+    return True
+
+
 @dataclass
 class CandidateLedgerEvent:
     kind: str
@@ -172,6 +182,210 @@ class CandidateCallBudget:
     @classmethod
     def create(cls) -> "CandidateCallBudget":
         return cls()
+
+    @classmethod
+    def restore(
+        cls,
+        *,
+        snapshot: dict[str, Any] | None,
+        attempts: list[dict[str, Any]] | None = None,
+    ) -> "CandidateCallBudget":
+        budget = cls.create()
+        if not snapshot:
+            return budget
+        if snapshot.get("policy_revision") != CANDIDATE_CALL_BUDGET_POLICY_REVISION:
+            raise ValueError("candidate call budget restore policy revision mismatch")
+        budget._events = [
+            CandidateLedgerEvent(
+                kind=str(item.get("kind") or ""),
+                stage=str(item.get("stage") or ""),
+                wall_elapsed_ms=int(item.get("wall_elapsed_ms") or 0),
+                attempt_type=str(item.get("attempt_type") or ""),
+                used_before=int(item.get("used_before") or 0),
+                failure_code=str(item.get("failure_code") or ""),
+                provider=str(item.get("provider") or ""),
+                model=str(item.get("model") or ""),
+                idempotency_key=str(item.get("idempotency_key") or ""),
+            )
+            for item in (snapshot.get("events") or [])
+        ]
+        budget._checkpoints = {
+            key: CandidateStageCheckpoint(
+                substage=str(value.get("substage") or key),
+                input_hash=str(value.get("input_hash") or ""),
+                output_hash=str(value.get("output_hash") or ""),
+                status=str(value.get("status") or ""),
+                provider_attempt_id=str(value.get("provider_attempt_id") or ""),
+                parent_attempt_id=str(value.get("parent_attempt_id") or ""),
+                retry_decision=str(value.get("retry_decision") or ""),
+                idempotency_key=str(value.get("idempotency_key") or ""),
+            )
+            for key, value in (snapshot.get("checkpoints") or {}).items()
+            if isinstance(value, dict)
+        }
+        restored_attempts = [
+            CandidateProviderAttempt(
+                attempt_id=str(item.get("attempt_id") or ""),
+                request_id=int(item.get("request_id") or 0),
+                candidate_revision_uuid=str(
+                    item.get("candidate_revision_uuid") or ""
+                ),
+                substage=str(item.get("substage") or ""),
+                provider=str(item.get("provider") or ""),
+                model=str(item.get("model") or ""),
+                http_status=int(item.get("http_status") or 0),
+                response_top_level_keys=list(
+                    item.get("response_top_level_keys") or []
+                ),
+                response_format=str(item.get("response_format") or ""),
+                provider_request_id=str(item.get("provider_request_id") or ""),
+                raw_payload_sha256=str(item.get("raw_payload_sha256") or ""),
+                duration_ms=int(item.get("duration_ms") or 0),
+                input_tokens=int(item.get("input_tokens") or 0),
+                output_tokens=int(item.get("output_tokens") or 0),
+                total_tokens=int(item.get("total_tokens") or 0),
+                typed_result=str(item.get("typed_result") or ""),
+                error_code=str(item.get("error_code") or ""),
+                retryable=bool(item.get("retryable") or False),
+                retry_attempted=bool(item.get("retry_attempted") or False),
+                terminal_decision=str(item.get("terminal_decision") or ""),
+                parent_attempt_id=str(item.get("parent_attempt_id") or ""),
+                idempotency_key=str(item.get("idempotency_key") or ""),
+                error_type=str(item.get("error_type") or ""),
+                error_message_redacted=str(
+                    item.get("error_message_redacted") or ""
+                ),
+                error_metadata_keys=list(item.get("error_metadata_keys") or []),
+                request_shape_hash=str(item.get("request_shape_hash") or ""),
+                capability_profile_revision=str(
+                    item.get("capability_profile_revision") or ""
+                ),
+                retry_decision_reason=str(
+                    item.get("retry_decision_reason") or ""
+                ),
+                fallback_model_decision=str(
+                    item.get("fallback_model_decision") or ""
+                ),
+                calls_remaining=(
+                    int(item["calls_remaining"])
+                    if item.get("calls_remaining") is not None
+                    else None
+                ),
+                context_window=(
+                    int(item["context_window"])
+                    if item.get("context_window") is not None
+                    else None
+                ),
+                estimated_input_tokens=(
+                    int(item["estimated_input_tokens"])
+                    if item.get("estimated_input_tokens") is not None
+                    else None
+                ),
+                requested_output_tokens=(
+                    int(item["requested_output_tokens"])
+                    if item.get("requested_output_tokens") is not None
+                    else None
+                ),
+                clamped_output_tokens=(
+                    int(item["clamped_output_tokens"])
+                    if item.get("clamped_output_tokens") is not None
+                    else None
+                ),
+                minimum_output_allowance=(
+                    int(item["minimum_output_allowance"])
+                    if item.get("minimum_output_allowance") is not None
+                    else None
+                ),
+                context_reserve=(
+                    int(item["context_reserve"])
+                    if item.get("context_reserve") is not None
+                    else None
+                ),
+                approval_decision=str(item.get("approval_decision") or ""),
+            )
+            for item in (attempts or [])
+        ]
+        attempt_ids: set[str] = set()
+        idempotency_keys: set[str] = set()
+        derived_used = dict.fromkeys(budget._substage_caps, 0)
+        derived_total = 0
+        for attempt in restored_attempts:
+            if not attempt.attempt_id or attempt.attempt_id in attempt_ids:
+                raise ValueError("candidate call budget restore duplicate attempt id")
+            attempt_ids.add(attempt.attempt_id)
+            if not attempt.idempotency_key or attempt.idempotency_key in idempotency_keys:
+                raise ValueError(
+                    "candidate call budget restore duplicate idempotency"
+                )
+            idempotency_keys.add(attempt.idempotency_key)
+            if attempt.substage not in budget._substage_caps:
+                raise ValueError("candidate call budget restore unknown substage")
+            numeric_values = (
+                attempt.http_status,
+                attempt.duration_ms,
+                attempt.input_tokens,
+                attempt.output_tokens,
+                attempt.total_tokens,
+            )
+            if any(value < 0 for value in numeric_values):
+                raise ValueError("candidate call budget restore negative attempt value")
+            if _is_paid_provider_attempt(attempt):
+                derived_used[attempt.substage] = (
+                    derived_used.get(attempt.substage, 0) + 1
+                )
+                derived_total += 1
+        event_derived_used = dict.fromkeys(budget._substage_caps, 0)
+        event_derived_total = 0
+        for event in budget._events:
+            if str(event.kind) != "approved":
+                continue
+            if event.attempt_type not in {"ai", "ai_repair"}:
+                continue
+            if event.stage not in budget._substage_caps:
+                raise ValueError("candidate call budget restore unknown event stage")
+            event_derived_used[event.stage] = (
+                event_derived_used.get(event.stage, 0) + 1
+            )
+            event_derived_total += 1
+        # Attempts can under-report when a paid repair was ledgered but the
+        # provider-attempt row was not persisted; prefer the higher of the two.
+        effective_used = {
+            stage: max(derived_used.get(stage, 0), event_derived_used.get(stage, 0))
+            for stage in budget._substage_caps
+        }
+        effective_total = int(sum(effective_used.values()))
+        if any(value < 0 for value in effective_used.values()):
+            raise ValueError("candidate call budget restore negative usage")
+        if any(
+            effective_used[stage] > budget._substage_caps[stage]
+            for stage in budget._substage_caps
+        ):
+            raise ValueError("candidate call budget restore exceeds stage cap")
+        if effective_total > budget.total_max:
+            raise ValueError("candidate call budget restore exceeds total cap")
+        snapshot_total_used = int(snapshot.get("total_used") or 0)
+        snapshot_substage_used = {
+            key: int(value)
+            for key, value in (snapshot.get("substage_used") or {}).items()
+        }
+        if snapshot_total_used < 0 or any(
+            value < 0 for value in snapshot_substage_used.values()
+        ):
+            raise ValueError("candidate call budget restore negative snapshot count")
+        if snapshot_total_used not in {0, effective_total}:
+            raise ValueError("candidate call budget restore total mismatch")
+        for stage, used in snapshot_substage_used.items():
+            if stage not in budget._substage_caps:
+                raise ValueError("candidate call budget restore unknown snapshot stage")
+            if used not in {0, effective_used[stage]}:
+                raise ValueError("candidate call budget restore stage mismatch")
+        budget._attempts = restored_attempts
+        budget._used = {
+            **dict.fromkeys(budget._substage_caps, 0),
+            **effective_used,
+        }
+        budget._total_used = effective_total
+        return budget
 
     def _wall_ms(self) -> int:
         return int((time.monotonic() - self._started) * 1000)

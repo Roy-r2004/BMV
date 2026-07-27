@@ -313,7 +313,7 @@ def test_real_build_runtime_matrix_journey_accessibility_and_screenshots(
             .order_by(CandidateBuildAttemptRecord.id)
             .all()
         )
-        assert len(build_rows) == 2
+        assert len(build_rows) == 1
         passing_build = json.loads(build_rows[-1].result_json)
         assert [
             item["command_name"] for item in passing_build["commands"]
@@ -323,8 +323,8 @@ def test_real_build_runtime_matrix_journey_accessibility_and_screenshots(
             "vite_build",
         ]
         assert passing_build["dist_validation_passed"] is True
-        assert passing_build["deterministic_repair_count"] == 1
-        assert build_rows[-1].parent_build_attempt_id == build_rows[0].id
+        assert passing_build["deterministic_repair_count"] == 0
+        assert build_rows[-1].parent_build_attempt_id is None
         assert not (settings.PREVIEW_APPS_DIR / str(prepared.prepared.req.id)).exists()
         assert result["preview_contract"]["provider_call_count"] == 0
         assert not any(
@@ -332,8 +332,8 @@ def test_real_build_runtime_matrix_journey_accessibility_and_screenshots(
             for value in ("ready", "degraded", "promoted", "served")
         )
         assert prepared.fixture_ai.calls == [
-            ("business_components", "deepseek/deepseek-v4-pro"),
-            ("pages", "deepseek/deepseek-v4-pro"),
+            ("business_components", "google/gemini-2.5-flash"),
+            ("pages", "google/gemini-2.5-flash"),
         ]
     finally:
         _close(prepared)
@@ -501,13 +501,7 @@ def test_workspace_is_copy_only_and_deterministic_repair_is_derived(
             repair_uuid=str(uuid.uuid4()),
         )
         config = derived / "vite.config.ts"
-        config.write_text(
-            config.read_text(encoding="utf-8").replace(
-                "base: './'",
-                "base: '/'",
-            ),
-            encoding="utf-8",
-        )
+        assert "base: './'" in config.read_text(encoding="utf-8")
         changed = apply_deterministic_repair(
             derived,
             "asset_path_normalization",
@@ -516,7 +510,8 @@ def test_workspace_is_copy_only_and_deterministic_repair_is_derived(
             "index.html",
             "vite.config.ts",
         }
-        assert "base: './'" in config.read_text(encoding="utf-8")
+        assert "base: '/'" in config.read_text(encoding="utf-8")
+        assert "base: './'" not in config.read_text(encoding="utf-8")
         assert 'rel="preconnect"' not in (
             derived / "index.html"
         ).read_text(encoding="utf-8")

@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import secrets
 import threading
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
@@ -89,13 +90,62 @@ def _tier1_preview_url(request_id: int) -> str:
     return f"/api/preview-apps/{request_id}/"
 
 
+def customer_access_token_digest(token: str) -> str:
+    return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
+
+
+def _looks_like_customer_access_token_digest(value: str) -> bool:
+    normalized = str(value or "").strip().lower()
+    return len(normalized) == 64 and all(ch in "0123456789abcdef" for ch in normalized)
+
+
+def issue_customer_access_token(req: Request) -> str:
+    token = secrets.token_urlsafe(32)
+    req.customer_access_token = customer_access_token_digest(token)
+    return token
+
+
+def verify_customer_access_token(
+    db: Session | None,
+    *,
+    req: Request,
+    token: str | None,
+) -> bool:
+    candidate = str(token or "").strip()
+    stored = str(getattr(req, "customer_access_token", None) or "").strip()
+    if not candidate or not stored:
+        return False
+    candidate_digest = customer_access_token_digest(candidate)
+    if _looks_like_customer_access_token_digest(stored):
+        return hmac.compare_digest(candidate_digest, stored)
+    matched = hmac.compare_digest(candidate, stored)
+    if matched and db is not None:
+        req.customer_access_token = candidate_digest
+        db.commit()
+    return matched
+
+
+def trusted_migrate_legacy_customer_access_token(
+    db: Session,
+    *,
+    req: Request,
+    raw_token_sink: Callable[[str], Any] | None = None,
+) -> str:
+    stored = str(getattr(req, "customer_access_token", None) or "").strip()
+    if not stored or _looks_like_customer_access_token_digest(stored):
+        return ""
+    if callable(raw_token_sink):
+        raw_token_sink(stored)
+    req.customer_access_token = customer_access_token_digest(stored)
+    db.commit()
+    return stored
+
+
 def ensure_customer_access_token(req: Request) -> str:
     token = (getattr(req, "customer_access_token", None) or "").strip()
     if token:
         return token
-    token = secrets.token_urlsafe(32)
-    req.customer_access_token = token
-    return token
+    return issue_customer_access_token(req)
 
 
 def _append_event(
@@ -704,6 +754,10 @@ __all__ = [
     "ExpandedPreviewService",
     "ExpandedPreviewServiceError",
     "CommercialAuthorizationError",
+    "customer_access_token_digest",
     "ensure_customer_access_token",
     "generation_lock_for",
+    "issue_customer_access_token",
+    "trusted_migrate_legacy_customer_access_token",
+    "verify_customer_access_token",
 ]

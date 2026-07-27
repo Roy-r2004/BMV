@@ -274,6 +274,51 @@ def test_full_v2_pipeline_returns_immediately_after_contract_boundary(
         db.close()
 
 
+def test_full_v2_pipeline_marks_request_failed_on_candidate_contract_failure(
+    monkeypatch,
+) -> None:
+    db = _db()
+    try:
+        req = _request(804)
+        req.status = "reviewing"
+        db.add(req)
+        db.commit()
+        expected = {
+            "preview_contract": {
+                "generator_version": "v2",
+                "status": "candidate_contract_failed",
+            }
+        }
+
+        monkeypatch.setattr(settings, "PREVIEW_GENERATOR_V2", True)
+        monkeypatch.setattr(
+            full_orchestrator.blueprint,
+            "generate_mvp_blueprint",
+            lambda *_args, **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            full_orchestrator,
+            "generate_preview_app",
+            lambda *_args, **_kwargs: expected,
+        )
+        monkeypatch.setattr(
+            full_orchestrator,
+            "_emit",
+            lambda *_args, **_kwargs: None,
+        )
+
+        result = full_orchestrator.GenerationPipeline(
+            _FixtureAI([]),
+            object(),
+        )._run_inner(db, req.id)
+
+        db.refresh(req)
+        assert result is expected
+        assert req.status == "failed"
+    finally:
+        db.close()
+
+
 def test_contract_ready_summary_failure_rolls_back_every_tier(
     monkeypatch,
 ) -> None:

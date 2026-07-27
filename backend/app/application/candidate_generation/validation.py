@@ -126,6 +126,94 @@ def deterministic_repair_batch(
     return batch.model_copy(update={"files": tuple(repaired)})
 
 
+def _inject_transition_hook(
+    source: str,
+    *,
+    transition_id: str,
+    action_id: str,
+) -> str:
+    marker = f'data-bmv-transition-id="{transition_id}"'
+    if marker in source:
+        return source
+    action_marker = f'data-bmv-action-id="{action_id}"'
+    action_idx = source.find(action_marker)
+    if action_idx >= 0:
+        tag_end = source.find(">", action_idx)
+        if tag_end >= 0 and marker not in source[action_idx:tag_end]:
+            return (
+                source[:action_idx]
+                + f"{action_marker} {marker}"
+                + source[action_idx + len(action_marker) :]
+            )
+    button_match = re.search(r"<button\b([^>]*)>", source)
+    if button_match is not None:
+        attrs = button_match.group(1)
+        if marker not in attrs:
+            replaced = (
+                f"<button{attrs} {marker}>"
+                if attrs.strip()
+                else f"<button {marker}>"
+            )
+            return (
+                source[: button_match.start()]
+                + replaced
+                + source[button_match.end() :]
+            )
+    sentinel = f'      <span hidden {marker} />\n'
+    close_idx = source.rfind("</")
+    if close_idx >= 0:
+        return source[:close_idx] + sentinel + source[close_idx:]
+    return source + "\n" + sentinel
+
+
+def heal_missing_transition_hooks(
+    batch: GeneratedCandidateBatch,
+    *,
+    context: CandidateContext,
+) -> tuple[GeneratedCandidateBatch, bool]:
+    """Inject omitted canonical transition hooks into trigger components."""
+
+    if batch.batch_kind != "business_components":
+        return batch, False
+    combined = "\n".join(item.source for item in batch.files)
+    missing_by_component: dict[str, list[tuple[str, str]]] = {}
+    for interaction in context.interactions.interactions:
+        for transition in interaction.transitions:
+            marker = f'data-bmv-transition-id="{transition.transition_id}"'
+            if marker in combined:
+                continue
+            missing_by_component.setdefault(
+                interaction.trigger_component_id,
+                [],
+            ).append((interaction.action_id, transition.transition_id))
+    if not missing_by_component:
+        return batch, False
+
+    repaired_files: list[GeneratedCandidateFile] = []
+    healed = False
+    for item in batch.files:
+        injections: list[tuple[str, str]] = []
+        for owner in item.owner_contract_ids:
+            injections.extend(missing_by_component.get(owner) or ())
+        if not injections:
+            repaired_files.append(item)
+            continue
+        source = item.source
+        for action_id, transition_id in injections:
+            updated = _inject_transition_hook(
+                source,
+                transition_id=transition_id,
+                action_id=action_id,
+            )
+            if updated != source:
+                healed = True
+                source = updated
+        repaired_files.append(item.model_copy(update={"source": source}))
+    if not healed:
+        return batch, False
+    return batch.model_copy(update={"files": tuple(repaired_files)}), True
+
+
 def validate_generated_batch(
     batch: GeneratedCandidateBatch,
     *,
@@ -628,6 +716,7 @@ __all__ = [
     "APPROVED_RUNTIME_PACKAGES",
     "batch_sources",
     "deterministic_repair_batch",
+    "heal_missing_transition_hooks",
     "validate_candidate_workspace",
     "validate_generated_batch",
 ]

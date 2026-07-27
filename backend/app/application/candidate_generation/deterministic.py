@@ -34,6 +34,88 @@ _FOUNDATION_FILES = (
     "vite.config.ts",
     "index.html",
 )
+_UNCOUNTABLE_ALIASES = frozenset({"availability"})
+_TYPESCRIPT_RESERVED_IDENTIFIERS = frozenset(
+    {
+        "abstract",
+        "any",
+        "as",
+        "asserts",
+        "async",
+        "await",
+        "bigint",
+        "boolean",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "constructor",
+        "continue",
+        "debugger",
+        "declare",
+        "default",
+        "delete",
+        "do",
+        "else",
+        "enum",
+        "export",
+        "extends",
+        "false",
+        "finally",
+        "for",
+        "from",
+        "function",
+        "get",
+        "if",
+        "implements",
+        "import",
+        "in",
+        "infer",
+        "instanceof",
+        "interface",
+        "is",
+        "keyof",
+        "let",
+        "module",
+        "namespace",
+        "never",
+        "new",
+        "null",
+        "number",
+        "object",
+        "of",
+        "override",
+        "package",
+        "private",
+        "protected",
+        "public",
+        "readonly",
+        "require",
+        "return",
+        "satisfies",
+        "set",
+        "static",
+        "string",
+        "super",
+        "switch",
+        "symbol",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "type",
+        "typeof",
+        "undefined",
+        "unique",
+        "unknown",
+        "var",
+        "void",
+        "while",
+        "with",
+        "yield",
+    }
+)
 
 
 def dependency_lock_sha256(template_dir: Path) -> str:
@@ -154,6 +236,182 @@ def _foundation_runtime_sources() -> tuple[CandidateSourceFile, ...]:
     )
 
 
+def _foundation_ui_stub_sources() -> tuple[CandidateSourceFile, ...]:
+    """Minimal stubs so common model-emitted @/components/ui imports resolve."""
+
+    def _file(name: str, source: str) -> CandidateSourceFile:
+        return CandidateSourceFile(
+            path=f"src/components/ui/{name}.tsx",
+            file_kind="infrastructure",
+            owner_contract_ids=("FOUNDATION",),
+            source=source,
+        )
+
+    return (
+        _file(
+            "button",
+            'import type { ButtonHTMLAttributes, ReactNode } from "react";\n\n'
+            "type Props = ButtonHTMLAttributes<HTMLButtonElement> & {\n"
+            "  children?: ReactNode;\n"
+            "  variant?: string;\n"
+            "  size?: string;\n"
+            "};\n\n"
+            "export function Button({\n"
+            "  children,\n"
+            "  type = \"button\",\n"
+            "  variant: _variant,\n"
+            "  size: _size,\n"
+            "  ...props\n"
+            "}: Props) {\n"
+            "  return (\n"
+            "    <button type={type} {...props}>\n"
+            "      {children}\n"
+            "    </button>\n"
+            "  );\n"
+            "}\n",
+        ),
+        _file(
+            "card",
+            'import type { HTMLAttributes, ReactNode } from "react";\n\n'
+            "type Props = HTMLAttributes<HTMLDivElement> & { children?: ReactNode };\n\n"
+            "export function Card({ children, ...props }: Props) {\n"
+            "  return <div {...props}>{children}</div>;\n"
+            "}\n"
+            "export function CardHeader({ children, ...props }: Props) {\n"
+            "  return <div {...props}>{children}</div>;\n"
+            "}\n"
+            "export function CardTitle({ children, ...props }: Props) {\n"
+            "  return <h2 {...props}>{children}</h2>;\n"
+            "}\n"
+            "export function CardDescription({ children, ...props }: Props) {\n"
+            "  return <p {...props}>{children}</p>;\n"
+            "}\n"
+            "export function CardContent({ children, ...props }: Props) {\n"
+            "  return <div {...props}>{children}</div>;\n"
+            "}\n",
+        ),
+        _file(
+            "label",
+            'import type { LabelHTMLAttributes, ReactNode } from "react";\n\n'
+            "type Props = LabelHTMLAttributes<HTMLLabelElement> & { children?: ReactNode };\n\n"
+            "export function Label({ children, ...props }: Props) {\n"
+            "  return <label {...props}>{children}</label>;\n"
+            "}\n",
+        ),
+        _file(
+            "input",
+            'import type { InputHTMLAttributes } from "react";\n\n'
+            "type Props = InputHTMLAttributes<HTMLInputElement>;\n\n"
+            "export function Input(props: Props) {\n"
+            "  return <input {...props} />;\n"
+            "}\n",
+        ),
+        _file(
+            "textarea",
+            'import type { TextareaHTMLAttributes } from "react";\n\n'
+            "type Props = TextareaHTMLAttributes<HTMLTextAreaElement>;\n\n"
+            "export function Textarea(props: Props) {\n"
+            "  return <textarea {...props} />;\n"
+            "}\n",
+        ),
+        _file(
+            "radio-group",
+            'import type { HTMLAttributes, InputHTMLAttributes, ReactNode } from "react";\n\n'
+            "type GroupProps = HTMLAttributes<HTMLDivElement> & {\n"
+            "  value?: string;\n"
+            "  onValueChange?: (value: string) => void;\n"
+            "  children?: ReactNode;\n"
+            "};\n\n"
+            "export function RadioGroup({\n"
+            "  value: _value,\n"
+            "  onValueChange,\n"
+            "  children,\n"
+            "  onChange,\n"
+            "  ...props\n"
+            "}: GroupProps) {\n"
+            "  return (\n"
+            "    <div\n"
+            "      role=\"radiogroup\"\n"
+            "      {...props}\n"
+            "      onChange={(event) => {\n"
+            "        onChange?.(event);\n"
+            "        const target = event.target as HTMLInputElement;\n"
+            "        if (target?.type === \"radio\" && onValueChange) {\n"
+            "          onValueChange(target.value);\n"
+            "        }\n"
+            "      }}\n"
+            "    >\n"
+            "      {children}\n"
+            "    </div>\n"
+            "  );\n"
+            "}\n\n"
+            "type ItemProps = InputHTMLAttributes<HTMLInputElement> & { value?: string };\n\n"
+            "export function RadioGroupItem({ value, ...props }: ItemProps) {\n"
+            "  return <input type=\"radio\" value={value} name=\"bmv-radio-group\" {...props} />;\n"
+            "}\n",
+        ),
+        _file(
+            "select",
+            'import type { HTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";\n\n'
+            "type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {\n"
+            "  children?: ReactNode;\n"
+            "};\n"
+            "type BoxProps = HTMLAttributes<HTMLDivElement> & { children?: ReactNode };\n"
+            "type TextProps = HTMLAttributes<HTMLSpanElement> & { children?: ReactNode };\n"
+            "type ItemProps = HTMLAttributes<HTMLOptionElement> & {\n"
+            "  children?: ReactNode;\n"
+            "  value?: string;\n"
+            "};\n\n"
+            "export function Select({ children, ...props }: SelectProps) {\n"
+            "  return <select {...props}>{children}</select>;\n"
+            "}\n"
+            "export function SelectTrigger({ children, ...props }: BoxProps) {\n"
+            "  return <div {...props}>{children}</div>;\n"
+            "}\n"
+            "export function SelectValue({ children, ...props }: TextProps) {\n"
+            "  return <span {...props}>{children}</span>;\n"
+            "}\n"
+            "export function SelectContent({ children, ...props }: BoxProps) {\n"
+            "  return <div {...props}>{children}</div>;\n"
+            "}\n"
+            "export function SelectItem({ children, value, ...props }: ItemProps) {\n"
+            "  return (\n"
+            "    <option value={value} {...props}>\n"
+            "      {children}\n"
+            "    </option>\n"
+            "  );\n"
+            "}\n",
+        ),
+        _file(
+            "calendar",
+            'import type { HTMLAttributes, ReactNode } from "react";\n\n'
+            "type Props = Omit<HTMLAttributes<HTMLDivElement>, \"onSelect\"> & {\n"
+            "  selected?: Date;\n"
+            "  onSelect?: (day: Date | undefined) => void;\n"
+            "  mode?: string;\n"
+            "  children?: ReactNode;\n"
+            "};\n\n"
+            "const DAYS = [\"2026-08-15\", \"2026-08-16\", \"2026-08-17\"];\n\n"
+            "export function Calendar({ selected: _selected, onSelect, children, ...props }: Props) {\n"
+            "  return (\n"
+            "    <div data-bmv-calendar=\"true\" {...props}>\n"
+            "      {DAYS.map((day) => (\n"
+            "        <button\n"
+            "          key={day}\n"
+            "          type=\"button\"\n"
+            "          onClick={() => onSelect?.(new Date(`${day}T10:00:00Z`))}\n"
+            "        >\n"
+            "          {day}\n"
+            "        </button>\n"
+            "      ))}\n"
+            "      {children}\n"
+            "    </div>\n"
+            "  );\n"
+            "}\n",
+        ),
+    )
+
+
 def build_foundation_sources(template_dir: Path) -> tuple[CandidateSourceFile, ...]:
     files: list[CandidateSourceFile] = []
     for relpath in _FOUNDATION_FILES:
@@ -167,6 +425,7 @@ def build_foundation_sources(template_dir: Path) -> tuple[CandidateSourceFile, .
             )
         )
     files.extend(_foundation_runtime_sources())
+    files.extend(_foundation_ui_stub_sources())
     return tuple(files)
 
 
@@ -176,6 +435,264 @@ def _typescript_const(name: str, value: object) -> str:
         f"{json.dumps(value, ensure_ascii=False, separators=(',', ':'))} "
         "as const;\n"
     )
+
+
+def _identifier_words(identifier: str) -> list[str]:
+    parts = [part.lower() for part in re.findall(r"[A-Za-z0-9]+", identifier)]
+    filtered = [
+        part
+        for part in parts
+        if part not in {"entity", "collection", "field", "record"}
+    ]
+    return filtered or ["data"]
+
+
+def _lower_camel(words: list[str]) -> str:
+    if not words:
+        return "data"
+    head, *tail = words
+    return head + "".join(part[:1].upper() + part[1:] for part in tail)
+
+
+def _typescript_prefix(name: str) -> str:
+    candidate = re.sub(r"[^A-Za-z0-9_$]", "", name)
+    if not candidate:
+        return "tsData"
+    return f"ts{candidate[:1].upper()}{candidate[1:]}"
+
+
+def _needs_typescript_prefix(name: str) -> bool:
+    candidate = re.sub(r"[^A-Za-z0-9_$]", "", name)
+    if not candidate:
+        return True
+    if not re.match(r"^[A-Za-z_$]", candidate):
+        return True
+    return candidate in _TYPESCRIPT_RESERVED_IDENTIFIERS
+
+
+def _valid_typescript_identifier(name: str, *, force_prefix: bool = False) -> str:
+    candidate = re.sub(r"[^A-Za-z0-9_$]", "", name)
+    if force_prefix or _needs_typescript_prefix(candidate):
+        return _typescript_prefix(candidate)
+    return candidate
+
+
+def _singularize(words: list[str]) -> list[str]:
+    if not words:
+        return ["data"]
+    last = words[-1]
+    if last in _UNCOUNTABLE_ALIASES:
+        return words
+    if last.endswith("ies") and len(last) > 3:
+        last = last[:-3] + "y"
+    elif last.endswith("ses") and len(last) > 3:
+        last = last[:-2]
+    elif last.endswith("s") and len(last) > 1 and not last.endswith("ss"):
+        last = last[:-1]
+    return [*words[:-1], last]
+
+
+def _pluralize(words: list[str]) -> list[str]:
+    if not words:
+        return ["data"]
+    last = words[-1]
+    if last in _UNCOUNTABLE_ALIASES:
+        return words
+    if last.endswith("y") and len(last) > 1 and last[-2] not in "aeiou":
+        last = last[:-1] + "ies"
+    elif last.endswith(("s", "x", "z", "ch", "sh")):
+        last = last + "es"
+    else:
+        last = last + "s"
+    return [*words[:-1], last]
+
+
+def _unique_alias(base: str, used: set[str]) -> str:
+    stem = _valid_typescript_identifier(base or "data")
+    candidate = stem
+    suffix = 1
+    while candidate in used:
+        suffix += 1
+        candidate = _valid_typescript_identifier(f"{stem}{suffix}")
+    used.add(candidate)
+    return candidate
+
+
+def _collection_seed_records(collection: object) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    entity_words = _identifier_words(str(getattr(collection, "entity_id", "")))
+    for seed_record in getattr(collection, "seed_records", ()):
+        payload: dict[str, object] = {}
+        for item in getattr(seed_record, "values", ()):
+            field_words = _identifier_words(str(getattr(item, "field_id", "")))
+            value = getattr(item, "value", None)
+            full_key = _lower_camel(field_words)
+            payload[full_key] = value
+            if (
+                len(field_words) > len(entity_words)
+                and field_words[: len(entity_words)] == entity_words
+            ):
+                short_key = _lower_camel(field_words[len(entity_words) :])
+                payload.setdefault(short_key, value)
+        records.append(payload)
+    return records
+
+
+def _collection_alias_exports(context: CandidateContext) -> str:
+    used_aliases = {
+        "contentDataPlan",
+        "contentDataSha256",
+        "contentData",
+        "dataCollections",
+    }
+    exports: list[str] = []
+    for collection in context.content_data.data_collections:
+        base_words = _identifier_words(str(getattr(collection, "entity_id", "")))
+        singular_base = _lower_camel(_singularize(base_words))
+        plural_base = _lower_camel(_pluralize(base_words))
+        force_prefix = _needs_typescript_prefix(singular_base) or _needs_typescript_prefix(
+            plural_base
+        )
+        singular_alias = _unique_alias(
+            _valid_typescript_identifier(singular_base, force_prefix=force_prefix),
+            used_aliases,
+        )
+        if plural_base == singular_base:
+            plural_alias = singular_alias
+        else:
+            plural_alias = _unique_alias(
+                _valid_typescript_identifier(plural_base, force_prefix=force_prefix),
+                used_aliases,
+            )
+        records = _collection_seed_records(collection)
+        exports.append(_typescript_const(plural_alias, records))
+        if singular_alias != plural_alias:
+            exports.append(f"export const {singular_alias} = {plural_alias};\n")
+    return "".join(exports)
+
+
+def _contract_id_export_names(raw_id: str) -> tuple[str, ...]:
+    """Map contract ids to TypeScript export names models commonly invent."""
+
+    mixed = re.sub(r"[^A-Za-z0-9]+", "_", str(raw_id or "")).strip("_")
+    if not mixed:
+        return ()
+    names: list[str] = []
+    for candidate in (mixed.upper(), mixed, mixed.lower()):
+        if not candidate or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", candidate):
+            continue
+        if candidate not in names:
+            names.append(candidate)
+    return tuple(names)
+
+
+def _seed_records_for_contract_export(collection: object) -> list[dict[str, object]]:
+    """Seed rows keyed by FIELD_* ids (and camelCase aliases) for DATA_* imports."""
+
+    records: list[dict[str, object]] = []
+    entity_words = _identifier_words(str(getattr(collection, "entity_id", "")))
+    for seed_record in getattr(collection, "seed_records", ()):
+        payload: dict[str, object] = {}
+        for item in getattr(seed_record, "values", ()):
+            field_id = str(getattr(item, "field_id", "") or "")
+            raw_value = getattr(item, "value", None)
+            # Keep seed values stringly-typed so DATA_*.map field access is
+            # assignable to React key/value/ReactNode props under tsc.
+            if raw_value is None:
+                value: object = ""
+            elif isinstance(raw_value, bool):
+                value = "true" if raw_value else "false"
+            else:
+                value = str(raw_value)
+            for name in _contract_id_export_names(field_id):
+                payload.setdefault(name, value)
+            field_words = _identifier_words(field_id)
+            full_key = _lower_camel(field_words)
+            payload.setdefault(full_key, value)
+            if (
+                len(field_words) > len(entity_words)
+                and field_words[: len(entity_words)] == entity_words
+            ):
+                short_key = _lower_camel(field_words[len(entity_words) :])
+                payload.setdefault(short_key, value)
+        records.append(payload)
+    return records
+
+
+def _contract_id_alias_exports(context: CandidateContext) -> str:
+    used: set[str] = {
+        "contentDataPlan",
+        "contentDataSha256",
+        "contentData",
+        "dataCollections",
+    }
+    exports: list[str] = []
+    for index, item in enumerate(context.content_data.content_items):
+        names = [
+            name
+            for name in _contract_id_export_names(item.content_id)
+            if name not in used
+        ]
+        if not names:
+            continue
+        primary = names[0]
+        used.add(primary)
+        exports.append(
+            f"export const {primary} = "
+            f"contentDataPlan.content_items[{index}].value;\n"
+        )
+        for alias in names[1:]:
+            if alias in used:
+                continue
+            used.add(alias)
+            exports.append(f"export const {alias} = {primary};\n")
+    for index, collection in enumerate(context.content_data.data_collections):
+        names = [
+            name
+            for name in _contract_id_export_names(collection.collection_id)
+            if name not in used
+        ]
+        if not names:
+            continue
+        primary = names[0]
+        used.add(primary)
+        # Dual runtime shape: array methods (.map) + collection (.seed_records).
+        records_literal = json.dumps(
+            _seed_records_for_contract_export(collection),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        exports.append(
+            f"export const {primary} = Object.assign(\n"
+            f"  {records_literal} as Array<Record<string, string>>,\n"
+            f"  contentDataPlan.data_collections[{index}],\n"
+            f");\n"
+        )
+        for alias in names[1:]:
+            if alias in used:
+                continue
+            used.add(alias)
+            exports.append(f"export const {alias} = {primary};\n")
+    return "".join(exports)
+
+
+def ensure_content_data_compat_aliases(
+    source: str,
+    *,
+    context: CandidateContext | None = None,
+) -> str:
+    """Append stable aliases models commonly import from content-data.ts."""
+
+    updated = source
+    if "export const contentData " not in updated:
+        updated += "export const contentData = contentDataPlan.content_items;\n"
+    if "export const dataCollections " not in updated:
+        updated += (
+            "export const dataCollections = contentDataPlan.data_collections;\n"
+        )
+    if context is not None:
+        updated += _contract_id_alias_exports(context)
+    return updated
 
 
 def build_data_sources(context: CandidateContext) -> tuple[CandidateSourceFile, ...]:
@@ -203,12 +720,14 @@ def build_data_sources(context: CandidateContext) -> tuple[CandidateSourceFile, 
             path="src/generated/content-data.ts",
             file_kind="data",
             owner_contract_ids=content_ids + collection_ids,
-            source=(
+            source=ensure_content_data_compat_aliases(
                 _typescript_const("contentDataPlan", content_payload)
                 + _typescript_const(
                     "contentDataSha256",
                     context.refs.content_data_plan_ref.sha256,
                 )
+                + _collection_alias_exports(context),
+                context=context,
             ),
         ),
         CandidateSourceFile(
@@ -397,6 +916,7 @@ __all__ = [
     "build_route_sources",
     "component_export_symbol",
     "dependency_lock_sha256",
+    "ensure_content_data_compat_aliases",
     "page_export_symbol",
     "source_manifest",
 ]
