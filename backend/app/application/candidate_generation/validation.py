@@ -23,6 +23,7 @@ from app.application.candidate_generation.generated_data_api import (
     exported_symbols,
     heal_generated_data_record_shapes,
     heal_generated_data_symbols,
+    normalize_generated_candidate_types,
     validate_generated_data_imports,
 )
 from app.application.candidate_generation.component_registry import (
@@ -303,6 +304,52 @@ def heal_generated_data_record_shapes_in_batch(
         return batch, (), ()
     return (
         batch.model_copy(update={"files": tuple(healed_files)}),
+        tuple(evidence),
+        (),
+    )
+
+
+def normalize_generated_candidate_types_in_batch(
+    batch: GeneratedCandidateBatch,
+    *,
+    context: CandidateContext,
+) -> tuple[
+    GeneratedCandidateBatch,
+    tuple[dict[str, object], ...],
+    tuple[CandidateValidationIssue, ...],
+]:
+    """Normalize compiler-proven type-only imports and JSX type names once."""
+
+    module_source, manifest = build_content_data_module(context)
+    normalized_files: list[GeneratedCandidateFile] = []
+    evidence: list[dict[str, object]] = []
+    issues: list[CandidateValidationIssue] = []
+    for item in batch.files:
+        if item.file_kind not in {"business_component", "page"}:
+            normalized_files.append(item)
+            continue
+        source, file_evidence, file_issues = normalize_generated_candidate_types(
+            item.source,
+            path=item.path,
+            manifest=manifest,
+            content_data_module=module_source,
+        )
+        evidence.extend(file_evidence)
+        issues.extend(
+            _issue(
+                str(issue["code"]),
+                str(issue["message"]),
+                path=item.path,
+            )
+            for issue in file_issues
+        )
+        normalized_files.append(item.model_copy(update={"source": source}))
+    if issues:
+        return batch, (), tuple(issues)
+    if not evidence:
+        return batch, (), ()
+    return (
+        batch.model_copy(update={"files": tuple(normalized_files)}),
         tuple(evidence),
         (),
     )
@@ -870,6 +917,7 @@ __all__ = [
     "heal_invented_generated_data_imports",
     "heal_generated_data_record_shapes_in_batch",
     "heal_missing_transition_hooks",
+    "normalize_generated_candidate_types_in_batch",
     "validate_candidate_workspace",
     "validate_generated_batch",
 ]

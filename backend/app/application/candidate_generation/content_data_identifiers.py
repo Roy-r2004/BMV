@@ -186,7 +186,12 @@ def unique_alias(base: str, used: set[str]) -> str:
 
 def collection_seed_records(collection: object) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
-    entity_words = identifier_words(str(getattr(collection, "entity_id", "")))
+    field_keys = seed_record_property_keys(collection)
+    aliases = {
+        property_name: alias_of
+        for _field_id, property_name, alias_of in field_keys
+        if alias_of
+    }
     for seed_record in getattr(collection, "seed_records", ()):
         payload: dict[str, object] = {}
         for item in getattr(seed_record, "values", ()):
@@ -194,12 +199,9 @@ def collection_seed_records(collection: object) -> list[dict[str, object]]:
             value = getattr(item, "value", None)
             full_key = lower_camel(field_words)
             payload[full_key] = value
-            if (
-                len(field_words) > len(entity_words)
-                and field_words[: len(entity_words)] == entity_words
-            ):
-                short_key = lower_camel(field_words[len(entity_words) :])
-                payload.setdefault(short_key, value)
+        for alias, canonical in aliases.items():
+            if canonical in payload:
+                payload[alias] = payload[canonical]
         records.append(payload)
     return records
 

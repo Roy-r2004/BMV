@@ -316,6 +316,113 @@ def render_generated_data_api_block(
     return "\n".join(lines) + "\n"
 
 
+def validate_generated_data_literals(
+    *,
+    manifest: GeneratedDataApiManifest,
+    content_data: ContentDataPlan,
+) -> tuple[dict[str, str], ...]:
+    """Fail-closed validation of emitted seed records against the manifest."""
+
+    records_by_collection = {
+        collection.collection_id: collection_seed_records(collection)
+        for collection in content_data.data_collections
+    }
+    issues: list[dict[str, str]] = []
+    for collection in manifest.collections:
+        fields = {
+            field.property_name: field for field in collection.field_signatures
+        }
+        aliases = {
+            field.property_name: field
+            for field in collection.field_signatures
+            if field.alias_of
+        }
+        for index, record in enumerate(
+            records_by_collection.get(collection.collection_id, ())
+        ):
+            for property_name, field in fields.items():
+                if field.optional or property_name in record:
+                    continue
+                issues.append(
+                    {
+                        "code": "generated_data_required_field_missing",
+                        "message": (
+                            f"{collection.collection_id}[{index}] lacks required "
+                            f"manifest field {property_name!r}."
+                        ),
+                    }
+                )
+            for property_name in record:
+                if property_name in fields:
+                    continue
+                issues.append(
+                    {
+                        "code": "generated_data_literal_manifest_mismatch",
+                        "message": (
+                            f"{collection.collection_id}[{index}] emits undeclared "
+                            f"property {property_name!r}."
+                        ),
+                    }
+                )
+            for property_name, field in aliases.items():
+                if property_name not in record:
+                    issues.append(
+                        {
+                            "code": "generated_data_required_field_missing",
+                            "message": (
+                                f"{collection.collection_id}[{index}] lacks "
+                                f"declared alias {property_name!r}."
+                            ),
+                        }
+                    )
+                    continue
+                target = fields.get(field.alias_of)
+                if target is None:
+                    issues.append(
+                        {
+                            "code": "generated_data_alias_target_missing",
+                            "message": (
+                                f"Alias {property_name!r} references missing "
+                                f"canonical field {field.alias_of!r}."
+                            ),
+                        }
+                    )
+                    continue
+                if target.alias_of:
+                    issues.append(
+                        {
+                            "code": "generated_data_alias_undeclared",
+                            "message": (
+                                f"Alias {property_name!r} targets another alias "
+                                f"{field.alias_of!r}."
+                            ),
+                        }
+                    )
+                if field.typescript_type != target.typescript_type:
+                    issues.append(
+                        {
+                            "code": "generated_data_alias_type_mismatch",
+                            "message": (
+                                f"Alias {property_name!r} and {field.alias_of!r} "
+                                "have different manifest types."
+                            ),
+                        }
+                    )
+                if field.alias_of in record and (
+                    record[property_name] != record[field.alias_of]
+                ):
+                    issues.append(
+                        {
+                            "code": "generated_data_alias_value_mismatch",
+                            "message": (
+                                f"Alias {property_name!r} differs from "
+                                f"{field.alias_of!r}."
+                            ),
+                        }
+                    )
+    return tuple(issues)
+
+
 def exported_symbols(source: str) -> frozenset[str]:
     """Return every symbol exported by a generated TypeScript module."""
 
@@ -662,6 +769,154 @@ def heal_generated_data_record_shapes(
             "manifest_sha256": manifest_sha256,
             "file_sha256_before": before_sha256,
             "file_sha256_after": after_sha256,
+        }
+        for edit in reversed(accepted)
+    )
+    return updated, evidence, ()
+
+
+def normalize_generated_candidate_types(
+    source: str,
+    *,
+    path: str,
+    manifest: GeneratedDataApiManifest,
+    content_data_module: str,
+) -> tuple[str, tuple[dict[str, Any], ...], tuple[dict[str, Any], ...]]:
+    """Normalize compiler-proven candidate type imports and React JSX types once."""
+
+    node = shutil.which("node")
+    typescript = (
+        settings.PREVIEW_TEMPLATE_DIR
+        / "node_modules"
+        / "typescript"
+        / "lib"
+        / "typescript.js"
+    )
+    script = Path(__file__).with_name("typescript") / (
+        "normalize_generated_candidate_types.mjs"
+    )
+    if not node or not typescript.is_file() or not script.is_file():
+        return (
+            source,
+            (),
+            (
+                {
+                    "code": "generated_candidate_type_normalizer_unavailable",
+                    "path": path,
+                    "message": (
+                        "The TypeScript compiler AST worker required to normalize "
+                        "generated candidate types is unavailable."
+                    ),
+                },
+            ),
+        )
+    payload = {
+        "workspace_root": str(settings.PREVIEW_TEMPLATE_DIR),
+        "path": path,
+        "source": source,
+        "content_data_module": content_data_module,
+        "manifest": manifest.model_dump(mode="json"),
+    }
+    try:
+        result = subprocess.run(
+            [node, str(script), str(typescript)],
+            input=json.dumps(payload, separators=(",", ":")),
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        response = json.loads(result.stdout or "{}")
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        return (
+            source,
+            (),
+            (
+                {
+                    "code": "generated_candidate_type_normalizer_error",
+                    "path": path,
+                    "message": (
+                        "TypeScript AST type normalization failed: "
+                        f"{exc}"
+                    ),
+                },
+            ),
+        )
+    if result.returncode or not isinstance(response, dict):
+        return (
+            source,
+            (),
+            (
+                {
+                    "code": "generated_candidate_type_normalizer_error",
+                    "path": path,
+                    "message": (
+                        "TypeScript AST type normalization failed: "
+                        f"{result.stderr.strip() or response}"
+                    ),
+                },
+            ),
+        )
+
+    issues = tuple(
+        {
+            "code": str(item.get("code") or "generated_candidate_type_error"),
+            "path": path,
+            "message": str(item.get("message") or "Invalid candidate type use."),
+        }
+        for item in (response.get("issues") or ())
+        if isinstance(item, dict)
+    )
+    edits = [
+        item
+        for item in (response.get("edits") or ())
+        if isinstance(item, dict)
+        and isinstance(item.get("start"), int)
+        and isinstance(item.get("end"), int)
+        and isinstance(item.get("replacement"), str)
+        and 0 <= item["start"] <= item["end"] <= len(source)
+    ]
+    if issues or not edits:
+        return source, (), issues
+
+    updated = source
+    accepted: list[dict[str, Any]] = []
+    last_start = len(source) + 1
+    for edit in sorted(edits, key=lambda item: (item["start"], item["end"]), reverse=True):
+        start = edit["start"]
+        end = edit["end"]
+        if end > last_start or source[start:end] != edit.get("original"):
+            return (
+                source,
+                (),
+                (
+                    {
+                        "code": "generated_candidate_type_normalizer_conflict",
+                        "path": path,
+                        "message": (
+                            "TypeScript AST returned overlapping or stale "
+                            "candidate type edits."
+                        ),
+                    },
+                ),
+            )
+        updated = updated[:start] + edit["replacement"] + updated[end:]
+        accepted.append(edit)
+        last_start = start
+    if updated == source:
+        return source, (), ()
+    before_sha256 = sha256_text(source)
+    after_sha256 = sha256_text(updated)
+    evidence = tuple(
+        {
+            "path": path,
+            "original_import": edit["original"],
+            "replacement": edit["replacement"],
+            "type_only_symbols": tuple(edit.get("type_symbols") or ()),
+            "runtime_symbols": tuple(edit.get("value_symbols") or ()),
+            "file_sha256_before": before_sha256,
+            "file_sha256_after": after_sha256,
+            "reason": edit.get("reason") or "normalize_candidate_types",
         }
         for edit in reversed(accepted)
     )

@@ -19,12 +19,14 @@ import subprocess
 import tempfile
 import time
 import uuid
+from types import SimpleNamespace
 from urllib.request import urlopen
 from pathlib import Path
 
 import pytest
 
 from app.application.candidate_generation.content_data_identifiers import (
+    collection_seed_records,
     identifier_words,
     pluralize,
     upper_camel,
@@ -48,7 +50,9 @@ from app.application.candidate_generation.generated_data_api import (
     heal_generated_data_symbols,
     heal_generated_data_record_shapes,
     manifest_prompt_projection,
+    normalize_generated_candidate_types,
     resolve_invented_symbol,
+    validate_generated_data_literals,
     validate_generated_data_imports,
 )
 from app.application.candidate_generation.validation import (
@@ -81,6 +85,24 @@ from tests.candidate_generation.request40_fixture import (
     legacy_content_data_module,
     request40_context,
 )
+
+
+def test_seed_records_force_declared_alias_to_canonical_value() -> None:
+    collection = SimpleNamespace(
+        entity_id="customer",
+        seed_records=(
+            SimpleNamespace(
+                values=(
+                    SimpleNamespace(field_id="customer_id", value="canonical-id"),
+                    SimpleNamespace(field_id="id", value="stale-id"),
+                )
+            ),
+        ),
+    )
+
+    assert collection_seed_records(collection) == [
+        {"customerId": "canonical-id", "id": "canonical-id"}
+    ]
 
 
 @pytest.fixture
@@ -1261,6 +1283,163 @@ def test_request40_exact_sources_reach_zero_diagnostics_after_scoped_repair(
             Path(acceptance_root),
             content_data_module=module,
             components={item.path: item.source for item in repair.batch.files},
+        )
+        _vite_build(acceptance)
+        _assert_preview_routes(
+            acceptance,
+            ("/", "/services", "/services/first", "/booking", "/confirmation"),
+        )
+
+
+def test_request41_class_equivalent_sources_are_normalized_without_manual_replacement(
+    tmp_path,
+) -> None:
+    """Keep the #41 type-import, JSX, and flat-record regression reproducible."""
+
+    customer_records = (
+        {
+            "FIELD-CUSTOMER-ID": "customer-1",
+            "FIELD-CUSTOMER-NAME": "Ada Lovelace",
+            "FIELD-CUSTOMER-EMAIL": "ada@example.test",
+        },
+    )
+    customer_collection = SimpleNamespace(
+        collection_id="COLLECTION-CUSTOMERS",
+        entity_id="ENTITY-CUSTOMER",
+        field_ids=tuple(customer_records[0]),
+        seed_records=tuple(
+            SimpleNamespace(
+                values=tuple(
+                    SimpleNamespace(field_id=field_id, value=value)
+                    for field_id, value in record.items()
+                )
+            )
+            for record in customer_records
+        ),
+    )
+    content_data = SimpleNamespace(
+        content_items=(),
+        data_collections=(customer_collection,),
+        relationships=(),
+        model_dump=lambda mode="json": {
+            "schema_version": "1.0",
+            "content_items": [],
+            "data_collections": [
+                {
+                    "collection_id": customer_collection.collection_id,
+                    "entity_id": customer_collection.entity_id,
+                    "field_ids": list(customer_collection.field_ids),
+                    "seed_records": [
+                        {
+                            "record_id": f"RECORD-CUSTOMER-{index}",
+                            "values": [
+                                {"field_id": field_id, "value": value}
+                                for field_id, value in record.items()
+                            ],
+                        }
+                        for index, record in enumerate(customer_records)
+                    ],
+                }
+            ],
+        },
+    )
+    context = SimpleNamespace(
+        content_data=content_data,
+        refs=SimpleNamespace(content_data_plan_ref=SimpleNamespace(sha256="4" * 64)),
+    )
+    module, manifest = build_content_data_module(context)
+    assert validate_generated_data_literals(
+        manifest=manifest,
+        content_data=content_data,
+    ) == ()
+
+    def candidate_source(index: int, *, legacy_record_access: bool = False) -> str:
+        customer_value = (
+            "{customer.values.customerName}{customer.fields.customerEmail}"
+            if legacy_record_access
+            else "{customer.customerName}"
+        )
+        return (
+            'import { CustomerRecord, customerSeedData } from "@/generated/content-data";\n'
+            "\n"
+            f"export function CompRequest41_{index}(): JSX.Element {{\n"
+            "  const customer: CustomerRecord = customerSeedData[0];\n"
+            f"  return <p>{customer_value}</p>;\n"
+            "}\n"
+        )
+
+    initial_sources = {
+        f"src/components/business/CompRequest41_{index}.tsx": candidate_source(
+            index,
+            legacy_record_access=index == 0,
+        )
+        for index in range(5)
+    }
+    initial_workspace = _materialize(
+        tmp_path / "initial",
+        content_data_module=module,
+        components=initial_sources,
+    )
+    initial_diagnostics = _typescript_gate(initial_workspace)
+    assert len(initial_diagnostics) == 12
+    assert sum(
+        "must be imported using a type-only import" in item
+        and "verbatimModuleSyntax" in item
+        for item in initial_diagnostics
+    ) == 5
+    assert sum("Cannot find namespace 'JSX'." in item for item in initial_diagnostics) == 5
+    assert sum(
+        "Property 'values' does not exist on type 'CustomerRecord'." in item
+        or "Property 'fields' does not exist on type 'CustomerRecord'." in item
+        for item in initial_diagnostics
+    ) == 2
+
+    normalized_sources: dict[str, str] = {}
+    type_evidence: list[dict] = []
+    for path, source in initial_sources.items():
+        normalized, evidence, issues = normalize_generated_candidate_types(
+            source,
+            path=path,
+            manifest=manifest,
+            content_data_module=module,
+        )
+        assert issues == ()
+        normalized_sources[path] = normalized
+        type_evidence.extend(evidence)
+    healed, record_evidence, record_issues = heal_generated_data_record_shapes_in_batch(
+        GeneratedCandidateBatch(
+            batch_kind="business_components",
+            files=tuple(
+                GeneratedCandidateFile(
+                    path=path,
+                    file_kind="business_component",
+                    owner_contract_ids=(f"COMP-REQUEST-41-{index}",),
+                    source=source,
+                )
+                for index, (path, source) in enumerate(normalized_sources.items())
+            ),
+        ),
+        context=context,
+    )
+    final_sources = {item.path: item.source for item in healed.files}
+    final_workspace = _materialize(
+        tmp_path / "normalized",
+        content_data_module=module,
+        components=final_sources,
+    )
+
+    assert len(type_evidence) == 10
+    assert len(record_evidence) == 2
+    assert record_issues == ()
+    assert _typescript_gate(final_workspace) == []
+    with tempfile.TemporaryDirectory(
+        dir=settings.PREVIEW_TEMPLATE_DIR,
+        prefix=".request41-acceptance-",
+    ) as acceptance_root:
+        acceptance = _materialize(
+            Path(acceptance_root),
+            content_data_module=module,
+            components=final_sources,
         )
         _vite_build(acceptance)
         _assert_preview_routes(

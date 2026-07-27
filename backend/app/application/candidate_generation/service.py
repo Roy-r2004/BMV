@@ -75,6 +75,7 @@ from app.application.candidate_generation.validation import (
     heal_invented_generated_data_imports,
     heal_generated_data_record_shapes_in_batch,
     heal_missing_transition_hooks,
+    normalize_generated_candidate_types_in_batch,
     validate_candidate_workspace,
     validate_generated_batch,
 )
@@ -136,6 +137,7 @@ class _Stage:
     usage_evidence: BusinessComponentUsageEvidence | None = None
     deterministic_usage_heal_used: bool = False
     generated_data_record_shape_heals: tuple[dict[str, object], ...] = ()
+    generated_candidate_type_normalizations: tuple[dict[str, object], ...] = ()
     required_bindings: tuple[RequiredBusinessComponentBinding, ...] = ()
     resumed_from_checkpoint: bool = False
 
@@ -190,6 +192,9 @@ def _serialize_stage_resume_state(stage: _Stage) -> dict[str, Any]:
         ),
         "generated_data_record_shape_heals": list(
             stage.generated_data_record_shape_heals
+        ),
+        "generated_candidate_type_normalizations": list(
+            stage.generated_candidate_type_normalizations
         ),
         "provider_attempt_id": "",
         "idempotency_key": "",
@@ -275,9 +280,15 @@ def _persist_completed_ai_stage(
             {
                 "generated_data_record_shape_heals": list(
                     stage.generated_data_record_shape_heals
-                )
+                ),
+                "generated_candidate_type_normalizations": list(
+                    stage.generated_candidate_type_normalizations
+                ),
             }
-            if stage.generated_data_record_shape_heals
+            if (
+                stage.generated_data_record_shape_heals
+                or stage.generated_candidate_type_normalizations
+            )
             else None
         ),
     )
@@ -813,6 +824,16 @@ def _load_or_generate_ai_stage(
                 )
                 if isinstance(item, dict)
             ),
+            generated_candidate_type_normalizations=tuple(
+                item
+                for item in (
+                    resume_stage_state.get(
+                        "generated_candidate_type_normalizations"
+                    )
+                    or ()
+                )
+                if isinstance(item, dict)
+            ),
             required_bindings=page_bindings,
             resumed_from_checkpoint=True,
         )
@@ -993,9 +1014,22 @@ def _load_or_generate_ai_stage(
             f"{stage} contains ambiguous generated-data record access.",
             issues=record_shape_issues,
         )
+    batch, type_normalizations, type_normalization_issues = (
+        normalize_generated_candidate_types_in_batch(
+            batch,
+            context=context,
+        )
+    )
+    if type_normalization_issues:
+        raise CandidateContractError(
+            f"{stage} contains unsupported generated candidate type syntax.",
+            issues=type_normalization_issues,
+        )
     repair_used = False
     metrics = built.metrics
-    heal_used = bool(data_api_rewrites or record_shape_heals)
+    heal_used = bool(
+        data_api_rewrites or record_shape_heals or type_normalizations
+    )
     evidence: BusinessComponentUsageEvidence | None = None
 
     if stage == "pages":
@@ -1055,7 +1089,23 @@ def _load_or_generate_ai_stage(
             batch,
             context=context,
         )
+        batch, post_repair_type_normalizations, post_repair_type_issues = (
+            normalize_generated_candidate_types_in_batch(
+                batch,
+                context=context,
+            )
+        )
+        if post_repair_type_issues:
+            raise CandidateContractError(
+                f"{stage} contains unsupported generated candidate type syntax.",
+                issues=post_repair_type_issues,
+            )
+        type_normalizations = (
+            *type_normalizations,
+            *post_repair_type_normalizations,
+        )
         heal_used = heal_used or bool(post_repair_rewrites)
+        heal_used = heal_used or bool(post_repair_type_normalizations)
         repair_used = True
         if stage == "pages":
             batch, issues, evidence, post_heal = _apply_page_usage_guards(
@@ -1096,6 +1146,7 @@ def _load_or_generate_ai_stage(
         deterministic_usage_heal_used=heal_used,
         required_bindings=page_bindings,
         generated_data_record_shape_heals=record_shape_heals,
+        generated_candidate_type_normalizations=type_normalizations,
         resumed_from_checkpoint=False,
     )
 

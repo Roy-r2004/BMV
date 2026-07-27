@@ -23,7 +23,7 @@ from app.domain.schemas.design_contract import (
 
 
 GENERATED_DATA_API_SCHEMA_VERSION = "1.0"
-GENERATED_DATA_API_POLICY_REVISION = "2026-07-27.generated-data-api.1"
+GENERATED_DATA_API_POLICY_REVISION = "2026-07-27.generated-data-api.2"
 GENERATED_DATA_API_MODULE_PATH = "src/generated/content-data.ts"
 GENERATED_DATA_API_MODULE_SPECIFIER = "@/generated/content-data"
 

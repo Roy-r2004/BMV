@@ -25,6 +25,7 @@ from app.application.candidate_generation.generated_data_api import (
     build_generated_data_api_manifest,
     exported_symbols,
     render_generated_data_api_block,
+    validate_generated_data_literals,
 )
 from app.domain.schemas.generated_data_api import GeneratedDataApiManifest
 from app.domain.schemas.preview_candidate import (
@@ -555,6 +556,16 @@ def build_content_data_module(
         content_data_plan_sha256=content_sha256,
         reserved_symbols=exported_symbols(compat),
     )
+    literal_issues = validate_generated_data_literals(
+        manifest=manifest,
+        content_data=context.content_data,
+    )
+    if literal_issues:
+        codes = ", ".join(issue["code"] for issue in literal_issues)
+        raise ValueError(
+            "Generated-data literal/manifest consistency validation failed: "
+            f"{codes}"
+        )
     source = compat + render_generated_data_api_block(
         manifest=manifest,
         content_data=context.content_data,
