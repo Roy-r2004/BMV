@@ -62,7 +62,8 @@ RECIPES: dict[str, dict[str, Any]] = {
         ),
         "industry_keywords": (
             "spa salon beauty wellness clinic dental law legal architect interior boutique "
-            "jewelry gallery hotel hospitality yoga pilates"
+            "jewelry gallery hotel hospitality yoga pilates painting artwork artist atelier "
+            "collector fine-art portfolio"
         ),
     },
     "dense-ops": {
@@ -485,6 +486,16 @@ def get_recipe(recipe_id: str | None) -> dict[str, Any]:
     return RECIPES["warm-service"]
 
 
+def _keyword_hit(blob: str, token: str) -> bool:
+    """Match industry keywords on word boundaries — never ``ar`` inside ``art``."""
+    token = str(token or "").strip().lower().replace("-", " ")
+    if not token:
+        return False
+    if " " in token:
+        return token in blob
+    return re.search(rf"(?<![\w]){re.escape(token)}(?![\w])", blob) is not None
+
+
 def pick_recipe_id(
     industry: str | None = None,
     business_description: str | None = None,
@@ -492,13 +503,19 @@ def pick_recipe_id(
     seed: int | None = None,
 ) -> str:
     """Pick a recipe from industry/description keywords; stable tie-break via seed."""
-    blob = " ".join(
-        part for part in (industry or "", business_description or "", concept_name or "") if part
-    ).lower()
+    from app.application.preview_app.product_kind import scrub_negated_product_clauses
+
+    blob = scrub_negated_product_clauses(
+        " ".join(
+            part
+            for part in (industry or "", business_description or "", concept_name or "")
+            if part
+        ).lower()
+    )
     scores: dict[str, int] = {recipe_id: 0 for recipe_id in RECIPES}
     for recipe_id, recipe in RECIPES.items():
         for token in str(recipe.get("industry_keywords") or "").split():
-            if token and token in blob:
+            if _keyword_hit(blob, token):
                 scores[recipe_id] += 2
     best = max(scores.values())
     if best <= 0:

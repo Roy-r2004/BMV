@@ -41,12 +41,23 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     secondary = ctx.secondary
     images = ctx.images
 
-    from app.application.preview_app.brand_brief import apply_brief_to_plan
+    from app.application.preview_app.brand_brief import (
+        apply_brief_to_plan,
+        resolve_preview_brand_name,
+    )
 
     log.info("  [1/5] Planning agent...")
     plan_watch = WatchBmv("planning", log).start()
     _emit(db, request_id, "codegen", "Planning agent — mapping roles and user journeys...", 30)
     full_context = gather_full_context(req, demo)
+    # One brand clock for packs + plumbing — resolve early; upgrade after manifest only.
+    brand_name = resolve_preview_brand_name(
+        brand_brief=brand_brief if isinstance(brand_brief, dict) else None,
+        business_name=getattr(req, "business_name", None),
+        concept_name=getattr(req, "concept_name", None),
+        demo=demo if isinstance(demo, dict) else None,
+        fallback=False,
+    )
     industry_context = " ".join(
         part
         for part in (
@@ -62,6 +73,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     )
     from app.application.preview_app.product_kind import (
         OPS_KINDS,
+        PUBLIC_KINDS,
         apply_product_kind_to_architect,
         apply_product_kind_to_plan,
         lock_chrome_on_architecture_seed,
@@ -112,8 +124,14 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     )
 
     pack_surface = kind_contract.template_surface
+    # Brand brief may lock an ops hub recipe (false keyword hits). Public product
+    # kinds must keep marketing chrome — never seal dense-ops-ledger onto a gallery.
+    brief_recipe = (brand_brief or {}).get("recipe_id")
+    if brief_recipe and kind_contract.kind in PUBLIC_KINDS:
+        if str(get_recipe(str(brief_recipe)).get("hub_variant") or "") == "app":
+            brief_recipe = None
     template_recipe = None
-    if not (brand_brief or {}).get("recipe_id"):
+    if not brief_recipe:
         template_recipe = template_recipe_hint(
             industry=req.industry,
             seed=request_id,
@@ -128,9 +146,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         or full_context[:800],
         concept_name=req.business_name,
         seed=request_id,
-        recipe_id=(brand_brief or {}).get("recipe_id")
-        or template_recipe
-        or kind_contract.recipe_id,
+        recipe_id=brief_recipe or template_recipe or kind_contract.recipe_id,
     )
     # Workspace/desk kinds: ops pack owns voice+seed. Never stamp public-home packs onto /.
     if kind_contract.kind in OPS_KINDS:
@@ -139,6 +155,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             industry=req.industry,
             seed=request_id,
             context=industry_context,
+            brand_name=brand_name,
         )
         # Prefer ops mock_seed as the primary seed (not marketing hero copy).
         if plan.get("ops_template_id"):
@@ -152,21 +169,27 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             seed=request_id,
             surface="public",
             context=industry_context,
+            brand_name=brand_name,
         )
         plan = apply_ops_industry_template_to_plan(
             plan,
             industry=req.industry,
             seed=request_id,
             context=industry_context,
+            brand_name=brand_name,
         )
     # Product Face Contract: normalize intents + materialize mock_seed after packs
     # (packs are gap-fill only; contract fields already win inside apply_*).
     from app.application.preview_app.product_face import ensure_product_face_on_plan
 
-    plan = ensure_product_face_on_plan(plan)
+    plan = ensure_product_face_on_plan(
+        plan, brand_name=brand_name, fill_defaults=True
+    )
     # Re-apply kind lock after packs so marketing voice cannot rewrite chrome.
     plan = apply_product_kind_to_plan(plan, kind_contract)
-    plan = ensure_product_face_on_plan(plan)
+    plan = ensure_product_face_on_plan(
+        plan, brand_name=brand_name, fill_defaults=True
+    )
     # Legacy forcers kept as validators / last-resort repair for niche keywords.
     from app.application.preview_app.internal_desk import (
         ensure_internal_desk_architect,
@@ -219,15 +242,26 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         industry=req.industry or "",
         business_name=req.business_name or "",
     )
+    # Collapse recipe/pack/brand/overlay/kind pile-ons into one sealed brief.
+    from app.application.preview_app.design_brief import (
+        apply_sealed_brief_to_architect,
+        apply_sealed_brief_to_plan,
+        seal_design_brief,
+    )
+
+    design_brief = seal_design_brief(plan, brand_brief=brand_brief)
+    plan = apply_sealed_brief_to_plan(plan, design_brief)
     design_system = plan.get("design_system") or design_system
     manifest["design_system"] = design_system
+    manifest["design_brief"] = design_brief
     log.info(
         f"    design recipe: {recipe.get('id')} ({recipe.get('label')}) "
         f"overlay={design_system.get('design_overlay_id') or '-'} "
         f"hub={plan.get('hub_variant')} "
         f"template={plan.get('industry_template_id') or '-'} "
         f"ops={plan.get('ops_template_id') or '-'} "
-        f"brand_locked={bool(design_system.get('brand_locked'))}"
+        f"brand_locked={bool(design_system.get('brand_locked'))} "
+        f"brief_sealed={bool(design_brief.get('sealed'))}"
     )
     roles_count = len(plan.get("roles", []))
     _emit(db, request_id, "codegen",
@@ -273,6 +307,10 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     except Exception:
         raise
     architect = apply_recipe_to_architect(architect, plan)
+    # Sealed brief wins over architect/recipe direction concat pile-ons.
+    design_brief = plan.get("design_brief") if isinstance(plan.get("design_brief"), dict) else None
+    if design_brief and design_brief.get("sealed"):
+        architect = apply_sealed_brief_to_architect(architect, design_brief)
     planned_files = len(architect.get("files_to_generate", []))
     _emit(db, request_id, "codegen",
           f"Architecture ready — {planned_files} files planned", 38,
@@ -285,11 +323,27 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     workspace = prepare_workspace(request_id)
     _emit(db, request_id, "codegen", "Build workspace ready", 41,
           detail=str(workspace))
-    brand_name = (
-        (manifest.get("brand") or {}).get("name")
-        if isinstance(manifest.get("brand"), dict)
-        else None
-    ) or manifest.get("brand_name") or req.business_name or "Brand"
+    # Final write-site name: keep early real name; only fill if still unknown.
+    previous_brand = brand_name
+    brand_name = resolve_preview_brand_name(
+        brand_name=brand_name,
+        brand_brief=brand_brief if isinstance(brand_brief, dict) else None,
+        business_name=getattr(req, "business_name", None),
+        concept_name=getattr(req, "concept_name", None),
+        manifest=manifest if isinstance(manifest, dict) else None,
+        demo=demo if isinstance(demo, dict) else None,
+        plan=plan if isinstance(plan, dict) else None,
+        fallback=True,
+    ) or "Brand"
+    # Empty-early → Brand-baked sticky seed: rematerialize once Brand→real upgrades.
+    if (
+        (previous_brand is None or previous_brand == "Brand")
+        and brand_name != "Brand"
+    ):
+        plan = ensure_product_face_on_plan(
+            plan, brand_name=brand_name, fill_defaults=True
+        )
+        log.info("    rematerialized mock_seed after Brand→%s upgrade", brand_name)
     if isinstance(plan.get("mock_seed"), dict):
         architect["mock_seed"] = plan["mock_seed"]
     from app.application.preview_app.ai_feature_surfaces import (
@@ -356,6 +410,11 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     ctx.plan = plan
     ctx.manifest = manifest
     ctx.design_system = design_system
+    ctx.design_brief = (
+        plan.get("design_brief")
+        if isinstance(plan.get("design_brief"), dict)
+        else {}
+    )
     ctx.architect = architect
     ctx.workspace = workspace
     ctx.brand_name = brand_name

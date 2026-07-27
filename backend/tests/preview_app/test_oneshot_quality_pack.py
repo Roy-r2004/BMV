@@ -112,6 +112,22 @@ def test_pottery_keywords_pick_craft_recipe() -> None:
     )
 
 
+def test_art_gallery_does_not_pick_ledger_ops_recipe() -> None:
+    """Short tokens like ``ar`` must not match inside ``art`` / ``gallery``."""
+    recipe = pick_recipe_id(
+        industry="Fine art gallery · original oil paintings · artist portfolio",
+        business_description=(
+            "Personal fine art gallery for original paintings — abstract landscapes "
+            "and layered oils. Living gallery of latest works — not a booking SaaS "
+            "or ops dashboard."
+        ),
+        concept_name="Jeanne Kassab Art",
+        seed=19,
+    )
+    assert recipe not in {"dense-ops-ledger", "dense-ops", "dense-ops-floor"}
+    assert recipe in {"editorial", "craft", "warm-service", "bold-retail", "nocturne"}
+
+
 def test_brand_content_floor_repairs_empty_manifest_services() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         workspace = Path(tmp)

@@ -6,6 +6,7 @@ Pure contract rules live in ``app.domain.appspec`` (validation, sanitize).
 from app.application.appspec.hooks import (
     ensure_workspace_appspec_hooks,
     inject_appspec_contract_hooks,
+    attr_bound,
     page_hooks_present,
 )
 from app.application.appspec.generation import (
@@ -61,6 +62,7 @@ __all__ = [
     "app_spec_revision_is_complete",
     "app_spec_should_run",
     "app_spec_should_run_for_request",
+    "attr_bound",
     "brand_projection",
     "ensure_approved_app_spec",
     "ensure_workspace_appspec_hooks",

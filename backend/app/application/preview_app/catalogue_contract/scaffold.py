@@ -119,6 +119,61 @@ def _is_accounting_domain(*parts: str) -> bool:
     return sum(1 for hint in _ACCOUNTING_HINTS if hint in blob) >= 1
 
 
+def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, str]:
+    """Return (primaryCta jsx attrs fragment without wrappers, subcopy).
+
+    Storefront catalog/detail must not invent /book-appointment.
+    Booking faces keep a real /book target that matches product_kind routes.
+    """
+    sk = (skeleton_id or "").lower()
+    blob = f"{brand} {title} {sk}".lower()
+    storefrontish = sk in {"public-catalog", "public-detail"} or any(
+        token in blob
+        for token in (
+            "gallery",
+            "artwork",
+            "collection",
+            "painting",
+            "painter",
+            "atelier",
+            "artist",
+            " fine art",
+            "oil painting",
+            "shop",
+            "storefront",
+            "menu",
+            "catalog",
+            # trailing brand words ("… Art") — keep leading space to avoid "part"/"start"
+            " art",
+        )
+    )
+    if storefrontish:
+        sub = json.dumps(
+            f"{title} — browse what’s here. This page is not the homepage story.",
+            ensure_ascii=False,
+        )
+        if sk == "public-detail" or "detail" in sk:
+            primary = '{ label: "Inquire about this piece", href: "/about" }'
+        else:
+            primary = '{ label: "View collection", href: "/gallery" }'
+        secondary = '{ label: "Back home", href: "/" }'
+        return (
+            f"primaryCta={{{primary}}} secondaryCta={{{secondary}}}",
+            sub,
+        )
+
+    sub = json.dumps(
+        f"{title} — browse what’s here, then book. This page is not the homepage story.",
+        ensure_ascii=False,
+    )
+    primary = '{ label: "Book a visit", href: "/book" }'
+    secondary = '{ label: "Back home", href: "/" }'
+    return (
+        f"primaryCta={{{primary}}} secondaryCta={{{secondary}}}",
+        sub,
+    )
+
+
 def _safe_slot_jsx(
     slot: str,
     brand: str,
@@ -140,9 +195,28 @@ def _safe_slot_jsx(
             return trading_v
         return default_v
 
+    # Brand-bound fallbacks for public-home (and shared mid-slots) — never agency mush.
+    def _fb(text: str) -> str:
+        return json.dumps(text, ensure_ascii=False)
+
+    features_heading_fb = _fb(f"What {brand} offers")
+    showcase_heading_fb = _fb(f"From {brand}")
+    products_heading_fb = _fb(f"{brand} picks")
+    process_heading_fb = _fb(f"How {brand} works")
+    testimonials_heading_fb = _fb(f"Guests of {brand}")
+    credentials_heading_fb = _fb(f"Why {brand}")
+    cta_heading_fb = _fb(f"Ready for {brand}?")
+    cta_desc_fb = _fb(f"Tell {brand} what you need — clear options, real next steps.")
+    footer_desc_fb = _fb(f"{brand} — clear choices and real bookings.")
+    spotlight_title_fb = _fb(f"{brand} in focus")
+    spotlight_desc_fb = _fb(f"A closer look at what makes {brand} distinct.")
+    results_heading_fb = _fb(f"{brand} results")
+    results_label_fb = _fb(f"{brand} highlight")
+
     if home_hero:
         hero_jsx = (
             f'<MarketingHero brandName={{{brand_js}}} '
+            f'eyebrow={{seed.hero?.eyebrow ?? {brand_js}}} '
             f'headline={{seed.hero?.headline || {title_js}}} '
             'subcopy={seed.hero?.subcopy} '
             'primaryCta={seed.hero?.primaryCta} '
@@ -150,70 +224,72 @@ def _safe_slot_jsx(
             'imageSrc={images.hero} imageAlt="" />'
         )
     else:
-        sub_js = json.dumps(
-            f"{title} — browse what’s here, then book. This page is not the homepage story."
-        )
+        cta_attrs, sub_js = _non_home_hero_ctas(skeleton_id, brand, title)
         hero_jsx = (
             f'<MarketingHero brandName={{{brand_js}}} '
             f'headline={{{title_js}}} '
             f'subcopy={{{sub_js}}} '
             'variant="compact" '
-            f'primaryCta={{{{ label: "Book a visit", href: "/book-appointment" }}}} '
-            f'secondaryCta={{{{ label: "Back home", href: "/" }}}} '
+            f'{cta_attrs} '
             'imageSrc={images.card1} imageAlt="" />'
         )
 
     samples = {
         "hero": hero_jsx,
         "features": (
-            '<FeatureBento heading={seed.featuresHeading ?? "Designed to feel alive"} '
+            f'<FeatureBento heading={{seed.featuresHeading ?? {features_heading_fb}}} '
             'imagePool={[images.card1, images.card2, images.card3]} '
             'items={seed.features ?? []} />'
         ),
         "products": (
-            '<ProductShowcase heading={seed.showcaseHeading ?? "Featured picks"} '
+            f'<ProductShowcase heading={{seed.showcaseHeading ?? {products_heading_fb}}} '
             'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
-            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title '
+            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
         ),
         "showcase": (
-            '<ProductShowcase heading={seed.showcaseHeading ?? "Featured experiences"} '
+            f'<ProductShowcase heading={{seed.showcaseHeading ?? {showcase_heading_fb}}} '
             'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
-            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title '
+            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
         ),
         "process": (
-            '<ProcessSection heading={seed.processHeading ?? "How it works"} '
+            f'<ProcessSection heading={{seed.processHeading ?? {process_heading_fb}}} '
             'steps={seed.process ?? []} />'
         ),
         "testimonials": (
-            '<TestimonialRail heading={seed.testimonialsHeading ?? "What clients say"} '
+            f'<TestimonialRail heading={{seed.testimonialsHeading ?? {testimonials_heading_fb}}} '
             'items={seed.testimonials ?? []} />'
         ),
         "cta": (
-            '<CTABand heading={seed.cta?.heading ?? "Make it unforgettable"} '
-            'description={seed.cta?.description ?? "Book the next chapter — polished, branded, never bland."} '
+            f'<CTABand heading={{seed.cta?.heading ?? {cta_heading_fb}}} '
+            f'description={{seed.cta?.description ?? {cta_desc_fb}}} '
             'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", href: seed.cta?.primaryHref ?? "#details" }} '
             'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", href: seed.cta?.secondaryHref ?? "#contact" }} />'
         ),
         "footer": (
             f'<BrandFooter brandName={{{brand_js}}} '
-            'description={seed.footer?.description ?? "Premium presence from first glance to booked revenue."} />'
+            f'description={{seed.footer?.description ?? {footer_desc_fb}}} />'
         ),
         "trust": (
             '<LogoMarquee size="display" '
             'items={(seed.trustLabels ?? []).map((label) => ({ label }))} />'
         ),
         "credentials": (
-            '<CredentialStrip heading={seed.credentialsHeading ?? "Why it stands out"} '
+            f'<CredentialStrip heading={{seed.credentialsHeading ?? {credentials_heading_fb}}} '
             'items={seed.credentials ?? []} />'
         ),
-        "spotlight": '<SpotlightCard title="Atmosphere over filler" description="Layered glow, grain, and brand light so the page never looks pale." />',
+        "spotlight": (
+            f'<SpotlightCard title={{{spotlight_title_fb}}} '
+            f'description={{{spotlight_desc_fb}}} />'
+        ),
         "results": (
-            '<ResultRail heading="Representative results" items={['
-            '{ label: "Signature result", beforeSrc: images.card2, afterSrc: images.card3 }'
+            f'<ResultRail heading={{{results_heading_fb}}} items={{['
+            f'{{ label: {results_label_fb}, beforeSrc: images.card2, afterSrc: images.card3 }}'
             ']} />'
         ),
         "booking": (
@@ -657,6 +733,31 @@ def _directory_listing_scaffold(
             f"{evidence_id}</span>"
         )
     appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
+    storefront_listing = bool(
+        re.search(
+            r"gallery|artwork|collection|shop|store|menu|catalog|boutique",
+            f"{brand} {title} {base}",
+            re.I,
+        )
+    )
+    if storefront_listing:
+        cta_primary = '{ label: "Inquire", href: "/about" }'
+        cta_secondary = '{ label: "Back home", href: "/" }'
+        footer_desc = "Browse the collection. Inquire when a piece speaks to you."
+        page_desc = "Browse pieces and details — then inquire about availability."
+        showcase_heading = "From the collection"
+        showcase_desc = "Each card opens a closer look. Inquire when you are ready."
+        cta_heading = "Interested in a piece?"
+        cta_desc = "Ask about availability, commissions, or a studio visit."
+    else:
+        cta_primary = '{ label: "Book a visit", href: "/book" }'
+        cta_secondary = '{ label: "Ask AI assistant", href: "/ai-features" }'
+        footer_desc = "Real providers. Clear booking. Not another homepage clone."
+        page_desc = "Browse providers, specialties, and availability — then book the right visit."
+        showcase_heading = "Meet the team"
+        showcase_desc = "Each card opens a provider profile. Book when you are ready."
+        cta_heading = "Ready to schedule?"
+        cta_desc = "Pick a time online — same team you just reviewed."
     return f"""// directory listing scaffold — distinct from home marketing clone
 import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
 import {{ BRAND_MANIFEST, images }} from '@/data/mock';
@@ -685,20 +786,20 @@ export default function {component}() {{
       <div data-skeleton="public-catalog"{appspec_attrs}>{appspec_hook_spans}
       <PageHeader
         title={{{title_js}}}
-        description="Browse providers, specialties, and availability — then book the right visit."
+        description={json.dumps(page_desc)}
       />
       <ProductShowcase
-        heading="Meet the team"
-        description="Each card opens a provider profile. Book when you are ready."
+        heading={json.dumps(showcase_heading)}
+        description={json.dumps(showcase_desc)}
         items={{people}}
       />
       <CTABand
-        heading="Ready to schedule?"
-        description="Pick a time online — same team you just reviewed."
-        primaryCta={{{{ label: "Book a visit", href: "/book-appointment" }}}}
-        secondaryCta={{{{ label: "Ask AI assistant", href: "/ai-features" }}}}
+        heading={json.dumps(cta_heading)}
+        description={json.dumps(cta_desc)}
+        primaryCta={{{cta_primary}}}
+        secondaryCta={{{cta_secondary}}}
       />
-      <BrandFooter brandName={{{brand_js}}} description="Real providers. Clear booking. Not another homepage clone." />
+      <BrandFooter brandName={{{brand_js}}} description={json.dumps(footer_desc)} />
       </div>
     </PublicShell>
   );

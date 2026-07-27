@@ -4,7 +4,7 @@ from app.application.preview_app.safety.imports import (
     normalize_ui_kit_imports,
     strip_forbidden_npm_imports,
 )
-from app.application.preview_app.safety.mock_data import ensure_mock_exports
+from app.application.preview_app.safety.mock_data import ensure_mock_exports, sync_mock_images
 from app.application.preview_app.safety.orchestrator import apply_workspace_guards
 from app.application.preview_app.safety.pages import cleanup_page_shells
 from app.application.preview_app.safety.runtime import ensure_runtime_correctness
@@ -37,4 +37,5 @@ __all__ = [
     "normalize_ui_icon_imports",
     "normalize_ui_kit_imports",
     "strip_forbidden_npm_imports",
+    "sync_mock_images",
 ]

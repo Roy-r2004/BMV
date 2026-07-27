@@ -3,6 +3,36 @@ from __future__ import annotations
 
 import re
 
+_DEFAULT_EXPORT_RE = re.compile(
+    r"export\s+default\s+(?:async\s+)?function\b"
+    r"|export\s+default\s*\("
+)
+_EXPORT_DEFAULT_NAME_RE = re.compile(r"export\s+default\s+([A-Za-z_][\w]*)\s*;")
+
+
+def default_export_search_from(text: str) -> int:
+    """Index to start searching for the default-export component body.
+
+    Prefer ``export default function`` / ``export default (``; for
+    ``export default Name;``, locate the matching function/const declaration.
+    Returns 0 when no default export is found.
+    """
+    match = _DEFAULT_EXPORT_RE.search(text)
+    if match:
+        return match.start()
+    named = _EXPORT_DEFAULT_NAME_RE.search(text)
+    if named:
+        name = named.group(1)
+        for pattern in (
+            rf"(?:export\s+)?function\s+{re.escape(name)}\s*\(",
+            rf"(?:export\s+)?const\s+{re.escape(name)}\s*=",
+        ):
+            found = re.search(pattern, text)
+            if found:
+                return found.start()
+    return 0
+
+
 _MOCK_IMPORT_RE = re.compile(
     r"import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['\"][^'\"]*data/mock['\"]"
 )

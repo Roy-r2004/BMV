@@ -4,6 +4,7 @@ pass (also re-run by `build_phase` before every build attempt).
 """
 from __future__ import annotations
 
+from app.application.preview_app.brand_brief import resolve_preview_brand_name
 from app.application.preview_app.codegen.critic import critique_and_refine
 from app.application.preview_app.fallback import scan_and_repair_double_brace_literals
 from app.application.preview_app.pipeline.codegen_phase import _regenerate_truncated, _run_batch
@@ -128,11 +129,23 @@ def run_polish_phase(ctx: PipelineContext) -> None:
     if stripped:
         log.info(f"    removed duplicate nav from: {', '.join(stripped)}")
 
-    ctx.brand_name = (
-        (ctx.manifest.get("brand") or {}).get("name")
-        if isinstance(ctx.manifest.get("brand"), dict)
-        else None
-    ) or ctx.manifest.get("brand_name") or ctx.req.business_name or "Brand"
+    brief_for_name = (
+        ctx.brand_brief
+        if isinstance(ctx.brand_brief, dict) and ctx.brand_brief
+        else (ctx.design_brief if isinstance(ctx.design_brief, dict) else None)
+    )
+    # Brand→real rematerialize runs in plan_phase before plumbing; polish only
+    # keeps ctx.brand_name in sync (same upgrade sources already applied).
+    ctx.brand_name = resolve_preview_brand_name(
+        brand_name=ctx.brand_name,
+        brand_brief=brief_for_name,
+        business_name=getattr(ctx.req, "business_name", None),
+        concept_name=getattr(ctx.req, "concept_name", None),
+        manifest=ctx.manifest if isinstance(ctx.manifest, dict) else None,
+        demo=ctx.demo if isinstance(ctx.demo, dict) else None,
+        plan=ctx.plan if isinstance(ctx.plan, dict) else None,
+        fallback=True,
+    ) or "Brand"
     ctx.font = ctx.design_system.get("font_family") or ctx.design_system.get("font") or ctx.manifest.get("font", "")
 
     _pre_build_fixups(ctx)

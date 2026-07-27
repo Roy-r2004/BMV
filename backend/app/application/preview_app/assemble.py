@@ -498,7 +498,10 @@ def write_plumbing_mock(
     mock_seed: dict | None = None,
 ) -> None:
     """Minimal mock.ts so layouts/router work before pages exist."""
+    from app.application.preview_app.brand_brief import resolve_preview_brand_name
     from app.application.preview_app.industry_templates.seed import normalize_mock_seed
+
+    resolved_brand = resolve_preview_brand_name(brand_name=brand_name, fallback=True) or "Brand"
 
     routes = architect.get("routes") or []
     roles_src = architect.get("roles") or []
@@ -536,7 +539,7 @@ def write_plumbing_mock(
     )
     img = images or {}
     brand_payload: dict = {
-        "name": brand_name or "Brand",
+        "name": resolved_brand,
         "tagline": "",
     }
     if design_system:
@@ -544,7 +547,8 @@ def write_plumbing_mock(
     seed_payload = normalize_mock_seed(
         mock_seed
         if isinstance(mock_seed, dict)
-        else (architect.get("mock_seed") if isinstance(architect.get("mock_seed"), dict) else None)
+        else (architect.get("mock_seed") if isinstance(architect.get("mock_seed"), dict) else None),
+        brand_name=resolved_brand,
     )
     ai_features = architect.get("ai_features") if isinstance(architect.get("ai_features"), list) else []
     content = (
@@ -708,15 +712,76 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
 
     def _routes_block(items: list[tuple[str, str]]) -> str:
         lines: list[str] = []
+        registered: set[str] = set()
+        all_paths = {p.rstrip("/") or "/" for p, _ in items}
         for path, comp in items:
             lines.append(f'          <Route path="{path}" element={{<{comp} />}} />')
+            registered.add(path)
             # Advisor cards invent /ai-advisor/skill-assessment etc. Keep those
             # URLs on the same page so "sub steps" don't fall through to Home.
             leaf = path.rstrip("/").rsplit("/", 1)[-1].lower()
             if re.search(r"ai[-_]?advisor|ai[-_]?stylist|ai[-_]?chat", leaf) and not path.endswith("/*"):
-                lines.append(
-                    f'          <Route path="{path.rstrip("/")}/*" element={{<{comp} />}} />'
+                splat = f"{path.rstrip('/')}/*"
+                if splat not in registered:
+                    lines.append(
+                        f'          <Route path="{splat}" element={{<{comp} />}} />'
+                    )
+                    registered.add(splat)
+            # Seed cards often link /gallery/<slug> while App only registered
+            # /gallery/v2 (or similar). If the parent listing exists, accept
+            # any sibling slug on the same detail component.
+            if not path.endswith(("/*", "/:id", "/:slug")) and "/" in path.rstrip("/"):
+                parent = path.rstrip("/").rsplit("/", 1)[0]
+                parent_key = parent.rstrip("/") or "/"
+                detailish = bool(
+                    re.search(
+                        r"(detail|artwork|item|piece|product|dish|class|service|provider|doctor|v\d+)",
+                        f"{leaf} {comp}",
+                        re.I,
+                    )
+                    or parent_key in all_paths
                 )
+                if detailish and parent_key not in ("", "/"):
+                    for alias in (f"{parent}/:id", f"{parent}/:slug"):
+                        if alias not in registered:
+                            lines.append(
+                                f'          <Route path="{alias}" element={{<{comp} />}} />'
+                            )
+                            registered.add(alias)
+            # Booking aliases — scaffolds historically emitted /book-appointment.
+            if leaf in {"book", "booking"} and path.rstrip("/") in {"/book", "/booking"}:
+                for alias in ("/book-appointment", "/book-appointments"):
+                    if alias not in registered:
+                        lines.append(
+                            f'          <Route path="{alias}" element={{<{comp} />}} />'
+                        )
+                        registered.add(alias)
+        # Catalogue cards link /gallery/<slug> even when detail was planned as
+        # /artwork (or similar). Wire listing/:id onto the detail component.
+        listing_re = re.compile(
+            r"^/(gallery|collection|collections|shop|catalog|catalogue|products|works|menu)(/|$)",
+            re.I,
+        )
+        detail_comps = [
+            (p, c)
+            for p, c in items
+            if re.search(r"(detail|artwork|item|piece|product)", f"{p} {c}", re.I)
+            and not listing_re.match(p.rstrip("/") + "/")
+        ]
+        if detail_comps:
+            detail_comp = detail_comps[0][1]
+            for p, _ in items:
+                if not listing_re.match((p.rstrip("/") or "/") + "/"):
+                    continue
+                base = p.rstrip("/") or ""
+                if not base:
+                    continue
+                for alias in (f"{base}/:id", f"{base}/:slug"):
+                    if alias not in registered:
+                        lines.append(
+                            f'          <Route path="{alias}" element={{<{detail_comp} />}} />'
+                        )
+                        registered.add(alias)
         return "\n".join(lines)
 
     blocks: list[str] = []

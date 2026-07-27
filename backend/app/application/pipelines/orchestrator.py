@@ -200,8 +200,8 @@ class GenerationPipeline:
                     self.template_renderer,
                 )
                 if require_app_spec:
-                    # Scope overflow is a product decision, not permission to
-                    # truncate a journey later in the UI pipeline.
+                    # Overflow demotes ops/AI under the cap (public face first);
+                    # select_preview_scope hard-fails only when no viable face fits.
                     select_preview_scope(
                         approved_app_spec.spec,
                         target_pages=settings.APPSPEC_PREVIEW_TARGET_PAGES,

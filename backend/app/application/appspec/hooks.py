@@ -1,12 +1,21 @@
 """Deterministic AppSpec contract-hook injection for preview page sources."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from app.application.appspec.projection import PreviewScope
+from app.application.preview_app.patterns import default_export_search_from
 from app.application.preview_app.workspace import read_file, write_file
 from app.domain.schemas.app_spec import AppSpec
+
+
+def attr_bound(source: str, attr: str, value: str) -> bool:
+    """True when ``attr="value"`` / ``attr='value'`` appears (not a loose substring)."""
+    if not value:
+        return False
+    return f'{attr}="{value}"' in source or f"{attr}='{value}'" in source
 
 
 def page_hooks_present(
@@ -16,13 +25,13 @@ def page_hooks_present(
     action_ids: Sequence[str] = (),
     evidence_ids: Sequence[str] = (),
 ) -> bool:
-    if "data-appspec-page" not in source or page_id not in source:
+    if not attr_bound(source, "data-appspec-page", page_id):
         return False
     for action_id in action_ids:
-        if "data-appspec-action" not in source or action_id not in source:
+        if not attr_bound(source, "data-appspec-action", action_id):
             return False
     for evidence_id in evidence_ids:
-        if "data-appspec-evidence" not in source or evidence_id not in source:
+        if not attr_bound(source, "data-appspec-evidence", evidence_id):
             return False
     return True
 
@@ -46,6 +55,66 @@ def _hook_strip(
     return "\n".join(lines)
 
 
+def _statement_semicolon_end(text: str, expr_start: int) -> int | None:
+    """Index of the `;` that ends a return expression starting at expr_start."""
+    depth_paren = 0
+    depth_brace = 0
+    depth_bracket = 0
+    in_str: str | None = None
+    escape = False
+    i = expr_start
+    while i < len(text):
+        ch = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == in_str:
+                in_str = None
+            i += 1
+            continue
+        if ch in {'"', "'", "`"}:
+            in_str = ch
+            i += 1
+            continue
+        if ch == "(":
+            depth_paren += 1
+        elif ch == ")":
+            depth_paren = max(0, depth_paren - 1)
+        elif ch == "{":
+            depth_brace += 1
+        elif ch == "}":
+            depth_brace = max(0, depth_brace - 1)
+        elif ch == "[":
+            depth_bracket += 1
+        elif ch == "]":
+            depth_bracket = max(0, depth_bracket - 1)
+        elif (
+            ch == ";"
+            and depth_paren == 0
+            and depth_brace == 0
+            and depth_bracket == 0
+        ):
+            return i
+        i += 1
+    return None
+
+
+def _find_bare_jsx_return(text: str, search_from: int) -> tuple[int, int, int] | None:
+    """Locate `return <jsx…>;` → (return_kw_start, jsx_start, semicolon_index)."""
+    region = text[search_from:]
+    match = re.search(r"\breturn\s+<", region)
+    if not match:
+        return None
+    return_start = search_from + match.start()
+    jsx_start = search_from + match.end() - 1  # at '<'
+    semi = _statement_semicolon_end(text, jsx_start)
+    if semi is None:
+        return None
+    return return_start, jsx_start, semi
+
+
 def inject_appspec_contract_hooks(
     source: str,
     *,
@@ -58,6 +127,10 @@ def inject_appspec_contract_hooks(
     Idempotent: already-present IDs are not duplicated. Hooks are injected as a
     visually inert strip so catalogue scaffolds and AI pages both pass finalize
     validation without requiring the model to remember every attribute.
+
+    Hooks must sit inside a *reachable* return of the default export. A prior
+    fallback that appended a second `return (` before the file's last `}` left
+    hooks as dead code when the component used bare `return <jsx/>;`.
     """
     text = source or ""
     page_id = str(page_id or "").strip()
@@ -71,16 +144,24 @@ def inject_appspec_contract_hooks(
     # Always emit the full required set when any hook is missing so partial
     # pages become fully addressable in one pass.
     strip = _hook_strip(page_id=page_id, action_ids=actions, evidence_ids=evidences)
+    search_from = default_export_search_from(text)
 
-    # Prefer injecting immediately after the first `return (` so the strip sits
-    # inside the component tree.
+    # Prefer injecting immediately after `return (` inside the default export.
     marker = "return ("
-    idx = text.find(marker)
+    idx = text.find(marker, search_from)
     if idx >= 0:
         insert_at = idx + len(marker)
         return text[:insert_at] + "\n" + strip + text[insert_at:]
 
-    # Fallback: append before the last closing brace of the file.
+    # Bare `return <jsx…>;` — wrap so the strip is a sibling in the same tree.
+    bare = _find_bare_jsx_return(text, search_from)
+    if bare is not None:
+        ret_start, jsx_start, semi = bare
+        jsx = text[jsx_start:semi]
+        wrapped = f"return (\n{strip}\n    <>\n      {jsx}\n    </>\n  );"
+        return text[:ret_start] + wrapped + text[semi + 1 :]
+
+    # No return yet: append a reachable return before the last closing brace.
     last_brace = text.rfind("}")
     if last_brace >= 0:
         return text[:last_brace] + "\n  return (\n" + strip + "\n  );\n" + text[last_brace:]
@@ -131,6 +212,7 @@ def ensure_workspace_appspec_hooks(
 
 
 __all__ = [
+    "attr_bound",
     "ensure_workspace_appspec_hooks",
     "inject_appspec_contract_hooks",
     "page_hooks_present",

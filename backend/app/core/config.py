@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 _APP_DIR = Path(__file__).resolve().parent.parent  # backend/app
 _PROJECT_ROOT = _APP_DIR.parent.parent  # repo root
 _INITIAL_ENV_KEYS = frozenset(os.environ)
-# Prefer backend/.env (compose + local), then cwd
+# Prefer backend/.env (compose env_file + local).
 load_dotenv(_APP_DIR.parent / ".env")
 load_dotenv()
 

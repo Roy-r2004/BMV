@@ -170,33 +170,33 @@ Open http://localhost:5173
 
 ## Environment Variables
 
-**Backend** (`backend/.env`):
+Local Docker uses:
+
+| File | Purpose |
+|------|---------|
+| `backend/.env` | **Source of truth** — API keys, models, AppSpec, preview flags |
+| `frontend/.env` | Vite only (`VITE_*`) |
+
+```bash
+cp backend/.env.example backend/.env
+# edit backend/.env
+cp frontend/.env.example frontend/.env   # optional if missing
+```
+
+Production/VPS uses root `.env` from `.env.prod.example` (separate from local).
+
+**Backend** (`backend/.env`) essentials:
 
 ```env
-DATABASE_URL=sqlite:///./buildmyversion.db
-ADMIN_PASSWORD=change_this_password
-UPLOAD_DIR=./app/uploads
-ROY_WHATSAPP_NUMBER=replace_with_number
-
-# AI provider: openrouter (cloud) | ollama (local)
 AI_PROVIDER=openrouter
 OPENROUTER_API_KEY=your_key_here
-
-# Optional — per-task models (defaults vary by provider in app/core/config.py)
-# TEXT_MODEL=google/gemini-2.5-flash
-# PREVIEW_APP_MODEL=deepseek/deepseek-chat
-# CRITIC_MODEL=google/gemini-2.5-flash
-# FIX_MODEL=google/gemini-2.5-flash
-
-# Ollama only (when AI_PROVIDER=ollama)
-# OLLAMA_URL=http://localhost:11434
+ADMIN_PASSWORD=change_this_password
 ```
 
 **Frontend** (`frontend/.env`):
 
 ```env
-VITE_API_BASE_URL=http://localhost:8000
-VITE_ROY_WHATSAPP_NUMBER=replace_with_number
+VITE_API_BASE_URL=http://localhost:8001
 ```
 
 ## Pages

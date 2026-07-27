@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import time
 from datetime import datetime
+from pathlib import Path
 
 from app.application.appspec.hooks import (
     ensure_workspace_appspec_hooks,
@@ -13,23 +14,54 @@ from app.application.appspec.hooks import (
 )
 from app.application.appspec.repository import app_spec_provenance
 from app.application.appspec.workspace_validation import validate_app_spec_workspace
+from app.application.preview_app.ai_feature_surfaces import (
+    AI_HUB_COMPONENT,
+    assert_ai_features_present,
+    ensure_ai_feature_surfaces,
+)
+from app.application.preview_app.brand_brief import resolve_preview_brand_name
 from app.application.preview_app.fallback import (
     clear_stubbed_path,
     consume_stubbed_paths,
     record_stubbed_path,
 )
+from app.application.preview_app.host_role_ux import role_tagline
 from app.application.preview_app.pipeline.architect_normalize import _plan_for_persistence
 from app.application.preview_app.pipeline.context import PipelineContext
 from app.application.preview_app.pipeline.errors import PreviewAppContractError
 from app.application.preview_app.pipeline.versioning import (
     apply_generator_version_marker,
 )
+from app.application.preview_app.quality_gate import run_quality_gate_with_heal
 from app.application.preview_app.workspace import read_file
+from app.application.services.ai_features import ai_features_from_request
 from app.application.services.progress import emit as _emit
 from app.infrastructure.logging import get_logger
 from app.infrastructure.logging.diagnostics import dump_pipeline_summary, summarize_workspace_debug
 
 log = get_logger("PreviewPipeline")
+
+
+def _finalize_brand_name(ctx: PipelineContext) -> str:
+    """Write-site brand for AI hub / quality gate — never invent mid-finalize."""
+    brief_for_name = (
+        ctx.brand_brief
+        if isinstance(ctx.brand_brief, dict) and ctx.brand_brief
+        else (ctx.design_brief if isinstance(getattr(ctx, "design_brief", None), dict) else None)
+    )
+    return (
+        resolve_preview_brand_name(
+            brand_name=ctx.brand_name,
+            brand_brief=brief_for_name,
+            business_name=getattr(ctx.req, "business_name", None),
+            concept_name=getattr(ctx.req, "concept_name", None),
+            manifest=ctx.manifest if isinstance(ctx.manifest, dict) else None,
+            demo=ctx.demo if isinstance(ctx.demo, dict) else None,
+            plan=ctx.plan if isinstance(ctx.plan, dict) else None,
+            fallback=True,
+        )
+        or "Brand"
+    )
 
 
 def run_finalize(ctx: PipelineContext) -> dict:
@@ -85,7 +117,6 @@ def run_finalize(ctx: PipelineContext) -> dict:
         if ctx.app_spec_result
         else {}
     )
-    from app.application.preview_app.ai_feature_surfaces import AI_HUB_COMPONENT
 
     for route in route_list:
         component_file = (route.get("component_file") or "").replace("\\", "/")
@@ -138,14 +169,9 @@ def run_finalize(ctx: PipelineContext) -> dict:
         )
 
     # Plan → site contract: every structured AI feature must be addressable.
-    from app.application.preview_app.ai_feature_surfaces import (
-        assert_ai_features_present,
-        ensure_ai_feature_surfaces,
-    )
-    from app.application.services.ai_features import ai_features_from_request
-
-    planned_ai: list = []
     planned_ai = ai_features_from_request(req) or []
+    brand_name = _finalize_brand_name(ctx)
+    ctx.brand_name = brand_name
     if planned_ai:
         # Re-apply after codegen so contextual panels land on real pages.
         # Must rebuild after this — earlier Vite dist may still contain a
@@ -157,7 +183,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
                 workspace,
                 architect,
                 req,
-                brand_name=ctx.brand_name or req.business_name or "Brand",
+                brand_name=brand_name,
             )
         except Exception as e:
             log.warning("    AI feature surface inject failed: %s", e)
@@ -181,7 +207,8 @@ def run_finalize(ctx: PipelineContext) -> dict:
                     workspace, ctx.base_path, ctx.template_renderer
                 )
                 if rebuilt_ok:
-                    ok = True
+                    # Fresh dist only — do not clear soft AppSpec/fallback
+                    # failures already recorded on `ok`.
                     ctx.build_log = rebuild_log
                     log.info("    AI hub rebuild OK — dist includes AiFeatureDeck")
                 else:
@@ -203,10 +230,6 @@ def run_finalize(ctx: PipelineContext) -> dict:
             )
 
     # Automated quality lock — heal known failures; do not claim ready if hard rules fail.
-    from pathlib import Path
-
-    from app.application.preview_app.quality_gate import run_quality_gate_with_heal
-
     def _gate_rebuild():
         from app.application.preview_app.build import run_build
 
@@ -223,7 +246,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
     gate = run_quality_gate_with_heal(
         Path(workspace),
         architect,
-        brand_name=ctx.brand_name or req.business_name or "Brand",
+        brand_name=brand_name,
         req=req,
         require_ai_hub=bool(planned_ai),
         rebuild=_gate_rebuild,
@@ -305,8 +328,6 @@ def run_finalize(ctx: PipelineContext) -> dict:
             if ar.get("id") == role_id and ar.get("defaultPath"):
                 return ar["defaultPath"]
         return "/"
-
-    from app.application.preview_app.host_role_ux import role_tagline
 
     plan_roles = plan.get("roles") or []
 

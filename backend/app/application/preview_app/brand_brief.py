@@ -299,10 +299,61 @@ def brief_prompt_block(brief: dict[str, Any] | None) -> str:
     )
 
 
+def _preview_brand_candidate(value: Any) -> str:
+    """Nonempty real name only — literal ``Brand`` is treated as unknown."""
+    text = str(value or "").strip()
+    if not text or text == "Brand":
+        return ""
+    return text
+
+
+def resolve_preview_brand_name(
+    *,
+    brand_name: str | None = None,
+    brand_brief: dict[str, Any] | None = None,
+    business_name: str | None = None,
+    concept_name: str | None = None,
+    manifest: dict[str, Any] | None = None,
+    demo: dict[str, Any] | None = None,
+    plan: dict[str, Any] | None = None,
+    fallback: bool = True,
+) -> str | None:
+    """Resolve one preview brand name. First nonempty real candidate wins.
+
+    Priority: explicit brand_name → brand_brief.brand_name → business_name →
+    concept_name → manifest brand → demo product_name / plan concept_name.
+    Literal ``\"Brand\"`` is never invented mid-chain; returned only when
+    ``fallback=True`` and no real name exists (write-site default).
+    """
+    brief = brand_brief if isinstance(brand_brief, dict) else {}
+    manifest = manifest if isinstance(manifest, dict) else {}
+    demo = demo if isinstance(demo, dict) else {}
+    plan = plan if isinstance(plan, dict) else {}
+    manifest_brand = (
+        manifest.get("brand") if isinstance(manifest.get("brand"), dict) else {}
+    )
+
+    for candidate in (
+        brand_name,
+        brief.get("brand_name"),
+        business_name,
+        concept_name,
+        manifest_brand.get("name"),
+        manifest.get("brand_name"),
+        demo.get("product_name"),
+        plan.get("concept_name"),
+    ):
+        picked = _preview_brand_candidate(candidate)
+        if picked:
+            return picked
+    return "Brand" if fallback else None
+
+
 __all__ = [
     "apply_brief_to_plan",
     "brief_prompt_block",
     "build_brand_brief",
     "design_system_from_brief",
     "ensure_brand_brief",
+    "resolve_preview_brand_name",
 ]

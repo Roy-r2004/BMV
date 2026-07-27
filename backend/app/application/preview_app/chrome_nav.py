@@ -7,10 +7,6 @@ from app.application.preview_app.catalogue_contract import catalogue_route_for_f
 from app.application.preview_app.protected_paths import has_catalogue_routes
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 
-_APP_NAV_IMPORT_RE = re.compile(
-    r"^import \{[^}]*\} from ['\"]@/lib/app-nav['\"];\s*\n",
-    re.MULTILINE,
-)
 _NESTED_APP_NAV_RE = re.compile(
     r"import \{\s*\nimport \{[^}]+\} from ['\"]@/lib/app-nav['\"];\s*\n",
 )

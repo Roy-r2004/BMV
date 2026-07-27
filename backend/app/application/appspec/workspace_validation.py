@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.application.appspec.hooks import attr_bound
 from app.application.appspec.projection import PreviewScope
 from app.application.preview_app.workspace import read_file
 from app.domain.schemas.app_spec import AppSpec
@@ -43,13 +44,15 @@ def validate_app_spec_workspace(
         if not source.strip():
             issues.append(f"{page_id}: component source is empty")
             continue
-        if "data-appspec-page" not in source or page_id not in source:
+        # Require attribute bindings (attr="id"), not a loose id substring that
+        # can appear in copy/comments while the hook itself is missing.
+        if not attr_bound(source, "data-appspec-page", page_id):
             issues.append(f"{page_id}: data-appspec-page hook is missing")
         for action_id in page.action_ids:
-            if "data-appspec-action" not in source or action_id not in source:
+            if not attr_bound(source, "data-appspec-action", action_id):
                 issues.append(f"{page_id}: action hook {action_id} is missing")
         for evidence_id in page.evidence_ids:
-            if "data-appspec-evidence" not in source or evidence_id not in source:
+            if not attr_bound(source, "data-appspec-evidence", evidence_id):
                 issues.append(f"{page_id}: evidence hook {evidence_id} is missing")
     return issues
 

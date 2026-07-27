@@ -48,6 +48,7 @@ class PipelineContext:
     plan: dict = field(default_factory=dict)
     manifest: dict = field(default_factory=dict)
     design_system: dict = field(default_factory=dict)
+    design_brief: dict = field(default_factory=dict)
     architect: dict = field(default_factory=dict)
     workspace: Any = None
     brand_name: str = "Brand"

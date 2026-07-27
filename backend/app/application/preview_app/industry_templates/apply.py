@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.application.preview_app.brand_brief import resolve_preview_brand_name
 from app.application.preview_app.industry_templates.loader import get_template, pick_template_id
-from app.application.preview_app.industry_templates.seed import normalize_mock_seed
 from app.application.preview_app.product_face import (
     ensure_product_face_on_plan,
     extract_product_face,
@@ -16,6 +16,25 @@ from app.application.preview_app.product_face import (
     gap_fill_public_seed_from_pack,
     materialize_mock_seed,
 )
+
+
+def _resolve_plan_brand_name(
+    plan: dict[str, Any] | None,
+    brand_name: str | None,
+) -> str | None:
+    """When callers omit brand_name, pull from plan brief/concept before materialize."""
+    plan = plan if isinstance(plan, dict) else {}
+    brief = plan.get("brand_brief") if isinstance(plan.get("brand_brief"), dict) else None
+    if not brief and isinstance(plan.get("design_brief"), dict):
+        brief = plan["design_brief"]
+    return resolve_preview_brand_name(
+        brand_name=brand_name,
+        brand_brief=brief,
+        business_name=plan.get("business_name"),
+        concept_name=plan.get("concept_name"),
+        plan=plan,
+        fallback=True,
+    )
 
 
 def _default_imagery_roles(pack: dict[str, Any]) -> dict[str, str]:
@@ -63,9 +82,14 @@ def apply_industry_template_to_plan(
     seed: int | None = 0,
     surface: str = "public",
     context: str | None = None,
+    brand_name: str | None = None,
 ) -> dict[str, Any]:
     """Attach template metadata; pack mock_seed only fills empty product_face slots."""
-    updated = ensure_product_face_on_plan(plan)
+    brand_name = _resolve_plan_brand_name(plan, brand_name)
+    # Extract/stamp without Brand defaults so packs see empty slots.
+    updated = ensure_product_face_on_plan(
+        plan, brand_name=brand_name, fill_defaults=False
+    )
     kind = str(updated.get("product_kind") or "")
     if kind in {"saas_workspace", "internal_ops"}:
         surface = "ops"
@@ -77,8 +101,11 @@ def apply_industry_template_to_plan(
     )
     pack = get_template(tid)
     if not pack:
-        if "mock_seed" not in updated:
-            updated["mock_seed"] = materialize_mock_seed(extract_product_face(updated))
+        face = extract_product_face(updated)
+        updated["product_face"] = face
+        updated["mock_seed"] = materialize_mock_seed(
+            face, brand_name=brand_name, fill_defaults=True
+        )
         return updated
 
     updated["industry_template_id"] = pack["id"]
@@ -108,9 +135,12 @@ def apply_industry_template_to_plan(
     face = gap_fill_public_seed_from_pack(
         face,
         pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None,
+        brand_name=brand_name,
     )
     updated["product_face"] = face
-    updated["mock_seed"] = materialize_mock_seed(face)
+    updated["mock_seed"] = materialize_mock_seed(
+        face, brand_name=brand_name, fill_defaults=True
+    )
     return updated
 
 
@@ -120,9 +150,13 @@ def apply_ops_industry_template_to_plan(
     industry: str | None = None,
     seed: int | None = 0,
     context: str | None = None,
+    brand_name: str | None = None,
 ) -> dict[str, Any]:
     """Ops pack gap-fills empty ops_seed only — never overwrites contract KPIs/hero."""
-    updated = ensure_product_face_on_plan(plan)
+    brand_name = _resolve_plan_brand_name(plan, brand_name)
+    updated = ensure_product_face_on_plan(
+        plan, brand_name=brand_name, fill_defaults=False
+    )
     tid = pick_template_id(
         industry=industry or "",
         surface="ops",
@@ -131,6 +165,11 @@ def apply_ops_industry_template_to_plan(
     )
     pack = get_template(tid)
     if not pack:
+        face = extract_product_face(updated)
+        updated["product_face"] = face
+        updated["mock_seed"] = materialize_mock_seed(
+            face, brand_name=brand_name, fill_defaults=True
+        )
         return updated
 
     updated["ops_template_id"] = pack["id"]
@@ -141,9 +180,12 @@ def apply_ops_industry_template_to_plan(
     face = gap_fill_ops_seed_from_pack(
         face,
         pack.get("mock_seed") if isinstance(pack.get("mock_seed"), dict) else None,
+        brand_name=brand_name,
     )
     updated["product_face"] = face
-    updated["mock_seed"] = materialize_mock_seed(face)
+    updated["mock_seed"] = materialize_mock_seed(
+        face, brand_name=brand_name, fill_defaults=True
+    )
 
     roles = pack.get("imagery_roles") if isinstance(pack.get("imagery_roles"), dict) else None
     if roles:

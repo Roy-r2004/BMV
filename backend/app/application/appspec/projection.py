@@ -7,15 +7,18 @@ or reinterpret canonical IDs.
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
 from app.domain.schemas.app_spec import AppSpec
 
+log = logging.getLogger(__name__)
+
 
 class PreviewScopeError(ValueError):
-    """The required customer journeys cannot fit the configured preview cap."""
+    """Preview scope cannot preserve a viable public product face under the cap."""
 
 
 @dataclass(frozen=True)
@@ -63,17 +66,132 @@ def _must_requirement_ids(app_spec: AppSpec) -> set[str]:
     return {item.id for item in app_spec.requirements if item.priority == "must"}
 
 
+def _page_is_ai(page) -> bool:
+    page_id = str(getattr(page, "id", "") or "").upper()
+    route = str(getattr(page, "route", "") or "").casefold()
+    return (
+        "PAGE-AI" in page_id
+        or page_id.endswith("-AI")
+        or "-AI-" in page_id
+        or "/ai" in route
+        or route.endswith("/ai-features")
+    )
+
+
+def _page_is_demotable(page) -> bool:
+    """Ops/admin and AI surfaces yield to the public product face under the cap."""
+    return getattr(page, "surface", "public") == "ops" or _page_is_ai(page)
+
+
+def _page_keep_rank(page, pages_by_id: Mapping[str, Any]) -> tuple:
+    """Lower ranks stay in preview first when the required set overflows the cap."""
+    route = str(getattr(page, "route", "") or "")
+    page_id = str(getattr(page, "id", "") or "").upper()
+    return (
+        1 if _page_is_ai(page) else 0,
+        1 if getattr(page, "surface", "public") == "ops" else 0,
+        0 if getattr(page, "primary", False) else 1,
+        0 if route in {"/", "/home"} or page_id in {"PAGE-HOME", "PAGE-INDEX"} else 1,
+        0
+        if any(token in page_id for token in ("GALLERY", "LISTING", "CATALOG", "COLLECTION"))
+        else 1,
+        0 if "DETAIL" in page_id or page_id.endswith("-ITEM") else 1,
+        0 if "ABOUT" in page_id else 1,
+        list(pages_by_id).index(page.id) if page.id in pages_by_id else 10_000,
+    )
+
+
+def _journey_keep_rank(journey, pages_by_id: Mapping[str, Any]) -> tuple:
+    page_ids = _journey_page_ids(journey)
+    pages = [pages_by_id[page_id] for page_id in page_ids if page_id in pages_by_id]
+    if not pages:
+        return (9, 9, 9, journey.id)
+    demotable = sum(1 for page in pages if _page_is_demotable(page))
+    ai_count = sum(1 for page in pages if _page_is_ai(page))
+    ops_count = sum(1 for page in pages if getattr(page, "surface", "public") == "ops")
+    public_count = len(pages) - demotable
+    return (
+        0 if demotable == 0 else 1,
+        0 if ai_count == 0 else 1,
+        0 if ops_count == 0 else 1,
+        -public_count,
+        len(page_ids),
+        journey.id,
+    )
+
+
+def _fit_required_pages_to_cap(
+    *,
+    required_journeys: list,
+    required_page_ids: list[str],
+    pages_by_id: Mapping[str, Any],
+    max_pages: int,
+) -> tuple[list[str], list[str], bool]:
+    """Pack whole public-first journeys, then fill remaining slots with ranked pages.
+
+    Returns ``(selected_page_ids, selected_journey_ids, trimmed)``.
+    """
+    if len(required_page_ids) <= max_pages:
+        return (
+            list(required_page_ids),
+            [journey.id for journey in required_journeys],
+            False,
+        )
+
+    selected_pages: list[str] = []
+    selected_journey_ids: list[str] = []
+    ranked_journeys = sorted(
+        required_journeys,
+        key=lambda journey: _journey_keep_rank(journey, pages_by_id),
+    )
+    for journey in ranked_journeys:
+        journey_pages = [pid for pid in _journey_page_ids(journey) if pid in pages_by_id]
+        merged = _ordered_unique([*selected_pages, *journey_pages])
+        if len(merged) <= max_pages:
+            selected_pages = merged
+            selected_journey_ids.append(journey.id)
+
+    required_set = set(required_page_ids)
+    ranked_pages = sorted(
+        (pages_by_id[page_id] for page_id in required_page_ids if page_id in pages_by_id),
+        key=lambda page: _page_keep_rank(page, pages_by_id),
+    )
+    for page in ranked_pages:
+        if len(selected_pages) >= max_pages:
+            break
+        if page.id not in selected_pages:
+            selected_pages.append(page.id)
+
+    selected_set = set(selected_pages)
+    # Recompute whole journeys that fully fit after page-level fill (mega-journeys).
+    selected_journey_ids = _ordered_unique(
+        [
+            *selected_journey_ids,
+            *[
+                journey.id
+                for journey in ranked_journeys
+                if set(_journey_page_ids(journey)).issubset(selected_set)
+                and set(_journey_page_ids(journey)).issubset(required_set)
+            ],
+        ]
+    )
+    return selected_pages, selected_journey_ids, True
+
+
 def select_preview_scope(
     value: AppSpec | Mapping[str, Any],
     *,
     target_pages: int = 6,
     max_pages: int = 8,
 ) -> PreviewScope:
-    """Select whole required journeys, then useful canonical pages up to a cap.
+    """Select required journeys/pages for preview under a hard page cap.
 
-    Required traceability is never truncated to satisfy the cap.  If a complete
-    must-have proof path requires more pages than permitted, generation stops
-    with ``PreviewScopeError`` instead of silently dropping customer scope.
+    Product rule: keep whole journeys when they fit; on overflow, prefer the
+    public product face (home / gallery / detail / about) and demote ops/admin
+    and AI pages into ``deferred_page_ids`` rather than aborting generation.
+    Must-requirements whose proof pages were deferred are reported in
+    ``uncovered_required_requirement_ids`` (soft-fail). Hard-fail only when the
+    scope references unknown pages, or when no viable public face can be kept.
     """
 
     app_spec = _spec(value)
@@ -88,7 +206,6 @@ def select_preview_scope(
         if must_ids.intersection(journey.requirement_ids)
     ]
 
-    selected_journeys = [journey.id for journey in required_journeys]
     selected_pages = _ordered_unique(
         page_id
         for journey in required_journeys
@@ -124,24 +241,80 @@ def select_preview_scope(
         raise PreviewScopeError(
             "AppSpec preview scope references unknown pages: " + ", ".join(unknown)
         )
+
+    selected_journeys = [journey.id for journey in required_journeys]
+    trimmed = False
     if len(selected_pages) > max_pages:
-        raise PreviewScopeError(
-            f"Required journeys need {len(selected_pages)} pages, above the "
-            f"preview maximum of {max_pages}: {', '.join(selected_pages)}"
+        public_required = [
+            page_id
+            for page_id in selected_pages
+            if page_id in pages_by_id and not _page_is_demotable(pages_by_id[page_id])
+        ]
+        selected_pages, selected_journeys, trimmed = _fit_required_pages_to_cap(
+            required_journeys=required_journeys,
+            required_page_ids=selected_pages,
+            pages_by_id=pages_by_id,
+            max_pages=max_pages,
+        )
+        # Keep role defaults for journeys that survived the trim, if slots remain.
+        kept_roles = {
+            journey.role_id
+            for journey in required_journeys
+            if journey.id in set(selected_journeys)
+        }
+        for role in app_spec.roles:
+            if role.id not in kept_roles:
+                continue
+            if len(selected_pages) >= max_pages:
+                break
+            if role.default_page_id in pages_by_id and role.default_page_id not in selected_pages:
+                selected_pages.append(role.default_page_id)
+
+        if not selected_pages:
+            raise PreviewScopeError(
+                f"Required journeys need more than the preview maximum of {max_pages} "
+                "pages and no viable subset could be selected"
+            )
+        if public_required and not any(
+            page_id in selected_pages
+            and page_id in pages_by_id
+            and not _page_is_demotable(pages_by_id[page_id])
+            for page_id in public_required
+        ):
+            raise PreviewScopeError(
+                "Required public product face cannot fit the preview maximum of "
+                f"{max_pages} pages: {', '.join(public_required)}"
+            )
+        required_before = _ordered_unique(
+            [
+                *(
+                    pid
+                    for journey in required_journeys
+                    for pid in _journey_page_ids(journey)
+                ),
+                *public_required,
+            ]
+        )
+        log.warning(
+            "AppSpec preview scope trimmed to %s pages (max=%s); deferred=%s; "
+            "selected_journeys=%s",
+            len(selected_pages),
+            max_pages,
+            [page_id for page_id in required_before if page_id not in selected_pages],
+            selected_journeys,
         )
 
     # Enrich a small product with real canonical pages; never invent padding.
     ranked_remaining = sorted(
         (page for page in app_spec.pages if page.id not in selected_pages),
-        key=lambda page: (
-            0 if getattr(page, "primary", False) else 1,
-            0 if page.route in {"/", "/home"} else 1,
-            list(pages_by_id).index(page.id),
-        ),
+        key=lambda page: _page_keep_rank(page, pages_by_id),
     )
     for page in ranked_remaining:
         if len(selected_pages) >= target_pages:
             break
+        # After a trim, do not re-introduce demoted ops/AI pages via enrichment.
+        if trimmed and _page_is_demotable(page):
+            continue
         selected_pages.append(page.id)
 
     selected_set = set(selected_pages)
@@ -152,7 +325,7 @@ def select_preview_scope(
             covered.append(requirement.id)
 
     uncovered_required = sorted(must_ids.difference(covered))
-    if uncovered_required:
+    if uncovered_required and not trimmed:
         raise PreviewScopeError(
             "Required requirements have no complete selected-page proof path: "
             + ", ".join(uncovered_required)
@@ -165,7 +338,7 @@ def select_preview_scope(
             page.id for page in app_spec.pages if page.id not in selected_set
         ),
         covered_requirement_ids=tuple(covered),
-        uncovered_required_requirement_ids=(),
+        uncovered_required_requirement_ids=tuple(uncovered_required) if trimmed else (),
     )
 
 

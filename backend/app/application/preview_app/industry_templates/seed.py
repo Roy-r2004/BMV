@@ -1,7 +1,23 @@
 """Normalize industry pack mock_seed into a scaffold-friendly shape."""
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
+
+
+def _collect_string_leaves(value: Any, out: set[str]) -> None:
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            out.add(text)
+        return
+    if isinstance(value, list):
+        for entry in value:
+            _collect_string_leaves(entry, out)
+        return
+    if isinstance(value, dict):
+        for entry in value.values():
+            _collect_string_leaves(entry, out)
 
 
 def _as_item_dicts(raw: Any) -> list[dict[str, str]]:
@@ -175,10 +191,19 @@ def _normalize_table_rows(raw: Any, items: list[dict[str, str]]) -> list[dict[st
     return rows
 
 
-def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
+def normalize_mock_seed(
+    raw: dict[str, Any] | None,
+    *,
+    brand_name: str | None = None,
+) -> dict[str, Any]:
     """Collapse pack-specific keys into one seed used by mock.ts + scaffolds."""
     src = dict(raw or {})
     tone = str(src.get("tone") or "branded").strip() or "branded"
+    brand = (
+        (brand_name or "").strip()
+        or str(src.get("brandName") or src.get("brand_name") or "").strip()
+        or "Brand"
+    )
 
     items = _as_item_dicts(src.get("items"))
     if not items:
@@ -188,15 +213,15 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
                 break
     if not items:
         items = [
-            {"title": "Signature offering", "description": "A dependable starting point."},
+            {"title": f"{brand} signature", "description": f"A dependable starting point at {brand}."},
             {"title": "Everyday essential", "description": "Built for daily use."},
-            {"title": "Member favorite", "description": "The one guests come back for."},
+            {"title": "Guest favorite", "description": f"The one people come back to {brand} for."},
         ]
 
     process = _as_item_dicts(src.get("process") or src.get("steps"))
     if not process:
         process = [
-            {"title": "Choose", "description": "Find the right option."},
+            {"title": "Choose", "description": f"Find the right option at {brand}."},
             {"title": "Confirm", "description": "Select a convenient time."},
             {"title": "Enjoy", "description": "We take care of the details."},
         ]
@@ -210,8 +235,8 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
                 credentials.append({"title": title, "detail": detail})
     if not credentials:
         credentials = [
-            {"title": "Brand-first chrome", "detail": "Every surface carries your color and type."},
-            {"title": "Motion with purpose", "detail": "Kenburns, reveals, and lifts — never static."},
+            {"title": "Known locally", "detail": f"Neighbors recommend {brand} for consistent results."},
+            {"title": "Clear next steps", "detail": "Booking and follow-up stay simple from the start."},
         ]
 
     testimonials = []
@@ -227,7 +252,7 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
     if not testimonials:
         testimonials = [
             {
-                "quote": "Clear, warm, and easy from start to finish.",
+                "quote": f"Clear, warm, and easy — exactly what I wanted from {brand}.",
                 "author": "A returning client",
                 "role": "Verified guest",
             }
@@ -237,16 +262,16 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
     if not features:
         features = [
             {
-                "title": "Immersive first view",
-                "description": "Atmosphere, motion, and brand color from the first scroll.",
-            },
-            {
-                "title": "Real product moments",
-                "description": "Concrete screens — bookings, tickets, KPIs — not placeholder cards.",
+                "title": f"What {brand} is known for",
+                "description": "Concrete offerings guests can book without guessing.",
             },
             {
                 "title": "Guided next step",
-                "description": "Every section pushes toward a clear action.",
+                "description": "Every section points toward a clear action.",
+            },
+            {
+                "title": "Built for return visits",
+                "description": f"Details that make {brand} easy to come back to.",
             },
         ]
 
@@ -270,14 +295,17 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
             }
         )
 
+    eyebrow = str(hero_src.get("eyebrow") or "").strip() or brand
+
     seed: dict[str, Any] = {
         "tone": tone,
         "hero": {
+            "eyebrow": eyebrow,
             "headline": str(hero_src.get("headline") or "").strip(),
             "subcopy": str(
                 hero_src.get("subcopy")
                 or src.get("subcopy")
-                or "Cinematic first impression — brand-forward, vivid, and ready for the next step."
+                or f"A clear next step from {brand} — warm, specific, and ready when you are."
             ).strip(),
             "primaryCta": {
                 "label": str(primary.get("label") or nav_cta.get("label") or "Explore now"),
@@ -294,16 +322,16 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
         "credentials": credentials,
         "testimonials": testimonials,
         "treatments": treatments,
-        "showcaseHeading": str(src.get("showcaseHeading") or "Featured experiences"),
-        "featuresHeading": str(src.get("featuresHeading") or "Designed to feel alive"),
-        "processHeading": str(src.get("processHeading") or "How it works"),
-        "credentialsHeading": str(src.get("credentialsHeading") or "Why it stands out"),
-        "testimonialsHeading": str(src.get("testimonialsHeading") or "What clients say"),
+        "showcaseHeading": str(src.get("showcaseHeading") or f"From {brand}"),
+        "featuresHeading": str(src.get("featuresHeading") or f"What {brand} offers"),
+        "processHeading": str(src.get("processHeading") or f"How {brand} works"),
+        "credentialsHeading": str(src.get("credentialsHeading") or f"Why {brand}"),
+        "testimonialsHeading": str(src.get("testimonialsHeading") or f"Guests of {brand}"),
         "cta": {
-            "heading": str(cta_src.get("heading") or "Make it unforgettable"),
+            "heading": str(cta_src.get("heading") or f"Ready for {brand}?"),
             "description": str(
                 cta_src.get("description")
-                or "Book the next chapter — polished, branded, never bland."
+                or f"Tell {brand} what you need — clear options, real next steps."
             ),
             "primaryLabel": str(cta_src.get("primaryLabel") or "Get started"),
             "primaryHref": str(cta_src.get("primaryHref") or "#details"),
@@ -313,14 +341,14 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
         "footer": {
             "description": str(
                 footer_src.get("description")
-                or "Premium presence from first glance to booked revenue."
+                or f"{brand} — clear choices and real bookings."
             ),
         },
         "trustLabels": [
             str(x)
             for x in (
                 src.get("trustLabels")
-                or ["Signature craft", "On-time delivery", "Repeat guests", "Local favorite"]
+                or [f"{brand} quality", "On schedule", "Repeat guests", "Local favorite"]
             )
             if str(x).strip()
         ],
@@ -376,3 +404,46 @@ def normalize_mock_seed(raw: dict[str, Any] | None) -> dict[str, Any]:
         seed["tableRows"] = table_rows
 
     return seed
+
+
+@lru_cache(maxsize=1)
+def early_brand_placeholder_strings() -> frozenset[str]:
+    """Exact string leaves of ``normalize_mock_seed`` defaults when brand is literal Brand.
+
+    Shared with product_face scrub so Brand-templated sticky fields can be
+    cleared and refilled after a late Brand→real upgrade — no blanket replace.
+    """
+    seed = normalize_mock_seed({}, brand_name="Brand")
+    out: set[str] = set()
+    _collect_string_leaves(seed, out)
+    out.add("Brand")
+    return frozenset(out)
+
+
+@lru_cache(maxsize=1)
+def early_brand_trust_labels() -> frozenset[str]:
+    """Exact Brand-default ``trustLabels`` set for co-resident / orphan-subset scrub.
+
+    Brand-less members (``On schedule``, …) stay scrubbable only in list context —
+    not widened into ``early_brand_placeholder_strings`` scalar scrub.
+    """
+    seed = normalize_mock_seed({}, brand_name="Brand")
+    labels = seed.get("trustLabels") or []
+    return frozenset(str(x).strip() for x in labels if str(x).strip())
+
+
+@lru_cache(maxsize=1)
+def early_brand_placeholder_item_titles() -> frozenset[str]:
+    """Titles/names from Brand-default list entries (items, features, process, …)."""
+    seed = normalize_mock_seed({}, brand_name="Brand")
+    titles: set[str] = set()
+    for key in ("items", "features", "process", "credentials", "treatments"):
+        for entry in seed.get(key) or []:
+            if not isinstance(entry, dict):
+                continue
+            title = str(
+                entry.get("title") or entry.get("name") or entry.get("label") or ""
+            ).strip()
+            if title:
+                titles.add(title)
+    return frozenset(titles)

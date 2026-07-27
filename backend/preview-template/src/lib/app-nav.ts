@@ -126,11 +126,29 @@ export function publicCta() {
         `${item.label || ''} ${item.path || ''} ${item.href || ''}`
       )
     ) || null;
-  const href = String(bookish?.href || bookish?.path || firstHref(publicLinks, '/'));
-  const bookLabel = /book|class|schedule|workshop/i.test(
-    `${bookish?.label || ''} ${bookish?.path || ''} ${bookish?.href || ''}`
-  );
-  return { label: bookLabel ? 'Book' : 'Get started', href };
+  if (bookish) {
+    const href = String(bookish.href || bookish.path || '/');
+    const bookLabel = /book|class|schedule|workshop/i.test(
+      `${bookish.label || ''} ${bookish.path || ''} ${bookish.href || ''}`
+    );
+    return { label: bookLabel ? 'Book' : 'Get started', href };
+  }
+  // Storefronts: prefer collection/gallery/about over inventing a Book CTA.
+  const browse =
+    publicLinks.find((item) =>
+      /gallery|collection|shop|menu|work|about|catalog/i.test(
+        `${item.label || ''} ${item.path || ''} ${item.href || ''}`
+      )
+    ) || null;
+  const href = String(browse?.href || browse?.path || firstHref(publicLinks, '/'));
+  const label = /gallery|collection|work|catalog/i.test(
+    `${browse?.label || ''} ${browse?.path || ''} ${browse?.href || ''}`
+  )
+    ? 'View collection'
+    : /about/i.test(`${browse?.label || ''} ${browse?.path || ''} ${browse?.href || ''}`)
+      ? 'About'
+      : 'Explore';
+  return { label, href };
 }
 
 export function memberCta() {

@@ -81,14 +81,25 @@ const BRAND_BY_RECIPE: Record<RecipeId, BrandPlacement> = {
   craft: 'start',
 };
 
+/**
+ * Backend seals overlay-qualified ids (e.g. dense-ops-ledger). Kit maps by family only.
+ * Without this, unknown ids silently fall through to warm-service hero/chrome.
+ */
+export function normalizeRecipeId(raw: string | null | undefined): RecipeId {
+  const value = String(raw ?? '').trim();
+  if (value && value in HERO_BY_RECIPE) return value as RecipeId;
+  const families = Object.keys(HERO_BY_RECIPE) as RecipeId[];
+  const hit = families
+    .filter((family) => value === family || value.startsWith(`${family}-`))
+    .sort((a, b) => b.length - a.length)[0];
+  return hit ?? 'warm-service';
+}
+
 export function currentRecipeId(): RecipeId {
   const fromDom =
-    typeof document !== 'undefined'
-      ? (document.documentElement.dataset.recipe as RecipeId | undefined)
-      : undefined;
-  if (fromDom && fromDom in HERO_BY_RECIPE) return fromDom;
-  if (RECIPE_ID in HERO_BY_RECIPE) return RECIPE_ID as RecipeId;
-  return 'warm-service';
+    typeof document !== 'undefined' ? document.documentElement.dataset.recipe : undefined;
+  if (fromDom) return normalizeRecipeId(fromDom);
+  return normalizeRecipeId(RECIPE_ID);
 }
 
 export function recipeHeroVariant(recipeId: RecipeId = currentRecipeId()): HeroVariant {

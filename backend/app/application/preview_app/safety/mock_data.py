@@ -504,27 +504,42 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
     brand = (brand_name or "Brand").replace("\\", "\\\\").replace("'", "\\'")
     inject = (
         "\n  hero: {\n"
+        f"    eyebrow: '{brand}',\n"
         f"    headline: '{brand}',\n"
-        "    subcopy: 'A clear next step — polished, branded, and ready to book.',\n"
+        f"    subcopy: 'A clear next step from {brand} — warm, specific, and ready when you are.',\n"
         "    primaryCta: { label: 'Get started', href: '#details' },\n"
         "    secondaryCta: { label: 'See how it works', href: '#process' },\n"
         "  },\n"
         "  items: [\n"
-        "    { title: 'Signature offering', description: 'A dependable starting point.' },\n"
+        f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
         "    { title: 'Everyday essential', description: 'Built for daily use.' },\n"
-        "    { title: 'Member favorite', description: 'The one guests come back for.' },\n"
+        f"    {{ title: 'Guest favorite', description: 'The one people come back to {brand} for.' }},\n"
         "  ],\n"
-        "  showcaseHeading: 'Featured experiences',\n"
+        "  features: [\n"
+        f"    {{ title: 'What {brand} is known for', description: 'Concrete offerings guests can book without guessing.' }},\n"
+        "    { title: 'Guided next step', description: 'Every section points toward a clear action.' },\n"
+        f"    {{ title: 'Built for return visits', description: 'Details that make {brand} easy to come back to.' }},\n"
+        "  ],\n"
+        f"  featuresHeading: 'What {brand} offers',\n"
+        f"  showcaseHeading: 'From {brand}',\n"
+        f"  credentialsHeading: 'Why {brand}',\n"
+        "  credentials: [\n"
+        f"    {{ title: 'Known locally', detail: 'Neighbors recommend {brand} for consistent results.' }},\n"
+        "    { title: 'Clear next steps', detail: 'Booking and follow-up stay simple from the start.' },\n"
+        "  ],\n"
+        "  trustLabels: [\n"
+        f"    '{brand} quality', 'On schedule', 'Repeat guests', 'Local favorite',\n"
+        "  ],\n"
         "  cta: {\n"
-        "    heading: 'Make it unforgettable',\n"
-        "    description: 'Book the next chapter — polished, branded, never bland.',\n"
+        f"    heading: 'Ready for {brand}?',\n"
+        f"    description: 'Tell {brand} what you need — clear options, real next steps.',\n"
         "    primaryLabel: 'Get started',\n"
         "    primaryHref: '#details',\n"
         "    secondaryLabel: 'Talk to us',\n"
         "    secondaryHref: '#contact',\n"
         "  },\n"
         "  footer: {\n"
-        "    description: 'Premium presence from first glance to booked revenue.',\n"
+        f"    description: '{brand} — clear choices and real bookings.',\n"
         "  },\n"
     )
     updated, n = re.subn(
@@ -635,3 +650,148 @@ def ensure_mock_exports(
     mock = mock.rstrip() + "\n\n// build-correctness guard: auto-added missing exports\n" + additions + "\n"
     write_file(workspace, "src/data/mock.ts", mock)
     return missing
+
+
+_IMAGES_EXPORT_RE = re.compile(
+    r"export\s+const\s+images\s*=\s*\{.*?\n\};",
+    re.DOTALL,
+)
+_UNSPLASH_URL_RE = re.compile(
+    r"https://images\.unsplash\.com/photo-[A-Za-z0-9_-]+(?:\?[^\s'\"`)]*)?"
+)
+_DEAD_BOOK_HREFS = (
+    "/book-appointment",
+    "/book-appointments",
+    "/booking-appointment",
+)
+_BRAND_POISON_RE = re.compile(
+    r'brandName=\{(?:"Brand"|\'Brand\'|\{?"Brand"?\}|"Brand")\}'
+)
+_BRAND_POISON_SIMPLE = 'brandName={"Brand"}'
+_BRAND_POISON_SIMPLE_ALT = "brandName={'Brand'}"
+
+
+def sync_mock_images(workspace, images: dict | None, brand_name: str | None = None) -> list[str]:
+    """Force ``export const images`` to the pipeline slot map (stops AI photo-ID 404s).
+
+    Also rewrites stray Unsplash URLs elsewhere in mock.ts / pages that are not in the
+    curated/pipeline set — polish often invents ``photo-…`` IDs that 404.
+    """
+    from app.application.services.industry_images import (
+        curated_library_urls,
+        curated_photo_ids,
+        normalize_image_slot_map,
+    )
+
+    slot_map = normalize_image_slot_map(
+        {str(k): str(v) for k, v in (images or {}).items() if v}
+    )
+    if not slot_map:
+        return []
+
+    mock_path = "src/data/mock.ts"
+    try:
+        mock = read_file(workspace, mock_path)
+    except Exception:
+        return []
+
+    actions: list[str] = []
+    images_block = (
+        "export const images = "
+        + json.dumps(slot_map, indent=2, ensure_ascii=False)
+        + ";\n"
+    )
+    if _IMAGES_EXPORT_RE.search(mock):
+        updated = _IMAGES_EXPORT_RE.sub(images_block.rstrip(), mock, count=1)
+    elif "export const images" not in mock:
+        updated = mock.rstrip() + "\n\n" + images_block
+    else:
+        updated = mock
+
+    if updated != mock:
+        actions.append("images")
+        mock = updated
+
+    allowed = set(slot_map.values()) | set(curated_library_urls())
+    allowed_ids = set(curated_photo_ids()) | {
+        m.group(0)
+        for url in allowed
+        for m in [re.search(r"photo-[A-Za-z0-9_-]+", url)]
+        if m
+    }
+    fallback_cycle = [slot_map[s] for s in ("card1", "card2", "card3", "hero", "ambient") if s in slot_map]
+    if not fallback_cycle:
+        fallback_cycle = list(slot_map.values())
+
+    def _replace_url(match: re.Match[str], *, index: list[int]) -> str:
+        url = match.group(0)
+        pid = re.search(r"photo-[A-Za-z0-9_-]+", url)
+        if pid and pid.group(0) in allowed_ids:
+            return url
+        # Keep non-Unsplash https (e.g. Pexels) untouched.
+        if "images.unsplash.com" not in url:
+            return url
+        replacement = fallback_cycle[index[0] % len(fallback_cycle)]
+        index[0] += 1
+        return replacement
+
+    idx = [0]
+    scrubbed = _UNSPLASH_URL_RE.sub(lambda m: _replace_url(m, index=idx), mock)
+    if scrubbed != mock:
+        actions.append("unsplash-scrub")
+        mock = scrubbed
+
+    # Dead booking CTAs — map to canonical /book (App.tsx also aliases these paths).
+    rewritten = mock
+    for dead in _DEAD_BOOK_HREFS:
+        if dead in rewritten:
+            rewritten = rewritten.replace(dead, "/book")
+    if rewritten != mock:
+        actions.append("book-href")
+        mock = rewritten
+
+    if actions:
+        write_file(workspace, mock_path, mock)
+        guard_log.info("sync_mock_images: %s", ", ".join(actions))
+
+    # Scrub invented Unsplash + Brand poison across generated pages.
+    brand = (brand_name or "").strip() or "Brand"
+    brand_js = json.dumps(brand)
+    page_actions = 0
+    try:
+        from app.application.preview_app.workspace import list_source_files
+
+        page_paths = [
+            p
+            for p in list_source_files(workspace)
+            if p.startswith("src/pages/") and p.endswith((".tsx", ".ts", ".jsx", ".js"))
+        ]
+    except Exception:
+        page_paths = []
+
+    for rel in page_paths:
+        try:
+            text = read_file(workspace, rel)
+        except Exception:
+            continue
+        original = text
+        pidx = [0]
+        text = _UNSPLASH_URL_RE.sub(lambda m: _replace_url(m, index=pidx), text)
+        for dead in _DEAD_BOOK_HREFS:
+            if dead in text:
+                text = text.replace(dead, "/book")
+        if _BRAND_POISON_SIMPLE in text:
+            text = text.replace(_BRAND_POISON_SIMPLE, f"brandName={{{brand_js}}}")
+        if _BRAND_POISON_SIMPLE_ALT in text:
+            text = text.replace(_BRAND_POISON_SIMPLE_ALT, f"brandName={{{brand_js}}}")
+        # Also catch JSX string form brandName="Brand"
+        text = re.sub(r'brandName="Brand"', f"brandName={{{brand_js}}}", text)
+        text = re.sub(r"brandName='Brand'", f"brandName={{{brand_js}}}", text)
+        if text != original:
+            write_file(workspace, rel, text)
+            page_actions += 1
+
+    if page_actions:
+        actions.append(f"pages:{page_actions}")
+        guard_log.info("sync_mock_images scrubbed %s page file(s)", page_actions)
+    return actions

@@ -61,6 +61,93 @@ export default function Page() {
         action_ids=["ACTION-SUBMIT"],
         evidence_ids=["EVIDENCE-FORM", "EVIDENCE-CONFIRMATION"],
     )
+    # Strip must sit inside the first return, not as a second dead return.
+    assert out.count("return") == 1
+    assert out.index("data-appspec-page") < out.index("</main>")
+
+
+def test_inject_hooks_into_bare_jsx_return_is_reachable() -> None:
+    """Regression: bare `return <jsx>;` must not leave hooks as dead code."""
+    source = """
+export default function Page() {
+  return <main><p>Hi</p></main>;
+}
+"""
+    out = inject_appspec_contract_hooks(
+        source,
+        page_id="PAGE-A",
+        action_ids=["ACTION-1"],
+        evidence_ids=["EV-1"],
+    )
+    assert 'data-appspec-page="PAGE-A"' in out
+    assert 'data-appspec-action="ACTION-1"' in out
+    assert out.count("return") == 1
+    assert "return (" in out
+    # Hooks appear before the original JSX root inside the same return.
+    assert out.index("data-appspec-page") < out.index("<main>")
+    assert page_hooks_present(
+        out, page_id="PAGE-A", action_ids=["ACTION-1"], evidence_ids=["EV-1"]
+    )
+
+
+def test_inject_skips_helper_return_above_default_export() -> None:
+    source = """
+function helper() {
+  return (
+    <span>helper</span>
+  );
+}
+export default function Page() {
+  return (
+    <main>{helper()}</main>
+  );
+}
+"""
+    out = inject_appspec_contract_hooks(
+        source,
+        page_id="PAGE-A",
+        action_ids=["ACTION-1"],
+        evidence_ids=[],
+    )
+    helper_return = out.index("function helper")
+    page_export = out.index("export default function Page")
+    hook_at = out.index('data-appspec-page="PAGE-A"')
+    assert helper_return < page_export < hook_at
+
+
+def test_inject_named_export_default_component() -> None:
+    source = """
+function BookPage() {
+  return <main><p>Book</p></main>;
+}
+export default BookPage;
+"""
+    out = inject_appspec_contract_hooks(
+        source,
+        page_id="PAGE-BOOK",
+        action_ids=["ACTION-SUBMIT"],
+        evidence_ids=["EVIDENCE-FORM"],
+    )
+    assert out.count("return") == 1
+    assert out.index('data-appspec-page="PAGE-BOOK"') < out.index("<main>")
+    assert "export default BookPage" in out
+
+
+def test_page_hooks_present_requires_attr_binding() -> None:
+    # Id mentioned in copy must not satisfy the hook check.
+    loose = '''
+export default function Page() {
+  return (
+    <main>
+      <p>See PAGE-A and ACTION-1 in the docs</p>
+      <div data-appspec-page="OTHER" />
+    </main>
+  );
+}
+'''
+    assert not page_hooks_present(
+        loose, page_id="PAGE-A", action_ids=["ACTION-1"], evidence_ids=[]
+    )
 
 
 def test_scaffold_includes_appspec_hooks_from_route() -> None:
@@ -110,9 +197,13 @@ def test_ensure_workspace_hooks_heals_missing_attrs() -> None:
 
 def main() -> None:
     test_inject_hooks_into_bare_page()
+    test_inject_hooks_into_bare_jsx_return_is_reachable()
+    test_inject_skips_helper_return_above_default_export()
+    test_inject_named_export_default_component()
+    test_page_hooks_present_requires_attr_binding()
     test_scaffold_includes_appspec_hooks_from_route()
     test_ensure_workspace_hooks_heals_missing_attrs()
-    print("AppSpec hooks tests passed (3 tests)")
+    print("AppSpec hooks tests passed (7 tests)")
 
 
 if __name__ == "__main__":

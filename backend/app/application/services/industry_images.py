@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from typing import Any
 
 import requests
@@ -50,12 +51,21 @@ _LIBRARY: dict[str, dict[str, str]] = {
         "ambient": "https://images.unsplash.com/photo-1551190822-a9333d879b1f?w=900&q=80&fit=crop&auto=format",
     },
     "tech": {
-        "hero": "https://images.unsplash.com/photo-1551434678-e076c223a691?w=1400&q=80&fit=crop&auto=format",
-        "hero2": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1400&q=80&fit=crop&auto=format",
-        "card1": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=700&q=80&fit=crop&auto=format",
-        "card2": "https://images.unsplash.com/photo-1537432376769-00f5c2f4c8d2?w=700&q=80&fit=crop&auto=format",
-        "card3": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=700&q=80&fit=crop&auto=format",
-        "ambient": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=80&fit=crop&auto=format",
+        # photo-1551434678… formerly 404'd on images.unsplash.com — keep CDN-only known-good IDs.
+        "hero": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1400&q=80&fit=crop&auto=format",
+        "hero2": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1400&q=80&fit=crop&auto=format",
+        "card1": "https://images.unsplash.com/photo-1537432376769-00f5c2f4c8d2?w=700&q=80&fit=crop&auto=format",
+        "card2": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=700&q=80&fit=crop&auto=format",
+        "card3": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=700&q=80&fit=crop&auto=format",
+        "ambient": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=900&q=80&fit=crop&auto=format",
+    },
+    "art": {
+        "hero": "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=1400&q=80&fit=crop&auto=format",
+        "hero2": "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=1400&q=80&fit=crop&auto=format",
+        "card1": "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=700&q=80&fit=crop&auto=format",
+        "card2": "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=700&q=80&fit=crop&auto=format",
+        "card3": "https://images.unsplash.com/photo-1482160549825-59d1b23cb208?w=700&q=80&fit=crop&auto=format",
+        "ambient": "https://images.unsplash.com/photo-1549490349-8643362247b5?w=900&q=80&fit=crop&auto=format",
     },
     "realestate": {
         "hero": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1400&q=80&fit=crop&auto=format",
@@ -92,6 +102,22 @@ _LIBRARY: dict[str, dict[str, str]] = {
 }
 
 _INDUSTRY_KEYWORDS: dict[str, list[str]] = {
+    "art": [
+        "fine art",
+        "art gallery",
+        "artwork",
+        "artworks",
+        "artist",
+        "atelier",
+        "oil painting",
+        "paintings",
+        "painting studio",
+        "sculpture",
+        "exhibition",
+        "curated gallery",
+        "gallery",
+        "canvas",
+    ],
     "beauty": ["beauty", "skin", "spa", "facial", "salon", "cosmetic", "aesthetic", "skincare", "hair", "nail", "wellness", "massage"],
     "fitness": ["fitness", "gym", "sport", "yoga", "pilates", "crossfit", "personal trainer", "coach", "workout", "health coach", "nutrition", "dietitian"],
     "food": ["food", "restaurant", "cafe", "bakery", "catering", "meal", "kitchen", "chef", "coffee", "bar", "bistro", "dining"],
@@ -157,6 +183,7 @@ def _slot_queries(
     # Prefer concrete industry words for search quality
     category = _resolve_category(industry)
     category_hint = {
+        "art": "art gallery painting studio",
         "beauty": "spa salon beauty",
         "fitness": "gym fitness training",
         "food": "restaurant food dining",
@@ -253,6 +280,53 @@ def _fetch_pexels_images(
     return result
 
 
+def curated_library_urls() -> frozenset[str]:
+    """All known-good curated CDN URLs (for scrubbing AI-invented Unsplash IDs)."""
+    urls: set[str] = set()
+    for bucket in _LIBRARY.values():
+        urls.update(bucket.values())
+    return frozenset(urls)
+
+
+def curated_photo_ids() -> frozenset[str]:
+    """Photo ids present in the curated Unsplash CDN allowlist."""
+    ids: set[str] = set()
+    for url in curated_library_urls():
+        m = re.search(r"photo-[A-Za-z0-9_-]+", url)
+        if m:
+            ids.add(m.group(0))
+    return frozenset(ids)
+
+
+def _is_allowed_image_url(url: str, *, allowed_ids: frozenset[str]) -> bool:
+    text = (url or "").strip()
+    if not text.startswith(("https://", "http://")):
+        return False
+    # Pexels / non-Unsplash CDNs are trusted when the pipeline fetched them.
+    if "images.unsplash.com" not in text:
+        return True
+    m = re.search(r"photo-[A-Za-z0-9_-]+", text)
+    return bool(m and m.group(0) in allowed_ids)
+
+
+def normalize_image_slot_map(images: dict[str, str] | None) -> dict[str, str]:
+    """Ensure required slots exist; drop unknown Unsplash photo IDs (AI 404s)."""
+    base = _curated_fallback("generic")
+    allowed_ids = curated_photo_ids()
+    out = dict(base)
+    if images:
+        for key, value in images.items():
+            url = str(value or "").strip()
+            if _is_allowed_image_url(url, allowed_ids=allowed_ids):
+                out[str(key)] = url
+    for slot in _SLOTS:
+        if slot not in out or not _is_allowed_image_url(
+            str(out.get(slot) or ""), allowed_ids=allowed_ids
+        ):
+            out[slot] = base[slot]
+    return out
+
+
 def get_images_for_industry(
     industry: str,
     seed: str | int | None = None,
@@ -287,9 +361,11 @@ def get_images_for_industry(
                     business_name,
                     list(pexels.keys()),
                 )
-                return pexels
+                return normalize_image_slot_map(pexels)
             logger.warning("Pexels returned incomplete set; using curated fallback")
         except Exception as exc:
             logger.warning("Pexels fetch failed (%s); using curated fallback", exc)
 
-    return _curated_fallback(industry, seed=seed, hero_override=hero_override)
+    return normalize_image_slot_map(
+        _curated_fallback(industry, seed=seed, hero_override=hero_override)
+    )

@@ -4,6 +4,10 @@ Return the COMPLETE TypeScript/React file — no markdown fences.
 === BUSINESS CONTEXT ===
 {{ full_context }}
 
+{% if design_brief_block is defined and design_brief_block %}
+{{ design_brief_block }}
+{% endif %}
+
 === PAGE BRIEF ===
 {{ file_instructions }}
 
@@ -28,4 +32,13 @@ RULES:
 - Do NOT invent local Nav/PublicNav/AdminLayout components. Do NOT add Dialog/Switch/Toggle or forbidden kit props.
 - Replace ONLY the JSX inside each `slots.<name>: (...)` value with business-specific catalogue components already imported from `@/ui`.
 - Keep every assigned slot key; do not add inventeds slots.
+- Match the sealed design brief mood, voice, and signature — do not invent a second brand face.
 - React 19 + TypeScript + Tailwind. Return the full file starting with imports.
+
+{% if skeleton_id == "public-home" %}
+=== PUBLIC-HOME FLOOR ===
+- Keep seed bindings (`seed.hero.*`, `seed.features`, `images.hero`, FeatureBento `imagePool`) — fill JSX only, do not invent a second architecture.
+- Pass a business-specific `eyebrow` when `seed.hero.eyebrow` is present (never rely on craft’s “Handmade · Small batch”).
+- Brand display first: MarketingHero `brandName` dominates; headline/subcopy/CTAs stay secondary. No `variant="compact"` on home.
+- Forbid agency mush / meta-demo speak as visible copy: “Designed to feel alive”, “Make it unforgettable”, “Premium presence from first glance…”, “Cinematic first impression…”, “Book the next chapter…”, “Signature craft”, “On-time delivery”.
+{% endif %}

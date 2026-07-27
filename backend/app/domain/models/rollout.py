@@ -279,7 +279,7 @@ class PreviewShadowEvaluationRecord(Base):
             name="ck_shadow_result_status",
         ),
         CheckConstraint(
-            "no_serving_mutation IN (0, 1)",
+            "no_serving_mutation IS TRUE",
             name="ck_shadow_no_serving_mutation",
         ),
         UniqueConstraint("evaluation_sha256", name="uq_shadow_evaluation_sha256"),

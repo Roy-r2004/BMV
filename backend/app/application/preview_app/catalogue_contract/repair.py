@@ -25,6 +25,7 @@ from app.application.preview_app.catalogue_contract.validate import (
     blocking_contract_errors,
     validate_catalogue_page_content,
 )
+from app.application.preview_app.patterns import default_export_search_from
 from app.application.services.ai_features import ai_feature_hub_page_source
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,32 @@ _FACE_SKELETONS = frozenset(
     {"public-home", "public-service", "public-detail", "public-booking"}
 )
 _COMPOSER_FIXABLE = frozenset({"SkeletonComposer invocation", "assigned skeleton literal"})
+
+
+def _named_ui_imports(clause: str) -> set[str]:
+    return {
+        token.strip().split(" as ")[0].replace("type ", "").strip()
+        for token in clause.split(",")
+        if token.strip()
+    }
+
+
+def _ensure_ui_import_names(content: str, needed: list[str]) -> str:
+    """Add missing identifiers to an existing ``from '@/ui'`` import, if present."""
+    ui_import = _UI_IMPORT_RE.search(content)
+    if not ui_import or not needed:
+        return content
+    names = _named_ui_imports(ui_import.group(1))
+    missing = [name for name in needed if name not in names]
+    if not missing:
+        return content
+    current = ui_import.group(1).strip().rstrip(",").strip()
+    merged = ", ".join(filter(None, [current, ", ".join(missing)]))
+    return content.replace(
+        ui_import.group(0),
+        f"import {{ {merged} }} from '@/ui';",
+        1,
+    )
 
 
 def lock_recipe_section_order(content: str, route: dict) -> str:
@@ -126,23 +153,10 @@ def repair_skeleton_composer_invocation(
 
     ui_import = _UI_IMPORT_RE.search(repaired)
     if ui_import:
-        names = {
-            token.strip().split(" as ")[0].replace("type ", "").strip()
-            for token in ui_import.group(1).split(",")
-            if token.strip()
-        }
         needed = ["getSkeleton", "SkeletonComposer"]
         if skeleton_id == "ops-dashboard":
             needed = ["getSkeleton", "composeSkeletonLayout"]
-        missing = [name for name in needed if name not in names]
-        if missing:
-            current = ui_import.group(1).strip().rstrip(",").strip()
-            merged = ", ".join(filter(None, [current, ", ".join(missing)]))
-            repaired = repaired.replace(
-                ui_import.group(0),
-                f"import {{ {merged} }} from '@/ui';",
-                1,
-            )
+        repaired = _ensure_ui_import_names(repaired, needed)
 
     composer_jsx = None
     if skeleton_id != "ops-dashboard":
@@ -156,12 +170,17 @@ def repair_skeleton_composer_invocation(
     if composer_jsx:
         if _COMPOSER_INVOCATION_RE.search(repaired):
             repaired = _COMPOSER_INVOCATION_RE.sub(composer_jsx, repaired, count=1)
-        elif "return (" in repaired:
-            repaired = repaired.replace(
-                "return (",
-                f"return (\n      {composer_jsx}\n",
-                1,
-            )
+        else:
+            # Inject into the default-export return — never a helper above it.
+            search_from = default_export_search_from(repaired)
+            idx = repaired.find("return (", search_from)
+            if idx >= 0:
+                insert_at = idx + len("return (")
+                repaired = (
+                    repaired[:insert_at]
+                    + f"\n      {composer_jsx}\n"
+                    + repaired[insert_at:]
+                )
 
     if blocking_contract_errors(validate_catalogue_page_content(repaired, route)):
         return content, False
@@ -226,11 +245,7 @@ def repair_missing_catalogue_slots(
         return content, False
     repaired = content[: declaration.end()] + injected + content[declaration.end():]
 
-    existing_named = {
-        token.strip().split(" as ")[0].replace("type ", "").strip()
-        for token in ui_import.group(1).split(",")
-        if token.strip()
-    }
+    existing_named = _named_ui_imports(ui_import.group(1))
     needed = list(
         dict.fromkeys(
             component
@@ -240,13 +255,7 @@ def repair_missing_catalogue_slots(
         )
     )
     if needed:
-        current = ui_import.group(1).strip().rstrip(",").strip()
-        merged = ", ".join(filter(None, [current, ", ".join(needed)]))
-        repaired = repaired.replace(
-            ui_import.group(0),
-            f"import {{ {merged} }} from '@/ui';",
-            1,
-        )
+        repaired = _ensure_ui_import_names(repaired, needed)
 
     needs_images = any(
         "images." in _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
@@ -257,7 +266,7 @@ def repair_missing_catalogue_slots(
 
     if blocking_contract_errors(validate_catalogue_page_content(repaired, route)):
         return content, False
-    logging.getLogger(__name__).info(
+    logger.info(
         "Catalogue page healed by slot injection route=%s slots=%s",
         route.get("path"),
         ordered_missing,

@@ -7,6 +7,10 @@ from pathlib import Path
 from app.application.appspec.hooks import inject_appspec_contract_hooks
 from app.application.prompts import PromptTemplate
 from app.application.preview_app.brand_brief import brief_prompt_block
+from app.application.preview_app.design_brief import (
+    design_brief_prompt_block,
+    resolve_design_brief,
+)
 from app.application.preview_app.catalogue_contract import (
     blocking_contract_errors,
     enforce_catalogue_page_contract,
@@ -61,13 +65,36 @@ _SIGNATURE_SKELETONS = frozenset(
         "ops-expense-queue",
     }
 )
-_SIGNATURE_MARKERS = {
-    "ops-ledger-home": "CashPulseBar",
-    "ops-invoice-board": "InvoiceBoard",
-    "ops-recon-split": "ReconSplit",
-    "ops-blotter-desk": "BlotterTape",
-    "ops-expense-queue": "ExpenseQueue",
-}
+
+
+def _appspec_ids_from_route_plan(route: dict, page_plan: dict) -> tuple[str, list[str], list[str]]:
+    """Resolve page/action/evidence IDs from route + page_plan contract metadata."""
+    page_id = (
+        route.get("app_spec_page_id")
+        or route.get("page_id")
+        or page_plan.get("app_spec_page_id")
+        or page_plan.get("id")
+        or ""
+    )
+    contract = page_plan.get("app_spec_contract") or {}
+    page_meta = contract.get("page") if isinstance(contract, dict) else {}
+    if isinstance(page_meta, dict) and page_meta.get("id"):
+        page_id = page_meta.get("id") or page_id
+    action_ids = list(route.get("action_ids") or [])
+    evidence_ids = list(route.get("evidence_ids") or [])
+    if not action_ids and isinstance(contract, dict):
+        action_ids = [
+            str(item.get("id"))
+            for item in (contract.get("actions") or [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+    if not evidence_ids and isinstance(contract, dict):
+        evidence_ids = [
+            str(item.get("id"))
+            for item in (contract.get("evidence") or [])
+            if isinstance(item, dict) and item.get("id")
+        ]
+    return str(page_id or ""), action_ids, evidence_ids
 
 
 def _generate_utility_composed_file(
@@ -157,35 +184,11 @@ def _generate_utility_composed_file(
         )
 
     # AppSpec hooks are additive — never a reason to skip the compositor.
-    page_id = (
-        route.get("app_spec_page_id")
-        or route.get("page_id")
-        or page_plan.get("app_spec_page_id")
-        or page_plan.get("id")
-        or ""
-    )
-    contract = page_plan.get("app_spec_contract") or {}
-    page_meta = contract.get("page") if isinstance(contract, dict) else {}
-    if isinstance(page_meta, dict) and page_meta.get("id"):
-        page_id = page_meta.get("id") or page_id
-    action_ids = list(route.get("action_ids") or [])
-    evidence_ids = list(route.get("evidence_ids") or [])
-    if not action_ids and isinstance(contract, dict):
-        action_ids = [
-            str(item.get("id"))
-            for item in (contract.get("actions") or [])
-            if isinstance(item, dict) and item.get("id")
-        ]
-    if not evidence_ids and isinstance(contract, dict):
-        evidence_ids = [
-            str(item.get("id"))
-            for item in (contract.get("evidence") or [])
-            if isinstance(item, dict) and item.get("id")
-        ]
+    page_id, action_ids, evidence_ids = _appspec_ids_from_route_plan(route, page_plan)
     if page_id:
         composed = inject_appspec_contract_hooks(
             composed,
-            page_id=str(page_id),
+            page_id=page_id,
             action_ids=action_ids,
             evidence_ids=evidence_ids,
         )
@@ -202,31 +205,7 @@ def _merged_catalogue_route(
     skeleton_id: str,
 ) -> dict:
     slots = infer_section_slots({**page_plan, **route}, skeleton_id)
-    page_id = (
-        route.get("app_spec_page_id")
-        or route.get("page_id")
-        or page_plan.get("app_spec_page_id")
-        or page_plan.get("id")
-        or ""
-    )
-    contract = page_plan.get("app_spec_contract") or {}
-    page_meta = contract.get("page") if isinstance(contract, dict) else {}
-    if isinstance(page_meta, dict) and page_meta.get("id"):
-        page_id = page_meta.get("id") or page_id
-    action_ids = list(route.get("action_ids") or [])
-    evidence_ids = list(route.get("evidence_ids") or [])
-    if not action_ids and isinstance(contract, dict):
-        action_ids = [
-            str(item.get("id"))
-            for item in (contract.get("actions") or [])
-            if isinstance(item, dict) and item.get("id")
-        ]
-    if not evidence_ids and isinstance(contract, dict):
-        evidence_ids = [
-            str(item.get("id"))
-            for item in (contract.get("evidence") or [])
-            if isinstance(item, dict) and item.get("id")
-        ]
+    page_id, action_ids, evidence_ids = _appspec_ids_from_route_plan(route, page_plan)
     return {
         **route,
         "skeleton_id": skeleton_id,
@@ -251,6 +230,7 @@ def _generate_catalogue_scaffold_first_file(
     page_plan: dict,
     skeleton_id: str,
     full_context: str,
+    plan: dict,
     manifest: dict,
     architect: dict,
     ai_provider: AIProvider,
@@ -294,6 +274,9 @@ def _generate_catalogue_scaffold_first_file(
         "OpsShell" if (merged.get("surface") or "") == "ops" else "PublicShell"
     )
     app_spec_contract = page_plan.get("app_spec_contract") or {}
+    design_brief_block = design_brief_prompt_block(
+        resolve_design_brief(plan=plan, architect=architect)
+    )
     prompt = template_renderer.render(
         PromptTemplate.PREVIEW_APP_SLOT_FILL,
         full_context=full_context[:8000],
@@ -307,6 +290,7 @@ def _generate_catalogue_scaffold_first_file(
         skeleton_contract_json=skeleton_contract_json,
         shell_component=shell_component,
         scaffold_source=scaffold[:16000],
+        design_brief_block=design_brief_block,
     )
     content = scaffold
     try:
@@ -342,28 +326,20 @@ def _generate_catalogue_scaffold_first_file(
             )
         record_stubbed_path(workspace, file_path)
     else:
-        if page_id:
-            content = inject_appspec_contract_hooks(
-                content,
-                page_id=page_id,
-                action_ids=list(merged.get("action_ids") or []),
-                evidence_ids=list(merged.get("evidence_ids") or []),
-            )
         clear_stubbed_path(workspace, file_path)
+
+    # Scaffold-like and AI fills both need addressable hooks for AppSpec enforce.
+    if page_id:
+        content = inject_appspec_contract_hooks(
+            content,
+            page_id=page_id,
+            action_ids=list(merged.get("action_ids") or []),
+            evidence_ids=list(merged.get("evidence_ids") or []),
+        )
 
     # Recipe owns public-home section order even after slot-fill rewrites.
     if str(merged.get("skeleton_id") or "") == "public-home":
         content = lock_recipe_section_order(content, merged)
-
-    marker = _SIGNATURE_MARKERS.get(skeleton_id)
-    if marker and marker not in content:
-        cg_log.warning(
-            "slot_fill dropped signature marker %s on %s — restoring scaffold",
-            marker,
-            file_path,
-        )
-        content = scaffold
-        record_stubbed_path(workspace, file_path)
 
     write_file(workspace, file_path, content)
     return content
@@ -434,6 +410,7 @@ def generate_file(
             page_plan=page_plan or {},
             skeleton_id=skeleton_id,
             full_context=full_context,
+            plan=plan,
             manifest=manifest,
             architect=architect,
             ai_provider=ai_provider,
@@ -461,23 +438,29 @@ def generate_file(
         instructions = f"{instructions}\n\n{chrome_contract}".strip()
 
     design_system = plan.get("design_system") or manifest.get("design_system") or {}
+    sealed_brief = resolve_design_brief(plan=plan, architect=architect)
     recipe_id = (
-        plan.get("recipe_id")
+        (sealed_brief or {}).get("recipe_id")
+        or plan.get("recipe_id")
         or design_system.get("recipe_id")
         or architect.get("recipe_id")
         or ""
     )
-    recipe_prompt = design_system.get("recipe_prompt") or ""
+    recipe_prompt = (
+        (sealed_brief or {}).get("recipe_prompt")
+        or design_system.get("recipe_prompt")
+        or ""
+    )
     hub_variant = (
-        plan.get("hub_variant")
+        (sealed_brief or {}).get("hub_variant")
+        or plan.get("hub_variant")
         or design_system.get("hub_variant")
         or architect.get("hub_variant")
         or ""
     )
-    from app.application.preview_app.brand_brief import brief_prompt_block
-
+    design_brief_block = design_brief_prompt_block(sealed_brief)
     brand_brief_block = ""
-    if design_system.get("brand_locked"):
+    if not design_brief_block and design_system.get("brand_locked"):
         brand_brief_block = brief_prompt_block(
             {
                 "brand_name": manifest.get("brand_name") or manifest.get("name"),
@@ -511,7 +494,7 @@ def generate_file(
         full_context=full_context[:10000],
         architect_json=_architect_prompt_context(architect),
         design_system_json=json.dumps(design_system, ensure_ascii=False, indent=2),
-        brand_brief_block=brand_brief_block,
+        brand_brief_block=design_brief_block or brand_brief_block,
         recipe_id=recipe_id,
         recipe_prompt=recipe_prompt,
         hub_variant=hub_variant,

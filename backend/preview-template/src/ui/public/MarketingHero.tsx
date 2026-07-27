@@ -21,7 +21,8 @@ export interface MarketingHeroProps {
   brandName: string;
   headline: string;
   subcopy: string;
-  primaryCta: MarketingCta;
+  /** Optional — missing CTA must not crash About/utility scaffolds. */
+  primaryCta?: MarketingCta;
   imageSrc: string;
   secondaryCta?: MarketingCta;
   imageAlt?: string;
@@ -30,6 +31,8 @@ export interface MarketingHeroProps {
   variant?: MarketingHeroVariant;
   className?: string;
 }
+
+const DEFAULT_PRIMARY_CTA: MarketingCta = { label: 'Explore', href: '/gallery' };
 
 export function MarketingHero({
   brandName,
@@ -48,14 +51,37 @@ export function MarketingHero({
   // Recipe owns hero composition — codegen cannot collapse every business to one layout.
   const resolved = recipeHeroVariant(recipeId);
   const display = recipeDisplayClass(recipeId);
+  const cta = primaryCta?.href && primaryCta?.label ? primaryCta : DEFAULT_PRIMARY_CTA;
 
   const ctas = (
     <div className="mt-8 flex flex-wrap gap-3">
-      <Button href={primaryCta.href} size="lg">
-        {primaryCta.label}
+      <Button href={cta.href} size="lg">
+        {cta.label}
       </Button>
       {secondaryCta ? (
         <Button href={secondaryCta.href} size="lg" variant="outline">
+          {secondaryCta.label}
+        </Button>
+      ) : null}
+    </div>
+  );
+
+  const onDarkCtas = (
+    <div className="mt-8 flex flex-wrap gap-3">
+      <Button
+        href={cta.href}
+        size="lg"
+        className="bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground"
+      >
+        {cta.label}
+      </Button>
+      {secondaryCta ? (
+        <Button
+          href={secondaryCta.href}
+          size="lg"
+          variant="outline"
+          className="border-white/45 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15 hover:text-white"
+        >
           {secondaryCta.label}
         </Button>
       ) : null}
@@ -110,11 +136,11 @@ export function MarketingHero({
           <AnimeHeroItem index={4}>
             <div className="mt-10 flex flex-wrap gap-3">
               <Button
-                href={primaryCta.href}
+                href={cta.href}
                 size="lg"
-                className="bg-white text-foreground shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] hover:bg-white/92"
+                className="bg-white text-foreground shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] hover:bg-white/92 hover:text-foreground"
               >
-                {primaryCta.label}
+                {cta.label}
               </Button>
               {secondaryCta ? (
                 <Button
@@ -155,7 +181,9 @@ export function MarketingHero({
         <div className="relative mx-auto grid max-w-[92rem] gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div>
             <AnimeHeroItem index={0}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">{brandName}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
+                {eyebrow || brandName}
+              </p>
             </AnimeHeroItem>
             <AnimeHeroItem index={1}>
               <h1 className={cn(display, 'mt-2 text-[clamp(1.85rem,3.2vw,2.65rem)] leading-tight text-foreground')}>
@@ -167,8 +195,8 @@ export function MarketingHero({
             </AnimeHeroItem>
             <AnimeHeroItem index={3}>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Button href={primaryCta.href} size="default">
-                  {primaryCta.label}
+                <Button href={cta.href} size="default">
+                  {cta.label}
                 </Button>
                 {secondaryCta ? (
                   <Button href={secondaryCta.href} size="default" variant="outline">
@@ -244,11 +272,11 @@ export function MarketingHero({
           <AnimeHeroItem index={headlineDistinct ? 4 : 3}>
             <div className="mt-10 flex flex-wrap gap-3">
               <Button
-                href={primaryCta.href}
+                href={cta.href}
                 size="lg"
                 className="bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground"
               >
-                {primaryCta.label}
+                {cta.label}
               </Button>
               {secondaryCta ? (
                 <Button
@@ -295,7 +323,7 @@ export function MarketingHero({
           <div className="flex flex-col justify-end px-6 pb-16 pt-28 sm:px-10 lg:px-14 lg:pb-24 lg:pt-32">
             <AnimeHeroItem index={0}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-brand">
-                {eyebrow || 'Handmade · Small batch'}
+                {eyebrow || brandName}
               </p>
             </AnimeHeroItem>
             <AnimeHeroItem index={1}>
@@ -365,7 +393,7 @@ export function MarketingHero({
             <AnimeHeroItem index={2}>
               <p className="mt-5 max-w-md text-[0.95rem] leading-7 text-white/65">{subcopy}</p>
             </AnimeHeroItem>
-            <AnimeHeroItem index={3}>{ctas}</AnimeHeroItem>
+            <AnimeHeroItem index={3}>{onDarkCtas}</AnimeHeroItem>
           </div>
           <AnimeHeroItem index={1}>
             <div className={cn('relative overflow-hidden rounded-[var(--radius-ui)]', safe && 'ui-float')}>

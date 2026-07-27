@@ -31,6 +31,7 @@ from app.application.preview_app.safety.mock_data import (
     ensure_mock_exports,
     repair_typed_mock_exports,
     sanitize_data_files,
+    sync_mock_images,
 )
 from app.application.preview_app.safety.runtime import ensure_runtime_correctness
 from app.application.preview_app.safety.source_sanitize import (
@@ -120,6 +121,12 @@ def apply_workspace_guards(
                 guard_log.debug("%s", named[0])
         except Exception as e:
             guard_log.warning("named ui icon exports guard skipped: %s", e)
+    try:
+        synced = sync_mock_images(workspace, images, brand_name=brand_name)
+        if synced:
+            actions.extend([f"mock-images:{n}" for n in synced])
+    except Exception as e:
+        guard_log.warning("mock images sync skipped: %s", e)
     try:
         added = ensure_mock_exports(workspace, architect, plan, images, brand_name)
         actions.extend(added)

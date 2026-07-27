@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { AppLink } from '../lib/AppLink';
 import { MotionReveal, MotionStagger, MotionStaggerItem, useMotionSafe } from '../motion';
 import { cn } from '../lib/cn';
 
@@ -54,6 +55,9 @@ export function ProductShowcase({ className, children, description, heading, ite
         {featured ? (
           <MotionReveal className="mt-12 grid gap-6 lg:grid-cols-12 lg:gap-5">
             <figure className="group relative overflow-hidden lg:col-span-8">
+              {featured.href ? (
+                <AppLink href={featured.href} className="absolute inset-0 z-10" aria-label={featured.title} />
+              ) : null}
               <img
                 src={featured.imageSrc}
                 alt={featured.imageAlt ?? ''}
@@ -73,7 +77,10 @@ export function ProductShowcase({ className, children, description, heading, ite
             </figure>
             <div className="flex flex-col gap-5 lg:col-span-4">
               {secondary ? (
-                <figure className="group overflow-hidden">
+                <figure className="group relative overflow-hidden">
+                  {secondary.href ? (
+                    <AppLink href={secondary.href} className="absolute inset-0 z-10" aria-label={secondary.title} />
+                  ) : null}
                   <img
                     src={secondary.imageSrc}
                     alt={secondary.imageAlt ?? ''}
@@ -88,7 +95,10 @@ export function ProductShowcase({ className, children, description, heading, ite
               {tertiary ? (
                 <MotionStagger>
                   <MotionStaggerItem>
-                    <figure className="overflow-hidden border-t border-white/10 pt-5">
+                    <figure className="relative overflow-hidden border-t border-white/10 pt-5">
+                      {tertiary.href ? (
+                        <AppLink href={tertiary.href} className="absolute inset-0 z-10" aria-label={tertiary.title} />
+                      ) : null}
                       <h3 className="font-display text-2xl tracking-tight">{tertiary.title}</h3>
                       <p className="mt-2 text-sm leading-6 text-white/55">{tertiary.description}</p>
                     </figure>

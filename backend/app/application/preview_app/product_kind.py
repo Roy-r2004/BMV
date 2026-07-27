@@ -159,8 +159,10 @@ _SAAS_HINTS = (
 _BOOKING_HINTS = (
     "booking",
     "appointment",
-    "reserve",
     "reservation",
+    "reserve a table",
+    "reserve a spot",
+    "reserve a slot",
     "spa",
     "salon",
     "clinic",
@@ -189,11 +191,34 @@ _STOREFRONT_HINTS = (
     "dealership",
     "pottery",
     "gallery",
+    "painting",
+    "artwork",
+    "artist",
+    "atelier",
+    "fine art",
+    "collector",
+    "portfolio",
+)
+
+# Briefs often say "not a booking SaaS" — substring classifiers must not treat that as intent.
+_NEGATED_PRODUCT_CLAUSE = re.compile(
+    r"\b(?:not|never)\s+(?:a\s+|an\s+|the\s+)?"
+    r"(?:booking(?:\s+saas)?|saas|ops(?:\s+dashboard)?|marketplace(?:\s+feed)?|"
+    r"retail|client(?:\s+facing)?|marketing(?:\s+landing)?|corporate)"
+    r"(?:\s+or\s+ops(?:\s+dashboard)?)?",
+    re.IGNORECASE,
 )
 
 
+def scrub_negated_product_clauses(text: str) -> str:
+    """Drop 'not a booking SaaS / ops dashboard' style clauses before keyword hits."""
+    return _NEGATED_PRODUCT_CLAUSE.sub(" ", str(text or ""))
+
+
 def _blob(*parts: str) -> str:
-    return " ".join(str(p or "") for p in parts).lower()
+    return scrub_negated_product_clauses(
+        " ".join(str(p or "") for p in parts).lower()
+    )
 
 
 def _hits(blob: str, hints: tuple[str, ...]) -> int:
@@ -433,6 +458,28 @@ def _storefront_pages() -> tuple[PageBlueprint, ...]:
             "Brand storefront home for browsing and conversion.",
             "Hero, featured items, CTA.",
             "public-home",
+            "public",
+        ),
+        PageBlueprint(
+            "gallery",
+            "Gallery",
+            "/gallery",
+            "public-catalog",
+            "src/pages/GalleryPage.tsx",
+            "Catalogue grid of products or artworks.",
+            "Product showcase mosaic linking to detail.",
+            "public-catalog",
+            "public",
+        ),
+        PageBlueprint(
+            "gallery_detail",
+            "Artwork",
+            "/gallery/:id",
+            "public-detail",
+            "src/pages/ArtworkDetailPage.tsx",
+            "Single item / artwork detail with inquire CTA.",
+            "Hero, credentials, inquire.",
+            "public-detail",
             "public",
         ),
     )
@@ -1119,5 +1166,6 @@ __all__ = [
     "lock_chrome_on_architecture_seed",
     "lock_chrome_on_experience_seed",
     "resolve_product_kind_contract",
+    "scrub_negated_product_clauses",
     "validate_product_kind_chrome",
 ]

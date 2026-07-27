@@ -4,10 +4,10 @@ export const brand = {
 };
 
 export const images = {
-  hero: 'https://images.unsplash.com/photo-1570172619644-dfd955edfc01?w=1600&q=80',
-  card1: 'https://images.unsplash.com/photo-1512290923902-8a9f81dc2369?w=800&q=80',
-  card2: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80',
-  card3: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80',
+  hero: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1600&q=80&fit=crop&auto=format',
+  card1: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80&fit=crop&auto=format',
+  card2: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80&fit=crop&auto=format',
+  card3: 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80&fit=crop&auto=format',
 };
 
 /** Role switcher metadata — AI rewrites ids, labels, and default landing paths */
@@ -32,47 +32,52 @@ export const navigation = {
 export const seed = {
   tone: 'branded',
   hero: {
+    eyebrow: 'Preview Brand',
     headline: '',
-    subcopy: 'Cinematic first impression — brand-forward, vivid, and ready for the next step.',
+    subcopy: 'A clear next step from Preview Brand — warm, specific, and ready when you are.',
     primaryCta: { label: 'Explore now', href: '#details' },
     secondaryCta: { label: 'See how it works', href: '#process' },
   },
   items: [
-    { title: 'Signature offering', description: 'A dependable starting point.' },
+    { title: 'Preview Brand signature', description: 'A dependable starting point at Preview Brand.' },
     { title: 'Everyday essential', description: 'Built for daily use.' },
   ],
   features: [
-    { title: 'Immersive first view', description: 'Atmosphere and brand color from the first scroll.' },
-    { title: 'Guided next step', description: 'Every section pushes toward a clear action.' },
+    { title: 'What Preview Brand is known for', description: 'Concrete offerings guests can book without guessing.' },
+    { title: 'Guided next step', description: 'Every section points toward a clear action.' },
   ],
   process: [
-    { title: 'Choose', description: 'Find the right option.' },
+    { title: 'Choose', description: 'Find the right option at Preview Brand.' },
     { title: 'Confirm', description: 'Select a convenient time.' },
     { title: 'Enjoy', description: 'We take care of the details.' },
   ],
   credentials: [
-    { title: 'Brand-first chrome', detail: 'Every surface carries your color and type.' },
-    { title: 'Motion with purpose', detail: 'Kenburns, reveals, and lifts — never static.' },
+    { title: 'Known locally', detail: 'Neighbors recommend Preview Brand for consistent results.' },
+    { title: 'Clear next steps', detail: 'Booking and follow-up stay simple from the start.' },
   ],
   testimonials: [
-    { quote: 'Clear, warm, and easy from start to finish.', author: 'A returning client', role: 'Verified guest' },
+    {
+      quote: 'Clear, warm, and easy — exactly what I wanted from Preview Brand.',
+      author: 'A returning client',
+      role: 'Verified guest',
+    },
   ],
-  treatments: [{ id: 'offer-1', name: 'Signature offering', duration: '60 min' }],
-  showcaseHeading: 'Featured experiences',
-  featuresHeading: 'Designed to feel alive',
-  processHeading: 'How it works',
-  credentialsHeading: 'Why it stands out',
-  testimonialsHeading: 'What clients say',
+  treatments: [{ id: 'offer-1', name: 'Preview Brand signature', duration: '60 min' }],
+  showcaseHeading: 'From Preview Brand',
+  featuresHeading: 'What Preview Brand offers',
+  processHeading: 'How Preview Brand works',
+  credentialsHeading: 'Why Preview Brand',
+  testimonialsHeading: 'Guests of Preview Brand',
   cta: {
-    heading: 'Make it unforgettable',
-    description: 'Book the next chapter — polished, branded, never bland.',
+    heading: 'Ready for Preview Brand?',
+    description: 'Tell Preview Brand what you need — clear options, real next steps.',
     primaryLabel: 'Get started',
     primaryHref: '#details',
     secondaryLabel: 'Talk to us',
     secondaryHref: '#contact',
   },
-  footer: { description: 'Premium presence from first glance to booked revenue.' },
-  trustLabels: ['Signature craft', 'On-time delivery', 'Repeat guests', 'Local favorite'],
+  footer: { description: 'Preview Brand — clear choices and real bookings.' },
+  trustLabels: ['Preview Brand quality', 'On schedule', 'Repeat guests', 'Local favorite'],
 };
 
 export const services = [

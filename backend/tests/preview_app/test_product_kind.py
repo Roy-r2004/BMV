@@ -40,6 +40,21 @@ def test_classifies_restaurant_as_storefront() -> None:
     )
 
 
+def test_classifies_fine_art_gallery_as_storefront_not_booking() -> None:
+    """Jeanne-shaped briefs negate booking/SaaS — must not become booking_service."""
+    brief = (
+        "Fine art gallery · original oil paintings · artist portfolio. "
+        "Jeanne Kassab Art is a personal fine art gallery for original paintings. "
+        "Collectors browse works and message on WhatsApp to inquire or reserve a piece. "
+        "Brand-first hero and living gallery — not a booking SaaS or ops dashboard."
+    )
+    assert classify_product_kind(brief) == "storefront"
+    contract = resolve_product_kind_contract(brief)
+    assert contract.kind == "storefront"
+    assert contract.recipe_id == "warm-service"
+    assert contract.home_surface == "public"
+
+
 def test_accounting_contract_locks_ops_pages() -> None:
     contract = resolve_product_kind_contract(
         "saas accounting invoices expenses bank reconciliation"

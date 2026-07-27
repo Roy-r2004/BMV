@@ -5,7 +5,12 @@ import copy
 import re
 from typing import Any
 
-from app.application.preview_app.industry_templates.seed import normalize_mock_seed
+from app.application.preview_app.industry_templates.seed import (
+    early_brand_placeholder_item_titles,
+    early_brand_placeholder_strings,
+    early_brand_trust_labels,
+    normalize_mock_seed,
+)
 
 PAGE_INTENTS = frozenset(
     {
@@ -33,6 +38,8 @@ _PUBLIC_SEED_KEYS = (
     "showcaseHeading",
     "featuresHeading",
     "processHeading",
+    "credentialsHeading",
+    "testimonialsHeading",
     "cta",
     "footer",
     "nav_cta",
@@ -61,11 +68,185 @@ def _is_empty(value: Any) -> bool:
     return False
 
 
+def _item_title(entry: Any) -> str:
+    if isinstance(entry, dict):
+        return str(
+            entry.get("title") or entry.get("name") or entry.get("label") or ""
+        ).strip()
+    if isinstance(entry, str):
+        return entry.strip()
+    return ""
+
+
+def _is_early_brand_placeholder_str(value: str) -> bool:
+    """True for Brand-bearing sticky defaults (safe exact scrub / fillable)."""
+    text = value.strip()
+    if not text:
+        return False
+    if text == "Brand":
+        return True
+    # Only Brand-bearing leaves — shared generics ("Explore now", "Choose") may
+    # appear in real pack/LLM copy and must not be wiped as fillable empty.
+    return text in early_brand_placeholder_strings() and "Brand" in text
+
+
+def _collect_string_leaves(value: Any, out: set[str]) -> None:
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            out.add(text)
+        return
+    if isinstance(value, list):
+        for entry in value:
+            _collect_string_leaves(entry, out)
+        return
+    if isinstance(value, dict):
+        for entry in value.values():
+            _collect_string_leaves(entry, out)
+
+
+def _entry_is_early_placeholder(entry: Any) -> bool:
+    """True for Brand-default list rows (exact string match / known early titles)."""
+    if isinstance(entry, str):
+        return _is_early_brand_placeholder_str(entry)
+    if not isinstance(entry, dict):
+        return False
+    title = _item_title(entry)
+    # Per-item early titles + any Brand-bearing default title — drop even if
+    # description was hand-edited mush ("placeholder").
+    if title in early_brand_placeholder_item_titles() and (
+        "Brand" in title or title in {"Everyday essential", "Guest favorite"}
+    ):
+        return True
+    leaves: set[str] = set()
+    _collect_string_leaves(entry, leaves)
+    if not leaves:
+        return True
+    placeholders = early_brand_placeholder_strings()
+    return all(leaf in placeholders for leaf in leaves)
+
+
+def _string_list_is_early_trust_defaults(value: list[Any]) -> bool:
+    """True when every non-empty string is an exact Brand-default trustLabel.
+
+    Covers full mixed Brand+Brand-less defaults and Brand-less orphan subsets
+    left after a Brand-bearing member was already scrubbed.
+    """
+    if not value or not all(isinstance(entry, str) for entry in value):
+        return False
+    texts = [entry.strip() for entry in value if entry.strip()]
+    if not texts:
+        return True
+    labels = early_brand_trust_labels()
+    return all(text in labels for text in texts)
+
+
+def _scrub_early_trust_string_list(value: list[Any]) -> list[Any]:
+    """Drop Brand-default trustLabels (full, co-resident, or orphan subset).
+
+    Real pack strings outside the Brand trust set survive; lone shared CTAs are
+    unaffected (not trustDefaults). Dict-item lists use the mixed-entry path.
+    """
+    texts = [str(entry).strip() for entry in value if isinstance(entry, str)]
+    non_empty = [text for text in texts if text]
+    if not non_empty:
+        return []
+    labels = early_brand_trust_labels()
+    if all(text in labels for text in non_empty):
+        return []
+    # Mixed list: drop Brand-bearing + co-resident Brand-less trustDefaults only
+    # when a Brand-bearing early member is present in the same list.
+    has_brand_bearing = any(_is_early_brand_placeholder_str(text) for text in non_empty)
+    if has_brand_bearing:
+        return [text for text in non_empty if text not in labels]
+    return list(non_empty)
+
+
+def _list_is_early_default_items(value: list[Any]) -> bool:
+    """True when every item is an early Brand-default placeholder entry."""
+    if not value:
+        return True
+    if all(isinstance(entry, str) for entry in value):
+        return _string_list_is_early_trust_defaults(value)
+    return all(_entry_is_early_placeholder(entry) for entry in value)
+
+
+def _is_fillable_empty(value: Any) -> bool:
+    """Empty for gap-fill/lift, including Brand-templated normalize defaults."""
+    if _is_empty(value):
+        return True
+    if isinstance(value, str) and _is_early_brand_placeholder_str(value):
+        return True
+    if isinstance(value, list) and _list_is_early_default_items(value):
+        return True
+    return False
+
+
+def _scrub_early_placeholders(value: Any) -> Any:
+    """Clear Brand-templated normalize defaults so brand-bound normalize can fill."""
+    if isinstance(value, str):
+        return "" if _is_early_brand_placeholder_str(value) else value
+    if isinstance(value, list):
+        if value and all(isinstance(entry, str) for entry in value):
+            return _scrub_early_trust_string_list(value)
+        scrubbed: list[Any] = []
+        for entry in value:
+            if _entry_is_early_placeholder(entry):
+                continue
+            if isinstance(entry, dict):
+                scrubbed.append(_scrub_early_placeholders(entry))
+            else:
+                scrubbed.append(entry)
+        return scrubbed
+    if isinstance(value, dict):
+        return {k: _scrub_early_placeholders(v) for k, v in value.items()}
+    return value
+
+
+def _write_back_scrubbed_public_seed(
+    face: dict[str, Any],
+    seed: dict[str, Any],
+) -> dict[str, Any]:
+    """Sync rematerialized public keys onto face after early-default scrub.
+
+    Only keys already on ``public_seed`` whose scrub left them fillable —
+    covers sticky Brand-less orphan lists. Never invents into truly empty keys
+    or clobbers pack/LLM copy that scrub preserved.
+    """
+    public = dict(face.get("public_seed") or {})
+    if not public:
+        return face
+    scrubbed = _scrub_early_placeholders(copy.deepcopy(public))
+    if not isinstance(scrubbed, dict):
+        scrubbed = {}
+    updated_public = dict(public)
+    changed = False
+    for key in list(public.keys()):
+        if key not in _PUBLIC_SEED_KEYS:
+            continue
+        orig = public.get(key)
+        # Truly empty — do not invent normalize defaults onto the face.
+        if _is_empty(orig):
+            continue
+        if not _is_fillable_empty(scrubbed.get(key)):
+            continue
+        rematerialized = seed.get(key)
+        if _is_fillable_empty(rematerialized):
+            continue
+        updated_public[key] = copy.deepcopy(rematerialized)
+        changed = True
+    if not changed:
+        return face
+    out = dict(face)
+    out["public_seed"] = updated_public
+    return out
+
+
 def _deep_gap_fill(base: dict[str, Any], filler: dict[str, Any]) -> dict[str, Any]:
     """Copy filler keys into base only where base is missing/empty. Never overwrite."""
     out = dict(base or {})
     for key, fval in (filler or {}).items():
-        if key not in out or _is_empty(out.get(key)):
+        if key not in out or _is_fillable_empty(out.get(key)):
             if isinstance(fval, dict):
                 out[key] = _deep_gap_fill({}, fval)
             else:
@@ -213,7 +394,38 @@ def _roles_from_plan(plan: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _slice_seed(raw: dict[str, Any] | None, keys: tuple[str, ...]) -> dict[str, Any]:
     src = raw if isinstance(raw, dict) else {}
-    return {k: copy.deepcopy(src[k]) for k in keys if k in src and not _is_empty(src.get(k))}
+    out: dict[str, Any] = {}
+    for k in keys:
+        if k not in src or _is_fillable_empty(src.get(k)):
+            continue
+        val = _scrub_early_placeholders(copy.deepcopy(src[k]))
+        if _is_fillable_empty(val):
+            continue
+        out[k] = val
+    return out
+
+
+_ITEM_ALIAS_KEYS = (
+    "products",
+    "dishes",
+    "treatments",
+    "classes",
+    "services",
+    "offerings",
+)
+
+
+def _collapse_pack_aliases(pack_seed: dict[str, Any] | None) -> dict[str, Any]:
+    """Map pack-only keys (classes/products/…) into contract keys — no Brand defaults."""
+    raw = copy.deepcopy(pack_seed) if isinstance(pack_seed, dict) else {}
+    if _is_fillable_empty(raw.get("items")):
+        for key in _ITEM_ALIAS_KEYS:
+            if not _is_fillable_empty(raw.get(key)):
+                raw["items"] = copy.deepcopy(raw[key])
+                break
+    if _is_fillable_empty(raw.get("process")) and not _is_fillable_empty(raw.get("steps")):
+        raw["process"] = copy.deepcopy(raw["steps"])
+    return raw
 
 
 def extract_product_face(plan: dict[str, Any] | None) -> dict[str, Any]:
@@ -252,19 +464,25 @@ def extract_product_face(plan: dict[str, Any] | None) -> dict[str, Any]:
     # Lift from mock_seed without treating pack overwrite as authority later.
     mock = plan.get("mock_seed") if isinstance(plan.get("mock_seed"), dict) else {}
     if mock:
-        public_seed = _deep_gap_fill(public_seed, _slice_seed(mock, _PUBLIC_SEED_KEYS))
-        if isinstance(mock.get("opsHero"), dict) and _is_empty(ops_seed.get("hero")):
-            ops_seed["hero"] = copy.deepcopy(mock["opsHero"])
+        public_seed = _deep_gap_fill(
+            public_seed, _slice_seed(_collapse_pack_aliases(mock), _PUBLIC_SEED_KEYS)
+        )
+        if isinstance(mock.get("opsHero"), dict) and _is_fillable_empty(ops_seed.get("hero")):
+            scrubbed_ops_hero = _scrub_early_placeholders(copy.deepcopy(mock["opsHero"]))
+            if not _is_fillable_empty(scrubbed_ops_hero):
+                ops_seed["hero"] = scrubbed_ops_hero
         ops_seed = _deep_gap_fill(
             ops_seed,
             {
                 k: mock[k]
                 for k in ("kpis", "activity", "risk", "tableRows", "table")
-                if k in mock and not _is_empty(mock.get(k))
+                if k in mock and not _is_fillable_empty(mock.get(k))
             },
         )
-        if mock.get("opsItems") and _is_empty(ops_seed.get("items")):
-            ops_seed["items"] = copy.deepcopy(mock["opsItems"])
+        if mock.get("opsItems") and _is_fillable_empty(ops_seed.get("items")):
+            scrubbed_ops_items = _scrub_early_placeholders(copy.deepcopy(mock["opsItems"]))
+            if not _is_fillable_empty(scrubbed_ops_items):
+                ops_seed["items"] = scrubbed_ops_items
 
     return {
         "version": 1,
@@ -278,12 +496,19 @@ def extract_product_face(plan: dict[str, Any] | None) -> dict[str, Any]:
 def gap_fill_public_seed_from_pack(
     face: dict[str, Any],
     pack_seed: dict[str, Any] | None,
+    *,
+    brand_name: str | None = None,
 ) -> dict[str, Any]:
-    """Fill empty public_seed fields from a pack mock_seed. Never overwrite."""
+    """Fill empty public_seed fields from a pack mock_seed. Never overwrite.
+
+    Slices the raw pack only (alias collapse, no Brand defaults) — branded
+    ``normalize_mock_seed`` runs once in ``materialize_mock_seed``.
+    ``brand_name`` kept for call-site compat.
+    """
     updated = dict(face or {})
     public = dict(updated.get("public_seed") or {})
-    pack = normalize_mock_seed(pack_seed if isinstance(pack_seed, dict) else None)
-    filler = _slice_seed(pack, _PUBLIC_SEED_KEYS)
+    raw = _collapse_pack_aliases(pack_seed if isinstance(pack_seed, dict) else {})
+    filler = _slice_seed(raw, _PUBLIC_SEED_KEYS)
     updated["public_seed"] = _deep_gap_fill(public, filler)
     return updated
 
@@ -291,25 +516,46 @@ def gap_fill_public_seed_from_pack(
 def gap_fill_ops_seed_from_pack(
     face: dict[str, Any],
     pack_seed: dict[str, Any] | None,
+    *,
+    brand_name: str | None = None,
 ) -> dict[str, Any]:
-    """Fill empty ops_seed fields from an ops pack. Never overwrite."""
+    """Fill empty ops_seed fields from an ops pack. Never overwrite.
+
+    Slices the raw pack only (alias collapse, no Brand defaults) — branded
+    ``normalize_mock_seed`` runs once in ``materialize_mock_seed``.
+    ``brand_name`` kept for call-site compat.
+    """
     updated = dict(face or {})
     ops = dict(updated.get("ops_seed") or {})
-    pack = normalize_mock_seed(pack_seed if isinstance(pack_seed, dict) else None)
-    filler = _slice_seed(pack, _OPS_SEED_KEYS)
+    raw = _collapse_pack_aliases(pack_seed if isinstance(pack_seed, dict) else {})
+    filler = _slice_seed(raw, _OPS_SEED_KEYS)
     # Pack hero → ops hero only when empty.
-    if pack.get("hero") and _is_empty(ops.get("hero")):
-        filler["hero"] = pack["hero"]
+    if raw.get("hero") and _is_fillable_empty(ops.get("hero")):
+        scrubbed_hero = _scrub_early_placeholders(copy.deepcopy(raw["hero"]))
+        if not _is_fillable_empty(scrubbed_hero):
+            filler["hero"] = scrubbed_hero
     updated["ops_seed"] = _deep_gap_fill(ops, filler)
     return updated
 
 
-def materialize_mock_seed(face: dict[str, Any] | None) -> dict[str, Any]:
+def materialize_mock_seed(
+    face: dict[str, Any] | None,
+    *,
+    brand_name: str | None = None,
+    fill_defaults: bool = True,
+) -> dict[str, Any]:
     """Flatten product_face into scaffold mock_seed (public + opsHero/kpis)."""
     face = face or {}
     public = dict(face.get("public_seed") or {})
     ops = dict(face.get("ops_seed") or {})
-    seed = normalize_mock_seed(public)
+    if fill_defaults:
+        scrubbed = _scrub_early_placeholders(public)
+        if not isinstance(scrubbed, dict):
+            scrubbed = {}
+        seed = normalize_mock_seed(scrubbed, brand_name=brand_name)
+    else:
+        # Pass-through merge only — no Brand / pack defaults before gap-fill.
+        seed = copy.deepcopy(public)
     if ops.get("hero"):
         seed["opsHero"] = copy.deepcopy(ops["hero"])
     for key in ("kpis", "activity", "risk", "tableRows", "table"):
@@ -322,7 +568,12 @@ def materialize_mock_seed(face: dict[str, Any] | None) -> dict[str, Any]:
     return seed
 
 
-def stamp_page_intents_on_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
+def stamp_page_intents_on_plan(
+    plan: dict[str, Any] | None,
+    *,
+    brand_name: str | None = None,
+    fill_defaults: bool = True,
+) -> dict[str, Any]:
     """Write page_intent onto role pages and routes from product_face / inference."""
     updated = dict(plan or {})
     face = extract_product_face(updated)
@@ -369,13 +620,26 @@ def stamp_page_intents_on_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
         updated["routes"] = routes
 
     updated["product_face"] = face
-    updated["mock_seed"] = materialize_mock_seed(face)
+    updated["mock_seed"] = materialize_mock_seed(
+        face, brand_name=brand_name, fill_defaults=fill_defaults
+    )
+    if fill_defaults:
+        updated["product_face"] = _write_back_scrubbed_public_seed(
+            updated["product_face"], updated["mock_seed"]
+        )
     return updated
 
 
-def ensure_product_face_on_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
+def ensure_product_face_on_plan(
+    plan: dict[str, Any] | None,
+    *,
+    brand_name: str | None = None,
+    fill_defaults: bool = True,
+) -> dict[str, Any]:
     """Normalize product_face, stamp intents, materialize mock_seed."""
-    return stamp_page_intents_on_plan(plan)
+    return stamp_page_intents_on_plan(
+        plan, brand_name=brand_name, fill_defaults=fill_defaults
+    )
 
 
 def face_is_thin(face: dict[str, Any] | None) -> bool:
