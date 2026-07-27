@@ -1,0 +1,1022 @@
+{
+  "acceptance_tests": [
+    {
+      "assertions": [
+        {
+          "description": "Client lands on the Home page.",
+          "expected": "/",
+          "kind": "route",
+          "page_id": "PAGE-HOME"
+        },
+        {
+          "description": "A list of services is visible on the Home page.",
+          "evidence_id": "EVIDENCE-HOME-SERVICE-LIST",
+          "kind": "visible"
+        },
+        {
+          "description": "Client navigates to the Service List page.",
+          "expected": "/services",
+          "kind": "route",
+          "page_id": "PAGE-SERVICE-LIST"
+        },
+        {
+          "description": "A selectable list of services is displayed.",
+          "evidence_id": "EVIDENCE-SERVICE-LIST-DISPLAY",
+          "kind": "visible"
+        },
+        {
+          "description": "Client navigates to a Service Detail page.",
+          "expected": "/services/.*",
+          "kind": "route",
+          "page_id": "PAGE-SERVICE-DETAIL"
+        },
+        {
+          "description": "Detailed service information is displayed.",
+          "evidence_id": "EVIDENCE-SERVICE-DETAIL-CONTENT",
+          "kind": "visible"
+        },
+        {
+          "description": "A 'Book Service' button is present.",
+          "evidence_id": "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON",
+          "kind": "visible"
+        },
+        {
+          "description": "Client navigates to the Booking page.",
+          "expected": "/booking",
+          "kind": "route",
+          "page_id": "PAGE-BOOKING"
+        },
+        {
+          "description": "An availability calendar is displayed.",
+          "evidence_id": "EVIDENCE-BOOKING-CALENDAR",
+          "kind": "visible"
+        },
+        {
+          "description": "A date and time slot is selected.",
+          "kind": "state",
+          "state_id": "STATE-BOOKING-DATE-SELECTED"
+        },
+        {
+          "description": "The customer details form is displayed.",
+          "evidence_id": "EVIDENCE-BOOKING-CUSTOMER-FORM",
+          "kind": "visible"
+        },
+        {
+          "description": "Customer details are filled.",
+          "kind": "state",
+          "state_id": "STATE-BOOKING-DETAILS-FILLED"
+        },
+        {
+          "description": "A 'Submit Booking' button is present.",
+          "evidence_id": "EVIDENCE-BOOKING-SUBMIT-BUTTON",
+          "kind": "visible"
+        },
+        {
+          "description": "Client navigates to the Confirmation page.",
+          "expected": "/confirmation",
+          "kind": "route",
+          "page_id": "PAGE-CONFIRMATION"
+        },
+        {
+          "description": "A clear booking confirmation message is displayed.",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE",
+          "kind": "visible"
+        }
+      ],
+      "description": "Verifies the end-to-end flow from viewing services to receiving a booking confirmation.",
+      "id": "TEST-BROWSE-AND-BOOK-HAPPY-PATH",
+      "journey_id": "JOURNEY-CLIENT-BOOK-SERVICE",
+      "name": "Client can browse services and successfully book an appointment",
+      "requirement_ids": [
+        "REQ-HOME-001",
+        "REQ-SERVICE-LIST-001",
+        "REQ-SERVICE-DETAIL-001",
+        "REQ-BOOKING-001",
+        "REQ-BOOKING-002",
+        "REQ-CONFIRMATION-001",
+        "REQ-NAVIGATION-001"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "capability_ids": [
+        "CAP-NAVIGATE"
+      ],
+      "description": "Client navigates to the Home page.",
+      "id": "ACTION-NAVIGATE-HOME",
+      "kind": "navigate",
+      "name": "Navigate to Home",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CLIENT"
+    },
+    {
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES",
+        "CAP-NAVIGATE"
+      ],
+      "description": "Client clicks to view the full list of services.",
+      "id": "ACTION-VIEW-SERVICE-LIST",
+      "kind": "navigate",
+      "name": "View Service List",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CLIENT"
+    },
+    {
+      "capability_ids": [
+        "CAP-NAVIGATE"
+      ],
+      "description": "Client selects a service from the list to view its details.",
+      "entity_id": "ENTITY-SERVICE",
+      "id": "ACTION-SELECT-SERVICE",
+      "kind": "navigate",
+      "name": "Select Service",
+      "page_id": "PAGE-SERVICE-LIST",
+      "role_id": "ROLE-CLIENT"
+    },
+    {
+      "capability_ids": [
+        "CAP-NAVIGATE"
+      ],
+      "description": "Client clicks the 'Book Service' button on the service detail page.",
+      "id": "ACTION-INITIATE-BOOKING",
+      "kind": "navigate",
+      "name": "Initiate Booking",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "role_id": "ROLE-CLIENT"
+    },
+    {
+      "capability_ids": [
+        "CAP-SELECT-AVAILABILITY"
+      ],
+      "description": "Client selects an available date and time slot from the calendar.",
+      "id": "ACTION-SELECT-DATE-TIME",
+      "kind": "select",
+      "name": "Select Date and Time",
+      "page_id": "PAGE-BOOKING",
+      "role_id": "ROLE-CLIENT"
+    },
+    {
+      "capability_ids": [
+        "CAP-SUBMIT-BOOKING"
+      ],
+      "description": "Client enters their personal information into the booking form.",
+      "entity_id": "ENTITY-CUSTOMER",
+      "id": "ACTION-FILL-CUSTOMER-DETAILS",
+      "kind": "fill",
+      "name": "Fill Customer Details",
+      "page_id": "PAGE-BOOKING",
+      "role_id": "ROLE-CLIENT"
+    },
+    {
+      "capability_ids": [
+        "CAP-SUBMIT-BOOKING"
+      ],
+      "description": "Client submits the completed booking form.",
+      "entity_id": "ENTITY-BOOKING",
+      "id": "ACTION-SUBMIT-BOOKING",
+      "kind": "navigate",
+      "name": "Submit Booking",
+      "page_id": "PAGE-BOOKING",
+      "role_id": "ROLE-CLIENT"
+    }
+  ],
+  "assumptions": [
+    {
+      "confidence": "medium",
+      "id": "ASSUMPTION-SERVICE-AVAILABILITY-MANAGED",
+      "rationale": "The customer requested an 'availability calendar' but did not specify how availability is managed. Assuming it's an external input for the booking system.",
+      "statement": "Service availability (dates and times) is pre-configured and managed externally, and the calendar component will consume this data."
+    },
+    {
+      "confidence": "high",
+      "id": "ASSUMPTION-NO-PAYMENT-INTEGRATION",
+      "rationale": "Customer explicitly stated: 'Do not include an admin dashboard, marketplace, payment or checkout flow, or standalone AI Features page.'",
+      "statement": "There is no payment or checkout flow required as explicitly stated by the customer."
+    },
+    {
+      "confidence": "high",
+      "id": "ASSUMPTION-NO-ADMIN-DASHBOARD",
+      "rationale": "Customer explicitly stated: 'Do not include an admin dashboard, marketplace, payment or checkout flow, or standalone AI Features page.'",
+      "statement": "There is no admin dashboard or backend management interface required for the studio owners."
+    }
+  ],
+  "capabilities": [
+    {
+      "description": "Allows clients to view a list of available services.",
+      "entity_ids": [],
+      "id": "CAP-BROWSE-SERVICES",
+      "name": "Browse Services",
+      "requirement_ids": [
+        "REQ-HOME-001",
+        "REQ-SERVICE-LIST-001"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Enables clients to see detailed information about a specific service.",
+      "entity_ids": [],
+      "id": "CAP-VIEW-SERVICE-DETAIL",
+      "name": "View Service Detail",
+      "requirement_ids": [
+        "REQ-SERVICE-DETAIL-001"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Provides an interface for clients to choose a date and time for their booking.",
+      "entity_ids": [],
+      "id": "CAP-SELECT-AVAILABILITY",
+      "name": "Select Availability",
+      "requirement_ids": [
+        "REQ-BOOKING-001"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Facilitates the submission of customer details and selected availability to create a booking.",
+      "entity_ids": [
+        "ENTITY-CUSTOMER",
+        "ENTITY-BOOKING"
+      ],
+      "id": "CAP-SUBMIT-BOOKING",
+      "name": "Submit Booking",
+      "requirement_ids": [
+        "REQ-BOOKING-002"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Displays a confirmation message and details after a successful booking.",
+      "entity_ids": [],
+      "id": "CAP-CONFIRM-BOOKING",
+      "name": "Confirm Booking",
+      "requirement_ids": [
+        "REQ-CONFIRMATION-001"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Allows users to move between different sections of the application.",
+      "entity_ids": [
+        "ENTITY-SERVICE"
+      ],
+      "id": "CAP-NAVIGATE",
+      "name": "Navigate Application",
+      "requirement_ids": [
+        "REQ-NAVIGATION-001"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    }
+  ],
+  "deferred_scope": [],
+  "entities": [
+    {
+      "description": "A bookable service offered by the studio.",
+      "fields": [
+        {
+          "id": "FIELD-SERVICE-ID",
+          "name": "Service ID",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": "FIELD-SERVICE-NAME",
+          "name": "Name",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": "FIELD-SERVICE-DESCRIPTION",
+          "name": "Description",
+          "type": "string"
+        },
+        {
+          "id": "FIELD-SERVICE-DURATION",
+          "name": "Duration",
+          "type": "integer"
+        },
+        {
+          "id": "FIELD-SERVICE-PRICE",
+          "name": "Price",
+          "type": "number"
+        }
+      ],
+      "id": "ENTITY-SERVICE",
+      "name": "Service"
+    },
+    {
+      "description": "A client booking a service.",
+      "fields": [
+        {
+          "id": "FIELD-CUSTOMER-ID",
+          "name": "Customer ID",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": "FIELD-CUSTOMER-NAME",
+          "name": "Name",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": "FIELD-CUSTOMER-EMAIL",
+          "name": "Email",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": "FIELD-CUSTOMER-PHONE",
+          "name": "Phone Number",
+          "type": "string"
+        }
+      ],
+      "id": "ENTITY-CUSTOMER",
+      "name": "Customer"
+    },
+    {
+      "description": "A confirmed appointment for a service.",
+      "fields": [
+        {
+          "id": "FIELD-BOOKING-ID",
+          "name": "Booking ID",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": "FIELD-BOOKING-SERVICE-ID",
+          "name": "Service ID",
+          "reference_entity_id": "ENTITY-SERVICE",
+          "required": true,
+          "type": "reference"
+        },
+        {
+          "id": "FIELD-BOOKING-CUSTOMER-ID",
+          "name": "Customer ID",
+          "reference_entity_id": "ENTITY-CUSTOMER",
+          "required": true,
+          "type": "reference"
+        },
+        {
+          "id": "FIELD-BOOKING-DATE-TIME",
+          "name": "Date and Time",
+          "required": true,
+          "type": "datetime"
+        },
+        {
+          "enum_values": [
+            "pending",
+            "confirmed",
+            "cancelled"
+          ],
+          "id": "FIELD-BOOKING-STATUS",
+          "name": "Status",
+          "type": "enum"
+        }
+      ],
+      "id": "ENTITY-BOOKING",
+      "name": "Booking"
+    }
+  ],
+  "evidence": [
+    {
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "description": "A visible list of services on the Home page, each with a name and brief description.",
+      "id": "EVIDENCE-HOME-SERVICE-LIST",
+      "kind": "list",
+      "name": "Home Page Service List",
+      "page_id": "PAGE-HOME"
+    },
+    {
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "description": "A clear, interactive list of services, where each service item is selectable.",
+      "id": "EVIDENCE-SERVICE-LIST-DISPLAY",
+      "kind": "list",
+      "name": "Service List Display",
+      "page_id": "PAGE-SERVICE-LIST"
+    },
+    {
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAIL"
+      ],
+      "description": "Detailed information about a specific service, including description, duration, and price.",
+      "id": "EVIDENCE-SERVICE-DETAIL-CONTENT",
+      "kind": "text",
+      "name": "Service Detail Content",
+      "page_id": "PAGE-SERVICE-DETAIL"
+    },
+    {
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAIL"
+      ],
+      "description": "A prominent button on the service detail page to initiate the booking process.",
+      "id": "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON",
+      "kind": "navigation",
+      "name": "Book Service Button",
+      "page_id": "PAGE-SERVICE-DETAIL"
+    },
+    {
+      "capability_ids": [
+        "CAP-SELECT-AVAILABILITY"
+      ],
+      "description": "An interactive calendar displaying available dates and time slots for booking.",
+      "id": "EVIDENCE-BOOKING-CALENDAR",
+      "kind": "form",
+      "name": "Availability Calendar",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "capability_ids": [
+        "CAP-SUBMIT-BOOKING"
+      ],
+      "description": "A form to collect customer information such as name, email, and phone number.",
+      "id": "EVIDENCE-BOOKING-CUSTOMER-FORM",
+      "kind": "form",
+      "name": "Customer Details Form",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "capability_ids": [
+        "CAP-SUBMIT-BOOKING"
+      ],
+      "description": "A button to submit the booking request after selecting a time and filling details.",
+      "id": "EVIDENCE-BOOKING-SUBMIT-BUTTON",
+      "kind": "navigation",
+      "name": "Submit Booking Button",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "capability_ids": [
+        "CAP-CONFIRM-BOOKING"
+      ],
+      "description": "A clear message confirming the successful booking, potentially with booking details.",
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "kind": "text",
+      "name": "Booking Confirmation Message",
+      "page_id": "PAGE-CONFIRMATION"
+    }
+  ],
+  "journeys": [
+    {
+      "description": "A client browses services, selects one, chooses an available time, provides details, and confirms the booking.",
+      "id": "JOURNEY-CLIENT-BOOK-SERVICE",
+      "name": "Client Books a Service",
+      "requirement_ids": [
+        "REQ-HOME-001",
+        "REQ-SERVICE-LIST-001",
+        "REQ-SERVICE-DETAIL-001",
+        "REQ-BOOKING-001",
+        "REQ-BOOKING-002",
+        "REQ-CONFIRMATION-001",
+        "REQ-NAVIGATION-001"
+      ],
+      "role_id": "ROLE-CLIENT",
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-LOADED",
+      "steps": [
+        {
+          "action_id": "ACTION-VIEW-SERVICE-LIST",
+          "evidence_ids": [
+            "EVIDENCE-SERVICE-LIST-DISPLAY"
+          ],
+          "expected_page_id": "PAGE-SERVICE-LIST",
+          "expected_state_id": "STATE-SERVICE-LIST-DISPLAYED",
+          "id": "STEP-1-VIEW-SERVICE-LIST",
+          "transition_id": "TRANSITION-HOME-TO-SERVICE-LIST"
+        },
+        {
+          "action_id": "ACTION-SELECT-SERVICE",
+          "evidence_ids": [
+            "EVIDENCE-SERVICE-DETAIL-CONTENT",
+            "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON"
+          ],
+          "expected_page_id": "PAGE-SERVICE-DETAIL",
+          "expected_state_id": "STATE-SERVICE-DETAIL-DISPLAYED",
+          "id": "STEP-2-SELECT-SERVICE",
+          "transition_id": "TRANSITION-SERVICE-LIST-TO-SERVICE-DETAIL"
+        },
+        {
+          "action_id": "ACTION-INITIATE-BOOKING",
+          "evidence_ids": [
+            "EVIDENCE-BOOKING-CALENDAR",
+            "EVIDENCE-BOOKING-CUSTOMER-FORM"
+          ],
+          "expected_page_id": "PAGE-BOOKING",
+          "expected_state_id": "STATE-BOOKING-FORM-DISPLAYED",
+          "id": "STEP-3-INITIATE-BOOKING",
+          "transition_id": "TRANSITION-SERVICE-DETAIL-TO-BOOKING"
+        },
+        {
+          "action_id": "ACTION-SELECT-DATE-TIME",
+          "evidence_ids": [
+            "EVIDENCE-BOOKING-CALENDAR"
+          ],
+          "expected_page_id": "PAGE-BOOKING",
+          "expected_state_id": "STATE-BOOKING-DATE-SELECTED",
+          "id": "STEP-4-SELECT-DATE-TIME",
+          "transition_id": "TRANSITION-BOOKING-SELECT-DATE"
+        },
+        {
+          "action_id": "ACTION-FILL-CUSTOMER-DETAILS",
+          "evidence_ids": [
+            "EVIDENCE-BOOKING-CUSTOMER-FORM"
+          ],
+          "expected_page_id": "PAGE-BOOKING",
+          "expected_state_id": "STATE-BOOKING-DETAILS-FILLED",
+          "id": "STEP-5-FILL-CUSTOMER-DETAILS",
+          "transition_id": "TRANSITION-BOOKING-FILL-DETAILS"
+        },
+        {
+          "action_id": "ACTION-SUBMIT-BOOKING",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ],
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-CONFIRMATION-DISPLAYED",
+          "id": "STEP-6-SUBMIT-BOOKING",
+          "transition_id": "TRANSITION-BOOKING-TO-CONFIRMATION"
+        }
+      ]
+    }
+  ],
+  "open_questions": [],
+  "pages": [
+    {
+      "action_ids": [
+        "ACTION-NAVIGATE-HOME",
+        "ACTION-VIEW-SERVICE-LIST"
+      ],
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES",
+        "CAP-NAVIGATE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-SERVICE-LIST"
+      ],
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "To display a welcoming message and a list of available services to clients.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/",
+      "state_ids": [
+        "STATE-HOME-LOADED"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [
+        "ACTION-SELECT-SERVICE"
+      ],
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES",
+        "CAP-NAVIGATE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-LIST-DISPLAY"
+      ],
+      "id": "PAGE-SERVICE-LIST",
+      "name": "Service List",
+      "purpose": "To present a comprehensive list of all available services.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/services",
+      "state_ids": [
+        "STATE-SERVICE-LIST-DISPLAYED"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [
+        "ACTION-INITIATE-BOOKING"
+      ],
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAIL",
+        "CAP-NAVIGATE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-DETAIL-CONTENT",
+        "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON"
+      ],
+      "id": "PAGE-SERVICE-DETAIL",
+      "name": "Service Detail",
+      "purpose": "To provide detailed information about a specific service and offer a booking option.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/services/v2",
+      "state_ids": [
+        "STATE-SERVICE-DETAIL-DISPLAYED"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [
+        "ACTION-SELECT-DATE-TIME",
+        "ACTION-FILL-CUSTOMER-DETAILS",
+        "ACTION-SUBMIT-BOOKING"
+      ],
+      "capability_ids": [
+        "CAP-SELECT-AVAILABILITY",
+        "CAP-SUBMIT-BOOKING",
+        "CAP-NAVIGATE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-CALENDAR",
+        "EVIDENCE-BOOKING-CUSTOMER-FORM",
+        "EVIDENCE-BOOKING-SUBMIT-BUTTON"
+      ],
+      "id": "PAGE-BOOKING",
+      "name": "Booking",
+      "purpose": "To allow clients to select an available time slot and provide their details for booking.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/booking",
+      "state_ids": [
+        "STATE-BOOKING-FORM-DISPLAYED",
+        "STATE-BOOKING-DATE-SELECTED",
+        "STATE-BOOKING-DETAILS-FILLED"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [],
+      "capability_ids": [
+        "CAP-CONFIRM-BOOKING",
+        "CAP-NAVIGATE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "To display a clear confirmation message after a successful booking.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/confirmation",
+      "state_ids": [
+        "STATE-CONFIRMATION-DISPLAYED"
+      ],
+      "surface": "public"
+    }
+  ],
+  "product_intent": {
+    "desired_outcome": "Customers can browse services, pick availability, submit booking details, and see confirmation.",
+    "name": "StudioBook Connect",
+    "problem": "Customers need an easy way to choose a service and book an available time.",
+    "summary": "A simple service-booking experience for local studio clients to browse services, check availability, and book appointments.",
+    "target_users": [
+      "Local studio clients booking personal-care services"
+    ]
+  },
+  "requirements": [
+    {
+      "description": "The Home page must display a list of available services for clients to browse.",
+      "id": "REQ-HOME-001",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Display available services on the Home page",
+      "verification_mode": "content"
+    },
+    {
+      "description": "Clients must be able to view a list of services, each selectable to view more details.",
+      "id": "REQ-SERVICE-LIST-001",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Present a list of selectable services",
+      "verification_mode": "interaction"
+    },
+    {
+      "description": "Upon selecting a service, clients must be able to view a dedicated page with detailed information about that service.",
+      "id": "REQ-SERVICE-DETAIL-001",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Show detailed service information",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The booking process must include an availability calendar for clients to select a date and time.",
+      "id": "REQ-BOOKING-001",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Allow booking with availability calendar",
+      "verification_mode": "interaction"
+    },
+    {
+      "description": "The booking form must collect necessary customer details to complete the appointment.",
+      "id": "REQ-BOOKING-002",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Collect customer details for booking",
+      "verification_mode": "interaction"
+    },
+    {
+      "description": "After booking, clients must see a clear confirmation message on a dedicated confirmation page.",
+      "id": "REQ-CONFIRMATION-001",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Display clear booking confirmation",
+      "verification_mode": "content"
+    },
+    {
+      "description": "Users must be able to navigate between the Home, Service List, Service Detail, Booking, and Confirmation pages.",
+      "id": "REQ-NAVIGATION-001",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Navigate between core pages",
+      "verification_mode": "interaction"
+    }
+  ],
+  "roles": [
+    {
+      "default_page_id": "PAGE-HOME",
+      "description": "A local studio client looking to book personal-care services.",
+      "id": "ROLE-CLIENT",
+      "name": "Client"
+    }
+  ],
+  "schema_version": "1.0",
+  "states": [
+    {
+      "description": "The Home page is loaded and displays a list of services.",
+      "evidence_ids": [],
+      "id": "STATE-HOME-LOADED",
+      "initial": true,
+      "name": "Home Page Loaded",
+      "page_id": "PAGE-HOME"
+    },
+    {
+      "description": "The Service List page is loaded and shows all available services.",
+      "evidence_ids": [],
+      "id": "STATE-SERVICE-LIST-DISPLAYED",
+      "initial": true,
+      "name": "Service List Displayed",
+      "page_id": "PAGE-SERVICE-LIST"
+    },
+    {
+      "description": "A specific service's detail page is loaded, showing its information.",
+      "evidence_ids": [],
+      "id": "STATE-SERVICE-DETAIL-DISPLAYED",
+      "initial": true,
+      "name": "Service Detail Displayed",
+      "page_id": "PAGE-SERVICE-DETAIL"
+    },
+    {
+      "description": "The booking page is loaded, showing the availability calendar and customer details form.",
+      "evidence_ids": [],
+      "id": "STATE-BOOKING-FORM-DISPLAYED",
+      "initial": true,
+      "name": "Booking Form Displayed",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "description": "A date and time slot has been selected on the availability calendar.",
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-CALENDAR"
+      ],
+      "id": "STATE-BOOKING-DATE-SELECTED",
+      "name": "Booking Date Selected",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "description": "All required customer details have been entered into the booking form.",
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-CUSTOMER-FORM"
+      ],
+      "id": "STATE-BOOKING-DETAILS-FILLED",
+      "name": "Booking Details Filled",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "description": "The booking confirmation page is displayed with a success message.",
+      "evidence_ids": [],
+      "id": "STATE-CONFIRMATION-DISPLAYED",
+      "initial": true,
+      "name": "Confirmation Displayed",
+      "page_id": "PAGE-CONFIRMATION",
+      "terminal": true
+    }
+  ],
+  "traceability": [
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-SERVICE-LIST"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-HOME"
+      ],
+      "requirement_id": "REQ-HOME-001"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-LIST-DISPLAY"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-SERVICE-LIST"
+      ],
+      "requirement_id": "REQ-SERVICE-LIST-001"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAIL"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-DETAIL-CONTENT",
+        "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-SERVICE-DETAIL"
+      ],
+      "requirement_id": "REQ-SERVICE-DETAIL-001"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-SELECT-AVAILABILITY"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-CALENDAR"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-BOOKING"
+      ],
+      "requirement_id": "REQ-BOOKING-001"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-SUBMIT-BOOKING"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-CUSTOMER-FORM",
+        "EVIDENCE-BOOKING-SUBMIT-BUTTON"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-BOOKING"
+      ],
+      "requirement_id": "REQ-BOOKING-002"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-CONFIRM-BOOKING"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-CONFIRMATION"
+      ],
+      "requirement_id": "REQ-CONFIRMATION-001"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BROWSE-AND-BOOK-HAPPY-PATH"
+      ],
+      "capability_ids": [
+        "CAP-NAVIGATE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-SERVICE-LIST",
+        "EVIDENCE-SERVICE-LIST-DISPLAY",
+        "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON",
+        "EVIDENCE-BOOKING-CALENDAR",
+        "EVIDENCE-BOOKING-CUSTOMER-FORM",
+        "EVIDENCE-BOOKING-SUBMIT-BUTTON",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-CLIENT-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-SERVICE-LIST",
+        "PAGE-SERVICE-DETAIL",
+        "PAGE-BOOKING",
+        "PAGE-CONFIRMATION"
+      ],
+      "requirement_id": "REQ-NAVIGATION-001"
+    }
+  ],
+  "transitions": [
+    {
+      "action_id": "ACTION-VIEW-SERVICE-LIST",
+      "description": "Client navigates from the Home page to the Service List page.",
+      "from_state_id": "STATE-HOME-LOADED",
+      "id": "TRANSITION-HOME-TO-SERVICE-LIST",
+      "to_state_id": "STATE-SERVICE-LIST-DISPLAYED"
+    },
+    {
+      "action_id": "ACTION-SELECT-SERVICE",
+      "description": "Client selects a service and navigates to its detail page.",
+      "from_state_id": "STATE-SERVICE-LIST-DISPLAYED",
+      "id": "TRANSITION-SERVICE-LIST-TO-SERVICE-DETAIL",
+      "to_state_id": "STATE-SERVICE-DETAIL-DISPLAYED"
+    },
+    {
+      "action_id": "ACTION-INITIATE-BOOKING",
+      "description": "Client clicks 'Book Service' and proceeds to the booking page.",
+      "from_state_id": "STATE-SERVICE-DETAIL-DISPLAYED",
+      "id": "TRANSITION-SERVICE-DETAIL-TO-BOOKING",
+      "to_state_id": "STATE-BOOKING-FORM-DISPLAYED"
+    },
+    {
+      "action_id": "ACTION-SELECT-DATE-TIME",
+      "description": "Client selects a date and time on the booking calendar.",
+      "from_state_id": "STATE-BOOKING-FORM-DISPLAYED",
+      "id": "TRANSITION-BOOKING-SELECT-DATE",
+      "to_state_id": "STATE-BOOKING-DATE-SELECTED"
+    },
+    {
+      "action_id": "ACTION-FILL-CUSTOMER-DETAILS",
+      "description": "Client fills in their customer details after selecting a time.",
+      "from_state_id": "STATE-BOOKING-DATE-SELECTED",
+      "id": "TRANSITION-BOOKING-FILL-DETAILS",
+      "to_state_id": "STATE-BOOKING-DETAILS-FILLED"
+    },
+    {
+      "action_id": "ACTION-SUBMIT-BOOKING",
+      "description": "Client submits the booking form and is taken to the confirmation page.",
+      "from_state_id": "STATE-BOOKING-DETAILS-FILLED",
+      "id": "TRANSITION-BOOKING-TO-CONFIRMATION",
+      "to_state_id": "STATE-CONFIRMATION-DISPLAYED"
+    },
+    {
+      "action_id": "ACTION-NAVIGATE-HOME",
+      "description": "Complete Navigate to Home.",
+      "effects": [],
+      "from_state_id": "STATE-HOME-LOADED",
+      "id": "TRANSITION-NAVIGATE-HOME",
+      "postconditions": [],
+      "preconditions": [],
+      "to_state_id": "STATE-HOME-LOADED"
+    }
+  ]
+}

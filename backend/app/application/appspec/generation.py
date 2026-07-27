@@ -1138,8 +1138,10 @@ def ensure_approved_app_spec(
                             "repaired_sha256": repair.repaired_sha256,
                             "changed_paths": repair.changed_paths[:80],
                             "actions": repair.actions[:80],
+                            "reconciliations": repair.reconciliations[:80],
                             "refused_reasons": repair.refused_reasons[:40],
                             "result": repair.result_label,
+                            "provider_calls_used": 0,
                         },
                     }
                     if repair.applied and repaired_candidate is not None:

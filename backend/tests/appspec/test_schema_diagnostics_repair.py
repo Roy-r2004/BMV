@@ -295,10 +295,15 @@ def test_trace_evidence_safe_repair_smoke26_class():
         "EVIDENCE-CONFIRMATION",
         "EVIDENCE-STALE-CALENDAR",
     ], "original payload must remain immutable"
-    assert "EVIDENCE-AVAILABILITY-CALENDAR" in repair.payload["traceability"][0][
-        "evidence_ids"
-    ]
-    assert "EVIDENCE-STALE-CALENDAR" not in repair.payload["traceability"][0][
+    # Owner page already on the failing trace → attach the uniquely proven
+    # capability rather than rewriting the evidence ID.
+    repaired_evidence = next(
+        item
+        for item in repair.payload["evidence"]
+        if item["id"] == "EVIDENCE-STALE-CALENDAR"
+    )
+    assert "CAP-BOOK" in repaired_evidence["capability_ids"]
+    assert "EVIDENCE-STALE-CALENDAR" in repair.payload["traceability"][0][
         "evidence_ids"
     ]
 
@@ -325,16 +330,26 @@ def test_trace_evidence_missing_fails_closed():
 
 def test_trace_evidence_ambiguous_fails_closed():
     payload = _smoke26_safe_payload()
-    # Two canonical-like form evidences on the traced page.
-    payload["evidence"].append(
+    # Two capabilities shared by the owner page and failing trace → A3 refuse.
+    payload["capabilities"].append(
         {
-            "id": "EVIDENCE-CALENDAR-ALT",
-            "page_id": "PAGE-BOOK",
-            "name": "Alt calendar",
-            "description": "Another form evidence.",
-            "kind": "form",
-            "capability_ids": ["CAP-BOOK"],
+            "id": "CAP-BOOK-ALT",
+            "name": "Alt book",
+            "description": "Alternate booking capability.",
+            "requirement_ids": ["REQ-BOOK"],
+            "role_ids": [],
+            "entity_ids": [],
         }
+    )
+    page = payload["pages"][0]
+    page["capability_ids"] = list(
+        dict.fromkeys(list(page.get("capability_ids") or []) + ["CAP-BOOK-ALT"])
+    )
+    payload["traceability"][0]["capability_ids"] = list(
+        dict.fromkeys(
+            list(payload["traceability"][0].get("capability_ids") or [])
+            + ["CAP-BOOK-ALT"]
+        )
     )
     validation = {
         "passed": False,
@@ -351,7 +366,10 @@ def test_trace_evidence_ambiguous_fails_closed():
     }
     repair = repair_trace_evidence_mismatch(payload, validation)
     assert repair.applied is False
-    assert repair.refused_reasons
+    assert any(
+        reason.startswith("trace_evidence_reconciliation_ambiguous:")
+        for reason in repair.refused_reasons
+    )
 
 
 def test_ai_schema_repair_once_valid_continues(db_session, monkeypatch):
