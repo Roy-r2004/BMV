@@ -27,6 +27,7 @@ from app.domain.models.request import Request
 from app.application.services import admin_ops
 from app.application.services.admin_alerts import acknowledge_alert, acknowledge_all, list_alerts
 from app.application.services.ai_context import ai_run_scope
+from app.application.services.runtime_metadata import production_build_info
 from app.application.services.user_auth import authenticate_user, create_session
 from app.domain.schemas.admin import (
     AdminLoginRequest,
@@ -119,6 +120,15 @@ def configuration_safety(
             "fallback_on_validation_error_enabled": False,
         },
     }
+
+
+@router.get("/build-info")
+def build_info(
+    _: bool = Depends(verify_admin),
+):
+    """Return authenticated, non-secret release and runtime policy metadata."""
+
+    return production_build_info(settings)
 
 
 @router.get("/settings", response_model=AdminSettingsResponse)

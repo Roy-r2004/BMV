@@ -23,6 +23,10 @@ services:
         # Same-origin API behind Coolify reverse proxy
         VITE_API_BASE_URL: ""
         VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+        # Immutable release metadata supplied by the deployment system.
+        APP_GIT_REVISION: ${APP_GIT_REVISION:-}
+        APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-}
+        GENERATED_DATA_API_POLICY_REVISION: 2026-07-27.generated-data-api.1
     restart: unless-stopped
     environment:
       APP_ENV: production

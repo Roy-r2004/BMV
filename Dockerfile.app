@@ -20,6 +20,14 @@ RUN npm run build
 
 FROM python:3.12-slim-bookworm
 
+ARG APP_GIT_REVISION=
+ARG APP_BUILD_TIMESTAMP=
+ARG GENERATED_DATA_API_POLICY_REVISION=2026-07-27.generated-data-api.1
+
+LABEL org.opencontainers.image.revision="${APP_GIT_REVISION}" \
+      org.opencontainers.image.created="${APP_BUILD_TIMESTAMP}" \
+      org.opencontainers.image.version="${GENERATED_DATA_API_POLICY_REVISION}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DATA_DIR=/app/data \
@@ -35,6 +43,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PULL_MODELS=false \
     SEED_DEMO=false \
     APP_ENV=production \
+    APP_GIT_REVISION="${APP_GIT_REVISION}" \
+    APP_BUILD_TIMESTAMP="${APP_BUILD_TIMESTAMP}" \
+    GENERATED_DATA_API_POLICY_REVISION="${GENERATED_DATA_API_POLICY_REVISION}" \
     PATH="/opt/node/bin:${PATH}" \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
