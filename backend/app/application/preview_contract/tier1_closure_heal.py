@@ -388,6 +388,14 @@ def heal_tier1_page_closure(
         for field in _REFERENCE_FIELDS:
             healed[field].difference_update(orphans.get(field, set()))
 
+    # Closure heal must never introduce dangling evidence references.
+    known_evidence = {str(item.id) for item in spec.evidence}
+    healed["evidence_ids"] = {
+        evidence_id
+        for evidence_id in healed.get("evidence_ids", set())
+        if evidence_id in known_evidence
+    }
+
     after_pages = sorted(healed["page_ids"])
     audit_core = {
         "repair_type": "deterministic_tier1_closure_heal",

@@ -39,6 +39,9 @@ from app.domain.appspec.sanitize.state_journeys import (
     _sanitize_state_graph,
     _sanitize_unique_journey_step_ids,
 )
+from app.domain.appspec.sanitize.reference_integrity import (
+    reconcile_reference_integrity,
+)
 from app.domain.appspec.sanitize.structure import (
     _sanitize_blocking_open_questions,
     _sanitize_capabilities,
@@ -148,6 +151,13 @@ def sanitize_app_spec_payload(
     _sanitize_ambiguous_transitions(sanitized)
     _sanitize_cross_page_navigation(sanitized)
     _sanitize_page_action_ids(sanitized)
+    _sanitize_state_and_journey_evidence(sanitized)
+
+    # Final reference-integrity pass: materialize evidence-shaped IDs that models
+    # placed in entity-reference fields (request 38 class) before validation.
+    sanitized, _integrity = reconcile_reference_integrity(sanitized)
+    _sanitize_page_evidence_membership(sanitized)
+    _sanitize_evidence_capability_page_alignment(sanitized)
     _sanitize_state_and_journey_evidence(sanitized)
 
     return sanitized

@@ -4,6 +4,10 @@ from __future__ import annotations
 import copy
 from typing import Any, Mapping
 
+from app.domain.appspec.sanitize.reference_integrity import (
+    reconcile_reference_integrity,
+)
+
 
 def _path_parts(raw: Any) -> list[Any]:
     if raw is None or raw == "":
@@ -320,6 +324,12 @@ def heal_app_spec_payload(
     applied: list[str] = []
     applied.extend(_heal_schema_version(healed))
 
+    issue_codes = {
+        str(issue.get("code") or "")
+        for issue in (validation_payload.get("issues") or [])
+        if isinstance(issue, Mapping)
+    }
+
     for issue in list(validation_payload.get("issues") or []):
         if not isinstance(issue, Mapping):
             continue
@@ -337,6 +347,21 @@ def heal_app_spec_payload(
             applied.extend(_heal_schema_version(healed))
         elif code == "tier1_primary_journey_incomplete":
             applied.extend(_heal_tier1_primary_journey(healed))
+
+    if "missing_reference" in issue_codes:
+        healed, integrity = reconcile_reference_integrity(healed)
+        applied.extend(list(integrity.applied))
+        if integrity.integrity_hash:
+            applied.append(
+                f"reference_integrity:hash:{integrity.integrity_hash[:16]}"
+            )
+        for item in integrity.diagnostics[:40]:
+            applied.append(
+                "reference_integrity:diag:"
+                f"{item.get('referencing_field')}:"
+                f"{item.get('missing_reference_id')}:"
+                f"{item.get('repair_result')}"
+            )
 
     # Always re-normalize source refs when any source-ref issue appeared.
     if any(

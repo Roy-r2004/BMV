@@ -1,0 +1,547 @@
+{
+  "schema_version": "1.0",
+  "product_intent": {
+    "name": "Request38 Five Page Booking",
+    "summary": "A simple service-booking experience for local studio clients.",
+    "problem": "Phone booking is manual and clients need clearer appointment details.",
+    "desired_outcome": "A clear five-page booking journey ending in confirmation.",
+    "target_users": [
+      "Local studio clients"
+    ],
+    "success_metrics": [
+      "Customers can select a service and complete booking"
+    ]
+  },
+  "requirements": [
+    {
+      "id": "REQ-BOOK-SERVICE",
+      "title": "Book a selected service",
+      "description": "A customer browses services, opens a service detail, books an available slot, creates an appointment, and sees confirmation.",
+      "priority": "must",
+      "verification_mode": "interaction",
+      "source_refs": [
+        "customer_input.desired_outcome"
+      ]
+    }
+  ],
+  "assumptions": [],
+  "open_questions": [],
+  "roles": [
+    {
+      "id": "ROLE-CUSTOMER",
+      "name": "Customer",
+      "description": "A person booking a personal-care service.",
+      "goals": [
+        "Book a service"
+      ],
+      "default_page_id": "PAGE-HOME"
+    }
+  ],
+  "entities": [],
+  "capabilities": [
+    {
+      "id": "CAP-BOOK-SERVICE",
+      "name": "Service booking",
+      "description": "Browse services and submit a booking request.",
+      "requirement_ids": [
+        "REQ-BOOK-SERVICE"
+      ],
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "entity_ids": []
+    }
+  ],
+  "pages": [
+    {
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "Introduce the studio and enter the service booking journey.",
+      "route": "/",
+      "surface": "public",
+      "primary": true,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "state_ids": [
+        "STATE-HOME-READY"
+      ],
+      "action_ids": [
+        "ACTION-BROWSE-SERVICES"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-SURFACE"
+      ]
+    },
+    {
+      "id": "PAGE-SERVICE-LIST",
+      "name": "Service List",
+      "purpose": "Browse selectable services.",
+      "route": "/services",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "state_ids": [
+        "STATE-SERVICE-LIST-READY"
+      ],
+      "action_ids": [
+        "ACTION-SELECT-SERVICE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-LIST-SURFACE"
+      ]
+    },
+    {
+      "id": "PAGE-SERVICE-DETAIL",
+      "name": "Service Detail",
+      "purpose": "Show one selectable service before booking.",
+      "route": "/services/detail",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "state_ids": [
+        "STATE-SERVICE-READY"
+      ],
+      "action_ids": [
+        "ACTION-BOOK-SERVICE"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-DETAIL-SURFACE"
+      ]
+    },
+    {
+      "id": "PAGE-BOOKING",
+      "name": "Booking",
+      "purpose": "Collect customer details and choose availability to create an appointment for the selected service.",
+      "route": "/book",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "state_ids": [
+        "STATE-BOOKING-DRAFT"
+      ],
+      "action_ids": [
+        "ACTION-PICK-SLOT",
+        "ACTION-FILL-CUSTOMER",
+        "ACTION-SUBMIT-BOOKING"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-SURFACE"
+      ]
+    },
+    {
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "Show the appointment confirmation message after the booking is submitted.",
+      "route": "/confirmation",
+      "surface": "public",
+      "primary": false,
+      "role_ids": [
+        "ROLE-CUSTOMER"
+      ],
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "state_ids": [
+        "STATE-BOOKING-CONFIRMED"
+      ],
+      "action_ids": [],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "STATE-HOME-READY",
+      "page_id": "PAGE-HOME",
+      "name": "Ready",
+      "description": "Home ready",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-HOME-SURFACE"
+      ]
+    },
+    {
+      "id": "STATE-SERVICE-LIST-READY",
+      "page_id": "PAGE-SERVICE-LIST",
+      "name": "Ready",
+      "description": "List ready",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-LIST-SURFACE"
+      ]
+    },
+    {
+      "id": "STATE-SERVICE-READY",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "name": "Ready",
+      "description": "Detail ready",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-DETAIL-SURFACE"
+      ]
+    },
+    {
+      "id": "STATE-BOOKING-DRAFT",
+      "page_id": "PAGE-BOOKING",
+      "name": "Draft",
+      "description": "Booking draft",
+      "initial": true,
+      "terminal": false,
+      "evidence_ids": [
+        "EVIDENCE-BOOKING-SURFACE"
+      ]
+    },
+    {
+      "id": "STATE-BOOKING-CONFIRMED",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmed",
+      "description": "Confirmed",
+      "initial": true,
+      "terminal": true,
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "ACTION-BROWSE-SERVICES",
+      "page_id": "PAGE-HOME",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Browse services",
+      "description": "Open the service list.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "entity_id": "EVIDENCE-HOME-BROWSE-BUTTON"
+    },
+    {
+      "id": "ACTION-SELECT-SERVICE",
+      "page_id": "PAGE-SERVICE-LIST",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Select service",
+      "description": "Choose a service from the list.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "entity_id": "EVIDENCE-SERVICE-LIST-ITEMS"
+    },
+    {
+      "id": "ACTION-BOOK-SERVICE",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Book service",
+      "description": "Start booking for the selected service.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "entity_id": "EVIDENCE-SERVICE-DETAIL-BOOK-BUTTON"
+    },
+    {
+      "id": "ACTION-PICK-SLOT",
+      "page_id": "PAGE-BOOKING",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Pick availability",
+      "description": "Choose a date and time from the calendar.",
+      "kind": "select",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "entity_id": "EVIDENCE-BOOKING-CALENDAR"
+    },
+    {
+      "id": "ACTION-FILL-CUSTOMER",
+      "page_id": "PAGE-BOOKING",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Enter customer details",
+      "description": "Fill customer details form fields.",
+      "kind": "fill",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "entity_id": "EVIDENCE-BOOKING-FORM-FIELDS"
+    },
+    {
+      "id": "ACTION-SUBMIT-BOOKING",
+      "page_id": "PAGE-BOOKING",
+      "role_id": "ROLE-CUSTOMER",
+      "name": "Submit booking",
+      "description": "Submit the booking request.",
+      "kind": "navigate",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "entity_id": "EVIDENCE-BOOKING-SUBMIT-BUTTON"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "TR-HOME-TO-LIST",
+      "action_id": "ACTION-BROWSE-SERVICES",
+      "from_state_id": "STATE-HOME-READY",
+      "to_state_id": "STATE-SERVICE-LIST-READY",
+      "description": "Go to service list.",
+      "preconditions": [],
+      "postconditions": [],
+      "effects": []
+    },
+    {
+      "id": "TR-LIST-TO-DETAIL",
+      "action_id": "ACTION-SELECT-SERVICE",
+      "from_state_id": "STATE-SERVICE-LIST-READY",
+      "to_state_id": "STATE-SERVICE-READY",
+      "description": "Open service detail.",
+      "preconditions": [],
+      "postconditions": [],
+      "effects": []
+    },
+    {
+      "id": "TR-DETAIL-TO-BOOK",
+      "action_id": "ACTION-BOOK-SERVICE",
+      "from_state_id": "STATE-SERVICE-READY",
+      "to_state_id": "STATE-BOOKING-DRAFT",
+      "description": "Start booking.",
+      "preconditions": [],
+      "postconditions": [],
+      "effects": []
+    },
+    {
+      "id": "TR-PICK-SLOT",
+      "action_id": "ACTION-PICK-SLOT",
+      "from_state_id": "STATE-BOOKING-DRAFT",
+      "to_state_id": "STATE-BOOKING-DRAFT",
+      "description": "Select slot.",
+      "preconditions": [],
+      "postconditions": [],
+      "effects": []
+    },
+    {
+      "id": "TR-FILL",
+      "action_id": "ACTION-FILL-CUSTOMER",
+      "from_state_id": "STATE-BOOKING-DRAFT",
+      "to_state_id": "STATE-BOOKING-DRAFT",
+      "description": "Fill form.",
+      "preconditions": [],
+      "postconditions": [],
+      "effects": []
+    },
+    {
+      "id": "TR-SUBMIT",
+      "action_id": "ACTION-SUBMIT-BOOKING",
+      "from_state_id": "STATE-BOOKING-DRAFT",
+      "to_state_id": "STATE-BOOKING-CONFIRMED",
+      "description": "Submit booking.",
+      "preconditions": [],
+      "postconditions": [],
+      "effects": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVIDENCE-HOME-SURFACE",
+      "page_id": "PAGE-HOME",
+      "name": "Home surface",
+      "description": "Home page surface.",
+      "kind": "navigation",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-SERVICE-LIST-SURFACE",
+      "page_id": "PAGE-SERVICE-LIST",
+      "name": "Service list surface",
+      "description": "Service list surface.",
+      "kind": "list",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-SERVICE-DETAIL-SURFACE",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "name": "Service detail surface",
+      "description": "Service detail surface.",
+      "kind": "text",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-BOOKING-SURFACE",
+      "page_id": "PAGE-BOOKING",
+      "name": "Booking surface",
+      "description": "Booking page surface.",
+      "kind": "form",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ]
+    },
+    {
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "page_id": "PAGE-CONFIRMATION",
+      "name": "Confirmation message",
+      "description": "Booking confirmation.",
+      "kind": "status",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "id": "JOURNEY-BOOK",
+      "name": "Book a service",
+      "description": "Home to confirmation booking journey.",
+      "role_id": "ROLE-CUSTOMER",
+      "requirement_ids": [
+        "REQ-BOOK-SERVICE"
+      ],
+      "start_page_id": "PAGE-HOME",
+      "start_state_id": "STATE-HOME-READY",
+      "steps": [
+        {
+          "id": "STEP-1",
+          "action_id": "ACTION-BROWSE-SERVICES",
+          "transition_id": "TR-HOME-TO-LIST",
+          "expected_page_id": "PAGE-SERVICE-LIST",
+          "expected_state_id": "STATE-SERVICE-LIST-READY",
+          "evidence_ids": [
+            "EVIDENCE-SERVICE-LIST-SURFACE"
+          ]
+        },
+        {
+          "id": "STEP-2",
+          "action_id": "ACTION-SELECT-SERVICE",
+          "transition_id": "TR-LIST-TO-DETAIL",
+          "expected_page_id": "PAGE-SERVICE-DETAIL",
+          "expected_state_id": "STATE-SERVICE-READY",
+          "evidence_ids": [
+            "EVIDENCE-SERVICE-DETAIL-SURFACE"
+          ]
+        },
+        {
+          "id": "STEP-3",
+          "action_id": "ACTION-BOOK-SERVICE",
+          "transition_id": "TR-DETAIL-TO-BOOK",
+          "expected_page_id": "PAGE-BOOKING",
+          "expected_state_id": "STATE-BOOKING-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-BOOKING-SURFACE"
+          ]
+        },
+        {
+          "id": "STEP-4",
+          "action_id": "ACTION-PICK-SLOT",
+          "transition_id": "TR-PICK-SLOT",
+          "expected_page_id": "PAGE-BOOKING",
+          "expected_state_id": "STATE-BOOKING-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-BOOKING-SURFACE"
+          ]
+        },
+        {
+          "id": "STEP-5",
+          "action_id": "ACTION-FILL-CUSTOMER",
+          "transition_id": "TR-FILL",
+          "expected_page_id": "PAGE-BOOKING",
+          "expected_state_id": "STATE-BOOKING-DRAFT",
+          "evidence_ids": [
+            "EVIDENCE-BOOKING-SURFACE"
+          ]
+        },
+        {
+          "id": "STEP-6",
+          "action_id": "ACTION-SUBMIT-BOOKING",
+          "transition_id": "TR-SUBMIT",
+          "expected_page_id": "PAGE-CONFIRMATION",
+          "expected_state_id": "STATE-BOOKING-CONFIRMED",
+          "evidence_ids": [
+            "EVIDENCE-CONFIRMATION-MESSAGE"
+          ]
+        }
+      ]
+    }
+  ],
+  "acceptance_tests": [
+    {
+      "id": "TEST-BOOK",
+      "name": "Booking completes",
+      "description": "Customer completes booking.",
+      "requirement_ids": [
+        "REQ-BOOK-SERVICE"
+      ],
+      "journey_id": "JOURNEY-BOOK",
+      "assertions": [
+        {
+          "kind": "route",
+          "description": "Lands on confirmation",
+          "page_id": "PAGE-CONFIRMATION",
+          "expected": "/confirmation"
+        },
+        {
+          "kind": "visible",
+          "description": "Confirmation visible",
+          "page_id": "PAGE-CONFIRMATION",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE",
+          "expected": "visible"
+        }
+      ]
+    }
+  ],
+  "traceability": [
+    {
+      "requirement_id": "REQ-BOOK-SERVICE",
+      "capability_ids": [
+        "CAP-BOOK-SERVICE"
+      ],
+      "page_ids": [
+        "PAGE-HOME",
+        "PAGE-SERVICE-LIST",
+        "PAGE-SERVICE-DETAIL",
+        "PAGE-BOOKING",
+        "PAGE-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-HOME-SURFACE",
+        "EVIDENCE-SERVICE-LIST-SURFACE",
+        "EVIDENCE-SERVICE-DETAIL-SURFACE",
+        "EVIDENCE-BOOKING-SURFACE",
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [
+        "JOURNEY-BOOK"
+      ],
+      "acceptance_test_ids": [
+        "TEST-BOOK"
+      ]
+    }
+  ],
+  "deferred_scope": []
+}

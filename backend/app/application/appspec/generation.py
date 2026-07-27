@@ -42,6 +42,7 @@ from app.domain.appspec.sanitize import (
     classify_schema_parse_exception,
     heal_app_spec_payload,
     normalize_app_spec_preparse,
+    reconcile_reference_integrity,
     repair_app_spec_graph,
     repair_trace_evidence_mismatch,
     sanitize_app_spec_payload,
@@ -1327,6 +1328,48 @@ def ensure_approved_app_spec(
 
                 # 4) Safety-net fallback — only when explicitly enabled.
                 return _fallback("deterministic_validation_failed")
+
+            # Final reference-integrity pass before acceptance. Reconstruct
+            # evidence-shaped entity refs when possible; otherwise fail closed
+            # on the next validation loop.
+            if candidate is not None and candidate.payload:
+                original_sha = payload_sha256(candidate.payload)
+                repaired_payload, integrity = reconcile_reference_integrity(
+                    candidate.payload
+                )
+                graph_repair_audit = {
+                    **graph_repair_audit,
+                    "reference_integrity": {
+                        "repair_type": "deterministic_reference_integrity",
+                        "integrity_hash": integrity.integrity_hash,
+                        "diagnostics": integrity.diagnostics[:40],
+                        "applied": integrity.applied[:40],
+                        "provider_called": False,
+                    },
+                }
+                if integrity.applied:
+                    candidate = _clone_candidate(
+                        candidate,
+                        repaired_payload,
+                        repair_type="deterministic_reference_integrity",
+                        parent_payload_sha256=original_sha,
+                    )
+                    candidate = _sanitize_candidate(candidate, source_snapshot)
+                    heal_actions.extend(integrity.applied[:40])
+                    _record_lineage(
+                        {
+                            "repair_type": "deterministic_reference_integrity",
+                            "original_sha256": original_sha,
+                            "result_sha256": payload_sha256(candidate.payload),
+                            "integrity_hash": integrity.integrity_hash,
+                            "diagnostics": integrity.diagnostics[:40],
+                            "applied": integrity.applied[:40],
+                            "provider_called": False,
+                        }
+                    )
+                    spec = None
+                    validation = None
+                    continue
 
             assert spec is not None and validation is not None
             try:

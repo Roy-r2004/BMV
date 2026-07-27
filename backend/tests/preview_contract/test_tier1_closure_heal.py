@@ -650,3 +650,43 @@ def test_derived_tier1_contract_excludes_hub_while_tier3_keeps_it() -> None:
         json.dumps(list(result.tiers[0].references.page_ids))
     )
     assert '"PAGE-AI-FEATURES"' in tier3_json
+
+
+def test_tier1_closure_heal_cannot_introduce_dangling_evidence_refs() -> None:
+    payload = _base_payload()
+    spec = AppSpec.model_validate(payload)
+    _, _, strategy, context = _context()
+    primary = build_preview_tiers(spec=spec, strategy=strategy, context=context)[
+        0
+    ].primary_journey_proof
+    seeds = {
+        "requirement_ids": {primary.requirement_id},
+        "journey_ids": {primary.journey_id},
+        "page_ids": set(primary.page_ids),
+        "action_ids": set(primary.action_ids),
+        "transition_ids": set(primary.transition_ids),
+        "evidence_ids": set(primary.success_evidence_ids),
+        "acceptance_test_ids": {primary.acceptance_test_id},
+        "role_ids": set(),
+        "entity_ids": set(),
+        "capability_ids": set(),
+        "state_ids": set(),
+    }
+    closed = expand_tier_graph(
+        spec,
+        seeds,
+        require_journey_page_closure=True,
+    )
+    # Pollute only the heal input — expand_tier_graph already rejects unknowns.
+    polluted = {field: set(values) for field, values in closed.items()}
+    polluted["evidence_ids"].add("EVIDENCE-DOES-NOT-EXIST")
+    healed, _audit = heal_tier1_page_closure(
+        spec,
+        polluted,
+        primary_proof=primary,
+        request_id=923,
+        app_spec_revision=1,
+    )
+    known = {item.id for item in spec.evidence}
+    assert "EVIDENCE-DOES-NOT-EXIST" not in healed["evidence_ids"]
+    assert healed["evidence_ids"] <= known
