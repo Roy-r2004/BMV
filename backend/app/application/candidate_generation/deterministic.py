@@ -8,7 +8,25 @@ from pathlib import Path
 
 from app.application.appspec.source import canonical_json
 from app.application.candidate_generation.cache import sha256_bytes, sha256_text
+from app.application.candidate_generation.content_data_identifiers import (
+    TYPESCRIPT_RESERVED_IDENTIFIERS as _TYPESCRIPT_RESERVED_IDENTIFIERS,
+    UNCOUNTABLE_ALIASES as _UNCOUNTABLE_ALIASES,
+    collection_seed_records as _collection_seed_records,
+    identifier_words as _identifier_words,
+    lower_camel as _lower_camel,
+    needs_typescript_prefix as _needs_typescript_prefix,
+    pluralize as _pluralize,
+    singularize as _singularize,
+    unique_alias as _unique_alias,
+    valid_typescript_identifier as _valid_typescript_identifier,
+)
 from app.application.candidate_generation.context import CandidateContext
+from app.application.candidate_generation.generated_data_api import (
+    build_generated_data_api_manifest,
+    exported_symbols,
+    render_generated_data_api_block,
+)
+from app.domain.schemas.generated_data_api import GeneratedDataApiManifest
 from app.domain.schemas.preview_candidate import (
     CandidateArtifactKind,
     CandidateArtifactManifest,
@@ -33,88 +51,6 @@ _FOUNDATION_FILES = (
     "tsconfig.node.json",
     "vite.config.ts",
     "index.html",
-)
-_UNCOUNTABLE_ALIASES = frozenset({"availability"})
-_TYPESCRIPT_RESERVED_IDENTIFIERS = frozenset(
-    {
-        "abstract",
-        "any",
-        "as",
-        "asserts",
-        "async",
-        "await",
-        "bigint",
-        "boolean",
-        "break",
-        "case",
-        "catch",
-        "class",
-        "const",
-        "constructor",
-        "continue",
-        "debugger",
-        "declare",
-        "default",
-        "delete",
-        "do",
-        "else",
-        "enum",
-        "export",
-        "extends",
-        "false",
-        "finally",
-        "for",
-        "from",
-        "function",
-        "get",
-        "if",
-        "implements",
-        "import",
-        "in",
-        "infer",
-        "instanceof",
-        "interface",
-        "is",
-        "keyof",
-        "let",
-        "module",
-        "namespace",
-        "never",
-        "new",
-        "null",
-        "number",
-        "object",
-        "of",
-        "override",
-        "package",
-        "private",
-        "protected",
-        "public",
-        "readonly",
-        "require",
-        "return",
-        "satisfies",
-        "set",
-        "static",
-        "string",
-        "super",
-        "switch",
-        "symbol",
-        "this",
-        "throw",
-        "true",
-        "try",
-        "type",
-        "typeof",
-        "undefined",
-        "unique",
-        "unknown",
-        "var",
-        "void",
-        "while",
-        "with",
-        "yield",
-    }
 )
 
 
@@ -437,107 +373,6 @@ def _typescript_const(name: str, value: object) -> str:
     )
 
 
-def _identifier_words(identifier: str) -> list[str]:
-    parts = [part.lower() for part in re.findall(r"[A-Za-z0-9]+", identifier)]
-    filtered = [
-        part
-        for part in parts
-        if part not in {"entity", "collection", "field", "record"}
-    ]
-    return filtered or ["data"]
-
-
-def _lower_camel(words: list[str]) -> str:
-    if not words:
-        return "data"
-    head, *tail = words
-    return head + "".join(part[:1].upper() + part[1:] for part in tail)
-
-
-def _typescript_prefix(name: str) -> str:
-    candidate = re.sub(r"[^A-Za-z0-9_$]", "", name)
-    if not candidate:
-        return "tsData"
-    return f"ts{candidate[:1].upper()}{candidate[1:]}"
-
-
-def _needs_typescript_prefix(name: str) -> bool:
-    candidate = re.sub(r"[^A-Za-z0-9_$]", "", name)
-    if not candidate:
-        return True
-    if not re.match(r"^[A-Za-z_$]", candidate):
-        return True
-    return candidate in _TYPESCRIPT_RESERVED_IDENTIFIERS
-
-
-def _valid_typescript_identifier(name: str, *, force_prefix: bool = False) -> str:
-    candidate = re.sub(r"[^A-Za-z0-9_$]", "", name)
-    if force_prefix or _needs_typescript_prefix(candidate):
-        return _typescript_prefix(candidate)
-    return candidate
-
-
-def _singularize(words: list[str]) -> list[str]:
-    if not words:
-        return ["data"]
-    last = words[-1]
-    if last in _UNCOUNTABLE_ALIASES:
-        return words
-    if last.endswith("ies") and len(last) > 3:
-        last = last[:-3] + "y"
-    elif last.endswith("ses") and len(last) > 3:
-        last = last[:-2]
-    elif last.endswith("s") and len(last) > 1 and not last.endswith("ss"):
-        last = last[:-1]
-    return [*words[:-1], last]
-
-
-def _pluralize(words: list[str]) -> list[str]:
-    if not words:
-        return ["data"]
-    last = words[-1]
-    if last in _UNCOUNTABLE_ALIASES:
-        return words
-    if last.endswith("y") and len(last) > 1 and last[-2] not in "aeiou":
-        last = last[:-1] + "ies"
-    elif last.endswith(("s", "x", "z", "ch", "sh")):
-        last = last + "es"
-    else:
-        last = last + "s"
-    return [*words[:-1], last]
-
-
-def _unique_alias(base: str, used: set[str]) -> str:
-    stem = _valid_typescript_identifier(base or "data")
-    candidate = stem
-    suffix = 1
-    while candidate in used:
-        suffix += 1
-        candidate = _valid_typescript_identifier(f"{stem}{suffix}")
-    used.add(candidate)
-    return candidate
-
-
-def _collection_seed_records(collection: object) -> list[dict[str, object]]:
-    records: list[dict[str, object]] = []
-    entity_words = _identifier_words(str(getattr(collection, "entity_id", "")))
-    for seed_record in getattr(collection, "seed_records", ()):
-        payload: dict[str, object] = {}
-        for item in getattr(seed_record, "values", ()):
-            field_words = _identifier_words(str(getattr(item, "field_id", "")))
-            value = getattr(item, "value", None)
-            full_key = _lower_camel(field_words)
-            payload[full_key] = value
-            if (
-                len(field_words) > len(entity_words)
-                and field_words[: len(entity_words)] == entity_words
-            ):
-                short_key = _lower_camel(field_words[len(entity_words) :])
-                payload.setdefault(short_key, value)
-        records.append(payload)
-    return records
-
-
 def _collection_alias_exports(context: CandidateContext) -> str:
     used_aliases = {
         "contentDataPlan",
@@ -695,6 +530,48 @@ def ensure_content_data_compat_aliases(
     return updated
 
 
+def build_content_data_module(
+    context: CandidateContext,
+) -> tuple[str, GeneratedDataApiManifest]:
+    """Emit ``content-data.ts`` together with its canonical API manifest.
+
+    The compat aliases stay first so their symbols reserve names before the
+    canonical API is derived; the manifest therefore always describes the
+    module that is actually written.
+    """
+
+    content_sha256 = context.refs.content_data_plan_ref.sha256
+    compat = ensure_content_data_compat_aliases(
+        _typescript_const(
+            "contentDataPlan",
+            context.content_data.model_dump(mode="json"),
+        )
+        + _typescript_const("contentDataSha256", content_sha256)
+        + _collection_alias_exports(context),
+        context=context,
+    )
+    manifest = build_generated_data_api_manifest(
+        content_data=context.content_data,
+        content_data_plan_sha256=content_sha256,
+        reserved_symbols=exported_symbols(compat),
+    )
+    source = compat + render_generated_data_api_block(
+        manifest=manifest,
+        content_data=context.content_data,
+    )
+    return source, manifest.model_copy(
+        update={"generated_file_sha256": sha256_text(source)}
+    )
+
+
+def generated_data_api_manifest(
+    context: CandidateContext,
+) -> GeneratedDataApiManifest:
+    """Return the canonical generated-data API for this candidate context."""
+
+    return build_content_data_module(context)[1]
+
+
 def build_data_sources(context: CandidateContext) -> tuple[CandidateSourceFile, ...]:
     content_payload = context.content_data.model_dump(mode="json")
     page_payload = context.page_purpose.model_dump(mode="json")
@@ -720,15 +597,7 @@ def build_data_sources(context: CandidateContext) -> tuple[CandidateSourceFile, 
             path="src/generated/content-data.ts",
             file_kind="data",
             owner_contract_ids=content_ids + collection_ids,
-            source=ensure_content_data_compat_aliases(
-                _typescript_const("contentDataPlan", content_payload)
-                + _typescript_const(
-                    "contentDataSha256",
-                    context.refs.content_data_plan_ref.sha256,
-                )
-                + _collection_alias_exports(context),
-                context=context,
-            ),
+            source=build_content_data_module(context)[0],
         ),
         CandidateSourceFile(
             path="src/generated/canonical-contracts.ts",

@@ -154,9 +154,10 @@ class CandidateStageCheckpoint:
     parent_attempt_id: str = ""
     retry_decision: str = ""
     idempotency_key: str = ""
+    artifact_manifest: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "substage": self.substage,
             "input_hash": self.input_hash,
             "output_hash": self.output_hash,
@@ -166,6 +167,9 @@ class CandidateStageCheckpoint:
             "retry_decision": self.retry_decision,
             "idempotency_key": self.idempotency_key,
         }
+        if self.artifact_manifest is not None:
+            payload["artifact_manifest"] = self.artifact_manifest
+        return payload
 
 
 class CandidateCallBudget:
@@ -219,6 +223,11 @@ class CandidateCallBudget:
                 parent_attempt_id=str(value.get("parent_attempt_id") or ""),
                 retry_decision=str(value.get("retry_decision") or ""),
                 idempotency_key=str(value.get("idempotency_key") or ""),
+                artifact_manifest=(
+                    value.get("artifact_manifest")
+                    if isinstance(value.get("artifact_manifest"), dict)
+                    else None
+                ),
             )
             for key, value in (snapshot.get("checkpoints") or {}).items()
             if isinstance(value, dict)

@@ -16,7 +16,14 @@ from app.application.candidate_generation.cache import (
 from app.application.candidate_generation.context import CandidateContext
 from app.application.candidate_generation.deterministic import (
     CandidateSourceFile,
+    build_content_data_module,
     component_export_symbol,
+)
+from app.application.candidate_generation.generated_data_api import (
+    exported_symbols,
+    heal_generated_data_record_shapes,
+    heal_generated_data_symbols,
+    validate_generated_data_imports,
 )
 from app.application.candidate_generation.component_registry import (
     build_business_component_registry,
@@ -212,6 +219,142 @@ def heal_missing_transition_hooks(
     if not healed:
         return batch, False
     return batch.model_copy(update={"files": tuple(repaired_files)}), True
+
+
+def heal_invented_generated_data_imports(
+    batch: GeneratedCandidateBatch,
+    *,
+    context: CandidateContext,
+) -> tuple[GeneratedCandidateBatch, tuple[str, ...]]:
+    """Rewrite near-miss generated-data imports onto their canonical symbols.
+
+    The canonical API is deterministic, so an invented accessor such as
+    ``getServicesSeedData`` resolves to exactly one exported symbol. Rewriting
+    it here keeps the failure out of tsc without spending a repair call.
+    """
+
+    module_source, manifest = build_content_data_module(context)
+    allowed = exported_symbols(module_source)
+    healed_files: list[GeneratedCandidateFile] = []
+    applied: list[str] = []
+    for item in batch.files:
+        if item.file_kind not in {"business_component", "page"}:
+            healed_files.append(item)
+            continue
+        source, rewrites = heal_generated_data_symbols(
+            item.source,
+            manifest=manifest,
+            allowed_symbols=allowed,
+        )
+        if not rewrites:
+            healed_files.append(item)
+            continue
+        applied.extend(
+            f"{item.path}:{invented}->{canonical}"
+            for invented, canonical in rewrites
+        )
+        healed_files.append(item.model_copy(update={"source": source}))
+    if not applied:
+        return batch, ()
+    return (
+        batch.model_copy(update={"files": tuple(healed_files)}),
+        tuple(applied),
+    )
+
+
+def heal_generated_data_record_shapes_in_batch(
+    batch: GeneratedCandidateBatch,
+    *,
+    context: CandidateContext,
+) -> tuple[
+    GeneratedCandidateBatch,
+    tuple[dict[str, object], ...],
+    tuple[CandidateValidationIssue, ...],
+]:
+    """Flatten only compiler-AST-proven legacy record wrappers once per batch."""
+
+    module_source, manifest = build_content_data_module(context)
+    healed_files: list[GeneratedCandidateFile] = []
+    evidence: list[dict[str, object]] = []
+    issues: list[CandidateValidationIssue] = []
+    for item in batch.files:
+        if item.file_kind not in {"business_component", "page"}:
+            healed_files.append(item)
+            continue
+        source, file_evidence, file_issues = heal_generated_data_record_shapes(
+            item.source,
+            path=item.path,
+            manifest=manifest,
+            content_data_module=module_source,
+        )
+        evidence.extend(file_evidence)
+        issues.extend(
+            _issue(
+                str(issue["code"]),
+                str(issue["message"]),
+                path=item.path,
+            )
+            for issue in file_issues
+        )
+        healed_files.append(item.model_copy(update={"source": source}))
+    if issues:
+        return batch, (), tuple(issues)
+    if not evidence:
+        return batch, (), ()
+    return (
+        batch.model_copy(update={"files": tuple(healed_files)}),
+        tuple(evidence),
+        (),
+    )
+
+
+def _validate_generated_data_api(
+    workspace: CandidateWorkspace,
+    *,
+    context: CandidateContext,
+    expected_sources: tuple[CandidateSourceFile, ...],
+) -> list[CandidateValidationIssue]:
+    """Fail closed when generated code imports a symbol that does not exist."""
+
+    module_source = read_source(
+        workspace,
+        "src/generated/content-data.ts",
+    )
+    if not module_source:
+        return []
+    allowed = exported_symbols(module_source)
+    _emitted, manifest = build_content_data_module(context)
+    issues: list[CandidateValidationIssue] = []
+    for item in expected_sources:
+        if item.file_kind not in {"business_component", "page"}:
+            continue
+        source = read_source(workspace, item.path)
+        if not source:
+            continue
+        for invented in validate_generated_data_imports(
+            path=item.path,
+            source=source,
+            manifest=manifest,
+            allowed_symbols=allowed,
+        ):
+            suggestion = invented["suggestion"]
+            hint = (
+                f" Use {suggestion!r} instead."
+                if suggestion
+                else " Import only symbols declared by the generated-data API."
+            )
+            issues.append(
+                _issue(
+                    "generated_data_api_unknown_export",
+                    (
+                        f"{manifest.module_specifier} does not export "
+                        f"{invented['symbol']!r}.{hint}"
+                    ),
+                    path=item.path,
+                    related_ids=(),
+                )
+            )
+    return issues
 
 
 def validate_generated_batch(
@@ -543,6 +686,7 @@ def validate_candidate_workspace(
         "canonical_interaction_hooks",
         "acceptance_test_markers",
         "content_data_hash",
+        "generated_data_api_contract",
         "ia_mobile_bindings",
         "legacy_scaffold_absence",
         "business_component_usage",
@@ -574,6 +718,13 @@ def validate_candidate_workspace(
                 )
             )
     issues.extend(_validate_imports(workspace.staging_path))
+    issues.extend(
+        _validate_generated_data_api(
+            workspace,
+            context=context,
+            expected_sources=expected_sources,
+        )
+    )
     issues.extend(_typescript_no_emit(workspace.staging_path))
 
     generated_sources = "\n".join(
@@ -716,6 +867,8 @@ __all__ = [
     "APPROVED_RUNTIME_PACKAGES",
     "batch_sources",
     "deterministic_repair_batch",
+    "heal_invented_generated_data_imports",
+    "heal_generated_data_record_shapes_in_batch",
     "heal_missing_transition_hooks",
     "validate_candidate_workspace",
     "validate_generated_batch",

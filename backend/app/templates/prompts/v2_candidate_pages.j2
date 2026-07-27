@@ -18,6 +18,15 @@ required action handlers, required state/evidence bindings, route identity, or
 journey-critical navigation. Do not invent substitute components.
 
 Use the generated business-component exports and approved deterministic data.
+
+generated_data_api is the complete, authoritative export list for
+"@/generated/content-data". Import only symbols it declares and use their exact
+declared signatures; importing an undeclared member fails deterministic
+pre-build validation. The candidate compiles under strict TypeScript with
+noImplicitAny, so annotate every callback and destructured parameter using the
+record interfaces from generated_data_api, for example
+(item: ServiceRecord) => item.id.
+
 Follow DesignDNA and the IA mobile contract without imposing shared visible
 layouts. Expose the exact page ID and acceptance tests with data-bmv-page-id
 and data-bmv-acceptance-test-id. Include the IA navigation, primary-action,

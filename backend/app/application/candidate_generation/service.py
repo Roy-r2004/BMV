@@ -44,8 +44,12 @@ from app.application.candidate_generation.deterministic import (
     build_route_sources,
     component_export_symbol,
     dependency_lock_sha256,
+    generated_data_api_manifest,
     page_export_symbol,
     source_manifest,
+)
+from app.application.candidate_generation.generated_data_api import (
+    manifest_prompt_projection,
 )
 from app.application.candidate_generation.page_skeleton import (
     build_page_skeleton_source,
@@ -68,6 +72,8 @@ from app.application.candidate_generation.validation import (
     APPROVED_RUNTIME_PACKAGES,
     batch_sources,
     deterministic_repair_batch,
+    heal_invented_generated_data_imports,
+    heal_generated_data_record_shapes_in_batch,
     heal_missing_transition_hooks,
     validate_candidate_workspace,
     validate_generated_batch,
@@ -129,6 +135,7 @@ class _Stage:
     repair_used: bool = False
     usage_evidence: BusinessComponentUsageEvidence | None = None
     deterministic_usage_heal_used: bool = False
+    generated_data_record_shape_heals: tuple[dict[str, object], ...] = ()
     required_bindings: tuple[RequiredBusinessComponentBinding, ...] = ()
     resumed_from_checkpoint: bool = False
 
@@ -152,6 +159,7 @@ def _record_stage_checkpoint(
     status: str,
     provider_attempt_id: str = "",
     idempotency_key: str = "",
+    artifact_manifest: dict[str, Any] | None = None,
 ) -> None:
     call_budget.record_checkpoint(
         CandidateStageCheckpoint(
@@ -164,6 +172,7 @@ def _record_stage_checkpoint(
                 idempotency_key
                 or f"{candidate_revision_uuid}:{stage_name}:{status}"
             ),
+            artifact_manifest=artifact_manifest,
         )
     )
 
@@ -178,6 +187,9 @@ def _serialize_stage_resume_state(stage: _Stage) -> dict[str, Any]:
         "repair_used": stage.repair_used,
         "deterministic_usage_heal_used": (
             stage.deterministic_usage_heal_used
+        ),
+        "generated_data_record_shape_heals": list(
+            stage.generated_data_record_shape_heals
         ),
         "provider_attempt_id": "",
         "idempotency_key": "",
@@ -259,6 +271,15 @@ def _persist_completed_ai_stage(
         status=status,
         provider_attempt_id=provider_attempt_id,
         idempotency_key=idempotency_key,
+        artifact_manifest=(
+            {
+                "generated_data_record_shape_heals": list(
+                    stage.generated_data_record_shape_heals
+                )
+            }
+            if stage.generated_data_record_shape_heals
+            else None
+        ),
     )
     payload = _serialize_stage_resume_state(stage)
     payload["status"] = status
@@ -452,8 +473,11 @@ def _common_prompt_inputs(context: CandidateContext) -> dict[str, Any]:
             "src/generated/content-data.json",
             "src/generated/canonical-contracts.ts",
         ],
+        "generated_data_api": manifest_prompt_projection(
+            generated_data_api_manifest(context)
+        ),
         "prompt_projection_meta": {
-            "revision": "2026-07-26.candidate-prompt.2",
+            "revision": "2026-07-27.candidate-prompt.3",
             "omitted_sections": [
                 "full_raw_app_spec",
                 "product_strategy_v2_narrative",
@@ -779,6 +803,16 @@ def _load_or_generate_ai_stage(
             repair_used=bool(resume_stage_state.get("repair_used")),
             usage_evidence=evidence,
             deterministic_usage_heal_used=heal_used,
+            generated_data_record_shape_heals=tuple(
+                item
+                for item in (
+                    resume_stage_state.get(
+                        "generated_data_record_shape_heals"
+                    )
+                    or ()
+                )
+                if isinstance(item, dict)
+            ),
             required_bindings=page_bindings,
             resumed_from_checkpoint=True,
         )
@@ -944,13 +978,28 @@ def _load_or_generate_ai_stage(
     else:
         built = BuiltCandidateBatch(**resume_built)
     batch = deterministic_repair_batch(built.batch)
+    batch, data_api_rewrites = heal_invented_generated_data_imports(
+        batch,
+        context=context,
+    )
+    batch, record_shape_heals, record_shape_issues = (
+        heal_generated_data_record_shapes_in_batch(
+            batch,
+            context=context,
+        )
+    )
+    if record_shape_issues:
+        raise CandidateContractError(
+            f"{stage} contains ambiguous generated-data record access.",
+            issues=record_shape_issues,
+        )
     repair_used = False
     metrics = built.metrics
-    heal_used = False
+    heal_used = bool(data_api_rewrites or record_shape_heals)
     evidence: BusinessComponentUsageEvidence | None = None
 
     if stage == "pages":
-        batch, issues, evidence, heal_used = _apply_page_usage_guards(
+        batch, issues, evidence, usage_heal_used = _apply_page_usage_guards(
             batch=batch,
             context=context,
             bindings=page_bindings,
@@ -958,12 +1007,13 @@ def _load_or_generate_ai_stage(
             ai_repair_used=False,
             allow_deterministic_heal=True,
         )
+        heal_used = heal_used or usage_heal_used
     else:
         batch, transition_heal_used = heal_missing_transition_hooks(
             batch,
             context=context,
         )
-        heal_used = transition_heal_used
+        heal_used = heal_used or transition_heal_used
         issues = validate_generated_batch(batch, context=context)
 
     if issues:
@@ -1001,6 +1051,11 @@ def _load_or_generate_ai_stage(
             candidate_revision_uuid=candidate_revision_uuid,
         )
         batch = deterministic_repair_batch(repaired.batch)
+        batch, post_repair_rewrites = heal_invented_generated_data_imports(
+            batch,
+            context=context,
+        )
+        heal_used = heal_used or bool(post_repair_rewrites)
         repair_used = True
         if stage == "pages":
             batch, issues, evidence, post_heal = _apply_page_usage_guards(
@@ -1040,6 +1095,7 @@ def _load_or_generate_ai_stage(
         usage_evidence=evidence,
         deterministic_usage_heal_used=heal_used,
         required_bindings=page_bindings,
+        generated_data_record_shape_heals=record_shape_heals,
         resumed_from_checkpoint=False,
     )
 
@@ -1142,6 +1198,13 @@ def _repair_stage_after_gate(
         candidate_revision_uuid=candidate_revision_uuid,
     )
     batch = deterministic_repair_batch(repaired.batch)
+    batch, data_api_rewrites = heal_invented_generated_data_imports(
+        batch,
+        context=context,
+    )
+    stage.deterministic_usage_heal_used = (
+        stage.deterministic_usage_heal_used or bool(data_api_rewrites)
+    )
     if stage_name == "pages" and stage.required_bindings:
         batch, batch_issues, evidence, heal_used = _apply_page_usage_guards(
             batch=batch,
@@ -1490,6 +1553,7 @@ def build_v2_candidate_revision(
         _ensure_deadline(phase_deadline)
 
         data_sources = build_data_sources(context)
+        data_api = generated_data_api_manifest(context)
         data_input_hashes = (
             context.refs.content_data_plan_ref.sha256,
             context.refs.page_purpose_ref.sha256,
@@ -1514,6 +1578,9 @@ def build_v2_candidate_revision(
                 output_hash=canonical_sha256(data.artifact),
                 status="completed",
                 idempotency_key=f"{workspace.revision_uuid}:data_exports",
+                artifact_manifest={
+                    "generated_data_api": data_api.model_dump(mode="json"),
+                },
             )
         )
         checkpoint_workspace(
