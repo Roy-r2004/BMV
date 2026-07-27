@@ -913,9 +913,9 @@ class Settings:
         self.V2_CANDIDATE_REPAIR_PROMPT_REVISION = (
             os.getenv(
                 "V2_CANDIDATE_REPAIR_PROMPT_REVISION",
-                "2026-07-24.1",
+                "2026-07-27.1",
             ).strip()
-            or "2026-07-24.1"
+            or "2026-07-27.1"
         )
         for field_name, default, minimum, maximum in (
             ("V2_CANDIDATE_COMPONENT_MAX_TOKENS", 24000, 4000, 32000),
@@ -933,7 +933,8 @@ class Settings:
         for field_name, default, maximum in (
             ("V2_CANDIDATE_COMPONENT_TIMEOUT_SECONDS", 240, 240),
             ("V2_CANDIDATE_PAGE_TIMEOUT_SECONDS", 300, 300),
-            ("V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS", 150, 150),
+            # Request 39: component repair wall was too tight for GLM repair.
+            ("V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS", 300, 300),
             ("V2_CANDIDATE_TIMEOUT_SECONDS", 600, 600),
         ):
             try:

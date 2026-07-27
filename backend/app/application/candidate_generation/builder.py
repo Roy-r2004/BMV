@@ -73,6 +73,7 @@ def invoke_with_timeout(
     *,
     timeout_seconds: float,
     stage: str,
+    on_timeout: Callable[[], None] | None = None,
 ) -> str:
     executor = ThreadPoolExecutor(max_workers=1)
     context = copy_context()
@@ -80,10 +81,16 @@ def invoke_with_timeout(
     try:
         return future.result(timeout=timeout_seconds)
     except FutureTimeout as exc:
+        if on_timeout is not None:
+            try:
+                on_timeout()
+            except Exception:
+                pass
         future.cancel()
         raise CandidateStageError(
             f"{stage} exceeded its wall timeout of {timeout_seconds:.1f}s.",
             stage=stage,
+            provider_error_code="candidate_stage_wall_timeout",
         ) from exc
     finally:
         executor.shutdown(wait=False, cancel_futures=True)
@@ -152,6 +159,7 @@ def _invoke_provider_text(
     prompt: str,
     max_tokens: int,
     temperature: float,
+    timeout_seconds: float | None = None,
 ) -> str:
     """Call ask_chat; application owns retries so transport attempts stay at 1."""
     try:
@@ -160,15 +168,25 @@ def _invoke_provider_text(
             [{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=temperature,
+            timeout_seconds=timeout_seconds,  # type: ignore[call-arg]
             transport_attempts=1,  # type: ignore[call-arg]
         )
     except TypeError:
-        return ai_provider.ask_chat(
-            model,
-            [{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        try:
+            return ai_provider.ask_chat(
+                model,
+                [{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout_seconds=timeout_seconds,  # type: ignore[call-arg]
+            )
+        except TypeError:
+            return ai_provider.ask_chat(
+                model,
+                [{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
 
 
 def _request_shape_hash(
@@ -907,31 +925,68 @@ def repair_ai_batch(
     call_budget: CandidateCallBudget | None = None,
     candidate_revision_uuid: str = "",
 ) -> BuiltCandidateBatch:
-    started = time.monotonic()
-    remaining = min(
-        phase_deadline - started,
-        float(policy.timeout_seconds),
+    from app.application.candidate_generation.repair_scope import (
+        collect_repair_targets,
+        compact_component_contract,
+        merge_repaired_files,
+        scoped_failed_batch,
     )
+
+    started = time.monotonic()
+    wall_timeout = float(policy.timeout_seconds)
+    remaining = min(phase_deadline - started, wall_timeout)
     if remaining <= 0:
         raise CandidateStageError(
             "Candidate repair deadline expired.",
             stage=batch_stage,
             diagnostics=diagnostics,
+            provider_error_code="candidate_stage_wall_timeout",
         )
+    # Keep HTTP slightly below the outer wall so the provider timeout can
+    # surface before ThreadPoolExecutor cancellation when possible.
+    http_timeout = max(1.0, remaining - 20.0)
+    if http_timeout >= remaining:
+        http_timeout = max(1.0, remaining - 1.0)
+
+    selected_files, parsed_diagnostics = collect_repair_targets(
+        batch=batch,
+        diagnostics=diagnostics,
+    )
+    included_file_refs = [
+        {
+            "path": item.path,
+            "owner_contract_ids": list(item.owner_contract_ids or ()),
+            "source_sha256": hashlib.sha256(
+                (item.source or "").encode("utf-8")
+            ).hexdigest(),
+        }
+        for item in selected_files
+    ]
+    scoped_batch = scoped_failed_batch(
+        batch=batch,
+        selected_files=selected_files,
+    )
+    compact_bindings = compact_component_contract(
+        batch_stage=batch_stage,
+        selected_files=selected_files,
+        diagnostics=parsed_diagnostics,
+        canonical_bindings=canonical_bindings,
+    )
     prompt = template_renderer.render(
         prompt_template,
         batch_kind=batch_stage,
-        failed_batch_json=canonical_json(batch.model_dump(mode="json")),
-        diagnostics_json=canonical_json(list(diagnostics)),
-        canonical_bindings_json=canonical_json(canonical_bindings),
-        output_schema_json=canonical_json(
-            GeneratedCandidateBatch.model_json_schema()
-        ),
+        failed_batch_json=canonical_json(scoped_batch.model_dump(mode="json")),
+        diagnostics_json=canonical_json(list(parsed_diagnostics)),
+        canonical_bindings_json=canonical_json(compact_bindings),
         prompt_revision=policy.prompt_revision,
     )
+    estimated_input = estimate_prompt_tokens(prompt)
     provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
+    capability = resolve_model_capability(policy.model)
     idempotency = f"{candidate_revision_uuid}:{batch_stage}:repair:0"
+    attempt_id = ""
     if call_budget is not None:
+        attempt_id = call_budget.new_attempt_id()
         approved, deny_code = call_budget.approve(
             batch_stage,
             attempt_type="ai_repair",
@@ -946,6 +1001,61 @@ def repair_ai_batch(
                 diagnostics=diagnostics,
                 provider_error_code=deny_code,
             )
+        call_budget.record_attempt(
+            CandidateProviderAttempt(
+                attempt_id=attempt_id,
+                request_id=request_id,
+                candidate_revision_uuid=candidate_revision_uuid,
+                substage=batch_stage,
+                provider=provider_name,
+                model=policy.model,
+                http_status=0,
+                response_top_level_keys=[],
+                response_format="preflight",
+                provider_request_id="",
+                raw_payload_sha256="",
+                duration_ms=0,
+                input_tokens=estimated_input,
+                output_tokens=0,
+                total_tokens=estimated_input,
+                typed_result="repair_approved",
+                error_code="",
+                retryable=False,
+                retry_attempted=False,
+                terminal_decision="repair_in_flight",
+                parent_attempt_id="",
+                idempotency_key=f"{idempotency}:preflight",
+                error_type="",
+                error_message_redacted="",
+                error_metadata_keys=[
+                    "wall_timeout_seconds",
+                    "http_timeout_seconds",
+                    "validation_errors_count",
+                    "files_included_count",
+                    "included_file_refs",
+                    "estimated_input_tokens",
+                ],
+                request_shape_hash=_request_shape_hash(
+                    model=policy.model,
+                    max_tokens=policy.max_tokens,
+                    temperature=policy.temperature,
+                    prompt_chars=len(prompt),
+                ),
+                capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+                retry_decision_reason="component_repair",
+                fallback_model_decision="primary_only",
+                calls_remaining=call_budget.remaining_total(),
+                context_window=capability.context_window,
+                estimated_input_tokens=estimated_input,
+                requested_output_tokens=policy.max_tokens,
+                clamped_output_tokens=policy.max_tokens,
+                minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
+                context_reserve=CONTEXT_RESERVE_TOKENS,
+                approval_decision="approved",
+            )
+        )
+
+    cancellation_result = "not_required"
     with ai_run_scope(request_id, purpose=f"v2_candidate_{batch_stage}_repair"):
         with capture_ai_stage_telemetry() as captured:
 
@@ -956,14 +1066,119 @@ def repair_ai_batch(
                     prompt=prompt,
                     max_tokens=policy.max_tokens,
                     temperature=policy.temperature,
+                    timeout_seconds=http_timeout,
                 )
+
+            def _cancel() -> None:
+                nonlocal cancellation_result
+                cancel = getattr(ai_provider, "cancel_inflight", None)
+                if callable(cancel):
+                    cancel()
+                    cancellation_result = "cancel_inflight_invoked"
+                else:
+                    cancellation_result = "cancel_inflight_unavailable"
 
             try:
                 raw = invoke_with_timeout(
                     invoke,
                     timeout_seconds=remaining,
                     stage=f"{batch_stage}_repair",
+                    on_timeout=_cancel,
                 )
+            except CandidateStageError as exc:
+                if call_budget is not None and attempt_id:
+                    call_budget.record_attempt(
+                        CandidateProviderAttempt(
+                            attempt_id=call_budget.new_attempt_id(),
+                            request_id=request_id,
+                            candidate_revision_uuid=candidate_revision_uuid,
+                            substage=batch_stage,
+                            provider=provider_name,
+                            model=policy.model,
+                            http_status=0,
+                            response_top_level_keys=[],
+                            response_format="repair_timeout",
+                            provider_request_id="",
+                            raw_payload_sha256="",
+                            duration_ms=int((time.monotonic() - started) * 1000),
+                            input_tokens=estimated_input,
+                            output_tokens=0,
+                            total_tokens=estimated_input,
+                            typed_result="wall_timeout",
+                            error_code="candidate_stage_wall_timeout",
+                            retryable=False,
+                            retry_attempted=False,
+                            terminal_decision="fail_closed",
+                            parent_attempt_id=attempt_id,
+                            idempotency_key=f"{idempotency}:timeout",
+                            error_type="CandidateStageError",
+                            error_message_redacted=str(exc)[:1000],
+                            error_metadata_keys=[
+                                "wall_timeout_seconds",
+                                "http_timeout_seconds",
+                                "validation_errors_count",
+                                "files_included_count",
+                                "cancellation_result",
+                                "first_byte_latency_ms",
+                                "completion_tokens",
+                            ],
+                            request_shape_hash=_request_shape_hash(
+                                model=policy.model,
+                                max_tokens=policy.max_tokens,
+                                temperature=policy.temperature,
+                                prompt_chars=len(prompt),
+                            ),
+                            capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+                            retry_decision_reason="wall_timeout",
+                            fallback_model_decision="primary_only",
+                            calls_remaining=call_budget.remaining_total(),
+                            context_window=capability.context_window,
+                            estimated_input_tokens=estimated_input,
+                            requested_output_tokens=policy.max_tokens,
+                            clamped_output_tokens=policy.max_tokens,
+                            minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
+                            context_reserve=CONTEXT_RESERVE_TOKENS,
+                            approval_decision="approved",
+                        )
+                    )
+                # Attach observability onto the typed failure without secrets.
+                exc.provider_diagnostics = {
+                    **(exc.provider_diagnostics or {}),
+                    "repair_model": policy.model,
+                    "estimated_input_tokens": estimated_input,
+                    "requested_output_tokens": policy.max_tokens,
+                    "clamped_output_tokens": policy.max_tokens,
+                    "wall_timeout_seconds": wall_timeout,
+                    "http_timeout_seconds": http_timeout,
+                    "first_byte_latency_ms": None,
+                    "total_latency_ms": int((time.monotonic() - started) * 1000),
+                    "completion_tokens": 0,
+                    "validation_errors_count": len(parsed_diagnostics),
+                    "files_included_count": len(selected_files),
+                    "included_file_refs": included_file_refs,
+                    "terminal_result": "wall_timeout",
+                    "cancellation_result": cancellation_result,
+                    "call_usage": {
+                        "total_used": (
+                            call_budget.snapshot().get("total_used")
+                            if call_budget is not None
+                            else None
+                        ),
+                        "remaining": (
+                            call_budget.remaining_total()
+                            if call_budget is not None
+                            else None
+                        ),
+                        "substage_used": (
+                            (call_budget.snapshot().get("substage_used") or {}).get(
+                                batch_stage
+                            )
+                            if call_budget is not None
+                            else None
+                        ),
+                    },
+                }
+                raise
             except ProviderGenerationError as exc:
                 _record_provider_error_attempt(
                     budget=call_budget,
@@ -981,7 +1196,26 @@ def repair_ai_batch(
                     stage=batch_stage, exc=exc
                 ) from exc
     try:
-        repaired = _parse_batch(raw)
+        repaired_subset = _parse_batch(raw)
+        repaired = merge_repaired_files(
+            original=batch,
+            repaired=repaired_subset,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if "unknown paths" in message or "batch_kind mismatch" in message:
+            raise CandidateStageError(
+                "Candidate repair attempted to change batch ownership.",
+                stage=batch_stage,
+                diagnostics=diagnostics + (message[:4000],),
+                provider_error_code="candidate_repair_ownership_violation",
+            ) from exc
+        raise CandidateStageError(
+            "Candidate repair returned invalid structured output.",
+            stage=batch_stage,
+            diagnostics=diagnostics + (message[:4000],),
+            provider_error_code="provider_structured_output_invalid",
+        ) from exc
     except Exception as exc:
         raise CandidateStageError(
             "Candidate repair returned invalid structured output.",
@@ -989,27 +1223,95 @@ def repair_ai_batch(
             diagnostics=diagnostics + (str(exc)[:4000],),
             provider_error_code="provider_structured_output_invalid",
         ) from exc
-    original_paths = tuple(item.path for item in batch.files)
-    repaired_paths = tuple(item.path for item in repaired.files)
-    if (
-        repaired.batch_kind != batch.batch_kind
-        or repaired_paths != original_paths
-    ):
-        raise CandidateStageError(
-            "Candidate repair attempted to change batch ownership.",
-            stage=batch_stage,
-            diagnostics=diagnostics,
-        )
     metrics = _usage_metrics(
         policy=policy,
         provider=ai_provider,
         started=started,
         captured=captured,
         repair=True,
-        repair_reason=canonical_json(list(diagnostics))[:4000],
+        repair_reason=canonical_json(
+            {
+                "repair_model": policy.model,
+                "validation_errors_count": len(parsed_diagnostics),
+                "files_included_count": len(selected_files),
+                "included_file_refs": included_file_refs,
+                "estimated_input_tokens": estimated_input,
+                "requested_output_tokens": policy.max_tokens,
+                "clamped_output_tokens": policy.max_tokens,
+                "wall_timeout_seconds": wall_timeout,
+                "http_timeout_seconds": http_timeout,
+                "first_byte_latency_ms": None,
+                "cancellation_result": cancellation_result,
+                "terminal_result": "completed",
+            }
+        )[:4000],
     )
     metrics = metrics.model_copy(update={"stage": batch_stage})
-    return BuiltCandidateBatch(batch=repaired, metrics=metrics)
+    if call_budget is not None and attempt_id:
+        call_budget.record_attempt(
+            CandidateProviderAttempt(
+                attempt_id=call_budget.new_attempt_id(),
+                request_id=request_id,
+                candidate_revision_uuid=candidate_revision_uuid,
+                substage=batch_stage,
+                provider=provider_name,
+                model=policy.model,
+                http_status=200,
+                response_top_level_keys=sorted(
+                    repaired_subset.model_dump(mode="json").keys()
+                ),
+                response_format="structured_json",
+                provider_request_id="",
+                raw_payload_sha256=hashlib.sha256(
+                    raw.encode("utf-8")
+                ).hexdigest(),
+                duration_ms=metrics.latency_ms,
+                input_tokens=metrics.prompt_tokens or estimated_input,
+                output_tokens=metrics.completion_tokens,
+                total_tokens=metrics.total_tokens
+                or (estimated_input + metrics.completion_tokens),
+                typed_result="completed",
+                error_code="",
+                retryable=False,
+                retry_attempted=False,
+                terminal_decision="completed",
+                parent_attempt_id=attempt_id,
+                idempotency_key=f"{idempotency}:completed",
+                error_type="",
+                error_message_redacted="",
+                error_metadata_keys=[
+                    "wall_timeout_seconds",
+                    "http_timeout_seconds",
+                    "validation_errors_count",
+                    "files_included_count",
+                    "cancellation_result",
+                    "completion_tokens",
+                ],
+                request_shape_hash=_request_shape_hash(
+                    model=policy.model,
+                    max_tokens=policy.max_tokens,
+                    temperature=policy.temperature,
+                    prompt_chars=len(prompt),
+                ),
+                capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+                retry_decision_reason="",
+                fallback_model_decision="primary_only",
+                calls_remaining=call_budget.remaining_total(),
+                context_window=capability.context_window,
+                estimated_input_tokens=estimated_input,
+                requested_output_tokens=policy.max_tokens,
+                clamped_output_tokens=policy.max_tokens,
+                minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
+                context_reserve=CONTEXT_RESERVE_TOKENS,
+                approval_decision="approved",
+            )
+        )
+    return BuiltCandidateBatch(
+        batch=repaired,
+        metrics=metrics,
+        provider_attempt_id=attempt_id,
+        idempotency_key=idempotency,
+    )
 
 
 def combine_generation_and_repair_metrics(
