@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
+from typing import Callable
 
 from sqlalchemy.orm import Session
 
@@ -30,12 +31,14 @@ def prepare_phase1b(
     *,
     request_id: int = 1101,
     page_count: int = 13,
+    spec_mutator: Callable[[dict], None] | None = None,
 ) -> PreparedPhase1B:
     db = _db()
     repository, spec, strategy, context = _persist_contract_inputs(
         db,
         request_id=request_id,
         page_count=page_count,
+        spec_mutator=spec_mutator,
     )
     tiers = build_preview_tiers(
         spec=spec,

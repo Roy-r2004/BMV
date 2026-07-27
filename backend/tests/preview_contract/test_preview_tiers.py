@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 import pytest
 from pydantic import ValidationError
@@ -188,7 +189,11 @@ def _add_content_requirement(
     )
 
 
-def _tiered_spec(*, page_count: int = 3) -> AppSpec:
+def _tiered_spec(
+    *,
+    page_count: int = 3,
+    spec_mutator: Callable[[dict], None] | None = None,
+) -> AppSpec:
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     _add_content_requirement(
         payload,
@@ -243,6 +248,8 @@ def _tiered_spec(*, page_count: int = 3) -> AppSpec:
                 "capability_ids": ["CAP-GUIDE"],
             }
         )
+    if callable(spec_mutator):
+        spec_mutator(payload)
     spec = AppSpec.model_validate(payload)
     report = validate_app_spec(spec)
     assert report.is_valid, report.model_dump(mode="json")
@@ -284,8 +291,9 @@ def _build(
     *,
     page_count: int = 3,
     selection_policy_revision: str = TIER_SELECTION_POLICY_REVISION,
+    spec_mutator: Callable[[dict], None] | None = None,
 ):
-    spec = _tiered_spec(page_count=page_count)
+    spec = _tiered_spec(page_count=page_count, spec_mutator=spec_mutator)
     _, _, strategy, context = _strategy_and_context()
     tiers = build_preview_tiers(
         spec=spec,
@@ -314,6 +322,7 @@ def _persist_contract_inputs(
     *,
     request_id: int = 901,
     page_count: int = 3,
+    spec_mutator: Callable[[dict], None] | None = None,
 ):
     req = _request(request_id)
     db.add(req)
@@ -322,7 +331,7 @@ def _persist_contract_inputs(
     strategy = project_product_strategy(req, source)
     repository = PreviewContractRepository(db)
     inputs = repository.stage_inputs(source=source, strategy=strategy)
-    spec = _tiered_spec(page_count=page_count)
+    spec = _tiered_spec(page_count=page_count, spec_mutator=spec_mutator)
     spec_json = canonical_json(spec.model_dump(mode="json"))
     revision = AppSpecRevision(
         request_id=request_id,

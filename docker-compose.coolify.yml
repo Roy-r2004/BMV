@@ -3,10 +3,11 @@
 # volume is mounted at /app/data. SEED_DEMO stays false — no PlateSync reseed.
 #
 # Coolify environment (set explicitly in the Coolify UI / env file):
-#   V2_CANDIDATE_COMPONENT_MODEL=deepseek/deepseek-chat
+#   V2_CANDIDATE_COMPONENT_MODEL=google/gemini-2.5-flash
 #   V2_CANDIDATE_PAGE_MODEL=google/gemini-2.5-flash
-#   Do NOT leave V2_CANDIDATE_PAGE_MODEL unset to inherit PREVIEW_APP_MODEL
-#   (deepseek/deepseek-chat is 32k and fails pages preflight on large prompts).
+#   Do NOT leave either unset to inherit PREVIEW_APP_MODEL
+#   (deepseek/deepseek-chat is 32k and fails preflight on large prompts).
+#   Coolify may retain stale env overrides — set both explicitly.
 #
 # Coolify UI alternative (Dockerfile deploy):
 #   Storages → Add → Destination Path = /app/data
@@ -44,8 +45,8 @@ services:
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
       PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
-      # Pages stage: explicit large-context model (do not inherit PREVIEW_APP_MODEL).
-      V2_CANDIDATE_COMPONENT_MODEL: ${V2_CANDIDATE_COMPONENT_MODEL:-deepseek/deepseek-chat}
+      # Candidate stages: explicit large-context models (do not inherit PREVIEW_APP_MODEL).
+      V2_CANDIDATE_COMPONENT_MODEL: ${V2_CANDIDATE_COMPONENT_MODEL:-google/gemini-2.5-flash}
       V2_CANDIDATE_PAGE_MODEL: ${V2_CANDIDATE_PAGE_MODEL:-google/gemini-2.5-flash}
       ARCHITECT_MODEL: ${ARCHITECT_MODEL:-google/gemini-2.5-flash}
       CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
@@ -53,6 +54,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://buildmyversion.com}
       INTERNAL_BASE_URL: http://127.0.0.1:8000
       APPSPEC_MODE: ${APPSPEC_MODE:-on}
+      APPSPEC_MODEL: ${APPSPEC_MODEL:-google/gemini-2.5-flash}
+      APPSPEC_REPAIR_MODEL: ${APPSPEC_REPAIR_MODEL:-google/gemini-2.5-flash}
+      APPSPEC_COVERAGE_MODEL: ${APPSPEC_COVERAGE_MODEL:-deepseek/deepseek-chat}
+      APPSPEC_V2_COVERAGE_MODEL: ${APPSPEC_V2_COVERAGE_MODEL:-deepseek/deepseek-chat}
       APPSPEC_FALLBACK_ENABLED: ${APPSPEC_FALLBACK_ENABLED:-false}
       PORT: "8000"
       # Preview Generator v2 — public defaults

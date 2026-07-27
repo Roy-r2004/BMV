@@ -16,7 +16,11 @@ from app.application.appspec.repository import (
     load_json_object,
     revision_summary,
 )
-from app.core.config import appspec_fallback_configuration, settings
+from app.core.config import (
+    appspec_fallback_configuration,
+    candidate_model_configuration,
+    settings,
+)
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
@@ -105,6 +109,7 @@ def configuration_safety(
 
     return {
         "appspec_fallback": appspec_fallback_configuration(settings),
+        "candidate_models": candidate_model_configuration(settings),
         "related_fallbacks": {
             # No repository settings exist for legacy generator/candidate,
             # provider-error, or validation-error fallback activation.

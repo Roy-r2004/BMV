@@ -188,6 +188,13 @@ def test_trusted_admin_diagnostics_are_redacted(
         "safety_assertion": "passed",
         "safety_code": "ok",
     }
+    assert "candidate_models" in payload
+    assert "effective_model" in payload["candidate_models"]["component"]
+    assert "effective_model" in payload["candidate_models"]["pages"]
+    assert "context_window" in payload["candidate_models"]["component"]
+    assert "capability_profile_revision" in payload["candidate_models"][
+        "component"
+    ]
     assert all(
         enabled is False
         for enabled in payload["related_fallbacks"].values()

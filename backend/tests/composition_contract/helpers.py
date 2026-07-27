@@ -4,6 +4,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
+from typing import Any, Callable
 
 from sqlalchemy.orm import Session
 
@@ -26,10 +27,12 @@ def prepare_phase2(
     *,
     request_id: int = 1301,
     page_count: int = 13,
+    spec_mutator: Callable[[dict], None] | None = None,
 ) -> PreparedPhase2:
     prepared = prepare_phase1b(
         request_id=request_id,
         page_count=page_count,
+        spec_mutator=spec_mutator,
     )
     result = build_v2_design_contract(
         prepared.db,
@@ -44,6 +47,167 @@ def prepare_phase2(
         req=prepared.req,
         phase2_result=result,
     )
+
+
+def _shorten_three_page_payload(payload: dict) -> None:
+    for requirement in payload["requirements"]:
+        if requirement["id"] != "REQ-BOOK":
+            requirement["description"] = "Short support info."
+    for page in payload["pages"]:
+        if page["id"] != "PAGE-BOOK":
+            page["purpose"] = "Short support surface."
+    for evidence in payload["evidence"]:
+        if evidence["page_id"] != "PAGE-BOOK":
+            evidence["name"] = f"{evidence['id']} brief"
+            evidence["description"] = "Short support evidence."
+    for test in payload["acceptance_tests"]:
+        if test["id"] != "TEST-BOOK":
+            test["description"] = "Short support proof."
+            for assertion in test["assertions"]:
+                assertion["description"] = "Short support visible."
+                assertion["expected"] = "brief"
+
+
+def _append_service_catalog_entities(payload: dict, *, entity_count: int) -> None:
+    booking_page = next(page for page in payload["pages"] if page["id"] == "PAGE-BOOK")
+    booking_state_id = booking_page["state_ids"][0]
+    for index in range(1, entity_count + 1):
+        suffix = f"CATALOG-{index:02d}"
+        requirement_id = f"REQ-{suffix}"
+        capability_id = f"CAP-{suffix}"
+        entity_id = f"ENTITY-{suffix}"
+        evidence_id = f"EVIDENCE-{suffix}"
+        test_id = f"TEST-{suffix}"
+        payload["requirements"].append(
+            {
+                "id": requirement_id,
+                "title": f"Compare service option {index}",
+                "description": (
+                    "Customers can compare package names, durations, prices, and "
+                    f"benefits for service option {index}."
+                ),
+                "priority": "must",
+                "verification_mode": "content",
+                "source_refs": ["customer_input.preview_features"],
+            }
+        )
+        payload["entities"].append(
+            {
+                "id": entity_id,
+                "name": f"Service Catalog {index}",
+                "description": (
+                    f"A safe seeded service-catalog record {index} for booking comparisons."
+                ),
+                "fields": [
+                    {
+                        "id": f"FIELD-{suffix}-NAME",
+                        "name": "Service Name",
+                        "description": "Customer-visible service name.",
+                        "type": "string",
+                        "required": True,
+                        "enum_values": [],
+                        "reference_entity_id": None,
+                    },
+                    {
+                        "id": f"FIELD-{suffix}-DURATION",
+                        "name": "Duration Minutes",
+                        "description": "Expected appointment duration in minutes.",
+                        "type": "integer",
+                        "required": True,
+                        "enum_values": [],
+                        "reference_entity_id": None,
+                    },
+                    {
+                        "id": f"FIELD-{suffix}-PRICE",
+                        "name": "Price",
+                        "description": "Displayed package price.",
+                        "type": "number",
+                        "required": True,
+                        "enum_values": [],
+                        "reference_entity_id": None,
+                    },
+                ],
+            }
+        )
+        payload["capabilities"].append(
+            {
+                "id": capability_id,
+                "name": f"Service catalog option {index}",
+                "description": (
+                    f"Present service option {index} with duration and pricing detail."
+                ),
+                "requirement_ids": [requirement_id],
+                "role_ids": ["ROLE-CUSTOMER"],
+                "entity_ids": [entity_id],
+            }
+        )
+        booking_page["capability_ids"].append(capability_id)
+        booking_page["evidence_ids"].append(evidence_id)
+        payload["evidence"].append(
+            {
+                "id": evidence_id,
+                "page_id": "PAGE-BOOK",
+                "name": f"Service catalog option {index}",
+                "description": (
+                    f"Service option {index} shows package name, price, duration, and compareable benefits."
+                ),
+                "kind": "text",
+                "capability_ids": [capability_id],
+            }
+        )
+        payload["acceptance_tests"].append(
+            {
+                "id": test_id,
+                "name": f"Service option {index} is visible",
+                "description": f"Prove service option {index} content is present.",
+                "requirement_ids": [requirement_id],
+                "journey_id": None,
+                "assertions": [
+                    {
+                        "kind": "visible",
+                        "description": f"The service option {index} content is visible.",
+                        "page_id": "PAGE-BOOK",
+                        "state_id": booking_state_id,
+                        "evidence_id": evidence_id,
+                        "expected": f"option {index}",
+                    }
+                ],
+            }
+        )
+        payload["traceability"].append(
+            {
+                "requirement_id": requirement_id,
+                "capability_ids": [capability_id],
+                "page_ids": ["PAGE-BOOK"],
+                "evidence_ids": [evidence_id],
+                "journey_ids": [],
+                "acceptance_test_ids": [test_id],
+            }
+        )
+
+
+def prompt_variant_prepare_kwargs(variant_id: str) -> dict[str, Any]:
+    if variant_id == "small_three_page":
+        return {"spec_mutator": _shorten_three_page_payload}
+    if variant_id in {"exact_five_page_booking", "long_description_booking"}:
+        return {
+            "spec_mutator": lambda payload: _append_service_catalog_entities(
+                payload, entity_count=1
+            )
+        }
+    if variant_id == "larger_service_catalog_booking":
+        return {
+            "spec_mutator": lambda payload: _append_service_catalog_entities(
+                payload, entity_count=2
+            )
+        }
+    if variant_id == "maximum_supported_tier1":
+        return {
+            "spec_mutator": lambda payload: _append_service_catalog_entities(
+                payload, entity_count=4
+            )
+        }
+    return {}
 
 
 def _stage_input(prompt: str) -> dict:
@@ -483,4 +647,5 @@ __all__ = [
     "business_component_payload",
     "content_data_payload",
     "prepare_phase2",
+    "prompt_variant_prepare_kwargs",
 ]

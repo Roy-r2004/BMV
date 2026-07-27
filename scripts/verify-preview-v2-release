@@ -1,0 +1,486 @@
+#!/usr/bin/env bash
+# Preview Generator v2 release gate — deterministic tests only.
+# No production secrets, no live providers, no production data mutation.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKEND="${ROOT}/backend"
+cd "${BACKEND}"
+
+MODE="${1:-default}"
+FAILED=0
+PRODUCTION_READINESS_ROOT="${BACKEND}/.runtime/production-readiness"
+PREVIOUS_BMV_READINESS_RESTART_RESUME_PASSED="__unset__"
+COMPOSE_CMD=()
+COMPOSE_PROJECT_NAME=""
+COMPOSE_OVERRIDE_FILE=""
+COMPOSE_VOLUME_NAME=""
+ARTIFACT_ROOT=""
+COMPOSE_LOGS=""
+COMPOSE_DIAGNOSTICS=""
+CONTAINER_ID=""
+REAL_FLOW_REPORT=""
+CONTAINER_REAL_FLOW_REPORT=""
+
+case "${MODE}" in
+  default|full|production-readiness)
+    ;;
+  *)
+    printf "Unsupported mode: %s\n" "${MODE}" >&2
+    printf "Expected one of: default, full, production-readiness\n" >&2
+    exit 2
+    ;;
+esac
+
+section() {
+  printf '\n==> %s\n' "$1"
+}
+
+run_pytest() {
+  local label="$1"
+  shift
+  section "${label}"
+  if python -m pytest "$@"; then
+    printf 'OK  %s\n' "${label}"
+  else
+    printf 'FAIL %s\n' "${label}"
+    FAILED=1
+  fi
+}
+
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    printf 'FAIL required environment variable missing: %s\n' "${name}" >&2
+    exit 1
+  fi
+}
+
+run_release_gate_common() {
+  section "compileall"
+  if python -m compileall -q app; then
+    printf 'OK  compileall\n'
+  else
+    printf 'FAIL compileall\n'
+    FAILED=1
+  fi
+
+  section "git diff --check"
+  if git -C "${ROOT}" diff --check; then
+    printf 'OK  git diff --check\n'
+  else
+    printf 'FAIL git diff --check\n'
+    FAILED=1
+  fi
+
+  run_pytest "failure audit harness + known failures + fuzz" \
+    tests/preview_audit/test_failure_injection_harness.py \
+    tests/preview_audit/test_known_failure_replay.py \
+    tests/preview_audit/test_contract_fuzzing.py \
+    tests/preview_audit/test_phase4_preflight_gap.py \
+    -q --tb=line
+
+  run_pytest "business-component usage" \
+    tests/candidate_generation/test_business_component_usage.py \
+    -q --tb=line
+
+  run_pytest "Phase 3B candidates" \
+    tests/candidate_generation/test_phase3b_candidate_generation.py \
+    -q --tb=line
+
+  run_pytest "composition contract" \
+    tests/composition_contract \
+    -q --tb=line
+
+  run_pytest "AppSpec graph repair" \
+    tests/appspec/test_graph_repair.py \
+    -q --tb=line
+
+  run_pytest "Tier1 closure heal" \
+    tests/preview_contract/test_tier1_closure_heal.py \
+    -q --tb=line
+
+  run_pytest "commercial Expanded Preview + migration readiness" \
+    tests/commercial/test_expanded_preview_workflow.py \
+    tests/commercial/test_migration_startup_safety.py \
+    -q --tb=line
+
+  if [[ "${MODE}" == "full" || "${BMV_V2_MATRIX:-}" == "1" ]]; then
+    run_pytest "local simulation matrix (provider doubles)" \
+      tests/preview_audit/test_local_simulation_matrix.py \
+      -q --tb=line
+  else
+    section "local simulation matrix (skipped; pass 'full' or BMV_V2_MATRIX=1)"
+  fi
+}
+
+run_release_gate_optional_dirs() {
+  if [[ -d tests/runtime_validation ]]; then
+    run_pytest "runtime validation fixtures" \
+      tests/runtime_validation -q --tb=line -x || true
+    if [[ "${MODE}" == "full" ]]; then
+      run_pytest "runtime validation full" tests/runtime_validation -q --tb=line
+    fi
+  fi
+
+  if [[ -d tests/visual_evaluation ]]; then
+    if [[ "${MODE}" == "full" ]]; then
+      run_pytest "visual evaluation fixtures" tests/visual_evaluation -q --tb=line
+    else
+      section "visual evaluation (skipped in default; use full)"
+    fi
+  fi
+}
+
+validate_host_preflight_report() {
+  local report_path="$1"
+  python - "$report_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report_path = Path(sys.argv[1])
+report = json.loads(report_path.read_text(encoding="utf-8"))
+required_sections = (
+    "configuration",
+    "deterministic_suites",
+    "prompt_variants",
+    "model_preflights",
+    "phase3a",
+    "provider_calls",
+    "candidate_generation",
+    "call_budgets",
+    "checkpoints",
+    "generated_code_validation",
+    "restart_resume",
+)
+failures = list(report.get("failures") or [])
+if failures:
+    raise SystemExit(
+        f"host preflight report recorded failures ({len(failures)})"
+    )
+for section in required_sections:
+    payload = report.get(section) or {}
+    if str(payload.get("status") or "").strip().lower() != "pass":
+        raise SystemExit(f"host preflight section did not pass: {section}")
+docker_environment = report.get("docker_environment") or {}
+if str(docker_environment.get("status") or "").strip().lower() != "deferred_to_production_image":
+    raise SystemExit(
+        "host preflight docker_environment must be deferred_to_production_image"
+    )
+if docker_environment.get("host_environment") is not True:
+    raise SystemExit("host preflight docker_environment.host_environment must be true")
+if docker_environment.get("production_image_required") is not True:
+    raise SystemExit(
+        "host preflight docker_environment.production_image_required must be true"
+    )
+restart_resume = report.get("restart_resume") or {}
+if str(restart_resume.get("source") or "").strip() != "release_gate_deterministic_suite":
+    raise SystemExit(
+        "host preflight restart_resume source must be release_gate_deterministic_suite"
+    )
+if str(report.get("required_next_action") or "").strip() != "run_real_http_flow":
+    raise SystemExit("host preflight report required_next_action must be run_real_http_flow")
+sha = str(((report.get("artifacts") or {}).get("preflight_report_sha256")) or "")
+if len(sha) != 64:
+    raise SystemExit("host preflight report missing bound preflight_report_sha256")
+print(sha)
+PY
+}
+
+restore_restart_resume_marker() {
+  if [[ "${PREVIOUS_BMV_READINESS_RESTART_RESUME_PASSED}" == "__unset__" ]]; then
+    unset BMV_READINESS_RESTART_RESUME_PASSED || true
+  else
+    export BMV_READINESS_RESTART_RESUME_PASSED="${PREVIOUS_BMV_READINESS_RESTART_RESUME_PASSED}"
+  fi
+}
+
+wait_for_container_healthy() {
+  local container_id="$1"
+  local deadline=$((SECONDS + 240))
+  while (( SECONDS < deadline )); do
+    local status
+    status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${container_id}")"
+    case "${status}" in
+      healthy)
+        return 0
+        ;;
+      unhealthy|exited|dead)
+        printf 'Container health failed with status: %s\n' "${status}" >&2
+        return 1
+        ;;
+    esac
+    sleep 2
+  done
+  printf 'Container did not become healthy before timeout.\n' >&2
+  return 1
+}
+
+copy_container_real_flow_report() {
+  if [[ -z "${CONTAINER_ID}" || -z "${CONTAINER_REAL_FLOW_REPORT}" || -z "${REAL_FLOW_REPORT}" ]]; then
+    return 1
+  fi
+  if ! docker cp "${CONTAINER_ID}:${CONTAINER_REAL_FLOW_REPORT}" "${REAL_FLOW_REPORT}" >/dev/null 2>&1; then
+    return 1
+  fi
+  return 0
+}
+
+record_compose_diagnostics() {
+  local failed_command="${1:-unknown}"
+  if [[ -z "${COMPOSE_DIAGNOSTICS}" ]]; then
+    return 0
+  fi
+  {
+    printf 'failed_command=%s\n' "${failed_command}"
+    printf 'project_name=%s\n' "${COMPOSE_PROJECT_NAME}"
+    printf 'compose_file=%s\n' "${ROOT}/docker-compose.coolify.yml"
+    printf 'compose_override=%s\n' "${COMPOSE_OVERRIDE_FILE}"
+    printf 'volume_name=%s\n' "${COMPOSE_VOLUME_NAME}"
+    printf 'artifact_root=%s\n' "${ARTIFACT_ROOT}"
+    printf 'container_id=%s\n' "${CONTAINER_ID}"
+    printf 'real_flow_report=%s\n' "${REAL_FLOW_REPORT}"
+    printf 'container_real_flow_report=%s\n' "${CONTAINER_REAL_FLOW_REPORT}"
+  } > "${COMPOSE_DIAGNOSTICS}"
+  return 0
+}
+
+handle_compose_failure() {
+  local exit_code="${1:-1}"
+  local message="${2:-production-readiness failure}"
+  local failed_command="${3:-unknown}"
+  if ! record_compose_diagnostics "${failed_command}"; then
+    printf 'WARN could not capture compose diagnostics at %s\n' "${COMPOSE_DIAGNOSTICS}" >&2
+  fi
+  if [[ ${#COMPOSE_CMD[@]} -gt 0 && -n "${COMPOSE_LOGS}" ]]; then
+    if ! "${COMPOSE_CMD[@]}" logs --no-color app > "${COMPOSE_LOGS}" 2>&1; then
+      printf 'WARN could not capture docker compose logs at %s\n' "${COMPOSE_LOGS}" >&2
+    fi
+  fi
+  if [[ -n "${CONTAINER_ID}" && -n "${REAL_FLOW_REPORT}" ]]; then
+    if ! copy_container_real_flow_report; then
+      printf 'WARN could not copy container report into %s\n' "${REAL_FLOW_REPORT}" >&2
+    fi
+  fi
+  printf 'FAIL %s; artifacts preserved at %s\n' "${message}" "${ARTIFACT_ROOT}" >&2
+  printf 'no automatic teardown on failure.\n' >&2
+  exit "${exit_code}"
+}
+
+run_production_readiness_mode() {
+  run_pytest "#33-36 candidate reliability matrix" \
+    tests/candidate_generation/test_request33_provider_reliability.py \
+    tests/candidate_generation/test_request34_context_overflow.py \
+    tests/candidate_generation/test_request35_pages_model.py \
+    tests/candidate_generation/test_request36_component_model.py \
+    -q --tb=line
+
+  unset BMV_READINESS_RESTART_RESUME_PASSED || true
+  section "candidate resume caps and repair"
+  if python -m pytest \
+    tests/candidate_generation/test_candidate_resume.py \
+    tests/composition_contract/test_phase3a_call_budget.py \
+    tests/candidate_generation/test_phase3b_candidate_generation.py \
+    -q --tb=line; then
+    export BMV_READINESS_RESTART_RESUME_PASSED="1"
+    printf 'OK  %s\n' "candidate resume caps and repair"
+  else
+    printf 'FAIL %s\n' "candidate resume caps and repair"
+    FAILED=1
+    unset BMV_READINESS_RESTART_RESUME_PASSED || true
+  fi
+
+  run_pytest "response parser OpenRouter matrix" \
+    tests/infrastructure/ai_providers/test_response_parser.py \
+    tests/infrastructure/ai_providers/test_openrouter_error_matrix.py \
+    -q --tb=line
+
+  run_pytest "AppSpec fallback safety" \
+    tests/preview_contract/test_appspec_v2_policy.py \
+    -q --tb=line
+
+  run_pytest "customer response security admin 401" \
+    tests/security/test_customer_preview_responses.py \
+    tests/preview_audit/test_preview_v2_production_readiness_default_checks.py \
+    tests/preview_audit/test_preview_v2_production_readiness_driver.py \
+    -q --tb=line
+
+  run_pytest "Phase7 off tests" \
+    tests/rollout/test_phase7a_flags.py \
+    -q --tb=line
+
+  run_pytest "Expanded Preview no auto start" \
+    tests/commercial/test_staging_flags_and_no_auto_tier2.py \
+    -q --tb=line
+
+  run_pytest "real Phase4 and Phase5 suites" \
+    tests/runtime_validation/test_phase4_runtime_validation.py \
+    tests/visual_evaluation/test_phase5_visual_evaluation.py \
+    -q --tb=line
+
+  run_release_gate_common
+
+  section "summary"
+  if [[ "${FAILED}" -ne 0 ]]; then
+    printf 'RELEASE GATE FAILED\n'
+    printf 'production-readiness stopped before Docker and real flow.\n'
+    exit 1
+  fi
+
+  mkdir -p "${PRODUCTION_READINESS_ROOT}"
+  local run_id
+  run_id="$(python - <<'PY'
+import uuid
+print(uuid.uuid4().hex)
+PY
+)"
+  local artifact_root="${PRODUCTION_READINESS_ROOT}/${run_id}"
+  local host_preflight_report="${artifact_root}/host-preflight.json"
+  local real_flow_report="${artifact_root}/real-http-report.json"
+  local compose_logs="${artifact_root}/docker-compose.logs.txt"
+  local compose_diagnostics="${artifact_root}/compose-diagnostics.txt"
+  local compose_override="${artifact_root}/docker-compose.production-readiness.override.yml"
+  local project_name="bmv-production-readiness-${run_id}"
+  local volume_name="bmv-production-readiness-${run_id}"
+  local container_data_root="/app/data/production-readiness/${run_id}"
+  local container_preflight_report="${container_data_root}/host-preflight.json"
+  local container_real_flow_report="${container_data_root}/real-http-report.json"
+  local container_access_token_file="${container_data_root}/customer-access.token"
+  mkdir -p "${artifact_root}"
+  COMPOSE_PROJECT_NAME="${project_name}"
+  COMPOSE_OVERRIDE_FILE="${compose_override}"
+  COMPOSE_VOLUME_NAME="${volume_name}"
+  ARTIFACT_ROOT="${artifact_root}"
+  COMPOSE_LOGS="${compose_logs}"
+  COMPOSE_DIAGNOSTICS="${compose_diagnostics}"
+  REAL_FLOW_REPORT="${real_flow_report}"
+  CONTAINER_REAL_FLOW_REPORT="${container_real_flow_report}"
+  CONTAINER_ID=""
+  if [[ ${BMV_READINESS_RESTART_RESUME_PASSED+x} ]]; then
+    PREVIOUS_BMV_READINESS_RESTART_RESUME_PASSED="${BMV_READINESS_RESTART_RESUME_PASSED}"
+  fi
+  trap restore_restart_resume_marker RETURN
+
+  require_env "ADMIN_PASSWORD"
+  require_env "OPENROUTER_API_KEY"
+
+  export APP_ENV="production"
+  export PREVIEW_GENERATOR_V2="true"
+  export V2_CANDIDATE_COMPONENT_MODEL="google/gemini-2.5-flash"
+  export V2_CANDIDATE_PAGE_MODEL="google/gemini-2.5-flash"
+  export APPSPEC_FALLBACK_ENABLED="false"
+  export V2_PHASE7_ROLLOUT_ENABLED="false"
+  export V2_PHASE7_PROMOTE_ENABLED="false"
+  export V2_PHASE7_PERCENT_SERVE_ENABLED="false"
+  export V2_PHASE7_ROLLOUT_PERCENT="0"
+  export V2_RUNTIME_VALIDATION_ENABLED="true"
+  export V2_VISUAL_EVALUATION_ENABLED="true"
+
+  cat > "${compose_override}" <<EOF
+services:
+  app:
+    ports: []
+volumes:
+  bmv-persistent-data:
+    name: ${volume_name}
+EOF
+
+  section "host preflight report"
+  set +e
+  python scripts/cli/preview_v2_production_readiness.py \
+    --preflight-only \
+    --report-path "${host_preflight_report}"
+  local preflight_exit=$?
+  set -e
+  if [[ "${preflight_exit}" -eq 0 ]]; then
+    printf 'FAIL host preflight unexpectedly returned success; real flow should still be pending.\n' >&2
+    exit 1
+  fi
+  local preflight_report_sha256
+  preflight_report_sha256="$(validate_host_preflight_report "${host_preflight_report}")"
+  printf 'OK  host preflight report\n'
+
+  COMPOSE_CMD=(
+    docker compose
+    -p "${COMPOSE_PROJECT_NAME}"
+    -f "${ROOT}/docker-compose.coolify.yml"
+    -f "${COMPOSE_OVERRIDE_FILE}"
+  )
+
+  section "build exact Dockerfile.app image"
+  if ! "${COMPOSE_CMD[@]}" build app; then
+    handle_compose_failure 1 "docker compose build failed" "docker compose build app"
+  fi
+
+  section "docker start app"
+  if ! "${COMPOSE_CMD[@]}" up -d app; then
+    handle_compose_failure 1 "docker compose up failed" "docker compose up -d app"
+  fi
+
+  if ! CONTAINER_ID="$("${COMPOSE_CMD[@]}" ps -q app)"; then
+    handle_compose_failure 1 "could not resolve the compose app container id" "docker compose ps -q app"
+  fi
+  if [[ -z "${CONTAINER_ID}" ]]; then
+    handle_compose_failure 1 "compose app container id was empty" "docker compose ps -q app"
+  fi
+
+  section "wait for app health"
+  if ! wait_for_container_healthy "${CONTAINER_ID}"; then
+    handle_compose_failure 1 "container health check did not pass" "docker inspect health"
+  fi
+
+  section "copy preflight report into container"
+  if ! "${COMPOSE_CMD[@]}" exec -T app mkdir -p "${container_data_root}"; then
+    handle_compose_failure 1 "failed to create container artifact directory" "docker compose exec -T app mkdir -p"
+  fi
+  if ! docker cp "${host_preflight_report}" "${CONTAINER_ID}:${container_preflight_report}"; then
+    handle_compose_failure 1 "failed to copy host preflight report into container" "docker cp host preflight"
+  fi
+
+  section "container real HTTP flow"
+  set +e
+  "${COMPOSE_CMD[@]}" exec -T app \
+    python scripts/cli/preview_v2_production_readiness.py \
+      --run-real-http \
+      --preflight-report "${container_preflight_report}" \
+      --preflight-report-sha256 "${preflight_report_sha256}" \
+      --resume-access-token-file "${container_access_token_file}" \
+      --report-path "${container_real_flow_report}"
+  local real_exit=$?
+  set -e
+
+  if [[ "${real_exit}" -ne 0 ]]; then
+    handle_compose_failure "${real_exit}" "production-readiness real flow failed" "docker compose exec real-http"
+  fi
+
+  if ! docker cp "${CONTAINER_ID}:${container_real_flow_report}" "${real_flow_report}" >/dev/null 2>&1; then
+    handle_compose_failure 1 "failed to copy real flow report back to host" "docker cp real flow report"
+  fi
+
+  if [[ ! -f "${real_flow_report}" ]]; then
+    handle_compose_failure 1 "real flow report was not copied back to host" "docker cp real flow report"
+  fi
+
+  section "teardown success container"
+  "${COMPOSE_CMD[@]}" down -v --remove-orphans
+
+  section "summary"
+  printf 'RELEASE GATE PASSED (mode=%s)\n' "${MODE}"
+}
+
+if [[ "${MODE}" == "production-readiness" ]]; then
+  run_production_readiness_mode
+  exit 0
+fi
+
+run_release_gate_common
+run_release_gate_optional_dirs
+
+section "summary"
+if [[ "${FAILED}" -ne 0 ]]; then
+  printf 'RELEASE GATE FAILED\n'
+  exit 1
+fi
+printf 'RELEASE GATE PASSED (mode=%s)\n' "${MODE}"
+exit 0

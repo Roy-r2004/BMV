@@ -136,8 +136,8 @@ services:
       PEXELS_API_KEY: ${PEXELS_API_KEY:-}
       TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
       PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
-      # Pages stage: explicit large-context model (do not inherit PREVIEW_APP_MODEL).
-      V2_CANDIDATE_COMPONENT_MODEL: ${V2_CANDIDATE_COMPONENT_MODEL:-deepseek/deepseek-chat}
+      # Candidate stages: explicit large-context models (do not inherit PREVIEW_APP_MODEL).
+      V2_CANDIDATE_COMPONENT_MODEL: ${V2_CANDIDATE_COMPONENT_MODEL:-google/gemini-2.5-flash}
       V2_CANDIDATE_PAGE_MODEL: ${V2_CANDIDATE_PAGE_MODEL:-google/gemini-2.5-flash}
       ARCHITECT_MODEL: ${ARCHITECT_MODEL:-google/gemini-2.5-flash}
       CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
