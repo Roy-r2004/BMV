@@ -168,7 +168,11 @@ class OllamaAIProvider(AIProvider):
         *,
         timeout_seconds: float | None = None,
         transport_attempts: int | None = None,
+        response_format: dict | None = None,
     ) -> str:
+        # Ollama AppSpec path keeps prompt-only JSON; ignore unsupported
+        # response_format rather than sending an invalid option.
+        _ = response_format
         timeout = 240 if timeout_seconds is None else max(1, int(timeout_seconds))
         attempts = 2 if transport_attempts is None else max(1, int(transport_attempts))
         return self._chat(

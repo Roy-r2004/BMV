@@ -18,11 +18,27 @@ from pydantic import BaseModel, ValidationError
 
 from app.application.prompts import PromptTemplate
 from app.core.config import settings
-from app.domain.appspec.sanitize.preparse_normalize import extract_json_object_text
+from app.domain.appspec.authoring_parser import (
+    AUTHORING_JSON_SYNTAX_INVALID,
+    AUTHORING_JSON_TRUNCATED,
+    AUTHORING_NO_JSON_OBJECT,
+    AUTHORING_RESPONSE_FIELD_MISSING,
+    authoring_parse_diagnostics,
+    parse_appspec_authoring_output,
+)
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.schemas.app_spec import AppSpec
-from app.shared.json_utils import extract_json_from_text
+from app.infrastructure.ai_providers.model_capabilities import resolve_model_capability
+
+# One compact corrective retry for malformed authoring JSON. Does not raise the
+# configured APPSPEC_MAX_CALLS / repair ceilings.
+APPSPEC_AUTHORING_MALFORMED_RETRY_MAX = 1
+
+_COMPACT_JSON_RETRY_INSTRUCTION = (
+    "Return one complete JSON object that satisfies the supplied AppSpec schema. "
+    "No prose. No markdown. No code fences. Do not abbreviate or truncate."
+)
 
 
 class AppSpecBuildError(RuntimeError):
@@ -35,11 +51,15 @@ class AppSpecBuildError(RuntimeError):
         response_excerpt: str = "",
         raw_response_sha256: str = "",
         json_extraction: Mapping[str, Any] | None = None,
+        typed_error: str | None = None,
+        authoring_diagnostics: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.response_excerpt = response_excerpt
         self.raw_response_sha256 = raw_response_sha256
         self.json_extraction = dict(json_extraction or {})
+        self.typed_error = typed_error
+        self.authoring_diagnostics = dict(authoring_diagnostics or {})
 
 
 @dataclass(frozen=True)
@@ -53,6 +73,7 @@ class AppSpecCandidate:
     json_extraction: Mapping[str, Any] | None = None
     parent_payload_sha256: str = ""
     repair_type: str = ""
+    authoring_diagnostics: Mapping[str, Any] | None = None
 
 
 def _jsonable(value: Any) -> Any:
@@ -83,41 +104,145 @@ def _canonical_json(value: Any) -> str:
     )
 
 
-def _parse_candidate(raw: str) -> AppSpecCandidate:
-    text = raw or ""
-    raw_sha = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
-    extracted_text, extraction_meta = extract_json_object_text(text)
+def _provider_completion_meta(ai_provider: AIProvider) -> dict[str, Any]:
+    for target in (ai_provider, getattr(ai_provider, "provider", None)):
+        if target is None:
+            continue
+        getter = getattr(target, "last_completion_meta", None)
+        if callable(getter):
+            meta = getter()
+            if isinstance(meta, dict):
+                return dict(meta)
+        meta = getattr(target, "_last_completion_meta", None)
+        if isinstance(meta, dict):
+            return dict(meta)
+    return {}
+
+
+def _structured_output_request(model: str) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    profile = resolve_model_capability(model)
+    supported = bool(profile.known and profile.supports_json_object)
+    diagnostics = {
+        "model": profile.model,
+        "known": profile.known,
+        "structured_output_mode_supported": supported,
+        "supports_json_object": profile.supports_json_object,
+        "supports_json_schema": profile.supports_json_schema,
+        "supports_strict_json_schema": profile.supports_strict_json_schema,
+        "capability_profile_revision": profile.revision,
+    }
+    if not supported:
+        return None, {
+            **diagnostics,
+            "structured_output_mode_requested": None,
+        }
+    # JSON-object mode only — never send unsupported json_schema params.
+    request = {"type": "json_object"}
+    return request, {
+        **diagnostics,
+        "structured_output_mode_requested": "json_object",
+    }
+
+
+def _ask_appspec_chat(
+    ai_provider: AIProvider,
+    *,
+    model: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+) -> tuple[str, dict[str, Any]]:
+    response_format, structured_diag = _structured_output_request(model)
+    ask_kwargs: dict[str, Any] = {
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if response_format is not None:
+        ask_kwargs["response_format"] = response_format
     try:
-        if extracted_text is not None:
-            payload = json.loads(extracted_text)
-            extraction_meta = {**extraction_meta, "ok": True}
-        else:
-            payload = extract_json_from_text(text)
-            extraction_meta = {
-                **extraction_meta,
-                "method": extraction_meta.get("method") or "shared_extract",
-                "ok": True,
+        raw = ai_provider.ask_chat(model, messages, **ask_kwargs)
+    except TypeError:
+        # Older/test doubles may not accept response_format.
+        if "response_format" in ask_kwargs:
+            ask_kwargs.pop("response_format", None)
+            structured_diag = {
+                **structured_diag,
+                "structured_output_mode_requested": None,
+                "structured_output_kwarg_unsupported": True,
             }
-    except Exception as exc:
+            raw = ai_provider.ask_chat(model, messages, **ask_kwargs)
+        else:
+            raise
+    completion = _provider_completion_meta(ai_provider)
+    diagnostics = {
+        **structured_diag,
+        "provider": completion.get("provider")
+        or str(getattr(ai_provider, "name", "unknown") or "unknown"),
+        "response_field_used": completion.get("response_field")
+        or "choices[0].message.content",
+        "input_tokens": completion.get("input_tokens"),
+        "output_tokens": completion.get("output_tokens"),
+        "total_tokens": completion.get("total_tokens"),
+        "max_output_tokens": max_tokens,
+        "finish_reason": completion.get("finish_reason"),
+        "truncated": bool(completion.get("truncated")),
+        "provider_text_chars": completion.get("text_chars"),
+    }
+    return raw, diagnostics
+
+
+def _parse_candidate(
+    raw: str | None,
+    *,
+    finish_reason: str | None = None,
+    provider_diagnostics: Mapping[str, Any] | None = None,
+    response_field_present: bool = True,
+) -> AppSpecCandidate:
+    text = raw if isinstance(raw, str) else ""
+    field_present = response_field_present
+    if provider_diagnostics and provider_diagnostics.get(
+        "response_field_present"
+    ) is False:
+        field_present = False
+    raw_sha = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+    parsed = parse_appspec_authoring_output(
+        text,
+        finish_reason=finish_reason
+        or (provider_diagnostics or {}).get("finish_reason"),
+        response_field_present=field_present,
+    )
+    extraction_meta = authoring_parse_diagnostics(parsed)
+    if provider_diagnostics:
+        extraction_meta = {
+            **extraction_meta,
+            "provider": dict(provider_diagnostics),
+        }
+    if not parsed.ok or not isinstance(parsed.payload, dict):
+        typed = parsed.error_code or AUTHORING_NO_JSON_OBJECT
         raise AppSpecBuildError(
-            f"AppSpec model output was not valid JSON: {exc}",
+            parsed.public_message,
             response_excerpt=text[:2000],
             raw_response_sha256=raw_sha,
-            json_extraction={**extraction_meta, "ok": False, "error": str(exc)},
-        ) from exc
-    if not isinstance(payload, dict):
-        raise AppSpecBuildError(
-            "AppSpec model output must be one JSON object.",
-            response_excerpt=text[:2000],
-            raw_response_sha256=raw_sha,
-            json_extraction={**extraction_meta, "ok": False, "error": "not_object"},
+            json_extraction={
+                **extraction_meta,
+                "ok": False,
+                "method": parsed.strategy,
+                "error": parsed.parser_error or typed,
+            },
+            typed_error=typed,
+            authoring_diagnostics=extraction_meta,
         )
     return AppSpecCandidate(
-        payload=payload,
+        payload=parsed.payload,
         response_excerpt=text[:2000],
         raw_response_sha256=raw_sha,
         raw_char_count=len(text),
-        json_extraction=extraction_meta,
+        json_extraction={
+            **extraction_meta,
+            "ok": True,
+            "method": parsed.strategy,
+        },
+        authoring_diagnostics=extraction_meta,
     )
 
 
@@ -148,6 +273,8 @@ def build_app_spec_candidate(
 ) -> AppSpecCandidate:
     """Ask the authoring model for one complete AppSpec JSON candidate."""
 
+    selected_model = model or settings.APPSPEC_MODEL
+    token_budget = max_tokens or settings.APPSPEC_MAX_TOKENS
     prompt = template_renderer.render(
         PromptTemplate.APP_SPEC,
         prompt_revision=settings.APPSPEC_PROMPT_REVISION,
@@ -156,13 +283,78 @@ def build_app_spec_candidate(
         derived_context_json=_canonical_json(derived_context or {}),
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
     )
-    raw = ai_provider.ask_chat(
-        model or settings.APPSPEC_MODEL,
-        [{"role": "user", "content": prompt}],
-        max_tokens=max_tokens or settings.APPSPEC_MAX_TOKENS,
-        temperature=0.1,
+    messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+    attempt_diagnostics: list[dict[str, Any]] = []
+    last_error: AppSpecBuildError | None = None
+
+    for attempt_index in range(1 + APPSPEC_AUTHORING_MALFORMED_RETRY_MAX):
+        raw, provider_diag = _ask_appspec_chat(
+            ai_provider,
+            model=selected_model,
+            messages=messages,
+            max_tokens=token_budget,
+            temperature=0.1 if attempt_index == 0 else 0.0,
+        )
+        try:
+            candidate = _parse_candidate(
+                raw,
+                finish_reason=provider_diag.get("finish_reason"),
+                provider_diagnostics=provider_diag,
+            )
+            merged = dict(candidate.authoring_diagnostics or {})
+            merged["authoring_attempt"] = attempt_index + 1
+            merged["malformed_retry_used"] = attempt_index > 0
+            merged["provider"] = provider_diag
+            return AppSpecCandidate(
+                payload=candidate.payload,
+                response_excerpt=candidate.response_excerpt,
+                raw_response_sha256=candidate.raw_response_sha256,
+                raw_char_count=candidate.raw_char_count,
+                json_extraction=candidate.json_extraction,
+                parent_payload_sha256=candidate.parent_payload_sha256,
+                repair_type=candidate.repair_type,
+                authoring_diagnostics=merged,
+            )
+        except AppSpecBuildError as exc:
+            last_error = exc
+            attempt_diagnostics.append(
+                {
+                    "attempt": attempt_index + 1,
+                    "typed_error": exc.typed_error,
+                    "provider": provider_diag,
+                    "parse": dict(exc.authoring_diagnostics or {}),
+                }
+            )
+            retryable = exc.typed_error in {
+                AUTHORING_NO_JSON_OBJECT,
+                AUTHORING_JSON_SYNTAX_INVALID,
+                AUTHORING_JSON_TRUNCATED,
+                AUTHORING_RESPONSE_FIELD_MISSING,
+                None,
+            }
+            if attempt_index >= APPSPEC_AUTHORING_MALFORMED_RETRY_MAX or not retryable:
+                break
+            # Compact corrective retry — never resend the malformed output.
+            messages = [
+                {"role": "user", "content": prompt},
+                {"role": "user", "content": _COMPACT_JSON_RETRY_INSTRUCTION},
+            ]
+
+    assert last_error is not None
+    diagnostics = dict(last_error.authoring_diagnostics or {})
+    diagnostics["authoring_attempts"] = attempt_diagnostics
+    diagnostics["malformed_retry_used"] = len(attempt_diagnostics) > 1
+    raise AppSpecBuildError(
+        str(last_error),
+        response_excerpt=last_error.response_excerpt,
+        raw_response_sha256=last_error.raw_response_sha256,
+        json_extraction={
+            **dict(last_error.json_extraction or {}),
+            "authoring_attempts": attempt_diagnostics,
+        },
+        typed_error=last_error.typed_error,
+        authoring_diagnostics=diagnostics,
     )
-    return _parse_candidate(raw)
 
 
 def build_app_spec(
@@ -205,6 +397,7 @@ def repair_app_spec_candidate(
         candidate_payload: Any = candidate.payload
     else:
         candidate_payload = candidate or {}
+    selected_model = model or settings.APPSPEC_REPAIR_MODEL
     prompt = template_renderer.render(
         PromptTemplate.APP_SPEC_REPAIR,
         prompt_revision=settings.APPSPEC_PROMPT_REVISION,
@@ -216,13 +409,18 @@ def repair_app_spec_candidate(
         coverage_review_json=_canonical_json(coverage_review or {}),
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
     )
-    raw = ai_provider.ask_chat(
-        model or settings.APPSPEC_REPAIR_MODEL,
-        [{"role": "user", "content": prompt}],
+    raw, provider_diag = _ask_appspec_chat(
+        ai_provider,
+        model=selected_model,
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
         temperature=0.05,
     )
-    return _parse_candidate(raw)
+    return _parse_candidate(
+        raw,
+        finish_reason=provider_diag.get("finish_reason"),
+        provider_diagnostics=provider_diag,
+    )
 
 
 def repair_app_spec(**kwargs: Any) -> AppSpec:
@@ -232,6 +430,7 @@ def repair_app_spec(**kwargs: Any) -> AppSpec:
 
 
 __all__ = [
+    "APPSPEC_AUTHORING_MALFORMED_RETRY_MAX",
     "AppSpecBuildError",
     "AppSpecCandidate",
     "app_spec_json_schema",

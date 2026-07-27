@@ -37,16 +37,24 @@ from app.application.appspec.fallback import (
     build_fallback_app_spec,
     build_fallback_coverage_payload,
 )
-from app.domain.appspec.sanitize import (
+from app.domain.appspec.sanitize.heal import heal_app_spec_payload
+from app.domain.appspec.sanitize.pipeline import sanitize_app_spec_payload
+from app.domain.appspec.sanitize.preparse_normalize import (
+    normalize_app_spec_preparse,
+)
+from app.domain.appspec.sanitize.reference_integrity import (
+    reconcile_reference_integrity,
+)
+from app.domain.appspec.sanitize.schema_diagnostics import (
     build_rejected_candidate_artifact,
     classify_schema_parse_exception,
-    heal_app_spec_payload,
-    normalize_app_spec_preparse,
-    reconcile_reference_integrity,
+)
+from app.domain.appspec.sanitize.graph_repair import (
     repair_app_spec_graph,
-    repair_trace_evidence_mismatch,
-    sanitize_app_spec_payload,
     validation_has_repairable_graph_issues,
+)
+from app.domain.appspec.sanitize.trace_evidence_repair import (
+    repair_trace_evidence_mismatch,
     validation_has_safe_trace_evidence_repair,
 )
 from app.domain.appspec.sanitize.graph_repair import GraphRepairResult
@@ -795,7 +803,13 @@ def ensure_approved_app_spec(
             estimated_tokens=(
                 max(1, (candidate.raw_char_count + 3) // 4) if candidate else None
             ),
-            finish_reason=None,
+            finish_reason=(
+                ((candidate.authoring_diagnostics or {}).get("provider") or {}).get(
+                    "finish_reason"
+                )
+                if candidate
+                else None
+            ),
             terminal_result=terminal_reason,
             parent_revision_id=parent_id
             or graph_repair_source_revision_id
@@ -804,6 +818,9 @@ def ensure_approved_app_spec(
             before_sha256=before_sha256,
             after_sha256=after_sha256,
             changed_paths=changed_paths,
+            authoring_diagnostics=(
+                dict(candidate.authoring_diagnostics or {}) if candidate else None
+            ),
         )
         schema_diagnostics = artifact
         row = _persist_rejected(
@@ -899,23 +916,23 @@ def ensure_approved_app_spec(
                 source_snapshot,
             )
         except AppSpecBuildError as exc:
+            typed = getattr(exc, "typed_error", None) or "malformed_json"
             malformed = classify_schema_parse_exception(exc)
-            # Prefer malformed_json child when authoring JSON extraction failed.
-            if "json" in str(exc).lower():
-                malformed = {
-                    **malformed,
-                    "issues": [
-                        {
-                            "severity": "blocking",
-                            "code": "malformed_json",
-                            "message": str(exc),
-                            "path": "",
-                            "related_ids": [],
-                            "error_type": type(exc).__name__,
-                            "offending_value_type": "str",
-                        }
-                    ],
-                }
+            # Prefer precise authoring typed child when JSON extraction failed.
+            malformed = {
+                **malformed,
+                "issues": [
+                    {
+                        "severity": "blocking",
+                        "code": typed,
+                        "message": str(exc),
+                        "path": "",
+                        "related_ids": [],
+                        "error_type": type(exc).__name__,
+                        "offending_value_type": "str",
+                    }
+                ],
+            }
             validation_payload = _validation_payload(
                 None,
                 extra_issues=[
@@ -936,11 +953,29 @@ def ensure_approved_app_spec(
                 raw_response_sha256=exc.raw_response_sha256,
                 raw_char_count=len(exc.response_excerpt or ""),
                 json_extraction=exc.json_extraction,
+                authoring_diagnostics=getattr(exc, "authoring_diagnostics", None),
             )
-            _persist_schema_rejection(
+            rejected = _persist_schema_rejection(
                 terminal_reason="authoring_output_invalid",
                 parse_issue=malformed,
                 repair_type=None,
+            )
+            # Authoring JSON failure is terminal: do not continue with an empty
+            # payload into schema/fallback persistence (request #43 triple-write).
+            # Do not invoke AppSpec fallback for malformed authoring output.
+            raise AppSpecGenerationError(
+                _format_validation_failure(
+                    (
+                        "AppSpec failed (authoring_output_invalid)"
+                        + (
+                            " and fallback is disabled."
+                            if not runtime_policy.allow_fallback
+                            else "."
+                        )
+                    ),
+                    validation_payload,
+                ),
+                revision_record=rejected,
             )
 
         while True:

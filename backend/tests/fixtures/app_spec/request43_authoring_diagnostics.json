@@ -1,0 +1,58 @@
+{
+  "request_id": 43,
+  "attempts": [
+    {
+      "revision": 1,
+      "status": "rejected",
+      "terminal_reason": "authoring_output_invalid",
+      "model": "google/gemini-2.5-flash",
+      "provider": "unknown",
+      "raw_response_sha256": "d2cbc22bd09ff1e0c7ff82081ab56a9669e5d83bbe9e9b52ae935c76adc731d5",
+      "raw_response_chars_recorded": 2000,
+      "finish_reason": null,
+      "json_extraction": {
+        "error": "No valid JSON object found in model output",
+        "method": null,
+        "ok": false
+      },
+      "candidate_size_bytes": 2,
+      "typed_note": "Full raw authoring body was not persisted; only excerpt+SHA available historically."
+    },
+    {
+      "revision": 2,
+      "status": "rejected",
+      "terminal_reason": "schema_parse_failed",
+      "model": "google/gemini-2.5-flash",
+      "provider": "unknown",
+      "raw_response_sha256": "d2cbc22bd09ff1e0c7ff82081ab56a9669e5d83bbe9e9b52ae935c76adc731d5",
+      "raw_response_chars_recorded": 2000,
+      "finish_reason": null,
+      "json_extraction": {
+        "error": "No valid JSON object found in model output",
+        "method": null,
+        "ok": false
+      },
+      "candidate_size_bytes": 2,
+      "typed_note": "Full raw authoring body was not persisted; only excerpt+SHA available historically."
+    },
+    {
+      "revision": 3,
+      "status": "rejected",
+      "terminal_reason": "deterministic_validation_failed",
+      "model": "google/gemini-2.5-flash",
+      "provider": "unknown",
+      "raw_response_sha256": "d2cbc22bd09ff1e0c7ff82081ab56a9669e5d83bbe9e9b52ae935c76adc731d5",
+      "raw_response_chars_recorded": 2000,
+      "finish_reason": null,
+      "json_extraction": {
+        "error": "No valid JSON object found in model output",
+        "method": null,
+        "ok": false
+      },
+      "candidate_size_bytes": 2,
+      "typed_note": "Full raw authoring body was not persisted; only excerpt+SHA available historically."
+    }
+  ],
+  "shared_raw_response_sha256": "d2cbc22bd09ff1e0c7ff82081ab56a9669e5d83bbe9e9b52ae935c76adc731d5",
+  "classification_note": "Three persisted revisions share one raw_response_sha256 and one provider call (calls_used=1). Full body unavailable; extraction reported no valid JSON object."
+}

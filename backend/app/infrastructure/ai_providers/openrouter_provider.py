@@ -108,6 +108,7 @@ class OpenRouterAIProvider(AIProvider):
         self._lock = threading.Lock()
         self._active_response: requests.Response | None = None
         self._active_session: requests.Session | None = None
+        self._last_completion_meta: dict | None = None
 
     @property
     def name(self) -> str:
@@ -155,6 +156,7 @@ class OpenRouterAIProvider(AIProvider):
         temperature: float | None = None,
         purpose: str = "pipeline",
         transport_attempts: int = 2,
+        response_format: dict | None = None,
     ) -> str:
         allowed, reason = ai_is_allowed(purpose)
         if not allowed:
@@ -172,6 +174,8 @@ class OpenRouterAIProvider(AIProvider):
             payload["max_tokens"] = max_tokens
         if temperature is not None:
             payload["temperature"] = temperature
+        if isinstance(response_format, dict) and response_format:
+            payload["response_format"] = response_format
 
         def _do_request() -> tuple[int, object | None, str]:
             session = requests.Session()
@@ -271,6 +275,21 @@ class OpenRouterAIProvider(AIProvider):
                 success=True,
                 latency_ms=latency,
             )
+            with self._lock:
+                self._last_completion_meta = {
+                    "provider": "openrouter",
+                    "model": model,
+                    "finish_reason": parsed.finish_reason,
+                    "input_tokens": parsed.input_tokens,
+                    "output_tokens": parsed.output_tokens,
+                    "total_tokens": parsed.total_tokens,
+                    "truncated": bool(parsed.truncated),
+                    "response_format_requested": (
+                        dict(response_format) if response_format else None
+                    ),
+                    "text_chars": len(parsed.text or ""),
+                    "response_field": "choices[0].message.content",
+                }
             return parsed.text
         except ProviderGenerationError:
             raise
@@ -295,6 +314,7 @@ class OpenRouterAIProvider(AIProvider):
         *,
         timeout_seconds: float | None = None,
         transport_attempts: int | None = None,
+        response_format: dict | None = None,
     ) -> str:
         if temperature is None and self._is_claude(model):
             temperature = 0.3
@@ -308,7 +328,12 @@ class OpenRouterAIProvider(AIProvider):
             temperature=temperature,
             purpose="pipeline",
             transport_attempts=attempts,
+            response_format=response_format,
         )
+
+    def last_completion_meta(self) -> dict | None:
+        with self._lock:
+            return dict(self._last_completion_meta) if self._last_completion_meta else None
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         mime, _ = mimetypes.guess_type(image_path)

@@ -1,0 +1,5 @@
+Here is the AppSpec:
+```json
+{"schema_version":"1","product_intent":{"summary":"x"}}
+```
+Thanks.

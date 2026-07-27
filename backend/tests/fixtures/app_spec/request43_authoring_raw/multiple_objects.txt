@@ -1,0 +1,1 @@
+{"schema_version":"1","product_intent":{"summary":"first"}}{"schema_version":"1","product_intent":{"summary":"second"}}

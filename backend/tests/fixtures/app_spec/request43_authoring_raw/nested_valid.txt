@@ -1,0 +1,1 @@
+prefix {"a":{"b":[1,{"c":true}]},"schema_version":"1","product_intent":{"summary":"nested"}} trailing

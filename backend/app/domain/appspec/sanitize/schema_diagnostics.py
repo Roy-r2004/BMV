@@ -17,6 +17,10 @@ TYPED_SCHEMA_ISSUE_CODES = frozenset(
         "invalid_field_type",
         "invalid_enum",
         "malformed_json",
+        "app_spec_authoring_no_json_object",
+        "app_spec_authoring_json_truncated",
+        "app_spec_authoring_json_syntax_invalid",
+        "app_spec_authoring_response_field_missing",
         "duplicate_id",
         "null_not_allowed",
         "invalid_nested_object",
@@ -300,6 +304,7 @@ def build_rejected_candidate_artifact(
     before_sha256: str | None = None,
     after_sha256: str | None = None,
     changed_paths: list[str] | None = None,
+    authoring_diagnostics: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build an admin-safe rejected-candidate diagnostic artifact."""
 
@@ -312,6 +317,8 @@ def build_rejected_candidate_artifact(
     if isinstance(schema_issue, Mapping):
         child_issues = list(schema_issue.get("issues") or [])
     now = datetime.now(timezone.utc).isoformat()
+    authoring = dict(authoring_diagnostics or {})
+    provider_diag = dict(authoring.get("provider") or {})
     return {
         "request_id": request_id,
         "attempt_number": attempt_number,
@@ -335,7 +342,7 @@ def build_rejected_candidate_artifact(
             "path": (schema_issue or {}).get("path") or "",
         },
         "estimated_token_usage": estimated_tokens,
-        "finish_reason": finish_reason,
+        "finish_reason": finish_reason or provider_diag.get("finish_reason"),
         "started_at": started_at,
         "completed_at": completed_at or now,
         "terminal_result": terminal_result,
@@ -344,6 +351,28 @@ def build_rejected_candidate_artifact(
         "original_sha256": before_sha256,
         "result_sha256": after_sha256 or payload_sha256(candidate_payload),
         "changed_paths": list(changed_paths or [])[:80],
+        "authoring": {
+            "structured_output_mode_requested": provider_diag.get(
+                "structured_output_mode_requested"
+            ),
+            "structured_output_mode_supported": provider_diag.get(
+                "structured_output_mode_supported"
+            ),
+            "response_field_used": provider_diag.get("response_field_used"),
+            "input_tokens": provider_diag.get("input_tokens"),
+            "output_tokens": provider_diag.get("output_tokens"),
+            "max_output_tokens": provider_diag.get("max_output_tokens"),
+            "finish_reason": provider_diag.get("finish_reason") or finish_reason,
+            "extraction_strategy": authoring.get("strategy")
+            or (json_extraction or {}).get("method"),
+            "extracted_object_sha256": authoring.get("extracted_object_sha256"),
+            "extracted_object_chars": authoring.get("extracted_object_chars"),
+            "parser_error_code": authoring.get("parser_error_code")
+            or authoring.get("error_code"),
+            "malformed_retry_used": authoring.get("malformed_retry_used"),
+            "sanitized_prefix": authoring.get("sanitized_prefix"),
+            "sanitized_suffix": authoring.get("sanitized_suffix"),
+        },
     }
 
 

@@ -44,6 +44,8 @@ class ModelCapabilityProfile:
     context_window: int
     known: bool = True
     supports_json_text_mode: bool = True
+    supports_json_object: bool = True
+    supports_json_schema: bool = False
     supports_strict_json_schema: bool = False
     supports_tools: bool = False
     supports_reasoning_params: bool = False
@@ -56,6 +58,8 @@ class ModelCapabilityProfile:
             "context_window": self.context_window,
             "known": self.known,
             "supports_json_text_mode": self.supports_json_text_mode,
+            "supports_json_object": self.supports_json_object,
+            "supports_json_schema": self.supports_json_schema,
             "supports_strict_json_schema": self.supports_strict_json_schema,
             "supports_tools": self.supports_tools,
             "supports_reasoning_params": self.supports_reasoning_params,
@@ -72,13 +76,23 @@ def resolve_model_capability(model: str) -> ModelCapabilityProfile:
             model=normalized,
             context_window=0,
             known=False,
+            supports_json_object=False,
+            supports_json_schema=False,
+            supports_json_text_mode=False,
         )
     # GLM 5.2 supports optional reasoning params on OpenRouter; pages still
     # use plain JSON-text chat completions without enabling them.
     supports_reasoning = normalized in {"z-ai/glm-5", "z-ai/glm-5.2"}
+    # OpenRouter JSON-object mode is supported for the approved AppSpec /
+    # candidate Gemini and OpenAI-compatible chat models in this profile.
+    # Strict JSON Schema mode remains unsupported until explicitly proven.
+    supports_json_object = True
     return ModelCapabilityProfile(
         model=normalized,
         context_window=window,
+        supports_json_object=supports_json_object,
+        supports_json_schema=False,
+        supports_strict_json_schema=False,
         supports_reasoning_params=supports_reasoning,
     )
 
@@ -116,6 +130,8 @@ def candidate_stage_capability_diagnostics(model: str) -> dict[str, Any]:
         "context_window": profile.context_window,
         "capability_profile_revision": profile.revision,
         "supports_json_text_mode": profile.supports_json_text_mode,
+        "supports_json_object": profile.supports_json_object,
+        "supports_json_schema": profile.supports_json_schema,
         "minimum_output_allowance": MINIMUM_VALID_OUTPUT_TOKENS,
         "context_reserve": CONTEXT_RESERVE_TOKENS,
     }
