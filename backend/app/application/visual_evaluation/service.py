@@ -125,7 +125,9 @@ def _budget_guard(
     if time.monotonic() > deadline:
         raise VisualEvaluationError("Phase 5 wall timeout exceeded")
     calls = sum(item.provider_call_count for item in metrics)
-    tokens = sum(item.total_tokens for item in metrics)
+    # Aggregate output tokens only — image/prompt input must not trip this
+    # ceiling (docs: 42,000 aggregate output tokens).
+    tokens = sum(item.completion_tokens for item in metrics)
     cost = sum(item.cost_usd for item in metrics)
     if calls + required_additional_calls > limits.max_calls:
         raise VisualEvaluationError("Phase 5 call ceiling would be exceeded")
@@ -273,14 +275,15 @@ def _evaluate_models(
             phase_deadline=deadline,
             subject=subject,
         )
-        validate_critic_group(
-            built.artifact,
-            subject=subject,
-            group=group,
-            bundle=bundle,
-            hard_gate=hard_gate,
+        critic_partials.append(
+            validate_critic_group(
+                built.artifact,
+                subject=subject,
+                group=group,
+                bundle=bundle,
+                hard_gate=hard_gate,
+            )
         )
-        critic_partials.append(built.artifact)
         metrics.append(built.metrics)
         _budget_guard(tuple(metrics), limits=limits, deadline=deadline)
     critic = aggregate_critic_scorecards(
@@ -316,14 +319,15 @@ def _evaluate_models(
             blind_comparison_json=blind_json,
             comparison_image_paths=comparison_paths,
         )
-        validate_reviewer_group(
-            built.artifact,
-            subject=subject,
-            group=group,
-            bundle=bundle,
-            hard_gate=hard_gate,
+        reviewer_partials.append(
+            validate_reviewer_group(
+                built.artifact,
+                subject=subject,
+                group=group,
+                bundle=bundle,
+                hard_gate=hard_gate,
+            )
         )
-        reviewer_partials.append(built.artifact)
         metrics.append(built.metrics)
         _budget_guard(tuple(metrics), limits=limits, deadline=deadline)
     reviewer = aggregate_reviewer_decisions(

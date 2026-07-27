@@ -88,7 +88,7 @@ def test_full_cache_hit_and_prompt_invalidation(
     assert prepared_visual.db.query(CandidateVisualSummaryRecord).count() == 2
 
 
-def test_repairable_candidate_uses_one_bounded_refinement(
+def test_repairable_candidate_uses_one_bounded_refinement_and_requires_improvement(
     prepared_visual,
 ) -> None:
     ai = VisualFixtureAI(score=65, repairable=True)
@@ -101,7 +101,10 @@ def test_repairable_candidate_uses_one_bounded_refinement(
         ),
     )
     result = run_phase5(prepared_visual, ai)
-    assert result["preview_contract"]["status"] == "candidate_visual_accepted"
+    assert result["preview_contract"]["status"] == "candidate_visual_rejected"
+    assert result["preview_contract"]["visual_evaluation"]["diagnostics"] == [
+        "refinement_worse_or_inconclusive"
+    ]
     assert result["preview_contract"]["visual_evaluation"][
         "provider_call_count"
     ] == 5
@@ -127,7 +130,7 @@ def test_repairable_candidate_uses_one_bounded_refinement(
     repeat_ai = VisualFixtureAI(score=65, repairable=True)
     repeat = run_phase5(prepared_visual, repeat_ai)
     assert repeat_ai.calls == []
-    assert repeat["preview_contract"]["status"] == "candidate_visual_accepted"
+    assert repeat["preview_contract"]["status"] == "candidate_visual_rejected"
     assert prepared_visual.db.query(CandidateRevisionRecord).count() == 2
 
 
@@ -181,7 +184,7 @@ def test_invalid_model_output_has_no_schema_retry(prepared_visual) -> None:
     assert len(ai.calls) == 1
 
 
-def test_one_source_only_technical_repair_is_bounded(
+def test_one_source_only_technical_repair_is_bounded_without_forced_acceptance(
     prepared_visual,
 ) -> None:
     ai = VisualFixtureAI(
@@ -190,7 +193,10 @@ def test_one_source_only_technical_repair_is_bounded(
         technical_repair=True,
     )
     result = run_phase5(prepared_visual, ai)
-    assert result["preview_contract"]["status"] == "candidate_visual_accepted"
+    assert result["preview_contract"]["status"] == "candidate_visual_rejected"
+    assert result["preview_contract"]["visual_evaluation"]["diagnostics"] == [
+        "refinement_worse_or_inconclusive"
+    ]
     assert len(ai.calls) == 6
     generation = prepared_visual.db.query(
         CandidateRefinementGenerationRecord

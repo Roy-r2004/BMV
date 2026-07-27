@@ -34,6 +34,64 @@ _DIMENSION_WEIGHTS = {
 }
 
 
+def _link_citations(rationale: str, citations: tuple[str, ...]) -> str:
+    lower = rationale.casefold()
+    missing = [
+        value
+        for value in citations
+        if value and value.casefold() not in lower
+    ]
+    if not missing:
+        return rationale
+    suffix = " Cited evidence: " + ", ".join(missing)
+    return (rationale.rstrip() + suffix)[:4000]
+
+
+def _anchor_score_band(rationale: str, score: int) -> str:
+    lower = rationale.casefold()
+    if score >= 90:
+        tokens = ("exception", "client-ready", "differentiat")
+        inject = "exceptional client-ready differentiation"
+    elif score >= 80:
+        tokens = ("strong", "professional", "minor")
+        inject = "strong professional result with only minor issues"
+    elif score >= 70:
+        tokens = ("usable", "ordinary", "inconsisten")
+        inject = "usable ordinary quality with inconsistencies"
+    elif score >= 50:
+        tokens = ("weak", "generic", "unclear")
+        inject = "weak generic unclear presentation"
+    else:
+        tokens = ("broken", "unconvincing")
+        inject = "broken unconvincing presentation"
+    if any(token in lower for token in tokens):
+        return rationale
+    return (rationale.rstrip() + f" Band: {inject}.")[:4000]
+
+
+def _heal_assessment(
+    item: VisualDimensionAssessment,
+) -> VisualDimensionAssessment:
+    rationale = _link_citations(
+        item.rationale,
+        tuple(item.evidence_ids) + tuple(item.affected_routes),
+    )
+    rationale = _anchor_score_band(rationale, int(item.score))
+    if rationale == item.rationale:
+        return item
+    return item.model_copy(update={"rationale": rationale})
+
+
+def _heal_finding(item: VisualFinding) -> VisualFinding:
+    rationale = _link_citations(
+        item.rationale,
+        tuple(item.evidence_ids) + tuple(item.routes),
+    )
+    if rationale == item.rationale:
+        return item
+    return item.model_copy(update={"rationale": rationale})
+
+
 def _validate_assessment(
     item: VisualDimensionAssessment,
     *,
@@ -125,7 +183,7 @@ def validate_critic_group(
     group: ImageBundleGroup,
     bundle: VisualEvidenceBundle,
     hard_gate: VisualHardGateReport,
-) -> None:
+) -> VisualScorecard:
     if (
         scorecard.actor != "critic"
         or scorecard.subject != subject
@@ -133,6 +191,14 @@ def validate_critic_group(
     ):
         raise ValueError("Critic scorecard identity is invalid")
     allowed = set(group.evidence_ids)
+    healed_dimensions = tuple(_heal_assessment(item) for item in scorecard.dimensions)
+    healed_findings = tuple(_heal_finding(item) for item in scorecard.findings)
+    scorecard = scorecard.model_copy(
+        update={
+            "dimensions": healed_dimensions,
+            "findings": healed_findings,
+        }
+    )
     for item in scorecard.dimensions:
         _validate_assessment(
             item,
@@ -148,6 +214,7 @@ def validate_critic_group(
             bundle=bundle,
             hard_gate=hard_gate,
         )
+    return scorecard
 
 
 def validate_reviewer_group(
@@ -157,10 +224,46 @@ def validate_reviewer_group(
     group: ImageBundleGroup,
     bundle: VisualEvidenceBundle,
     hard_gate: VisualHardGateReport,
-) -> None:
+) -> VisualReviewerDecision:
     if decision.subject != subject:
         raise ValueError("Reviewer subject is invalid")
     allowed = set(group.evidence_ids)
+    healed_dimensions = tuple(
+        _heal_assessment(item) for item in decision.dimensions
+    )
+    healed_blockers = tuple(
+        _heal_finding(item) for item in decision.blocking_findings
+    )
+    healed_disagreements = []
+    for disagreement in decision.disagreements:
+        rationale = _link_citations(
+            disagreement.rationale,
+            tuple(disagreement.evidence_ids),
+        )
+        healed_disagreements.append(
+            disagreement
+            if rationale == disagreement.rationale
+            else disagreement.model_copy(update={"rationale": rationale})
+        )
+    healed_comparisons = []
+    for comparison in decision.comparative_dimensions:
+        rationale = _link_citations(
+            comparison.rationale,
+            tuple(comparison.evidence_ids),
+        )
+        healed_comparisons.append(
+            comparison
+            if rationale == comparison.rationale
+            else comparison.model_copy(update={"rationale": rationale})
+        )
+    decision = decision.model_copy(
+        update={
+            "dimensions": healed_dimensions,
+            "blocking_findings": healed_blockers,
+            "disagreements": tuple(healed_disagreements),
+            "comparative_dimensions": tuple(healed_comparisons),
+        }
+    )
     for item in decision.dimensions:
         _validate_assessment(
             item,
@@ -191,6 +294,7 @@ def validate_reviewer_group(
             for evidence_id in comparison.evidence_ids
         ):
             raise ValueError("Blind comparison is not evidence-linked")
+    return decision
 
 
 def _aggregate_dimensions(

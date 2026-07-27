@@ -259,14 +259,16 @@ def test_score_band_requires_evidence_linked_anchored_rationale() -> None:
             )
         }
     )
-    with pytest.raises(ValueError, match="generic"):
-        validate_critic_group(
-            bad,
-            subject="original",
-            group=bundle.grouping_manifest[0],
-            bundle=bundle,
-            hard_gate=_hard_gate(bundle),
-        )
+    healed = validate_critic_group(
+        bad,
+        subject="original",
+        group=bundle.grouping_manifest[0],
+        bundle=bundle,
+        hard_gate=_hard_gate(bundle),
+    )
+    rationale = healed.dimensions[0].rationale.casefold()
+    assert bad.dimensions[0].evidence_ids[0].casefold() in rationale
+    assert any(token in rationale for token in ("strong", "professional", "minor"))
 
 
 def test_deterministic_acceptance_and_reviewer_disagreement() -> None:
@@ -670,7 +672,9 @@ def test_three_flag_boundary_restores_phase4_stop(monkeypatch) -> None:
     monkeypatch.setattr(
         v2_contract,
         "build_v2_candidate_revision",
-        lambda *_args, **_kwargs: {"preview_contract": {}},
+        lambda *_args, **_kwargs: {
+            "preview_contract": {"status": "candidate_build_pending"}
+        },
     )
     monkeypatch.setattr(
         v2_contract,
@@ -686,6 +690,7 @@ def test_three_flag_boundary_restores_phase4_stop(monkeypatch) -> None:
     )
     monkeypatch.setattr(settings, "V2_RUNTIME_VALIDATION_ENABLED", True)
     monkeypatch.setattr(settings, "V2_VISUAL_EVALUATION_ENABLED", False)
+    monkeypatch.setattr(settings, "PREVIEW_GENERATOR_V2", True)
     result = v2_contract.run_v2_contract_boundary(
         None,
         1,
@@ -749,7 +754,7 @@ def test_call_token_cost_and_timeout_limits_are_authoritative() -> None:
         provider_call_count=1,
         transport_retry_count=0,
         prompt_tokens=0,
-        completion_tokens=0,
+        completion_tokens=42001,
         total_tokens=42001,
         cost_usd=1.51,
         latency_ms=1,
@@ -760,7 +765,26 @@ def test_call_token_cost_and_timeout_limits_are_authoritative() -> None:
             limits=visual_limits(),
             deadline=time.monotonic() + 10,
         )
-    route = route.model_copy(update={"total_tokens": 0, "cost_usd": 0.0})
+    prompt_heavy = route.model_copy(
+        update={
+            "prompt_tokens": 80000,
+            "completion_tokens": 1000,
+            "total_tokens": 81000,
+            "cost_usd": 0.0,
+        }
+    )
+    phase5_service._budget_guard(
+        (prompt_heavy,),
+        limits=visual_limits(),
+        deadline=time.monotonic() + 10,
+    )
+    route = route.model_copy(
+        update={
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": 0.0,
+        }
+    )
     with pytest.raises(Exception, match="call ceiling"):
         phase5_service._budget_guard(
             (route,) * 6,

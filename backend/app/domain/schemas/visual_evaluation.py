@@ -654,8 +654,10 @@ class VisualEvaluationSummary(StrictDesignModel):
     call_metrics: Tuple[VisualCallMetrics, ...] = Field(default=(), max_length=6)
     provider_call_count: StrictInt = Field(ge=0, le=6)
     prompt_tokens: StrictInt = Field(ge=0)
-    completion_tokens: StrictInt = Field(ge=0)
-    total_tokens: StrictInt = Field(ge=0, le=42_000)
+    # Output-token ceiling is on completion_tokens; multimodal prompt input
+    # regularly exceeds 42k aggregate total tokens.
+    completion_tokens: StrictInt = Field(ge=0, le=42_000)
+    total_tokens: StrictInt = Field(ge=0)
     cost_usd: StrictFloat = Field(ge=0, le=1.50)
     latency_ms: StrictInt = Field(ge=0)
     cache_hits: Tuple[str, ...] = Field(default=(), max_length=20)

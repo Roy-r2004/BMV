@@ -128,6 +128,7 @@ def invoke_structured(
     template_renderer: TemplateRenderer,
     phase_deadline: float,
     image_paths: tuple[Path, ...] = (),
+    identity_fields: dict[str, Any] | None = None,
 ) -> BuiltVisualArtifact:
     started = time.monotonic()
     remaining = min(
@@ -169,6 +170,9 @@ def invoke_structured(
         payload = extract_json_from_text(raw)
         if not isinstance(payload, dict):
             raise ValueError("Structured output must be one JSON object")
+        # Service-known identity is authoritative; providers often omit it.
+        if identity_fields:
+            payload = {**payload, **identity_fields}
         artifact = output_schema.model_validate(payload)
     except Exception as exc:
         raise VisualStageError(
@@ -225,6 +229,11 @@ def build_critic_group(
         template_renderer=template_renderer,
         phase_deadline=phase_deadline,
         image_paths=evidence_absolute_paths(bundle, group.evidence_ids),
+        identity_fields={
+            "actor": "critic",
+            "subject": subject,
+            "group_index": group.group_index,
+        },
     )
 
 
@@ -274,6 +283,7 @@ def build_reviewer_group(
             if comparison_image_paths
             else evidence_absolute_paths(bundle, group.evidence_ids)
         ),
+        identity_fields={"subject": subject},
     )
 
 
