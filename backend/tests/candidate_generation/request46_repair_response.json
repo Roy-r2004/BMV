@@ -1,0 +1,45 @@
+{
+  "fixture": "request46_candidate_component_repair_response",
+  "captured_from": "production usage event 533 (sanitized)",
+  "request_id": 46,
+  "usage_event_id": 533,
+  "provider": "openrouter",
+  "model": "z-ai/glm-5.2",
+  "purpose": "v2_candidate_business_components_repair",
+  "http_status": 200,
+  "adapter_response_field": "choices[0].message.content",
+  "configured_repair_max_tokens": 10000,
+  "observed": {
+    "prompt_tokens": 4268,
+    "completion_tokens": 10000,
+    "total_tokens": 14268,
+    "recorded_error_code": "provider_response_shape_invalid",
+    "content_present": false,
+    "output_ended_at_token_limit": true
+  },
+  "notes": [
+    "No assistant content survived, so there is no generated source to redact.",
+    "completion_tokens equals the configured repair cap exactly."
+  ],
+  "provider_body": {
+    "id": "gen-req46-repair",
+    "object": "chat.completion",
+    "model": "z-ai/glm-5.2",
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "length",
+        "native_finish_reason": "length",
+        "message": {
+          "role": "assistant",
+          "content": null
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 4268,
+      "completion_tokens": 10000,
+      "total_tokens": 14268
+    }
+  }
+}

@@ -56,6 +56,20 @@ def _candidate_inputs(prompt: str) -> dict:
     return json.loads(prompt.split(marker, 1)[1].strip())
 
 
+def _failed_file_paths(prompt: str) -> list[str]:
+    """Paths the repair prompt approved, in prompt order."""
+    marker = "FAILED_FILES:\n"
+    if marker not in prompt:
+        return []
+    tail = prompt.split(marker, 1)[1]
+    body = tail.split("\nDIAGNOSTICS:", 1)[0].strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return []
+    return [str(item.get("path") or "") for item in parsed.get("files") or []]
+
+
 def _symbol(identifier: str, suffix: str) -> str:
     parts = re.findall(r"[A-Za-z0-9]+", identifier)
     return "".join(part[:1].upper() + part[1:].lower() for part in parts) + suffix
@@ -270,6 +284,16 @@ class CandidateFixtureAI:
                 else page_batch_payload
             )
             payload = factory(inputs)
+            # The repair contract allows only the approved failed files back.
+            approved = _failed_file_paths(prompt)
+            if approved:
+                by_path = {item["path"]: item for item in payload["files"]}
+                payload = {
+                    **payload,
+                    "files": [
+                        by_path[path] for path in approved if path in by_path
+                    ],
+                }
             mutators = self.repair_mutators.get(stage) or []
         else:
             inputs = _candidate_inputs(prompt)

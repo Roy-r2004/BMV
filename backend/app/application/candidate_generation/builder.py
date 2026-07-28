@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
@@ -17,6 +18,9 @@ from app.application.candidate_generation.call_budget import (
     CandidateProviderAttempt,
 )
 from app.application.candidate_generation.policy import CandidateStagePolicy
+from app.application.candidate_generation.repair_output import (
+    parse_candidate_repair_output,
+)
 from app.application.services.ai_context import (
     ai_run_scope,
     capture_ai_stage_telemetry,
@@ -152,6 +156,43 @@ def _usage_metrics(
     )
 
 
+def _supported_call_kwargs(
+    method: Callable[..., Any],
+    desired: dict[str, Any],
+) -> dict[str, Any]:
+    """Filter kwargs to those the provider's ask_chat actually declares.
+
+    Signature inspection keeps the call count at exactly one: an unsupported
+    keyword can never raise TypeError and trigger a second provider call.
+    """
+
+    try:
+        parameters = inspect.signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return dict(desired)
+    if any(
+        param.kind is inspect.Parameter.VAR_KEYWORD for param in parameters
+    ):
+        return dict(desired)
+    names = {param.name for param in parameters}
+    return {key: value for key, value in desired.items() if key in names}
+
+
+def _last_finish_reason(ai_provider: AIProvider) -> str:
+    """Read the provider's finish reason when it exposes completion metadata."""
+
+    reader = getattr(ai_provider, "last_completion_meta", None)
+    if not callable(reader):
+        return ""
+    try:
+        meta = reader() or {}
+    except Exception:
+        return ""
+    if not isinstance(meta, dict):
+        return ""
+    return str(meta.get("finish_reason") or "")
+
+
 def _invoke_provider_text(
     *,
     ai_provider: AIProvider,
@@ -160,8 +201,23 @@ def _invoke_provider_text(
     max_tokens: int,
     temperature: float,
     timeout_seconds: float | None = None,
+    response_format: dict[str, Any] | None = None,
 ) -> str:
     """Call ask_chat; application owns retries so transport attempts stay at 1."""
+    if response_format:
+        # Structured-output path: bind kwargs by signature and call once.
+        desired = {
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "timeout_seconds": timeout_seconds,
+            "transport_attempts": 1,
+            "response_format": response_format,
+        }
+        return ai_provider.ask_chat(
+            model,
+            [{"role": "user", "content": prompt}],
+            **_supported_call_kwargs(ai_provider.ask_chat, desired),
+        )
     try:
         return ai_provider.ask_chat(
             model,
@@ -196,6 +252,7 @@ def _request_shape_hash(
     temperature: float,
     prompt_chars: int,
     message_count: int = 1,
+    response_format: dict[str, Any] | None = None,
 ) -> str:
     shape = {
         "endpoint": "POST /chat/completions",
@@ -206,7 +263,7 @@ def _request_shape_hash(
         "approx_input_chars": prompt_chars,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "response_format": None,
+        "response_format": response_format,
         "json_schema": None,
         "strict_schema": None,
         "tools": None,
@@ -983,6 +1040,11 @@ def repair_ai_batch(
     estimated_input = estimate_prompt_tokens(prompt)
     provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
     capability = resolve_model_capability(policy.model)
+    # JSON-object mode is only sent when the capability profile proves support;
+    # unsupported models keep the plain text call and the canonical parser.
+    repair_response_format: dict[str, Any] | None = (
+        {"type": "json_object"} if capability.supports_json_object else None
+    )
     idempotency = f"{candidate_revision_uuid}:{batch_stage}:repair:0"
     attempt_id = ""
     if call_budget is not None:
@@ -1040,6 +1102,7 @@ def repair_ai_batch(
                     max_tokens=policy.max_tokens,
                     temperature=policy.temperature,
                     prompt_chars=len(prompt),
+                    response_format=repair_response_format,
                 ),
                 capability_profile_revision=CAPABILITY_PROFILE_REVISION,
                 retry_decision_reason="component_repair",
@@ -1067,6 +1130,7 @@ def repair_ai_batch(
                     max_tokens=policy.max_tokens,
                     temperature=policy.temperature,
                     timeout_seconds=http_timeout,
+                    response_format=repair_response_format,
                 )
 
             def _cancel() -> None:
@@ -1127,6 +1191,7 @@ def repair_ai_batch(
                                 max_tokens=policy.max_tokens,
                                 temperature=policy.temperature,
                                 prompt_chars=len(prompt),
+                                response_format=repair_response_format,
                             ),
                             capability_profile_revision=CAPABILITY_PROFILE_REVISION,
                             retry_decision_reason="wall_timeout",
@@ -1195,33 +1260,39 @@ def repair_ai_batch(
                 raise _provider_stage_error(
                     stage=batch_stage, exc=exc
                 ) from exc
+    parsed_repair = parse_candidate_repair_output(
+        raw,
+        batch_kind=batch_stage,
+        approved_files=selected_files,
+        original_paths=tuple(item.path for item in batch.files),
+        finish_reason=_last_finish_reason(ai_provider),
+    )
+    if not parsed_repair.ok:
+        raise CandidateStageError(
+            "Candidate repair attempted to change batch ownership."
+            if parsed_repair.is_ownership_violation
+            else "Candidate repair returned invalid structured output.",
+            stage=batch_stage,
+            diagnostics=diagnostics
+            + (canonical_json(parsed_repair.diagnostics)[:4000],),
+            provider_error_code=(
+                "candidate_repair_ownership_violation"
+                if parsed_repair.is_ownership_violation
+                else str(parsed_repair.error_code or "")
+            ),
+        )
+    repaired_subset = parsed_repair.batch
     try:
-        repaired_subset = _parse_batch(raw)
         repaired = merge_repaired_files(
             original=batch,
             repaired=repaired_subset,
         )
     except ValueError as exc:
-        message = str(exc)
-        if "unknown paths" in message or "batch_kind mismatch" in message:
-            raise CandidateStageError(
-                "Candidate repair attempted to change batch ownership.",
-                stage=batch_stage,
-                diagnostics=diagnostics + (message[:4000],),
-                provider_error_code="candidate_repair_ownership_violation",
-            ) from exc
         raise CandidateStageError(
-            "Candidate repair returned invalid structured output.",
-            stage=batch_stage,
-            diagnostics=diagnostics + (message[:4000],),
-            provider_error_code="provider_structured_output_invalid",
-        ) from exc
-    except Exception as exc:
-        raise CandidateStageError(
-            "Candidate repair returned invalid structured output.",
+            "Candidate repair attempted to change batch ownership.",
             stage=batch_stage,
             diagnostics=diagnostics + (str(exc)[:4000],),
-            provider_error_code="provider_structured_output_invalid",
+            provider_error_code="candidate_repair_ownership_violation",
         ) from exc
     metrics = _usage_metrics(
         policy=policy,

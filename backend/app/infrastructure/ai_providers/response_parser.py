@@ -517,6 +517,31 @@ def parse_openai_compatible_chat_response(
             cost_usd=cost,
         )
 
+    # A cap-exhausted completion is truncation even when no content survived:
+    # reasoning-style models can spend the whole output budget and return a
+    # null content field. Classify before the missing/empty content branches.
+    truncated = finish_reason in {"length", "max_tokens"}
+    if truncated:
+        return _failure_result(
+            provider=provider,
+            model=model,
+            http_status=http_status,
+            body=body,
+            raw_text=raw_text,
+            latency_ms=latency_ms,
+            error_code="provider_truncated_output",
+            message="Provider output was truncated.",
+            response_format="openai_chat_completion",
+            retryable=True,
+            truncated=True,
+            finish_reason=finish_reason,
+            provider_request_id=request_id,
+            input_tokens=prompt_t,
+            output_tokens=completion_t,
+            total_tokens=total_t,
+            cost_usd=cost,
+        )
+
     if text is None:
         return _failure_result(
             provider=provider,
@@ -549,28 +574,6 @@ def parse_openai_compatible_chat_response(
             message="Provider choice message content was empty.",
             response_format="openai_chat_completion",
             retryable=True,
-            finish_reason=finish_reason,
-            provider_request_id=request_id,
-            input_tokens=prompt_t,
-            output_tokens=completion_t,
-            total_tokens=total_t,
-            cost_usd=cost,
-        )
-
-    truncated = finish_reason in {"length", "max_tokens"}
-    if truncated:
-        return _failure_result(
-            provider=provider,
-            model=model,
-            http_status=http_status,
-            body=body,
-            raw_text=raw_text,
-            latency_ms=latency_ms,
-            error_code="provider_truncated_output",
-            message="Provider output was truncated.",
-            response_format="openai_chat_completion",
-            retryable=True,
-            truncated=True,
             finish_reason=finish_reason,
             provider_request_id=request_id,
             input_tokens=prompt_t,

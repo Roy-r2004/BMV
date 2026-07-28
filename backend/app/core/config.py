@@ -913,9 +913,9 @@ class Settings:
         self.V2_CANDIDATE_REPAIR_PROMPT_REVISION = (
             os.getenv(
                 "V2_CANDIDATE_REPAIR_PROMPT_REVISION",
-                "2026-07-27.1",
+                "2026-07-28.1",
             ).strip()
-            or "2026-07-27.1"
+            or "2026-07-28.1"
         )
         for field_name, default, minimum, maximum in (
             ("V2_CANDIDATE_COMPONENT_MAX_TOKENS", 24000, 4000, 32000),

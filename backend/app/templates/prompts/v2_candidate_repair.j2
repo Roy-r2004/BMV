@@ -13,6 +13,13 @@ Repair only batch {{ batch_kind }} and only the exact failed files listed.
 Preserve file order, paths, file kinds, and owner IDs for those files.
 Resolve only the supplied validator diagnostics.
 
+Output rules:
+- Return the JSON object only. No prose, no markdown, no code fences.
+- No explanations, comments, apologies, or reasoning outside the JSON.
+- Each file object carries exactly: path, file_kind, owner_contract_ids, source.
+- Emit compact JSON without pretty-print indentation or blank padding.
+- Never repeat a file that was not listed as failed.
+
 Do not invent extra files. Do not change routes, DesignDNA, AppSpec behavior,
 canonical IDs, another batch, working design decisions, or dependencies.
 Do not introduce a scaffold, catalogue layout, @/ui import, or whole-product rewrite.
