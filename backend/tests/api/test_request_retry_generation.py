@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.v1.routers.requests import create_request, retry_generation
-from app.application.expanded_preview.service import customer_access_token_digest
+from app.application.services.customer_access import customer_access_token_digest
 from app.infrastructure.db.base import Base
 from app.domain.models.request import Request
 

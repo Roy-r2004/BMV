@@ -29,9 +29,6 @@ from app.application.preview_app.host_role_ux import role_tagline
 from app.application.preview_app.pipeline.architect_normalize import _plan_for_persistence
 from app.application.preview_app.pipeline.context import PipelineContext
 from app.application.preview_app.pipeline.errors import PreviewAppContractError
-from app.application.preview_app.pipeline.versioning import (
-    apply_generator_version_marker,
-)
 from app.application.preview_app.quality_gate import run_quality_gate_with_heal
 from app.application.preview_app.workspace import read_file
 from app.application.services.ai_features import ai_features_from_request
@@ -364,10 +361,6 @@ def run_finalize(ctx: PipelineContext) -> dict:
         # Remount host iframe past sticky error boundaries after rebuilds.
         "built_at": int(time.time()),
     }
-    apply_generator_version_marker(
-        preview_app_result,
-        version=ctx.generator_version,
-    )
     result = {
         "preview_app": preview_app_result,
         "experience_plan": persisted_plan,

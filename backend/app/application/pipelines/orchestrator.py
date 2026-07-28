@@ -23,10 +23,6 @@ from app.application.pipelines import (
 )
 from app.application.pipelines._shared import fallback_visual_demo, get_request
 from app.application.preview_app import generate_preview_app
-from app.application.preview_app.pipeline.versioning import (
-    GENERATOR_V2,
-    select_preview_generator,
-)
 from app.application.appspec import (
     AppSpecGenerationError,
     app_spec_is_required,
@@ -97,100 +93,6 @@ class GenerationPipeline:
         _emit(db, request_id, "blueprint",
               f"Blueprint complete — {req.concept_name or req.business_name}", 22,
               detail=f"Concept named: {req.concept_name or 'processing...'}")
-
-        generator_selection = select_preview_generator(
-            req,
-            v2_enabled=settings.PREVIEW_GENERATOR_V2,
-        )
-        if generator_selection.version == GENERATOR_V2:
-            _emit(
-                db,
-                request_id,
-                "appspec",
-                "Defining the v2 product contract...",
-                23,
-                detail=(
-                    "Immutable source, inferred strategy, and independently "
-                    "reviewed AppSpec"
-                ),
-            )
-            contract = generate_preview_app(
-                db,
-                request_id,
-                self.ai_provider,
-                self.template_renderer,
-            )
-            status = str(
-                (contract.get("preview_contract") or {}).get("status")
-                or "candidate_build_pending"
-            )
-            # Determine failure before selecting the message: a status this
-            # code doesn't recognize must never fall through to a
-            # success-flavoured message (request #50 shipped
-            # "passed static validation" for a candidate_failed run).
-            is_failed_status = (
-                status
-                in {
-                    "candidate_contract_failed",
-                    "candidate_failed",
-                }
-                or status.endswith("failed")
-                or status.endswith("rejected")
-            )
-            if status == "candidate_visual_accepted":
-                message = "V2 Tier 1 candidate passed visual evaluation"
-                detail = (
-                    "Candidate remains isolated and unserved; promotion is "
-                    "outside Phase 5"
-                )
-            elif status in {
-                "candidate_visual_rejected",
-                "candidate_refinement_failed",
-            }:
-                message = "V2 Tier 1 candidate did not pass visual evaluation"
-                detail = (
-                    "Original and derived evidence were retained; no "
-                    "candidate was promoted or served"
-                )
-            elif status == "candidate_runtime_validated":
-                message = "V2 Tier 1 candidate passed runtime validation"
-                detail = (
-                    "Candidate remains isolated and unserved; promotion is "
-                    "outside Phase 4"
-                )
-            elif status in {
-                "candidate_build_failed",
-                "candidate_runtime_failed",
-            }:
-                message = "V2 Tier 1 candidate failed runtime validation"
-                detail = "Diagnostics were retained; no candidate was served"
-            elif status == "candidate_build_pending":
-                message = "V2 Tier 1 candidate passed static validation"
-                detail = (
-                    "Candidate is isolated and unserved; Phase 4 is disabled"
-                )
-            elif is_failed_status:
-                message = "V2 Tier 1 candidate generation failed"
-                detail = (
-                    "Diagnostics were retained; no candidate was served; "
-                    "Phase 4 was not reached"
-                )
-            else:
-                message = f"V2 Tier 1 candidate status is unrecognized ({status})"
-                detail = "Unresolved pipeline status; not a pass"
-            if is_failed_status:
-                req.status = "failed"
-                db.commit()
-            _emit(
-                db,
-                request_id,
-                status,
-                message,
-                100,
-                detail=detail,
-            )
-            pipeline_watch.stop()
-            return contract
 
         approved_app_spec = None
         mode = app_spec_mode()

@@ -107,11 +107,39 @@ _ACCOUNTING_HINTS = (
 )
 
 
+_GALLERY_HINTS = (
+    "gallery",
+    "artwork",
+    "painting",
+    "painter",
+    "atelier",
+    "artist",
+    "sculpture",
+    "ceramic",
+    "pottery",
+    "portfolio",
+    " fine art",
+    "oil painting",
+    # trailing brand words ("… Art") — keep the leading space so "part"/"start"
+    # and "chart" do not false-positive.
+    " art",
+)
+
+
 def _is_trading_domain(*parts: str) -> bool:
     blob = " ".join(str(p or "") for p in parts).lower()
     if any(hint in blob for hint in _ACCOUNTING_HINTS):
         return False
     return any(hint in blob for hint in _TRADING_HINTS)
+
+
+def _is_gallery_domain(*parts: str) -> bool:
+    """Gallery / portfolio brands must never get booking or scheduling copy."""
+
+    blob = " ".join(str(p or "") for p in parts).lower()
+    if any(hint in blob for hint in _ACCOUNTING_HINTS + _TRADING_HINTS):
+        return False
+    return any(hint in blob for hint in _GALLERY_HINTS)
 
 
 def _is_accounting_domain(*parts: str) -> bool:
@@ -207,7 +235,15 @@ def _safe_slot_jsx(
     credentials_heading_fb = _fb(f"Why {brand}")
     cta_heading_fb = _fb(f"Ready for {brand}?")
     cta_desc_fb = _fb(f"Tell {brand} what you need — clear options, real next steps.")
-    footer_desc_fb = _fb(f"{brand} — clear choices and real bookings.")
+    # Slice 1 (handoff "next slices"): no residual booking copy on gallery brands.
+    # Every other fallback here is already brand-bound and domain-neutral; this
+    # one asserted "real bookings" on an art brand, which reads as a clinic clone.
+    # Stays brand-bound — the point of these fallbacks is never agency mush.
+    footer_desc_fb = _fb(
+        f"{brand} — original works, shown plainly."
+        if _is_gallery_domain(brand, title)
+        else f"{brand} — clear choices and real bookings."
+    )
     spotlight_title_fb = _fb(f"{brand} in focus")
     spotlight_desc_fb = _fb(f"A closer look at what makes {brand} distinct.")
     results_heading_fb = _fb(f"{brand} results")

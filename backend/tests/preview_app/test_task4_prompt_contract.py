@@ -706,3 +706,27 @@ if __name__ == "__main__":
     test_critic_results_fail_closed()
     test_production_callsites_render_with_strict_undefined()
     print("task4 prompt contract tests passed")
+
+
+def test_every_prompt_template_constant_resolves_to_a_file():
+    """Guard against a constant outliving the `.j2` file it points at.
+
+    The preview generator v2 removal deleted 16 `v2_*.j2` templates but left
+    their `PromptTemplate` constants behind. Nothing referenced them, so no
+    test failed — a later call site would have hit `TemplateNotFound` at
+    runtime instead.
+    """
+
+    declared = {
+        name: value
+        for name, value in vars(PromptTemplate).items()
+        if not name.startswith("_") and isinstance(value, str)
+    }
+    assert declared, "PromptTemplate exposes no template paths"
+
+    missing = sorted(
+        f"{name} -> {value}"
+        for name, value in declared.items()
+        if not (TEMPLATES_DIR / value).is_file()
+    )
+    assert not missing, "PromptTemplate constants point at missing files: " + "; ".join(missing)

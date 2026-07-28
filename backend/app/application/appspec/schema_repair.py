@@ -25,13 +25,23 @@ from pydantic import ValidationError
 
 
 def _jsonable(value: Any) -> Any:
-    if value is None:
-        return None
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
     if isinstance(value, Mapping):
         return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (set, frozenset)):
+        # Sorted by repr so canonical output stays deterministic.
+        return sorted((_jsonable(item) for item in value), key=repr)
     if isinstance(value, (list, tuple)):
         return [_jsonable(item) for item in value]
-    return value
+    # Pydantic v2 attaches the raw exception object under ``ctx.error`` for
+    # custom validators — the AppSpec ``duplicate_id`` check raises ValueError,
+    # so the issue payload carried a ValueError straight into json.dumps and
+    # raised "Object of type ValueError is not JSON serializable". That aborted
+    # the single allowed AI schema-repair attempt before it ever ran, turning a
+    # repairable spec into a hard AppSpec failure. Degrade to the string form so
+    # the repair prompt can still describe the defect.
+    return str(value)
 
 
 def _canonical_json(value: Any) -> str:

@@ -9,10 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.deps import verify_admin
-from app.api.v1.routers.admin import (
-    get_candidate_provider_attempts,
-    get_progress_diagnostics,
-)
+from app.api.v1.routers.admin import get_progress_diagnostics
 from app.api.v1.routers.requests import get_generation_progress, get_preview
 from app.domain.models import AppSpecRevision, Request
 from app.domain.models.expanded_preview import ExpandedPreviewRequestRecord
@@ -350,34 +347,30 @@ def test_visual_review_failure_uses_safe_customer_message() -> None:
 
 
 def test_admin_diagnostics_keep_operational_fields() -> None:
+    """Admin diagnostics may retain operational detail the customer must not see.
+
+    The candidate-provider-attempts half of this test was removed with preview
+    generator v2; progress diagnostics remain the admin-only surface that is
+    allowed to carry raw commands and provider detail.
+    """
+
     req = _request(
         generation_log=json.dumps(
             {
-                "stage": "candidate_failed",
+                "stage": "build_failed",
                 "detail": "provider internal detail",
                 "command": "npm run build",
             }
         ),
-        generated_pages=json.dumps(_request33_bundle()),
     )
 
     db = _Db(req)
-    payload = get_candidate_provider_attempts(req.id, True, db)
-    validated = AdminPreviewDiagnostics.model_validate(payload)
     progress = AdminProgressDiagnostics.model_validate(
         get_progress_diagnostics(req.id, True, db)
     )
 
-    assert validated.candidate_call_ledger["provider"] == "openrouter"
-    assert validated.candidate_provider_attempts[0]["model"] == "private-model"
-    assert validated.candidate_stage_checkpoints[0]["input_hash"] == "b" * 64
-    assert validated.failure["provider_error_code"] == (
-        "provider_response_shape_invalid"
-    )
     assert progress.progress["command"] == "npm run build"
-    assert progress.preview_contract["candidate_provider_attempts"][0][
-        "provider"
-    ] == "openrouter"
+    assert progress.progress["detail"] == "provider internal detail"
 
 
 def test_admin_diagnostics_reject_missing_credentials() -> None:

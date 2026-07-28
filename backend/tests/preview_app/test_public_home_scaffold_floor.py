@@ -75,7 +75,10 @@ def test_jane_art_public_home_scaffold_floor() -> None:
     assert "items={seed.features ?? []}" in tsx
     assert "What Jane Art offers" in tsx
     assert "Ready for Jane Art?" in tsx
-    assert "Jane Art — clear choices and real bookings." in tsx
+    # Slice 1: gallery/portfolio brands get art-domain footer copy, not booking copy.
+    # Still brand-bound — the anti-agency-mush contract this test guards is intact.
+    assert "Jane Art — original works, shown plainly." in tsx
+    assert "real bookings" not in tsx
 
 
 def test_normalize_mock_seed_brand_bound_not_agency_bank() -> None:

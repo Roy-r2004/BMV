@@ -2,13 +2,6 @@
 # In Coolify: use this compose file (or Dockerfile.app) and ensure a persistent
 # volume is mounted at /app/data. SEED_DEMO stays false — no PlateSync reseed.
 #
-# Coolify environment (set explicitly in the Coolify UI / env file):
-#   V2_CANDIDATE_COMPONENT_MODEL=google/gemini-2.5-flash
-#   V2_CANDIDATE_PAGE_MODEL=google/gemini-2.5-flash
-#   Do NOT leave either unset to inherit PREVIEW_APP_MODEL
-#   (deepseek/deepseek-chat is 32k and fails preflight on large prompts).
-#   Coolify may retain stale env overrides — set both explicitly.
-#
 # Coolify UI alternative (Dockerfile deploy):
 #   Storages → Add → Destination Path = /app/data
 #
@@ -26,8 +19,13 @@ services:
         # Immutable release metadata supplied by the deployment system.
         APP_GIT_REVISION: ${APP_GIT_REVISION:-}
         APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-}
-        GENERATED_DATA_API_POLICY_REVISION: 2026-07-27.generated-data-api.1
+        GENERATED_DATA_API_POLICY_REVISION: 2026-07-27.generated-data-api.2
     restart: unless-stopped
+    # Coolify injects UI env vars; this additionally forwards a .env file when
+    # one is present (compose-file deploys). `environment:` keeps precedence.
+    env_file:
+      - path: .env
+        required: false
     environment:
       APP_ENV: production
       SEED_DEMO: "false"
@@ -48,10 +46,7 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       TEXT_MODEL: ${TEXT_MODEL:-google/gemini-2.5-flash}
-      PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-deepseek/deepseek-chat}
-      # Candidate stages: explicit large-context models (do not inherit PREVIEW_APP_MODEL).
-      V2_CANDIDATE_COMPONENT_MODEL: ${V2_CANDIDATE_COMPONENT_MODEL:-google/gemini-2.5-flash}
-      V2_CANDIDATE_PAGE_MODEL: ${V2_CANDIDATE_PAGE_MODEL:-google/gemini-2.5-flash}
+      PREVIEW_APP_MODEL: ${PREVIEW_APP_MODEL:-google/gemini-2.5-flash}
       ARCHITECT_MODEL: ${ARCHITECT_MODEL:-google/gemini-2.5-flash}
       CRITIC_MODEL: ${CRITIC_MODEL:-google/gemini-2.5-flash}
       FIX_MODEL: ${FIX_MODEL:-google/gemini-2.5-flash}
@@ -64,14 +59,7 @@ services:
       APPSPEC_V2_COVERAGE_MODEL: ${APPSPEC_V2_COVERAGE_MODEL:-deepseek/deepseek-chat}
       APPSPEC_FALLBACK_ENABLED: ${APPSPEC_FALLBACK_ENABLED:-false}
       PORT: "8000"
-      # Preview Generator v2 — public defaults
-      PREVIEW_GENERATOR_V2: "true"
-      V2_RUNTIME_VALIDATION_ENABLED: "true"
-      V2_VISUAL_EVALUATION_ENABLED: "true"
-      # Tier 2 capability only (admin-approved Expanded Preview start); never auto-run
-      V2_TIER2_GENERATION_ENABLED: "true"
-      V2_TIER3_GENERATION_ENABLED: "false"
-      # Phase 7 hard gates — fail closed for public traffic
+      # Rollout control plane — fail closed for public traffic
       V2_PHASE7_ROLLOUT_ENABLED: ${V2_PHASE7_ROLLOUT_ENABLED:-true}
       V2_PHASE7_OPS_DASHBOARD_ENABLED: ${V2_PHASE7_OPS_DASHBOARD_ENABLED:-true}
       V2_PHASE7_OPS_ALERTS_ENABLED: ${V2_PHASE7_OPS_ALERTS_ENABLED:-true}

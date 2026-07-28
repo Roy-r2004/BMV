@@ -5,8 +5,6 @@ from app.api.v1.routers import (
     admin,
     auth,
     demos,
-    expanded_preview_admin,
-    expanded_preview_customer,
     health,
     preview_apps,
     requests,
@@ -20,8 +18,6 @@ api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(requests.router)
-api_router.include_router(expanded_preview_customer.router)
-api_router.include_router(expanded_preview_admin.router)
 api_router.include_router(admin.router)
 api_router.include_router(demos.router)
 api_router.include_router(preview_apps.router)

@@ -22,7 +22,7 @@ FROM python:3.12-slim-bookworm
 
 ARG APP_GIT_REVISION=
 ARG APP_BUILD_TIMESTAMP=
-ARG GENERATED_DATA_API_POLICY_REVISION=2026-07-27.generated-data-api.1
+ARG GENERATED_DATA_API_POLICY_REVISION=2026-07-27.generated-data-api.2
 
 LABEL org.opencontainers.image.revision="${APP_GIT_REVISION}" \
       org.opencontainers.image.created="${APP_BUILD_TIMESTAMP}" \

@@ -71,6 +71,17 @@ CONTRACT RULES:
 8. Pages define product surfaces and responsibilities. Do not add generic pages
    merely to make the product look larger. Every page must list at least one
    `evidence_id` that proves something observable on that surface.
+8a. Respect the product face. When `derived_context.product_face` is present it
+   carries a deterministic classification of what this business actually is.
+   Every page `surface` you emit must be one of
+   `derived_context.product_face.allowed_surfaces`. When `allowed_surfaces`
+   contains only `public`, this is a customer-facing product: do NOT invent
+   staff, admin, ops, console, dashboard, ledger, blotter, queue, or
+   back-office pages, and do not make such a surface part of any journey.
+   `expected_pages` is the intended shape of the product — follow it unless the
+   customer's own input clearly requires more. A storefront or portfolio brand
+   whose spec contains an ops dashboard is wrong even if the JSON validates:
+   the extra surface becomes a journey-required page that cannot be closed.
 9. Every stateful page has an explicit initial state. Actions identify the actor,
    page, capability, and affected entity where applicable. Transitions identify
    the action, from-state, to-state, and business effects.

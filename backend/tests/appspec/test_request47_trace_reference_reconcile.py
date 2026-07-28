@@ -611,7 +611,8 @@ def test_retry_context_carries_compact_correction(
 
 
 def test_appspec_prompt_revision_records_the_authoring_change() -> None:
-    assert settings.APPSPEC_PROMPT_REVISION == "2026-07-28.1"
+    # Bumped to .2 when rule 8a (product_face binds page surfaces) was added.
+    assert settings.APPSPEC_PROMPT_REVISION == "2026-07-28.2"
 
 
 def test_authoring_prompt_forbids_empty_trace_arrays() -> None:

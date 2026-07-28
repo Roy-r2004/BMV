@@ -188,19 +188,76 @@ def capture_request_source_v2(req: Request) -> CustomerSourceSnapshotV2:
     )
 
 
+def _product_kind_guidance(req: Request) -> dict[str, Any] | None:
+    """Deterministic product-face guidance for the AppSpec author.
+
+    Reuses the v1 classifier that closed the request 19 failure mode (an art
+    gallery classified as ``booking_service`` and rendered as a dense ops
+    ledger). v1 applies this *downstream* of the AppSpec, reshaping whatever
+    the author produced; v2 enforces the AppSpec strictly, so an ops surface
+    invented here becomes a journey-mandatory Tier 1 page that fails closure
+    heal outright. Surfacing the classification to the author fixes the cause
+    for both generators.
+
+    Advisory only: it lives in ``derived_context`` and never contributes to
+    ``source_sha256`` or semantic source coverage.
+    """
+
+    # Lazy import — mirrors plan_phase.py and keeps app.application.appspec
+    # free of a package-level dependency on app.application.preview_app.
+    from app.application.preview_app.product_kind import (
+        resolve_product_kind_contract,
+    )
+
+    industry_context = " ".join(
+        part
+        for part in (
+            getattr(req, "industry", None) or "",
+            getattr(req, "business_description", None) or "",
+            getattr(req, "main_problem", None) or "",
+            getattr(req, "desired_outcome", None) or "",
+            getattr(req, "target_customers", None) or "",
+            getattr(req, "business_name", None) or "",
+        )
+        if str(part).strip()
+    )
+    if not industry_context.strip():
+        return None
+
+    contract = resolve_product_kind_contract(industry_context)
+    return {
+        "product_kind": contract.kind,
+        "subtype": contract.subtype,
+        "home_surface": contract.home_surface,
+        "allowed_surfaces": sorted({page.surface for page in contract.pages}),
+        "expected_pages": [
+            {
+                "title": page.title,
+                "route": page.path,
+                "surface": page.surface,
+                "purpose": page.purpose,
+            }
+            for page in contract.pages
+        ],
+        "design_note": contract.design_note,
+    }
+
+
 def capture_derived_context(req: Request) -> dict[str, Any]:
     """Return non-authoritative context that may help the AppSpec builder.
 
     This object is intentionally separate from ``capture_request_source`` and
     therefore never affects semantic source coverage or ``source_sha256``.
     """
-    return {
-        "derived_context": {
-            "mvp_blueprint": getattr(req, "mvp_blueprint", None),
-            "concept_name": getattr(req, "concept_name", None),
-            "preview_summary": getattr(req, "preview_summary", None),
-            "preview_features": _parsed_json_or_text(
-                getattr(req, "preview_features", None)
-            ),
-        }
+    derived: dict[str, Any] = {
+        "mvp_blueprint": getattr(req, "mvp_blueprint", None),
+        "concept_name": getattr(req, "concept_name", None),
+        "preview_summary": getattr(req, "preview_summary", None),
+        "preview_features": _parsed_json_or_text(
+            getattr(req, "preview_features", None)
+        ),
     }
+    guidance = _product_kind_guidance(req)
+    if guidance is not None:
+        derived["product_face"] = guidance
+    return {"derived_context": derived}

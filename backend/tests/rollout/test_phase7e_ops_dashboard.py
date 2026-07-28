@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -499,10 +500,32 @@ def test_phase7_config_invalid_alert(monkeypatch) -> None:
 
 
 def test_known_preexisting_failures_documented() -> None:
-    doc = Path(__file__).resolve().parents[3] / "docs" / "architecture" / (
-        "PREVIEW_GENERATOR_V2_PHASE7E_DASHBOARDS_ALERTS.md"
-    )
+    """Every test the known-failure list names must actually exist.
+
+    Moved out of PREVIEW_GENERATOR_V2_PHASE7E_DASHBOARDS_ALERTS.md when preview
+    generator v2 was removed. Skips inside the API container, which mounts only
+    ./backend and therefore has no docs/ tree.
+
+    The previous version asserted three hardcoded test names were present. Two
+    of them had already been deleted from the suite, so the assertion forced the
+    doc to keep rows for tests that no longer existed. Checking the other
+    direction is self-maintaining: delete a test, and its stale row fails here.
+    """
+
+    repo_root = Path(__file__).resolve().parents[3]
+    doc = repo_root / "docs" / "KNOWN_TEST_FAILURES.md"
+    if not doc.exists():
+        pytest.skip("docs/ is not mounted in this environment")
     text = doc.read_text(encoding="utf-8")
-    assert "test_pottery_picks_craft_studio_pack" in text
-    assert "test_enriched_industry_packs_carry_seed_items" in text
-    assert "test_production_callsites_render_with_strict_undefined" in text
+
+    cited = re.findall(r"(tests/[\w/]+\.py)::(\w+)", text)
+    assert cited, "KNOWN_TEST_FAILURES.md cites no `path::test_name` rows"
+
+    stale = []
+    for rel_path, test_name in cited:
+        module = repo_root / "backend" / rel_path
+        if not module.is_file():
+            stale.append(f"{rel_path} (file missing)")
+        elif f"def {test_name}(" not in module.read_text(encoding="utf-8"):
+            stale.append(f"{rel_path}::{test_name} (test missing)")
+    assert not stale, "KNOWN_TEST_FAILURES.md documents tests that do not exist: " + "; ".join(stale)

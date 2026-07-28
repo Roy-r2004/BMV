@@ -17,10 +17,12 @@ backend/preview-template/dist/
 # Local debug dumps (scripts/read_html.py)
 backend/page_*.html
 
-# Env
+# Env — deny all real env files at any depth; allow only *.example templates.
+# Covers .env, .env.prod, .env.staging, .env.local, backend/.env, frontend/.env …
 .env
-backend/.env
-frontend/.env
+.env.*
+!.env.example
+!.env.*.example
 
 # IDE
 .vscode/

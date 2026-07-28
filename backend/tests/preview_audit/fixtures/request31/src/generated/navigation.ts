@@ -1,2 +1,0 @@
-export const navigationGroups = [{"id":"NAV-CLIENT-BOOKING","label":"Client Booking","surface":"public","roleIds":["ROLE-CLIENT"],"pageIds":["PAGE-HOME","PAGE-SERVICE-DETAIL","PAGE-BOOKING","PAGE-CONFIRMATION"]}] as const;
-export const roleAccess = [{"roleId":"ROLE-CLIENT","entryPageId":"PAGE-HOME","accessiblePageIds":["PAGE-HOME","PAGE-SERVICE-DETAIL","PAGE-BOOKING","PAGE-CONFIRMATION"]}] as const;

@@ -8,9 +8,6 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from app.application.candidate_generation.call_budget import (
-    CANDIDATE_CALL_BUDGET_POLICY_REVISION,
-)
 from app.core.config import appspec_fallback_configuration
 from app.domain.schemas.generated_data_api import (
     GENERATED_DATA_API_POLICY_REVISION,
@@ -41,29 +38,15 @@ def _phase7_flags(settings: Any) -> dict[str, bool]:
 
 
 def _approved_configuration(settings: Any) -> dict[str, Any]:
+    """Non-secret configuration an operator can verify against a release.
+
+    The candidate-generation and design-contract entries were removed with
+    preview generator v2. The phase7 rollout flags remain because the rollout
+    control plane is still present and still gates the serving path.
+    """
+
     return {
-        "candidate_models": {
-            "component": settings.V2_CANDIDATE_COMPONENT_MODEL,
-            "pages": settings.V2_CANDIDATE_PAGE_MODEL,
-            "repair": settings.V2_CANDIDATE_REPAIR_MODEL,
-        },
-        "candidate_repair_timeout_seconds": (
-            settings.V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS
-        ),
-        "candidate_caps": {
-            "total": settings.V2_CANDIDATE_MAX_CALLS,
-            "components": 2,
-            "pages": 2,
-        },
-        "candidate_call_budget_policy_revision": (
-            CANDIDATE_CALL_BUDGET_POLICY_REVISION
-        ),
-        "design": {
-            "dna_max_tokens": settings.V2_DESIGN_DNA_MAX_TOKENS,
-            "stage_max_attempts": settings.V2_DESIGN_STAGE_MAX_ATTEMPTS,
-            "dna_timeout_seconds": settings.V2_DESIGN_DNA_TIMEOUT_SECONDS,
-            "contract_timeout_seconds": settings.V2_DESIGN_CONTRACT_TIMEOUT_SECONDS,
-        },
+        "preview_generator": "v1",
         "appspec_fallback_enabled": bool(settings.APPSPEC_FALLBACK_ENABLED),
         "phase7": _phase7_flags(settings),
         "generated_data_api_policy_revision": (

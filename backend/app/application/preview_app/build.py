@@ -114,14 +114,67 @@ def run_build(
     return ok, combined
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+# src/pages/Foo.tsx:54:5 — the location rolldown/tsc put in the diagnostic body.
+_LOCATION_RE = re.compile(r"[\w./-]+\.(?:tsx?|jsx?|css|json):\d+(?::\d+)?")
+_KEYWORDS = ("error", "failed", "cannot", "unexpected", "✗")
+# A JS stack frame. Never actionable for a codegen fix, and the bundler emits a
+# dozen of them per failure — they match on "error" in a chunk filename and on
+# ".js:line:col" as a location, so they must be dropped explicitly.
+_STACK_FRAME_RE = re.compile(r"^\s*at\s+\S")
+# Matches a keyword only because of a bundler internal.
+_NOISE = ("errors: [getter/setter]",)
+_CONTEXT_AFTER = 12
+
+
 def extract_build_errors(log: str, max_chars: int = 8000) -> str:
-    """Pull error lines from build log for the fix agent."""
-    lines = log.splitlines()
-    error_lines = [
-        ln for ln in lines
-        if any(k in ln.lower() for k in ("error", "failed", "cannot", "unexpected", "✗"))
-    ]
-    if not error_lines:
+    """Pull the actionable part of a build log out for the fix agent.
+
+    This used to filter line by line on ``_KEYWORDS``, which silently dropped
+    every rolldown diagnostic: the lines that carry the message and the
+    ``file:line:col`` live *inside* a box-drawing block and contain none of the
+    keywords. A JSX syntax error therefore reached the fix agent as::
+
+        ✗ Build failed in 312ms
+        error during build:
+        Build failed with 1 error:
+            at aggregateBindingErrorsIntoJsError (.../rolldown/dist/...)
+          errors: [Getter/Setter]
+
+    — no file, no line, no message, so all six fix attempts were unfixable.
+    Keeping a window of following lines preserves the whole block, and ANSI
+    stripping keeps the colour escapes from eating the character budget.
+    """
+
+    lines = _ANSI_RE.sub("", log).splitlines()
+
+    def _is_noise(line: str) -> bool:
+        lowered = line.lower()
+        return _STACK_FRAME_RE.match(line) is not None or any(
+            noise in lowered for noise in _NOISE
+        )
+
+    keep: set[int] = set()
+    for i, line in enumerate(lines):
+        if _is_noise(line):
+            continue
+        lowered = line.lower()
+        if any(k in lowered for k in _KEYWORDS) or _LOCATION_RE.search(line):
+            # A diagnostic header is followed by the block that explains it.
+            keep.update(range(i, min(len(lines), i + _CONTEXT_AFTER + 1)))
+
+    if not keep:
         return log[-max_chars:]
-    text = "\n".join(error_lines)
-    return text[-max_chars:] if len(text) > max_chars else text
+
+    # Noise pulled in by a context window is still noise.
+    selected = [lines[i] for i in sorted(keep) if not _is_noise(lines[i])]
+    # Drop the trailing blank/box-drawing filler the context window pulls in.
+    while selected and not selected[-1].strip(" │╭╰─┬"):
+        selected.pop()
+
+    text = "\n".join(selected).strip()
+    if len(text) <= max_chars:
+        return text
+    # Truncate the tail, not the head: the first diagnostic is the one to fix,
+    # and later output is usually cascade noise or a bundler stack.
+    return text[:max_chars].rstrip() + "\n… (truncated)"

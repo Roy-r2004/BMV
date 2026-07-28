@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -11,21 +12,15 @@ from app.api import deps
 from app.api.deps import verify_admin
 from app.api.v1.routers.admin import build_info
 from app.api.v1.routers.health import health, health_live, health_ready
+from app.domain.schemas.generated_data_api import (
+    GENERATED_DATA_API_POLICY_REVISION,
+)
 from app.application.services.runtime_metadata import production_build_info
 
 
 def _settings(**overrides):
     values = {
         "APP_VERSION": "1.0.0",
-        "V2_CANDIDATE_COMPONENT_MODEL": "google/gemini-2.5-flash",
-        "V2_CANDIDATE_PAGE_MODEL": "google/gemini-2.5-flash",
-        "V2_CANDIDATE_REPAIR_MODEL": "z-ai/glm-5.2",
-        "V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS": 300,
-        "V2_CANDIDATE_MAX_CALLS": 4,
-        "V2_DESIGN_DNA_MAX_TOKENS": 8000,
-        "V2_DESIGN_STAGE_MAX_ATTEMPTS": 4,
-        "V2_DESIGN_DNA_TIMEOUT_SECONDS": 300,
-        "V2_DESIGN_CONTRACT_TIMEOUT_SECONDS": 1200,
         "APPSPEC_FALLBACK_ENABLED": False,
         "APPSPEC_FALLBACK_CONFIG_VALID": True,
         "APPSPEC_FALLBACK_SAFETY_CODE": "ok",
@@ -56,13 +51,12 @@ def test_build_info_returns_only_approved_non_secret_metadata(
 
     assert payload["revision"] == "a" * 40
     assert payload["revision_verified"] is True
-    assert payload["candidate_caps"] == {
-        "total": 4,
-        "components": 2,
-        "pages": 2,
-    }
+    # candidate_caps was removed with preview generator v2.
+    assert payload["preview_generator"] == "v1"
+    assert "candidate_caps" not in payload
+    assert "candidate_models" not in payload
     assert payload["generated_data_api_policy_revision"] == (
-        "2026-07-27.generated-data-api.1"
+        "2026-07-27.generated-data-api.2"
     )
     serialized = json.dumps(payload).lower()
     for forbidden in ("must-not-leak", "admin_password", "openrouter_api_key"):
@@ -87,7 +81,7 @@ def test_configuration_fingerprint_changes_only_for_approved_values(
     monkeypatch.setenv("APP_GIT_REVISION", "b" * 40)
     baseline = production_build_info(_settings())
     changed = production_build_info(
-        _settings(V2_CANDIDATE_REPAIR_TIMEOUT_SECONDS=299)
+        _settings(V2_PHASE7_ROLLOUT_ENABLED=True)
     )
     secret_changed = production_build_info(
         _settings(ADMIN_PASSWORD="different-secret")
@@ -162,6 +156,40 @@ def test_public_health_endpoints_expose_no_build_or_configuration_metadata() -> 
         "revision",
         "image_digest",
         "configuration_fingerprint",
-        "candidate_models",
+        "preview_generator",
         "generated_data_api_policy_revision",
     }.isdisjoint(readiness)
+
+
+def test_deploy_files_stamp_the_code_policy_revision():
+    """The image label must match the revision the code actually implements.
+
+    `Dockerfile.app` stamps GENERATED_DATA_API_POLICY_REVISION onto
+    `org.opencontainers.image.version` and into the container env, and
+    `docker-compose.coolify.yml` passes it as a build arg. Both had drifted to
+    `.1` while the code constant moved to `.2`, so an operator comparing the
+    image label against /admin/build-info would have seen a mismatch.
+    """
+
+    repo_root = Path(__file__).resolve().parents[3]
+    expected = GENERATED_DATA_API_POLICY_REVISION
+
+    checked = 0
+    for rel in ("Dockerfile.app", "docker-compose.coolify.yml"):
+        path = repo_root / rel
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if "GENERATED_DATA_API_POLICY_REVISION" not in line:
+                continue
+            if "generated-data-api." not in line:
+                continue  # a ${...} passthrough, nothing to pin
+            assert expected in line, (
+                f"{rel} stamps a stale policy revision: {line.strip()!r} "
+                f"(code says {expected})"
+            )
+            checked += 1
+    assert checked >= 2, (
+        "expected a pinned policy revision in both Dockerfile.app and "
+        f"docker-compose.coolify.yml, found {checked}"
+    )

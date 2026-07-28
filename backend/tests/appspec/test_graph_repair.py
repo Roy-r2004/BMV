@@ -351,3 +351,61 @@ def test_graph_repair_runs_once_then_one_ai_repair_without_fallback() -> None:
         settings.APPSPEC_FALLBACK_ENABLED = previous_fallback
         settings.APPSPEC_MAX_REPAIR_ATTEMPTS = previous_repairs
         db.close()
+
+
+def test_page_state_ids_never_emptied_by_membership_repair() -> None:
+    """Regression: request 24 (Jeanne Kassab Art) hard-killed the v2 boundary.
+
+    PAGE-ABOUT / PAGE-ARTWORK-DETAIL each listed only STATE-GALLERY-VIEWING,
+    which PAGE-GALLERY owned. Membership repair stripped the non-owned ref and
+    wrote an empty ``state_ids``, but the schema declares
+    ``state_ids: Field(min_length=1)`` — so a *repair* pass emitted an invalid
+    document. That surfaced as ``invalid_page_shape: Tuple should have at least
+    1 item`` only *after* the single AI schema-repair attempt was spent, so the
+    request failed closed with an opaque parse error.
+
+    Repair must refuse rather than empty a required membership field.
+    """
+
+    payload, _action_id, owner_page_id, wrong_page_id = _two_page_mismatch_payload()
+    # Make the wrong page's ONLY state one that the owner page owns.
+    owner_state = next(
+        state for state in payload["states"] if state["page_id"] == owner_page_id
+    )
+    wrong_page = next(
+        page for page in payload["pages"] if page["id"] == wrong_page_id
+    )
+    wrong_page["state_ids"] = [owner_state["id"]]
+    original = copy.deepcopy(payload)
+
+    repair = repair_app_spec_graph(
+        payload,
+        {"issues": [{"code": "page_membership_mismatch"}]},
+    )
+
+    assert not repair.applied
+    assert repair.result_label == "rejected"
+    assert any(
+        reason.startswith("page_state_ids_would_empty:") for reason in repair.refused_reasons
+    ), repair.refused_reasons
+    # The caller must receive the unmutated original, never a half-repaired doc.
+    assert repair.payload == original
+    assert repair.original_sha256 == repair.repaired_sha256
+    returned_page = next(
+        page for page in repair.payload["pages"] if page["id"] == wrong_page_id
+    )
+    assert returned_page["state_ids"] == [owner_state["id"]]
+
+
+def test_page_action_ids_may_still_be_emptied() -> None:
+    """action_ids is Field(default=()) — emptying it is legal and must still work."""
+
+    payload, action_id, owner_page_id, wrong_page_id = _two_page_mismatch_payload()
+    repair = repair_app_spec_graph(
+        payload,
+        {"issues": [{"code": "page_membership_mismatch"}]},
+    )
+    assert repair.applied, repair.refused_reasons
+    pages = {page["id"]: page for page in repair.payload["pages"]}
+    assert pages[wrong_page_id]["action_ids"] == []
+    assert action_id in pages[owner_page_id]["action_ids"]

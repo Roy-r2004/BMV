@@ -139,6 +139,8 @@ def _align_page_membership(
     kind: str,
     changed_paths: list[str],
     actions_log: list[str],
+    refusals: list[str],
+    required_non_empty: bool = False,
 ) -> None:
     for page_index, page in enumerate(pages):
         page_id = str(page.get("id") or "")
@@ -160,6 +162,19 @@ def _align_page_membership(
                 field_changed = True
                 continue
             kept.append(object_id)
+        # The AppSpec schema requires min_length=1 for state_ids/evidence_ids.
+        # A page whose every reference is owned elsewhere would be emptied here,
+        # producing a schema-invalid document from a *repair* pass — and that
+        # happens after the single AI schema-repair attempt is already spent, so
+        # the request then fails closed with an opaque parse error. Refuse
+        # instead: repair does not invent product meaning, and the caller
+        # returns the unmutated original with an actionable reason.
+        if required_non_empty and not kept:
+            refusals.append(
+                f"page_{field_name}_would_empty:{page_id}"
+                + (f":owned_elsewhere={','.join(deduped)}" if deduped else "")
+            )
+            continue
         if field_changed:
             changed_paths.append(f"pages.{page_index}.{field_name}")
             if deduped_changed:
@@ -256,6 +271,9 @@ def repair_app_spec_graph(
     changed_paths: list[str] = []
     actions_log: list[str] = []
 
+    membership_refusals: list[str] = []
+    # action_ids is Field(default=(), ...) — legitimately empty. state_ids and
+    # evidence_ids are Field(min_length=1, ...) and must never be emptied.
     _align_page_membership(
         pages=pages,
         field_name="action_ids",
@@ -263,6 +281,8 @@ def repair_app_spec_graph(
         kind="action",
         changed_paths=changed_paths,
         actions_log=actions_log,
+        refusals=membership_refusals,
+        required_non_empty=False,
     )
     _align_page_membership(
         pages=pages,
@@ -271,6 +291,8 @@ def repair_app_spec_graph(
         kind="state",
         changed_paths=changed_paths,
         actions_log=actions_log,
+        refusals=membership_refusals,
+        required_non_empty=True,
     )
     _align_page_membership(
         pages=pages,
@@ -279,7 +301,12 @@ def repair_app_spec_graph(
         kind="evidence",
         changed_paths=changed_paths,
         actions_log=actions_log,
+        refusals=membership_refusals,
+        required_non_empty=True,
     )
+    if membership_refusals:
+        result.refused_reasons.extend(membership_refusals)
+        return result
 
     for state_index, state in enumerate(states):
         state_id = str(state.get("id") or "")

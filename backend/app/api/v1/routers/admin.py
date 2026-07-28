@@ -10,11 +10,6 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep, verify_admin
 from app.application.pipelines import blueprint, build_plans, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
 from app.application.appspec import ensure_approved_app_spec
-from app.application.candidate_generation.cache import canonical_sha256
-from app.application.runtime_validation.evidence import (
-    Phase4EvidenceNotFound,
-    build_phase4_evidence,
-)
 from app.application.appspec.repository import (
     AppSpecRepository,
     load_json_object,
@@ -22,7 +17,6 @@ from app.application.appspec.repository import (
 )
 from app.core.config import (
     appspec_fallback_configuration,
-    candidate_model_configuration,
     settings,
 )
 from app.domain.interfaces.ai_provider import AIProvider
@@ -114,7 +108,6 @@ def configuration_safety(
 
     return {
         "appspec_fallback": appspec_fallback_configuration(settings),
-        "candidate_models": candidate_model_configuration(settings),
         "related_fallbacks": {
             # No repository settings exist for legacy generator/candidate,
             # provider-error, or validation-error fallback activation.
@@ -256,113 +249,6 @@ def get_request(
     return req
 
 
-@router.get("/requests/{request_id}/phase3a-call-ledger")
-def get_phase3a_call_ledger(
-    request_id: int,
-    _: bool = Depends(verify_admin),
-    db: Session = Depends(get_db),
-):
-    """Return the Phase 3A provider-call ledger for a completed request.
-
-    The ledger is persisted as part of the preview_contract summary and
-    contains the append-only event log, substage caps, and totals.
-    No secrets or prompt content is included.
-    """
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
-
-    bundle: dict = {}
-    if req.generated_pages:
-        try:
-            raw = json.loads(req.generated_pages)
-            if isinstance(raw, dict):
-                bundle = raw
-        except (TypeError, json.JSONDecodeError):
-            pass
-
-    preview = bundle.get("preview_contract")
-    ledger = (preview or {}).get("phase3a_call_ledger") if isinstance(preview, dict) else None
-
-    if ledger is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "Phase 3A call ledger not found. "
-                "The request may not have completed Phase 3A, "
-                "or was processed before this feature was deployed."
-            ),
-        )
-
-    return ledger
-
-
-@router.get(
-    "/requests/{request_id}/candidate-provider-attempts",
-    response_model=AdminPreviewDiagnostics,
-)
-def get_candidate_provider_attempts(
-    request_id: int,
-    _: bool = Depends(verify_admin),
-    db: Session = Depends(get_db),
-):
-    """Return redacted Phase 3B provider-attempt diagnostics.
-
-    Includes call-ledger totals and per-attempt HTTP/shape metadata.
-    Never returns prompts, secrets, or full provider response bodies.
-    """
-    req = db.get(Request, request_id)
-    if req is None:
-        raise HTTPException(status_code=404, detail="Request not found")
-
-    bundle: dict = {}
-    if req.generated_pages:
-        try:
-            raw = json.loads(req.generated_pages)
-            if isinstance(raw, dict):
-                bundle = raw
-        except (TypeError, json.JSONDecodeError):
-            pass
-
-    preview = bundle.get("preview_contract")
-    if not isinstance(preview, dict):
-        raise HTTPException(
-            status_code=404,
-            detail="Candidate provider attempts not found for this request.",
-        )
-
-    attempts = preview.get("candidate_provider_attempts")
-    ledger = preview.get("candidate_call_ledger")
-    checkpoints = preview.get("candidate_stage_checkpoints")
-    failure = preview.get("failure") if isinstance(preview.get("failure"), dict) else {}
-    if attempts is None and ledger is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "Candidate provider attempts not found. "
-                "The request may not have reached Phase 3B, "
-                "or was processed before this feature was deployed."
-            ),
-        )
-
-    return {
-        "request_id": request_id,
-        "status": preview.get("status"),
-        "candidate_call_ledger": ledger,
-        "candidate_stage_checkpoints": checkpoints,
-        "candidate_provider_attempts": attempts or [],
-        "failure": {
-            "kind": failure.get("kind"),
-            "error_type": failure.get("error_type"),
-            "provider_error_code": failure.get("provider_error_code"),
-            "root_cause": failure.get("root_cause"),
-            "phase4_ran": failure.get("phase4_ran"),
-            "stage": failure.get("stage"),
-            "message": failure.get("message"),
-        },
-    }
-
-
 @router.get(
     "/requests/{request_id}/progress-diagnostics",
     response_model=AdminProgressDiagnostics,
@@ -402,111 +288,6 @@ def get_progress_diagnostics(
         progress=progress,
         preview_contract=preview_contract,
     )
-
-
-@router.get("/requests/{request_id}/runtime-validation-attempts")
-def get_runtime_validation_attempts(
-    request_id: int,
-    _: bool = Depends(verify_admin),
-    db: Session = Depends(get_db),
-):
-    if db.get(Request, request_id) is None:
-        raise HTTPException(status_code=404, detail="Request not found")
-    attempts = (
-        db.query(CandidateRuntimeValidationAttemptRecord)
-        .filter(
-            CandidateRuntimeValidationAttemptRecord.request_id == request_id
-        )
-        .order_by(CandidateRuntimeValidationAttemptRecord.id)
-        .all()
-    )
-    payload = []
-    for attempt in attempts:
-        builds = (
-            db.query(CandidateBuildAttemptRecord)
-            .filter(
-                CandidateBuildAttemptRecord.runtime_attempt_id == attempt.id
-            )
-            .order_by(CandidateBuildAttemptRecord.attempt_sequence)
-            .all()
-        )
-        summary = (
-            db.query(CandidateValidationSummaryRecord)
-            .filter(
-                CandidateValidationSummaryRecord.runtime_attempt_id
-                == attempt.id
-            )
-            .first()
-        )
-        tools = load_json_object(attempt.tool_versions_json)
-        limits = load_json_object(attempt.limits_json)
-        payload.append(
-            {
-                "id": attempt.id,
-                "request_id": attempt.request_id,
-                "candidate_revision_id": attempt.candidate_revision_id,
-                "attempt_uuid": attempt.attempt_uuid,
-                "attempt_sequence": attempt.attempt_sequence,
-                "runtime_policy_revision": attempt.runtime_policy_revision,
-                "environment_fingerprint": canonical_sha256(
-                    {
-                        "tools": tools,
-                        "limits": limits,
-                        "runtime_policy_revision": (
-                            attempt.runtime_policy_revision
-                        ),
-                    }
-                ),
-                "tools": tools,
-                "limits": limits,
-                "workspace_relpath": attempt.workspace_relpath,
-                "resumed_from_attempt_id": attempt.resumed_from_attempt_id,
-                "build_attempts": [
-                    {
-                        "id": build.id,
-                        "attempt_sequence": build.attempt_sequence,
-                        "parent_build_attempt_id": (
-                            build.parent_build_attempt_id
-                        ),
-                        "workspace_relpath": build.workspace_relpath,
-                        "result_sha256": build.result_sha256,
-                        "result": load_json_object(build.result_json),
-                    }
-                    for build in builds
-                ],
-                "summary": (
-                    load_json_object(summary.summary_json)
-                    if summary is not None
-                    else None
-                ),
-                "summary_sha256": (
-                    summary.summary_sha256 if summary is not None else None
-                ),
-            }
-        )
-    return {"request_id": request_id, "attempts": payload}
-
-
-@router.get("/requests/{request_id}/phase4-evidence")
-def get_phase4_evidence(
-    request_id: int,
-    attempt: int = Query(None, ge=1),
-    _: bool = Depends(verify_admin),
-    db: Session = Depends(get_db),
-):
-    if db.get(Request, request_id) is None:
-        raise HTTPException(status_code=404, detail="Request not found")
-    try:
-        return build_phase4_evidence(
-            db,
-            request_id=request_id,
-            attempt=attempt,
-        )
-    except Phase4EvidenceNotFound:
-        raise HTTPException(
-            status_code=404,
-            detail="Runtime validation attempt not found",
-        )
 
 
 @router.get("/requests/{request_id}/run-log")

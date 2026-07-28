@@ -1306,14 +1306,23 @@ def ensure_approved_app_spec(
                         ", ".join(repair.refused_reasons[:8]) or "no_changes",
                     )
 
-                # 2b) Bounded AI schema repair (once) for remaining parse failures.
+                # 2b) Bounded AI schema repair for remaining parse failures.
+                # Uses the configured APPSPEC_MAX_REPAIR_ATTEMPTS rather than a
+                # hardcoded single attempt. The author intermittently emits empty
+                # required tuples (invalid_trace_shape) or duplicate IDs, and one
+                # schema-repair shot frequently does not clear them — which meant
+                # a recoverable spec failed closed. Required empty traces cannot
+                # be healed deterministically (that would invent traceability, see
+                # domain/appspec/sanitize/empty_trace.py), so the AI repair is the
+                # only legitimate path. Total provider calls remain hard-bounded by
+                # _StageLimitedAIProvider(APPSPEC_MAX_CALLS).
                 if (
                     has_schema_parse
-                    and schema_ai_repairs < 1
+                    and schema_ai_repairs < settings.APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS
                     and candidate is not None
                     and candidate.payload
                 ):
-                    schema_ai_repairs = 1
+                    schema_ai_repairs += 1
                     parent_sha = payload_sha256(candidate.payload)
                     parent_row_id = graph_repair_source_revision_id
                     try:
@@ -1369,8 +1378,8 @@ def ensure_approved_app_spec(
                     validation = None
                     continue
 
-                # Schema failures fail closed after the single schema-repair attempt.
-                if has_schema_parse and schema_ai_repairs >= 1:
+                # Schema failures fail closed once the schema-repair attempts are spent.
+                if has_schema_parse and schema_ai_repairs >= settings.APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS:
                     return _fallback("deterministic_validation_failed")
 
                 # 3) AI repair — at most once after graph-membership failures.

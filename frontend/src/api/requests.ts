@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import type { ChatMessage, ChatSendResponse, PreviewResponse } from '../types/request';
 import type { BuildRequestContact } from '../types/buildRequest';
 import { stripMarkdownFormatting } from '../utils/parseMarkdownSections';
-import { storeRequestAccessToken } from './expandedPreview';
+import { storeRequestAccessToken } from './customerAccess';
 
 function normalizePreview(data: PreviewResponse): PreviewResponse {
   if (data.customer_access_token) {

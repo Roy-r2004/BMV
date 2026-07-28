@@ -436,6 +436,50 @@ def test_ai_repair_at_most_once_when_sanitize_cannot_recover(db_session, monkeyp
     assert settings.APPSPEC_FALLBACK_ENABLED is False
 
 
+def test_schema_repair_attempts_are_configurable_above_one(db_session, monkeypatch):
+    """APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS raises the schema-only repair budget.
+
+    Request 28 regression: the author intermittently emits empty required tuples
+    (invalid_trace_shape) or duplicate IDs. One schema repair often does not clear
+    them, and required empty traces cannot be healed deterministically without
+    inventing traceability, so the request failed closed on a recoverable spec.
+    The budget is deliberately separate from APPSPEC_MAX_REPAIR_ATTEMPTS (which
+    stays 0 here) and defaults to 1, preserving the at-most-once behavior above.
+    """
+
+    monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
+    monkeypatch.setattr(settings, "APPSPEC_MAX_REPAIR_ATTEMPTS", 0)
+    monkeypatch.setattr(settings, "APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS", 2)
+    monkeypatch.setattr(settings, "APPSPEC_MAX_DETERMINISTIC_HEALS", 1)
+    monkeypatch.setattr(settings, "APPSPEC_MAX_CALLS", 6)
+
+    invalid = _valid()
+    invalid["pages"] = "not-a-page-list"
+    ai = _ScriptedAI(
+        [
+            json.dumps(invalid),
+            json.dumps(copy.deepcopy(invalid)),  # schema repair 1 still invalid
+            json.dumps(copy.deepcopy(invalid)),  # schema repair 2 still invalid
+            json.dumps(_valid()),               # must NOT be reached
+        ]
+    )
+    req = _seed_request(db_session)
+    renderer = JinjaTemplateRenderer(str(TEMPLATES_DIR))
+    with pytest.raises(AppSpecGenerationError) as excinfo:
+        ensure_approved_app_spec(
+            db_session,
+            req.id,
+            ai,
+            renderer,
+            force_new_revision=True,
+            source_snapshot_override=_source_override(req),
+            derived_context_override={},
+        )
+    assert "fallback is disabled" in str(excinfo.value)
+    # author + 2 schema repairs, then fail closed.
+    assert ai.calls_used == 3
+
+
 def test_generation_smoke29_result_has_spec(db_session, monkeypatch):
     monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
     monkeypatch.setattr(settings, "APPSPEC_MAX_REPAIR_ATTEMPTS", 0)

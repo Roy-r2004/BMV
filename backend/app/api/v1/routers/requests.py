@@ -134,7 +134,7 @@ def retry_generation(
             detail="X-Request-Access-Token required",
         )
 
-    from app.application.expanded_preview.service import verify_customer_access_token
+    from app.application.services.customer_access import verify_customer_access_token
 
     if not verify_customer_access_token(
         db,
@@ -218,7 +218,7 @@ async def create_request(
     if reference_file and reference_file.filename:
         file_path = save_upload(reference_file)
 
-    from app.application.expanded_preview.service import issue_customer_access_token
+    from app.application.services.customer_access import issue_customer_access_token
 
     req = Request(
         business_name=business_name,

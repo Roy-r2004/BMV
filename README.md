@@ -25,28 +25,32 @@ Everything runs in **one container**: React frontend, FastAPI backend, SQLite, u
 ### Run
 
 ```bash
-copy .env.example .env          # Windows
-# cp .env.example .env          # macOS/Linux
-# Edit .env — set ADMIN_PASSWORD and ROY_WHATSAPP_NUMBER
+cp backend/.env.example backend/.env     # app config — set OPENROUTER_API_KEY + ADMIN_PASSWORD
+cp frontend/.env.example frontend/.env   # Vite public vars
 
 docker compose up --build
 ```
 
-Open **http://localhost:8000**
+A root `.env` is **not** needed locally — Compose loads `backend/.env` via `env_file`.
+Full layout: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+
+Open **http://localhost:5173** (frontend). API on **http://localhost:8001**.
 
 - App UI: `/`
 - Admin: `/admin/login`
-- API health: `/api/health`
+- API health: `http://localhost:8001/api/health`
 
 ### Docker notes
 
 | Item | Location |
 |------|----------|
-| SQLite DB | `buildmyversion-data` volume → `/app/data` |
-| Uploads | same volume → `/app/data/uploads` |
-| Ollama models | `ollama-models` volume → `/root/.ollama` |
+| Postgres data | `bmv-pg-data` volume → `/var/lib/postgresql/data` |
+| API data (uploads, preview apps) | `bmv-api-data` volume → `/app/data` |
+| Frontend `node_modules` | `bmv-web-node-modules` volume → `/app/node_modules` |
 
-Set `PULL_MODELS=false` in `.env` after the first successful run to skip model checks on restart.
+After editing `backend/.env`, run `docker compose up -d api` — **not** `restart`.
+`restart` reuses the existing container's environment, so `env_file` changes are
+ignored until the container is recreated.
 
 ```bash
 docker compose down
@@ -183,7 +187,12 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env   # optional if missing
 ```
 
-Production/VPS uses root `.env` from `.env.prod.example` (separate from local).
+Production is separate from local and uses `.env.prod.example` — on a VPS copied to
+root `.env`, or pasted into the Coolify UI. Keep real values in `.env.prod`
+(gitignored). Only `*.example` templates are ever committed.
+
+Full file-by-file map, both prod paths, and the compose allowlist caveat:
+**[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)**.
 
 **Backend** (`backend/.env`) essentials:
 
