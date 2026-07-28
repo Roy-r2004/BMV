@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from app.infrastructure.ai_providers.model_capabilities import (
+    CAPABILITY_PROFILE_REVISION,
+)
 from scripts.cli.preview_v2_production_readiness import (
     CLASSIC_FIVE_PAGE_BOOKING_ROUTES,
     WIZARD_FIVE_PAGE_BOOKING_ROUTES,
@@ -45,4 +48,4 @@ def test_synthetic_cache_hit_preflight_for_gemini() -> None:
     )
     assert payload["approval_decision"] == "approved_preflight"
     assert payload["context_window"] == 1_048_576
-    assert payload["capability_profile_revision"].startswith("2026-07-26")
+    assert payload["capability_profile_revision"] == CAPABILITY_PROFILE_REVISION

@@ -8,7 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from pydantic import ValidationError
 
@@ -21,6 +21,11 @@ from app.application.candidate_generation.policy import CandidateStagePolicy
 from app.application.candidate_generation.repair_output import (
     parse_candidate_repair_output,
 )
+from app.application.candidate_generation.repair_payload import (
+    build_repair_tool_choice,
+    build_repair_tool_spec,
+    extract_candidate_repair_payload,
+)
 from app.application.services.ai_context import (
     ai_run_scope,
     capture_ai_stage_telemetry,
@@ -31,16 +36,19 @@ from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.schemas.preview_candidate import (
     CandidateStageMetrics,
     GeneratedCandidateBatch,
+    GeneratedCandidateFile,
 )
 from app.infrastructure.ai_providers.model_capabilities import (
     CAPABILITY_PROFILE_REVISION,
     CONTEXT_RESERVE_TOKENS,
     MINIMUM_VALID_OUTPUT_TOKENS,
+    ModelCapabilityProfile,
     clamp_max_tokens,
     estimate_prompt_tokens,
     resolve_model_capability,
 )
 from app.infrastructure.ai_providers.response_parser import (
+    ChatMessageEnvelope,
     ProviderGenerationError,
     ProviderGenerationResult,
 )
@@ -193,6 +201,19 @@ def _last_finish_reason(ai_provider: AIProvider) -> str:
     return str(meta.get("finish_reason") or "")
 
 
+def _last_response_envelope(ai_provider: AIProvider) -> ChatMessageEnvelope | None:
+    """Read the provider's structural envelope when it exposes one."""
+
+    reader = getattr(ai_provider, "last_response_envelope", None)
+    if not callable(reader):
+        return None
+    try:
+        envelope = reader()
+    except Exception:
+        return None
+    return envelope if isinstance(envelope, ChatMessageEnvelope) else None
+
+
 def _invoke_provider_text(
     *,
     ai_provider: AIProvider,
@@ -202,17 +223,24 @@ def _invoke_provider_text(
     temperature: float,
     timeout_seconds: float | None = None,
     response_format: dict[str, Any] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_choice: dict[str, Any] | None = None,
 ) -> str:
     """Call ask_chat; application owns retries so transport attempts stay at 1."""
-    if response_format:
+    if response_format or tools:
         # Structured-output path: bind kwargs by signature and call once.
-        desired = {
+        desired: dict[str, Any] = {
             "max_tokens": max_tokens,
             "temperature": temperature,
             "timeout_seconds": timeout_seconds,
             "transport_attempts": 1,
-            "response_format": response_format,
         }
+        if response_format:
+            desired["response_format"] = response_format
+        if tools:
+            desired["tools"] = tools
+            if tool_choice is not None:
+                desired["tool_choice"] = tool_choice
         return ai_provider.ask_chat(
             model,
             [{"role": "user", "content": prompt}],
@@ -253,6 +281,8 @@ def _request_shape_hash(
     prompt_chars: int,
     message_count: int = 1,
     response_format: dict[str, Any] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_choice: dict[str, Any] | None = None,
 ) -> str:
     shape = {
         "endpoint": "POST /chat/completions",
@@ -266,8 +296,8 @@ def _request_shape_hash(
         "response_format": response_format,
         "json_schema": None,
         "strict_schema": None,
-        "tools": None,
-        "tool_choice": None,
+        "tools": tools,
+        "tool_choice": tool_choice,
         "stream": False,
         "capability_profile_revision": CAPABILITY_PROFILE_REVISION,
     }
@@ -505,6 +535,45 @@ def _provider_stage_error(
         stage=stage,
         diagnostics=(exc.result.error_message_redacted,),
         provider_error_code=exc.error_code,
+        provider_diagnostics=exc.result.to_diagnostics(),
+    )
+
+
+def _reclassified_repair_failure(
+    *,
+    exc: ProviderGenerationError,
+    batch_stage: str,
+    selected_files: Sequence[GeneratedCandidateFile],
+    diagnostics: tuple[str, ...],
+    capability: ModelCapabilityProfile,
+) -> CandidateStageError | None:
+    """Name a shape-invalid repair response by where its payload was missing.
+
+    Request #48 recorded ``provider_response_shape_invalid`` for a completed
+    reasoning turn that produced no assistant content. That is a repair-payload
+    failure with a precise code, so the generic provider code is replaced only
+    when the response really was a well-formed message with nothing usable in
+    any supported field.
+    """
+
+    if exc.error_code != "provider_response_shape_invalid":
+        return None
+    envelope = exc.result.envelope
+    if not envelope.message_present:
+        return None
+    extraction = extract_candidate_repair_payload(
+        envelope=envelope,
+        batch_kind=batch_stage,
+        approved_files=selected_files,
+        supports_provider_parsed=capability.supports_json_schema,
+    )
+    if extraction.ok:
+        return None
+    return CandidateStageError(
+        "Candidate repair returned no usable payload.",
+        stage=batch_stage,
+        diagnostics=diagnostics + (canonical_json(extraction.diagnostics)[:4000],),
+        provider_error_code=extraction.error_code,
         provider_diagnostics=exc.result.to_diagnostics(),
     )
 
@@ -1040,11 +1109,18 @@ def repair_ai_batch(
     estimated_input = estimate_prompt_tokens(prompt)
     provider_name = str(getattr(ai_provider, "name", "unknown") or "unknown")
     capability = resolve_model_capability(policy.model)
-    # JSON-object mode is only sent when the capability profile proves support;
-    # unsupported models keep the plain text call and the canonical parser.
-    repair_response_format: dict[str, Any] | None = (
-        {"type": "json_object"} if capability.supports_json_object else None
-    )
+    # Request #48: a free-form text field is not a reliable repair transport on
+    # reasoning-style models, so the payload is required as a tool call
+    # wherever the capability profile proves tool support. JSON-object mode
+    # stays the fallback, then the compact JSON-only text prompt.
+    repair_tools: list[dict[str, Any]] | None = None
+    repair_tool_choice: dict[str, Any] | None = None
+    repair_response_format: dict[str, Any] | None = None
+    if capability.supports_repair_tool_calling:
+        repair_tools = [build_repair_tool_spec()]
+        repair_tool_choice = build_repair_tool_choice()
+    elif capability.supports_json_object:
+        repair_response_format = {"type": "json_object"}
     idempotency = f"{candidate_revision_uuid}:{batch_stage}:repair:0"
     attempt_id = ""
     if call_budget is not None:
@@ -1103,6 +1179,8 @@ def repair_ai_batch(
                     temperature=policy.temperature,
                     prompt_chars=len(prompt),
                     response_format=repair_response_format,
+                    tools=repair_tools,
+                    tool_choice=repair_tool_choice,
                 ),
                 capability_profile_revision=CAPABILITY_PROFILE_REVISION,
                 retry_decision_reason="component_repair",
@@ -1131,6 +1209,8 @@ def repair_ai_batch(
                     temperature=policy.temperature,
                     timeout_seconds=http_timeout,
                     response_format=repair_response_format,
+                    tools=repair_tools,
+                    tool_choice=repair_tool_choice,
                 )
 
             def _cancel() -> None:
@@ -1192,6 +1272,8 @@ def repair_ai_batch(
                                 temperature=policy.temperature,
                                 prompt_chars=len(prompt),
                                 response_format=repair_response_format,
+                                tools=repair_tools,
+                                tool_choice=repair_tool_choice,
                             ),
                             capability_profile_revision=CAPABILITY_PROFILE_REVISION,
                             retry_decision_reason="wall_timeout",
@@ -1257,15 +1339,47 @@ def repair_ai_batch(
                     terminal_decision="fail_closed",
                     idempotency_key=idempotency,
                 )
+                # A well-formed message that simply carried no payload is a
+                # repair-payload failure, not an unrecognised provider shape.
+                # Transport and truncation failures keep their own codes.
+                reclassified = _reclassified_repair_failure(
+                    exc=exc,
+                    batch_stage=batch_stage,
+                    selected_files=selected_files,
+                    diagnostics=diagnostics,
+                    capability=capability,
+                )
+                if reclassified is not None:
+                    raise reclassified from exc
                 raise _provider_stage_error(
                     stage=batch_stage, exc=exc
                 ) from exc
+    # Locate the payload in whichever supported field the provider used, then
+    # apply the unchanged repair contract to whatever was found.
+    envelope = _last_response_envelope(ai_provider) or ChatMessageEnvelope()
+    extraction = extract_candidate_repair_payload(
+        envelope=envelope,
+        batch_kind=batch_stage,
+        approved_files=selected_files,
+        text=raw,
+        supports_provider_parsed=capability.supports_json_schema,
+    )
+    if not extraction.ok:
+        raise CandidateStageError(
+            "Candidate repair returned invalid structured output.",
+            stage=batch_stage,
+            diagnostics=diagnostics
+            + (canonical_json(extraction.diagnostics)[:4000],),
+            provider_error_code=extraction.error_code,
+        )
     parsed_repair = parse_candidate_repair_output(
-        raw,
+        extraction.text,
         batch_kind=batch_stage,
         approved_files=selected_files,
         original_paths=tuple(item.path for item in batch.files),
+        structured_payload=extraction.structured_payload,
         finish_reason=_last_finish_reason(ai_provider),
+        response_field_present=extraction.response_field_present,
     )
     if not parsed_repair.ok:
         raise CandidateStageError(
@@ -1274,7 +1388,14 @@ def repair_ai_batch(
             else "Candidate repair returned invalid structured output.",
             stage=batch_stage,
             diagnostics=diagnostics
-            + (canonical_json(parsed_repair.diagnostics)[:4000],),
+            + (
+                canonical_json(
+                    {
+                        "extraction": extraction.diagnostics,
+                        "repair": parsed_repair.diagnostics,
+                    }
+                )[:4000],
+            ),
             provider_error_code=(
                 "candidate_repair_ownership_violation"
                 if parsed_repair.is_ownership_violation
@@ -1331,11 +1452,13 @@ def repair_ai_batch(
                 response_top_level_keys=sorted(
                     repaired_subset.model_dump(mode="json").keys()
                 ),
-                response_format="structured_json",
+                response_format=f"structured_json:{extraction.source}",
                 provider_request_id="",
-                raw_payload_sha256=hashlib.sha256(
-                    raw.encode("utf-8")
-                ).hexdigest(),
+                raw_payload_sha256=str(
+                    extraction.diagnostics.get("tool_arguments_sha256")
+                    or extraction.diagnostics.get("payload_text_sha256")
+                    or hashlib.sha256(raw.encode("utf-8")).hexdigest()
+                ),
                 duration_ms=metrics.latency_ms,
                 input_tokens=metrics.prompt_tokens or estimated_input,
                 output_tokens=metrics.completion_tokens,
@@ -1363,6 +1486,9 @@ def repair_ai_batch(
                     max_tokens=policy.max_tokens,
                     temperature=policy.temperature,
                     prompt_chars=len(prompt),
+                    response_format=repair_response_format,
+                    tools=repair_tools,
+                    tool_choice=repair_tool_choice,
                 ),
                 capability_profile_revision=CAPABILITY_PROFILE_REVISION,
                 retry_decision_reason="",

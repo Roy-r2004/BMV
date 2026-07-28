@@ -5,14 +5,14 @@ Candidate generation and other pipeline stages must consume
 payloads must never be indexed with ``response["choices"]`` outside this
 module.
 
-Policy revision: 2026-07-26.candidate-provider.2
+Policy revision: 2026-07-28.candidate-provider.4
 """
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from dataclasses import dataclass, field
+from typing import Any, Literal, Mapping, Sequence
 
 from app.infrastructure.ai_providers.error_classification import (
     ProviderErrorCode,
@@ -40,6 +40,203 @@ _REFUSAL_HINTS = (
     "moderation",
 )
 
+ChatContentKind = Literal["absent", "null", "string", "parts", "invalid"]
+
+# Content-part object types that carry assistant output text. Reasoning parts
+# are deliberately excluded: hidden reasoning is never assistant output.
+_TEXT_PART_TYPES = frozenset({"text", "output_text", "input_text"})
+
+
+@dataclass(frozen=True)
+class ProviderToolCall:
+    """One assistant tool call, with arguments kept as the raw JSON string."""
+
+    call_id: str
+    name: str
+    arguments: str
+
+    @property
+    def arguments_sha256(self) -> str:
+        return payload_sha256(self.arguments)
+
+    def to_diagnostics(self) -> dict[str, Any]:
+        return {
+            "call_id": self.call_id,
+            "name": self.name,
+            "arguments_chars": len(self.arguments or ""),
+            "arguments_sha256": self.arguments_sha256,
+            # Never include argument values: they carry generated source.
+        }
+
+
+@dataclass(frozen=True)
+class ChatMessageEnvelope:
+    """Structural description of ``choices[0]`` with no generated content.
+
+    ``content_text``, ``parsed_payload``, and tool-call arguments are carried
+    for in-process extraction only. ``to_diagnostics`` never emits them.
+    """
+
+    choice_count: int = 0
+    finish_reason: str = ""
+    message_present: bool = False
+    message_keys: tuple[str, ...] = ()
+    content_kind: ChatContentKind = "absent"
+    content_text: str | None = None
+    content_part_types: tuple[str, ...] = ()
+    content_part_count: int = 0
+    content_parts_invalid: bool = False
+    tool_calls: tuple[ProviderToolCall, ...] = ()
+    parsed_payload: Any | None = None
+    has_parsed: bool = False
+    refusal_text: str = ""
+    has_reasoning: bool = False
+    reasoning_chars: int = 0
+
+    @property
+    def has_structured_payload(self) -> bool:
+        return self.has_parsed or bool(self.tool_calls)
+
+    def to_diagnostics(self) -> dict[str, Any]:
+        return {
+            "choice_count": self.choice_count,
+            "finish_reason": self.finish_reason,
+            "message_present": self.message_present,
+            "message_keys": list(self.message_keys),
+            "content_kind": self.content_kind,
+            "content_chars": len(self.content_text or ""),
+            "content_part_types": list(self.content_part_types),
+            "content_part_count": self.content_part_count,
+            "content_parts_invalid": self.content_parts_invalid,
+            "tool_call_count": len(self.tool_calls),
+            "tool_calls": [item.to_diagnostics() for item in self.tool_calls],
+            "has_parsed": self.has_parsed,
+            "has_refusal": bool(self.refusal_text),
+            "has_reasoning": self.has_reasoning,
+            "reasoning_chars": self.reasoning_chars,
+            # Never include content text, parsed values, or reasoning content.
+        }
+
+
+def _tool_calls_from_message(message: Mapping[str, Any]) -> tuple[ProviderToolCall, ...]:
+    raw = message.get("tool_calls")
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return ()
+    calls: list[ProviderToolCall] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        function = item.get("function")
+        if not isinstance(function, Mapping):
+            continue
+        arguments = function.get("arguments")
+        if isinstance(arguments, str):
+            argument_text = arguments
+        elif isinstance(arguments, (Mapping, list)):
+            # Some gateways pre-decode arguments; re-encode canonically rather
+            # than guessing at a textual form.
+            argument_text = json.dumps(arguments, sort_keys=True)
+        else:
+            argument_text = ""
+        calls.append(
+            ProviderToolCall(
+                call_id=str(item.get("id") or ""),
+                name=str(function.get("name") or ""),
+                arguments=argument_text,
+            )
+        )
+    return tuple(calls)
+
+
+def _content_shape(
+    message: Mapping[str, Any],
+) -> tuple[ChatContentKind, str | None, tuple[str, ...], int, bool]:
+    """Return ``(kind, text, part_types, part_count, parts_invalid)``."""
+
+    if "content" not in message:
+        return "absent", None, (), 0, False
+    content = message.get("content")
+    if content is None:
+        return "null", None, (), 0, False
+    if isinstance(content, str):
+        return "string", content, (), 0, False
+    if isinstance(content, list):
+        part_types: list[str] = []
+        chunks: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                part_types.append("bare_string")
+                chunks.append(item)
+                continue
+            if not isinstance(item, Mapping):
+                part_types.append("invalid")
+                continue
+            part_type = str(item.get("type") or "")
+            part_types.append(part_type or "untyped")
+            text = item.get("text")
+            if not isinstance(text, str):
+                continue
+            # Untyped parts carrying text are accepted; reasoning parts are not.
+            if part_type and part_type not in _TEXT_PART_TYPES:
+                continue
+            chunks.append(text)
+        joined = "".join(chunks)
+        parts_invalid = bool(content) and not chunks
+        return "parts", joined, tuple(part_types), len(content), parts_invalid
+    return "invalid", None, (), 0, True
+
+
+def describe_chat_envelope(body: Any) -> ChatMessageEnvelope:
+    """Describe ``choices[0]`` of an OpenAI-compatible body, fail-soft."""
+
+    if not isinstance(body, Mapping):
+        return ChatMessageEnvelope()
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return ChatMessageEnvelope(choice_count=0)
+    first = choices[0]
+    if not isinstance(first, Mapping):
+        return ChatMessageEnvelope(choice_count=len(choices))
+    finish_reason = str(first.get("finish_reason") or "")
+    message = first.get("message")
+    if not isinstance(message, Mapping):
+        return ChatMessageEnvelope(
+            choice_count=len(choices),
+            finish_reason=finish_reason,
+        )
+
+    kind, text, part_types, part_count, parts_invalid = _content_shape(message)
+    refusal = message.get("refusal")
+    refusal_text = refusal.strip() if isinstance(refusal, str) else ""
+    # ``parsed`` may sit on the message (OpenAI SDK) or on the choice.
+    parsed = message.get("parsed")
+    if parsed is None:
+        parsed = first.get("parsed")
+    reasoning = message.get("reasoning")
+    reasoning_chars = len(reasoning) if isinstance(reasoning, str) else 0
+    has_reasoning = bool(
+        reasoning_chars
+        or message.get("reasoning_details")
+        or message.get("reasoning_content")
+    )
+    return ChatMessageEnvelope(
+        choice_count=len(choices),
+        finish_reason=finish_reason,
+        message_present=True,
+        message_keys=tuple(sorted(str(key) for key in message.keys())),
+        content_kind=kind,
+        content_text=text,
+        content_part_types=part_types,
+        content_part_count=part_count,
+        content_parts_invalid=parts_invalid,
+        tool_calls=_tool_calls_from_message(message),
+        parsed_payload=parsed,
+        has_parsed=parsed is not None,
+        refusal_text=refusal_text,
+        has_reasoning=has_reasoning,
+        reasoning_chars=reasoning_chars,
+    )
+
 
 @dataclass(frozen=True)
 class ProviderGenerationResult:
@@ -66,6 +263,8 @@ class ProviderGenerationResult:
     cost_usd: float | None = None
     error_type: str = ""
     error_metadata_keys: tuple[str, ...] = ()
+    tool_calls: tuple[ProviderToolCall, ...] = ()
+    envelope: ChatMessageEnvelope = field(default_factory=ChatMessageEnvelope)
 
     def to_diagnostics(self) -> dict[str, Any]:
         """Redacted diagnostics safe for admin persistence."""
@@ -92,6 +291,8 @@ class ProviderGenerationResult:
             "text_chars": len(self.text or ""),
             "error_type": self.error_type,
             "error_metadata_keys": list(self.error_metadata_keys),
+            "structured_payload_present": self.structured_payload is not None,
+            "envelope": self.envelope.to_diagnostics(),
             # Never include raw text, prompts, or full payload bodies.
         }
 
@@ -224,6 +425,7 @@ def _failure_result(
     cost_usd: float | None = None,
     error_type: str = "",
     error_metadata_keys: tuple[str, ...] = (),
+    envelope: ChatMessageEnvelope | None = None,
 ) -> ProviderGenerationResult:
     keys = top_level_keys(body)
     if not provider_request_id and isinstance(body, Mapping):
@@ -258,6 +460,7 @@ def _failure_result(
         cost_usd=cost_usd,
         error_type=error_type,
         error_metadata_keys=error_metadata_keys,
+        envelope=envelope or ChatMessageEnvelope(),
     )
 
 
@@ -490,7 +693,8 @@ def parse_openai_compatible_chat_response(
             retryable=True,
         )
 
-    finish_reason = str(first.get("finish_reason") or "")
+    envelope = describe_chat_envelope(body)
+    finish_reason = envelope.finish_reason
     message_obj = first.get("message")
     text, refused = _message_text(message_obj)
     prompt_t, completion_t, total_t, cost = _usage_from_openai(body)
@@ -515,6 +719,7 @@ def parse_openai_compatible_chat_response(
             output_tokens=completion_t,
             total_tokens=total_t,
             cost_usd=cost,
+            envelope=envelope,
         )
 
     # A cap-exhausted completion is truncation even when no content survived:
@@ -540,6 +745,41 @@ def parse_openai_compatible_chat_response(
             output_tokens=completion_t,
             total_tokens=total_t,
             cost_usd=cost,
+            envelope=envelope,
+        )
+
+    # A structured answer is a complete answer. Tool-call and provider-native
+    # parsed responses legitimately carry a null ``content``, so they must not
+    # fall into the missing/empty content branches below.
+    if envelope.has_structured_payload and not str(text or "").strip():
+        return ProviderGenerationResult(
+            provider=provider,
+            model=model,
+            provider_request_id=request_id,
+            response_format="openai_chat_completion",
+            text="",
+            structured_payload=(
+                envelope.parsed_payload
+                if isinstance(envelope.parsed_payload, dict)
+                else None
+            ),
+            finish_reason=finish_reason or "tool_calls",
+            input_tokens=prompt_t,
+            output_tokens=completion_t,
+            total_tokens=total_t,
+            http_status=http_status,
+            raw_payload_sha256=payload_sha256(raw_text),
+            is_success=True,
+            error_code="",
+            error_message_redacted="",
+            retryable=False,
+            refusal=False,
+            truncated=False,
+            latency_ms=max(0, latency_ms),
+            response_top_level_keys=keys,
+            cost_usd=cost,
+            tool_calls=envelope.tool_calls,
+            envelope=envelope,
         )
 
     if text is None:
@@ -560,6 +800,7 @@ def parse_openai_compatible_chat_response(
             output_tokens=completion_t,
             total_tokens=total_t,
             cost_usd=cost,
+            envelope=envelope,
         )
 
     if not str(text).strip():
@@ -580,6 +821,7 @@ def parse_openai_compatible_chat_response(
             output_tokens=completion_t,
             total_tokens=total_t,
             cost_usd=cost,
+            envelope=envelope,
         )
 
     return ProviderGenerationResult(
@@ -588,7 +830,11 @@ def parse_openai_compatible_chat_response(
         provider_request_id=request_id,
         response_format="openai_chat_completion",
         text=str(text),
-        structured_payload=None,
+        structured_payload=(
+            envelope.parsed_payload
+            if isinstance(envelope.parsed_payload, dict)
+            else None
+        ),
         finish_reason=finish_reason or "stop",
         input_tokens=prompt_t,
         output_tokens=completion_t,
@@ -604,6 +850,8 @@ def parse_openai_compatible_chat_response(
         latency_ms=max(0, latency_ms),
         response_top_level_keys=keys,
         cost_usd=cost,
+        tool_calls=envelope.tool_calls,
+        envelope=envelope,
     )
 
 
@@ -741,10 +989,14 @@ def raise_if_unsuccessful(result: ProviderGenerationResult) -> str:
 
 
 __all__ = [
+    "ChatContentKind",
+    "ChatMessageEnvelope",
     "ProviderErrorCode",
     "ProviderGenerationError",
     "ProviderGenerationResult",
     "ProviderResponseFormat",
+    "ProviderToolCall",
+    "describe_chat_envelope",
     "error_code_for_http_status",
     "parse_json_body",
     "parse_ollama_chat_response",

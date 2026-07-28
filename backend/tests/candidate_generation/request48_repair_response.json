@@ -1,0 +1,45 @@
+{
+  "_fixture_note": [
+    "Sanitized reconstruction of request #48's failed business_components",
+    "repair response. Top-level keys, model, provider request id, and usage",
+    "tokens are the values persisted on attempt 2e1633df989f4a7fb15e4fedabb35945.",
+    "Choice-level fields are not persisted by CandidateProviderAttempt, so",
+    "choices[0] is reconstructed from what the adapter branch proves: the",
+    "refusal branch did not fire, the truncation branch did not fire, and",
+    "_message_text returned None, so content was absent or null while 3100",
+    "completion tokens were billed. No generated source is present."
+  ],
+  "id": "gen-1785235622-ZhzKJFqYsLDixAyZJiZN",
+  "object": "chat.completion",
+  "created": 1785235622,
+  "model": "z-ai/glm-5.2",
+  "provider": "Z.AI",
+  "service_tier": "default",
+  "system_fingerprint": null,
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "native_finish_reason": "stop",
+      "logprobs": null,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "refusal": null,
+        "reasoning": "[redacted reasoning trace: 3100 completion tokens]",
+        "reasoning_details": [
+          {
+            "type": "reasoning.text",
+            "format": "unknown",
+            "index": 0
+          }
+        ]
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3987,
+    "completion_tokens": 3100,
+    "total_tokens": 7087
+  }
+}

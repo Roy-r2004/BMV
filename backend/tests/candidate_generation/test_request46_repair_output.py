@@ -529,17 +529,18 @@ def _run_repair(ai) -> tuple[object, CandidateCallBudget]:
     return built, budget
 
 
-def test_repair_requests_json_object_mode_for_the_configured_model() -> None:
-    assert (
-        resolve_model_capability(
-            settings.V2_CANDIDATE_REPAIR_MODEL
-        ).supports_json_object
-        is True
-    )
+def test_repair_keeps_json_object_mode_available_for_the_configured_model() -> None:
+    # Request #48 moved the configured model onto the required-tool transport,
+    # so JSON-object mode is now the documented fallback rather than the
+    # request this model receives.
+    profile = resolve_model_capability(settings.V2_CANDIDATE_REPAIR_MODEL)
+    assert profile.supports_json_object is True
+    assert profile.supports_repair_tool_calling is True
     ai = _RepairAI("```json\n" + json.dumps(_canonical_payload()) + "\n```")
     built, budget = _run_repair(ai)
     assert len(ai.calls) == 1
-    assert ai.calls[0]["response_format"] == {"type": "json_object"}
+    # This fake declares no ``tools`` keyword, so nothing unsupported is sent.
+    assert ai.calls[0]["response_format"] is None
     assert ai.calls[0]["max_tokens"] == 10000
     assert built.metrics.repair_call_count == 1
     assert budget.snapshot()["substage_used"]["business_components"] == 2

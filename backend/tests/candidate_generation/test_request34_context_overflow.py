@@ -117,7 +117,7 @@ def test_candidate_model_capabilities_are_explicit_and_unknown_fails_closed() ->
     assert unknown.context_window == 0
     assert unknown.known is False
     assert production.revision == CAPABILITY_PROFILE_REVISION
-    assert CAPABILITY_PROFILE_REVISION == "2026-07-26.candidate-provider.3"
+    assert CAPABILITY_PROFILE_REVISION == "2026-07-28.candidate-provider.4"
 
 
 def test_max_tokens_clamp_rejects_unusable_output_allowance() -> None:

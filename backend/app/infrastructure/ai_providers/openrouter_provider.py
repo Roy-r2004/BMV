@@ -15,6 +15,7 @@ from app.application.services.admin_ops import (
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.infrastructure.ai_providers.response_parser import (
+    ChatMessageEnvelope,
     ProviderGenerationError,
     parse_json_body,
     parse_openai_compatible_chat_response,
@@ -25,6 +26,18 @@ from app.infrastructure.ai_providers.retry import call_with_retry
 from app.infrastructure.logging import get_logger
 
 retry_log = get_logger("AIRetry")
+
+
+def _response_field_for(envelope: ChatMessageEnvelope) -> str:
+    """Name the field the assistant answer actually arrived in."""
+
+    if envelope.tool_calls:
+        return "choices[0].message.tool_calls"
+    if envelope.has_parsed:
+        return "choices[0].message.parsed"
+    if envelope.content_kind == "parts":
+        return "choices[0].message.content[]"
+    return "choices[0].message.content"
 
 
 def _openrouter_http_exchange(
@@ -109,6 +122,7 @@ class OpenRouterAIProvider(AIProvider):
         self._active_response: requests.Response | None = None
         self._active_session: requests.Session | None = None
         self._last_completion_meta: dict | None = None
+        self._last_response_envelope: ChatMessageEnvelope | None = None
 
     @property
     def name(self) -> str:
@@ -157,6 +171,8 @@ class OpenRouterAIProvider(AIProvider):
         purpose: str = "pipeline",
         transport_attempts: int = 2,
         response_format: dict | None = None,
+        tools: list[dict] | None = None,
+        tool_choice: dict | str | None = None,
     ) -> str:
         allowed, reason = ai_is_allowed(purpose)
         if not allowed:
@@ -176,6 +192,12 @@ class OpenRouterAIProvider(AIProvider):
             payload["temperature"] = temperature
         if isinstance(response_format, dict) and response_format:
             payload["response_format"] = response_format
+        # Tool parameters are only ever sent when the caller proved support via
+        # the capability profile; an unsupported model never sees them.
+        if isinstance(tools, list) and tools:
+            payload["tools"] = tools
+            if tool_choice is not None:
+                payload["tool_choice"] = tool_choice
 
         def _do_request() -> tuple[int, object | None, str]:
             session = requests.Session()
@@ -249,6 +271,8 @@ class OpenRouterAIProvider(AIProvider):
                 raw_text=raw_text,
                 latency_ms=latency,
             )
+            with self._lock:
+                self._last_response_envelope = parsed.envelope
             if not parsed.is_success:
                 record_usage(
                     provider="openrouter",
@@ -276,6 +300,7 @@ class OpenRouterAIProvider(AIProvider):
                 latency_ms=latency,
             )
             with self._lock:
+                self._last_response_envelope = parsed.envelope
                 self._last_completion_meta = {
                     "provider": "openrouter",
                     "model": model,
@@ -287,8 +312,17 @@ class OpenRouterAIProvider(AIProvider):
                     "response_format_requested": (
                         dict(response_format) if response_format else None
                     ),
+                    "tools_requested": [
+                        str(
+                            (item.get("function") or {}).get("name")
+                            if isinstance(item, dict)
+                            else ""
+                        )
+                        for item in (tools or [])
+                    ],
                     "text_chars": len(parsed.text or ""),
-                    "response_field": "choices[0].message.content",
+                    "response_field": _response_field_for(parsed.envelope),
+                    "envelope": parsed.envelope.to_diagnostics(),
                 }
             return parsed.text
         except ProviderGenerationError:
@@ -315,6 +349,8 @@ class OpenRouterAIProvider(AIProvider):
         timeout_seconds: float | None = None,
         transport_attempts: int | None = None,
         response_format: dict | None = None,
+        tools: list[dict] | None = None,
+        tool_choice: dict | str | None = None,
     ) -> str:
         if temperature is None and self._is_claude(model):
             temperature = 0.3
@@ -329,11 +365,22 @@ class OpenRouterAIProvider(AIProvider):
             purpose="pipeline",
             transport_attempts=attempts,
             response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
         )
 
     def last_completion_meta(self) -> dict | None:
         with self._lock:
             return dict(self._last_completion_meta) if self._last_completion_meta else None
+
+    def last_response_envelope(self) -> ChatMessageEnvelope | None:
+        """The structural envelope of the most recent chat completion.
+
+        Kept out of ``last_completion_meta`` so that dict stays JSON-safe.
+        """
+
+        with self._lock:
+            return self._last_response_envelope
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         mime, _ = mimetypes.guess_type(image_path)

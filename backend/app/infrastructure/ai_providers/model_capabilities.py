@@ -1,17 +1,23 @@
 """Explicit OpenRouter model capability profiles for candidate generation.
 
-Policy revision: 2026-07-26.candidate-provider.3
+Policy revision: 2026-07-28.candidate-provider.4
 
 Profiles are repository-owned. Do not infer capability from arbitrary failures.
 Context windows are documented OpenRouter values, except where production
 evidence proved a lower hard limit (deepseek/deepseek-chat → 32768).
+
+Revision 4 adds explicit candidate-repair tool-calling support. Request #48's
+repair returned a null ``choices[0].message.content`` on HTTP 200 after
+spending 3100 completion tokens, so free-form text is not a reliable transport
+for the repair payload on reasoning-style models. Tool support is an explicit
+allowlist: a model is never assumed to accept ``tools``.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-CAPABILITY_PROFILE_REVISION = "2026-07-26.candidate-provider.3"
+CAPABILITY_PROFILE_REVISION = "2026-07-28.candidate-provider.4"
 CONTEXT_RESERVE_TOKENS = 512
 MINIMUM_VALID_OUTPUT_TOKENS = 4_000
 
@@ -37,6 +43,24 @@ _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
 APPROVED_CANDIDATE_PAGE_MODEL = "google/gemini-2.5-flash"
 APPROVED_CANDIDATE_COMPONENT_MODEL = APPROVED_CANDIDATE_PAGE_MODEL
 
+# Models documented to accept OpenAI-compatible ``tools`` / ``tool_choice`` on
+# OpenRouter. Absence from this set means the parameter is never sent.
+_TOOL_CALLING_MODELS = frozenset(
+    {
+        "z-ai/glm-5",
+        "z-ai/glm-5.2",
+        "google/gemini-2.5-flash",
+        "google/gemini-2.0-flash",
+        "openai/gpt-4o",
+        "openai/gpt-4o-mini",
+        "anthropic/claude-haiku-4.5",
+        "anthropic/claude-sonnet-4",
+    }
+)
+
+# Subset cleared to carry the candidate-repair payload as a required tool call.
+_REPAIR_TOOL_MODELS = _TOOL_CALLING_MODELS
+
 
 @dataclass(frozen=True)
 class ModelCapabilityProfile:
@@ -48,6 +72,7 @@ class ModelCapabilityProfile:
     supports_json_schema: bool = False
     supports_strict_json_schema: bool = False
     supports_tools: bool = False
+    supports_repair_tool_calling: bool = False
     supports_reasoning_params: bool = False
     max_output_tokens_field: str = "max_tokens"
     revision: str = CAPABILITY_PROFILE_REVISION
@@ -62,6 +87,7 @@ class ModelCapabilityProfile:
             "supports_json_schema": self.supports_json_schema,
             "supports_strict_json_schema": self.supports_strict_json_schema,
             "supports_tools": self.supports_tools,
+            "supports_repair_tool_calling": self.supports_repair_tool_calling,
             "supports_reasoning_params": self.supports_reasoning_params,
             "max_output_tokens_field": self.max_output_tokens_field,
             "revision": self.revision,
@@ -79,6 +105,8 @@ def resolve_model_capability(model: str) -> ModelCapabilityProfile:
             supports_json_object=False,
             supports_json_schema=False,
             supports_json_text_mode=False,
+            supports_tools=False,
+            supports_repair_tool_calling=False,
         )
     # GLM 5.2 supports optional reasoning params on OpenRouter; pages still
     # use plain JSON-text chat completions without enabling them.
@@ -87,12 +115,17 @@ def resolve_model_capability(model: str) -> ModelCapabilityProfile:
     # candidate Gemini and OpenAI-compatible chat models in this profile.
     # Strict JSON Schema mode remains unsupported until explicitly proven.
     supports_json_object = True
+    supports_tools = normalized in _TOOL_CALLING_MODELS
     return ModelCapabilityProfile(
         model=normalized,
         context_window=window,
         supports_json_object=supports_json_object,
         supports_json_schema=False,
         supports_strict_json_schema=False,
+        supports_tools=supports_tools,
+        supports_repair_tool_calling=(
+            supports_tools and normalized in _REPAIR_TOOL_MODELS
+        ),
         supports_reasoning_params=supports_reasoning,
     )
 
@@ -132,6 +165,8 @@ def candidate_stage_capability_diagnostics(model: str) -> dict[str, Any]:
         "supports_json_text_mode": profile.supports_json_text_mode,
         "supports_json_object": profile.supports_json_object,
         "supports_json_schema": profile.supports_json_schema,
+        "supports_tools": profile.supports_tools,
+        "supports_repair_tool_calling": profile.supports_repair_tool_calling,
         "minimum_output_allowance": MINIMUM_VALID_OUTPUT_TOKENS,
         "context_reserve": CONTEXT_RESERVE_TOKENS,
     }
