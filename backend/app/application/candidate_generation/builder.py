@@ -388,6 +388,8 @@ def _record_provider_error_attempt(
     context_window: int | None = None,
     approval_decision: str = "",
     attempt_id: str = "",
+    attempt_number: int = 0,
+    started_at: float = 0.0,
 ) -> str:
     attempt_id = attempt_id or (
         budget.new_attempt_id() if budget is not None else ""
@@ -443,9 +445,167 @@ def _record_provider_error_attempt(
                     else None
                 ),
                 approval_decision=approval_decision,
+                attempt_number=attempt_number,
+                started_at=started_at,
+                finished_at=time.time(),
             )
         )
     return attempt_id
+
+
+def _open_paid_attempt(
+    *,
+    budget: CandidateCallBudget,
+    attempt_id: str,
+    request_id: int,
+    candidate_revision_uuid: str,
+    stage: str,
+    provider_name: str,
+    model: str,
+    idempotency_key: str,
+    request_shape_hash: str,
+    fallback_model_decision: str,
+    estimated_input_tokens: int,
+    requested_output_tokens: int,
+    clamped_output_tokens: int,
+    context_window: int,
+    retry_attempted: bool = False,
+    parent_attempt_id: str = "",
+) -> tuple[int, float]:
+    """Persist an in-flight placeholder row before the paid call starts.
+
+    Without this, a provider crash, parse failure, or process death between
+    budget approval and the terminal write leaves the paid attempt with no
+    durable record at all. Opening the row here, keyed on ``attempt_id``,
+    means ``record_attempt``'s upsert always has a row to finalize.
+    """
+    attempt_number = budget.open_attempt_number()
+    started_at = time.time()
+    budget.record_attempt(
+        CandidateProviderAttempt(
+            attempt_id=attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            substage=stage,
+            provider=provider_name,
+            model=model,
+            http_status=0,
+            response_top_level_keys=[],
+            response_format="in_flight",
+            provider_request_id="",
+            raw_payload_sha256="",
+            duration_ms=0,
+            input_tokens=estimated_input_tokens,
+            output_tokens=0,
+            total_tokens=estimated_input_tokens,
+            typed_result="in_flight",
+            error_code="",
+            retryable=False,
+            retry_attempted=retry_attempted,
+            terminal_decision="in_flight",
+            parent_attempt_id=parent_attempt_id,
+            idempotency_key=idempotency_key,
+            request_shape_hash=request_shape_hash,
+            capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+            retry_decision_reason="",
+            fallback_model_decision=fallback_model_decision,
+            calls_remaining=budget.remaining_total(),
+            context_window=context_window,
+            estimated_input_tokens=estimated_input_tokens,
+            requested_output_tokens=requested_output_tokens,
+            clamped_output_tokens=clamped_output_tokens,
+            minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
+            context_reserve=CONTEXT_RESERVE_TOKENS,
+            approval_decision="approved",
+            attempt_number=attempt_number,
+            started_at=started_at,
+            finished_at=0.0,
+            last_checkpoint_status=budget.checkpoint_status(stage),
+        )
+    )
+    return attempt_number, started_at
+
+
+def _record_local_validation_failure(
+    *,
+    budget: CandidateCallBudget | None,
+    attempt_id: str,
+    request_id: int,
+    candidate_revision_uuid: str,
+    stage: str,
+    provider_name: str,
+    model: str,
+    raw: str,
+    error_code: str,
+    error_message: str,
+    retry_attempted: bool,
+    parent_attempt_id: str,
+    idempotency_key: str,
+    request_shape_hash: str,
+    fallback_model_decision: str,
+    estimated_input_tokens: int,
+    requested_output_tokens: int,
+    clamped_output_tokens: int,
+    context_window: int,
+    attempt_number: int,
+    started_at: float,
+    started_monotonic: float,
+    response_top_level_keys: Sequence[str] = (),
+) -> None:
+    """Finalize a paid attempt whose failure happened after the provider
+    replied: a structured-output parse failure, a wrong batch kind, or a
+    repair-payload/merge rejection. These raise before any of the existing
+    provider-error recorders run, so without this the opened placeholder row
+    is left stuck at ``in_flight`` forever.
+    """
+    if budget is None or not attempt_id:
+        return
+    budget.record_attempt(
+        CandidateProviderAttempt(
+            attempt_id=attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            substage=stage,
+            provider=provider_name,
+            model=model,
+            http_status=200,
+            response_top_level_keys=list(response_top_level_keys),
+            response_format=(
+                "structured_json" if response_top_level_keys else "unstructured_text"
+            ),
+            provider_request_id="",
+            raw_payload_sha256=hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+            duration_ms=int((time.monotonic() - started_monotonic) * 1000),
+            input_tokens=estimated_input_tokens,
+            output_tokens=0,
+            total_tokens=estimated_input_tokens,
+            typed_result=error_code,
+            error_code=error_code,
+            retryable=False,
+            retry_attempted=retry_attempted,
+            terminal_decision="fail_closed",
+            parent_attempt_id=parent_attempt_id,
+            idempotency_key=idempotency_key,
+            error_type="local_validation",
+            error_message_redacted=error_message[:1000],
+            error_metadata_keys=[],
+            request_shape_hash=request_shape_hash,
+            capability_profile_revision=CAPABILITY_PROFILE_REVISION,
+            retry_decision_reason="",
+            fallback_model_decision=fallback_model_decision,
+            calls_remaining=budget.remaining_total(),
+            context_window=context_window,
+            estimated_input_tokens=estimated_input_tokens,
+            requested_output_tokens=requested_output_tokens,
+            clamped_output_tokens=clamped_output_tokens,
+            minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
+            context_reserve=CONTEXT_RESERVE_TOKENS,
+            approval_decision="approved",
+            attempt_number=attempt_number,
+            started_at=started_at,
+            finished_at=time.time(),
+        )
+    )
 
 
 def _record_preflight_attempt(
@@ -807,6 +967,25 @@ def build_ai_batch(
                 stage=policy.stage,
                 provider_error_code=deny_code,
             )
+    attempt_number = 0
+    attempt_started_at = 0.0
+    if call_budget is not None:
+        attempt_number, attempt_started_at = _open_paid_attempt(
+            budget=call_budget,
+            attempt_id=current_attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=policy.stage,
+            provider_name=provider_name,
+            model=model,
+            idempotency_key=current_idempotency,
+            request_shape_hash=shape_hash,
+            fallback_model_decision=fallback_decision,
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=effective_max_tokens,
+            context_window=capability.context_window,
+        )
     if on_in_flight is not None:
         on_in_flight(
             {
@@ -863,6 +1042,8 @@ def build_ai_batch(
                         else f"non_retryable:{exc.error_code}"
                     ),
                     fallback_model_decision=fallback_decision,
+                    attempt_number=attempt_number,
+                    started_at=attempt_started_at,
                 )
                 if not exc.retryable or call_budget is None:
                     raise _provider_stage_error(
@@ -917,6 +1098,24 @@ def build_ai_batch(
                 successful_parent_attempt_id = parent_attempt
                 current_attempt_id = retry_attempt_id
                 current_idempotency = retry_key
+                attempt_number, attempt_started_at = _open_paid_attempt(
+                    budget=call_budget,
+                    attempt_id=current_attempt_id,
+                    request_id=request_id,
+                    candidate_revision_uuid=candidate_revision_uuid,
+                    stage=policy.stage,
+                    provider_name=provider_name,
+                    model=model,
+                    idempotency_key=current_idempotency,
+                    request_shape_hash=shape_hash,
+                    fallback_model_decision=fallback_decision,
+                    estimated_input_tokens=estimated_input,
+                    requested_output_tokens=policy.max_tokens,
+                    clamped_output_tokens=effective_max_tokens,
+                    context_window=capability.context_window,
+                    retry_attempted=True,
+                    parent_attempt_id=parent_attempt,
+                )
                 if on_in_flight is not None:
                     on_in_flight(
                         {
@@ -955,6 +1154,8 @@ def build_ai_batch(
                         request_shape_hash=shape_hash,
                         retry_decision_reason=f"retry_failed:{retry_exc.error_code}",
                         fallback_model_decision=fallback_decision,
+                        attempt_number=attempt_number,
+                        started_at=attempt_started_at,
                     )
                     raise _provider_stage_error(
                         stage=policy.stage, exc=retry_exc
@@ -962,6 +1163,30 @@ def build_ai_batch(
     try:
         batch = _parse_batch(raw)
     except (ValueError, ValidationError) as exc:
+        _record_local_validation_failure(
+            budget=call_budget,
+            attempt_id=current_attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=policy.stage,
+            provider_name=provider_name,
+            model=model,
+            raw=raw,
+            error_code="provider_structured_output_invalid",
+            error_message=str(exc),
+            retry_attempted=calls_used > 1,
+            parent_attempt_id=successful_parent_attempt_id,
+            idempotency_key=current_idempotency,
+            request_shape_hash=shape_hash,
+            fallback_model_decision=fallback_decision,
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=effective_max_tokens,
+            context_window=capability.context_window,
+            attempt_number=attempt_number,
+            started_at=attempt_started_at,
+            started_monotonic=started,
+        )
         raise CandidateStageError(
             f"{policy.stage} returned invalid structured output.",
             stage=policy.stage,
@@ -969,6 +1194,34 @@ def build_ai_batch(
             provider_error_code="provider_structured_output_invalid",
         ) from exc
     if batch.batch_kind != policy.stage:
+        _record_local_validation_failure(
+            budget=call_budget,
+            attempt_id=current_attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=policy.stage,
+            provider_name=provider_name,
+            model=model,
+            raw=raw,
+            error_code="candidate_batch_kind_mismatch",
+            error_message=(
+                f"expected batch_kind={policy.stage!r}, got "
+                f"{batch.batch_kind!r}"
+            ),
+            retry_attempted=calls_used > 1,
+            parent_attempt_id=successful_parent_attempt_id,
+            idempotency_key=current_idempotency,
+            request_shape_hash=shape_hash,
+            fallback_model_decision=fallback_decision,
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=effective_max_tokens,
+            context_window=capability.context_window,
+            attempt_number=attempt_number,
+            started_at=attempt_started_at,
+            started_monotonic=started,
+            response_top_level_keys=sorted(batch.model_dump(mode="json").keys()),
+        )
         raise CandidateStageError(
             f"{policy.stage} returned the wrong batch kind.",
             stage=policy.stage,
@@ -1026,6 +1279,9 @@ def build_ai_batch(
                 minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
                 context_reserve=CONTEXT_RESERVE_TOKENS,
                 approval_decision="approved",
+                attempt_number=attempt_number,
+                started_at=attempt_started_at,
+                finished_at=time.time(),
             )
         )
     return BuiltCandidateBatch(
@@ -1123,6 +1379,8 @@ def repair_ai_batch(
         repair_response_format = {"type": "json_object"}
     idempotency = f"{candidate_revision_uuid}:{batch_stage}:repair:0"
     attempt_id = ""
+    attempt_number = 0
+    attempt_started_at = 0.0
     if call_budget is not None:
         attempt_id = call_budget.new_attempt_id()
         approved, deny_code = call_budget.approve(
@@ -1139,6 +1397,8 @@ def repair_ai_batch(
                 diagnostics=diagnostics,
                 provider_error_code=deny_code,
             )
+        attempt_number = call_budget.open_attempt_number()
+        attempt_started_at = time.time()
         call_budget.record_attempt(
             CandidateProviderAttempt(
                 attempt_id=attempt_id,
@@ -1193,6 +1453,10 @@ def repair_ai_batch(
                 minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
                 context_reserve=CONTEXT_RESERVE_TOKENS,
                 approval_decision="approved",
+                attempt_number=attempt_number,
+                started_at=attempt_started_at,
+                finished_at=0.0,
+                last_checkpoint_status=call_budget.checkpoint_status(batch_stage),
             )
         )
 
@@ -1233,7 +1497,7 @@ def repair_ai_batch(
                 if call_budget is not None and attempt_id:
                     call_budget.record_attempt(
                         CandidateProviderAttempt(
-                            attempt_id=call_budget.new_attempt_id(),
+                            attempt_id=attempt_id,
                             request_id=request_id,
                             candidate_revision_uuid=candidate_revision_uuid,
                             substage=batch_stage,
@@ -1253,7 +1517,7 @@ def repair_ai_batch(
                             retryable=False,
                             retry_attempted=False,
                             terminal_decision="fail_closed",
-                            parent_attempt_id=attempt_id,
+                            parent_attempt_id="",
                             idempotency_key=f"{idempotency}:timeout",
                             error_type="CandidateStageError",
                             error_message_redacted=str(exc)[:1000],
@@ -1286,6 +1550,9 @@ def repair_ai_batch(
                             minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
                             context_reserve=CONTEXT_RESERVE_TOKENS,
                             approval_decision="approved",
+                            attempt_number=attempt_number,
+                            started_at=attempt_started_at,
+                            finished_at=time.time(),
                         )
                     )
                 # Attach observability onto the typed failure without secrets.
@@ -1337,7 +1604,10 @@ def repair_ai_batch(
                     exc=exc,
                     retry_attempted=False,
                     terminal_decision="fail_closed",
-                    idempotency_key=idempotency,
+                    attempt_id=attempt_id,
+                    idempotency_key=f"{idempotency}:failed",
+                    attempt_number=attempt_number,
+                    started_at=attempt_started_at,
                 )
                 # A well-formed message that simply carried no payload is a
                 # repair-payload failure, not an unrecognised provider shape.
@@ -1365,6 +1635,38 @@ def repair_ai_batch(
         supports_provider_parsed=capability.supports_json_schema,
     )
     if not extraction.ok:
+        _record_local_validation_failure(
+            budget=call_budget,
+            attempt_id=attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=batch_stage,
+            provider_name=provider_name,
+            model=policy.model,
+            raw=raw,
+            error_code=extraction.error_code or "candidate_repair_extraction_failed",
+            error_message=canonical_json(extraction.diagnostics)[:1000],
+            retry_attempted=False,
+            parent_attempt_id="",
+            idempotency_key=f"{idempotency}:extraction_failed",
+            request_shape_hash=_request_shape_hash(
+                model=policy.model,
+                max_tokens=policy.max_tokens,
+                temperature=policy.temperature,
+                prompt_chars=len(prompt),
+                response_format=repair_response_format,
+                tools=repair_tools,
+                tool_choice=repair_tool_choice,
+            ),
+            fallback_model_decision="primary_only",
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=policy.max_tokens,
+            context_window=capability.context_window,
+            attempt_number=attempt_number,
+            started_at=attempt_started_at,
+            started_monotonic=started,
+        )
         raise CandidateStageError(
             "Candidate repair returned invalid structured output.",
             stage=batch_stage,
@@ -1382,6 +1684,48 @@ def repair_ai_batch(
         response_field_present=extraction.response_field_present,
     )
     if not parsed_repair.ok:
+        repair_error_code = (
+            "candidate_repair_ownership_violation"
+            if parsed_repair.is_ownership_violation
+            else str(parsed_repair.error_code or "")
+        )
+        _record_local_validation_failure(
+            budget=call_budget,
+            attempt_id=attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=batch_stage,
+            provider_name=provider_name,
+            model=policy.model,
+            raw=raw,
+            error_code=repair_error_code or "candidate_repair_output_invalid",
+            error_message=canonical_json(
+                {
+                    "extraction": extraction.diagnostics,
+                    "repair": parsed_repair.diagnostics,
+                }
+            )[:1000],
+            retry_attempted=False,
+            parent_attempt_id="",
+            idempotency_key=f"{idempotency}:repair_invalid",
+            request_shape_hash=_request_shape_hash(
+                model=policy.model,
+                max_tokens=policy.max_tokens,
+                temperature=policy.temperature,
+                prompt_chars=len(prompt),
+                response_format=repair_response_format,
+                tools=repair_tools,
+                tool_choice=repair_tool_choice,
+            ),
+            fallback_model_decision="primary_only",
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=policy.max_tokens,
+            context_window=capability.context_window,
+            attempt_number=attempt_number,
+            started_at=attempt_started_at,
+            started_monotonic=started,
+        )
         raise CandidateStageError(
             "Candidate repair attempted to change batch ownership."
             if parsed_repair.is_ownership_violation
@@ -1396,11 +1740,7 @@ def repair_ai_batch(
                     }
                 )[:4000],
             ),
-            provider_error_code=(
-                "candidate_repair_ownership_violation"
-                if parsed_repair.is_ownership_violation
-                else str(parsed_repair.error_code or "")
-            ),
+            provider_error_code=repair_error_code,
         )
     repaired_subset = parsed_repair.batch
     try:
@@ -1409,6 +1749,38 @@ def repair_ai_batch(
             repaired=repaired_subset,
         )
     except ValueError as exc:
+        _record_local_validation_failure(
+            budget=call_budget,
+            attempt_id=attempt_id,
+            request_id=request_id,
+            candidate_revision_uuid=candidate_revision_uuid,
+            stage=batch_stage,
+            provider_name=provider_name,
+            model=policy.model,
+            raw=raw,
+            error_code="candidate_repair_ownership_violation",
+            error_message=str(exc),
+            retry_attempted=False,
+            parent_attempt_id="",
+            idempotency_key=f"{idempotency}:merge_failed",
+            request_shape_hash=_request_shape_hash(
+                model=policy.model,
+                max_tokens=policy.max_tokens,
+                temperature=policy.temperature,
+                prompt_chars=len(prompt),
+                response_format=repair_response_format,
+                tools=repair_tools,
+                tool_choice=repair_tool_choice,
+            ),
+            fallback_model_decision="primary_only",
+            estimated_input_tokens=estimated_input,
+            requested_output_tokens=policy.max_tokens,
+            clamped_output_tokens=policy.max_tokens,
+            context_window=capability.context_window,
+            attempt_number=attempt_number,
+            started_at=attempt_started_at,
+            started_monotonic=started,
+        )
         raise CandidateStageError(
             "Candidate repair attempted to change batch ownership.",
             stage=batch_stage,
@@ -1442,7 +1814,7 @@ def repair_ai_batch(
     if call_budget is not None and attempt_id:
         call_budget.record_attempt(
             CandidateProviderAttempt(
-                attempt_id=call_budget.new_attempt_id(),
+                attempt_id=attempt_id,
                 request_id=request_id,
                 candidate_revision_uuid=candidate_revision_uuid,
                 substage=batch_stage,
@@ -1469,7 +1841,7 @@ def repair_ai_batch(
                 retryable=False,
                 retry_attempted=False,
                 terminal_decision="completed",
-                parent_attempt_id=attempt_id,
+                parent_attempt_id="",
                 idempotency_key=f"{idempotency}:completed",
                 error_type="",
                 error_message_redacted="",
@@ -1501,6 +1873,9 @@ def repair_ai_batch(
                 minimum_output_allowance=MINIMUM_VALID_OUTPUT_TOKENS,
                 context_reserve=CONTEXT_RESERVE_TOKENS,
                 approval_decision="approved",
+                attempt_number=attempt_number,
+                started_at=attempt_started_at,
+                finished_at=time.time(),
             )
         )
     return BuiltCandidateBatch(

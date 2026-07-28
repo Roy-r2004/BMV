@@ -1,6 +1,6 @@
 """Phase 3B candidate provider-call budget and attempt ledger.
 
-Policy revision: 2026-07-26.candidate-provider.1
+Policy revision: see ``CANDIDATE_CALL_BUDGET_POLICY_REVISION`` below.
 
 Caps stay within the existing global ``V2_CANDIDATE_MAX_CALLS`` (default 4).
 Per-substage caps match the cold+repair path:
@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 from app.core.config import settings
 
-CANDIDATE_CALL_BUDGET_POLICY_REVISION = "2026-07-26.candidate-provider.2"
+CANDIDATE_CALL_BUDGET_POLICY_REVISION = "2026-07-28.candidate-provider.3"
 
 CandidateBudgetCode = Literal[
     "candidate_total_call_budget_exhausted",
@@ -101,6 +101,10 @@ class CandidateProviderAttempt:
     minimum_output_allowance: int | None = None
     context_reserve: int | None = None
     approval_decision: str = ""
+    attempt_number: int = 0
+    started_at: float = 0.0
+    finished_at: float = 0.0
+    last_checkpoint_status: str = ""
 
     def to_diagnostics(self) -> dict[str, Any]:
         return {
@@ -141,6 +145,10 @@ class CandidateProviderAttempt:
             "minimum_output_allowance": self.minimum_output_allowance,
             "context_reserve": self.context_reserve,
             "approval_decision": self.approval_decision,
+            "attempt_number": self.attempt_number,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "last_checkpoint_status": self.last_checkpoint_status,
         }
 
 
@@ -182,6 +190,7 @@ class CandidateCallBudget:
         self._attempts: list[CandidateProviderAttempt] = []
         self._checkpoints: dict[str, CandidateStageCheckpoint] = {}
         self._started: float = time.monotonic()
+        self._attempt_sequence: int = 0
 
     @classmethod
     def create(cls) -> "CandidateCallBudget":
@@ -311,6 +320,12 @@ class CandidateCallBudget:
                     else None
                 ),
                 approval_decision=str(item.get("approval_decision") or ""),
+                attempt_number=int(item.get("attempt_number") or 0),
+                started_at=float(item.get("started_at") or 0.0),
+                finished_at=float(item.get("finished_at") or 0.0),
+                last_checkpoint_status=str(
+                    item.get("last_checkpoint_status") or ""
+                ),
             )
             for item in (attempts or [])
         ]
@@ -394,6 +409,10 @@ class CandidateCallBudget:
             **effective_used,
         }
         budget._total_used = effective_total
+        budget._attempt_sequence = max(
+            (attempt.attempt_number for attempt in restored_attempts),
+            default=0,
+        )
         return budget
 
     def _wall_ms(self) -> int:
@@ -465,13 +484,33 @@ class CandidateCallBudget:
         return True, ""
 
     def record_attempt(self, attempt: CandidateProviderAttempt) -> None:
+        """Append, or upsert in place when ``attempt_id`` is already ledgered.
+
+        An attempt is opened as an in-flight placeholder before the paid
+        provider call starts, then updated to its terminal state in place so
+        the row stays a single durable identity from open to close instead of
+        leaving orphaned duplicates.
+        """
+        if attempt.attempt_id:
+            for index, existing in enumerate(self._attempts):
+                if existing.attempt_id == attempt.attempt_id:
+                    self._attempts[index] = attempt
+                    return
         self._attempts.append(attempt)
 
     def record_checkpoint(self, checkpoint: CandidateStageCheckpoint) -> None:
         self._checkpoints[checkpoint.substage] = checkpoint
 
+    def checkpoint_status(self, substage: str) -> str:
+        checkpoint = self._checkpoints.get(substage)
+        return checkpoint.status if checkpoint is not None else ""
+
     def new_attempt_id(self) -> str:
         return uuid.uuid4().hex
+
+    def open_attempt_number(self) -> int:
+        self._attempt_sequence += 1
+        return self._attempt_sequence
 
     def snapshot(self) -> dict[str, Any]:
         return {

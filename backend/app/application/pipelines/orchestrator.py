@@ -124,6 +124,19 @@ class GenerationPipeline:
                 (contract.get("preview_contract") or {}).get("status")
                 or "candidate_build_pending"
             )
+            # Determine failure before selecting the message: a status this
+            # code doesn't recognize must never fall through to a
+            # success-flavoured message (request #50 shipped
+            # "passed static validation" for a candidate_failed run).
+            is_failed_status = (
+                status
+                in {
+                    "candidate_contract_failed",
+                    "candidate_failed",
+                }
+                or status.endswith("failed")
+                or status.endswith("rejected")
+            )
             if status == "candidate_visual_accepted":
                 message = "V2 Tier 1 candidate passed visual evaluation"
                 detail = (
@@ -151,15 +164,21 @@ class GenerationPipeline:
             }:
                 message = "V2 Tier 1 candidate failed runtime validation"
                 detail = "Diagnostics were retained; no candidate was served"
-            else:
+            elif status == "candidate_build_pending":
                 message = "V2 Tier 1 candidate passed static validation"
                 detail = (
                     "Candidate is isolated and unserved; Phase 4 is disabled"
                 )
-            if status in {
-                "candidate_contract_failed",
-                "candidate_failed",
-            } or status.endswith("failed") or status.endswith("rejected"):
+            elif is_failed_status:
+                message = "V2 Tier 1 candidate generation failed"
+                detail = (
+                    "Diagnostics were retained; no candidate was served; "
+                    "Phase 4 was not reached"
+                )
+            else:
+                message = f"V2 Tier 1 candidate status is unrecognized ({status})"
+                detail = "Unresolved pipeline status; not a pass"
+            if is_failed_status:
                 req.status = "failed"
                 db.commit()
             _emit(
