@@ -11,6 +11,10 @@ from app.api.deps import get_ai_provider_dep, get_db, get_template_renderer_dep,
 from app.application.pipelines import blueprint, build_plans, orchestrator, proposal, reference_analysis, technical_plan, visual_demo
 from app.application.appspec import ensure_approved_app_spec
 from app.application.candidate_generation.cache import canonical_sha256
+from app.application.runtime_validation.evidence import (
+    Phase4EvidenceNotFound,
+    build_phase4_evidence,
+)
 from app.application.appspec.repository import (
     AppSpecRepository,
     load_json_object,
@@ -481,6 +485,28 @@ def get_runtime_validation_attempts(
             }
         )
     return {"request_id": request_id, "attempts": payload}
+
+
+@router.get("/requests/{request_id}/phase4-evidence")
+def get_phase4_evidence(
+    request_id: int,
+    attempt: int = Query(None, ge=1),
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    if db.get(Request, request_id) is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    try:
+        return build_phase4_evidence(
+            db,
+            request_id=request_id,
+            attempt=attempt,
+        )
+    except Phase4EvidenceNotFound:
+        raise HTTPException(
+            status_code=404,
+            detail="Runtime validation attempt not found",
+        )
 
 
 @router.get("/requests/{request_id}/run-log")
