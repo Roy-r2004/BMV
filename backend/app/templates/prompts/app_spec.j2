@@ -56,6 +56,16 @@ CONTRACT RULES:
    contain at least one existing canonical ID from the same AppSpec. Never emit
    empty tuples, placeholder IDs, or null unless the schema allows null.
    Valid: `"evidence_ids": ["EVIDENCE-CONFIRMATION"]`. Invalid: `"evidence_ids": []`.
+6b. Bind every traceability row to real proof. Each row's `capability_ids` must
+   name at least one capability whose own `requirement_ids` includes that row's
+   `requirement_id`. Each row's `evidence_ids` must name at least one evidence
+   item whose `page_id` is one of that row's `page_ids` and whose
+   `capability_ids` intersect that row's `capability_ids`. This applies to every
+   requirement, including out-of-scope or "no X exists" requirements: bind those
+   to the page and capability that shows the in-scope behaviour instead, or move
+   the requirement into `deferred_scope`. Never emit a traceability row with an
+   empty `capability_ids` or `evidence_ids`, and never write prose or markdown
+   inside the JSON.
 7. Roles describe real actors. Entities describe durable product information and
    business objects, not visual cards or arbitrary mock variables.
 8. Pages define product surfaces and responsibilities. Do not add generic pages

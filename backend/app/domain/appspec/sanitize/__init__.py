@@ -30,6 +30,12 @@ from app.domain.appspec.sanitize.trace_evidence_repair import (
     repair_trace_evidence_mismatch,
     validation_has_safe_trace_evidence_repair,
 )
+from app.domain.appspec.sanitize.trace_reference_reconcile import (
+    UNRESOLVED_TRACE_REFERENCE_CODES,
+    TraceReferenceReconcileResult,
+    reconcile_trace_references,
+    unresolved_trace_reference_issues,
+)
 
 __all__ = [
     "EmptyTraceNormalizeResult",
@@ -37,16 +43,20 @@ __all__ = [
     "PreparseNormalizeResult",
     "ReferenceIntegrityResult",
     "TraceEvidenceRepairResult",
+    "TraceReferenceReconcileResult",
+    "UNRESOLVED_TRACE_REFERENCE_CODES",
     "build_rejected_candidate_artifact",
     "classify_schema_parse_exception",
     "heal_app_spec_payload",
     "normalize_app_spec_preparse",
     "normalize_optional_empty_traces",
     "reconcile_reference_integrity",
+    "reconcile_trace_references",
     "repair_app_spec_graph",
     "repair_trace_evidence_mismatch",
     "sanitize_app_spec_payload",
     "scan_empty_traces",
+    "unresolved_trace_reference_issues",
     "validation_has_repairable_graph_issues",
     "validation_has_safe_trace_evidence_repair",
 ]

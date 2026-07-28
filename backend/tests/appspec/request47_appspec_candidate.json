@@ -1,0 +1,745 @@
+{
+  "acceptance_tests": [
+    {
+      "assertions": [
+        {
+          "description": "The client is on the Home page.",
+          "expected": "/",
+          "kind": "route",
+          "page_id": "PAGE-HOME"
+        },
+        {
+          "description": "A list of services is displayed.",
+          "evidence_id": "EVIDENCE-SERVICE-LIST",
+          "kind": "visible"
+        }
+      ],
+      "description": "Ensures the Home page displays a list of services for clients to browse.",
+      "id": "TEST-HOME-BROWSE-SERVICES",
+      "name": "Verify clients can browse services on Home page",
+      "requirement_ids": [
+        "REQ-HOME-BROWSE-SERVICES"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "The client is on the Service Detail page.",
+          "expected": "/service/:id",
+          "kind": "route",
+          "page_id": "PAGE-SERVICE-DETAIL"
+        },
+        {
+          "description": "Detailed service information is displayed.",
+          "evidence_id": "EVIDENCE-SERVICE-DETAILS",
+          "kind": "visible"
+        }
+      ],
+      "description": "Ensures that clicking a service on the Home page leads to a Service Detail page with relevant information.",
+      "id": "TEST-SERVICE-DETAIL-VIEW",
+      "name": "Verify clients can view service details",
+      "requirement_ids": [
+        "REQ-SERVICE-DETAIL-VIEW"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "The client is on the Booking page.",
+          "expected": "/book/:serviceId",
+          "kind": "route",
+          "page_id": "PAGE-BOOKING"
+        },
+        {
+          "description": "An availability calendar is displayed.",
+          "evidence_id": "EVIDENCE-AVAILABILITY-CALENDAR",
+          "kind": "visible"
+        }
+      ],
+      "description": "Ensures the Booking page presents an interactive calendar for selecting a date and time.",
+      "id": "TEST-BOOKING-AVAILABILITY",
+      "name": "Verify clients can select appointment time",
+      "requirement_ids": [
+        "REQ-BOOKING-AVAILABILITY"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "The client is on the Booking page.",
+          "expected": "/book/:serviceId",
+          "kind": "route",
+          "page_id": "PAGE-BOOKING"
+        },
+        {
+          "description": "A customer details form is displayed.",
+          "evidence_id": "EVIDENCE-CUSTOMER-DETAILS-FORM",
+          "kind": "visible"
+        }
+      ],
+      "description": "Ensures the Booking page includes a form for entering customer details.",
+      "id": "TEST-BOOKING-CUSTOMER-DETAILS",
+      "name": "Verify clients can provide customer details",
+      "requirement_ids": [
+        "REQ-BOOKING-CUSTOMER-DETAILS"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "The client is on the Confirmation page.",
+          "expected": "/confirmation/:bookingId",
+          "kind": "route",
+          "page_id": "PAGE-CONFIRMATION"
+        },
+        {
+          "description": "A booking confirmation message is displayed.",
+          "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE",
+          "kind": "visible"
+        }
+      ],
+      "description": "Ensures that after booking, a clear confirmation message is shown on the Confirmation page.",
+      "id": "TEST-CONFIRMATION-MESSAGE",
+      "name": "Verify clear booking confirmation message",
+      "requirement_ids": [
+        "REQ-CONFIRMATION-MESSAGE"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "The client is on the My Bookings page.",
+          "expected": "/my-bookings",
+          "kind": "route",
+          "page_id": "PAGE-MY-BOOKINGS"
+        },
+        {
+          "description": "A list of client's bookings is displayed.",
+          "evidence_id": "EVIDENCE-BOOKINGS-LIST",
+          "kind": "visible"
+        }
+      ],
+      "description": "Ensures the My Bookings page lists the client's booked appointments.",
+      "id": "TEST-MY-BOOKINGS-LIST",
+      "name": "Verify clients can view their bookings",
+      "requirement_ids": [
+        "REQ-MY-BOOKINGS-LIST"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "No route for an admin dashboard exists.",
+          "expected": "/admin",
+          "kind": "route",
+          "page_id": "PAGE-HOME"
+        }
+      ],
+      "description": "Confirms that an admin dashboard is not part of the product.",
+      "id": "TEST-NO-ADMIN-DASHBOARD",
+      "name": "Verify no admin dashboard exists",
+      "requirement_ids": [
+        "REQ-NO-ADMIN-DASHBOARD"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "No route for a marketplace exists.",
+          "expected": "/marketplace",
+          "kind": "route",
+          "page_id": "PAGE-HOME"
+        }
+      ],
+      "description": "Confirms that a marketplace feature is not part of the product.",
+      "id": "TEST-NO-MARKETPLACE",
+      "name": "Verify no marketplace exists",
+      "requirement_ids": [
+        "REQ-NO-MARKETPLACE"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "No route for a payment or checkout page exists.",
+          "expected": "/checkout",
+          "kind": "route",
+          "page_id": "PAGE-HOME"
+        }
+      ],
+      "description": "Confirms that payment or checkout flows are not part of the product.",
+      "id": "TEST-NO-PAYMENT-CHECKOUT",
+      "name": "Verify no payment or checkout flow exists",
+      "requirement_ids": [
+        "REQ-NO-PAYMENT-CHECKOUT"
+      ]
+    },
+    {
+      "assertions": [
+        {
+          "description": "No route for a standalone AI Features page exists.",
+          "expected": "/ai-features",
+          "kind": "route",
+          "page_id": "PAGE-HOME"
+        }
+      ],
+      "description": "Confirms that a standalone AI Features page is not part of the product.",
+      "id": "TEST-NO-AI-FEATURES",
+      "name": "Verify no standalone AI Features page exists",
+      "requirement_ids": [
+        "REQ-NO-AI-FEATURES"
+      ]
+    }
+  ],
+  "actions": [],
+  "assumptions": [],
+  "capabilities": [
+    {
+      "description": "Allows clients to view available services.",
+      "entity_ids": [],
+      "id": "CAP-BROWSE-SERVICES",
+      "name": "Browse Services",
+      "requirement_ids": [
+        "REQ-HOME-BROWSE-SERVICES"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Enables clients to see detailed information about a specific service.",
+      "entity_ids": [],
+      "id": "CAP-VIEW-SERVICE-DETAILS",
+      "name": "View Service Details",
+      "requirement_ids": [
+        "REQ-SERVICE-DETAIL-VIEW"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Provides an interface for clients to choose a date and time for their booking.",
+      "entity_ids": [],
+      "id": "CAP-SELECT-APPOINTMENT-TIME",
+      "name": "Select Appointment Time",
+      "requirement_ids": [
+        "REQ-BOOKING-AVAILABILITY"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Facilitates the collection of client information necessary for a booking.",
+      "entity_ids": [],
+      "id": "CAP-SUBMIT-CUSTOMER-DETAILS",
+      "name": "Submit Customer Details",
+      "requirement_ids": [
+        "REQ-BOOKING-CUSTOMER-DETAILS"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Displays a confirmation message after a booking is made.",
+      "entity_ids": [],
+      "id": "CAP-RECEIVE-BOOKING-CONFIRMATION",
+      "name": "Receive Booking Confirmation",
+      "requirement_ids": [
+        "REQ-CONFIRMATION-MESSAGE"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    },
+    {
+      "description": "Allows clients to see a list of their past and upcoming bookings.",
+      "entity_ids": [],
+      "id": "CAP-VIEW-MY-BOOKINGS",
+      "name": "View My Bookings",
+      "requirement_ids": [
+        "REQ-MY-BOOKINGS-LIST"
+      ],
+      "role_ids": [
+        "ROLE-CLIENT"
+      ]
+    }
+  ],
+  "deferred_scope": [],
+  "entities": [],
+  "evidence": [
+    {
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "description": "A visible list of selectable services, each with a name and brief description.",
+      "id": "EVIDENCE-SERVICE-LIST",
+      "kind": "list",
+      "name": "List of Services",
+      "page_id": "PAGE-HOME"
+    },
+    {
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAILS"
+      ],
+      "description": "Detailed information about a specific service, including description, duration, and price.",
+      "id": "EVIDENCE-SERVICE-DETAILS",
+      "kind": "text",
+      "name": "Service Details Display",
+      "page_id": "PAGE-SERVICE-DETAIL"
+    },
+    {
+      "capability_ids": [
+        "CAP-SELECT-APPOINTMENT-TIME"
+      ],
+      "description": "An interactive calendar component showing available dates and times for booking.",
+      "id": "EVIDENCE-AVAILABILITY-CALENDAR",
+      "kind": "form",
+      "name": "Availability Calendar",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "capability_ids": [
+        "CAP-SUBMIT-CUSTOMER-DETAILS"
+      ],
+      "description": "A form with input fields for client's name, email, and phone number.",
+      "id": "EVIDENCE-CUSTOMER-DETAILS-FORM",
+      "kind": "form",
+      "name": "Customer Details Form",
+      "page_id": "PAGE-BOOKING"
+    },
+    {
+      "capability_ids": [
+        "CAP-RECEIVE-BOOKING-CONFIRMATION"
+      ],
+      "description": "A prominent message indicating the booking is confirmed, possibly with a booking reference number.",
+      "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "kind": "text",
+      "name": "Booking Confirmation Message",
+      "page_id": "PAGE-CONFIRMATION"
+    },
+    {
+      "capability_ids": [
+        "CAP-VIEW-MY-BOOKINGS"
+      ],
+      "description": "A list displaying details of the client's booked services, including service name, date, and time.",
+      "id": "EVIDENCE-BOOKINGS-LIST",
+      "kind": "list",
+      "name": "List of Client Bookings",
+      "page_id": "PAGE-MY-BOOKINGS"
+    }
+  ],
+  "journeys": [],
+  "open_questions": [],
+  "pages": [
+    {
+      "action_ids": [],
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-LIST"
+      ],
+      "id": "PAGE-HOME",
+      "name": "Home",
+      "purpose": "To allow clients to browse available services.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/",
+      "state_ids": [
+        "STATE-HOME-VIEWING-SERVICES"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [],
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAILS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-DETAILS"
+      ],
+      "id": "PAGE-SERVICE-DETAIL",
+      "name": "Service Detail",
+      "purpose": "To display detailed information about a selected service.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/service",
+      "state_ids": [
+        "STATE-SERVICE-DETAIL-VIEWING"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [],
+      "capability_ids": [
+        "CAP-SELECT-APPOINTMENT-TIME",
+        "CAP-SUBMIT-CUSTOMER-DETAILS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-AVAILABILITY-CALENDAR",
+        "EVIDENCE-CUSTOMER-DETAILS-FORM"
+      ],
+      "id": "PAGE-BOOKING",
+      "name": "Booking",
+      "purpose": "To allow clients to select an appointment time and provide their details for booking.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/book",
+      "state_ids": [
+        "STATE-BOOKING-SELECT-DATE"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [],
+      "capability_ids": [
+        "CAP-RECEIVE-BOOKING-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "id": "PAGE-CONFIRMATION",
+      "name": "Confirmation",
+      "purpose": "To display a clear confirmation message after a successful booking.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/confirmation",
+      "state_ids": [
+        "STATE-CONFIRMATION-DISPLAYED"
+      ],
+      "surface": "public"
+    },
+    {
+      "action_ids": [],
+      "capability_ids": [
+        "CAP-VIEW-MY-BOOKINGS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-BOOKINGS-LIST"
+      ],
+      "id": "PAGE-MY-BOOKINGS",
+      "name": "My Bookings",
+      "purpose": "To list all bookings made by the client.",
+      "role_ids": [
+        "ROLE-CLIENT"
+      ],
+      "route": "/my-bookings",
+      "state_ids": [
+        "STATE-MY-BOOKINGS-LISTING"
+      ],
+      "surface": "public"
+    }
+  ],
+  "product_intent": {
+    "desired_outcome": "A polished booking preview customers can try end to end.",
+    "name": "Studio Flow Booking Preview",
+    "problem": "Clients need an easy way to choose a service and book an appointment.",
+    "summary": "A web application providing a simple service-booking experience for local studio clients, allowing them to browse services, view details, book appointments using an availability calendar, and manage their bookings.",
+    "target_users": [
+      "Local studio clients booking personal-care services"
+    ]
+  },
+  "requirements": [
+    {
+      "description": "The Home page must display a list of available services that clients can browse. Each service should be selectable to view more details.",
+      "id": "REQ-HOME-BROWSE-SERVICES",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Clients can browse selectable services on the Home page.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "Upon selecting a service, clients must be directed to a Service Detail page that displays comprehensive information about the chosen service.",
+      "id": "REQ-SERVICE-DETAIL-VIEW",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Clients can view service details.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The Booking page must include an interactive availability calendar allowing clients to select a date and time for their service.",
+      "id": "REQ-BOOKING-AVAILABILITY",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Clients can book with an availability calendar.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The Booking page must include a form for clients to enter their personal details required for the booking.",
+      "id": "REQ-BOOKING-CUSTOMER-DETAILS",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Clients can provide customer details for booking.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "After successfully booking, clients must be presented with a Confirmation page displaying a clear message that their booking is confirmed.",
+      "id": "REQ-CONFIRMATION-MESSAGE",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Clients receive a clear booking confirmation message.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The My Bookings page must display a list of all services the client has booked.",
+      "id": "REQ-MY-BOOKINGS-LIST",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "Clients can view a list of their bookings.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The product must not include an admin dashboard.",
+      "id": "REQ-NO-ADMIN-DASHBOARD",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "No admin dashboard.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The product must not include a marketplace feature.",
+      "id": "REQ-NO-MARKETPLACE",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "No marketplace.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The product must not include any payment or checkout flow.",
+      "id": "REQ-NO-PAYMENT-CHECKOUT",
+      "source_refs": [
+        "customer_input.business_description"
+      ],
+      "title": "No payment or checkout flow.",
+      "verification_mode": "content"
+    },
+    {
+      "description": "The product must not include a standalone AI Features page.",
+      "id": "REQ-NO-AI-FEATURES",
+      "source_refs": [
+        "customer_input.business_description",
+        "customer_input.needs_ai"
+      ],
+      "title": "No standalone AI Features page.",
+      "verification_mode": "content"
+    }
+  ],
+  "roles": [
+    {
+      "default_page_id": "PAGE-HOME",
+      "description": "A local studio client looking to book personal-care services.",
+      "id": "ROLE-CLIENT",
+      "name": "Client"
+    }
+  ],
+  "schema_version": "1.0",
+  "states": [
+    {
+      "description": "The client is on the Home page, viewing a list of available services.",
+      "evidence_ids": [],
+      "id": "STATE-HOME-VIEWING-SERVICES",
+      "initial": true,
+      "name": "Viewing Services",
+      "page_id": "PAGE-HOME",
+      "terminal": true
+    },
+    {
+      "description": "The client is on the Service Detail page, viewing information about a specific service.",
+      "evidence_ids": [],
+      "id": "STATE-SERVICE-DETAIL-VIEWING",
+      "initial": true,
+      "name": "Viewing Service Details",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "terminal": true
+    },
+    {
+      "description": "The client is on the Booking page, interacting with the availability calendar to choose a date and time.",
+      "evidence_ids": [],
+      "id": "STATE-BOOKING-SELECT-DATE",
+      "initial": true,
+      "name": "Selecting Date and Time",
+      "page_id": "PAGE-BOOKING",
+      "terminal": true
+    },
+    {
+      "description": "The client is on the Confirmation page, viewing their booking confirmation.",
+      "evidence_ids": [],
+      "id": "STATE-CONFIRMATION-DISPLAYED",
+      "initial": true,
+      "name": "Confirmation Displayed",
+      "page_id": "PAGE-CONFIRMATION",
+      "terminal": true
+    },
+    {
+      "description": "The client is on the My Bookings page, viewing a list of their appointments.",
+      "evidence_ids": [],
+      "id": "STATE-MY-BOOKINGS-LISTING",
+      "initial": true,
+      "name": "Listing My Bookings",
+      "page_id": "PAGE-MY-BOOKINGS",
+      "terminal": true
+    }
+  ],
+  "traceability": [
+    {
+      "acceptance_test_ids": [
+        "TEST-HOME-BROWSE-SERVICES"
+      ],
+      "capability_ids": [
+        "CAP-BROWSE-SERVICES"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-LIST"
+      ],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-HOME"
+      ],
+      "requirement_id": "REQ-HOME-BROWSE-SERVICES"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-SERVICE-DETAIL-VIEW"
+      ],
+      "capability_ids": [
+        "CAP-VIEW-SERVICE-DETAILS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-SERVICE-DETAILS"
+      ],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-SERVICE-DETAIL"
+      ],
+      "requirement_id": "REQ-SERVICE-DETAIL-VIEW"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BOOKING-AVAILABILITY"
+      ],
+      "capability_ids": [
+        "CAP-SELECT-APPOINTMENT-TIME"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-AVAILABILITY-CALENDAR"
+      ],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-BOOKING"
+      ],
+      "requirement_id": "REQ-BOOKING-AVAILABILITY"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-BOOKING-CUSTOMER-DETAILS"
+      ],
+      "capability_ids": [
+        "CAP-SUBMIT-CUSTOMER-DETAILS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CUSTOMER-DETAILS-FORM"
+      ],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-BOOKING"
+      ],
+      "requirement_id": "REQ-BOOKING-CUSTOMER-DETAILS"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-CONFIRMATION-MESSAGE"
+      ],
+      "capability_ids": [
+        "CAP-RECEIVE-BOOKING-CONFIRMATION"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-CONFIRMATION-MESSAGE"
+      ],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-CONFIRMATION"
+      ],
+      "requirement_id": "REQ-CONFIRMATION-MESSAGE"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-MY-BOOKINGS-LIST"
+      ],
+      "capability_ids": [
+        "CAP-VIEW-MY-BOOKINGS"
+      ],
+      "evidence_ids": [
+        "EVIDENCE-BOOKINGS-LIST"
+      ],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-MY-BOOKINGS"
+      ],
+      "requirement_id": "REQ-MY-BOOKINGS-LIST"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-NO-ADMIN-DASHBOARD"
+      ],
+      "capability_ids": [],
+      "evidence_ids": [],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-HOME"
+      ],
+      "requirement_id": "REQ-NO-ADMIN-DASHBOARD"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-NO-MARKETPLACE"
+      ],
+      "capability_ids": [],
+      "evidence_ids": [],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-HOME"
+      ],
+      "requirement_id": "REQ-NO-MARKETPLACE"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-NO-PAYMENT-CHECKOUT"
+      ],
+      "capability_ids": [],
+      "evidence_ids": [],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-HOME"
+      ],
+      "requirement_id": "REQ-NO-PAYMENT-CHECKOUT"
+    },
+    {
+      "acceptance_test_ids": [
+        "TEST-NO-AI-FEATURES"
+      ],
+      "capability_ids": [],
+      "evidence_ids": [],
+      "journey_ids": [],
+      "page_ids": [
+        "PAGE-HOME"
+      ],
+      "requirement_id": "REQ-NO-AI-FEATURES"
+    }
+  ],
+  "transitions": []
+}

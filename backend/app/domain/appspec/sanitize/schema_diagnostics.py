@@ -8,6 +8,9 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from app.domain.appspec.sanitize.empty_trace import scan_empty_traces
+from app.domain.appspec.sanitize.trace_reference_reconcile import (
+    unresolved_trace_reference_issues,
+)
 from pydantic import ValidationError
 
 TYPED_SCHEMA_ISSUE_CODES = frozenset(
@@ -33,6 +36,9 @@ TYPED_SCHEMA_ISSUE_CODES = frozenset(
         "invalid_field_constraint",
         "empty_required_trace",
         "empty_optional_trace",
+        "traceability_empty_capabilities_unresolved",
+        "traceability_empty_evidence_unresolved",
+        "traceability_empty_refs_ambiguous",
     }
 )
 
@@ -227,6 +233,11 @@ def classify_schema_parse_exception(
                         child["original_representation"] = issue.get(
                             "original_representation"
                         )
+
+        # Empty trace refs that bounded reconciliation could not prove: name the
+        # precise reason so the retry knows a unique ID is required, not any ID.
+        for issue in unresolved_trace_reference_issues(candidate_payload):
+            children.append(dict(issue))
 
     return {
         "severity": "blocking",

@@ -9,6 +9,10 @@ import copy
 from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
+from app.domain.appspec.sanitize.trace_reference_reconcile import (
+    unresolved_trace_reference_issues,
+)
+
 TraceClassification = Literal["optional", "required", "conditional"]
 
 # TraceabilityLink field policy — mirrors AppSpec schema min_length rules.
@@ -450,16 +454,29 @@ def schema_repair_trace_context(
             }
         )
 
+    unresolved = unresolved_trace_reference_issues(data)
     return {
         "canonical_ids": canonical,
         "early_trace_diagnostics": early,
         "trace_field_notes": field_notes[:40],
+        "unresolved_trace_references": unresolved[:40],
         "rules": [
             "never emit an empty array for a field with minItems=1",
             "omit optional trace fields when no trace exists",
             "required trace fields must contain at least one existing canonical ID",
             "never invent placeholder IDs, requirements, evidence, journeys, pages, or tests",
             "you may only reuse IDs already present in the rejected candidate",
+            "every traceability row needs at least one capability_id and one evidence_id",
+            "prefer a capability whose requirement_ids already name that row's requirement_id",
+            "prefer evidence whose page_id is on the row and whose capability_ids"
+            " intersect the row's capability_ids",
+        ],
+        "correction": [
+            "return the complete AppSpec JSON object",
+            "populate capability_ids and evidence_ids for every traceability row",
+            "use only IDs that already exist in this candidate",
+            "no empty arrays",
+            "no prose or markdown",
         ],
     }
 

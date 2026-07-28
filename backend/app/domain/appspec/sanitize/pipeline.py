@@ -42,6 +42,10 @@ from app.domain.appspec.sanitize.state_journeys import (
 from app.domain.appspec.sanitize.reference_integrity import (
     reconcile_reference_integrity,
 )
+from app.domain.appspec.sanitize.trace_reference_reconcile import (
+    TraceReferenceReconcileResult,
+    reconcile_trace_references,
+)
 from app.domain.appspec.sanitize.structure import (
     _sanitize_blocking_open_questions,
     _sanitize_capabilities,
@@ -53,13 +57,47 @@ from app.domain.appspec.sanitize.structure import (
     _sanitize_pages_for_internal_desk,
 )
 
+def _merge_trace_reconciliation(
+    audit: dict[str, Any],
+    result: TraceReferenceReconcileResult,
+) -> None:
+    """Fold one reconciliation pass into a single per-attempt audit record."""
+
+    seen = {
+        (item.get("trace_index"), tuple(item.get("fields_repaired") or ()))
+        for item in audit.get("records") or []
+    }
+    records = list(audit.get("records") or [])
+    for record in result.records:
+        key = (record.get("trace_index"), tuple(record.get("fields_repaired") or ()))
+        if key in seen:
+            continue
+        seen.add(key)
+        records.append(record)
+    audit["records"] = records[:80]
+    audit["actions"] = (list(audit.get("actions") or []) + result.actions)[:80]
+    audit["changed_paths"] = (
+        list(audit.get("changed_paths") or []) + result.changed_paths
+    )[:80]
+    # Later passes are authoritative for what remains unproven.
+    audit["unresolved"] = result.unresolved
+    audit["unresolved_codes"] = result.unresolved_codes
+    audit["applied"] = bool(audit.get("applied")) or result.applied
+    audit.setdefault("original_sha256", result.original_sha256)
+    audit["result_sha256"] = result.result_sha256
+    audit["result"] = "reconciled" if audit["applied"] else result.result_label
+
+
 def sanitize_app_spec_payload(
     payload: Mapping[str, Any],
     source_snapshot: Mapping[str, Any],
+    *,
+    diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return a deep copy with common schema-breaking authoring mistakes repaired."""
 
     sanitized = copy.deepcopy(dict(payload))
+    trace_reference_audit: dict[str, Any] = {}
     requirements = list(sanitized.get("requirements") or [])
     deferred_additions: list[dict[str, Any]] = []
     existing_deferred = _existing_deferred_requirement_ids(sanitized)
@@ -136,6 +174,12 @@ def sanitize_app_spec_payload(
         sanitized["evidence"] = evidence_items + synthetic_evidence
 
     _sanitize_page_evidence_membership(sanitized)
+    # Trace alignment skips rows whose capability_ids are empty, so prove those
+    # references first; alignment then closes the reciprocal capability links.
+    reconciled = reconcile_trace_references(sanitized)
+    if reconciled.applied:
+        sanitized = reconciled.payload
+    _merge_trace_reconciliation(trace_reference_audit, reconciled)
     _sanitize_traceability_alignment(sanitized)
     _sanitize_traceability_acceptance_tests(sanitized)
     _sanitize_trace_journeys_and_tests(sanitized)
@@ -159,5 +203,14 @@ def sanitize_app_spec_payload(
     _sanitize_page_evidence_membership(sanitized)
     _sanitize_evidence_capability_page_alignment(sanitized)
     _sanitize_state_and_journey_evidence(sanitized)
+
+    # Second pass: later passes can retarget pages/evidence. Idempotent when the
+    # first pass already proved every reference.
+    reconciled = reconcile_trace_references(sanitized)
+    if reconciled.applied:
+        sanitized = reconciled.payload
+    _merge_trace_reconciliation(trace_reference_audit, reconciled)
+    if diagnostics is not None and trace_reference_audit:
+        diagnostics["trace_reference_reconciliation"] = trace_reference_audit
 
     return sanitized

@@ -281,10 +281,13 @@ def _clone_candidate(
 def _sanitize_candidate(
     candidate: AppSpecCandidate | None,
     source_snapshot: dict[str, Any],
+    diagnostics: dict[str, Any] | None = None,
 ) -> AppSpecCandidate | None:
     if candidate is None:
         return None
-    sanitized = sanitize_app_spec_payload(candidate.payload, source_snapshot)
+    sanitized = sanitize_app_spec_payload(
+        candidate.payload, source_snapshot, diagnostics=diagnostics
+    )
     from app.application.services.ai_features import (
         ai_features_from_source,
         bind_ai_features_to_app_spec,
@@ -294,6 +297,26 @@ def _sanitize_candidate(
     if ai_features:
         sanitized = bind_ai_features_to_app_spec(sanitized, ai_features)
     return _clone_candidate(candidate, sanitized)
+
+
+def _with_trace_reference_audit(
+    graph_repair_audit: Mapping[str, Any],
+    trace_reference_audit: Mapping[str, Any],
+    *,
+    validation_payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Attach one trace-reference reconciliation record to the attempt audit."""
+
+    audit = dict(graph_repair_audit)
+    if not trace_reference_audit:
+        return audit
+    audit["trace_reference_reconciliation"] = {
+        **dict(trace_reference_audit),
+        "final_validation_result": (
+            "passed" if validation_payload.get("passed") else "failed"
+        ),
+    }
+    return audit
 
 
 def _heal_candidate(
@@ -768,6 +791,24 @@ def ensure_approved_app_spec(
     lineage_audit: dict[str, Any] = {"attempts": []}
     attempt_number = 0
     persisted_schema_payload_hashes: set[str] = set()
+    trace_reference_audit: dict[str, Any] = {}
+
+    def _sanitize_tracked(
+        pending: AppSpecCandidate | None,
+        snapshot: dict[str, Any],
+    ) -> AppSpecCandidate | None:
+        """Sanitize one attempt payload and keep its trace-reconciliation record."""
+
+        nonlocal trace_reference_audit
+        sink: dict[str, Any] = {}
+        sanitized = _sanitize_candidate(pending, snapshot, sink)
+        record = sink.get("trace_reference_reconciliation")
+        if isinstance(record, Mapping):
+            trace_reference_audit = {
+                **dict(record),
+                "provider_calls_used": provider.calls_used,
+            }
+        return sanitized
 
     def _record_lineage(entry: Mapping[str, Any]) -> None:
         lineage_audit.setdefault("attempts", []).append(dict(entry))
@@ -839,7 +880,11 @@ def ensure_approved_app_spec(
             runtime_policy=runtime_policy,
             deterministic_heals=deterministic_heals,
             heal_actions=heal_actions,
-            graph_repair_audit=graph_repair_audit,
+            graph_repair_audit=_with_trace_reference_audit(
+                graph_repair_audit,
+                trace_reference_audit,
+                validation_payload=validation_payload,
+            ),
             schema_diagnostics=artifact,
             lineage_audit=lineage_audit,
         )
@@ -905,7 +950,7 @@ def ensure_approved_app_spec(
 
     try:
         try:
-            candidate = _sanitize_candidate(
+            candidate = _sanitize_tracked(
                 build_app_spec_candidate(
                     source_snapshot=source_snapshot,
                     derived_context=derived_context,
@@ -1090,7 +1135,7 @@ def ensure_approved_app_spec(
                             repair_type="deterministic_schema_normalization",
                             parent_payload_sha256=original_sha,
                         )
-                        candidate = _sanitize_candidate(candidate, source_snapshot)
+                        candidate = _sanitize_tracked(candidate, source_snapshot)
                         _record_lineage(
                             {
                                 "repair_type": "deterministic_schema_normalization",
@@ -1152,7 +1197,11 @@ def ensure_approved_app_spec(
                         runtime_policy=runtime_policy,
                         deterministic_heals=deterministic_heals,
                         heal_actions=heal_actions,
-                        graph_repair_audit=graph_repair_audit,
+                        graph_repair_audit=_with_trace_reference_audit(
+                            graph_repair_audit,
+                            trace_reference_audit,
+                            validation_payload=validation_payload,
+                        ),
                         schema_diagnostics=schema_diagnostics,
                         lineage_audit=lineage_audit,
                     )
@@ -1292,7 +1341,7 @@ def ensure_approved_app_spec(
                             exc,
                         )
                         return _fallback("deterministic_validation_failed")
-                    candidate = _sanitize_candidate(repaired, source_snapshot)
+                    candidate = _sanitize_tracked(repaired, source_snapshot)
                     _record_lineage(
                         {
                             "repair_type": "ai_schema_repair",
@@ -1333,7 +1382,7 @@ def ensure_approved_app_spec(
                 if repairs < ai_budget and candidate is not None:
                     repairs += 1
                     pre_ai_errors = list(validation_payload.get("issues") or [])
-                    candidate = _sanitize_candidate(
+                    candidate = _sanitize_tracked(
                         repair_app_spec_candidate(
                             source_snapshot=source_snapshot,
                             derived_context=derived_context,
@@ -1391,7 +1440,7 @@ def ensure_approved_app_spec(
                         repair_type="deterministic_reference_integrity",
                         parent_payload_sha256=original_sha,
                     )
-                    candidate = _sanitize_candidate(candidate, source_snapshot)
+                    candidate = _sanitize_tracked(candidate, source_snapshot)
                     heal_actions.extend(integrity.applied[:40])
                     _record_lineage(
                         {
@@ -1458,7 +1507,11 @@ def ensure_approved_app_spec(
                         used_fallback=False,
                         complete=active_policy.require_complete,
                         runtime_policy=runtime_policy,
-                        graph_repair_audit=graph_repair_audit,
+                        graph_repair_audit=_with_trace_reference_audit(
+                            graph_repair_audit,
+                            trace_reference_audit,
+                            validation_payload=validation_payload,
+                        ),
                     ),
                     status=APP_SPEC_STATUS_ACCEPTED,
                     validation_passed=True,
@@ -1481,7 +1534,7 @@ def ensure_approved_app_spec(
 
             if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS:
                 repairs += 1
-                candidate = _sanitize_candidate(
+                candidate = _sanitize_tracked(
                     repair_app_spec_candidate(
                         source_snapshot=source_snapshot,
                         derived_context=derived_context,
@@ -1529,7 +1582,11 @@ def ensure_approved_app_spec(
             runtime_policy=runtime_policy,
             deterministic_heals=deterministic_heals,
             heal_actions=heal_actions,
-            graph_repair_audit=graph_repair_audit,
+            graph_repair_audit=_with_trace_reference_audit(
+                graph_repair_audit,
+                trace_reference_audit,
+                validation_payload=validation_payload,
+            ),
         )
         raise AppSpecGenerationError(
             f"AppSpec generation failed closed: {exc}",

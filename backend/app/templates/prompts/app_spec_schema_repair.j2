@@ -44,7 +44,20 @@ RULES:
     path. You may remove an optional empty trace field, or move an existing
     canonical ID into the correct required field. You may not invent a
     requirement, evidence item, journey, page, or acceptance test.
-11. Return the entire AppSpec JSON object only. No markdown fences, no commentary.
+11. Every traceability row must carry at least one `capability_id` and at least
+    one `evidence_id`. Choose a capability whose own `requirement_ids` already
+    names that row's `requirement_id`; if none does, choose a capability already
+    assigned to one of that row's `page_ids`. Choose evidence whose `page_id` is
+    one of that row's `page_ids` and whose `capability_ids` intersect that row's
+    `capability_ids`. Never leave the arrays empty and never add a new object.
+12. Return the entire AppSpec JSON object only. No markdown fences, no commentary.
+
+CORRECTION REQUIRED:
+- Return the complete AppSpec JSON.
+- Populate `capability_ids` and `evidence_ids` for every traceability row.
+- Use only IDs that already exist in this candidate.
+- No empty arrays.
+- No prose or markdown.
 
 Compact examples:
 - Valid optional trace: omit the field
