@@ -98,13 +98,97 @@ _BASELINE_SCRIPT = r"""
     }
   }
   const parse = (value) => {
-    const match = value.match(
-      /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?/
+    const raw = String(value == null ? "" : value).trim();
+    if (!raw || raw === "transparent") return null;
+    if (raw.startsWith("#")) {
+      const hex = raw.slice(1);
+      const expand = hex.length === 3 || hex.length === 4
+        ? hex.split("").map((ch) => ch + ch).join("")
+        : hex;
+      if (expand.length < 6) return null;
+      return {
+        rgb: [
+          parseInt(expand.slice(0, 2), 16),
+          parseInt(expand.slice(2, 4), 16),
+          parseInt(expand.slice(4, 6), 16),
+        ],
+        alpha: expand.length === 8
+          ? parseInt(expand.slice(6, 8), 16) / 255
+          : 1,
+      };
+    }
+    const match = raw.match(
+      /rgba?\(\s*([0-9.]+)[,\s]+([0-9.]+)[,\s]+([0-9.]+)(?:\s*[,/]\s*([0-9.%]+))?/
     );
-    if (!match || (match[4] !== undefined && Number(match[4]) === 0)) {
+    if (!match) return null;
+    let alpha = 1;
+    if (match[4] !== undefined) {
+      alpha = match[4].endsWith("%")
+        ? Number(match[4].slice(0, -1)) / 100
+        : Number(match[4]);
+    }
+    if (!Number.isFinite(alpha) || alpha <= 0) return null;
+    return { rgb: match.slice(1, 4).map(Number), alpha };
+  };
+  const blend = (top, bottom) =>
+    top.rgb.map((channel, index) =>
+      channel * top.alpha + bottom[index] * (1 - top.alpha)
+    );
+  const gradientStops = (image) => {
+    const stops = [];
+    const pattern = /#([0-9a-fA-F]{3,8})\b|rgba?\([^)]*\)/g;
+    let match;
+    while ((match = pattern.exec(String(image))) !== null) {
+      const parsed = parse(match[0]);
+      if (parsed && parsed.alpha > 0) stops.push(parsed);
+    }
+    return stops;
+  };
+  const declaredFallback = (node, style) => {
+    const declared = [
+      node.getAttribute ? node.getAttribute("data-bmv-contrast-background") : "",
+      style.getPropertyValue("--bmv-contrast-background"),
+      style.getPropertyValue("--bmv-overlay-background"),
+    ];
+    for (const value of declared) {
+      const parsed = parse(value);
+      if (parsed && parsed.alpha > 0) return parsed;
+    }
+    return null;
+  };
+  // Effective background resolution order:
+  // 1. element's first non-transparent computed backgroundColor
+  // 2. nearest ancestor's first non-transparent computed backgroundColor
+  // 3. explicit solid fallback / overlay token (attribute or CSS variable)
+  // 4. measurable gradient color stops
+  // Background images without a solid fallback occlude ancestors and remain
+  // unresolved. Transparent is never treated as white.
+  const resolveBackgrounds = (node) => {
+    if (!node || node.nodeType !== 1) return null;
+    const style = getComputedStyle(node);
+    const image = style.backgroundImage;
+    const hasImage = Boolean(image && image !== "none");
+    const own = parse(style.backgroundColor);
+    const declared = declaredFallback(node, style);
+    if (hasImage) {
+      if (own && own.alpha >= 1) return [own.rgb];
+      if (declared && declared.alpha >= 1) return [declared.rgb];
+      const stops = gradientStops(image).filter((stop) => stop.alpha >= 1);
+      if (stops.length) return stops.map((stop) => stop.rgb);
+      // url(...) or translucent gradient with no solid fallback: occludes.
       return null;
     }
-    return match.slice(1, 4).map(Number);
+    if (own && own.alpha >= 1) return [own.rgb];
+    if (declared && declared.alpha >= 1) return [declared.rgb];
+    const behind = resolveBackgrounds(node.parentElement);
+    if (!behind) return null;
+    if (own && own.alpha > 0) {
+      return behind.map((layer) => blend(own, layer));
+    }
+    if (declared && declared.alpha > 0) {
+      return behind.map((layer) => blend(declared, layer));
+    }
+    return behind;
   };
   const luminance = (rgb) => {
     const values = rgb.map((v) => {
@@ -116,12 +200,28 @@ _BASELINE_SCRIPT = r"""
   for (const node of document.querySelectorAll("[data-bmv-action-id],p,h1,h2,h3")) {
     if (!visible(node)) continue;
     const style = getComputedStyle(node);
-    const fg = parse(style.color);
-    const bg = parse(style.backgroundColor) || [255, 255, 255];
-    if (!fg) continue;
-    const ratio = (Math.max(luminance(fg), luminance(bg)) + .05)
-      / (Math.min(luminance(fg), luminance(bg)) + .05);
-    if (ratio < 3) add("obvious-computed-contrast", "serious", node, `Computed contrast ratio ${ratio.toFixed(2)} is below 3:1.`);
+    const foreground = parse(style.color);
+    if (!foreground) continue;
+    const backgrounds = resolveBackgrounds(node);
+    if (!backgrounds || !backgrounds.length) {
+      add(
+        "contrast-background-unresolved",
+        "serious",
+        node,
+        "Effective background color is unresolved, so contrast is unverifiable."
+      );
+      continue;
+    }
+    let worst = Infinity;
+    for (const background of backgrounds) {
+      const fg = foreground.alpha >= 1
+        ? foreground.rgb
+        : blend(foreground, background);
+      const ratio = (Math.max(luminance(fg), luminance(background)) + .05)
+        / (Math.min(luminance(fg), luminance(background)) + .05);
+      if (ratio < worst) worst = ratio;
+    }
+    if (worst < 3) add("obvious-computed-contrast", "serious", node, `Computed contrast ratio ${worst.toFixed(2)} is below 3:1.`);
   }
   return findings;
 }

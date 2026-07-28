@@ -38,6 +38,9 @@ from app.application.candidate_generation.service import (
     build_v2_candidate_revision,
 )
 from app.application.candidate_generation.builder import repair_ai_batch
+from app.application.candidate_generation.contract_floor import (
+    render_contract_floor_projection,
+)
 from app.application.candidate_generation.deterministic import (
     build_content_data_module,
     build_data_sources,
@@ -273,6 +276,12 @@ def _materialize(
     generated.mkdir(parents=True, exist_ok=True)
     (generated / "content-data.ts").write_text(
         content_data_module,
+        encoding="utf-8",
+    )
+    # The deterministic contract-render floor is part of every real workspace;
+    # emit it so this fixture isolates generated-data diagnostics only.
+    (generated / "contract-floor.ts").write_text(
+        render_contract_floor_projection({}),
         encoding="utf-8",
     )
     for path, source in components.items():

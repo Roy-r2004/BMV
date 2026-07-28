@@ -21,6 +21,10 @@ from app.application.candidate_generation.content_data_identifiers import (
     valid_typescript_identifier as _valid_typescript_identifier,
 )
 from app.application.candidate_generation.context import CandidateContext
+from app.application.candidate_generation.contract_floor import (
+    CONTRACT_FLOOR_MODULE_PATH,
+    render_contract_floor_module,
+)
 from app.application.candidate_generation.generated_data_api import (
     build_generated_data_api_manifest,
     exported_symbols,
@@ -59,6 +63,148 @@ def dependency_lock_sha256(template_dir: Path) -> str:
     return sha256_bytes((template_dir / "package-lock.json").read_bytes())
 
 
+_CONTRACT_FLOOR_RUNTIME_SOURCE = '''import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import type {
+  ContractFloorComponent,
+  ContractFloorHook,
+} from "../generated/contract-floor";
+
+type Props = {
+  pageId: string;
+  hooks: readonly ContractFloorComponent[];
+  children: ReactNode;
+};
+
+const REGION: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--bmv-space-md, 12px)",
+  maxWidth: "100%",
+  margin: "var(--bmv-space-lg, 16px) 0",
+  padding: "0",
+  border: "0",
+  backgroundColor: "transparent",
+  color: "var(--bmv-ink, #0f172a)",
+};
+
+const ACTION: CSSProperties = {
+  alignSelf: "flex-start",
+  maxWidth: "100%",
+  minHeight: "44px",
+  padding: "10px 16px",
+  border: "0",
+  borderRadius: "var(--bmv-radius, 6px)",
+  backgroundColor: "var(--bmv-accent, #1d4ed8)",
+  color: "var(--bmv-accent-ink, #ffffff)",
+  // Solid fallback for gradient CTAs so contrast stays measurable.
+  ["--bmv-contrast-background" as string]: "var(--bmv-accent, #1d4ed8)",
+  cursor: "pointer",
+};
+
+const TEXT: CSSProperties = {
+  margin: "0",
+  color: "var(--bmv-ink, #0f172a)",
+  backgroundColor: "var(--bmv-surface, #ffffff)",
+  ["--bmv-contrast-background" as string]: "var(--bmv-surface, #ffffff)",
+};
+
+function present(selector: string): boolean {
+  return document.querySelectorAll(selector).length > 0;
+}
+
+// A component that rendered its contract root is authoritative: its own
+// conditional states must never be duplicated by the floor. Only a component
+// that rendered no contract content at all is supplemented, and then only
+// with the hooks nothing else on the page already renders.
+function emptyComponents(
+  groups: readonly ContractFloorComponent[],
+): readonly ContractFloorComponent[] {
+  return groups
+    .filter(
+      (group) => !present(`[data-bmv-component-id="${group.componentId}"]`),
+    )
+    .map((group) => ({
+      componentId: group.componentId,
+      label: group.label,
+      hooks: group.hooks.filter(
+        (hook) => !present(`[data-bmv-${hook.kind}-id="${hook.id}"]`),
+      ),
+    }));
+}
+
+export function ContractFloor({ pageId, hooks, children }: Props) {
+  const navigate = useNavigate();
+  const [missing, setMissing] = useState<readonly ContractFloorComponent[]>([]);
+  const measured = useRef(false);
+
+  useEffect(() => {
+    measured.current = false;
+    const frame = requestAnimationFrame(() => {
+      if (measured.current) {
+        return;
+      }
+      measured.current = true;
+      setMissing(emptyComponents(hooks));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [hooks]);
+
+  if (missing.length === 0) {
+    return <>{children}</>;
+  }
+  return (
+    <>
+      {children}
+      {missing.map((group) => (
+        <section
+          key={group.componentId}
+          data-bmv-contract-floor={pageId}
+          data-bmv-component-id={group.componentId}
+          aria-label={group.label}
+          style={REGION}
+        >
+          {group.hooks.map((hook: ContractFloorHook) => {
+            if (hook.kind === "action") {
+              return (
+                <button
+                  key={hook.id}
+                  type="button"
+                  data-bmv-action-id={hook.id}
+                  data-bmv-transition-id={hook.transitionId}
+                  style={ACTION}
+                  onClick={() => {
+                    if (hook.targetRoute) {
+                      navigate(hook.targetRoute);
+                    }
+                  }}
+                >
+                  {hook.label}
+                </button>
+              );
+            }
+            if (hook.kind === "state") {
+              return (
+                <p key={hook.id} data-bmv-state-id={hook.id} style={TEXT}>
+                  {hook.label}
+                </p>
+              );
+            }
+            return (
+              <p key={hook.id} data-bmv-evidence-id={hook.id} style={TEXT}>
+                {hook.label}
+              </p>
+            );
+          })}
+        </section>
+      ))}
+    </>
+  );
+}
+'''
+
+
 def _foundation_runtime_sources() -> tuple[CandidateSourceFile, ...]:
     return (
         CandidateSourceFile(
@@ -83,6 +229,15 @@ def _foundation_runtime_sources() -> tuple[CandidateSourceFile, ...]:
                 "  font-synthesis: none;\n"
                 "  text-rendering: optimizeLegibility;\n"
                 "  color-scheme: light;\n"
+                "  --bmv-surface: #ffffff;\n"
+                "  --bmv-ink: #0f172a;\n"
+                "  --bmv-accent: #1d4ed8;\n"
+                "  --bmv-accent-ink: #ffffff;\n"
+                "  --bmv-contrast-background: #1d4ed8;\n"
+                "  --bmv-overlay-background: #0f172a;\n"
+                "  --bmv-radius: 6px;\n"
+                "  --bmv-space-md: 12px;\n"
+                "  --bmv-space-lg: 16px;\n"
                 "}\n\n"
                 "* { box-sizing: border-box; }\n"
                 "html { min-width: 320px; background: #fff; }\n"
@@ -147,6 +302,12 @@ def _foundation_runtime_sources() -> tuple[CandidateSourceFile, ...]:
             ),
         ),
         CandidateSourceFile(
+            path="src/runtime/ContractFloor.tsx",
+            file_kind="runtime",
+            owner_contract_ids=("FOUNDATION",),
+            source=_CONTRACT_FLOOR_RUNTIME_SOURCE,
+        ),
+        CandidateSourceFile(
             path="src/main.tsx",
             file_kind="infrastructure",
             owner_contract_ids=("FOUNDATION",),
@@ -187,21 +348,28 @@ def _foundation_ui_stub_sources() -> tuple[CandidateSourceFile, ...]:
     return (
         _file(
             "button",
-            'import type { ButtonHTMLAttributes, ReactNode } from "react";\n\n'
+            'import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";\n\n'
             "type Props = ButtonHTMLAttributes<HTMLButtonElement> & {\n"
             "  children?: ReactNode;\n"
             "  variant?: string;\n"
             "  size?: string;\n"
+            "};\n\n"
+            "const FALLBACK: CSSProperties = {\n"
+            '  backgroundColor: "var(--bmv-accent, #1d4ed8)",\n'
+            '  color: "var(--bmv-accent-ink, #ffffff)",\n'
+            '  ["--bmv-contrast-background" as string]: '
+            '"var(--bmv-accent, #1d4ed8)",\n'
             "};\n\n"
             "export function Button({\n"
             "  children,\n"
             "  type = \"button\",\n"
             "  variant: _variant,\n"
             "  size: _size,\n"
+            "  style,\n"
             "  ...props\n"
             "}: Props) {\n"
             "  return (\n"
-            "    <button type={type} {...props}>\n"
+            "    <button type={type} style={{ ...FALLBACK, ...style }} {...props}>\n"
             "      {children}\n"
             "    </button>\n"
             "  );\n"
@@ -688,7 +856,13 @@ def build_route_sources(
             f'        path="{page.route}"\n'
             "        element={\n"
             f'          <RoleAccess pageId="{page.page_id}" roleIds={{{roles}}}>\n'
-            f"            <{symbol} />\n"
+            "            <ContractFloor\n"
+            f'              pageId="{page.page_id}"\n'
+            "              hooks={contractFloorHooks["
+            f'"{page.page_id}"]}}\n'
+            "            >\n"
+            f"              <{symbol} />\n"
+            "            </ContractFloor>\n"
             "          </RoleAccess>\n"
             "        }\n"
             "      />"
@@ -725,7 +899,9 @@ def build_route_sources(
     app_source = (
         'import { Navigate, Route, Routes } from "react-router-dom";\n'
         + "\n".join(imports)
-        + '\nimport { RoleAccess } from "./runtime/RoleAccess";\n\n'
+        + '\nimport { ContractFloor } from "./runtime/ContractFloor";\n'
+        + '\nimport { RoleAccess } from "./runtime/RoleAccess";\n'
+        + 'import { contractFloorHooks } from "./generated/contract-floor";\n\n'
         + "export default function App() {\n"
         + "  return (\n"
         + "    <Routes>\n"
@@ -737,6 +913,14 @@ def build_route_sources(
         + "}\n"
     )
     return (
+        CandidateSourceFile(
+            path=CONTRACT_FLOOR_MODULE_PATH,
+            file_kind="route",
+            owner_contract_ids=tuple(
+                item.page_id for item in context.page_purpose.pages
+            ),
+            source=render_contract_floor_module(context),
+        ),
         CandidateSourceFile(
             path="src/generated/route-manifest.ts",
             file_kind="route",

@@ -106,6 +106,136 @@ def _issue(
     )
 
 
+_EMPTY_RENDER_RE = re.compile(
+    r"return\s*(?:\(\s*)?(?:null|undefined|<>\s*</>|<Fragment\s*/>"
+    r"|<React\.Fragment\s*/>)\s*(?:\))?\s*;?",
+)
+_STATIC_HIDDEN_RE = re.compile(
+    r"(?:\bhidden\b(?!\s*=\s*\{(?!\s*true\s*\}))"
+    r"|aria-hidden\s*=\s*[\"']true[\"']"
+    r"|display\s*:\s*[\"']none[\"']"
+    r"|visibility\s*:\s*[\"']hidden[\"'])",
+)
+_RENDERABLE_HOOK_ATTRIBUTES = (
+    "data-bmv-action-id",
+    "data-bmv-state-id",
+    "data-bmv-evidence-id",
+)
+
+
+def _enclosing_jsx_tag(source: str, index: int) -> str | None:
+    """Return the JSX opening tag that owns the marker at ``index``."""
+
+    start = source.rfind("<", 0, index)
+    if start < 0:
+        return None
+    if source.rfind(">", 0, index) > start:
+        return None
+    end = source.find(">", index)
+    if end < 0:
+        return None
+    return source[start : end + 1]
+
+
+def _marker_positions(source: str, marker: str) -> list[int]:
+    positions: list[int] = []
+    cursor = source.find(marker)
+    while cursor >= 0:
+        positions.append(cursor)
+        cursor = source.find(marker, cursor + 1)
+    return positions
+
+
+def validate_contract_render_quality(
+    *,
+    path: str,
+    source: str,
+    component_id: str,
+    action_ids: Iterable[str] = (),
+    state_ids: Iterable[str] = (),
+    evidence_ids: Iterable[str] = (),
+) -> tuple[CandidateValidationIssue, ...]:
+    """Reject required components that cannot render their accepted contract.
+
+    Textual marker presence does not prove runtime rendering. A component that
+    returns ``null`` on an accepted route, renders an empty fragment, or hides
+    its canonical hooks behind static ``hidden``/``display:none`` produces zero
+    DOM markers and fails Phase 4 even though Phase 3B passed.
+    """
+
+    issues: list[CandidateValidationIssue] = []
+    empty_render = _EMPTY_RENDER_RE.search(source)
+    if empty_render is not None:
+        issues.append(
+            _issue(
+                "component_renders_no_contract_content",
+                (
+                    "A required business component must always render its "
+                    "accepted contract; it cannot return null, undefined, or "
+                    "an empty fragment."
+                ),
+                path=path,
+                related_ids=(component_id,),
+            )
+        )
+    root_marker = f'data-bmv-component-id="{component_id}"'
+    root_positions = _marker_positions(source, root_marker)
+    if root_positions and not any(
+        _enclosing_jsx_tag(source, index) is not None for index in root_positions
+    ):
+        issues.append(
+            _issue(
+                "component_contract_root_not_rendered",
+                (
+                    "The canonical component ID must be an attribute on a "
+                    "rendered element, not free-standing text."
+                ),
+                path=path,
+                related_ids=(component_id,),
+            )
+        )
+    for attribute, canonical_ids in (
+        ("data-bmv-action-id", tuple(action_ids)),
+        ("data-bmv-state-id", tuple(state_ids)),
+        ("data-bmv-evidence-id", tuple(evidence_ids)),
+    ):
+        for canonical_id in canonical_ids:
+            marker = f'{attribute}="{canonical_id}"'
+            positions = _marker_positions(source, marker)
+            if not positions:
+                continue
+            tags = [
+                tag
+                for tag in (
+                    _enclosing_jsx_tag(source, index) for index in positions
+                )
+                if tag is not None
+            ]
+            if not tags:
+                issues.append(
+                    _issue(
+                        "contract_hook_not_rendered",
+                        f"{canonical_id} is not an attribute on a rendered element.",
+                        path=path,
+                        related_ids=(component_id, canonical_id),
+                    )
+                )
+                continue
+            if all(_STATIC_HIDDEN_RE.search(tag) is not None for tag in tags):
+                issues.append(
+                    _issue(
+                        "contract_hook_permanently_hidden",
+                        (
+                            f"{canonical_id} is only rendered on a permanently "
+                            "hidden element."
+                        ),
+                        path=path,
+                        related_ids=(component_id, canonical_id),
+                    )
+                )
+    return tuple(issues)
+
+
 def batch_sources(
     batch: GeneratedCandidateBatch,
 ) -> tuple[CandidateSourceFile, ...]:
@@ -541,6 +671,17 @@ def validate_generated_batch(
                                 related_ids=(component.component_id, canonical_id),
                             )
                         )
+            for owned in owned_files:
+                issues.extend(
+                    validate_contract_render_quality(
+                        path=owned.path,
+                        source=owned.source,
+                        component_id=component.component_id,
+                        action_ids=component.action_ids,
+                        state_ids=component.state_ids,
+                        evidence_ids=component.evidence_ids,
+                    )
+                )
         for interaction in context.interactions.interactions:
             for transition in interaction.transitions:
                 if (
@@ -737,6 +878,7 @@ def validate_candidate_workspace(
         "ia_mobile_bindings",
         "legacy_scaffold_absence",
         "business_component_usage",
+        "contract_render_quality",
     )
     issues: list[CandidateValidationIssue] = []
     expected_by_path = {item.path: item for item in expected_sources}
@@ -878,6 +1020,23 @@ def validate_candidate_workspace(
             if item.file_kind == "page"
         ),
     )
+    component_files_by_owner: dict[str, list[GeneratedCandidateFile]] = {}
+    for item in component_batch.files:
+        for owner_id in item.owner_contract_ids:
+            component_files_by_owner.setdefault(owner_id, []).append(item)
+    for component in context.business_components.components:
+        for owned in component_files_by_owner.get(component.component_id, ()):
+            issues.extend(
+                validate_contract_render_quality(
+                    path=owned.path,
+                    source=owned.source,
+                    component_id=component.component_id,
+                    action_ids=component.action_ids,
+                    state_ids=component.state_ids,
+                    evidence_ids=component.evidence_ids,
+                )
+            )
+
     if component_batch.files and page_batch.files:
         registry, registry_issues = build_business_component_registry(
             context=context,
@@ -919,5 +1078,6 @@ __all__ = [
     "heal_missing_transition_hooks",
     "normalize_generated_candidate_types_in_batch",
     "validate_candidate_workspace",
+    "validate_contract_render_quality",
     "validate_generated_batch",
 ]

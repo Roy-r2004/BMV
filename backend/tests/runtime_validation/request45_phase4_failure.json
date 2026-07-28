@@ -1,0 +1,688 @@
+{
+  "request_id": 45,
+  "attempt_sequence": 1,
+  "failure_codes": {
+    "failure_stage": "runtime_gates",
+    "failure_code": "accessibility_failed",
+    "first_error_location": null,
+    "diagnostics": [
+      "route_gate_failed",
+      "journey_gate_failed",
+      "accessibility_baseline_failed"
+    ],
+    "build_failure_code": null
+  },
+  "last_successful_substage": "preview_identity",
+  "counts": {
+    "expected_route_viewport_count": 15,
+    "expected_journey_count": 6,
+    "route_results": 15,
+    "journey_results": 6,
+    "accessibility_results": 15,
+    "screenshots": 15,
+    "failed_routes": 6,
+    "failed_journeys": 5,
+    "failed_accessibility": 6
+  },
+  "console_errors": [],
+  "network_failures": [],
+  "network_diagnostics": [],
+  "screenshot_count": 15,
+  "preview_identity_verified": true,
+  "typescript_diagnostic_count": 0,
+  "vite_build_passed": true,
+  "route_results": [
+    {
+      "route": "/",
+      "page_id": "PAGE-HOME",
+      "viewport": "mobile",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/",
+      "page_id": "PAGE-HOME",
+      "viewport": "tablet",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/",
+      "page_id": "PAGE-HOME",
+      "viewport": "desktop",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/services",
+      "page_id": "PAGE-SERVICE-LIST",
+      "viewport": "mobile",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/services",
+      "page_id": "PAGE-SERVICE-LIST",
+      "viewport": "tablet",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/services",
+      "page_id": "PAGE-SERVICE-LIST",
+      "viewport": "desktop",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/services/v2",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "viewport": "mobile",
+      "passed": false,
+      "failed_checks": [
+        "component_markers_verified",
+        "contract_hooks_verified",
+        "clipping_verified",
+        "primary_action_reachable"
+      ],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/services/v2",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "viewport": "tablet",
+      "passed": false,
+      "failed_checks": [
+        "component_markers_verified",
+        "contract_hooks_verified",
+        "clipping_verified",
+        "primary_action_reachable"
+      ],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/services/v2",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "viewport": "desktop",
+      "passed": false,
+      "failed_checks": [
+        "component_markers_verified",
+        "contract_hooks_verified",
+        "clipping_verified",
+        "primary_action_reachable"
+      ],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/booking",
+      "page_id": "PAGE-BOOKING",
+      "viewport": "mobile",
+      "passed": false,
+      "failed_checks": [
+        "component_markers_verified",
+        "contract_hooks_verified",
+        "clipping_verified",
+        "primary_action_reachable"
+      ],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/booking",
+      "page_id": "PAGE-BOOKING",
+      "viewport": "tablet",
+      "passed": false,
+      "failed_checks": [
+        "component_markers_verified",
+        "contract_hooks_verified",
+        "clipping_verified",
+        "primary_action_reachable"
+      ],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/booking",
+      "page_id": "PAGE-BOOKING",
+      "viewport": "desktop",
+      "passed": false,
+      "failed_checks": [
+        "component_markers_verified",
+        "contract_hooks_verified",
+        "clipping_verified",
+        "primary_action_reachable"
+      ],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/confirmation",
+      "page_id": "PAGE-CONFIRMATION",
+      "viewport": "mobile",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/confirmation",
+      "page_id": "PAGE-CONFIRMATION",
+      "viewport": "tablet",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    },
+    {
+      "route": "/confirmation",
+      "page_id": "PAGE-CONFIRMATION",
+      "viewport": "desktop",
+      "passed": true,
+      "failed_checks": [],
+      "console_errors": [],
+      "page_errors": [],
+      "request_failures": []
+    }
+  ],
+  "journey_results": [
+    {
+      "journey_id": "JOURNEY-HAPPY-PATH-BOOKING",
+      "action_id": "ACTION-NAVIGATE-TO-SERVICES",
+      "route": "/",
+      "passed": true,
+      "failed_steps": [],
+      "step_count": 9
+    },
+    {
+      "journey_id": "JOURNEY-HAPPY-PATH-BOOKING",
+      "action_id": "ACTION-VIEW-SERVICE-DETAIL",
+      "route": "/services",
+      "passed": false,
+      "failed_steps": [
+        {
+          "index": 4,
+          "step": "resulting_state",
+          "canonical_id": "STATE-SERVICE-DETAIL-VIEWED",
+          "selector": "[data-bmv-state-id=\"STATE-SERVICE-DETAIL-VIEWED\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 5,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-SERVICE-DETAIL-CONTENT",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-SERVICE-DETAIL-CONTENT\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 6,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-BOOK-NOW-BUTTON",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-BOOK-NOW-BUTTON\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 7,
+          "step": "reduced_motion",
+          "canonical_id": "ACTION-VIEW-SERVICE-DETAIL",
+          "selector": "",
+          "expected": "interaction remains functional",
+          "observed": "failed"
+        }
+      ],
+      "step_count": 8
+    },
+    {
+      "journey_id": "JOURNEY-HAPPY-PATH-BOOKING",
+      "action_id": "ACTION-INITIATE-BOOKING",
+      "route": "/services/v2",
+      "passed": false,
+      "failed_steps": [
+        {
+          "index": 1,
+          "step": "initial_state",
+          "canonical_id": "STATE-SERVICE-DETAIL-VIEWED",
+          "selector": "[data-bmv-state-id=\"STATE-SERVICE-DETAIL-VIEWED\"]",
+          "expected": "visible",
+          "observed": "0"
+        },
+        {
+          "index": 2,
+          "step": "action",
+          "canonical_id": "ACTION-INITIATE-BOOKING",
+          "selector": "[data-bmv-action-id=\"ACTION-INITIATE-BOOKING\"]",
+          "expected": "one enabled visible trigger",
+          "observed": "0"
+        },
+        {
+          "index": 3,
+          "step": "transition",
+          "canonical_id": "TRANSITION-DETAIL-TO-BOOKING",
+          "selector": "[data-bmv-transition-id=\"TRANSITION-DETAIL-TO-BOOKING\"]",
+          "expected": "canonical transition marker",
+          "observed": "0"
+        },
+        {
+          "index": 4,
+          "step": "resulting_state",
+          "canonical_id": "STATE-BOOKING-FORM-DISPLAYED",
+          "selector": "[data-bmv-state-id=\"STATE-BOOKING-FORM-DISPLAYED\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 5,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-AVAILABILITY-CALENDAR",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-AVAILABILITY-CALENDAR\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 6,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-BOOKING-FORM",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-BOOKING-FORM\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 7,
+          "step": "reduced_motion",
+          "canonical_id": "ACTION-INITIATE-BOOKING",
+          "selector": "",
+          "expected": "interaction remains functional",
+          "observed": "failed"
+        }
+      ],
+      "step_count": 8
+    },
+    {
+      "journey_id": "JOURNEY-HAPPY-PATH-BOOKING",
+      "action_id": "ACTION-SELECT-DATE-TIME",
+      "route": "/booking",
+      "passed": false,
+      "failed_steps": [
+        {
+          "index": 1,
+          "step": "initial_state",
+          "canonical_id": "STATE-BOOKING-FORM-DISPLAYED",
+          "selector": "[data-bmv-state-id=\"STATE-BOOKING-FORM-DISPLAYED\"]",
+          "expected": "visible",
+          "observed": "0"
+        },
+        {
+          "index": 5,
+          "step": "action",
+          "canonical_id": "ACTION-SELECT-DATE-TIME",
+          "selector": "[data-bmv-action-id=\"ACTION-SELECT-DATE-TIME\"]",
+          "expected": "one enabled visible trigger",
+          "observed": "0"
+        },
+        {
+          "index": 6,
+          "step": "transition",
+          "canonical_id": "TRANSITION-BOOKING-SELECT-AVAILABILITY",
+          "selector": "[data-bmv-transition-id=\"TRANSITION-BOOKING-SELECT-AVAILABILITY\"]",
+          "expected": "canonical transition marker",
+          "observed": "0"
+        },
+        {
+          "index": 7,
+          "step": "resulting_state",
+          "canonical_id": "STATE-AVAILABILITY-SELECTED",
+          "selector": "[data-bmv-state-id=\"STATE-AVAILABILITY-SELECTED\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 8,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-SELECTED-DATE-TIME",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-SELECTED-DATE-TIME\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 11,
+          "step": "reduced_motion",
+          "canonical_id": "ACTION-SELECT-DATE-TIME",
+          "selector": "",
+          "expected": "interaction remains functional",
+          "observed": "failed"
+        }
+      ],
+      "step_count": 12
+    },
+    {
+      "journey_id": "JOURNEY-HAPPY-PATH-BOOKING",
+      "action_id": "ACTION-FILL-BOOKING-DETAILS",
+      "route": "/booking",
+      "passed": false,
+      "failed_steps": [
+        {
+          "index": 1,
+          "step": "initial_state",
+          "canonical_id": "STATE-AVAILABILITY-SELECTED",
+          "selector": "[data-bmv-state-id=\"STATE-AVAILABILITY-SELECTED\"]",
+          "expected": "visible",
+          "observed": "0"
+        },
+        {
+          "index": 5,
+          "step": "action",
+          "canonical_id": "ACTION-FILL-BOOKING-DETAILS",
+          "selector": "[data-bmv-action-id=\"ACTION-FILL-BOOKING-DETAILS\"]",
+          "expected": "one enabled visible trigger",
+          "observed": "0"
+        },
+        {
+          "index": 6,
+          "step": "transition",
+          "canonical_id": "TRANSITION-BOOKING-FILL-DETAILS",
+          "selector": "[data-bmv-transition-id=\"TRANSITION-BOOKING-FILL-DETAILS\"]",
+          "expected": "canonical transition marker",
+          "observed": "0"
+        },
+        {
+          "index": 7,
+          "step": "resulting_state",
+          "canonical_id": "STATE-BOOKING-DETAILS-ENTERED",
+          "selector": "[data-bmv-state-id=\"STATE-BOOKING-DETAILS-ENTERED\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 8,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-CUSTOMER-DETAILS-FILLED",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-CUSTOMER-DETAILS-FILLED\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 11,
+          "step": "reduced_motion",
+          "canonical_id": "ACTION-FILL-BOOKING-DETAILS",
+          "selector": "",
+          "expected": "interaction remains functional",
+          "observed": "failed"
+        }
+      ],
+      "step_count": 12
+    },
+    {
+      "journey_id": "JOURNEY-HAPPY-PATH-BOOKING",
+      "action_id": "ACTION-SUBMIT-BOOKING",
+      "route": "/booking",
+      "passed": false,
+      "failed_steps": [
+        {
+          "index": 1,
+          "step": "initial_state",
+          "canonical_id": "STATE-BOOKING-DETAILS-ENTERED",
+          "selector": "[data-bmv-state-id=\"STATE-BOOKING-DETAILS-ENTERED\"]",
+          "expected": "visible",
+          "observed": "0"
+        },
+        {
+          "index": 2,
+          "step": "action",
+          "canonical_id": "ACTION-SUBMIT-BOOKING",
+          "selector": "[data-bmv-action-id=\"ACTION-SUBMIT-BOOKING\"]",
+          "expected": "one enabled visible trigger",
+          "observed": "0"
+        },
+        {
+          "index": 3,
+          "step": "transition",
+          "canonical_id": "TRANSITION-BOOKING-SUBMIT-TO-CONFIRMATION",
+          "selector": "[data-bmv-transition-id=\"TRANSITION-BOOKING-SUBMIT-TO-CONFIRMATION\"]",
+          "expected": "canonical transition marker",
+          "observed": "0"
+        },
+        {
+          "index": 4,
+          "step": "resulting_state",
+          "canonical_id": "STATE-BOOKING-CONFIRMED",
+          "selector": "[data-bmv-state-id=\"STATE-BOOKING-CONFIRMED\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 5,
+          "step": "evidence",
+          "canonical_id": "EVIDENCE-CONFIRMATION-MESSAGE",
+          "selector": "[data-bmv-evidence-id=\"EVIDENCE-CONFIRMATION-MESSAGE\"]",
+          "expected": "present",
+          "observed": "0"
+        },
+        {
+          "index": 8,
+          "step": "reduced_motion",
+          "canonical_id": "ACTION-SUBMIT-BOOKING",
+          "selector": "",
+          "expected": "interaction remains functional",
+          "observed": "failed"
+        }
+      ],
+      "step_count": 9
+    }
+  ],
+  "accessibility_results": [
+    {
+      "route": "/",
+      "page_id": "PAGE-HOME",
+      "viewport": "mobile",
+      "passed": false,
+      "findings": [
+        {
+          "rule_id": "heading-hierarchy",
+          "severity": "moderate",
+          "selector": "h3",
+          "diagnostic_evidence": "Heading level jumps from h1 to h3."
+        },
+        {
+          "rule_id": "obvious-computed-contrast",
+          "severity": "serious",
+          "selector": "[data-bmv-action-id=\"ACTION-NAVIGATE-TO-SERVICES\"]",
+          "diagnostic_evidence": "Computed contrast ratio 1.00 is below 3:1."
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "page_id": "PAGE-HOME",
+      "viewport": "tablet",
+      "passed": false,
+      "findings": [
+        {
+          "rule_id": "heading-hierarchy",
+          "severity": "moderate",
+          "selector": "h3",
+          "diagnostic_evidence": "Heading level jumps from h1 to h3."
+        },
+        {
+          "rule_id": "obvious-computed-contrast",
+          "severity": "serious",
+          "selector": "[data-bmv-action-id=\"ACTION-NAVIGATE-TO-SERVICES\"]",
+          "diagnostic_evidence": "Computed contrast ratio 1.00 is below 3:1."
+        }
+      ]
+    },
+    {
+      "route": "/",
+      "page_id": "PAGE-HOME",
+      "viewport": "desktop",
+      "passed": false,
+      "findings": [
+        {
+          "rule_id": "heading-hierarchy",
+          "severity": "moderate",
+          "selector": "h3",
+          "diagnostic_evidence": "Heading level jumps from h1 to h3."
+        },
+        {
+          "rule_id": "obvious-computed-contrast",
+          "severity": "serious",
+          "selector": "[data-bmv-action-id=\"ACTION-NAVIGATE-TO-SERVICES\"]",
+          "diagnostic_evidence": "Computed contrast ratio 1.00 is below 3:1."
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "page_id": "PAGE-SERVICE-LIST",
+      "viewport": "mobile",
+      "passed": false,
+      "findings": [
+        {
+          "rule_id": "heading-hierarchy",
+          "severity": "moderate",
+          "selector": "h3",
+          "diagnostic_evidence": "Heading level jumps from h1 to h3."
+        },
+        {
+          "rule_id": "obvious-computed-contrast",
+          "severity": "serious",
+          "selector": "[data-bmv-action-id=\"ACTION-VIEW-SERVICE-DETAIL\"]",
+          "diagnostic_evidence": "Computed contrast ratio 1.00 is below 3:1."
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "page_id": "PAGE-SERVICE-LIST",
+      "viewport": "tablet",
+      "passed": false,
+      "findings": [
+        {
+          "rule_id": "heading-hierarchy",
+          "severity": "moderate",
+          "selector": "h3",
+          "diagnostic_evidence": "Heading level jumps from h1 to h3."
+        },
+        {
+          "rule_id": "obvious-computed-contrast",
+          "severity": "serious",
+          "selector": "[data-bmv-action-id=\"ACTION-VIEW-SERVICE-DETAIL\"]",
+          "diagnostic_evidence": "Computed contrast ratio 1.00 is below 3:1."
+        }
+      ]
+    },
+    {
+      "route": "/services",
+      "page_id": "PAGE-SERVICE-LIST",
+      "viewport": "desktop",
+      "passed": false,
+      "findings": [
+        {
+          "rule_id": "heading-hierarchy",
+          "severity": "moderate",
+          "selector": "h3",
+          "diagnostic_evidence": "Heading level jumps from h1 to h3."
+        },
+        {
+          "rule_id": "obvious-computed-contrast",
+          "severity": "serious",
+          "selector": "[data-bmv-action-id=\"ACTION-VIEW-SERVICE-DETAIL\"]",
+          "diagnostic_evidence": "Computed contrast ratio 1.00 is below 3:1."
+        }
+      ]
+    },
+    {
+      "route": "/services/v2",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "viewport": "mobile",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/services/v2",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "viewport": "tablet",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/services/v2",
+      "page_id": "PAGE-SERVICE-DETAIL",
+      "viewport": "desktop",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/booking",
+      "page_id": "PAGE-BOOKING",
+      "viewport": "mobile",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/booking",
+      "page_id": "PAGE-BOOKING",
+      "viewport": "tablet",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/booking",
+      "page_id": "PAGE-BOOKING",
+      "viewport": "desktop",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/confirmation",
+      "page_id": "PAGE-CONFIRMATION",
+      "viewport": "mobile",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/confirmation",
+      "page_id": "PAGE-CONFIRMATION",
+      "viewport": "tablet",
+      "passed": true,
+      "findings": []
+    },
+    {
+      "route": "/confirmation",
+      "page_id": "PAGE-CONFIRMATION",
+      "viewport": "desktop",
+      "passed": true,
+      "findings": []
+    }
+  ]
+}

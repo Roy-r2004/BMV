@@ -89,7 +89,7 @@ def browser_cache_keys(
             {
                 **shared,
                 "scanner": "BaselineAccessibilityScanner",
-                "scanner_policy_revision": "2026-07-24.1",
+                "scanner_policy_revision": "2026-07-28.effective-background.1",
                 "viewport_policy": [
                     item.model_dump(mode="json") for item in VIEWPORTS
                 ],

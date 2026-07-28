@@ -26,6 +26,7 @@ _DETERMINISTIC_EXTENSIONS = {
     "src/App.tsx",
     "src/generated/content-data.json",
     "src/generated/content-data.ts",
+    "src/generated/contract-floor.ts",
     "src/generated/navigation.ts",
     "src/generated/route-manifest.ts",
 }
