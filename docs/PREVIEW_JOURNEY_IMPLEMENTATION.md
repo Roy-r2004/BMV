@@ -23,7 +23,7 @@ Evidence gathered before writing any code:
 | Nav derived from all routes then truncated at 8 | `assemble.py:373`, `quality_gate.py:219` (`nav_clutter`) |
 | No detail-param contract anywhere | `useParams` appears only in an allow-list |
 | Only link validator in the gate is AI-hub scoped | `dead_ai_step_link` |
-| `public-catalog` absent from all 6 recipes | `design_recipes.py` |
+| `public-catalog` absent from all 6 recipes | `design_recipes.py` — **fixed**, see Outcome |
 
 ## Decisions taken (owner: rr@phoeniciancapital.com)
 
@@ -78,8 +78,9 @@ dead links. Give it a `detailBase` like `CatalogGrid` and wire
 services → book → confirm.
 
 ### E — Nav from the journey spine
-`assemble.py` builds nav from the spine; secondary routes stay reachable by link
-but leave the chrome. `nav_clutter`'s truncation is replaced.
+`assemble.py` ranks nav by the spine; secondary routes stay reachable by link but
+leave the chrome. Note: the *ranking* is journey-driven now, but `nav_clutter`'s
+cap remains as a backstop — it was not removed.
 
 ### F — Barber pack + vertical audit
 A barbershop currently resolves to `spa-wellness-home`, and a barbershop is not a
