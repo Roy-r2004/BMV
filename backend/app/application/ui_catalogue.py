@@ -30,6 +30,7 @@ _SLOT_COMPONENT_DEFAULTS = {
     "hero": "MarketingHero",
     "features": "FeatureBento",
     "showcase": "ProductShowcase",
+    "inquire": "InquiryPanel",
     "process": "ProcessSection",
     "testimonials": "TestimonialRail",
     "cta": "CTABand",

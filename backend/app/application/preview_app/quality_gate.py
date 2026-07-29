@@ -14,6 +14,7 @@ from typing import Any
 from app.application.preview_app.catalogue_contract.scaffold import (
     _is_directory_listing_route,
     _is_schedule_listing_route,
+    has_listing_face_component,
     minimal_catalogue_page_scaffold,
 )
 from app.application.preview_app.catalogue_contract.slots import catalogue_route_for_file
@@ -127,7 +128,7 @@ def evaluate_quality_gate(
                 )
         if _is_directory_listing_route(rel, rt):
             if src and (
-                "ProductShowcase" not in src
+                not has_listing_face_component(src)
                 or "seed.hero" in src
                 or "// directory listing scaffold" not in src
             ):
@@ -467,7 +468,7 @@ def heal_quality_gate(
             )
             healed.append(rel)
         if _is_directory_listing_route(rel, rt) and src and (
-            "ProductShowcase" not in src
+            not has_listing_face_component(src)
             or "seed.hero" in src
             or "// directory listing scaffold" not in src
         ):

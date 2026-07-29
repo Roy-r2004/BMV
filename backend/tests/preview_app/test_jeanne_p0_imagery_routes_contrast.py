@@ -85,7 +85,12 @@ def test_gallery_scaffold_does_not_invent_booking() -> None:
     assert "/book-appointment" not in tsx
     assert "Book a visit" not in tsx
     assert "View collection" in tsx or "Inquire" in tsx
-    assert 'href: "/gallery"' in tsx or 'href: "/about"' in tsx
+    # The CTA must land somewhere that exists. This used to accept "/about",
+    # which is not in the storefront route table (`/`, `/gallery`, `/gallery/:id`)
+    # — so the browse page's only CTA was a dead link. "#catalog" is the anchor
+    # CatalogGrid renders on this very page.
+    assert 'href: "#catalog"' in tsx or 'href: "/gallery"' in tsx
+    assert '"/about"' not in tsx
 
 
 def test_detail_scaffold_inquire_cta() -> None:
@@ -104,6 +109,12 @@ def test_detail_scaffold_inquire_cta() -> None:
     assert "/book-appointment" not in tsx
     assert "Book a visit" not in tsx
     assert "Inquire about this piece" in tsx
+    # Pinning the label alone passed while the CTA pointed at "/about" — a route
+    # the storefront does not have. The terminal step of the happy path has to
+    # land on something, so assert the destination and that it exists on the page.
+    assert 'href: "#inquire"' in tsx
+    assert '"/about"' not in tsx
+    assert "InquiryPanel" in tsx, "detail page must render the #inquire target"
 
 
 def test_write_app_adds_gallery_slug_aliases(tmp_path: Path) -> None:

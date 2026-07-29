@@ -51,7 +51,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             ],
             "public-service": ["hero", "credentials", "features", "testimonials", "cta", "footer"],
             "public-booking": ["hero", "credentials", "booking", "footer"],
-            "public-detail": ["hero", "credentials", "showcase", "testimonials", "cta", "footer"],
+            "public-detail": ["hero", "credentials", "showcase", "testimonials", "inquire", "cta", "footer"],
         },
         "prompt": (
             "RECIPE editorial (Manus-clear): brand-first hero — one name, one headline, one sentence, "
@@ -111,7 +111,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             ],
             "public-service": ["hero", "features", "process", "cta", "footer"],
             "public-booking": ["hero", "features", "booking", "footer"],
-            "public-detail": ["hero", "features", "showcase", "cta", "footer"],
+            "public-detail": ["hero", "features", "showcase", "inquire", "cta", "footer"],
             "ops-dashboard": ["header", "kpis", "filters", "table", "chart", "activity", "risk"],
         },
         "prompt": (
@@ -338,7 +338,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             ],
             "public-service": ["hero", "showcase", "features", "cta", "footer"],
             "public-booking": ["hero", "showcase", "booking", "cta", "footer"],
-            "public-detail": ["hero", "showcase", "features", "cta", "footer"],
+            "public-detail": ["hero", "showcase", "features", "inquire", "cta", "footer"],
         },
         "prompt": (
             "RECIPE bold-retail: product/showcase first, sharp corners, high-contrast type, "
@@ -395,7 +395,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             ],
             "public-service": ["hero", "showcase", "process", "cta", "footer"],
             "public-booking": ["hero", "showcase", "booking", "footer"],
-            "public-detail": ["hero", "showcase", "testimonials", "cta", "footer"],
+            "public-detail": ["hero", "showcase", "testimonials", "inquire", "cta", "footer"],
         },
         "prompt": (
             "RECIPE nocturne: dark luminous surfaces, luminous brand accents, cinematic split heroes, "
@@ -451,7 +451,7 @@ RECIPES: dict[str, dict[str, Any]] = {
             ],
             "public-service": ["hero", "process", "features", "testimonials", "cta", "footer"],
             "public-booking": ["hero", "process", "credentials", "booking", "footer"],
-            "public-detail": ["hero", "process", "showcase", "credentials", "footer"],
+            "public-detail": ["hero", "process", "showcase", "credentials", "inquire", "footer"],
         },
         "prompt": (
             "RECIPE craft (premium maker): ATELIER hero — brand as dominant display type on a stone "

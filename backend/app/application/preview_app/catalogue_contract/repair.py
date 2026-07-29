@@ -11,6 +11,7 @@ from app.application.preview_app.catalogue_contract.scaffold import (
     _is_directory_listing_route,
     _is_schedule_listing_route,
     _safe_slot_jsx,
+    has_listing_face_component,
     minimal_catalogue_page_scaffold,
 )
 from app.application.preview_app.catalogue_contract.slots import (
@@ -339,7 +340,7 @@ def enforce_catalogue_page_contract(
         or _is_directory_listing_route(file_path, route)
     )
     if is_listing_face and (
-        "ProductShowcase" not in (content or "")
+        not has_listing_face_component(content or "")
         or "seed.hero" in (content or "")
         or _DIRECTORY_FACE_MARKER not in (content or "")
     ):

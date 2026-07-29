@@ -32,6 +32,7 @@ _SLOT_COMPONENT = {
     "hero": "MarketingHero",
     "features": "FeatureBento",
     "showcase": "ProductShowcase",
+    "inquire": "InquiryPanel",
     "process": "ProcessSection",
     "testimonials": "TestimonialRail",
     "cta": "CTABand",
@@ -58,6 +59,75 @@ _SLOT_COMPONENT = {
     "ticker": "DeskTicker",
     "expenses": "ExpenseQueue",
 }
+
+# Per-skeleton slot component overrides. The browse page's showcase slot must be
+# a CatalogGrid: ProductShowcase is an editorial mosaic that destructures
+# [featured, secondary, tertiary] and therefore renders at most three items, so a
+# twelve-piece collection silently showed three and the rest were unreachable.
+_SKELETON_SLOT_COMPONENT: dict[str, dict[str, str]] = {
+    "public-catalog": {"showcase": "CatalogGrid"},
+}
+
+
+def slot_component_for(slot: str, skeleton_id: str = "") -> str | None:
+    """Component that fills ``slot``, honouring per-skeleton overrides."""
+    override = _SKELETON_SLOT_COMPONENT.get(skeleton_id or "", {})
+    if slot in override:
+        return override[slot]
+    return _SLOT_COMPONENT.get(slot)
+
+
+# A listing face may render its items with either component. CatalogGrid is
+# correct (renders all items, links each); ProductShowcase is accepted so pages
+# generated before the grid existed still validate instead of healing forever.
+LISTING_FACE_COMPONENTS = ("CatalogGrid", "ProductShowcase")
+
+
+def has_listing_face_component(content: str) -> bool:
+    """True when a listing page renders its items through a catalogue component."""
+    text = content or ""
+    return any(name in text for name in LISTING_FACE_COMPONENTS)
+
+
+_DEFAULT_CATALOG_BASE = "/gallery"
+
+
+def catalog_base_from_path(route_path: str = "") -> str:
+    """Browse route that a detail route hangs off.
+
+    ``/gallery/:id`` → ``/gallery``, ``/works/:slug`` → ``/works``. Derived rather
+    than hardcoded so a renamed catalogue route keeps its cards and its
+    back-to-collection link pointing somewhere real.
+    """
+    raw = str(route_path or "").strip()
+    base = raw.split("/:")[0].split("/{")[0].rstrip("/")
+    return base or _DEFAULT_CATALOG_BASE
+
+
+# Slots that give a page somewhere for its journey to end.
+_TERMINAL_ACTION_SLOTS = ("inquire", "booking")
+
+
+def _ensure_terminal_action_slot(skeleton_id: str, slots: list[str]) -> list[str]:
+    """A detail page must end in an inquiry or a booking.
+
+    The detail hero CTA points at ``#inquire`` (the anchor InquiryPanel renders),
+    so a detail page whose assigned slots carry neither terminal action would ship
+    a CTA anchored to nothing. Guarantee the slot rather than trusting the recipe
+    to have supplied it.
+    """
+    if skeleton_id != "public-detail":
+        return slots
+    if any(slot in slots for slot in _TERMINAL_ACTION_SLOTS):
+        return slots
+    ordered = list(slots)
+    for anchor in ("cta", "footer"):
+        if anchor in ordered:
+            ordered.insert(ordered.index(anchor), "inquire")
+            return ordered
+    ordered.append("inquire")
+    return ordered
+
 
 _COMPOSE_LAYOUT_SKELETONS = frozenset(
     {"ops-dashboard", "ops-ledger-home", "ops-blotter-desk"}
@@ -198,7 +268,10 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
             f"{title} — browse what’s here. This page is not the homepage story."
         )
         if sk == "public-detail" or "detail" in sk:
-            primary = '{ label: "Inquire about this piece", href: "/about" }'
+            # "/about" is not in the storefront route table, so this was a dead
+            # end on the one CTA the whole journey exists to reach. InquiryPanel
+            # renders id="inquire" in this page's own inquire slot.
+            primary = '{ label: "Inquire about this piece", href: "#inquire" }'
         else:
             primary = '{ label: "View collection", href: "/gallery" }'
         secondary = '{ label: "Back home", href: "/" }'
@@ -264,12 +337,75 @@ def _feature_items_fallback(
     return [{"title": title, "description": description} for title, description in pairs]
 
 
+def _detail_param_block(brand: str, detail_base: str) -> str:
+    """Resolve the route param to one seed item, with a real not-found path.
+
+    Without this a detail page renders identical content for every id — the page
+    exists, is reachable, and is inquirable, but `/gallery/3` is not artwork 3.
+    """
+    return (
+        "  const params = useParams();\n"
+        "  const catalogItems = (seed.items ?? []) as any[];\n"
+        "  const itemKey = String(params.id ?? params.slug ?? '').trim();\n"
+        "  const itemIndex = catalogItems.findIndex(\n"
+        "    (entry: any, index: number) =>\n"
+        "      String(entry?.id ?? entry?.slug ?? index + 1) === itemKey,\n"
+        "  );\n"
+        "  const item: any = itemIndex >= 0 ? catalogItems[itemIndex] : undefined;\n"
+        "  const notFound = itemKey !== '' && itemIndex < 0;\n"
+        "  const itemTitle = String(item?.title ?? 'This piece');\n"
+        "  const itemImage = [images.card1, images.card2, images.card3][\n"
+        "    (itemIndex >= 0 ? itemIndex : 0) % 3\n"
+        "  ];\n"
+        "  const itemSpecs = [\n"
+        "    { title: 'Reference', detail: itemKey || String(itemIndex + 1) },\n"
+        "    item?.medium ? { title: 'Medium', detail: String(item.medium) } : null,\n"
+        "    item?.dimensions ? { title: 'Dimensions', detail: String(item.dimensions) } : null,\n"
+        "    item?.price ? { title: 'Price', detail: String(item.price) } : null,\n"
+        "    item?.status ? { title: 'Availability', detail: String(item.status) } : null,\n"
+        "    item?.category ? { title: 'Collection', detail: String(item.category) } : null,\n"
+        "  ].filter(Boolean) as { title: string; detail: string }[];\n"
+    )
+
+
+def _detail_not_found_block(
+    shell: str, brand_js: str, detail_base: str, appspec_attrs: str
+) -> str:
+    """Early return for an id that matches nothing — never a blank page."""
+    base_js = _js(detail_base)
+    return (
+        "  if (notFound) {\n"
+        "    return (\n"
+        f"      <{shell} brandName={{{brand_js}}} "
+        "nav={<PublicNav items={navItems} cta={navCta} />}>\n"
+        f'        <div data-skeleton={{skeleton.id}} data-detail-not-found=""{appspec_attrs}>\n'
+        '          <div className="mx-auto w-full max-w-3xl px-6 pt-32 pb-24 lg:pt-40">\n'
+        '            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand">\n'
+        "              Not found\n"
+        "            </p>\n"
+        '            <h1 className="mt-4 font-display text-[clamp(2rem,4vw,3rem)] leading-tight tracking-tight text-foreground">\n'
+        "              We could not find that one\n"
+        "            </h1>\n"
+        '            <p className="mt-4 text-base leading-7 text-muted">\n'
+        "              It may have sold or moved. Browse what is available now.\n"
+        "            </p>\n"
+        f'            <Button href={{{base_js}}} className="mt-8">Back to the collection</Button>\n'
+        "          </div>\n"
+        "        </div>\n"
+        f"      </{shell}>\n"
+        "    );\n"
+        "  }\n"
+    )
+
+
 def _safe_slot_jsx(
     slot: str,
     brand: str,
     title: str,
     *,
     skeleton_id: str = "",
+    item_bound: bool = False,
+    detail_base: str = _DEFAULT_CATALOG_BASE,
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
@@ -320,6 +456,19 @@ def _safe_slot_jsx(
     # falls back to its own placeholder eyebrow ("Lead drop").
     showcase_badge_fb = _fb("Featured work" if gallery else "Featured")
 
+    # CatalogGrid derives every card's link from detailBase + item id, so the
+    # browse → detail hop cannot be dropped by codegen.
+    catalog_detail_base = detail_base or _DEFAULT_CATALOG_BASE
+    catalog_item_noun = "pieces" if gallery else "items"
+    inquire_heading_fb = _fb(
+        "Inquire about this piece" if gallery else f"Ask {brand} a question"
+    )
+    inquire_desc_fb = _fb(
+        "Ask about availability, dimensions, or a studio visit — we reply directly."
+        if gallery
+        else f"Tell {brand} what you need and we will come back to you directly."
+    )
+
     if home_hero:
         hero_jsx = (
             f'<MarketingHero brandName={{{brand_js}}} '
@@ -365,6 +514,26 @@ def _safe_slot_jsx(
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
             'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
+        ),
+        # Browse face: every item rendered and linked, not a three-card mosaic.
+        "catalog": (
+            f'<CatalogGrid heading={{seed.showcaseHeading ?? {showcase_heading_fb}}} '
+            f'detailBase={_js(catalog_detail_base)} itemNoun={_js(catalog_item_noun)} '
+            'items={(seed.items ?? []).map((item, index) => ({ '
+            'id: String((item as any).id || (item as any).slug || index + 1), '
+            'title: item.title, description: item.description, '
+            'meta: String((item as any).price || (item as any).meta || (item as any).medium || \'\'), '
+            'category: (item as any).category ? String((item as any).category) : undefined, '
+            'status: (item as any).status ? String((item as any).status) : undefined, '
+            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            'badge: (item as any).badge ? String((item as any).badge) : undefined '
+            '}))} />'
+        ),
+        # No seed.* reference: the seed type is inferred from the generated mock
+        # literal, so naming a key it does not define is a type error.
+        "inquire": (
+            f'<InquiryPanel heading={inquire_heading_fb} '
+            f'description={inquire_desc_fb} />'
         ),
         "process": (
             f'<ProcessSection heading={{seed.processHeading ?? {process_heading_fb}}} '
@@ -614,6 +783,33 @@ def _safe_slot_jsx(
         ),
         "empty": '<EmptyState title="Nothing here yet" description="New records will appear here." />',
     }
+    # A detail page describes the item its route param resolved to. Falling back
+    # to the generic slot would render the same page for every id.
+    if item_bound:
+        item_samples = {
+            "hero": (
+                f'<MarketingHero brandName={{{brand_js}}} '
+                f'eyebrow={{{brand_js}}} headline={{itemTitle}} '
+                'subcopy={String(item?.description ?? "")} '
+                'variant="product" '
+                'primaryCta={{ label: "Inquire about this piece", href: "#inquire" }} '
+                f'secondaryCta={{{{ label: "Back to the collection", href: {_js(catalog_detail_base)} }}}} '
+                'imageSrc={itemImage} imageAlt={itemTitle} />'
+            ),
+            "credentials": (
+                f'<CredentialStrip heading={_js("Details")} items={{itemSpecs}} />'
+            ),
+            "inquire": (
+                f'<InquiryPanel heading={inquire_heading_fb} '
+                'itemId={itemKey} itemTitle={itemTitle} />'
+            ),
+        }
+        if slot in item_samples:
+            return item_samples[slot]
+
+    # The browse page's showcase slot is a catalogue, not an editorial mosaic.
+    if slot == "showcase" and slot_component_for(slot, skeleton_id) == "CatalogGrid":
+        slot = "catalog"
     try:
         return samples[slot]
     except KeyError as exc:
@@ -850,7 +1046,10 @@ def _directory_listing_scaffold(
         )
     )
     if storefront_listing:
-        cta_primary = '{ label: "Inquire", href: "/about" }'
+        # "/about" is not in the storefront route table — this CTA was a dead link.
+        # The grid anchor CatalogGrid renders (#catalog) is on this page, and the
+        # per-item inquiry lives on the detail route each card already links to.
+        cta_primary = '{ label: "Browse the collection", href: "#catalog" }'
         cta_secondary = '{ label: "Back home", href: "/" }'
         footer_desc = "Browse the collection. Inquire when a piece speaks to you."
         page_desc = "Browse pieces and details — then inquire about availability."
@@ -858,7 +1057,6 @@ def _directory_listing_scaffold(
         showcase_desc = "Each card opens a closer look. Inquire when you are ready."
         cta_heading = "Interested in a piece?"
         cta_desc = "Ask about availability, commissions, or a studio visit."
-        featured_badge = "Featured work"
     else:
         cta_primary = '{ label: "Book a visit", href: "/book" }'
         cta_secondary = '{ label: "Ask AI assistant", href: "/ai-features" }'
@@ -868,11 +1066,10 @@ def _directory_listing_scaffold(
         showcase_desc = "Each card opens a provider profile. Book when you are ready."
         cta_heading = "Ready to schedule?"
         cta_desc = "Pick a time online — same team you just reviewed."
-        featured_badge = "Featured"
     return f"""// directory listing scaffold — distinct from home marketing clone
 import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
 import {{ BRAND_MANIFEST, images }} from '@/data/mock';
-import {{ PublicShell, PublicNav, PageHeader, ProductShowcase, CTABand, BrandFooter }} from '@/ui';
+import {{ PublicShell, PublicNav, PageHeader, CatalogGrid, CTABand, BrandFooter }} from '@/ui';
 
 const services = Array.isArray(BRAND_MANIFEST?.services) ? BRAND_MANIFEST.services : [];
 const LISTING_BASE = {base_js};
@@ -880,17 +1077,20 @@ const LISTING_BASE = {base_js};
 export default function {component}() {{
   const navItems = usePublicNavItems();
   const navCta = publicCta();
+  // CatalogGrid renders every entry and links each into LISTING_BASE/:id.
+  // ProductShowcase used to fill this slot and silently showed only three.
   const people = (services.length ? services : [
     {{ id: 'dr-1', name: 'Dr. Avery Chen', description: 'Family medicine · accepting new patients' }},
     {{ id: 'dr-2', name: 'Dr. Jordan Miles', description: 'Pediatrics · same-week visits' }},
     {{ id: 'dr-3', name: 'Dr. Sam Rivera', description: 'Internal medicine · telehealth available' }},
   ]).map((s: any, i: number) => ({{
+    id: String(s.id || s.slug || i + 1),
     title: String(s.name || s.title || `Provider ${{i + 1}}`),
     description: String(s.description || s.specialty || s.role || 'Available for appointments'),
     imageSrc: [images.card1, images.card2, images.card3][i % 3],
     imageAlt: String(s.name || s.title || 'Provider'),
-    href: `${{LISTING_BASE}}/${{s.id || i + 1}}`,
-    badge: String(s.badge || s.category || {_js(featured_badge)}),
+    category: s.category ? String(s.category) : undefined,
+    badge: s.badge ? String(s.badge) : undefined,
   }}));
 
   return (
@@ -902,9 +1102,11 @@ export default function {component}() {{
           description={_js(page_desc)}
         />
       </div>
-      <ProductShowcase
+      <CatalogGrid
         heading={_js(showcase_heading)}
         description={_js(showcase_desc)}
+        detailBase={{LISTING_BASE}}
+        itemNoun={_js("pieces" if storefront_listing else "providers")}
         items={{people}}
       />
       <CTABand
@@ -972,7 +1174,21 @@ def minimal_catalogue_page_scaffold(
     skeleton_id = str(route["skeleton_id"])
     shell = expected_shell(route)
     slots = assigned_non_shell_slots(route)
+    slots = _ensure_terminal_action_slot(skeleton_id, slots)
+    # A detail page resolves its route param and describes that one item.
+    detail_bound = skeleton_id == "public-detail" and shell == "PublicShell"
+    if detail_bound and "credentials" not in slots:
+        # The specs strip is where the resolved item's medium/price/availability
+        # land; without it "see its details" has nowhere to render.
+        anchor = next((s for s in ("inquire", "cta", "footer") if s in slots), None)
+        slots = (
+            slots[: slots.index(anchor)] + ["credentials"] + slots[slots.index(anchor) :]
+            if anchor
+            else slots + ["credentials"]
+        )
     components = [shell, "getSkeleton"]
+    if detail_bound:
+        components.append("Button")  # not-found path links back to the collection
     if skeleton_id in _COMPOSE_LAYOUT_SKELETONS:
         components.append("composeSkeletonLayout")
     else:
@@ -980,18 +1196,39 @@ def minimal_catalogue_page_scaffold(
     if shell == "PublicShell" and "PublicNav" not in components:
         components.append("PublicNav")
     for slot in slots:
-        slot_component = _SLOT_COMPONENT.get(slot)
+        slot_component = slot_component_for(slot, skeleton_id)
         if slot_component and slot_component not in components:
             components.append(slot_component)
+    path = str(route.get("path") or "")
+    detail_base = catalog_base_from_path(path)
     slot_lines = "\n".join(
-        f"    {slot}: (\n      {_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)}\n    ),"
+        "    {slot}: (\n      {jsx}\n    ),".format(
+            slot=slot,
+            jsx=_safe_slot_jsx(
+                slot,
+                brand,
+                title,
+                skeleton_id=skeleton_id,
+                item_bound=detail_bound,
+                detail_base=detail_base,
+            ),
+        )
         for slot in slots
     )
-    path = str(route.get("path") or "")
     is_member = path.startswith("/member") or "/member/" in canonical_workspace_path(file_path)
-    uses_seed = any(slot in _SEED_SLOTS for slot in slots)
-    needs_images = any(
-        "images." in _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
+    # The param block reads seed.items and indexes the image pool, so a detail
+    # page needs both imports regardless of which slots it ended up with.
+    uses_seed = detail_bound or any(slot in _SEED_SLOTS for slot in slots)
+    needs_images = detail_bound or any(
+        "images."
+        in _safe_slot_jsx(
+            slot,
+            brand,
+            title,
+            skeleton_id=skeleton_id,
+            item_bound=detail_bound,
+            detail_base=detail_base,
+        )
         for slot in slots
     )
     if uses_seed and needs_images:
@@ -1054,6 +1291,13 @@ def minimal_catalogue_page_scaffold(
         cta = "memberCta" if is_member else "publicCta"
         nav_import = f"import {{ {hook}, {cta} }} from '@/lib/app-nav';\n"
         nav_hook = f"  const navItems = {hook}();\n  const navCta = {cta}();\n"
+        if detail_bound:
+            # useParams must be imported and the resolution must run before the
+            # slot map, which references item/itemTitle/itemSpecs/notFound.
+            nav_import = (
+                "import { useParams } from 'react-router-dom';\n" + nav_import
+            )
+            nav_hook = nav_hook + _detail_param_block(brand, detail_base)
         # Shell/nav/footer chrome comes from the active recipe at runtime.
         chrome_attr = ""
         use_recipe_order = skeleton_id in {
@@ -1078,6 +1322,12 @@ def minimal_catalogue_page_scaffold(
             f"    </{shell}>\n"
             "  );"
         )
+        if detail_bound:
+            body = (
+                _detail_not_found_block(shell, _js(brand), detail_base, appspec_attrs)
+                + "\n"
+                + body
+            )
     order_const = (
         f"const RECIPE_ORDER = {_js(slots)} as const;\n\n"
         if skeleton_id

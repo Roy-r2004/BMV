@@ -13,6 +13,10 @@ from app.application.preview_app.catalogue_contract.bindings import (
     _uppercase_jsx_roots,
 )
 from app.application.preview_app.catalogue_contract.imports import normalize_catalogue_page_imports
+from app.application.preview_app.catalogue_contract.scaffold import (
+    LISTING_FACE_COMPONENTS,
+    has_listing_face_component,
+)
 from app.application.preview_app.catalogue_contract.slots import (
     _declared_slot_values,
     _slot_value_is_present,
@@ -35,11 +39,11 @@ _SCHEDULE_FACE_REQUIRED = (
     "BrandFooter",
 )
 _DIRECTORY_FACE_MARKER = "// directory listing scaffold"
+# The items component is checked separately — CatalogGrid or ProductShowcase.
 _DIRECTORY_FACE_REQUIRED = (
     "PublicShell",
     "PublicNav",
     "PageHeader",
-    "ProductShowcase",
     "CTABand",
     "BrandFooter",
 )
@@ -83,6 +87,10 @@ def _validate_directory_listing_face(content: str) -> list[str]:
     for name in _DIRECTORY_FACE_REQUIRED:
         if name not in text:
             errors.append(f"missing directory face component:{name}")
+    if not has_listing_face_component(text):
+        errors.append(
+            "missing directory face component:" + "|".join(LISTING_FACE_COMPONENTS)
+        )
     if "@/ui" not in text:
         errors.append("missing @/ui import")
     if "BRAND_MANIFEST" not in text:
