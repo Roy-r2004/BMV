@@ -23,6 +23,17 @@ export type ScheduleRailProps = {
   className?: string;
   /** When true, show level / day / availability filters. */
   filterable?: boolean;
+  /**
+   * Where a row goes when the item carries no `href`.
+   *
+   * This used to be an invented `/classes/${id}`, and a full row went to an
+   * invented `/waitlist-confirmation` — neither is in the booking route table
+   * (`/`, `/services`, `/book`), so both were dead links on the one page whose
+   * job is to start a booking. The component no longer synthesises paths.
+   */
+  detailBase?: string;
+  /** Where a full / waitlisted row goes. Defaults to the row's own target. */
+  waitlistHref?: string;
 };
 
 function statusLabel(status?: string) {
@@ -37,9 +48,11 @@ function statusLabel(status?: string) {
 export function ScheduleRail({
   className,
   description,
+  detailBase = '/book',
   filterable = true,
   heading = 'Upcoming sessions',
   items,
+  waitlistHref,
 }: ScheduleRailProps) {
   const [level, setLevel] = React.useState('All');
   const [day, setDay] = React.useState('All');
@@ -137,7 +150,7 @@ export function ScheduleRail({
         <AnimeStagger className="mt-12 border-t border-foreground/12" role="list">
           {filtered.map((item, index) => {
             const waitlisted = statusLabel(item.status) === 'Waitlist';
-            const href = item.href || `/classes/${item.id}`;
+            const href = item.href || detailBase;
             return (
               <AnimeStaggerItem key={item.id} role="listitem">
                 <article className="grid gap-4 border-b border-foreground/12 py-8 md:grid-cols-[4.5rem_1.2fr_0.9fr_auto] md:items-center md:gap-8">
@@ -166,7 +179,7 @@ export function ScheduleRail({
                     </Badge>
                   </div>
                   <Button
-                    href={waitlisted ? '/waitlist-confirmation' : href}
+                    href={waitlisted ? (waitlistHref ?? href) : href}
                     variant={waitlisted ? 'outline' : 'default'}
                     className="w-full md:w-auto"
                   >

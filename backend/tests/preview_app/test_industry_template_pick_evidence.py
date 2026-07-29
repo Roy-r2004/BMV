@@ -38,26 +38,29 @@ def test_declared_single_token_still_picks_a_pack() -> None:
 
 def test_stray_prose_token_cannot_pick_a_pack() -> None:
     # "orthodontics" is distinctive but appears once, in generated prose only.
-    assert (
-        pick_template_id(
-            industry="Neighbourhood bookshop",
-            context=(
-                "The owner previously ran the front office of an orthodontics practice "
-                "and wants the same calm feeling."
-            ),
-        )
-        is None
+    #
+    # This asserted `is None`, which only held while "bookshop" matched no pack at
+    # all. Once retail-store-home existed the proxy broke, so pin the real intent:
+    # the pack must come from the *declared* industry, never the leaked prose.
+    picked = pick_template_id(
+        industry="Neighbourhood bookshop",
+        context=(
+            "The owner previously ran the front office of an orthodontics practice "
+            "and wants the same calm feeling."
+        ),
     )
+    assert picked != "clinic-dental-home", picked
+    assert picked in (None, "retail-store-home"), picked
 
 
 def test_negated_clause_cannot_pick_a_pack() -> None:
-    assert (
-        pick_template_id(
-            industry="Neighbourhood bookshop",
-            context="A reading room for the street - not a dental clinic dentist waiting room.",
-        )
-        is None
+    # Same correction as above: assert the negated words lost, not that nothing won.
+    picked = pick_template_id(
+        industry="Neighbourhood bookshop",
+        context="A reading room for the street - not a dental clinic dentist waiting room.",
     )
+    assert picked != "clinic-dental-home", picked
+    assert picked in (None, "retail-store-home"), picked
 
 
 def test_tie_break_is_not_descending_template_id(monkeypatch: Any) -> None:

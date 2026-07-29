@@ -1,0 +1,178 @@
+{
+  "id": "retail-store-home",
+  "label": "Independent retail store home",
+  "industry_tags": [
+    "bookshop",
+    "bookstore",
+    "record",
+    "homeware",
+    "stationery",
+    "grocer",
+    "delicatessen",
+    "florist",
+    "hardware",
+    "retailer",
+    "merchandise",
+    "gifts",
+    "independent"
+  ],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "capabilities": [
+    "inquiry"
+  ],
+  "section_order": [
+    "hero",
+    "credentials",
+    "showcase",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+  ],
+  "signature_moves": [
+    "shelf-level photography, not stock lifestyle",
+    "what is in stock this week, above the fold",
+    "staff picks with a real name attached",
+    "quiet typographic shelf labels"
+  ],
+  "imagery_roles": {
+    "hero": "independent shop interior shelves warm light wide",
+    "hero2": "store counter interior detail",
+    "card1": "product on shelf detail close up",
+    "card2": "customer browsing shop experience",
+    "card3": "shopkeeper service moment",
+    "ambient": "shop shelves texture atmosphere background"
+  },
+  "prompt_hints": [
+    "An independent shop with a point of view — never a marketplace grid.",
+    "Hero names what the shop is known for; CTA browses the current shelf.",
+    "Use CatalogGrid for stock so the whole shelf is reachable, not three cards.",
+    "Copy speaks as the shopkeeper (\"In this week\"), never agency voice."
+  ],
+  "mock_seed": {
+    "tone": "considered",
+    "hero": {
+      "headline": "A small shop with strong opinions",
+      "subcopy": "What we stock, we have read, used, or eaten. Come in, or ask us and we will post it.",
+      "primaryCta": {
+        "label": "Browse the shelf",
+        "href": "/gallery"
+      },
+      "secondaryCta": {
+        "label": "Ask us about stock",
+        "href": "#inquire"
+      }
+    },
+    "showcaseHeading": "In this week",
+    "featuresHeading": "How we choose",
+    "processHeading": "Finding you the right one",
+    "credentialsHeading": "The shop",
+    "testimonialsHeading": "From regulars",
+    "items": [
+      {
+        "title": "Staff pick — fiction",
+        "description": "The one we cannot stop pressing on people.",
+        "price": "£12.99",
+        "category": "Fiction",
+        "status": "In stock"
+      },
+      {
+        "title": "New this week",
+        "description": "Fresh off the delivery, three copies only.",
+        "price": "£16.00",
+        "category": "New",
+        "status": "In stock"
+      },
+      {
+        "title": "Back in stock",
+        "description": "You asked, we reordered.",
+        "price": "£10.50",
+        "category": "Fiction",
+        "status": "In stock"
+      },
+      {
+        "title": "Shelf classic",
+        "description": "Never leaves the table by the window.",
+        "price": "£9.99",
+        "category": "Classics",
+        "status": "In stock"
+      }
+    ],
+    "features": [
+      {
+        "title": "We have read it",
+        "description": "No algorithm picked this shelf. We did."
+      },
+      {
+        "title": "Order anything by Thursday",
+        "description": "Not in stock? In by the end of the week."
+      },
+      {
+        "title": "Ask a real person",
+        "description": "Tell us what you liked last and we will find the next one."
+      }
+    ],
+    "credentials": [
+      {
+        "title": "On the high street since 2009",
+        "detail": "Same shopfront, same green door."
+      },
+      {
+        "title": "Independent",
+        "detail": "No chain, no head office, no planogram."
+      },
+      {
+        "title": "Local delivery",
+        "detail": "Free within three miles on Saturdays."
+      }
+    ],
+    "process": [
+      {
+        "title": "Tell us what you liked",
+        "description": "A title, an author, or just a mood."
+      },
+      {
+        "title": "We narrow it down",
+        "description": "Two or three, with a reason for each."
+      },
+      {
+        "title": "Take it or we post it",
+        "description": "Off the shelf today, or to your door this week."
+      }
+    ],
+    "testimonials": [
+      {
+        "quote": "They have recommended eleven books and got ten right.",
+        "name": "Priya",
+        "role": "Saturday regular"
+      },
+      {
+        "quote": "Ordered something obscure on Monday, had it Thursday.",
+        "name": "Tom",
+        "role": "Customer"
+      }
+    ],
+    "cta": {
+      "heading": "Looking for something specific?",
+      "description": "Ask us — if we have not got it, we will get it in.",
+      "primaryLabel": "Ask about stock",
+      "primaryHref": "#inquire",
+      "secondaryLabel": "Browse the shelf",
+      "secondaryHref": "/gallery"
+    },
+    "nav_cta": {
+      "label": "Browse the shelf",
+      "href": "/gallery"
+    },
+    "footer": {
+      "description": "An independent shop. Come in, or ask and we will post it."
+    },
+    "trustLabels": [
+      "Independent since 2009",
+      "Order by Thursday",
+      "Local delivery",
+      "Staff picks"
+    ]
+  }
+}

@@ -28,6 +28,8 @@ TEMPLATE_IDS: tuple[str, ...] = (
     "clinic-dental-home",
     "agency-portfolio-home",
     "art-gallery-portfolio-home",
+    "barber-grooming-home",
+    "retail-store-home",
     "home-services-trades",
     "education-tutoring-home",
     "hotel-hospitality-home",

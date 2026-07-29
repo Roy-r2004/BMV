@@ -1,0 +1,195 @@
+{
+  "id": "barber-grooming-home",
+  "label": "Barbershop / grooming studio home",
+  "industry_tags": [
+    "barber",
+    "barbershop",
+    "grooming",
+    "beard",
+    "shave",
+    "fade",
+    "haircut",
+    "hair",
+    "salon",
+    "hairdresser",
+    "stylist"
+  ],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "capabilities": [
+    "booking"
+  ],
+  "section_order": [
+    "hero",
+    "credentials",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+  ],
+  "signature_moves": [
+    "brand-first editorial hero with barbershop texture",
+    "price-and-time service list, not vague packages",
+    "booking panel that names the barber",
+    "warm monochrome with one accent"
+  ],
+  "imagery_roles": {
+    "hero": "barbershop interior barber chair warm light wide",
+    "hero2": "barber shop mirrors counter interior",
+    "card1": "beard trim clippers detail close up",
+    "card2": "client haircut experience barber chair",
+    "card3": "barber at work service moment",
+    "ambient": "barbershop tools comb razor texture atmosphere"
+  },
+  "prompt_hints": [
+    "Warm, tactile barbershop craft — never spa-serene and never clinical.",
+    "Hero is brand-first; the primary CTA books a chair with a named barber.",
+    "Services list shows time and price per cut; use ProcessSection for the visit.",
+    "Copy speaks as the shop to regulars (\"Book your chair\"), never agency voice."
+  ],
+  "mock_seed": {
+    "tone": "warm",
+    "hero": {
+      "headline": "A proper cut, on the clock",
+      "subcopy": "Fades, beard work, and hot-towel shaves. Book a chair or walk in when we are quiet.",
+      "primaryCta": {
+        "label": "Book a chair",
+        "href": "/book"
+      },
+      "secondaryCta": {
+        "label": "See the services",
+        "href": "/services"
+      }
+    },
+    "showcaseHeading": "On the price list",
+    "featuresHeading": "Why regulars keep the slot",
+    "processHeading": "How a visit runs",
+    "credentialsHeading": "The shop",
+    "testimonialsHeading": "From the chair",
+    "services": [
+      {
+        "title": "Skin fade",
+        "description": "45 minutes, blended tight with a clean neckline."
+      },
+      {
+        "title": "Cut and beard",
+        "description": "60 minutes for the full reset, hot towel finish."
+      },
+      {
+        "title": "Hot-towel shave",
+        "description": "30 minutes, straight razor, balm to close."
+      },
+      {
+        "title": "Kids' cut",
+        "description": "25 minutes, no fuss, under twelves."
+      }
+    ],
+    "items": [
+      {
+        "title": "Skin fade",
+        "description": "Blended tight with a clean neckline.",
+        "price": "£28",
+        "category": "Cuts",
+        "status": "Available"
+      },
+      {
+        "title": "Cut and beard",
+        "description": "Full reset with a hot towel finish.",
+        "price": "£40",
+        "category": "Cuts",
+        "status": "Available"
+      },
+      {
+        "title": "Hot-towel shave",
+        "description": "Straight razor, balm to close.",
+        "price": "£30",
+        "category": "Shaves",
+        "status": "Available"
+      },
+      {
+        "title": "Beard trim",
+        "description": "Shape, line up, and oil.",
+        "price": "£18",
+        "category": "Beard",
+        "status": "Available"
+      }
+    ],
+    "features": [
+      {
+        "title": "You get the barber you booked",
+        "description": "Pick your barber; we do not shuffle you at the door."
+      },
+      {
+        "title": "On time or the next one is on us",
+        "description": "Slots are 45 minutes because that is how long it takes."
+      },
+      {
+        "title": "Walk-ins when we are quiet",
+        "description": "Live availability on the site, not a guess."
+      }
+    ],
+    "credentials": [
+      {
+        "title": "Since 2011",
+        "detail": "Same street, same chairs, four barbers."
+      },
+      {
+        "title": "Barbicide certified",
+        "detail": "Tools sterilised between every client."
+      },
+      {
+        "title": "Open six days",
+        "detail": "Tuesday to Sunday, late on Thursdays."
+      }
+    ],
+    "process": [
+      {
+        "title": "Pick your barber",
+        "description": "Choose the chair and the time that suits."
+      },
+      {
+        "title": "Tell us the shape",
+        "description": "Two minutes on what you want before the clippers."
+      },
+      {
+        "title": "Sit back",
+        "description": "Cut, finish, and a look at the back before you go."
+      }
+    ],
+    "testimonials": [
+      {
+        "quote": "First shop in years that gets the fade right every time.",
+        "name": "Marcus",
+        "role": "Regular since 2018"
+      },
+      {
+        "quote": "Booked at nine, in the chair at nine. That is it, that is the review.",
+        "name": "Dan",
+        "role": "Thursday regular"
+      }
+    ],
+    "cta": {
+      "heading": "Chair free this week?",
+      "description": "Check live availability and book in under a minute.",
+      "primaryLabel": "Book a chair",
+      "primaryHref": "/book",
+      "secondaryLabel": "See the price list",
+      "secondaryHref": "/services"
+    },
+    "nav_cta": {
+      "label": "Book a chair",
+      "href": "/book"
+    },
+    "footer": {
+      "description": "Barbering done properly. Book a chair or walk in."
+    },
+    "trustLabels": [
+      "Since 2011",
+      "Four barbers",
+      "Open six days",
+      "Walk-ins welcome"
+    ]
+  }
+}

@@ -90,6 +90,8 @@ def has_listing_face_component(content: str) -> bool:
 
 
 _DEFAULT_CATALOG_BASE = "/gallery"
+#: Declared booking route for booking_service apps (see product_kind._booking_pages).
+_BOOKING_ROUTE = "/book"
 
 
 def catalog_base_from_path(route_path: str = "") -> str:
@@ -945,6 +947,7 @@ def _schedule_listing_scaffold(
     title_js = _js(title)
     base = (listing_path or "/classes").rstrip("/") or "/classes"
     base_js = _js(base)
+    book_js = _js(_BOOKING_ROUTE)
     appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
     for action_id in action_ids:
@@ -965,6 +968,7 @@ import {{ PublicShell, PublicNav, MarketingHero, ScheduleRail, CTABand, BrandFoo
 
 const services = Array.isArray(BRAND_MANIFEST?.services) ? BRAND_MANIFEST.services : [];
 const LISTING_BASE = {base_js};
+const BOOK_PATH = {book_js};
 
 export default function {component}() {{
   const navItems = usePublicNavItems();
@@ -977,7 +981,9 @@ export default function {component}() {{
     level: String(s.level || 'All Levels'),
     day: String(s.day || ''),
     status: String(s.status || 'Open'),
-    href: `${{LISTING_BASE}}/${{s.id || i + 1}}`,
+    // /book is the declared booking route; a query keeps the service without
+    // inventing a /services/:id route the app does not have.
+    href: `${{BOOK_PATH}}?service=${{encodeURIComponent(String(s.id || i + 1))}}`,
   }}));
 
   return (
@@ -987,21 +993,22 @@ export default function {component}() {{
         brandName={{{brand_js}}}
         headline={{{title_js}}}
         subcopy="Pick a session from the schedule — levels, times, and open seats in one place."
-        primaryCta={{{{ label: "Browse schedule", href: "#schedule-list" }}}}
-        secondaryCta={{{{ label: "Ask AI advisor", href: "/ai-features" }}}}
+        primaryCta={{{{ label: "Browse schedule", href: "#classes-list" }}}}
+        secondaryCta={{{{ label: "Book a time", href: {book_js} }}}}
         imageSrc={{images.hero}}
         imageAlt=""
       />
       <ScheduleRail
         heading="Upcoming sessions"
         description="Filter by level or day. Full sessions can join the waitlist."
+        detailBase={{BOOK_PATH}}
         items={{items}}
       />
       <CTABand
         heading="Not sure which session fits?"
         description="Open the AI features hub for advisors, FAQs, and waitlist help."
-        primaryCta={{{{ label: "Open AI features", href: "/ai-features" }}}}
-        secondaryCta={{{{ label: "Contact us", href: "/contact" }}}}
+        primaryCta={{{{ label: "Book a time", href: {book_js} }}}}
+        secondaryCta={{{{ label: "Open AI features", href: "/ai-features" }}}}
       />
       <BrandFooter brandName={{{brand_js}}} description="Clear schedules. Real bookings. Brand-first pages." />
       </div>
