@@ -158,11 +158,31 @@ _GENERIC_QUERY_HINT = _CATEGORY_QUERY_HINT["generic"]
 # Pexels truncates at 120 chars; keep composed role queries inside that budget.
 _MAX_QUERY_WORDS = 14
 
+# The brief's own industry prose leads a role query; cap it so brand + industry +
+# role always fit inside _MAX_QUERY_WORDS and the role can never be clipped away.
+_MAX_INDUSTRY_QUERY_WORDS = 6
+
+
+def _keyword_pattern(keyword: str) -> re.Pattern[str]:
+    """Word-anchored keyword matcher that still tolerates a plural (``salon`` → ``salons``).
+
+    Unanchored substring matching mis-buckets ordinary phrasings: ``ai`` inside
+    ``repair`` sent every auto-repair brief to ``tech``, and ``app`` inside
+    ``apparel`` sent fashion briefs there too.
+    """
+    return re.compile(rf"\b{re.escape(keyword)}(?:e?s)?\b")
+
+
+_INDUSTRY_KEYWORD_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    category: tuple(_keyword_pattern(kw) for kw in keywords)
+    for category, keywords in _INDUSTRY_KEYWORDS.items()
+}
+
 
 def _resolve_category(industry: str) -> str:
     industry_lower = (industry or "").lower()
-    for category, keywords in _INDUSTRY_KEYWORDS.items():
-        if any(kw in industry_lower for kw in keywords):
+    for category, patterns in _INDUSTRY_KEYWORD_PATTERNS.items():
+        if any(pattern.search(industry_lower) for pattern in patterns):
             return category
     return "generic"
 
@@ -170,6 +190,11 @@ def _resolve_category(industry: str) -> str:
 def resolve_industry_category(industry: str) -> str:
     """Coarse imagery category for an industry phrase (``generic`` when unknown)."""
     return _resolve_category(industry)
+
+
+def _clip_words(text: str, limit: int) -> str:
+    """First ``limit`` word tokens of ``text``."""
+    return " ".join(re.findall(r"[A-Za-z0-9&']+", text or "")[:limit])
 
 
 def _compose_query(*parts: str) -> str:
@@ -229,11 +254,14 @@ def _slot_queries(
         if str(slot) in _SLOTS and str(query).strip()
     }
     queries: dict[str, str] = {}
+    industry_head = _clip_words(industry_clean, _MAX_INDUSTRY_QUERY_WORDS)
     for slot in _SLOTS:
         role = roles.get(slot)
         if role:
-            # A role is framing only — subject stays the brand + resolved industry.
-            queries[slot] = _compose_query(brand, category_hint, role)
+            # A role is framing only — subject stays the brand + the brief's own
+            # industry words. The category hint trails as filler: _resolve_category
+            # is a nine-bucket approximation and must never *be* the subject.
+            queries[slot] = _compose_query(brand, industry_head, role, category_hint)
         else:
             queries[slot] = f"{base} {category_hint} {_SLOT_QUERY_SUFFIX[slot]}".strip()
     return queries

@@ -15,7 +15,10 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+import pytest  # noqa: E402
+
 from app.application.preview_app.industry_templates.apply import (  # noqa: E402
+    _ROLE_FRAMINGS,
     apply_industry_template_to_plan,
 )
 from app.application.preview_app.industry_templates.loader import (  # noqa: E402
@@ -24,7 +27,9 @@ from app.application.preview_app.industry_templates.loader import (  # noqa: E40
 )
 from app.application.services import industry_images  # noqa: E402
 from app.application.services.industry_images import (  # noqa: E402
+    _CATEGORY_QUERY_HINT,
     _fetch_pexels_images,
+    _resolve_category,
     _slot_queries,
 )
 
@@ -191,12 +196,86 @@ def test_role_framing_composes_with_business_subject() -> None:
         },
     )
     hero = queries["hero"].lower()
-    assert hero.startswith("jeanne kassab art")
-    assert "gallery painting studio" in hero
+    # Brand, then the brief's own industry words, then the role. The nine-bucket
+    # category hint trails as filler and never leads.
+    assert hero.startswith("jeanne kassab art fine gallery original oil paintings")
     assert "lifestyle wide atmosphere" in hero
     # Even a hostile role cannot displace the business subject.
     card1 = queries["card1"].lower()
-    assert card1.startswith("jeanne kassab art gallery painting studio")
+    assert card1.startswith("jeanne kassab art fine gallery original oil paintings")
+
+
+# One row per _CATEGORY_QUERY_HINT bucket. The art row is the only one the
+# original test covered, and it is the only one whose bucket resolves correctly —
+# which is exactly why dropping industry_clean went unnoticed.
+SUBJECT_CASES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("Ridge Motors", "Auto repair garage and detailing", ("auto", "repair", "garage")),
+    ("Clearflow", "Plumbing and heating repair", ("plumbing", "heating")),
+    ("Hale & Marsh", "Boutique law firm - estate and family law", ("law", "firm", "estate")),
+    ("Brightwork", "Commercial cleaning company", ("cleaning", "company")),
+    ("Northside Threads", "Fashion apparel boutique", ("fashion", "apparel")),
+    ("Sunrise Dental", "Dental clinic and orthodontics", ("dental", "clinic")),
+    ("Cedar Table", "Neighbourhood bistro and wine bar", ("bistro", "wine")),
+    ("Ironworks", "Strength gym and personal training", ("gym", "strength")),
+    ("Lumen Labs", "B2B SaaS platform for logistics", ("saas", "logistics")),
+    ("Harbour Realty", "Residential real estate brokerage", ("estate", "brokerage")),
+    ("Northlight Academy", "Language school and tutoring", ("language", "school")),
+    ("Still Waters", "Day spa and massage studio", ("spa", "massage")),
+    ("Jeanne Kassab Art", JEANNE_BRIEF["industry"], ("gallery", "paintings")),
+)
+
+
+@pytest.mark.parametrize("brand,industry,expected_words", SUBJECT_CASES)
+def test_role_query_carries_the_briefs_own_industry_words(
+    brand: str, industry: str, expected_words: tuple[str, ...]
+) -> None:
+    """The subject of a role query is the business, not a nine-bucket guess.
+
+    Regression: _slot_queries composed (brand, category_hint, role) and never
+    passed industry_clean, so the entire subject of every Pexels query was one of
+    nine hints — and _resolve_category mis-buckets ordinary phrasings.
+    """
+    queries = _slot_queries(brand, industry, imagery_roles=dict(_ROLE_FRAMINGS))
+    assert set(queries) == set(_ROLE_FRAMINGS)
+    for slot, query in queries.items():
+        lowered = query.lower()
+        assert lowered.startswith(brand.lower()), (slot, query)
+        for word in expected_words:
+            assert word in lowered, (slot, word, query)
+        # The role framing survives the word cap, so slots stay distinguishable.
+        first_framing_word = _ROLE_FRAMINGS[slot].split()[0].lower()
+        assert first_framing_word in lowered, (slot, query)
+    assert len(set(queries.values())) == len(queries), queries
+
+
+@pytest.mark.parametrize(
+    "industry,forbidden_bucket,leaked_word",
+    (
+        ("Auto repair garage and detailing", "tech", "software"),  # "ai" in "repair"
+        ("Plumbing and heating repair", "tech", "software"),
+        ("Fashion apparel boutique", "tech", "software"),  # "app" in "apparel"
+        ("Handmade chairs and furniture", "beauty", "salon"),  # "hair" in "chairs"
+        ("Barbershop and grooming", "food", "restaurant"),  # "bar" in "barbershop"
+    ),
+)
+def test_category_resolution_is_word_anchored(
+    industry: str, forbidden_bucket: str, leaked_word: str
+) -> None:
+    """Unanchored substring matching sent auto-repair briefs to software imagery."""
+    resolved = _resolve_category(industry)
+    assert resolved != forbidden_bucket, (industry, resolved)
+    # And the wrong subject noun must be gone from the hint the query would carry.
+    assert leaked_word not in _CATEGORY_QUERY_HINT[resolved], (industry, resolved)
+
+
+def test_word_anchoring_keeps_matching_plurals_and_phrases() -> None:
+    # Anchoring must not cost the matches that were already correct.
+    assert _resolve_category("hair salons and nails") == "beauty"
+    assert _resolve_category("outdoor gear shops") == "retail"
+    assert _resolve_category("real estate agents") == "realestate"
+    assert _resolve_category("fine art gallery") == "art"
+    assert _resolve_category("AI automation platform") == "tech"
+    assert _resolve_category("something entirely unmapped") == "generic"
 
 
 def test_roleless_callers_keep_legacy_queries() -> None:
@@ -214,4 +293,7 @@ if __name__ == "__main__":
     test_pack_without_imagery_roles_contributes_no_subject()
     test_role_framing_composes_with_business_subject()
     test_roleless_callers_keep_legacy_queries()
+    for _brand, _industry, _words in SUBJECT_CASES:
+        test_role_query_carries_the_briefs_own_industry_words(_brand, _industry, _words)
+    test_word_anchoring_keeps_matching_plurals_and_phrases()
     print("Imagery subject tests passed")
