@@ -1,7 +1,8 @@
 # Journey contract + BMV Core capability seam — implementation plan
 
-Written 2026-07-29 (session 3), executed in the same session. Status markers are
-updated as each phase lands. Companion to
+Written and executed 2026-07-29 (session 3). **All phases landed**; see
+[Outcome](#outcome) for what shipped, what it found, and what is still open.
+Companion to
 [PREVIEW_QUALITY_FINDINGS.md](PREVIEW_QUALITY_FINDINGS.md) (why the pipeline
 shipped bad output) and [KNOWN_TEST_FAILURES.md](KNOWN_TEST_FAILURES.md).
 
@@ -108,3 +109,94 @@ this branch's standing discipline.
   ```
 - Baseline entering this work: **863 passed, 1 failed** (the documented
   `test_appspec_v2_policy` fixture failure).
+
+---
+
+# Outcome
+
+**Suite: 897 passed, 1 failed** (the documented `test_appspec_v2_policy` fixture
+failure). Entering this work it was 863/1, so 34 tests were added and none broken.
+
+## Verified by rendering, not by assertion alone
+
+A throwaway app was built from the template with nine catalogue items, served,
+and its post-JS DOM inspected:
+
+| surface | before | after |
+|---|---|---|
+| `/gallery` | 3 cards rendered, rest unreachable | **9** cards, each linking to a distinct `/gallery/:id`, filters auto-derived (`All · Originals · Studies · Prints`) |
+| `/gallery/5` | generic content for every id | headline **"Marsh Study I"**, specs strip, inquiry addressed to that piece |
+| `/gallery/999` | generic content | visible not-found state linking back to the collection |
+| inquire CTA | `/about` — a route the storefront does not have | `#inquire`, the anchor `InquiryPanel` renders on that page |
+
+## Defects the work uncovered
+
+All of these were in the generator, not model output:
+
+1. `ProductShowcase` destructures `[featured, secondary, tertiary]` — the browse
+   page silently rendered 3 of N items.
+2. The detail CTA read *"Inquire about this piece"* and linked to `/about`. A test
+   pinned the label and never the destination, so it passed throughout.
+3. The storefront listing CTA `"Inquire"` → `/about`, same dead route.
+4. `ScheduleRail` fell back to `/classes/${id}` and sent full rows to
+   `/waitlist-confirmation` — neither is in the booking route table.
+5. The schedule scaffold's hero CTA pointed at `#schedule-list` while
+   `ScheduleRail` renders `id="classes-list"` — a dead anchor.
+6. That scaffold's CTA band pointed at `/contact`, which no booking blueprint
+   declares.
+7. `_non_home_hero_ctas` decided "storefrontish" from **brand words**, so a
+   gallery-flavoured brand on a `public-booking` page emitted a `/gallery` CTA.
+   The skeleton now outranks the brand.
+8. Three verticals resolved to **no pack at all**: barbershop, hair salon
+   (`spa-wellness-home` has `salon`, but a lone 5-character token fails the
+   6-character distinctiveness gate), and independent bookshop.
+9. Four gate/validator sites hardcoded `"ProductShowcase" in src` for the listing
+   face — with the scaffold emitting `CatalogGrid` the gate would have rejected
+   its own output and healed in a loop.
+10. Adding both new components to `PUBLIC_ALLOWED` pushed every public skeleton's
+    codegen contract past its 5000-char budget, silently starving `public-detail`
+    and `public-home` of the prop shapes that keep cards from rendering empty.
+    They are now scoped to the skeletons that use them.
+
+## Design decisions worth keeping
+
+- **Links are structural.** `CatalogGrid` derives each card's link from
+  `detailBase + item.id`, so codegen cannot emit a non-clickable card. The old
+  `ProductShowcaseItem.href?` was optional and silently produced dead cards.
+- **The contract is true by construction.** `_ensure_terminal_action_slot`
+  injects the `inquire` slot when a detail route has no terminal action, so
+  `#inquire` is never anchored to nothing — rather than weakening the CTA when the
+  slot happens to be missing.
+- **The walk is recomputed, never persisted.** `evaluate_quality_gate` is called
+  again after heal, so a repaired page clears its own finding. This is exactly the
+  trap P0-3 describes, avoided structurally.
+- **Advisory findings exist so the WARN path is real.** An off-funnel dead-link
+  sweep covers ops/owner pages without letting one withhold a public storefront.
+  Without it the ops-severity branch would have been unreachable dead code — the
+  same computed-never-read shape this whole effort is about.
+
+## Still open
+
+1. **Not demonstrated in a live generation.** Everything above is verified through
+   the deterministic scaffold and a hand-built app. A real end-to-end run (with
+   the AI codegen path, not the fallback) has not happened — the prompts now carry
+   the journey rules but no generated output has been inspected against them.
+2. **`catalogue.json` has no generator.** `registry.ts` says
+   `npm run sync:ui`, but that script was deliberately removed when the template
+   was slimmed (`sync-ui-catalogue` is in `test_scaffold_pruned.py`'s forbidden
+   list). The two files are hand-synced and can drift silently. Either restore a
+   generator or add a drift test.
+3. **QA harness screenshots only capture the hero.** Every attempt to screenshot
+   below the fold returned the hero, because public heroes are viewport-height and
+   the sections below use scroll-triggered reveals. `scripts/preview-qa.sh` cannot
+   currently see a broken catalogue grid, so "look at the screenshots" has a blind
+   spot. A scrolling capture (CDP `captureBeyondViewport`) would close it.
+4. **The imagery bucket for a barbershop is `generic`.** Harmless now that the
+   brief's prose leads the query and the pack supplies barbershop framings, but
+   `_CATEGORY_QUERY_HINT` has no grooming bucket.
+5. **P0-2, P0-3, P0-4, P0-5 in the previous handoff are untouched.** All four are
+   in `visual_critic.py`. P0-3 and P0-5 still compound into permanently
+   withholding a correct preview.
+6. **Real persistence.** `InquiryPanel.onSubmit` / `BookingPanel` are seams, not
+   implementations. Booking is where correctness bites (availability,
+   double-booking, notifications) and it needs tenancy and auth first.
