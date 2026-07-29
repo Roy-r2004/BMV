@@ -1325,6 +1325,7 @@ def minimal_catalogue_page_scaffold(
             "public-service",
             "public-detail",
             "public-booking",
+            "public-catalog",
         } and bool(slots)
         composer = (
             "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} order={RECIPE_ORDER} />\n"
@@ -1356,6 +1357,7 @@ def minimal_catalogue_page_scaffold(
             "public-service",
             "public-detail",
             "public-booking",
+            "public-catalog",
         }
         and slots
         else ""
