@@ -44,3 +44,6 @@ bmv-core/
 # Editor / agent local state
 .agents/
 .cursor/
+
+# Local preview QA artifacts (screenshots, tsc output)
+.preview-qa/

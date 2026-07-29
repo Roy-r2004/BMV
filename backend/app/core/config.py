@@ -733,6 +733,23 @@ class Settings:
         self.PREVIEW_SKIP_VISUAL_CRITIC = os.getenv(
             "PREVIEW_SKIP_VISUAL_CRITIC", "false"
         ).strip().lower() in ("1", "true", "yes", "on")
+        # `vite build` never typechecks, so prop-contract violations ship as
+        # empty components. tsc costs ~2s per run — ON by default.
+        self.PREVIEW_TYPECHECK = os.getenv(
+            "PREVIEW_TYPECHECK", "true"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        try:
+            self.PREVIEW_MAX_TYPECHECK_FIX_ROUNDS = max(
+                0, int(os.getenv("PREVIEW_MAX_TYPECHECK_FIX_ROUNDS", "2"))
+            )
+        except ValueError:
+            self.PREVIEW_MAX_TYPECHECK_FIX_ROUNDS = 2
+        try:
+            self.PREVIEW_TYPECHECK_TIMEOUT_SECONDS = max(
+                30, int(os.getenv("PREVIEW_TYPECHECK_TIMEOUT_SECONDS", "180"))
+            )
+        except ValueError:
+            self.PREVIEW_TYPECHECK_TIMEOUT_SECONDS = 180
         # Catalogue pages: emit deterministic scaffold first (reliable compile +
         # AppSpec hooks), optionally AI-fill slot copy once. Default ON.
         self.PREVIEW_SCAFFOLD_FIRST = os.getenv(
@@ -793,7 +810,10 @@ _DEFAULT_MODELS: dict[str, dict[str, str]] = {
     },
     "openrouter": {
         "text": "meta-llama/llama-3.1-8b-instruct",
-        "vision": "meta-llama/llama-3.2-11b-vision-instruct",
+        # OpenRouter serves no endpoints for llama-3.2-11b-vision-instruct, so the
+        # visual critic failed on every route and silently reviewed nothing. This
+        # is the multimodal model the pipeline already uses for codegen.
+        "vision": "google/gemini-2.5-flash",
         "coder": "qwen/qwen-2.5-coder-32b-instruct",
         "html": "openai/gpt-4o",
     },

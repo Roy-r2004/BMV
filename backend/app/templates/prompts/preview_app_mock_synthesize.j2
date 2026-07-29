@@ -20,6 +20,13 @@ The pages and layouts are ALREADY written. Your job is to export ONLY the data t
 
 === SNIPPETS FROM FILES THAT IMPORT mock.ts ===
 {{ import_context }}
+{% if catalogue_prop_shapes is defined and catalogue_prop_shapes %}
+
+=== CATALOGUE ITEM SHAPES (read from the component sources — these member names are exact) ===
+`Component.prop[] = { member, member? }` means each element of that prop is that object; `?` marks an
+optional member. Seed data a page feeds to one of these props MUST use these member names verbatim.
+{{ catalogue_prop_shapes }}
+{% endif %}
 
 === CURRENT mock.ts (plumbing stub — rewrite into a complete module) ===
 {{ current_content }}
@@ -33,6 +40,20 @@ RULES:
   - DataTable data: 8–12 records with stable ids plus the exact typed fields used by page columns, including realistic names, times, statuses, owners, and amounts/counts
   - BookingPanel data: selectable business-specific services/resources, available dates/time slots, durations, capacity or party size, customer details, and a realistic selected/default booking state
   - Public proof components such as ResultRail, TestimonialRail, CredentialStrip, or LogoMarquee: named customers/results/credentials with concrete outcomes, quotes, roles, before/after image references when used, and no anonymous filler
+- Seed data consumed by a catalogue component MUST use that component's documented item member names,
+  never a plausible synonym. A wrong member name does not fail the build — the component renders blank:
+  * CredentialStrip items: `{ title, detail }` — NOT `{ label, value }`
+  * TestimonialRail items: `{ quote, author, role? }` — NOT `{ name, text, service }`
+  * FeatureBento items: `{ title, description, imageSrc? }`
+  * ActivityFeed items: `{ title, detail, time }` — NOT `{ name }`
+  * MarketingHero / CTABand CTAs: `{ label, href }`
+- EVERY key a page reads must EXIST in this module. Scan the IMPORT CONTEXT for every `seed.<key>`,
+  `<export>.<key>` and `images.<key>` a page dereferences and export all of them — real shipped pages
+  read `seed.features`, `seed.featuresHeading`, `seed.footer`, `seed.opsHero`, `seed.tableRows` and
+  `seed.activity` that mock.ts never defined, so those sections rendered as empty voids.
+- `images` has EXACTLY these keys: `hero`, `hero2`, `card1`, `card2`, `card3`, `ambient`. Never add or
+  reference another image key (no `artwork1`…`artwork10`, no `gallery1`); reuse the six by rotation.
+- NEVER repeat a key inside one object literal — duplicate keys are a TypeScript error (TS1117).
 - Derive content from the experience plan and business context — NOT a generic spa/salon template
 - Do NOT export symbols nobody imports
 - roles and navigation must match architect routes

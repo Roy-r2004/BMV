@@ -5,6 +5,7 @@ while hard rules still fail.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,6 +28,9 @@ _DEAD_AI_STEP = re.compile(
     re.I,
 )
 _LISTING_HINTS = ("class", "classes", "service", "services", "schedule", "workshop", "session")
+_EMPTY_IMAGES_EXPORT_RE = re.compile(
+    r"export\s+const\s+images\s*=\s*(?:\[\s*\]|\{\s*\})\s*;"
+)
 
 
 @dataclass
@@ -40,6 +44,7 @@ class GateIssue:
 class GateReport:
     issues: list[GateIssue] = field(default_factory=list)
     healed: list[str] = field(default_factory=list)
+    warnings: list[GateIssue] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -47,6 +52,10 @@ class GateReport:
 
     def fail(self, code: str, message: str, path: str = "") -> None:
         self.issues.append(GateIssue(code=code, message=message, path=path))
+
+    def warn(self, code: str, message: str, path: str = "") -> None:
+        """Record a defect that is worse to hide than to ship — never blocks ready."""
+        self.warnings.append(GateIssue(code=code, message=message, path=path))
 
 
 def _pages(workspace: Path) -> list[str]:
@@ -214,6 +223,16 @@ def evaluate_quality_gate(
                 "src/data/mock.ts",
             )
 
+    # `images` is a slot map consumed as images.hero/.card1 — an empty literal of
+    # either shape yields undefined src attributes, so it needs its own code and
+    # heal rather than the list-row seeding the generic check triggers.
+    if _EMPTY_IMAGES_EXPORT_RE.search(mock):
+        report.fail(
+            "empty_mock_images",
+            "mock.ts exports an empty `images` slot map — hero and card photography cannot render",
+            "src/data/mock.ts",
+        )
+
     # Empty mock array exports → blank list UIs even when pages import them.
     from app.application.preview_app.patterns import _EMPTY_ARRAY_EXPORT_RE
 
@@ -240,6 +259,62 @@ def evaluate_quality_gate(
             )
     except Exception as e:
         log.warning("empty_seed_page check skipped: %s", e)
+
+    # Locally-referenced images that resolve nowhere → broken-image icons.
+    from app.application.preview_app.asset_integrity import (
+        blocking_missing_assets,
+        scan_asset_integrity,
+    )
+
+    try:
+        assets = scan_asset_integrity(workspace)
+    except (OSError, ValueError) as e:
+        log.warning("asset integrity check skipped: %s", e)
+    else:
+        blocking = {ref.path for ref in blocking_missing_assets(assets)}
+        for ref in assets.missing:
+            message = (
+                f"Referenced asset `{ref.path}` exists in neither public/ nor dist/"
+            )
+            if ref.path in blocking:
+                report.fail("missing_public_asset", message, ref.referenced_by[0])
+            else:
+                report.warn("missing_internal_asset", message, ref.referenced_by[0])
+        if assets.missing:
+            log.warning(
+                "asset integrity: %s missing reference(s), %s on public surfaces: %s",
+                len(assets.missing),
+                len(blocking),
+                ", ".join(ref.path for ref in assets.missing[:8]),
+            )
+
+    # The visual loop renders real pixels and is the only check that can see a
+    # photograph depicting the wrong industry. It persists a report rather than
+    # failing inline, because it runs before this gate.
+    from app.application.preview_app.pipeline.visual_critic import (
+        visual_critique_gate_issues,
+    )
+
+    try:
+        visual_issues = [
+            issue
+            for issue in visual_critique_gate_issues(workspace)
+            # `missing_image_asset` restates what asset_integrity already found,
+            # but blocks on every surface. Defer to the surface-aware check above
+            # so a broken owner-page thumbnail cannot withhold the whole preview.
+            if issue[0] != "missing_image_asset"
+        ]
+    except (OSError, ValueError) as e:
+        log.warning("visual critique issues unreadable: %s", e)
+    else:
+        for code, message, path in visual_issues:
+            report.fail(code, message, path)
+        if visual_issues:
+            log.warning(
+                "visual critique blocking (%s): %s",
+                len(visual_issues),
+                "; ".join(f"{c}:{p}" for c, _m, p in visual_issues[:8]),
+            )
 
     return report
 
@@ -452,8 +527,82 @@ def heal_quality_gate(
     except Exception as e:
         log.warning("quality heal empty mock exports failed: %s", e)
 
+    # 7) Empty `images` slot map → curated slot URLs that always load
+    try:
+        from app.application.services.industry_images import normalize_image_slot_map
+
+        mock_src = _read(workspace, "src/data/mock.ts")
+        empty_images = _EMPTY_IMAGES_EXPORT_RE.search(mock_src)
+        if empty_images:
+            slot_map = json.dumps(
+                normalize_image_slot_map(None), indent=2, ensure_ascii=False
+            )
+            write_file(
+                workspace,
+                "src/data/mock.ts",
+                mock_src[: empty_images.start()]
+                + f"export const images = {slot_map};"
+                + mock_src[empty_images.end() :],
+            )
+            healed.append("src/data/mock.ts")
+    except Exception as e:
+        log.warning("quality heal empty images slot map failed: %s", e)
+
+    # 8) Broken local asset references → imagery the browser can actually fetch
+    try:
+        from app.application.preview_app.asset_integrity import (
+            repair_missing_asset_references,
+        )
+
+        healed.extend(repair_missing_asset_references(workspace))
+    except Exception as e:
+        log.warning("quality heal asset references failed: %s", e)
+
     # De-dupe while preserving order
     return list(dict.fromkeys(healed))
+
+
+def _settle_warnings(
+    workspace: Path,
+    architect: dict[str, Any],
+    report: GateReport,
+    *,
+    require_ai_hub: bool,
+) -> None:
+    """Repair and report warning-only defects, which never reach the heal path.
+
+    `ok` ignores warnings, so a run whose only defect is owner-surface breakage
+    returns before `heal_quality_gate`. Without this the deterministic asset
+    repair never fires and the warning is recorded into a field nobody reads.
+    """
+    if not report.warnings:
+        return
+
+    from app.application.preview_app.asset_integrity import (
+        repair_missing_asset_references,
+    )
+
+    try:
+        touched = repair_missing_asset_references(workspace)
+    except (OSError, ValueError) as e:
+        log.warning("warning-only asset repair skipped: %s", e)
+        touched = []
+
+    if touched:
+        report.healed = list(dict.fromkeys([*report.healed, *touched]))
+        rescan = evaluate_quality_gate(
+            workspace, architect, require_ai_hub=require_ai_hub
+        )
+        # Only warnings are adopted: this path is reached because the preview
+        # already passed, and a repair must never withhold a shippable app.
+        report.warnings = rescan.warnings
+
+    if report.warnings:
+        log.warning(
+            "quality gate warnings (%s, not blocking ready): %s",
+            len(report.warnings),
+            "; ".join(f"{w.code}:{w.path}" for w in report.warnings[:8]),
+        )
 
 
 def run_quality_gate_with_heal(
@@ -478,6 +627,7 @@ def run_quality_gate_with_heal(
         workspace, architect, require_ai_hub=require_ai_hub
     )
     if report.ok:
+        _settle_warnings(workspace, architect, report, require_ai_hub=require_ai_hub)
         return report
 
     log.warning(

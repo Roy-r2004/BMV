@@ -17,10 +17,12 @@ export interface CredentialStripProps {
 /** Trust strip — credentials / protocols / studios with brand atmosphere. */
 export function CredentialStrip({
   className,
-  heading = 'Clinical trust',
+  heading = 'Credentials',
   items: itemsProp = [],
 }: CredentialStripProps) {
   const items = Array.isArray(itemsProp) ? itemsProp : [];
+  // A heading over nothing reads as a broken page; render nothing instead.
+  if (!items.length) return null;
   return (
     <section
       className={cn(

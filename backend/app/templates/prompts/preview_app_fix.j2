@@ -1,7 +1,29 @@
+{% set typecheck = typecheck_mode is defined and typecheck_mode %}
+{% if typecheck %}
+Fix the React preview app's TypeScript contract violations. The app already compiles and ships — these are wrong DATA SHAPES, and every one of them renders as a broken or empty section on a live page a customer is about to see.
+
+=== TYPE ERRORS (tsc) ===
+{{ type_errors }}
+
+{% if type_declarations %}
+=== THE REAL CONTRACTS (verbatim declarations — these are the ground truth) ===
+{{ type_declarations }}
+{% endif %}
+{% if prior_rejections is defined and prior_rejections %}
+=== YOUR PREVIOUS ATTEMPT WAS THROWN AWAY FOR THESE REASONS ===
+{% for reason in prior_rejections %}
+- {{ reason }}
+{% endfor %}
+Do not repeat any of these. If a shape looked impossible to satisfy without one
+of the above, you misread the contract — re-read the declaration above and fix
+the DATA, keeping every component and every populated collection intact.
+{% endif %}
+{% else %}
 Fix the React preview app build errors.
 
 === BUILD ERRORS ===
 {{ build_errors }}
+{% endif %}
 
 === ALL FILES THAT EXIST IN THE PROJECT (import ONLY from these + react/react-router-dom) ===
 {{ file_tree }}
@@ -17,7 +39,29 @@ Fix the React preview app build errors.
 === FILES (current content) ===
 {{ files_content }}
 
+{% if typecheck %}
+Fix every type error by making the DATA match the declared contract. Follow these rules strictly:
+
+ABSOLUTELY FORBIDDEN — a patch doing any of these is rejected and thrown away:
+- Deleting, commenting out, or replacing a component usage to silence its error. If `<CredentialStrip items={...} />` has the wrong item shape, KEEP `<CredentialStrip>` and fix the items.
+- Replacing real data with an empty array (`items={[]}`, `rows: []`), `null`, `undefined`, or a placeholder. An empty section is a WORSE defect than a type error.
+- `as any`, `as unknown`, `: any`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, or non-null `!` spam. Type suppression is not a fix.
+- Removing props, headings, or copy that carry business meaning.
+
+HOW TO FIX EACH KIND OF ERROR:
+- Wrong item/prop shape (TS2322, TS2739, TS2740, TS2345): RENAME AND REMAP the existing fields onto the declared ones, preserving all real content. `{ label: 'Since 2009', value: '15 years' }` for `CredentialStripItem { title: string; detail: string }` becomes `{ title: 'Since 2009', detail: '15 years' }` — same words, correct keys. Never drop an item.
+- Missing required prop (TS2741): add it with real, business-specific content (a real image key from the images object, a real headline) — never `''` and never a lorem placeholder.
+- Property does not exist on the source object (TS2339, TS2551): either the property must be ADDED to that object in `src/data/mock.ts` with real content of the right type, or the reader must use a key that genuinely exists. If a page reads `images.artwork1..artwork10` and the images object has only `hero`/`card1`/`card2`/`card3`, add those keys to the images object reusing the real URLs already present — never point an `<img>` at `undefined` and never delete the gallery.
+- Unknown property in an object literal (TS2353): drop only that one unsupported key, or move its content into a supported key. Keep the object.
+- Duplicate object key (TS1117): merge the two literals so no declared content is lost.
+- Implicit `any` parameter (TS7006): annotate with the real element type from the declaration above — do NOT write `any`.
+- Calling `.map()` on an object: iterate the correct array field on that object (e.g. `seed.kpis`), do not empty the section.
+- A prop that does not exist on the component (`target`, `children` on a component with no children, an unsupported `variant` value): remove only that prop or switch to a declared variant value from the contract; keep the component and its content.
+
+The declarations above are authoritative — do not guess field names when a declaration is shown.
+{% else %}
 Fix ONLY what is needed to make `vite build` succeed. Follow these rules strictly:
+{% endif %}
 {% if catalogue_mode %}
 - Files under `src/ui/` and `src/components/UiIcons.tsx` are template-owned. NEVER return edits for them.
 - The `@/ui` kit and catalogue contract are immutable; never create, edit, replace, or bypass kit modules.

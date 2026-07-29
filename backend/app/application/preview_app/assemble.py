@@ -1,8 +1,11 @@
 """Deterministic assembly of routing + theme for generated preview apps."""
 from __future__ import annotations
 
+import html
 import json
 import re
+import unicodedata
+from pathlib import Path
 
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.application.ui_catalogue import (
@@ -11,7 +14,12 @@ from app.application.ui_catalogue import (
     infer_section_slots,
 )
 from app.application.preview_app.text_utils import _bounded_json
-from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.preview_app.workspace import (
+    list_source_files,
+    read_file,
+    write_file,
+    write_trusted_workspace_file,
+)
 from app.application.preview_app.theme import sanitize_theme_inputs
 from app.application.preview_app.protected_paths import safe_generated_route_path
 
@@ -487,6 +495,84 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
     return False
 
 
+_SHELL_TITLE_RE = re.compile(r"<title>.*?</title>", re.IGNORECASE | re.DOTALL)
+_SHELL_META_DESCRIPTION_RE = re.compile(
+    r"[ \t]*<meta\s+name=[\"']description[\"'][^>]*>[ \t]*\r?\n?",
+    re.IGNORECASE,
+)
+_SHELL_TITLE_FALLBACK = "Preview"
+# npm forbids uppercase, leading dot/underscore, url-unsafe characters and >214 chars.
+_NPM_NAME_FALLBACK = "preview-app"
+_NPM_NAME_MAX = 214
+_META_DESCRIPTION_MAX = 160
+_META_DESCRIPTION_MIN_USEFUL = 40
+
+
+def _npm_package_name(brand_name: str) -> str:
+    folded = unicodedata.normalize("NFKD", str(brand_name or ""))
+    ascii_only = folded.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_only.lower()).strip("-")
+    slug = slug[:_NPM_NAME_MAX].strip("-")
+    return slug or _NPM_NAME_FALLBACK
+
+
+def _clip_sentence(text: str, limit: int) -> str:
+    collapsed = " ".join(str(text or "").split())
+    if len(collapsed) <= limit:
+        return collapsed
+    head = collapsed[:limit]
+    cut = head.rfind(" ")
+    return (head[:cut] if cut > 0 else head).rstrip(" ,;:-") + "…"
+
+
+def _shell_meta_description(brand_name: str, seed: dict | None) -> str:
+    hero = (seed or {}).get("hero")
+    hero = hero if isinstance(hero, dict) else {}
+    for candidate in (hero.get("subcopy"), hero.get("headline")):
+        collapsed = " ".join(str(candidate or "").split())
+        if len(collapsed) >= _META_DESCRIPTION_MIN_USEFUL:
+            return _clip_sentence(collapsed, _META_DESCRIPTION_MAX)
+    return _clip_sentence(
+        f"{brand_name} — what we offer, how it works, and how to get started.",
+        _META_DESCRIPTION_MAX,
+    )
+
+
+def write_app_shell(workspace, brand_name: str, description: str) -> None:
+    """Stamp the real business identity onto the copied scaffold shell files."""
+    root = Path(workspace)
+    title = " ".join(str(brand_name or "").split()) or _SHELL_TITLE_FALLBACK
+
+    index_html = root / "index.html"
+    if index_html.is_file():
+        head = (
+            f"<title>{html.escape(title, quote=True)}</title>\n"
+            f'    <meta name="description" content="{html.escape(description, quote=True)}" />'
+        )
+        content = _SHELL_META_DESCRIPTION_RE.sub("", index_html.read_text(encoding="utf-8"))
+        if _SHELL_TITLE_RE.search(content):
+            content = _SHELL_TITLE_RE.sub(lambda _match: head, content, count=1)
+        elif "</head>" in content:
+            content = content.replace("</head>", f"    {head}\n  </head>", 1)
+        else:
+            content = f"{head}\n{content}"
+        write_trusted_workspace_file(workspace, "index.html", content)
+
+    package_json = root / "package.json"
+    if package_json.is_file():
+        try:
+            manifest = json.loads(package_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            manifest = None
+        if isinstance(manifest, dict):
+            manifest["name"] = _npm_package_name(title)
+            write_trusted_workspace_file(
+                workspace,
+                "package.json",
+                json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+            )
+
+
 def write_plumbing_mock(
     workspace,
     architect: dict,
@@ -497,7 +583,7 @@ def write_plumbing_mock(
     design_system: dict | None = None,
     mock_seed: dict | None = None,
 ) -> None:
-    """Minimal mock.ts so layouts/router work before pages exist."""
+    """Minimal mock.ts + branded shell so layouts/router work before pages exist."""
     from app.application.preview_app.brand_brief import resolve_preview_brand_name
     from app.application.preview_app.industry_templates.seed import normalize_mock_seed
 
@@ -560,6 +646,11 @@ def write_plumbing_mock(
         f"export const aiFeatures = {json.dumps(ai_features, indent=2, ensure_ascii=False)} as const;\n"
     )
     write_file(workspace, "src/data/mock.ts", content)
+    write_app_shell(
+        workspace,
+        resolved_brand,
+        _shell_meta_description(resolved_brand, seed_payload),
+    )
 
 
 def write_recipe_id(workspace, recipe: dict | None = None) -> None:
@@ -775,6 +866,12 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
                     continue
                 base = p.rstrip("/") or ""
                 if not base:
+                    continue
+                # `/gallery/:id` also matches listing_re, and appending another
+                # param to it mints `/gallery/:id/:id` — a path with the same
+                # param name twice, which React Router cannot bind meaningfully.
+                # Only a param-free listing gets detail aliases.
+                if ":" in base:
                     continue
                 for alias in (f"{base}/:id", f"{base}/:slug"):
                     if alias not in registered:

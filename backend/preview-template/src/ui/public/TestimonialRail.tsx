@@ -23,6 +23,8 @@ export function TestimonialRail({
 }: TestimonialRailProps) {
   const items = Array.isArray(itemsProp) ? itemsProp : [];
   const [lead, ...rest] = items;
+  // A heading over nothing reads as a broken page; render nothing instead.
+  if (!items.length) return null;
   return (
     <section className={cn('relative isolate overflow-hidden bg-background px-6 py-28 lg:px-12 lg:py-36', className)}>
       <div className="ui-mesh opacity-50" aria-hidden="true" />

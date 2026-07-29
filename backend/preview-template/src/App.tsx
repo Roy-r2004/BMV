@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/AdminLayout';
@@ -6,10 +6,6 @@ import HomePage from './pages/HomePage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import { notifyParent, registerPreviewNavigate, setupPreviewBridge } from './lib/preview-bridge';
 import { roles } from './data/mock';
-
-const PublicReferencePage = lazy(() => import('./ui/examples/PublicReferencePage'));
-const OpsReferencePage = lazy(() => import('./ui/examples/OpsReferencePage'));
-const AiFeaturesReferencePage = lazy(() => import('./ui/examples/AiFeaturesReferencePage'));
 
 function RouteBridge() {
   const location = useLocation();
@@ -49,30 +45,6 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
         </Route>
-        <Route
-          path="/_catalogue/public"
-          element={
-            <Suspense fallback={null}>
-              <PublicReferencePage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/_catalogue/ops"
-          element={
-            <Suspense fallback={null}>
-              <OpsReferencePage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/_catalogue/ai"
-          element={
-            <Suspense fallback={null}>
-              <AiFeaturesReferencePage />
-            </Suspense>
-          }
-        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

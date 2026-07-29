@@ -72,7 +72,9 @@ def test_jane_art_public_home_scaffold_floor() -> None:
 
     assert "FeatureBento" in tsx
     assert "imagePool={[images.card1, images.card2, images.card3]}" in tsx
-    assert "items={seed.features ?? []}" in tsx
+    # Empty items make FeatureBento print "01 / 00" — the scaffold now seeds a
+    # brand-bound fallback instead of an empty array.
+    assert "items={seed.features?.length ? seed.features : [" in tsx
     assert "What Jane Art offers" in tsx
     assert "Ready for Jane Art?" in tsx
     # Slice 1: gallery/portfolio brands get art-domain footer copy, not booking copy.

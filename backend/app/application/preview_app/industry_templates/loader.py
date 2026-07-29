@@ -1,6 +1,7 @@
 """Load + pick industry templates (rich content packs in packs/*.json)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from functools import lru_cache
@@ -31,15 +32,21 @@ _WEAK_INDUSTRY_TOKENS = frozenset(
         "classes",
         "booking",
         "bookings",
-        "craft",
-        "crafts",
-        "art",
-        "arts",
         "design",
-        "creative",
         "maker",
         "makers",
+        "portfolio",
     }
+)
+
+# A pack is a whole visual identity — a lone tag hit must be a long, declared word.
+_MIN_DISTINCTIVE_TOKEN_LEN = 6
+
+# "…not a booking SaaS or clinic front desk" says what the business is NOT; keyword
+# matching cannot see negation, so those clauses are dropped before scoring.
+_NEGATED_CLAUSE_RE = re.compile(
+    r"\b(?:not|never|no longer|isn'?t|aren'?t|rather than|instead of)\b[^.;:!?\n|–—]*",
+    re.IGNORECASE,
 )
 
 
@@ -62,6 +69,17 @@ def load_templates() -> dict[str, dict[str, Any]]:
 
 def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 2}
+
+
+def _claimed_tokens(text: str) -> set[str]:
+    """Tokens the brief actually claims — negated clauses do not count."""
+    return _tokenize(_NEGATED_CLAUSE_RE.sub(" ", text or ""))
+
+
+def _rotation(seed: int, template_id: str) -> int:
+    """Stable per-seed tiebreak — never ranks packs by id spelling."""
+    digest = hashlib.sha256(f"{seed}:{template_id}".encode("utf-8")).hexdigest()
+    return int(digest[:8], 16)
 
 
 def _is_ops_skeleton(skeleton_id: str) -> bool:
@@ -87,8 +105,9 @@ def pick_template_id(
     templates = load_templates()
     if not templates:
         return None
-    tokens = _tokenize(f"{industry} {context}")
-    scored: list[tuple[int, str]] = []
+    declared_tokens = _claimed_tokens(industry)
+    tokens = declared_tokens | _claimed_tokens(context)
+    scored: list[tuple[tuple[int, int, int, int], str]] = []
     for tid, pack in templates.items():
         tag_tokens = _tokenize(" ".join(pack.get("industry_tags") or []))
         sk = str(pack.get("skeleton_id") or "")
@@ -97,17 +116,23 @@ def pick_template_id(
         if surface == "public" and not _is_public_marketing_skeleton(sk):
             continue
         overlap = tokens & tag_tokens
-        strong = {t for t in overlap if t not in _WEAK_INDUSTRY_TOKENS}
-        # Require a real match — shared words like "studio"/"home"/"arts" are too weak
+        # Require a real match — shared words like "studio"/"home" are too weak
         # and were forcing pottery → fitness/agency packs.
-        if len(strong) >= 2:
-            scored.append((len(strong) * 10 + (seed % 3), tid))
-        elif len(strong) == 1:
-            # Allow only distinctive tags (length > 5) as a single-token hit.
-            distinctive = {t for t in strong if len(t) > 5}
-            if distinctive:
-                scored.append((8 + (seed % 3), tid))
+        strong = {t for t in overlap if t not in _WEAK_INDUSTRY_TOKENS}
+        if not strong:
+            continue
+        declared = strong & declared_tokens
+        if len(strong) == 1 and not any(
+            len(t) >= _MIN_DISTINCTIVE_TOKEN_LEN for t in declared
+        ):
+            # One stray word in generated prose must not pick a visual identity.
+            continue
+        # The declared industry is stronger evidence than generated prose.
+        score = len(strong) + 2 * len(declared)
+        coverage = 100 * len(strong) // max(len(tag_tokens), 1)
+        scored.append(((score, len(declared), coverage, _rotation(seed, tid)), tid))
     if scored:
+        # Merit first (weighted hits, declared hits, tag coverage), then seeded rotation.
         scored.sort(reverse=True)
         return scored[0][1]
 

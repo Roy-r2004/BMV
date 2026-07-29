@@ -43,6 +43,8 @@ export function FeatureBento({
   }));
   const scrollerRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(0);
+  // A heading and a "01 / 00" counter over nothing reads as a broken page.
+  const isEmpty = items.length === 0;
 
   const updateActive = React.useCallback(() => {
     const node = scrollerRef.current;
@@ -81,6 +83,8 @@ export function FeatureBento({
     const card = node?.querySelectorAll<HTMLElement>('[data-chapter]')[index];
     card?.scrollIntoView({ behavior: safe ? 'smooth' : 'auto', inline: 'center', block: 'nearest' });
   };
+
+  if (isEmpty) return null;
 
   return (
     <section
@@ -237,7 +241,7 @@ export function FeatureBento({
           <div className="mt-14 lg:mt-20">
             <div className="mb-7 flex items-center justify-between gap-4">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-muted uppercase">
-                Guest path · {String(active + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}
+                {String(active + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}
               </p>
               <div className="flex items-center gap-2">
                 <button

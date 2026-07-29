@@ -16,6 +16,10 @@ from app.application.preview_app.safety.brand_contract import (
     ensure_brand_usage_paths,
 )
 from app.application.preview_app.safety.catalogue_guards import enforce_catalogue_workspace_contracts
+from app.application.preview_app.safety.copy_hygiene import (
+    decode_literal_unicode_escapes,
+    strip_template_jargon_copy,
+)
 from app.application.preview_app.safety.imports import (
     ensure_headless_stub_imports,
     ensure_react_default_import,
@@ -29,6 +33,7 @@ from app.application.preview_app.safety.mock_data import (
     enrich_date_starved_mock_exports,
     enrich_empty_mock_exports,
     ensure_mock_exports,
+    normalize_mock_navigation,
     repair_typed_mock_exports,
     sanitize_data_files,
     sync_mock_images,
@@ -218,11 +223,26 @@ def apply_workspace_guards(
         except Exception as e:
             guard_log.warning("shared chrome guard skipped: %s", e)
     try:
+        actions.extend(normalize_mock_navigation(workspace, architect, brand_name))
+    except Exception as e:
+        guard_log.warning("navigation normalization skipped: %s", e)
+    try:
         actions.extend(ensure_runtime_correctness(
             workspace, architect, plan, primary, secondary, font, template_renderer,
         ))
     except Exception as e:
         guard_log.warning("runtime correctness skipped: %s", e)
+    # Copy hygiene runs last — every earlier writer is a possible source.
+    for fn, label in (
+        (lambda: decode_literal_unicode_escapes(workspace), "unicode escapes decoded"),
+        (lambda: strip_template_jargon_copy(workspace), "template jargon replaced"),
+    ):
+        try:
+            result = fn()
+            if result:
+                actions.extend(result)
+        except Exception as e:
+            guard_log.warning("guard %s skipped: %s", label, e)
     restore_template_owned_files(workspace, architect, protected_snapshot)
     return [
         action for action in actions

@@ -22,9 +22,33 @@ container mounts only `./backend`. It runs for real on the host.
 
 ## Environment notes
 
-- `pytest` is **not** in `backend/requirements.txt`. To run the suite in the
-  container: `docker compose exec api sh -c 'pip install -q pytest && cd /app/backend && python -m pytest tests/ -q'`.
-  A dev-requirements file would remove this step.
+- **Use this invocation.** Both previously documented commands report phantom
+  failures, in opposite directions, because two different path roots must line up
+  with the mounted repo:
+
+  ```bash
+  docker run --rm -v "$PWD:/repo" -w /repo/backend \
+    -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template \
+    --entrypoint sh bmv-local-api \
+    -c 'pip install -q pytest; python -m pytest tests/ -q'
+  ```
+
+  - Plain `docker run -v "$PWD:/repo"` fails template-dependent tests, because
+    the image sets `PREVIEW_TEMPLATE_DIR=/app/backend/preview-template` and that
+    env var wins over `Settings`' path discovery — so the tests read the
+    **template baked into the image** while your edits sit unread under `/repo`.
+    Symptom: `test_task5_deterministic_fixture` reports `src/ui/**` drift that
+    does not exist in the repo. Hence the explicit `-e` override above.
+  - `docker compose exec api` fixes the template (compose mounts `./backend` onto
+    `/app/backend`) but fails `tests/security/test_admin_build_info.py::test_deploy_files_stamp_the_code_policy_revision`,
+    which walks to `parents[3]` for the repo root and finds `/app` — where
+    `Dockerfile.app` and `docker-compose.coolify.yml` are not mounted.
+  - Neither is a code defect. Confirm any suspected regression under the
+    invocation above before believing it.
+
+- `pytest` is **not** in `backend/requirements.txt`; install it per run, and note
+  that recreating the container loses it. A dev-requirements file would remove
+  this step.
 - `tests/appspec/` cannot always be collected as a whole directory: importing
   `app.domain.appspec.validation` before `app.application.appspec` triggers a
   circular import between those packages. Naming individual test files works.

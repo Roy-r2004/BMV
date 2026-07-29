@@ -6,9 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc -b",
-    "sync:ui": "tsx scripts/sync-ui-catalogue.ts",
-    "test:ui": "npm run sync:ui && tsx scripts/verify-ui-catalogue.ts"
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",

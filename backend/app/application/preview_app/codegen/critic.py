@@ -127,6 +127,7 @@ def critique_file_visual(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     architect: dict | None = None,
+    business_identity: str = "",
 ) -> dict:
     """Visual-critic agent: score one page from its rendered screenshot.
 
@@ -135,16 +136,17 @@ def critique_file_visual(
     is actually visible on screen (a screenshot), not raw source, so it can
     catch rendering defects (blank icon slots, broken images, empty-looking
     lists, overlap) that a text-only read of the source can never see.
+
+    Scaffold-first pages are reviewed like any other page: they render real
+    imagery and real copy to a real user, so exempting them from visual review
+    hides exactly the defects only a screenshot can reveal. What the scaffold
+    lock buys them is immunity from *refine* — `verdict` stays out of "revise"
+    so no freeform rewrite is triggered — while `visual_verdict` carries the
+    honest judgement for callers that gate on it.
     """
-    if is_stubbed_path(workspace, file_path) or (
+    scaffold_locked = is_stubbed_path(workspace, file_path) or (
         "deterministic catalogue contract scaffold" in read_file(workspace, file_path)
-    ):
-        return {
-            "score": 72,
-            "verdict": "ok",
-            "issues": ["Catalogue scaffold page (structure locked)."],
-            "revision_instructions": "",
-        }
+    )
     route = _route_for_file(file_path, architect or {})
     skeleton_id = str(route.get("skeleton_id") or "")
     skeleton_contract_json = (
@@ -168,6 +170,7 @@ def critique_file_visual(
         surface=route.get("surface") or "",
         skeleton_id=skeleton_id,
         skeleton_contract_json=skeleton_contract_json,
+        business_identity=business_identity,
     )
     raw = ai_provider.ask_vision(_vision_model(), prompt, screenshot_path)
     try:
@@ -192,6 +195,14 @@ def critique_file_visual(
         except Exception:
             parsed_retry = None
         normalized = _normalize_critic_result(parsed_retry, threshold=80)
+    if scaffold_locked and normalized.get("verdict") != "unavailable":
+        return {
+            **normalized,
+            "verdict": "ok",
+            "visual_verdict": normalized.get("verdict"),
+            "revision_instructions": "",
+            "scaffold_locked": True,
+        }
     return normalized
 
 def refine_file(

@@ -1,0 +1,89 @@
+{
+  "id": "art-gallery-portfolio-home",
+  "label": "Fine art gallery / artist portfolio",
+  "industry_tags": [
+    "art",
+    "arts",
+    "gallery",
+    "galleries",
+    "artwork",
+    "artworks",
+    "artist",
+    "painting",
+    "paintings",
+    "canvas",
+    "sculpture",
+    "exhibition",
+    "collector",
+    "collectors"
+  ],
+  "recipe_hint": "editorial",
+  "skeleton_id": "public-home",
+  "section_order": ["hero", "showcase", "features", "process", "credentials", "testimonials", "cta", "footer"],
+  "signature_moves": ["full-bleed artwork hero", "gallery wall showcase grid", "generous matting whitespace", "quiet serif captions with medium and dimensions"],
+  "imagery_roles": {
+    "hero": "gallery wall original oil paintings wide",
+    "hero2": "artist studio easel canvases interior",
+    "card1": "abstract oil painting canvas texture detail",
+    "card2": "visitor viewing paintings in gallery",
+    "card3": "artist brush painting at easel",
+    "ambient": "paint strokes canvas texture atmosphere"
+  },
+  "prompt_hints": [
+    "Editorial gallery pacing — the artwork is the interface; type and whitespace stay quiet.",
+    "Lead with the work: hero is a single painting, then a showcase wall of available pieces.",
+    "Caption pieces like a gallery label (title, medium, dimensions, year) — never product-badge copy.",
+    "CTAs are 'View the collection' and 'Inquire about a piece' — never booking, checkout, or dashboards.",
+    "Copy speaks as the artist/gallery to collectors and designers, never demo-agency voice."
+  ],
+  "mock_seed": {
+    "tone": "editorial-gallery",
+    "hero": {
+      "headline": "Original oils that hold a room quiet",
+      "subcopy": "A living gallery of abstract landscapes and layered oils — new work added as it leaves the studio.",
+      "primaryCta": { "label": "View the collection", "href": "/gallery" },
+      "secondaryCta": { "label": "Inquire about a piece", "href": "/contact" }
+    },
+    "products": [
+      { "title": "Crimson Tide — oil on linen, 120 × 90 cm", "description": "Abstract coastal landscape built in eleven glazed layers. Available." },
+      { "title": "Emerald Depths — oil on canvas, 90 × 90 cm", "description": "Deep forest greens scraped back to bare weave at the horizon. Available." },
+      { "title": "Desert Bloom — oil on panel, 60 × 80 cm", "description": "Warm ochres and a single cadmium mark. Reserved for a private collection." },
+      { "title": "Winter Field — oil on linen, 150 × 100 cm", "description": "Snow light over stubble, painted across two studio winters. Available." }
+    ],
+    "features": [
+      { "title": "One painter, one hand", "description": "Every piece is stretched, primed, and painted in the studio — no prints, no assistants." },
+      { "title": "Sized for real walls", "description": "Dimensions, framing options, and in-room scale shots before you commit." },
+      { "title": "Collector notes travel with the work", "description": "Provenance, pigments, and care instructions arrive with every canvas." }
+    ],
+    "process": [
+      { "title": "Browse the current wall", "description": "Available, reserved, and archived pieces are labelled honestly." },
+      { "title": "Ask about a piece", "description": "Reply within two days with price, framing, and delivery options." },
+      { "title": "Live with it", "description": "Crated and insured shipping, or a studio visit if you are nearby." }
+    ],
+    "credentials": [
+      { "title": "Exhibited since 2014", "detail": "Group and solo shows across regional galleries and design fairs." },
+      { "title": "Archival materials only", "detail": "Artist-grade oils on linen or panel, varnished for decades not seasons." },
+      { "title": "Works in private collections", "detail": "Pieces placed with collectors and interior designers in nine cities." }
+    ],
+    "testimonials": [
+      { "quote": "The painting arrived crated like a museum loan and changed the whole apartment.", "author": "Nadia S.", "role": "Collector" },
+      { "quote": "She sent scale mockups on my client's wall before we bought. That never happens.", "author": "Marc L.", "role": "Interior designer" }
+    ],
+    "showcaseHeading": "Available works",
+    "featuresHeading": "How the work is made",
+    "processHeading": "From the wall to your wall",
+    "credentialsHeading": "Studio record",
+    "testimonialsHeading": "Collector notes",
+    "cta": {
+      "heading": "Found a piece that stays with you?",
+      "description": "Ask about price, framing, and delivery — or arrange a studio visit.",
+      "primaryLabel": "Inquire about a piece",
+      "primaryHref": "/contact",
+      "secondaryLabel": "See the collection",
+      "secondaryHref": "/gallery"
+    },
+    "footer": { "description": "A working painter's gallery of original oils — abstract landscapes and layered studies." },
+    "trustLabels": ["Original oils only", "Archival materials", "Insured crating", "Studio visits"],
+    "nav_cta": { "label": "Inquire", "href": "/contact" }
+  }
+}

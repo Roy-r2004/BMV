@@ -210,15 +210,26 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     )
     imagery_roles = plan.get("imagery_roles") if isinstance(plan.get("imagery_roles"), dict) else None
     if imagery_roles:
-        from app.application.services.industry_images import get_images_for_industry
+        from app.application.services.industry_images import (
+            get_images_for_industry,
+            resolve_industry_category,
+        )
 
-        images = get_images_for_industry(
+        # Roles are framing only — subject stays the business industry/brand, so the
+        # business-derived set from the appspec gate is refined, never replaced.
+        framed = get_images_for_industry(
             req.industry or "",
             seed=request_id,
             business_name=req.business_name,
             imagery_roles=imagery_roles,
         )
+        images = {**(images or {}), **framed}
         ctx.images = images
+        log.info(
+            "    imagery subject=%s roles=%s",
+            resolve_industry_category(req.industry or ""),
+            ",".join(sorted(imagery_roles)),
+        )
     recipe = get_recipe(plan.get("recipe_id"))
     manifest = build_design_manifest(full_context, plan, ai_provider, template_renderer)
     design_system = plan.get("design_system") or manifest.get("design_system") or {}

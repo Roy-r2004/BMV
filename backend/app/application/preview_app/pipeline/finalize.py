@@ -30,6 +30,7 @@ from app.application.preview_app.pipeline.architect_normalize import _plan_for_p
 from app.application.preview_app.pipeline.context import PipelineContext
 from app.application.preview_app.pipeline.errors import PreviewAppContractError
 from app.application.preview_app.quality_gate import run_quality_gate_with_heal
+from app.application.preview_app.source_quality import catalogue_page_is_thin
 from app.application.preview_app.workspace import read_file
 from app.application.services.ai_features import ai_features_from_request
 from app.application.services.progress import emit as _emit
@@ -59,6 +60,55 @@ def _finalize_brand_name(ctx: PipelineContext) -> str:
         )
         or "Brand"
     )
+
+
+def _scaffold_page_is_acceptable(
+    source: str,
+    *,
+    page_id: str,
+    action_ids: list[str],
+    evidence_ids: list[str],
+) -> bool:
+    """Build-quality verdict for one marker-carrying route source.
+
+    Policy (whether fallbacks may ship) is decided by the caller — this answers
+    only whether the page is addressable and carries rendered content, so the
+    measurement is identical with AppSpec enforcement on or off.
+    """
+    if page_id and not page_hooks_present(
+        source,
+        page_id=page_id,
+        action_ids=action_ids,
+        evidence_ids=evidence_ids,
+    ):
+        return False
+    return not catalogue_page_is_thin(source)
+
+
+def _typecheck_summary(workspace) -> dict:
+    """Surface the typecheck verdict so it is visible outside `.bmv-debug/`.
+
+    Type errors deliberately do not gate `viewable` — a slightly imperfect served
+    preview beats no preview — but an unreported count is indistinguishable from
+    a clean run, which is how 59 of them shipped unnoticed.
+    """
+    from app.application.preview_app.typecheck import read_typecheck_record
+
+    try:
+        record = read_typecheck_record(workspace)
+    except (OSError, ValueError) as e:
+        log.warning("typecheck record unreadable: %s", e)
+        return {}
+    if not isinstance(record, dict):
+        return {}
+
+    status = str(record.get("status") or "")
+    if not status:
+        return {}
+    return {
+        "typecheck_status": status,
+        "type_errors": int(record.get("error_count") or 0),
+    }
 
 
 def run_finalize(ctx: PipelineContext) -> dict:
@@ -133,17 +183,11 @@ def run_finalize(ctx: PipelineContext) -> dict:
         evidence_ids = (
             list(page.evidence_ids) if page else list(route.get("evidence_ids") or [])
         )
-        # Catalogue scaffolds with full AppSpec hooks are acceptable fallbacks
-        # under enforcement — they still compile and are browser-addressable.
-        if (
-            ctx.enforce_app_spec
-            and page_id
-            and page_hooks_present(
-                source,
-                page_id=page_id,
-                action_ids=action_ids,
-                evidence_ids=evidence_ids,
-            )
+        if _scaffold_page_is_acceptable(
+            source,
+            page_id=page_id,
+            action_ids=action_ids,
+            evidence_ids=evidence_ids,
         ):
             clear_stubbed_path(workspace, component_file)
         else:
@@ -154,6 +198,12 @@ def run_finalize(ctx: PipelineContext) -> dict:
         for path in consume_stubbed_paths(workspace)
         if path.replace("\\", "/") != AI_HUB_COMPONENT
     ]
+    if fallback_pages:
+        log.warning(
+            "    fallback pages (%s): %s",
+            len(fallback_pages),
+            ", ".join(fallback_pages[:8]),
+        )
     if ctx.enforce_app_spec and fallback_pages:
         ok = False
         _emit(
@@ -361,6 +411,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
         # Remount host iframe past sticky error boundaries after rebuilds.
         "built_at": int(time.time()),
     }
+    preview_app_result.update(_typecheck_summary(workspace))
     result = {
         "preview_app": preview_app_result,
         "experience_plan": persisted_plan,

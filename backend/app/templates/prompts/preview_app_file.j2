@@ -72,6 +72,30 @@ BEHAVIOR CONTRACT RULES:
 Assigned skeleton: {{ skeleton_id }}
 {{ skeleton_contract_json }}
 
+How to read it: `requiredProps` / `optionalProps` are the ONLY props a component accepts, `variants`
+lists the allowed literal values, and `prop_shapes` gives the member names INSIDE object props —
+`"CredentialStrip.items[]": "title, detail"` means every element of `items` is `{ title, detail }`,
+and `?` marks an optional member. These names are read from the component sources; they are exact.
+
+PROP CONTRACT (a wrong prop name compiles and renders an EMPTY component):
+- Pass EXACTLY the documented prop names and member names. `CredentialStrip` given `{ label, value }`
+  instead of `{ title, detail }` paints blank cards under a live heading.
+- Pass every required prop and never omit a required prop — `MarketingHero` without `imageSrc`
+  does not compile.
+- Never invent a prop: no `target` on `Button`, no `children` on `MarketingHero`, no `name` on an
+  `ActivityFeed` item. Not in `requiredProps`/`optionalProps` means it does not exist.
+- Literal props take only the listed values — `variant="default"` is wrong where the contract says
+  `'primary' | 'secondary'`.
+- Only read `seed.*` / `images.*` keys that `@/data/mock` exports; `images` has exactly `hero`,
+  `hero2`, `card1`, `card2`, `card3`, `ambient`.
+
+LEGIBILITY (catalogue components manage their own contrast — trust the design tokens):
+- Never put background, overlay, blend or opacity utilities in a catalogue component's `className`:
+  no `bg-background`, `bg-*`, `after:bg-*`, `bg-blend-*`, `mix-blend-*`, `opacity-*`. A generated page
+  added `after:bg-blend-multiply after:bg-text-brand/20 bg-background` to `MarketingHero` and turned
+  the headline, subcopy and secondary CTA white-on-white.
+- `className` on catalogue components is for spacing and width only (`mt-*`, `py-*`, `max-w-*`).
+
 CATALOGUE PAGE CONTRACT (NON-NEGOTIABLE):
 - Import page UI exclusively from `@/ui`. Imports outside `@/ui` are limited to React, router APIs, and `@/data/mock`.
 - Declare exactly `const SKELETON_ID = '{{ skeleton_id }}' as const;`.
@@ -127,7 +151,8 @@ TECH RULES:
 - Motion & presence: use kit motion when available; otherwise add at least one of ui-mesh / ui-film-grain / kenburns / hover lift so pages never feel static.
 {% if catalogue_page %}
 - IMPORTS ALLOW-LIST: `@/ui`, `react`, `react-router-dom`, and `@/data/mock` only. Put page-specific helper logic inline.
-- Use only components and props present in the matched compact skeleton contract.
+- Use only components and props present in the matched compact skeleton contract, with the exact
+  member names its `prop_shapes` declares.
 {% else %}
 - IMPORTS ALLOW-LIST — you may ONLY import from these, nothing else:
   * `react`, `react-router-dom`

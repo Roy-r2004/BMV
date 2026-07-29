@@ -119,7 +119,7 @@ These are non-secret configuration values from the local baseline:
 | Stage | Configuration | Active value |
 |---|---|---|
 | Blueprint, proposal, plans | `TEXT_MODEL` | `google/gemini-2.5-flash` |
-| Reference screenshot | `VISION_MODEL` | `meta-llama/llama-3.2-11b-vision-instruct` |
+| Reference screenshot | `VISION_MODEL` | `google/gemini-2.5-flash` |
 | Visual demo, technical plan | `CODER_MODEL` | `qwen/qwen-2.5-coder-32b-instruct` |
 | AppSpec author/repair/review | `APPSPEC_*_MODEL` | `google/gemini-2.5-flash` |
 | Experience/architect | `ARCHITECT_MODEL` | `anthropic/claude-haiku-4.5` |

@@ -139,6 +139,25 @@ _SLOT_QUERY_SUFFIX: dict[str, str] = {
     "ambient": "atmosphere background",
 }
 
+# Concrete subject nouns per category — search quality beats raw brief prose.
+_CATEGORY_QUERY_HINT: dict[str, str] = {
+    "art": "art gallery painting studio",
+    "beauty": "spa salon beauty",
+    "fitness": "gym fitness training",
+    "food": "restaurant food dining",
+    "health": "clinic healthcare",
+    "tech": "software office technology",
+    "realestate": "modern home real estate",
+    "education": "classroom learning education",
+    "retail": "fashion retail apparel outdoor gear",
+    "generic": "professional small business",
+}
+
+_GENERIC_QUERY_HINT = _CATEGORY_QUERY_HINT["generic"]
+
+# Pexels truncates at 120 chars; keep composed role queries inside that budget.
+_MAX_QUERY_WORDS = 14
+
 
 def _resolve_category(industry: str) -> str:
     industry_lower = (industry or "").lower()
@@ -146,6 +165,27 @@ def _resolve_category(industry: str) -> str:
         if any(kw in industry_lower for kw in keywords):
             return category
     return "generic"
+
+
+def resolve_industry_category(industry: str) -> str:
+    """Coarse imagery category for an industry phrase (``generic`` when unknown)."""
+    return _resolve_category(industry)
+
+
+def _compose_query(*parts: str) -> str:
+    """Join query parts left-to-right, dropping repeats and capping length."""
+    seen: set[str] = set()
+    words: list[str] = []
+    for part in parts:
+        for word in re.findall(r"[A-Za-z0-9&']+", part or ""):
+            key = word.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            words.append(word)
+            if len(words) >= _MAX_QUERY_WORDS:
+                return " ".join(words)
+    return " ".join(words)
 
 
 def _curated_fallback(
@@ -182,26 +222,20 @@ def _slot_queries(
     base = f"{brand} {industry_clean}".strip() if brand else industry_clean
     # Prefer concrete industry words for search quality
     category = _resolve_category(industry)
-    category_hint = {
-        "art": "art gallery painting studio",
-        "beauty": "spa salon beauty",
-        "fitness": "gym fitness training",
-        "food": "restaurant food dining",
-        "health": "clinic healthcare",
-        "tech": "software office technology",
-        "realestate": "modern home real estate",
-        "education": "classroom learning education",
-        "retail": "fashion retail apparel outdoor gear",
-        "generic": "professional small business",
-    }.get(category, "professional small business")
+    category_hint = _CATEGORY_QUERY_HINT.get(category, _GENERIC_QUERY_HINT)
+    roles = {
+        str(slot): str(query).strip()
+        for slot, query in (imagery_roles or {}).items()
+        if str(slot) in _SLOTS and str(query).strip()
+    }
     queries: dict[str, str] = {}
     for slot in _SLOTS:
-        suffix = _SLOT_QUERY_SUFFIX[slot]
-        queries[slot] = f"{base} {category_hint} {suffix}".strip()
-    if imagery_roles:
-        for slot, query in imagery_roles.items():
-            if slot in _SLOTS and str(query).strip():
-                queries[slot] = str(query).strip()
+        role = roles.get(slot)
+        if role:
+            # A role is framing only — subject stays the brand + resolved industry.
+            queries[slot] = _compose_query(brand, category_hint, role)
+        else:
+            queries[slot] = f"{base} {category_hint} {_SLOT_QUERY_SUFFIX[slot]}".strip()
     return queries
 
 

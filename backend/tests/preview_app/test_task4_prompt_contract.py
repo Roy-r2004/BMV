@@ -644,8 +644,22 @@ def test_production_callsites_render_with_strict_undefined() -> None:
                 renderer,
                 route_architect,
             )
+            # A scaffold page still renders real imagery and real copy to a real
+            # user, so it IS shown to the vision model now — skipping the call was
+            # how a dental-clinic hero shipped inside a "PASSED" art gallery. The
+            # scaffold lock survives only as immunity from *refine*: `verdict`
+            # stays out of "revise", while `visual_verdict` carries the honest
+            # judgement that `_absorb_review` gates on.
             assert inconsistent["verdict"] == "ok"
-            assert inconsistent_ai.prompts == []
+            # score 20 with a self-declared "pass" is the inconsistency this
+            # fixture is named for: the 80-point threshold wins, and the scaffold
+            # lock does not launder that into a clean verdict.
+            assert inconsistent["visual_verdict"] == "revise"
+            assert inconsistent["scaffold_locked"] is True
+            assert inconsistent_ai.prompts, (
+                "a scaffold page must still be sent to the vision model; an "
+                "unlooked-at page reporting ok is the defect this suite exists for"
+            )
 
             refine_ai = _CapturingAI(scaffold)
             codegen.refine_file(
@@ -681,8 +695,28 @@ def test_production_callsites_render_with_strict_undefined() -> None:
         mock_path = workspace / "src" / "data" / "mock.ts"
         mock_path.parent.mkdir(parents=True, exist_ok=True)
         mock_path.write_text("export const roles = [];\n", encoding="utf-8")
+        # The pages in this workspace import `images`, `reservations` AND `seed`.
+        # A response missing any one of them is rejected — `mock.ts` that omits an
+        # imported symbol does not compile, so synthesis fails closed rather than
+        # writing a half file. Pin that first, then the success path.
+        incomplete_ai = _CapturingAI(
+            "export const reservations = [];\n"
+            "export const images = { hero: '', card1: '', card2: '', card3: '' };\n"
+        )
+        assert not codegen.synthesize_mock_data(
+            workspace,
+            "restaurant context",
+            planned,
+            {},
+            {},
+            {"routes": [_route("public"), _route("ops")]},
+            incomplete_ai,
+            renderer,
+        ), "a mock missing an imported export must be refused, not written"
+
         mock_ai = _CapturingAI(
             "export const reservations = [];\n"
+            "export const seed = { ready: true };\n"
             "export const images = { hero: '', card1: '', card2: '', card3: '' };\n"
         )
         assert codegen.synthesize_mock_data(

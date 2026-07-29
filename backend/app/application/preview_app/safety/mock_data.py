@@ -795,3 +795,200 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         actions.append(f"pages:{page_actions}")
         guard_log.info("sync_mock_images scrubbed %s page file(s)", page_actions)
     return actions
+
+
+# Nav ranks: primary journey first, contact last. `/ai-features` keeps the slot
+# assemble._nav_items_for pins it into so the hub is never buried.
+_NAV_HOME_PATHS = frozenset({"/", "/home", "/index"})
+_NAV_HUB_PATHS = frozenset({"/ai-features"})
+_NAV_PRIMARY_TOKENS = frozenset(
+    {
+        "gallery",
+        "collection",
+        "collections",
+        "works",
+        "work",
+        "portfolio",
+        "pieces",
+        "artworks",
+        "catalog",
+        "catalogue",
+        "shop",
+        "store",
+        "products",
+        "menu",
+        "services",
+        "treatments",
+        "offerings",
+        "packages",
+        "classes",
+        "workshops",
+        "sessions",
+        "schedule",
+        "pricing",
+        "rooms",
+        "rentals",
+    }
+)
+_NAV_LAST_TOKENS = frozenset(
+    {"contact", "contact-us", "enquire", "inquire", "support", "help"}
+)
+# Same clean-nav notion quality_gate.nav_clutter enforces on the public list
+# (>8 items, >2 deep paths) — assemble._nav_items_for already caps at 7.
+_NAV_MAX_ITEMS = 7
+_NAV_MAX_DEEP_ITEMS = 2
+_NAV_LABEL_NOISE_RE = re.compile(
+    r"^(welcome(\s+to)?|manage|my|the)\s+|\s+(page|overview)$", re.I
+)
+
+
+def _nav_rank(path: str) -> int:
+    if path in _NAV_HOME_PATHS:
+        return 0
+    if path in _NAV_HUB_PATHS:
+        return 1
+    segments = [s for s in path.strip("/").split("/") if s]
+    token = segments[0].lower() if segments else ""
+    if token in _NAV_PRIMARY_TOKENS:
+        return 2
+    if token in _NAV_LAST_TOKENS:
+        return 4
+    return 3
+
+
+def _brand_label_variants(brand_name: str) -> list[str]:
+    """Every contiguous word run of the brand, longest first."""
+    tokens = [token for token in re.split(r"\s+", str(brand_name or "").strip()) if token]
+    windows = {
+        " ".join(tokens[start:end])
+        for start in range(len(tokens))
+        for end in range(start + 1, len(tokens) + 1)
+    }
+    return sorted(windows, key=len, reverse=True)
+
+
+def _nav_label(raw_label: str, path: str, brand_name: str) -> str:
+    """Drop the brand name — the shell already shows it in the wordmark."""
+    label = re.sub(r"\s+", " ", str(raw_label or "")).strip()
+    for variant in _brand_label_variants(brand_name):
+        stripped = re.sub(
+            rf"\s*\b{re.escape(variant)}\b\s*", " ", label, flags=re.I
+        ).strip(" -–—·|,")
+        if stripped and stripped != label:
+            label = re.sub(r"\s+", " ", stripped)
+            break
+    label = _NAV_LABEL_NOISE_RE.sub("", label).strip()
+    if not label:
+        segments = [s for s in path.strip("/").split("/") if s]
+        label = segments[-1].replace("-", " ").replace("_", " ").title() if segments else "Home"
+    return label
+
+
+def _nav_key(label: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", label.lower())
+
+
+def _normalize_nav_section(
+    items: list,
+    *,
+    brand_name: str,
+    live_paths: set[str],
+    reorder: bool,
+    clutter_cap: bool,
+) -> list[dict]:
+    cleaned: list[dict] = []
+    seen_paths: set[str] = set()
+    seen_labels: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("href") or item.get("path") or "").strip()
+        if not path.startswith("/") or ":" in path:
+            continue
+        if live_paths and path not in live_paths:
+            continue
+        label = _nav_label(item.get("label") or item.get("name") or "", path, brand_name)
+        key = _nav_key(label)
+        if path in seen_paths or (key and key in seen_labels):
+            continue
+        seen_paths.add(path)
+        seen_labels.add(key)
+        cleaned.append(
+            {
+                "id": str(item.get("id") or path.strip("/").replace("/", "-") or "home"),
+                "path": path,
+                "href": path,
+                "label": label,
+            }
+        )
+    if reorder:
+        cleaned.sort(key=lambda entry: _nav_rank(entry["path"]))
+    if not clutter_cap:
+        return cleaned
+    deep = 0
+    capped: list[dict] = []
+    for entry in cleaned:
+        if entry["path"].count("/") >= 2:
+            if deep >= _NAV_MAX_DEEP_ITEMS:
+                continue
+            deep += 1
+        capped.append(entry)
+        if len(capped) >= _NAV_MAX_ITEMS:
+            break
+    return capped
+
+
+def normalize_mock_navigation(workspace, architect: dict, brand_name: str) -> list[str]:
+    """Dedupe nav by destination and label, drop dead links, order the journey.
+
+    `write_plumbing_mock` owns the first write and mock synthesis may replace it,
+    so this runs before every build rather than once.
+    """
+    mock_path = "src/data/mock.ts"
+    mock = read_file(workspace, mock_path)
+    match = re.search(r"export const navigation\s*=\s*", mock)
+    if not match:
+        return []
+    value_end = _mock_export_value_end(mock, match.end())
+    raw_value = mock[match.end() : value_end].rstrip().rstrip(";")
+    try:
+        navigation = json.loads(raw_value)
+    except ValueError:
+        return []
+    if not isinstance(navigation, dict):
+        return []
+    live_paths = {
+        str(route.get("path") or "")
+        for route in (architect or {}).get("routes") or []
+        if route.get("path")
+    }
+    changed: list[str] = []
+    normalized: dict[str, list] = {}
+    for section, items in navigation.items():
+        if not isinstance(items, list):
+            normalized[section] = items
+            continue
+        section_items = _normalize_nav_section(
+            items,
+            brand_name=brand_name,
+            live_paths=live_paths,
+            reorder=section != "admin",
+            # quality_gate.nav_clutter only measures the public list; an ops
+            # sidebar is legitimately all-deep and longer.
+            clutter_cap=section == "public",
+        )
+        # Never blank out chrome — an empty navbar is worse than a cluttered one.
+        normalized[section] = section_items or items
+        if normalized[section] != items:
+            changed.append(section)
+    if not changed:
+        return []
+    updated = (
+        mock[: match.end()]
+        + json.dumps(normalized, indent=2, ensure_ascii=False)
+        + ";"
+        + mock[value_end:]
+    )
+    write_file(workspace, mock_path, updated)
+    guard_log.info("navigation normalized: %s", ", ".join(changed))
+    return [f"nav:{section}" for section in changed]

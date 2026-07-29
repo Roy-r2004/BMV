@@ -5,6 +5,7 @@ Packs never overwrite Product Face Contract fields. See
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.application.preview_app.brand_brief import resolve_preview_brand_name
@@ -16,6 +17,20 @@ from app.application.preview_app.product_face import (
     gap_fill_public_seed_from_pack,
     materialize_mock_seed,
 )
+from app.application.services.industry_images import resolve_industry_category
+
+logger = logging.getLogger(__name__)
+
+# Packs own layout, not subject: role values are framing that composes with the
+# business-derived search subject in `services.industry_images`.
+_ROLE_FRAMINGS: dict[str, str] = {
+    "hero": "lifestyle wide atmosphere",
+    "hero2": "interior workspace",
+    "card1": "product detail close-up",
+    "card2": "customer experience",
+    "card3": "team service moment",
+    "ambient": "ambient background texture",
+}
 
 
 def _resolve_plan_brand_name(
@@ -37,18 +52,32 @@ def _resolve_plan_brand_name(
     )
 
 
-def _default_imagery_roles(pack: dict[str, Any]) -> dict[str, str]:
+def _pack_category(pack: dict[str, Any]) -> str:
     tags = " ".join(str(t) for t in (pack.get("industry_tags") or []) if str(t).strip())
-    label = str(pack.get("label") or pack.get("id") or "business").strip()
-    base = (tags or label).strip() or "professional small business"
-    return {
-        "hero": f"{base} lifestyle wide atmosphere",
-        "hero2": f"{base} interior workspace",
-        "card1": f"{base} product detail close-up",
-        "card2": f"{base} customer experience",
-        "card3": f"{base} team service moment",
-        "ambient": f"{base} ambient background texture",
-    }
+    label = str(pack.get("label") or pack.get("id") or "").strip()
+    return resolve_industry_category(f"{tags} {label}")
+
+
+def _pack_imagery_roles(pack: dict[str, Any], *, industry: str | None) -> dict[str, str]:
+    """Role framings for a pack — an off-industry pack contributes no subject."""
+    pack_category = _pack_category(pack)
+    business_category = resolve_industry_category(industry or "")
+    off_industry = pack_category != business_category and "generic" not in (
+        pack_category,
+        business_category,
+    )
+    if off_industry:
+        logger.warning(
+            "Industry pack %s reads as %s but business industry resolves to %s — "
+            "imagery keeps the business subject, pack contributes framing only",
+            pack.get("id"),
+            pack_category,
+            business_category,
+        )
+    roles = pack.get("imagery_roles") if isinstance(pack.get("imagery_roles"), dict) else None
+    if not roles or off_industry:
+        return dict(_ROLE_FRAMINGS)
+    return {str(k): str(v).strip() for k, v in roles.items() if str(v).strip()}
 
 
 def _stamp_pack_voice(updated: dict[str, Any], pack: dict[str, Any], *, key_prefix: str) -> None:
@@ -118,15 +147,9 @@ def apply_industry_template_to_plan(
         design["template_recipe_hint"] = pack["recipe_hint"]
         updated["design_system"] = design
 
-    roles = pack.get("imagery_roles") if isinstance(pack.get("imagery_roles"), dict) else None
     existing_imagery = dict(updated.get("imagery_roles") or {})
-    defaults = {
-        str(k): str(v).strip()
-        for k, v in (roles or _default_imagery_roles(pack)).items()
-        if str(v).strip()
-    }
     # Imagery: fill missing keys only.
-    for k, v in defaults.items():
+    for k, v in _pack_imagery_roles(pack, industry=industry).items():
         if k not in existing_imagery:
             existing_imagery[k] = v
     updated["imagery_roles"] = existing_imagery
@@ -187,13 +210,11 @@ def apply_ops_industry_template_to_plan(
         face, brand_name=brand_name, fill_defaults=True
     )
 
-    roles = pack.get("imagery_roles") if isinstance(pack.get("imagery_roles"), dict) else None
-    if roles:
-        existing = dict(updated.get("imagery_roles") or {})
-        for k, v in roles.items():
-            if str(v).strip() and k not in existing:
-                existing[str(k)] = str(v).strip()
-        updated["imagery_roles"] = existing
+    existing = dict(updated.get("imagery_roles") or {})
+    for k, v in _pack_imagery_roles(pack, industry=industry).items():
+        if k not in existing:
+            existing[k] = v
+    updated["imagery_roles"] = existing
     return updated
 
 

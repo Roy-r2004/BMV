@@ -15,6 +15,291 @@ from app.application.ui_catalogue import (
     infer_page_contract,
     infer_section_slots,
 )
+from app.infrastructure.logging import get_logger
+
+route_log = get_logger("RouteTable")
+
+_PARAM_SEGMENT_RE = re.compile(r"^:[A-Za-z_][A-Za-z0-9_]*$")
+_BRACED_PARAM_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+# Paths that must survive normalization whatever the signature says.
+_PINNED_PATHS = frozenset({"/", "/ai-features"})
+
+# Synonym vocabularies for one public concept. Two single-segment public routes
+# whose tokens live in the same tuple describe the same face; the earliest token
+# present in the table becomes the canonical path.
+_CONCEPT_SYNONYMS: tuple[tuple[str, ...], ...] = (
+    (
+        "gallery",
+        "collection",
+        "collections",
+        "works",
+        "work",
+        "portfolio",
+        "pieces",
+        "artworks",
+        "catalog",
+        "catalogue",
+    ),
+    ("shop", "store", "products", "menu"),
+    ("services", "service", "treatments", "offerings", "packages"),
+    ("team", "doctors", "providers", "practitioners", "staff", "people"),
+    ("about", "about-us", "story", "our-story"),
+    ("contact", "contact-us", "enquire", "inquire"),
+    ("classes", "workshops", "sessions", "schedule"),
+    ("blog", "journal", "news", "press"),
+)
+
+_CONCEPT_RANK: dict[str, tuple[int, int]] = {
+    token: (group_index, token_index)
+    for group_index, group in enumerate(_CONCEPT_SYNONYMS)
+    for token_index, token in enumerate(group)
+}
+
+
+def _canonical_route_path(path: str) -> str:
+    """`{id}` → `:id`, and drop dynamic segments React Router cannot bind.
+
+    A param name repeated inside one path silently loses its first binding, and
+    a dynamic segment directly after another one is a detail-of-detail route the
+    generator never produces a page for.
+    """
+    raw = _BRACED_PARAM_RE.sub(r":\1", str(path or "").strip())
+    kept: list[str] = []
+    seen_params: set[str] = set()
+    for segment in (s for s in raw.split("/") if s):
+        if not _PARAM_SEGMENT_RE.match(segment):
+            kept.append(segment)
+            continue
+        name = segment[1:]
+        if name in seen_params or (kept and _PARAM_SEGMENT_RE.match(kept[-1])):
+            continue
+        seen_params.add(name)
+        kept.append(segment)
+    return "/" + "/".join(kept) if kept else "/"
+
+
+def _path_shape(path: str) -> str:
+    """Path with every param name replaced — two shapes that match are ambiguous."""
+    return "/".join(
+        "*" if _PARAM_SEGMENT_RE.match(segment) else segment
+        for segment in path.split("/")
+    )
+
+
+def _concept_token(path: str) -> str | None:
+    """Canonical concept for a single-segment public path, else None."""
+    segments = [s for s in path.split("/") if s]
+    if len(segments) != 1 or _PARAM_SEGMENT_RE.match(segments[0]):
+        return None
+    token = segments[0].lower()
+    rank = _CONCEPT_RANK.get(token)
+    return _CONCEPT_SYNONYMS[rank[0]][0] if rank else None
+
+
+def _route_signature(route: dict) -> tuple:
+    """What a route renders — same signature means the same page twice."""
+    return (
+        str(route.get("surface") or ""),
+        str(route.get("skeleton_id") or ""),
+        str(route.get("page_intent") or ""),
+        tuple(str(slot) for slot in route.get("section_slots") or ()),
+        str(
+            route.get("data_source")
+            or route.get("collection")
+            or route.get("entity")
+            or ""
+        ).lower(),
+    )
+
+
+def _rewrite_path_prefix(path: str, old_base: str, new_base: str) -> str:
+    if path == old_base:
+        return new_base
+    if path.startswith(f"{old_base}/"):
+        return new_base + path[len(old_base) :]
+    return path
+
+
+def _dominant_param_name(paths: list[str]) -> str:
+    counts: dict[str, int] = {}
+    for path in paths:
+        for segment in path.split("/"):
+            if _PARAM_SEGMENT_RE.match(segment):
+                counts[segment[1:]] = counts.get(segment[1:], 0) + 1
+    if not counts:
+        return "id"
+    return max(sorted(counts), key=lambda name: counts[name])
+
+
+def _collapse_synonym_concepts(routes: list[dict]) -> dict[str, str]:
+    """Map synonym concept bases onto one canonical base (`/works` → `/gallery`)."""
+    groups: dict[tuple, list[tuple[int, str]]] = {}
+    for index, route in enumerate(routes):
+        path = str(route.get("path") or "")
+        concept = _concept_token(path)
+        if not concept:
+            continue
+        groups.setdefault((concept, *_route_signature(route)), []).append((index, path))
+    rebase: dict[str, str] = {}
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        winner = min(
+            members,
+            key=lambda m: (_CONCEPT_RANK[m[1].strip("/").lower()], m[0]),
+        )[1]
+        for _, path in members:
+            if path != winner:
+                rebase[path] = winner
+    return rebase
+
+
+def _shadowed_dynamic_paths(routes: list[dict]) -> set[str]:
+    """Trailing-param routes that duplicate a page already reachable literally."""
+    paths = [str(route.get("path") or "") for route in routes]
+    literal_children: dict[str, int] = {}
+    for path in paths:
+        segments = [s for s in path.split("/") if s]
+        if not segments or _PARAM_SEGMENT_RE.match(segments[-1]):
+            continue
+        parent = "/" + "/".join(segments[:-1])
+        literal_children[parent] = literal_children.get(parent, 0) + 1
+    component_use: dict[str, int] = {}
+    for route in routes:
+        component = str(route.get("component_file") or "").lower()
+        if component:
+            component_use[component] = component_use.get(component, 0) + 1
+    shadowed: set[str] = set()
+    for route, path in zip(routes, paths):
+        segments = [s for s in path.split("/") if s]
+        if len(segments) != 2 or not _PARAM_SEGMENT_RE.match(segments[-1]):
+            continue
+        parent = f"/{segments[0]}"
+        component = str(route.get("component_file") or "").lower()
+        if literal_children.get(parent, 0) and component_use.get(component, 0) > 1:
+            shadowed.add(path)
+    return shadowed
+
+
+def _resolve_remap_chains(remap: dict[str, str], live_paths: set[str]) -> dict[str, str]:
+    """Follow `a→b→c` so no removed path is redirected at another removed path."""
+    resolved: dict[str, str] = {}
+    for old in remap:
+        target = old
+        for _ in range(len(remap) + 1):
+            if target in live_paths:
+                break
+            nxt = remap.get(target)
+            if nxt is None or nxt == target:
+                break
+            target = nxt
+        resolved[old] = target if target in live_paths else "/"
+    return {old: new for old, new in resolved.items() if old != new}
+
+
+def _normalize_route_table(architect: dict) -> dict[str, str]:
+    """Collapse duplicate/malformed routes in place; return the old→new path map.
+
+    Runs after the per-route enrichment loop because the dedup signature needs
+    `surface`/`skeleton_id`/`page_intent`.
+    """
+    routes = architect.get("routes") or []
+    if len(routes) < 2:
+        return {}
+    remap: dict[str, str] = {}
+    for route in routes:
+        original = str(route.get("path") or "")
+        canonical = _canonical_route_path(original)
+        if canonical != original:
+            remap[original] = canonical
+        route["path"] = canonical
+
+    for old_base, new_base in _collapse_synonym_concepts(routes).items():
+        for route in routes:
+            rewritten = _rewrite_path_prefix(str(route["path"]), old_base, new_base)
+            if rewritten != route["path"]:
+                remap[str(route["path"])] = rewritten
+                route["path"] = rewritten
+
+    dominant = _dominant_param_name([str(r["path"]) for r in routes])
+    component_use: dict[str, int] = {}
+    for route in routes:
+        component = str(route.get("component_file") or "").lower()
+        if component:
+            component_use[component] = component_use.get(component, 0) + 1
+    by_shape: dict[str, list[tuple[int, dict]]] = {}
+    for index, route in enumerate(routes):
+        by_shape.setdefault(_path_shape(str(route["path"])), []).append((index, route))
+    kept: list[dict] = []
+    for shape_members in by_shape.values():
+        winner_index, winner = min(
+            shape_members,
+            key=lambda m: (
+                component_use.get(str(m[1].get("component_file") or "").lower(), 0),
+                0 if f":{dominant}" in str(m[1]["path"]) else 1,
+                m[0],
+            ),
+        )
+        for index, route in shape_members:
+            if index != winner_index:
+                remap[str(route["path"])] = str(winner["path"])
+        kept.append(winner)
+
+    shadowed = _shadowed_dynamic_paths(kept)
+    survivors = [
+        route
+        for route in kept
+        if str(route["path"]) in _PINNED_PATHS or str(route["path"]) not in shadowed
+    ]
+    if not survivors:
+        survivors = kept
+    # Literals declared before params so no dynamic segment can shadow a sibling.
+    survivors.sort(
+        key=lambda route: sum(
+            1
+            for segment in str(route["path"]).split("/")
+            if _PARAM_SEGMENT_RE.match(segment)
+        )
+    )
+    kept_paths = {str(route["path"]) for route in survivors}
+    component_home = {
+        str(route.get("component_file") or "").lower(): str(route["path"])
+        for route in survivors
+    }
+    for route in kept:
+        path = str(route["path"])
+        if path in kept_paths:
+            continue
+        parent = "/" + "/".join([s for s in path.split("/") if s][:-1])
+        remap[path] = (
+            component_home.get(str(route.get("component_file") or "").lower())
+            or (parent if parent in kept_paths else "/")
+        )
+    architect["routes"] = survivors
+    remap = _resolve_remap_chains(remap, kept_paths)
+    if remap:
+        route_log.info(
+            "route table normalized: %s → %s routes (%s)",
+            len(routes),
+            len(survivors),
+            ", ".join(f"{old}→{new}" for old, new in sorted(remap.items())),
+        )
+    return remap
+
+
+def _remap_role_default_paths(architect: dict, remap: dict[str, str]) -> None:
+    """No role may open on a path the route table no longer declares."""
+    if not remap:
+        return
+    paths = {str(route.get("path") or "") for route in architect.get("routes") or []}
+    for role in architect.get("roles") or []:
+        default = str(role.get("defaultPath") or "")
+        if not default or default in paths:
+            continue
+        target = remap.get(default) or _canonical_route_path(default)
+        role["defaultPath"] = target if target in paths else "/"
+
 
 def _sort_gen_order(files: list[dict]) -> list[dict]:
     """Generate foundational files first so later files can import them."""
@@ -247,6 +532,12 @@ def _normalize_architect(architect: dict, plan: dict) -> dict:
             surface=str(route.get("surface") or ""),
         )
 
+    try:
+        route_remap = _normalize_route_table(architect)
+    except Exception as exc:
+        route_log.warning("route table normalization skipped: %s", exc)
+        route_remap = {}
+
     files = architect.get("files_to_generate") or []
     if not files:
         files = _files_from_plan(architect)
@@ -319,6 +610,7 @@ def _normalize_architect(architect: dict, plan: dict) -> dict:
             }
             for r in plan.get("roles", [])
         ]
+    _remap_role_default_paths(architect, route_remap)
     return architect
 
 def _plan_for_persistence(plan: dict) -> dict:

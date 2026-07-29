@@ -24,6 +24,34 @@ Assigned skeleton: {{ skeleton_id }}
 Shell: {{ shell_component }}
 {{ skeleton_contract_json }}
 
+How to read it: `requiredProps` / `optionalProps` are the ONLY props a component accepts, `variants`
+lists the allowed literal values, and `prop_shapes` gives the member names INSIDE object props —
+`"CredentialStrip.items[]": "title, detail"` means every element of `items` is `{ title, detail }`,
+and `?` marks an optional member. These names are read from the component sources; they are exact.
+
+=== PROP CONTRACT (highest-value rule on this page) ===
+A wrong prop name does not fail the build — it renders an EMPTY component. `CredentialStrip` given
+`{ label, value }` instead of `{ title, detail }` paints four blank cards under a live heading.
+- Pass EXACTLY the documented prop names and EXACTLY the documented member names. Never rename,
+  never add a member the shape does not list, never guess a shape that is not in `prop_shapes`.
+- Pass every required prop and never omit a required prop — `MarketingHero` without `imageSrc`
+  does not compile.
+- Never invent a prop: no `target` on `Button`, no `children` on `MarketingHero`, no `name` on an
+  `ActivityFeed` item. If a prop is not in `requiredProps`/`optionalProps`, it does not exist.
+- Literal props take only the listed values — `variant="default"` is wrong where the contract says
+  `'primary' | 'secondary'`.
+- Only read `seed.*` / `images.*` keys that `@/data/mock` actually exports. `images` has exactly
+  `hero`, `hero2`, `card1`, `card2`, `card3`, `ambient` — no other image key exists.
+- An empty array is a blank section. Every list prop gets real business items.
+
+=== LEGIBILITY ===
+Catalogue components manage their own contrast over their own imagery — trust the design tokens.
+- Never put background, overlay, blend or opacity utilities in a catalogue component's `className`:
+  no `bg-background`, `bg-*`, `after:bg-*`, `bg-blend-*`, `mix-blend-*`, `opacity-*`. A generated
+  page added `after:bg-blend-multiply after:bg-text-brand/20 bg-background` to `MarketingHero` and
+  turned the headline, subcopy and secondary CTA white-on-white.
+- `className` on catalogue components is for spacing and width only (`mt-*`, `py-*`, `max-w-*`).
+
 === CURRENT SCAFFOLD ({{ file_path }}) — START FROM THIS ===
 {{ scaffold_source }}
 
@@ -32,6 +60,7 @@ RULES:
 - Do NOT invent local Nav/PublicNav/AdminLayout components. Do NOT add Dialog/Switch/Toggle or forbidden kit props.
 - Replace ONLY the JSX inside each `slots.<name>: (...)` value with business-specific catalogue components already imported from `@/ui`.
 - Keep every assigned slot key; do not add inventeds slots.
+- Obey the PROP CONTRACT and LEGIBILITY sections above for every catalogue component you touch.
 - Match the sealed design brief mood, voice, and signature — do not invent a second brand face.
 - React 19 + TypeScript + Tailwind. Return the full file starting with imports.
 

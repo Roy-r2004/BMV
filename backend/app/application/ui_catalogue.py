@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
 from functools import lru_cache
 from typing import Any
 
@@ -57,6 +58,34 @@ _SLOT_COMPONENT_DEFAULTS = {
     "expenses": "ExpenseQueue",
 }
 
+_UI_SOURCE_SUFFIXES = (".ts", ".tsx")
+_PROPS_SUFFIX = "Props"
+_MAX_PROP_TYPE_CHARS = 160
+_MAX_SHAPE_TYPE_CHARS = 60
+_MAX_MEMBERS = 24
+_MAX_REFERENCED_TYPES = 8
+_MAX_ALIAS_CHARS = 140
+_MAX_SHAPE_MEMBERS = 10
+# Callers bound the serialized contract at 5000 chars (codegen/generate.py,
+# codegen/critic.py, codegen/fix_agent.py). Overshooting makes bounded_json
+# collapse the whole contract into a truncated preview, so shapes are fitted
+# into the remaining headroom in priority order instead.
+_CONTRACT_PROMPT_BUDGET = 4900
+_TYPE_SHORTHAND = (
+    (re.compile(r"React\.ReactNode"), "node"),
+    (re.compile(r"\([^()]*\)\s*=>\s*[\w.\[\]<>, |]+"), "fn"),
+    (re.compile(r"\(\s*fn\s*\)"), "fn"),
+    (re.compile(r"(?:\bfn\b\s*\|\s*)+\bfn\b"), "fn"),
+)
+_EXPORTED_TYPE_RE = re.compile(r"\bexport\s+(interface|type)\s+([A-Za-z_$][\w$]*)")
+_MEMBER_RE = re.compile(
+    r"^(?:readonly\s+)?"
+    r"(?:'(?P<quoted>[^']+)'|\"(?P<dquoted>[^\"]+)\"|(?P<plain>[A-Za-z_$][\w$]*))"
+    r"(?P<optional>\?)?\s*:\s*(?P<type>.+)$",
+    re.DOTALL,
+)
+_TYPE_REFERENCE_RE = re.compile(r"\b([A-Z][A-Za-z0-9_$]*)\b")
+
 
 @lru_cache(maxsize=1)
 def load_catalogue() -> dict[str, Any]:
@@ -78,6 +107,382 @@ def load_catalogue() -> dict[str, Any]:
     if not all(isinstance(item, dict) and item.get("id") for item in catalogue["skeletons"]):
         raise ValueError(f"Invalid UI catalogue at {path}: every skeleton must be an object with an id")
     return catalogue
+
+
+def _string_end(source: str, start: int) -> int:
+    """Index just past the string literal opened at `start`."""
+    quote = source[start]
+    index = start + 1
+    while index < len(source):
+        char = source[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char == quote:
+            return index + 1
+        index += 1
+    return len(source)
+
+
+def _strip_ts_comments(source: str) -> str:
+    chunks: list[str] = []
+    index = 0
+    length = len(source)
+    while index < length:
+        char = source[index]
+        if char in "'\"`":
+            end = _string_end(source, index)
+            chunks.append(source[index:end])
+            index = end
+            continue
+        if source.startswith("//", index):
+            end = source.find("\n", index)
+            index = length if end < 0 else end
+            continue
+        if source.startswith("/*", index):
+            end = source.find("*/", index + 2)
+            index = length if end < 0 else end + 2
+            chunks.append(" ")
+            continue
+        chunks.append(char)
+        index += 1
+    return "".join(chunks)
+
+
+def _object_body(source: str, open_index: int) -> str | None:
+    """Body between the brace at `open_index` and its match, or None if unbalanced."""
+    depth = 0
+    index = open_index
+    while index < len(source):
+        char = source[index]
+        if char in "'\"`":
+            index = _string_end(source, index)
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return source[open_index + 1 : index]
+        index += 1
+    return None
+
+
+def _split_top_level(text: str, separators: str) -> list[str]:
+    parts: list[str] = []
+    current: list[str] = []
+    depth = 0
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in "'\"`":
+            end = _string_end(text, index)
+            current.append(text[index:end])
+            index = end
+            continue
+        if text.startswith("=>", index):
+            current.append("=>")
+            index += 2
+            continue
+        if char in "{([<":
+            depth += 1
+        elif char in "})]>":
+            depth = max(0, depth - 1)
+        if depth == 0 and char in separators:
+            parts.append("".join(current))
+            current = []
+            index += 1
+            continue
+        current.append(char)
+        index += 1
+    parts.append("".join(current))
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _collapse(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().rstrip(",;")
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else f"{text[: limit - 1]}…"
+
+
+def _parse_members(body: str) -> tuple[dict[str, str], tuple[str, ...]]:
+    members: dict[str, str] = {}
+    optional: list[str] = []
+    for raw in _split_top_level(body, ";\n,"):
+        match = _MEMBER_RE.match(raw)
+        if not match:
+            continue
+        name = match.group("quoted") or match.group("dquoted") or match.group("plain")
+        type_text = _collapse(match.group("type"))
+        if not name or not type_text or name in members:
+            continue
+        members[name] = _clip(type_text, _MAX_PROP_TYPE_CHARS)
+        if match.group("optional"):
+            optional.append(name)
+        if len(members) >= _MAX_MEMBERS:
+            break
+    return members, tuple(optional)
+
+
+def _dedupe(names: tuple[str, ...]) -> list[str]:
+    ordered: list[str] = []
+    for name in names:
+        if name and name not in ordered:
+            ordered.append(name)
+    return ordered
+
+
+def _type_references(text: str) -> list[str]:
+    seen: list[str] = []
+    for name in _TYPE_REFERENCE_RE.findall(text):
+        if name not in seen:
+            seen.append(name)
+    return seen
+
+
+def _parse_declarations(source: str) -> Iterator[tuple[str, dict[str, Any]]]:
+    for match in _EXPORTED_TYPE_RE.finditer(source):
+        kind, name = match.group(1), match.group(2)
+        cursor = match.end()
+        if kind == "interface":
+            open_index = source.find("{", cursor)
+            if open_index < 0:
+                continue
+            body = _object_body(source, open_index)
+            if body is None:
+                continue
+            members, optional = _parse_members(body)
+            extends = tuple(_type_references(source[cursor:open_index]))
+            yield name, {
+                "members": members,
+                "optional": optional,
+                "alias": "",
+                "extends": extends,
+            }
+            continue
+        equals = source.find("=", cursor)
+        if equals < 0:
+            continue
+        remainder = source[equals + 1 :]
+        stripped = remainder.lstrip()
+        if stripped.startswith("{"):
+            open_index = equals + 1 + (len(remainder) - len(stripped))
+            body = _object_body(source, open_index)
+            if body is None:
+                continue
+            members, optional = _parse_members(body)
+            yield name, {
+                "members": members,
+                "optional": optional,
+                "alias": "",
+                "extends": (),
+            }
+            continue
+        statement = _split_top_level(stripped, ";")[0] if stripped else ""
+        alias = _clip(_collapse(statement), _MAX_ALIAS_CHARS)
+        if alias:
+            yield name, {
+                "members": {},
+                "optional": (),
+                "alias": alias,
+                "extends": (),
+            }
+
+
+@lru_cache(maxsize=1)
+def load_ui_type_declarations() -> dict[str, dict[str, Any]]:
+    """Exported TS interfaces/aliases under the template's src/ui, by type name.
+
+    Best effort by design: unreadable or unparseable sources are skipped so
+    prompt construction degrades to catalogue prop names instead of failing.
+    """
+    declarations: dict[str, dict[str, Any]] = {}
+    try:
+        root = settings.PREVIEW_TEMPLATE_DIR / "src" / "ui"
+        paths = sorted(root.rglob("*"))
+    except Exception:  # noqa: BLE001 - never break prompt construction
+        return declarations
+    for path in paths:
+        try:
+            if path.suffix not in _UI_SOURCE_SUFFIXES or not path.is_file():
+                continue
+            source = _strip_ts_comments(path.read_text(encoding="utf-8"))
+            for name, shape in _parse_declarations(source):
+                declarations.setdefault(name, shape)
+        except Exception:  # noqa: BLE001 - one bad file must not lose the rest
+            continue
+    return declarations
+
+
+@lru_cache(maxsize=256)
+def ui_type_shape(type_name: str) -> dict[str, Any] | None:
+    """Resolved shape of one exported template type, or None when unknown."""
+    declarations = load_ui_type_declarations()
+    shape = declarations.get(type_name)
+    if not shape:
+        return None
+    members: dict[str, str] = {}
+    optional: list[str] = []
+    for parent in shape["extends"]:
+        inherited = declarations.get(parent)
+        if not inherited:
+            continue
+        members.update(inherited["members"])
+        optional.extend(inherited["optional"])
+    members.update(shape["members"])
+    optional.extend(name for name in shape["optional"] if name not in optional)
+    return {
+        "members": members,
+        "optional": tuple(name for name in optional if name in members),
+        "alias": shape["alias"],
+    }
+
+
+def _render_shape(shape: dict[str, Any]) -> str:
+    if shape["alias"]:
+        return shape["alias"]
+    optional = set(shape["optional"])
+    return "; ".join(
+        f"{name}{'?' if name in optional else ''}: {type_text}"
+        for name, type_text in shape["members"].items()
+    )
+
+
+@lru_cache(maxsize=256)
+def component_prop_shape(component_name: str) -> dict[str, Any] | None:
+    """Compact prop contract for one catalogue component, derived from its source.
+
+    Returns `{"props": "<name?: type; …>", "types": {"<Referenced>": "<shape>"}}`
+    or None when the component's `…Props` interface cannot be resolved. One hop
+    only: props members resolve the named types they reference, and those types
+    are rendered inline rather than expanded again.
+    """
+    shape = ui_type_shape(f"{component_name}{_PROPS_SUFFIX}")
+    if not shape or not shape["members"]:
+        return None
+    declarations = load_ui_type_declarations()
+    referenced: dict[str, str] = {}
+    for type_text in shape["members"].values():
+        for name in _type_references(type_text):
+            if len(referenced) >= _MAX_REFERENCED_TYPES:
+                break
+            if name in referenced or name not in declarations:
+                continue
+            nested = ui_type_shape(name)
+            rendered = _render_shape(nested) if nested else ""
+            if not rendered:
+                continue
+            referenced[name] = rendered if nested["alias"] else f"{{ {rendered} }}"
+    return {"props": _render_shape(shape), "types": referenced}
+
+
+def _simplify_type(type_text: str) -> str:
+    simplified = type_text
+    for pattern, replacement in _TYPE_SHORTHAND:
+        simplified = pattern.sub(replacement, simplified)
+    # Literal-union aliases are one hop deeper than the member shape but cost a
+    # few characters, and unknown allowed values are their own defect class.
+    declarations = load_ui_type_declarations()
+    for name in _type_references(simplified):
+        alias = (declarations.get(name) or {}).get("alias")
+        if alias and "{" not in alias:
+            simplified = simplified.replace(name, alias)
+    return _clip(_collapse(simplified), _MAX_SHAPE_TYPE_CHARS)
+
+
+def _compact_member_list(rendered: str) -> str:
+    """`"{ title: string; detail?: string }"` -> `"title, detail?"`."""
+    body = rendered.strip()
+    if body.startswith("{"):
+        body = body[1:-1]
+    parts: list[str] = []
+    for member in _split_top_level(body, ";")[:_MAX_SHAPE_MEMBERS]:
+        name, _, type_text = member.partition(": ")
+        simple = _simplify_type(type_text)
+        # A clipped literal union reads as an allowed value; the name alone is safer.
+        if simple == "string" or simple.endswith("…"):
+            parts.append(name)
+        else:
+            parts.append(f"{name}:{simple}")
+    return ", ".join(parts)
+
+
+def prop_shape_entries(component_name: str) -> list[tuple[str, str]]:
+    """`("<Component>.<prop>[]", "<member, member?, …>")` for object-shaped props.
+
+    Array props come first: those element shapes are what generated pages get
+    wrong (CredentialStrip items as `{label, value}` instead of `{title, detail}`).
+    """
+    shape = component_prop_shape(component_name)
+    if not shape:
+        return []
+    arrays: list[tuple[str, str]] = []
+    scalars: list[tuple[str, str]] = []
+    for member in shape["props"].split("; "):
+        prop, _, type_text = member.partition(": ")
+        prop = prop.rstrip("?")
+        references = _type_references(type_text)
+        for type_name, rendered in shape["types"].items():
+            if type_name not in references or not rendered.startswith("{"):
+                continue
+            members = _compact_member_list(rendered)
+            if not members:
+                continue
+            if f"{type_name}[]" in type_text or "Array<" in type_text:
+                arrays.append((f"{component_name}.{prop}[]", members))
+            else:
+                scalars.append((f"{component_name}.{prop}", members))
+            break
+    return arrays + scalars
+
+
+@lru_cache(maxsize=1)
+def catalogue_prop_shape_block() -> str:
+    """Every catalogue component's object-prop member names, one per line.
+
+    For prompts that have no skeleton (mock.ts synthesis feeds every page).
+    """
+    lines: list[str] = []
+    try:
+        for component in load_catalogue()["components"]:
+            for key, members in prop_shape_entries(str(component.get("name") or "")):
+                lines.append(f"{key} = {{ {members} }}")
+    except Exception:  # noqa: BLE001 - a missing block beats a failed prompt
+        return ""
+    return "\n".join(lines)
+
+
+def _budgeted_prop_shapes(contract: dict[str, Any], components: tuple[str, ...]) -> dict[str, str]:
+    """Fit `Component.prop -> members` entries into the callers' JSON budget.
+
+    Array element shapes go in first, then single-object props; within each group
+    the page's own slot/shell/nav components lead. A shape that does not fit is
+    dropped, never truncated — a partial map still reads as valid guidance.
+    """
+    try:
+        entries: list[tuple[str, str]] = []
+        for name in _dedupe(components):
+            entries.extend(prop_shape_entries(name))
+        used = len(json.dumps(contract, ensure_ascii=False, separators=(",", ":")))
+        used += len('"prop_shapes":{},')
+        shapes: dict[str, str] = {}
+        for key, members in sorted(entries, key=lambda entry: not entry[0].endswith("[]")):
+            if key in shapes:
+                continue
+            cost = (
+                len(json.dumps(key, ensure_ascii=False))
+                + len(json.dumps(members, ensure_ascii=False))
+                + 2
+            )
+            if used + cost > _CONTRACT_PROMPT_BUDGET:
+                continue
+            shapes[key] = members
+            used += cost
+        return shapes
+    except Exception:  # noqa: BLE001 - a missing shape beats a failed generation
+        return {}
 
 
 def get_skeleton(skeleton_id: str) -> dict[str, Any]:
@@ -359,6 +764,12 @@ def compact_skeleton_contract(
         "slot_components": slot_components,
         "components": components,
     }
+    prop_shapes = _budgeted_prop_shapes(
+        contract,
+        (*slot_components.values(), shell_component, *navigation_components, *selected_names),
+    )
+    if prop_shapes:
+        contract["prop_shapes"] = prop_shapes
     return contract
 
 

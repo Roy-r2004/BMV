@@ -36,7 +36,7 @@ from app.application.preview_app.protected_paths import (
     is_template_owned_path,
     safe_source_path,
 )
-from app.application.preview_app.source_quality import looks_truncated_source
+from app.application.preview_app.source_quality import looks_truncated_source, tsx_parse_error
 from app.application.preview_app.utility_compositor import (
     compose_utility_page_tsx,
     default_utility_content,
@@ -65,6 +65,51 @@ _SIGNATURE_SKELETONS = frozenset(
         "ops-expense-queue",
     }
 )
+
+
+# Bounded so a per-page retry cannot starve PREVIEW_MAX_AI_CALLS: at most two
+# slot-fill calls per catalogue page, mirroring the freeform path's retry cap.
+_MAX_SLOT_FILL_ATTEMPTS = 2
+
+_SLOT_FILL_RETRY_GUIDANCE = {
+    "truncated": (
+        "The answer stopped mid-file, so braces and tags were left open. Shorten the slot "
+        "copy, drop all comments, and make sure the final line closes the default export."
+    ),
+    "missing-export-default": (
+        "The answer had no `export default function` component. Return the whole file, "
+        "starting at the first import and ending with the closing brace of the default export."
+    ),
+    "unparseable-tsx": (
+        "The answer did not parse as TSX. Balance every brace, parenthesis, and JSX tag, "
+        "and escape apostrophes in visible copy as &apos;."
+    ),
+}
+
+
+def _slot_fill_rejection(filled: str) -> tuple[str, str]:
+    """`(reason, detail)` for an unusable slot-fill answer; `("", "")` when acceptable."""
+    if not (filled or "").strip():
+        return "empty", ""
+    if looks_truncated_source(filled):
+        return "truncated", ""
+    if "export default" not in filled:
+        return "missing-export-default", ""
+    parse_error = tsx_parse_error(filled)
+    if parse_error:
+        return "unparseable-tsx", parse_error
+    return "", ""
+
+
+def _slot_fill_retry_prompt(prompt: str, *, reason: str, detail: str) -> str:
+    guidance = _SLOT_FILL_RETRY_GUIDANCE.get(reason, "")
+    failure = f"{reason}: {detail}" if detail else reason
+    return (
+        f"{prompt}\n\n"
+        f"IMPORTANT: Previous answer failed ({failure}). {guidance} "
+        "Keep the locked scaffold structure and every data-appspec-* attribute. "
+        "Return the COMPLETE TypeScript/React file only. No markdown fences."
+    )
 
 
 def _appspec_ids_from_route_plan(route: dict, page_plan: dict) -> tuple[str, list[str], list[str]]:
@@ -293,19 +338,44 @@ def _generate_catalogue_scaffold_first_file(
         design_brief_block=design_brief_block,
     )
     content = scaffold
-    try:
-        cg_log.debug("slot_fill %s model=%s", file_path, settings.PREVIEW_APP_MODEL)
-        raw = ai_provider.ask_chat(
-            settings.PREVIEW_APP_MODEL,
-            [{"role": "user", "content": prompt}],
-            max_tokens=12000,
-        )
+    attempt_prompt = prompt
+    for attempt in range(1, _MAX_SLOT_FILL_ATTEMPTS + 1):
+        try:
+            cg_log.debug(
+                "slot_fill %s attempt %s/%s model=%s",
+                file_path,
+                attempt,
+                _MAX_SLOT_FILL_ATTEMPTS,
+                settings.PREVIEW_APP_MODEL,
+            )
+            raw = ai_provider.ask_chat(
+                settings.PREVIEW_APP_MODEL,
+                [{"role": "user", "content": attempt_prompt}],
+                max_tokens=12000,
+            )
+        except Exception as exc:
+            cg_log.warning("slot_fill ask failed for %s: %s — keeping scaffold", file_path, exc)
+            break
         filled = _sanitize_emoji_icons(_strip_fences(raw))
-        if filled and "export default" in filled and not looks_truncated_source(filled):
+        reason, detail = _slot_fill_rejection(filled)
+        if not reason:
             content = filled
-    except Exception as exc:
-        cg_log.warning("slot_fill ask failed for %s: %s — keeping scaffold", file_path, exc)
-        content = scaffold
+            break
+        retrying = reason != "empty" and attempt < _MAX_SLOT_FILL_ATTEMPTS
+        cg_log.warning(
+            "slot_fill rejected %s attempt %s/%s (%s%s) — %s",
+            file_path,
+            attempt,
+            _MAX_SLOT_FILL_ATTEMPTS,
+            reason,
+            f": {detail}" if detail else "",
+            "retrying" if retrying else "keeping scaffold",
+        )
+        if not retrying:
+            # An empty answer is how an exhausted AI call budget reports itself;
+            # re-asking cannot add information and only burns the retry.
+            break
+        attempt_prompt = _slot_fill_retry_prompt(prompt, reason=reason, detail=detail)
 
     content, replaced = enforce_catalogue_page_contract(
         file_path,

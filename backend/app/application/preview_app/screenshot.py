@@ -8,6 +8,7 @@ waits for both conditions before capturing.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.infrastructure.logging import get_logger
@@ -18,6 +19,25 @@ _ROOT_HAS_CHILDREN_JS = (
     "() => { const el = document.getElementById('root'); "
     "return !!el && el.children.length > 0; }"
 )
+
+# The preview server SPA-fallbacks unknown paths to dist/index.html with HTTP
+# 200 + text/html, so a missing asset is invisible to any status-code probe.
+# The browser is the only place it is observable: an <img> that resolved to
+# HTML decodes to naturalWidth 0.
+_BROKEN_IMAGES_JS = (
+    "() => Array.from(document.images)"
+    ".filter(img => !img.complete || img.naturalWidth === 0)"
+    ".map(img => img.getAttribute('src') || img.currentSrc || '(no src)')"
+)
+
+
+@dataclass
+class RouteCapture:
+    """Screenshot outcome plus the render defects the browser can see for free."""
+
+    ok: bool
+    path: Path | None = None
+    broken_images: list[str] = field(default_factory=list)
 
 
 def launch_chromium(p):
@@ -44,31 +64,32 @@ def launch_chromium(p):
 _launch_chromium = launch_chromium
 
 
-def capture_route_screenshot(
+def capture_route_visual(
     base_url: str,
     route_path: str,
     out_path: Path,
     *,
     timeout_ms: int = 20000,
     viewport: dict | None = None,
-) -> bool:
+) -> RouteCapture:
     """Screenshot one route of an already-built, already-served preview app.
 
-    Returns False on any navigation/timeout/rendering error instead of
-    raising — a screenshot failure must never be able to crash the main
-    codegen pipeline, it should just mean that route doesn't get visually
+    Returns `RouteCapture(ok=False)` on any navigation/timeout/rendering error
+    instead of raising — a screenshot failure must never be able to crash the
+    main codegen pipeline, it should just mean that route doesn't get visually
     critiqued this run.
     """
     out_path = Path(out_path)
     base = base_url.rstrip("/")
     suffix = route_path.lstrip("/")
     full_url = f"{base}/{suffix}" if suffix else f"{base}/"
+    broken: list[str] = []
 
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         log.warning("screenshot skipped: playwright is not installed")
-        return False
+        return RouteCapture(ok=False)
 
     try:
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,10 +107,33 @@ def capture_route_screenshot(
                 # image decode) to settle before the shot.
                 page.wait_for_timeout(300)
                 page.screenshot(path=str(out_path), full_page=True)
+                try:
+                    broken = [str(src) for src in page.evaluate(_BROKEN_IMAGES_JS) or []]
+                except Exception as e:
+                    log.warning("broken-image probe failed for %s: %s", route_path, e)
             finally:
                 browser.close()
     except Exception as e:
         log.warning("screenshot capture failed for %s (%s): %s", route_path, full_url, e)
-        return False
+        return RouteCapture(ok=False)
 
-    return out_path.is_file() and out_path.stat().st_size > 0
+    if not (out_path.is_file() and out_path.stat().st_size > 0):
+        return RouteCapture(ok=False)
+    if broken:
+        log.error("broken images on %s: %s", route_path, broken[:6])
+    return RouteCapture(ok=True, path=out_path, broken_images=broken)
+
+
+def capture_route_screenshot(
+    base_url: str,
+    route_path: str,
+    out_path: Path,
+    *,
+    timeout_ms: int = 20000,
+    viewport: dict | None = None,
+) -> bool:
+    """Boolean-only view of `capture_route_visual`, for callers that only need
+    to know whether a shot was taken and not what the browser saw."""
+    return capture_route_visual(
+        base_url, route_path, out_path, timeout_ms=timeout_ms, viewport=viewport
+    ).ok

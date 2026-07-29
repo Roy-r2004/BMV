@@ -99,15 +99,20 @@ def test_workspace_writes_fail_closed() -> None:
 
         outside_file = root.parent / f"{root.name}-file-target.ts"
         outside_file.write_text("outside-safe", encoding="utf-8")
-        linked_file = root / "src/pages/Linked.tsx"
+        # An ALREADY-CANONICAL `*Page.tsx` name on purpose. `write_file`
+        # canonicalizes anything else under src/pages/ and unlinks the
+        # pre-canonical entry, which would satisfy `not is_symlink()` by deleting
+        # the path rather than replacing it — an assertion that cannot fail is no
+        # test of the symlink guard.
+        linked_file = root / "src/pages/LinkedPage.tsx"
         try:
             os.symlink(outside_file, linked_file)
         except OSError:
             pass
         else:
-            write_file(root, "src/pages/Linked.tsx", "inside-regular")
+            write_file(root, "src/pages/LinkedPage.tsx", "inside-regular")
             assert outside_file.read_text(encoding="utf-8") == "outside-safe"
-            assert not linked_file.is_symlink()
+            assert linked_file.is_file() and not linked_file.is_symlink()
             assert linked_file.read_text(encoding="utf-8") == "inside-regular"
         finally:
             outside_file.unlink(missing_ok=True)

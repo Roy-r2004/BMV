@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
@@ -611,15 +613,15 @@ def test_catalogue_fallback_typechecks_with_template() -> None:
             page_title="Home",
             route=route,
         )
-        tsc = template / "node_modules" / ".bin" / "tsc.cmd"
-        result = subprocess.run(
-            [str(tsc), "-b"],
-            cwd=workspace,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert result.returncode == 0, result.stdout + result.stderr
+        # Resolve the compiler exactly the way the pipeline does. This used to
+        # hardcode `node_modules/.bin/tsc.cmd` — the Windows shim — so on Linux
+        # it raised FileNotFoundError and never typechecked anything.
+        from app.application.preview_app.typecheck import typecheck_workspace
+
+        report = typecheck_workspace(workspace, timeout=180)
+        if not report.available:
+            pytest.skip(f"no TypeScript compiler available: {report.reason}")
+        assert report.clean, "\n".join(d.as_text() for d in report.diagnostics)
 
 
 def test_generated_theme_has_complete_brand_parameterized_catalogue_tokens() -> None:

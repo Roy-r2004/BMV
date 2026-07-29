@@ -10,6 +10,24 @@ from app.application.preview_app.catalogue_contract.slots import (
 )
 from app.application.preview_app.protected_paths import canonical_workspace_path
 
+
+def _js(value) -> str:
+    """JSON literal for emitted TSX — non-ASCII must stay literal.
+
+    Several sites below interpolate this straight into a JSX attribute
+    (`description={_js(text)}` renders as `description="…"`). JSX attribute
+    string literals do not process JavaScript escape sequences, so an
+    ``ensure_ascii=True`` dump would ship `\\u2014` as six visible characters.
+    """
+    return json.dumps(value, ensure_ascii=False)
+
+
+# Nav chrome is sticky/fixed at the top of PublicShell — a bare PageHeader band
+# collides with it. Public listing scaffolds must supply their own inset.
+_PAGE_HEADER_BAND = (
+    "mx-auto w-full max-w-[92rem] px-6 pt-28 pb-10 lg:px-12 lg:pt-32 lg:pb-14"
+)
+
 _SLOT_COMPONENT = {
     "hero": "MarketingHero",
     "features": "FeatureBento",
@@ -176,9 +194,8 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
         )
     )
     if storefrontish:
-        sub = json.dumps(
-            f"{title} — browse what’s here. This page is not the homepage story.",
-            ensure_ascii=False,
+        sub = _js(
+            f"{title} — browse what’s here. This page is not the homepage story."
         )
         if sk == "public-detail" or "detail" in sk:
             primary = '{ label: "Inquire about this piece", href: "/about" }'
@@ -190,9 +207,8 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
             sub,
         )
 
-    sub = json.dumps(
-        f"{title} — browse what’s here, then book. This page is not the homepage story.",
-        ensure_ascii=False,
+    sub = _js(
+        f"{title} — browse what’s here, then book. This page is not the homepage story."
     )
     primary = '{ label: "Book a visit", href: "/book" }'
     secondary = '{ label: "Back home", href: "/" }'
@@ -202,6 +218,52 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
     )
 
 
+_FEATURE_ITEMS_ACCOUNTING = (
+    ("Invoicing", "Send, track, and chase invoices without a spreadsheet."),
+    ("Expenses", "Categorized as they land, so month end is already done."),
+    ("Reconciliation", "Bank lines matched against the ledger every morning."),
+)
+
+_FEATURE_ITEMS_TRADING = (
+    ("Order staging", "Stage, check, and release tickets from one blotter."),
+    ("Risk limits", "Gross, sector, and single-name limits checked before release."),
+    ("P&L attribution", "Intraday marks and attribution on the same screen."),
+)
+
+_FEATURE_ITEMS_GALLERY = (
+    ("Original works", "Signed pieces, each one photographed as it hangs."),
+    ("Commissions", "A piece scaled to your room, your light, your palette."),
+    ("Collector support", "Framing, shipping, and placement handled end to end."),
+)
+
+
+def _feature_items_fallback(
+    brand: str,
+    *,
+    accounting: bool,
+    trading: bool,
+    gallery: bool,
+) -> list[dict[str, str]]:
+    """Brand-bound feature cards for when `seed.features` is missing or empty.
+
+    FeatureBento's alternating variant prints a `NN / NN` chapter counter, so an
+    empty item list renders the contradiction "01 / 00".
+    """
+    if accounting:
+        pairs = _FEATURE_ITEMS_ACCOUNTING
+    elif trading:
+        pairs = _FEATURE_ITEMS_TRADING
+    elif gallery:
+        pairs = _FEATURE_ITEMS_GALLERY
+    else:
+        pairs = (
+            (f"Work with {brand}", "Clear scope, clear pricing, and a real timeline."),
+            ("Straight answers", "One point of contact from first call to handover."),
+            ("Finished properly", "Work you can check over before you pay for it."),
+        )
+    return [{"title": title, "description": description} for title, description in pairs]
+
+
 def _safe_slot_jsx(
     slot: str,
     brand: str,
@@ -209,10 +271,11 @@ def _safe_slot_jsx(
     *,
     skeleton_id: str = "",
 ) -> str:
-    brand_js = json.dumps(brand)
-    title_js = json.dumps(title)
+    brand_js = _js(brand)
+    title_js = _js(title)
     accounting = _is_accounting_domain(brand, title)
     trading = _is_trading_domain(brand, title) and not accounting
+    gallery = _is_gallery_domain(brand, title)
     # Non-home pages must NOT reuse seed.hero — that makes /doctors look like /.
     home_hero = skeleton_id in {"", "public-home"}
 
@@ -225,7 +288,7 @@ def _safe_slot_jsx(
 
     # Brand-bound fallbacks for public-home (and shared mid-slots) — never agency mush.
     def _fb(text: str) -> str:
-        return json.dumps(text, ensure_ascii=False)
+        return _js(text)
 
     features_heading_fb = _fb(f"What {brand} offers")
     showcase_heading_fb = _fb(f"From {brand}")
@@ -248,6 +311,14 @@ def _safe_slot_jsx(
     spotlight_desc_fb = _fb(f"A closer look at what makes {brand} distinct.")
     results_heading_fb = _fb(f"{brand} results")
     results_label_fb = _fb(f"{brand} highlight")
+    features_items_fb = _js(
+        _feature_items_fallback(
+            brand, accounting=accounting, trading=trading, gallery=gallery
+        )
+    )
+    # ProductShowcase prints this over its lead card; without it the template
+    # falls back to its own placeholder eyebrow ("Lead drop").
+    showcase_badge_fb = _fb("Featured work" if gallery else "Featured")
 
     if home_hero:
         hero_jsx = (
@@ -275,13 +346,14 @@ def _safe_slot_jsx(
         "features": (
             f'<FeatureBento heading={{seed.featuresHeading ?? {features_heading_fb}}} '
             'imagePool={[images.card1, images.card2, images.card3]} '
-            'items={seed.features ?? []} />'
+            f'items={{seed.features?.length ? seed.features : {features_items_fb}}} />'
         ),
         "products": (
             f'<ProductShowcase heading={{seed.showcaseHeading ?? {products_heading_fb}}} '
             'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
             'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
             'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
         ),
@@ -290,6 +362,7 @@ def _safe_slot_jsx(
             'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
             'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
             'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
         ),
@@ -672,20 +745,20 @@ def _schedule_listing_scaffold(
     action_ids: list[str],
     evidence_ids: list[str],
 ) -> str:
-    brand_js = json.dumps(brand)
-    title_js = json.dumps(title)
+    brand_js = _js(brand)
+    title_js = _js(title)
     base = (listing_path or "/classes").rstrip("/") or "/classes"
-    base_js = json.dumps(base)
-    appspec_attrs = f" data-appspec-page={json.dumps(page_id)}" if page_id else ""
+    base_js = _js(base)
+    appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
     for action_id in action_ids:
         span_lines.append(
-            f'        <span className="sr-only" data-appspec-action={json.dumps(action_id)}>'
+            f'        <span className="sr-only" data-appspec-action={_js(action_id)}>'
             f"{action_id}</span>"
         )
     for evidence_id in evidence_ids:
         span_lines.append(
-            f'        <span className="sr-only" data-appspec-evidence={json.dumps(evidence_id)}>'
+            f'        <span className="sr-only" data-appspec-evidence={_js(evidence_id)}>'
             f"{evidence_id}</span>"
         )
     appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
@@ -752,20 +825,20 @@ def _directory_listing_scaffold(
     action_ids: list[str],
     evidence_ids: list[str],
 ) -> str:
-    brand_js = json.dumps(brand)
-    title_js = json.dumps(title)
+    brand_js = _js(brand)
+    title_js = _js(title)
     base = (listing_path or "/doctors").rstrip("/") or "/doctors"
-    base_js = json.dumps(base)
-    appspec_attrs = f" data-appspec-page={json.dumps(page_id)}" if page_id else ""
+    base_js = _js(base)
+    appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
     for action_id in action_ids:
         span_lines.append(
-            f'        <span className="sr-only" data-appspec-action={json.dumps(action_id)}>'
+            f'        <span className="sr-only" data-appspec-action={_js(action_id)}>'
             f"{action_id}</span>"
         )
     for evidence_id in evidence_ids:
         span_lines.append(
-            f'        <span className="sr-only" data-appspec-evidence={json.dumps(evidence_id)}>'
+            f'        <span className="sr-only" data-appspec-evidence={_js(evidence_id)}>'
             f"{evidence_id}</span>"
         )
     appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
@@ -785,6 +858,7 @@ def _directory_listing_scaffold(
         showcase_desc = "Each card opens a closer look. Inquire when you are ready."
         cta_heading = "Interested in a piece?"
         cta_desc = "Ask about availability, commissions, or a studio visit."
+        featured_badge = "Featured work"
     else:
         cta_primary = '{ label: "Book a visit", href: "/book" }'
         cta_secondary = '{ label: "Ask AI assistant", href: "/ai-features" }'
@@ -794,6 +868,7 @@ def _directory_listing_scaffold(
         showcase_desc = "Each card opens a provider profile. Book when you are ready."
         cta_heading = "Ready to schedule?"
         cta_desc = "Pick a time online — same team you just reviewed."
+        featured_badge = "Featured"
     return f"""// directory listing scaffold — distinct from home marketing clone
 import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
 import {{ BRAND_MANIFEST, images }} from '@/data/mock';
@@ -815,27 +890,30 @@ export default function {component}() {{
     imageSrc: [images.card1, images.card2, images.card3][i % 3],
     imageAlt: String(s.name || s.title || 'Provider'),
     href: `${{LISTING_BASE}}/${{s.id || i + 1}}`,
+    badge: String(s.badge || s.category || {_js(featured_badge)}),
   }}));
 
   return (
     <PublicShell brandName={{{brand_js}}} chrome="solid" nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>
       <div data-skeleton="public-catalog"{appspec_attrs}>{appspec_hook_spans}
-      <PageHeader
-        title={{{title_js}}}
-        description={json.dumps(page_desc)}
-      />
+      <div className={_js(_PAGE_HEADER_BAND)}>
+        <PageHeader
+          title={{{title_js}}}
+          description={_js(page_desc)}
+        />
+      </div>
       <ProductShowcase
-        heading={json.dumps(showcase_heading)}
-        description={json.dumps(showcase_desc)}
+        heading={_js(showcase_heading)}
+        description={_js(showcase_desc)}
         items={{people}}
       />
       <CTABand
-        heading={json.dumps(cta_heading)}
-        description={json.dumps(cta_desc)}
+        heading={_js(cta_heading)}
+        description={_js(cta_desc)}
         primaryCta={{{cta_primary}}}
         secondaryCta={{{cta_secondary}}}
       />
-      <BrandFooter brandName={{{brand_js}}} description={json.dumps(footer_desc)} />
+      <BrandFooter brandName={{{brand_js}}} description={_js(footer_desc)} />
       </div>
     </PublicShell>
   );
@@ -924,18 +1002,18 @@ def minimal_catalogue_page_scaffold(
         images_import = "import { images } from '@/data/mock';\n"
     else:
         images_import = ""
-    appspec_attrs = f' data-appspec-page={json.dumps(page_id)}' if page_id else ""
+    appspec_attrs = f' data-appspec-page={_js(page_id)}' if page_id else ""
     appspec_hook_spans = ""
     if page_id:
         span_lines = []
         for action_id in action_ids:
             span_lines.append(
-                f'        <span className="sr-only" data-appspec-action={json.dumps(action_id)}>'
+                f'        <span className="sr-only" data-appspec-action={_js(action_id)}>'
                 f"{action_id}</span>"
             )
         for evidence_id in evidence_ids:
             span_lines.append(
-                f'        <span className="sr-only" data-appspec-evidence={json.dumps(evidence_id)}>'
+                f'        <span className="sr-only" data-appspec-evidence={_js(evidence_id)}>'
                 f"{evidence_id}</span>"
             )
         appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
@@ -954,7 +1032,7 @@ def minimal_catalogue_page_scaffold(
             body = (
                 "  const { main, rail } = composeSkeletonLayout(SKELETON_ID, slots);\n\n"
                 "  return (\n"
-                f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}} rail={{rail}}{appearance}>\n'
+                f'    <{shell} brandName={{{_js(brand)}}} navItems={{adminNavItems}} rail={{rail}}{appearance}>\n'
                 f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>"
                 f"{appspec_hook_spans}{{main}}</div>\n"
                 f"    </{shell}>\n"
@@ -963,7 +1041,7 @@ def minimal_catalogue_page_scaffold(
         else:
             body = (
                 "  return (\n"
-                f'    <{shell} brandName={{{json.dumps(brand)}}} navItems={{adminNavItems}}>\n'
+                f'    <{shell} brandName={{{_js(brand)}}} navItems={{adminNavItems}}>\n'
                 f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>\n"
                 f"{appspec_hook_spans}"
                 "        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />\n"
@@ -991,7 +1069,7 @@ def minimal_catalogue_page_scaffold(
         )
         body = (
             "  return (\n"
-            f'    <{shell} brandName={{{json.dumps(brand)}}}{chrome_attr} '
+            f'    <{shell} brandName={{{_js(brand)}}}{chrome_attr} '
             f'nav={{<PublicNav items={{navItems}} cta={{navCta}} />}}>\n'
             f"      <div data-skeleton={{skeleton.id}}{appspec_attrs}>\n"
             f"{appspec_hook_spans}"
@@ -1001,7 +1079,7 @@ def minimal_catalogue_page_scaffold(
             "  );"
         )
     order_const = (
-        f"const RECIPE_ORDER = {json.dumps(slots)} as const;\n\n"
+        f"const RECIPE_ORDER = {_js(slots)} as const;\n\n"
         if skeleton_id
         in {
             "public-home",
@@ -1015,7 +1093,7 @@ def minimal_catalogue_page_scaffold(
     return f"""// deterministic catalogue contract scaffold
 {nav_import}{images_import}import {{ {", ".join(components)} }} from '@/ui';
 
-const SKELETON_ID = {json.dumps(skeleton_id)} as const;
+const SKELETON_ID = {_js(skeleton_id)} as const;
 {order_const}export default function {component}() {{
 {nav_hook}  const skeleton = getSkeleton(SKELETON_ID);
   const slots = {{
