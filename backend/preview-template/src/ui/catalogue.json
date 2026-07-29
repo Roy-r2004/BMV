@@ -323,6 +323,41 @@
       ]
     },
     {
+      "name": "CatalogGrid",
+      "surface": "public",
+      "path": "public/CatalogGrid.tsx",
+      "requiredProps": [
+        "items"
+      ],
+      "optionalProps": [
+        "heading",
+        "description",
+        "detailBase",
+        "filterable",
+        "itemNoun",
+        "className"
+      ]
+    },
+    {
+      "name": "InquiryPanel",
+      "surface": "public",
+      "path": "public/InquiryPanel.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "heading",
+        "description",
+        "itemId",
+        "itemTitle",
+        "messagePlaceholder",
+        "ctaLabel",
+        "confirmationHeading",
+        "confirmationBody",
+        "requirePhone",
+        "onSubmit",
+        "className"
+      ]
+    },
+    {
       "name": "TestimonialRail",
       "surface": "public",
       "path": "public/TestimonialRail.tsx",
@@ -911,7 +946,7 @@
       "id": "public-detail",
       "surface": "public",
       "shell": "PublicShell",
-      "purpose": "Single product or treatment detail.",
+      "purpose": "Single product or treatment detail — resolves its own route param and ends in an inquiry or booking.",
       "requiredSections": [
         "shell",
         "hero",
@@ -924,6 +959,7 @@
         "testimonials",
         "credentials",
         "booking",
+        "inquire",
         "cta"
       ],
       "recommendedOrder": [
@@ -933,6 +969,7 @@
         "features",
         "process",
         "testimonials",
+        "inquire",
         "cta",
         "footer"
       ],
@@ -942,6 +979,7 @@
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
+        "InquiryPanel",
         "TestimonialRail",
         "ProcessSection",
         "CTABand",
@@ -979,7 +1017,7 @@
       "id": "public-catalog",
       "surface": "public",
       "shell": "PublicShell",
-      "purpose": "Browsable product / plan grid with filtering — merchandising, not storytelling.",
+      "purpose": "Browsable product / plan grid with filtering — merchandising, not storytelling. The showcase slot must be a CatalogGrid listing every item and linking each into the detail route; ProductShowcase caps at three and is an editorial mosaic, not a catalogue.",
       "requiredSections": [
         "shell",
         "hero",
@@ -1010,6 +1048,7 @@
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
+        "CatalogGrid",
         "TestimonialRail",
         "ProcessSection",
         "CTABand",

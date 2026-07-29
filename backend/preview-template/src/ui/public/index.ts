@@ -3,6 +3,17 @@ export { PublicNav, type PublicNavProps, type PublicNavItem, type PublicNavCta }
 export { MarketingHero, type MarketingHeroProps, type MarketingCta, type MarketingHeroVariant } from './MarketingHero';
 export { FeatureBento, type FeatureBentoProps, type FeatureBentoItem, type FeatureBentoVariant } from './FeatureBento';
 export { ProductShowcase, type ProductShowcaseProps, type ProductShowcaseItem } from './ProductShowcase';
+export {
+  CatalogGrid,
+  catalogItemHref,
+  type CatalogGridProps,
+  type CatalogItem,
+} from './CatalogGrid';
+export {
+  InquiryPanel,
+  type InquiryPanelProps,
+  type InquiryPayload,
+} from './InquiryPanel';
 export { TestimonialRail, type TestimonialRailProps, type TestimonialRailItem } from './TestimonialRail';
 export { ProcessSection, type ProcessSectionProps, type ProcessStep } from './ProcessSection';
 export { CTABand, type CTABandProps, type CTALink } from './CTABand';

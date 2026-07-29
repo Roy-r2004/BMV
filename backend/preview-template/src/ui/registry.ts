@@ -489,11 +489,34 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     id: 'public-detail',
     surface: 'public',
     shell: 'PublicShell',
-    purpose: 'Single product or treatment detail.',
+    purpose:
+      'Single product or treatment detail — resolves its own route param and ends in an inquiry or booking.',
     requiredSections: ['shell', 'hero', 'showcase', 'footer'],
-    optionalSections: ['process', 'features', 'testimonials', 'credentials', 'booking', 'cta'],
-    recommendedOrder: ['shell', 'hero', 'showcase', 'features', 'process', 'testimonials', 'cta', 'footer'],
-    allowedComponents: [...PUBLIC_ALLOWED],
+    optionalSections: [
+      'process',
+      'features',
+      'testimonials',
+      'credentials',
+      'booking',
+      'inquire',
+      'cta',
+    ],
+    recommendedOrder: [
+      'shell',
+      'hero',
+      'showcase',
+      'features',
+      'process',
+      'testimonials',
+      'inquire',
+      'cta',
+      'footer',
+    ],
+    // InquiryPanel is scoped to this skeleton rather than PUBLIC_ALLOWED: adding
+    // it everywhere pushed every public skeleton's codegen contract past its
+    // 5000-char budget, which silently dropped the prop shapes that keep cards
+    // from rendering empty.
+    allowedComponents: [...PUBLIC_ALLOWED, 'InquiryPanel'],
     supportedVariants: {
       MarketingHero: ['product', 'atelier', 'service', 'editorial', 'compact', 'split'],
       FeatureBento: ['alternating', 'grid'],
@@ -503,12 +526,14 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     id: 'public-catalog',
     surface: 'public',
     shell: 'PublicShell',
-    purpose: 'Browsable product / plan grid with filtering — merchandising, not storytelling.',
+    purpose:
+      'Browsable product / plan grid with filtering — merchandising, not storytelling. The showcase slot must be a CatalogGrid listing every item and linking each into the detail route; ProductShowcase caps at three and is an editorial mosaic, not a catalogue.',
     requiredSections: ['shell', 'hero', 'showcase', 'footer'],
     optionalSections: ['trust', 'features', 'spotlight', 'testimonials', 'cta'],
     recommendedOrder: ['shell', 'hero', 'trust', 'showcase', 'features', 'spotlight', 'testimonials', 'cta', 'footer'],
     allowedComponents: [
       ...PUBLIC_ALLOWED,
+      'CatalogGrid',
       'ScheduleRail',
       'Input',
       'Select',
