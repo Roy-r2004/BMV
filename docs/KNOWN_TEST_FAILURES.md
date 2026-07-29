@@ -10,15 +10,40 @@ Keep this list short. If you fix one, delete its row.
 
 | Test | Notes |
 |---|---|
-| `tests/preview_app/test_task3_catalogue_guards.py::test_catalogue_fallback_typechecks_with_template` | Catalogue fallback does not typecheck against the current preview template. |
-| `tests/preview_app/test_task3_security.py::test_workspace_writes_fail_closed` | Workspace write guard assertion is stale. |
-| `tests/preview_app/test_task4_prompt_contract.py::test_production_callsites_render_with_strict_undefined` | `synthesize_mock_data` returns falsy for the restaurant fixture under strict-undefined rendering. |
 | `tests/preview_contract/test_appspec_v2_policy.py::test_v2_generation_rejects_fallback_instead_of_marking_it_complete` | Fixture scripts one provider response but the authoring loop asks for a second, so it raises `fixture attempted an unplanned provider call` instead of the expected fallback error. |
 
-Expect exactly **4 failed, 1 skipped** from `pytest tests/` in the API container.
-The skip is `tests/rollout/test_phase7e_ops_dashboard.py::test_known_preexisting_failures_documented`,
-which reads this file from the repo root and skips when `docs/` is absent — the
-container mounts only `./backend`. It runs for real on the host.
+Expect exactly **1 failed** from `pytest tests/` in the API container using the
+invocation below (863 passed as of the P0-1 imagery fix).
+
+`tests/rollout/test_phase7e_ops_dashboard.py::test_known_preexisting_failures_documented`
+reads this file from the repo root and skips only when `docs/` is absent. Under the
+invocation below the whole repo is mounted, so it runs for real — meaning a row
+naming a test that no longer exists fails the suite. Delete rows when you fix them.
+
+### Resolved — do not re-add
+
+- `test_task3_catalogue_guards.py::test_catalogue_fallback_typechecks_with_template`
+  hardcoded `node_modules/.bin/tsc.cmd` (the Windows shim), so on Linux it raised
+  `FileNotFoundError` and never typechecked. It now resolves the compiler through
+  the production `typecheck_workspace`, and the 3 real template errors it then
+  found are fixed: `AppLink` required `children`, which forbade the full-area
+  overlay click pattern (`absolute inset-0` + `aria-label`, no children) used
+  three times in `ProductShowcase.tsx`. Every generated app inherited those.
+- `test_task3_security.py::test_workspace_writes_fail_closed` and
+  `test_task4_prompt_contract.py::test_production_callsites_render_with_strict_undefined`
+  were fixed on `chore/remove-preview-generator-v2`; both were partly vacuous.
+
+### If the catalogue typecheck test skips
+
+It skips when `backend/preview-template/node_modules` is an **incomplete** install,
+naming the missing packages. That directory is gitignored, and a partial install
+surfaces as `TS2307 Cannot find module` — which reads exactly like a template
+defect but is not one. Real generations install from the lockfile into the
+fingerprinted shared cache (`preview_app/npm_shared.py`) and never see it. Fix with:
+
+```bash
+cd backend/preview-template && npm ci
+```
 
 ## Environment notes
 

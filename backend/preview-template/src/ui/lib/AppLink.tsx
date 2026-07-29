@@ -17,7 +17,13 @@ export function isInAppPath(href: string): boolean {
 
 type AppLinkProps = Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   href: string;
-  children: React.ReactNode;
+  /**
+   * Optional: catalogue components use AppLink as a full-area overlay click
+   * target (`absolute inset-0` + aria-label, no children), which is a valid
+   * accessible pattern. Requiring children made that a type error in the
+   * shipped template, and every generated app inherited it.
+   */
+  children?: React.ReactNode;
 };
 
 /** Router-aware link for catalogue surfaces. External/hash hrefs stay as <a>. */

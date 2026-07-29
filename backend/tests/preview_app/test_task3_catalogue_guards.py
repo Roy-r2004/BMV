@@ -598,9 +598,33 @@ def test_catalogue_guard_fails_closed_on_unknown_skeleton_and_preserves_kit() ->
         ).read_text(encoding="utf-8")
 
 
+def _missing_template_dependencies(template: Path) -> list[str]:
+    """Declared deps absent from the template's local node_modules.
+
+    This test's temp workspace lives *inside* the template, so Node resolution
+    walks up to `preview-template/node_modules` — a gitignored local install.
+    A partial install there surfaces as TS2307 "Cannot find module", which reads
+    exactly like a template defect but is not one (real generations install from
+    the lockfile into the fingerprinted shared cache in npm_shared.py). Report it
+    as a skip so the two causes can never be confused again.
+    """
+    import json
+
+    manifest = json.loads((template / "package.json").read_text(encoding="utf-8"))
+    declared = {**manifest.get("dependencies", {}), **manifest.get("devDependencies", {})}
+    node_modules = template / "node_modules"
+    return sorted(name for name in declared if not (node_modules / name).exists())
+
+
 def test_catalogue_fallback_typechecks_with_template() -> None:
     route = _route()
     template = REPO_ROOT / "backend" / "preview-template"
+    missing = _missing_template_dependencies(template)
+    if missing:
+        pytest.skip(
+            "preview-template/node_modules is an incomplete install; run `npm ci` in "
+            f"backend/preview-template. Missing: {', '.join(missing)}"
+        )
     with tempfile.TemporaryDirectory(dir=template) as tmp:
         workspace = Path(tmp)
         shutil.copytree(template / "src", workspace / "src")
