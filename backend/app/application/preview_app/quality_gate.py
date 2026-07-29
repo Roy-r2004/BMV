@@ -46,6 +46,9 @@ class GateReport:
     issues: list[GateIssue] = field(default_factory=list)
     healed: list[str] = field(default_factory=list)
     warnings: list[GateIssue] = field(default_factory=list)
+    #: Journey walk summary, carried so "ready" is never read as "the funnel
+    #: works" without the evidence. Read by finalize into the API result.
+    journey: dict[str, Any] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -317,7 +320,60 @@ def evaluate_quality_gate(
                 "; ".join(f"{c}:{p}" for c, _m, p in visual_issues[:8]),
             )
 
+    # Journey contract — the path *between* pages. Every check above validates a
+    # page in isolation, and a storefront passed all of them while its visitor
+    # could not browse a collection, open an item, or ask about it.
+    #
+    # Deliberately computed here rather than persisted: this function is called
+    # again after heal, so a repaired page clears its own finding. The visual
+    # critique report is written once pre-refine and cannot (P0-3).
+    try:
+        from app.application.preview_app.capabilities.journey import (
+            journey_gate_issues,
+            walk_journey,
+        )
+
+        journey_report = walk_journey(
+            Path(workspace), architect, pack=_journey_pack(architect)
+        )
+    except Exception as e:  # noqa: BLE001 - recorded, never silently swallowed
+        # A crash in the walker must not fail every generation, but it must also
+        # not vanish the way build_phase's bare except vanished the visual report.
+        log.error("journey walk failed: %s", e, exc_info=True)
+        report.warn("journey_walk_failed", f"Journey contract not evaluated: {e}")
+    else:
+        report.journey = journey_report.summary()
+        for code, message, path in journey_gate_issues(journey_report):
+            report.fail(code, message, path)
+        for finding in journey_report.warnings:
+            report.warn(
+                finding.code, finding.message, finding.component_file or finding.path
+            )
+        if journey_report.findings:
+            log.warning(
+                "journey broken (%s blocking, %s warn): %s",
+                len(journey_report.blocking),
+                len(journey_report.warnings),
+                "; ".join(
+                    f"{f.code}:{f.path}" for f in journey_report.findings[:8]
+                ),
+            )
+
     return report
+
+
+def _journey_pack(architect: dict[str, Any]) -> dict[str, Any] | None:
+    """The industry pack, for its declared capabilities. None is a safe default."""
+    template_id = str(architect.get("industry_template_id") or "").strip()
+    if not template_id:
+        return None
+    try:
+        from app.application.preview_app.industry_templates.loader import load_templates
+
+        return load_templates().get(template_id)
+    except Exception as e:  # noqa: BLE001 - capability defaults still apply
+        log.warning("industry pack unreadable for journey walk: %s", e)
+        return None
 
 
 def heal_quality_gate(

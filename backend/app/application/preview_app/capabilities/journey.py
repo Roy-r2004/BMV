@@ -25,7 +25,17 @@ from app.application.preview_app.capabilities.registry import (
 LISTING_COMPONENTS = ("CatalogGrid", "ProductShowcase", "ScheduleRail")
 
 #: How a page reads its own route parameter.
-_PARAM_READ_RE = re.compile(r"\buseParams\s*[<(]|\buseParams\b")
+#
+#: Must match the *call*, not the import: `import { useParams } from ...` is
+#: present on a page that imports the hook and never calls it, and an earlier
+#: version of this pattern accepted the bare word, so a detail page that had
+#: stopped resolving its param still passed.
+_PARAM_READ_RE = re.compile(r"\buseParams\s*[<(]")
+
+#: Routes other pipeline stages add after the gate first runs. A link to one of
+#: these is reported, but never blocking — the route may legitimately appear
+#: later, and a false withhold is worse than a late warning.
+_CONDITIONAL_ROUTES = frozenset({"/ai-features"})
 
 #: href values in emitted TSX: href="/x", href: "/x", href={`/x/${...}`}
 _HREF_LITERAL_RE = re.compile(r"""href\s*[:=]\s*\{?\s*["'`](?P<value>[^"'`]+)""")
@@ -61,10 +71,18 @@ class HopFinding:
     path: str
     surface: str
     component_file: str = ""
+    #: Reported but never blocking, whatever the surface.
+    advisory: bool = False
 
     @property
     def public(self) -> bool:
-        return self.surface != "ops"
+        """Blocking-eligible: a public-surface break that is not advisory.
+
+        Mirrors ``asset_integrity.blocking_missing_assets()``, which blocks only
+        on ``ref.public_surface``. Blocking on an owner-only page would withhold
+        a correct public storefront.
+        """
+        return self.surface != "ops" and not self.advisory
 
 
 @dataclass
@@ -85,6 +103,7 @@ class JourneyReport:
         surface: str,
         component_file: str = "",
         path: str = "",
+        advisory: bool = False,
     ) -> None:
         self.findings.append(
             HopFinding(
@@ -94,6 +113,7 @@ class JourneyReport:
                 path=path or hop.path_hint,
                 surface=surface,
                 component_file=component_file,
+                advisory=advisory,
             )
         )
 
@@ -302,10 +322,15 @@ def walk_journey(
             )
             continue
 
-        before = len(report.findings)
+        # Count blocking only: an advisory finding (a conditional route, an ops
+        # page) must not strike a hop out of hops_ok, or the summary under-reports
+        # a funnel that actually works.
+        before = len(report.blocking)
 
         if hop.kind == "browse":
-            _check_browse(report, hop, src, path, surface, rel, declared, architect)
+            _check_browse(
+                report, hop, src, path, surface, rel, declared, architect, journey
+            )
         elif hop.kind == "detail":
             _check_detail(report, hop, src, path, surface, rel)
         elif hop.kind == "terminal":
@@ -313,10 +338,51 @@ def walk_journey(
 
         _check_dead_links(report, hop, src, path, surface, rel, declared)
 
-        if len(report.findings) == before:
+        if len(report.blocking) == before:
             report.hops_ok.append(hop.id)
 
+    _sweep_non_hop_links(report, workspace, architect, journey, declared)
     return report
+
+
+def _sweep_non_hop_links(
+    report: JourneyReport,
+    workspace: Path,
+    architect: Mapping[str, Any],
+    journey: Journey,
+    declared: set[str],
+) -> None:
+    """Advisory dead-link sweep over every page the journey does not walk.
+
+    Blocking is confined to the funnel on purpose. A dead link on an admin page
+    is a real defect worth surfacing, but withholding a correct public storefront
+    over an owner-only page is the failure mode already logged as P0-4.
+    """
+    walked = set()
+    for hop in journey.hops:
+        route = _find_route(architect, hop, want_param=_is_param_path(hop.path_hint))
+        if route is not None:
+            walked.add(str(route.get("component_file") or "").replace("\\", "/"))
+    swept = JourneyHop("other-pages", "sweep", "", "Other pages")
+    for route in _routes(architect):
+        rel = str(route.get("component_file") or "").replace("\\", "/")
+        if not rel or rel in walked:
+            continue
+        src = _read(workspace, rel)
+        if not src:
+            continue
+        for href in sorted(set(internal_hrefs(src))):
+            if _route_matches(href, declared):
+                continue
+            report.add(
+                "journey_dead_link_offpath",
+                f"{rel} links to {href}, which no declared route serves",
+                swept,
+                surface=_surface(route),
+                component_file=rel,
+                path=_norm(str(route.get("path") or "")),
+                advisory=True,
+            )
 
 
 def _check_browse(
@@ -328,6 +394,7 @@ def _check_browse(
     rel: str,
     declared: set[str],
     architect: Mapping[str, Any],
+    journey: Journey,
 ) -> None:
     if not any(name in src for name in LISTING_COMPONENTS):
         report.add(
@@ -351,23 +418,43 @@ def _check_browse(
             component_file=rel,
             path=path,
         )
-    # The list must point at a detail route that exists.
-    param_routes = [
-        _norm(str(r.get("path") or ""))
-        for r in _routes(architect)
-        if _is_param_path(str(r.get("path") or "")) and _surface(r) != "ops"
-    ]
-    if not param_routes:
-        report.add(
-            "journey_no_detail_route",
-            f"{hop.label}: no detail route is declared, so items cannot be opened",
-            hop,
-            surface=surface,
-            component_file=rel,
-            path=path,
-        )
+    # Where should a row lead? The hop after this one — a detail page for a
+    # storefront, the booking page for a service business.
+    hop_ids = [h.id for h in journey.hops]
+    next_hop = journey.hops[hop_ids.index(hop.id) + 1] if hop.id in hop_ids[:-1] else None
+    if next_hop is None:
         return
-    detail_bases = {p.split("/:")[0].split("/{")[0] or "/" for p in param_routes}
+    if next_hop.kind == "detail":
+        param_routes = [
+            _norm(str(r.get("path") or ""))
+            for r in _routes(architect)
+            if _is_param_path(str(r.get("path") or "")) and _surface(r) != "ops"
+        ]
+        if not param_routes:
+            report.add(
+                "journey_no_detail_route",
+                f"{hop.label}: no detail route is declared, so items cannot be opened",
+                hop,
+                surface=surface,
+                component_file=rel,
+                path=path,
+            )
+            return
+        detail_bases = {p.split("/:")[0].split("/{")[0] or "/" for p in param_routes}
+    else:
+        # Terminal next hop: rows must reach it, and it must exist.
+        target = _norm(next_hop.path_hint)
+        if not _route_matches(target, declared):
+            report.add(
+                "journey_next_hop_missing",
+                f"{hop.label}: the next step ({target}) is not a declared route",
+                hop,
+                surface=surface,
+                component_file=rel,
+                path=path,
+            )
+            return
+        detail_bases = {target}
     referenced = set(internal_hrefs(src)) | {
         m.group("base") for m in _TEMPLATE_BASE_RE.finditer(src)
     }
@@ -441,6 +528,7 @@ def _check_dead_links(
     for href in sorted(set(internal_hrefs(src))):
         if _route_matches(href, declared):
             continue
+        conditional = _norm(href) in _CONDITIONAL_ROUTES
         report.add(
             "journey_dead_link",
             f"{hop.label}: links to {href}, which no declared route serves",
@@ -448,6 +536,7 @@ def _check_dead_links(
             surface=surface,
             component_file=rel,
             path=path,
+            advisory=conditional,
         )
 
 

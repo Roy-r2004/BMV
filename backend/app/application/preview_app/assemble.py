@@ -327,7 +327,42 @@ def _nav_label(route: dict) -> str:
     return token.title()
 
 
-def _nav_items_for(routes: list[dict], predicate) -> list[dict]:
+def _journey_nav_priority(product_kind: str) -> tuple[str, ...]:
+    """Nav order for this product kind: home, then the funnel's own pages.
+
+    Nav used to rank against a hardcoded generic list (`/classes`, `/services`,
+    `/schedule`, `/contact`) that never mentioned `/gallery`, so a storefront's
+    browse page — the single most important page in its funnel — ranked below
+    unlisted routes and was sorted alphabetically before the cap. Deriving the
+    order from the declared journey keeps the spine first and present.
+    """
+    from app.application.preview_app.capabilities.journey import journey_for
+
+    spine: list[str] = ["/", "/home"]
+    journey = journey_for(product_kind)
+    if journey is not None:
+        for hop in journey.hops:
+            base = hop.path_hint.split("/:")[0].split("/{")[0].rstrip("/")
+            if base and base not in spine:
+                spine.append(base)
+    # The AI hub stays pinned near the top; remaining generic listings follow.
+    for fallback in (
+        "/ai-features",
+        "/classes",
+        "/services",
+        "/schedule",
+        "/gallery",
+        "/ai-advisor",
+        "/contact",
+    ):
+        if fallback not in spine:
+            spine.append(fallback)
+    return tuple(spine)
+
+
+def _nav_items_for(
+    routes: list[dict], predicate, *, product_kind: str = ""
+) -> list[dict]:
     items: list[dict] = []
     seen: set[str] = set()
     for rt in routes:
@@ -379,7 +414,7 @@ def _nav_items_for(routes: list[dict], predicate) -> list[dict]:
         items.insert(1, items.pop(ai_idx))
     # Cap public chrome so generated detail sprawl never overwhelms the demo.
     if items and all(not str(it.get("path") or "").startswith(("/admin", "/owner")) for it in items):
-        priority = ("/", "/home", "/ai-features", "/classes", "/services", "/schedule", "/ai-advisor", "/contact")
+        priority = _journey_nav_priority(product_kind)
         ranked = sorted(
             items,
             key=lambda it: (
@@ -418,7 +453,10 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
             "icon": ar.get("icon") or "users",
         })
 
-    public_nav = _nav_items_for(routes, lambda rt: _layout_for(rt) == "public")
+    product_kind = str(architect.get("product_kind") or "").strip().lower()
+    public_nav = _nav_items_for(
+        routes, lambda rt: _layout_for(rt) == "public", product_kind=product_kind
+    )
     admin_nav = _pin_ai_features_nav(
         _nav_items_for(
             routes,

@@ -412,6 +412,16 @@ def run_finalize(ctx: PipelineContext) -> dict:
         "built_at": int(time.time()),
     }
     preview_app_result.update(_typecheck_summary(workspace))
+    # Carry the journey walk the way _typecheck_summary carries type errors, so
+    # "ready" is never read as "the funnel works" without the evidence beside it.
+    # Several measurements on this pipeline were accurate and had no reader.
+    journey_summary = getattr(gate, "journey", None) or {}
+    if journey_summary:
+        preview_app_result["journey"] = journey_summary
+        preview_app_result["journey_hops_ok"] = len(journey_summary.get("hops_ok") or [])
+        preview_app_result["journey_hops_broken"] = len(
+            journey_summary.get("broken") or []
+        )
     result = {
         "preview_app": preview_app_result,
         "experience_plan": persisted_plan,

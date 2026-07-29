@@ -219,6 +219,11 @@ Implement EVERY section from the plan with rich, business-specific UI. If the pl
 {% else %}
 - NEVER use emoji or hand-drawn inline UI; use the matched catalogue components from `@/ui`
 - ProductShowcase `items` MUST be plain objects `{ title, description, imageSrc }` — NEVER React elements. For custom bodies (compare tables, wizards), pass `items={[]}` and put the UI in `children`.
+- THE JOURNEY MUST WORK. A visitor has to browse a list, open one item, and act on it. Three rules, and a page that breaks any of them fails review:
+  1. On a **catalogue / browse** page (`public-catalog`), the items slot MUST be `CatalogGrid` with `detailBase` set to the detail route's base (`/gallery` for `/gallery/:id`) and EVERY item carrying a stable `id`. Do NOT use ProductShowcase there — it destructures `[featured, secondary, tertiary]` and silently renders only 3 items, so the rest of the collection becomes unreachable. ProductShowcase stays for the editorial mosaic on home pages.
+  2. On a **detail** page (`public-detail`), call `useParams()` and resolve that id against the seed data. The page must describe THAT item (title, specs, image) — a detail page that renders the same content for every id is a bug. Handle an unknown id with a visible "not found" state that links back to the browse route; never a blank page.
+  3. End the detail page in a real action: `InquiryPanel` (pass `itemId` and `itemTitle`) or `BookingPanel`. Its CTA must point at that panel's anchor (`#inquire` / `#book`) or a route that EXISTS in the route table.
+- EVERY `href` must resolve to a declared route or to an anchor rendered on the same page. Do not invent `/about`, `/contact`, `/classes/:id`, or `/waitlist-confirmation` — those were real dead links that shipped. If you need a target and none exists, link to an anchor on the current page.
 - DataTable columns use `{ key, header }` (not `accessor`). Cell values must be strings/numbers — put status chips via `render`, never stash JSX on the row object.
 - FilterBar `actions` and `filters` are descriptor objects (`{ label, onClick }` / `{ id|value, label }`), not free-form; never pass raw objects as React children anywhere.
 - BrandFooter `links` is a flat `{ label, href }[]` — never nested `{ title, items: [...] }` groups.

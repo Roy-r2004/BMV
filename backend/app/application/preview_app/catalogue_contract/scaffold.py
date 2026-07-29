@@ -245,6 +245,19 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
     """
     sk = (skeleton_id or "").lower()
     blob = f"{brand} {title} {sk}".lower()
+    # The skeleton is stronger evidence than the brand name. A booking or service
+    # face must never take the storefront branch: a gallery-flavoured brand on a
+    # public-booking page emitted a "View collection" CTA to /gallery, which a
+    # booking app's route table (/, /services, /book) does not contain.
+    if sk in {"public-booking", "public-service"}:
+        sub = _js(
+            f"{title} — pick a time that works. This page is not the homepage story."
+        )
+        return (
+            'primaryCta={{ label: "Book a visit", href: "/book" }} '
+            'secondaryCta={{ label: "Back home", href: "/" }}',
+            sub,
+        )
     storefrontish = sk in {"public-catalog", "public-detail"} or any(
         token in blob
         for token in (
