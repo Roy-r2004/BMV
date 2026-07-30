@@ -685,8 +685,21 @@ def visual_critique_gate_issues(workspace) -> list[tuple[str, str, str]]:
     ]
 
 
-def _issue_severity(score, verdict: str, issues: list[str]) -> str:
+def _issue_severity(score, verdict: str, issues: list[str], surface: str = "public") -> str:
+    """How hard a page's own visual verdict should bite.
+
+    Surface-scoped for the same reason `broken_rendered_image` is (P0-4), and
+    proven necessary by a live run: an admin *login* page scored 20 and withheld
+    the entire public storefront, while the public contact page that had genuinely
+    lost its form scored 30 beside it. One of those is a reason not to ship a
+    preview; the other is a reason to fix an owner page later.
+
+    Public keeps the BLOCK — it is correct there, and that is the case the
+    threshold was chosen for.
+    """
     if verdict != "revise":
+        return WARN
+    if (surface or "public").strip().lower() != "public":
         return WARN
     if any(_SEVERE_ISSUE_RE.match(issue) for issue in issues):
         return BLOCK
@@ -1072,7 +1085,7 @@ def _absorb_review(
         )
     if verdict != "revise" or not issues:
         return
-    severity = _issue_severity(score, verdict, issues)
+    severity = _issue_severity(score, verdict, issues, surface=surface)
     report.add(
         "visual_defect" if severity == WARN else "visual_defect_severe",
         f"{component_file} scored {score}: {'; '.join(issues[:6])}",

@@ -271,6 +271,39 @@ def test_severe_marker_and_low_score_both_block() -> None:
     assert vc._issue_severity(92, "pass", []) == vc.WARN
 
 
+def test_an_ops_pages_own_verdict_does_not_withhold_the_storefront() -> None:
+    """Observed live on request 39, not hypothesised.
+
+    `admin/LoginPage.tsx` scored 20 and BLOCKed the gate; `ContactUsPage.tsx`
+    scored 30 beside it for genuinely having lost its contact form. Only the second
+    is a reason to withhold a preview, and the first was doing it anyway — the same
+    one-ops-page-withholds-everything shape as `broken_rendered_image` (P0-4).
+    """
+    assert vc._issue_severity(20, "revise", ["The login form is unstyled"], surface="ops") == vc.WARN
+    assert vc._issue_severity(12, "revise", ["SEVERE: unreadable"], surface="ops") == vc.WARN
+    # Public is unchanged: that is the case the threshold exists for.
+    assert vc._issue_severity(30, "revise", ["SEVERE: the contact form is missing"]) == vc.BLOCK
+    assert vc._issue_severity(30, "revise", ["x"], surface="public") == vc.BLOCK
+
+
+def test_a_low_scoring_ops_page_reaches_the_report_as_a_warning() -> None:
+    """Downgraded, not discarded — an unusable owner page is still a defect."""
+    report = vc.VisualCritiqueReport()
+    vc._absorb_review(
+        report,
+        "src/pages/admin/LoginPage.tsx",
+        {
+            "score": 20,
+            "verdict": "revise",
+            "issues": ["The main heading says Sign In but the nav says Studio Login"],
+            "revision_instructions": "Reconcile the labels.",
+        },
+    )
+    assert report.blocking == []
+    assert [f.code for f in report.findings] == ["visual_defect"]
+    assert report.scores["src/pages/admin/LoginPage.tsx"] == 20
+
+
 # --------------------------------------------------------------------------
 # PART B: the prompt must ask whether the photography depicts THIS business
 # --------------------------------------------------------------------------
