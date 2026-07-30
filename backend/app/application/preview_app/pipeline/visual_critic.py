@@ -143,6 +143,43 @@ _CATEGORY_FAMILY: dict[str, str] = {
     "medical": "health",
 }
 
+# Families whose signal words genuinely overlap, so the two of them disagreeing
+# is not evidence of a defect. Read as an unordered pair; the third element is
+# the overlap that earns the pair its place, because "these feel related" is not
+# a reason and this table is the detector's main way of going quiet.
+#
+# Deliberately NOT transitively closed. health~beauty and beauty~fitness are
+# both real, but chaining them would make health~fitness~education~art and the
+# detector would never fire again. Membership is exact-pair only.
+_ADJACENT_FAMILY_PAIRS: tuple[tuple[str, str, str], ...] = (
+    # `spa` (beauty) and `clinic` (medical) co-occur in one brief: a med-spa.
+    ("health", "beauty", "cosmetic/aesthetic/massage; a med-spa is both"),
+    # "vet clinic" contains `clinic`, a literal medical signal.
+    ("health", "pets", "veterinary clinics score both by construction"),
+    # `physiotherapy`/`chiropractic`/`therapy` against `training`/`strength`.
+    ("health", "fitness", "rehab and strength work share vocabulary"),
+    # `grooming` (pets) against `barber`/`hair` (beauty) — a barbershop scores both.
+    ("beauty", "pets", "grooming reads as either a dog or a beard"),
+    # `spa`/`massage` against `yoga`/`pilates` — one wellness studio, two families.
+    ("beauty", "fitness", "wellness studios sell both"),
+    # `catering` (food) is literally inside `catering hall` (events).
+    ("food", "events", "catering is a literal shared token"),
+    # `venue`/`catering hall` against `hotel`/`resort` — a wedding venue.
+    ("events", "travel", "venues and resorts are the same booking"),
+    # `print`/`prints` (art) against `boutique`/`shop`/`ecommerce` (retail).
+    ("art", "retail", "a gallery that sells prints is a storefront"),
+    # `notary`/`tax`/`audit`/`counsel` straddle the professional-services line.
+    ("legal", "finance", "professional-services vocabulary is shared"),
+    # `course`/`lesson` (education) against `yoga`/`bootcamp` (fitness).
+    ("education", "fitness", "a class is a lesson"),
+    # `renovation`/`construction` (trades) against `property`/`apartment`.
+    ("realestate", "trades", "renovation work is described in property terms"),
+)
+
+_ADJACENT_FAMILIES: frozenset[frozenset[str]] = frozenset(
+    frozenset((left, right)) for left, right, _why in _ADJACENT_FAMILY_PAIRS
+)
+
 # Words that appear in every generated imagery query and carry no industry meaning.
 _QUERY_NOISE = (
     "lifestyle", "wide", "atmosphere", "interior", "workspace", "product", "detail",
@@ -151,6 +188,11 @@ _QUERY_NOISE = (
 )
 
 _MIN_SIGNAL_HITS = 2
+# A one-hit lead is noise, not a classification. `classify_industry_family` was
+# already returning the margin and no threshold read it, so a 3-2 win counted as
+# confident: "spa and wellness clinic" (health 2 / beauty 3) BLOCKed against
+# imagery the pipeline itself had chosen correctly.
+_MIN_CONFIDENT_MARGIN = 2
 
 
 @dataclass(frozen=True)
@@ -266,12 +308,17 @@ def _max_visual_critique_pages() -> int:
     return _env_int("PREVIEW_VISUAL_CRITIC_MAX_PAGES", MAX_VISUAL_CRITIQUE_PAGES)
 
 
+def _infer_surface(*parts) -> str:
+    """`ops` when any path-ish fragment looks owner-only, else `public`."""
+    haystack = " ".join(str(p or "") for p in parts).replace("\\", "/").lower()
+    return "ops" if any(m in haystack for m in _OPS_PATH_MARKERS) else "public"
+
+
 def _route_surface(route: dict) -> str:
     surface = str(route.get("surface") or "").strip().lower()
     if surface:
         return surface
-    haystack = f"{route.get('path') or ''} {route.get('component_file') or ''}".lower()
-    return "ops" if any(m in haystack for m in _OPS_PATH_MARKERS) else "public"
+    return _infer_surface(route.get("path"), route.get("component_file"))
 
 
 def _select_visual_critique_routes(architect: dict, limit: int | None = None) -> list[dict]:
@@ -313,6 +360,11 @@ def _normalize_words(text: str) -> str:
 
 def _family(category: str) -> str:
     return _CATEGORY_FAMILY.get(category, category)
+
+
+def _families_are_adjacent(left: str, right: str) -> bool:
+    """True when two families overlap enough that disagreement proves nothing."""
+    return frozenset((left, right)) in _ADJACENT_FAMILIES
 
 
 def _family_scores(text: str) -> dict[str, int]:
@@ -374,6 +426,11 @@ def check_imagery_industry_consistency(
     imagery side from the queries and pack id actually used to source the
     photographs. Both must classify confidently before a mismatch is reported —
     an abstract or generic brief is not evidence of a defect.
+
+    "Confidently" is enforced by `_MIN_CONFIDENT_MARGIN` on *both* sides, and
+    families listed in `_ADJACENT_FAMILY_PAIRS` are never reported against each
+    other. This finding BLOCKs, so every way of being merely-probably-right here
+    withholds a preview that is fine.
     """
     business_family, business_margin = classify_industry_family(
         " ".join(part for part in (industry, brand_name, business_context) if part)
@@ -383,6 +440,10 @@ def check_imagery_industry_consistency(
     if not business_family or not imagery_family:
         return []
     if business_family == imagery_family:
+        return []
+    if business_margin < _MIN_CONFIDENT_MARGIN or imagery_margin < _MIN_CONFIDENT_MARGIN:
+        return []
+    if _families_are_adjacent(business_family, imagery_family):
         return []
     urls = sorted({str(u) for u in (image_urls or []) if str(u).strip()})
     evidence = f" Installed imagery: {', '.join(urls[:8])}." if urls else ""
@@ -656,7 +717,7 @@ def _run_visual_critique(
         if not result:
             continue
         component_file, review, spec = result
-        _absorb_review(report, component_file, review)
+        _absorb_review(report, component_file, review, surface=_route_surface(rt))
         if review.get("verdict") != "revise":
             continue
         notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
@@ -726,8 +787,19 @@ def _unmeasured_severity() -> str:
     return BLOCK if _env_flag("PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED", False) else WARN
 
 
-def _absorb_review(report: VisualCritiqueReport, component_file: str, review: dict) -> None:
-    """Fold one page review into the report. An unavailable verdict never passes."""
+def _absorb_review(
+    report: VisualCritiqueReport,
+    component_file: str,
+    review: dict,
+    surface: str = "",
+) -> None:
+    """Fold one page review into the report. An unavailable verdict never passes.
+
+    `surface` decides whether a rendering defect withholds the preview, mirroring
+    `asset_integrity.blocking_missing_assets()`. It is inferred from the
+    component path when the caller has no route to hand.
+    """
+    surface = (surface or "").strip().lower() or _infer_surface(component_file)
     verdict = str(review.get("visual_verdict") or review.get("verdict") or "unavailable")
     issues = [str(i) for i in (review.get("issues") or [])]
     score = review.get("score")
@@ -754,11 +826,17 @@ def _absorb_review(report: VisualCritiqueReport, component_file: str, review: di
     local_broken = [src for src in broken_images if not src.lower().startswith(("http://", "https://", "data:"))]
     remote_broken = [src for src in broken_images if src not in local_broken]
     if local_broken:
+        # Public only. Route selection deliberately screenshots an ops route, so
+        # blocking on every surface let one owner-only thumbnail withhold the
+        # whole storefront — the policy `asset_integrity` already rejected for
+        # the same defect, and `missing_image_asset` is filtered in the gate for
+        # exactly this reason.
         report.add(
             "broken_rendered_image",
-            f"{len(local_broken)} local image(s) failed to load in the rendered page: "
-            f"{', '.join(local_broken[:6])}.",
+            f"{len(local_broken)} local image(s) failed to load in the rendered "
+            f"{surface} page: {', '.join(local_broken[:6])}.",
             path=component_file,
+            severity=BLOCK if surface == "public" else WARN,
         )
     if remote_broken:
         report.add(

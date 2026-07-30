@@ -203,26 +203,64 @@ def test_text_critic_keeps_its_scaffold_exemption(tmp_path: Path) -> None:
     assert ai.prompts == []
 
 
+def _review_with_broken_images() -> dict:
+    return {
+        "score": 90,
+        "verdict": "pass",
+        "issues": [],
+        "revision_instructions": "",
+        "broken_images": [
+            "/placeholder-morning-mist.jpg",
+            APP36_DENTAL_URLS[0],
+        ],
+    }
+
+
 def test_broken_local_image_blocks_but_unreachable_cdn_only_warns() -> None:
     report = vc.VisualCritiqueReport()
-    vc._absorb_review(
-        report,
-        "src/pages/admin/DashboardPage.tsx",
-        {
-            "score": 90,
-            "verdict": "pass",
-            "issues": [],
-            "revision_instructions": "",
-            "broken_images": [
-                "/placeholder-morning-mist.jpg",
-                APP36_DENTAL_URLS[0],
-            ],
-        },
-    )
+    vc._absorb_review(report, "src/pages/GalleryPage.tsx", _review_with_broken_images())
     by_code = {f.code: f for f in report.findings}
     assert by_code["broken_rendered_image"].severity == vc.BLOCK
     assert by_code["broken_remote_image"].severity == vc.WARN
     assert [f.code for f in report.blocking] == ["broken_rendered_image"]
+
+
+def test_broken_local_image_on_an_ops_page_only_warns() -> None:
+    """P0-4: one owner-only thumbnail must not withhold the public storefront.
+
+    `broken_rendered_image` had no surface check while the gate deliberately
+    filters `missing_image_asset` — the same defect, the same kind of page — for
+    exactly this reason, and route selection now goes out of its way to
+    screenshot an ops route. This file used to assert the opposite on
+    `admin/DashboardPage.tsx` while `test_visual_report_reaches_gate.py` asserted
+    the surface-aware policy for the sibling code.
+    """
+    report = vc.VisualCritiqueReport()
+    vc._absorb_review(
+        report, "src/pages/admin/DashboardPage.tsx", _review_with_broken_images()
+    )
+    by_code = {f.code: f for f in report.findings}
+    assert by_code["broken_rendered_image"].severity == vc.WARN
+    assert report.blocking == []
+
+
+def test_declared_route_surface_outranks_the_path_guess() -> None:
+    """A public page under an ops-looking path still blocks, and vice versa."""
+    ops = vc.VisualCritiqueReport()
+    vc._absorb_review(ops, "src/pages/StorefrontPage.tsx", _review_with_broken_images(), surface="ops")
+    assert ops.blocking == []
+
+    public = vc.VisualCritiqueReport()
+    vc._absorb_review(
+        public, "src/pages/admin/DashboardPage.tsx", _review_with_broken_images(), surface="public"
+    )
+    assert [f.code for f in public.blocking] == ["broken_rendered_image"]
+
+
+def test_surface_is_inferred_from_a_windows_style_component_path() -> None:
+    report = vc.VisualCritiqueReport()
+    vc._absorb_review(report, r"src\pages\admin\DashboardPage.tsx", _review_with_broken_images())
+    assert report.blocking == []
 
 
 def test_severe_marker_and_low_score_both_block() -> None:
@@ -384,6 +422,150 @@ def test_ambiguous_business_never_produces_a_finding() -> None:
         == []
     )
     assert vc.classify_industry_family("professional small business atmosphere") == ("", 0)
+
+
+# --------------------------------------------------------------------------
+# P0-5: the confidence margins were computed and never read
+# --------------------------------------------------------------------------
+
+def _spa_pack_imagery_roles() -> dict:
+    """The real `spa-wellness-home` queries, not a hand-written stand-in.
+
+    The reproduction in the handoff went through the real pack picker; a
+    hand-written query would let the pack drift out from under this test.
+    """
+    pack = json.loads(
+        (
+            BACKEND_DIR
+            / "app"
+            / "application"
+            / "preview_app"
+            / "industry_templates"
+            / "packs"
+            / "spa-wellness-home.json"
+        ).read_text(encoding="utf-8")
+    )
+    return pack["imagery_roles"]
+
+
+# A brief that classifies, but only just: retail 3 hits against food 2, so the
+# family is `retail` with a margin of exactly 1. `_MIN_SIGNAL_HITS` lets it
+# through — the margin is the only thing standing between it and a BLOCK.
+_MARGIN_ONE_BUSINESS = "boutique clothing shop with a cafe and coffee bar"
+
+
+def test_a_one_hit_lead_is_not_a_confident_classification() -> None:
+    """`classify_industry_family` returns the margin; the reporter must read it.
+
+    A 3-2 win used to count as confident, so `check_imagery_industry_consistency`
+    reported mismatches on the strength of a single extra keyword hit. The margin
+    was bound to a local and then used only inside the f-string message.
+    """
+    assert vc._MIN_CONFIDENT_MARGIN >= 2
+    # Both sides classify and neither is ambiguous, so `_MIN_SIGNAL_HITS` and the
+    # empty-family guard are both satisfied — only the margin can stop this.
+    assert vc._family_scores(_MARGIN_ONE_BUSINESS) == {"food": 2, "retail": 3}
+    business = vc.classify_industry_family(_MARGIN_ONE_BUSINESS)
+    assert business == ("retail", 1)
+    imagery = vc.classify_industry_family(
+        vc._imagery_query_text(APP36_DENTAL_QUERIES, "clinic-dental-home")
+    )
+    assert imagery[0] == "health" and imagery[1] >= vc._MIN_CONFIDENT_MARGIN
+    assert not vc._families_are_adjacent("retail", "health")
+
+    assert (
+        vc.check_imagery_industry_consistency(
+            industry=_MARGIN_ONE_BUSINESS,
+            imagery_queries=APP36_DENTAL_QUERIES,
+            template_id="clinic-dental-home",
+        )
+        == []
+    ), "a 3-2 keyword win withheld a preview"
+
+
+def test_a_thin_margin_on_the_imagery_side_is_also_not_enough() -> None:
+    """Both sides are gated, not just the business side."""
+    findings = vc.check_imagery_industry_consistency(
+        industry="fine art gallery — original oil paintings",
+        brand_name="Jeanne Kassab Art",
+        imagery_queries={"hero": _MARGIN_ONE_BUSINESS},
+    )
+    assert findings == []
+
+
+def test_spa_and_wellness_clinic_no_longer_blocks_its_own_imagery() -> None:
+    """The exact P0-5 reproduction: a pack the pipeline itself picked.
+
+    `industry="spa and wellness clinic"` resolves to `spa-wellness-home`, whose
+    queries classify as `beauty` while the brief reads `health`. That BLOCKed
+    imagery the pipeline had chosen correctly — and, combined with P0-3, blocked
+    it permanently.
+    """
+    assert (
+        vc.check_imagery_industry_consistency(
+            industry="spa and wellness clinic",
+            brand_name="Cedar & Sage",
+            imagery_queries=_spa_pack_imagery_roles(),
+            template_id="spa-wellness-home",
+        )
+        == []
+    )
+
+
+def test_confident_health_against_confident_beauty_is_allowed_by_adjacency() -> None:
+    """Both sides confident, families different — only adjacency saves this one.
+
+    Guards the adjacency table specifically: margins alone do not clear it, so
+    deleting the `health`/`beauty` pair must fail here and nowhere else.
+    """
+    industry = "med spa clinic with a doctor on staff treating patients"
+    roles = _spa_pack_imagery_roles()
+    business = vc.classify_industry_family(industry)
+    imagery = vc.classify_industry_family(vc._imagery_query_text(roles, "spa-wellness-home"))
+    assert business[0] == "health" and business[1] >= vc._MIN_CONFIDENT_MARGIN
+    assert imagery[0] == "beauty" and imagery[1] >= vc._MIN_CONFIDENT_MARGIN
+    assert vc._families_are_adjacent("health", "beauty")
+    assert (
+        vc.check_imagery_industry_consistency(
+            industry=industry, imagery_queries=roles, template_id="spa-wellness-home"
+        )
+        == []
+    )
+
+
+def test_adjacency_is_symmetric_and_not_transitively_closed() -> None:
+    """Chaining adjacency would silence the detector entirely.
+
+    health~beauty and beauty~fitness are both real overlaps. If membership were
+    transitive, health~fitness~education~art would follow and the dental-photos
+    case this whole detector exists for would stop firing.
+    """
+    for left, right, why in vc._ADJACENT_FAMILY_PAIRS:
+        assert vc._families_are_adjacent(left, right)
+        assert vc._families_are_adjacent(right, left), "adjacency must be unordered"
+        assert why.strip(), f"{left}~{right} has no stated overlap"
+    assert vc._families_are_adjacent("health", "beauty")
+    assert vc._families_are_adjacent("beauty", "fitness")
+    assert not vc._families_are_adjacent("health", "education")
+    assert not vc._families_are_adjacent("art", "health")
+    assert not vc._families_are_adjacent("art", "food")
+
+
+def test_the_app36_failure_still_fires_through_both_new_guards() -> None:
+    """The reason all of the above must stay narrow.
+
+    art vs health, both sides confident, not adjacent — margins and adjacency
+    must not have turned the detector off.
+    """
+    findings = vc.check_imagery_industry_consistency(
+        industry="fine art gallery — original oil paintings",
+        brand_name="Jeanne Kassab Art",
+        imagery_queries=APP36_DENTAL_QUERIES,
+        template_id="clinic-dental-home",
+        image_urls=APP36_DENTAL_URLS,
+    )
+    assert [f.code for f in findings] == ["imagery_industry_mismatch"]
+    assert findings[0].severity == vc.BLOCK
 
 
 def test_imagery_findings_reads_installed_urls_from_the_workspace(tmp_path: Path) -> None:
