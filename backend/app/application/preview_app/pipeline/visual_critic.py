@@ -974,21 +974,22 @@ def _remeasure_refined_pages(
         if component_file in wanted:
             wanted.discard(component_file)
             recheck.append((i, rt))
-    if not recheck:
-        # Refined a file that is not one of the screenshotted routes. Its stale
-        # findings are gone, which is correct; there is nothing to re-shoot.
+    if recheck:
+        log.info("    visual critic: re-reviewing %s refined page(s)", len(recheck))
+        _emit(db, request_id, "visual_critic",
+              f"Re-reviewing {len(recheck)} refined page(s)...", 91,
+              detail="a repaired page must not keep its old verdict")
+        consume = make_consumer(len(recheck), "re-reviewed", False)
+        try:
+            for item, result, exc in parallel_map(recheck, review_route, max_workers=workers):
+                consume(item, result, exc)
+        except Exception as e:
+            log.error("    visual critic: re-review pass raised (%s)", e)
+    else:
+        # A refined file with no screenshotted route. Not reachable today — every
+        # flagged file came from one — but falling through to the sweep below means
+        # the honesty of the counts does not depend on that staying true.
         log.info("    visual critic: %s refined file(s) had no route to re-review", len(refined))
-        return
-    log.info("    visual critic: re-reviewing %s refined page(s)", len(recheck))
-    _emit(db, request_id, "visual_critic",
-          f"Re-reviewing {len(recheck)} refined page(s)...", 91,
-          detail="a repaired page must not keep its old verdict")
-    consume = make_consumer(len(recheck), "re-reviewed", False)
-    try:
-        for item, result, exc in parallel_map(recheck, review_route, max_workers=workers):
-            consume(item, result, exc)
-    except Exception as e:
-        log.error("    visual critic: re-review pass raised (%s)", e)
     # Anything that neither produced a review nor an error is still unaccounted
     # for — a silently-dropped page must read as unmeasured, never as repaired.
     judged = {p.replace("\\", "/") for p in report.reviewed + report.unmeasured}

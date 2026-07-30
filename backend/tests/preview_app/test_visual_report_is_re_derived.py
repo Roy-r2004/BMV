@@ -285,10 +285,15 @@ def test_a_rollback_keeps_the_pre_refine_findings(
     assert harness.visits[GALLERY] == 1, "no re-review on the rollback path"
 
 
-def test_refining_a_file_with_no_screenshot_route_still_drops_its_stale_findings(
+def test_refining_a_file_with_no_screenshot_route_drops_it_and_admits_as_much(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`_forget_pages` is the guarantee; the re-shoot is the best effort."""
+    """`_forget_pages` is the guarantee; the re-shoot is the best effort.
+
+    Dropping the stale verdict and saying nothing would leave the page in neither
+    `reviewed` nor `unmeasured` — `review_status` would then report full coverage
+    for a page nobody re-judged, which is the P0-2 lie in miniature.
+    """
     report = vc.VisualCritiqueReport(
         findings=[
             vc.VisualFinding("visual_defect_severe", "scored 30", GALLERY, vc.BLOCK),
@@ -301,10 +306,16 @@ def test_refining_a_file_with_no_screenshot_route_still_drops_its_stale_findings
     )
     vc._remeasure_refined_pages(None, 36, report, [], lambda _i: None, None, 1)
 
-    assert report.blocking == []
+    assert report.blocking == [], "the stale BLOCK survived"
     assert report.reviewed == [HOME]
     assert GALLERY not in report.scores
-    assert [f.path for f in report.findings] == [HOME]
+    # Accounted for, not silently vanished.
+    assert report.unmeasured == [GALLERY]
+    assert report.review_status == "partial"
+    by_path = {f.path: f for f in report.findings}
+    assert by_path[GALLERY].code == "visual_critique_unavailable"
+    assert by_path[GALLERY].severity == vc.WARN
+    assert by_path[HOME].code == "visual_defect"
 
 
 def test_a_page_behind_several_routes_is_re_measured_once(
