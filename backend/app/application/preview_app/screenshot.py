@@ -63,6 +63,50 @@ def launch_chromium(p):
 # Backward-compatible private alias for existing call sites/tests.
 _launch_chromium = launch_chromium
 
+# Steps of one viewport height, so a section whose reveal fires on intersection
+# has been intersected at least once before the shot. `reduced_motion` already
+# makes both of the template's reveal paths no-ops; this covers a component that
+# forgets to check it, and costs one JS round-trip per screen.
+_SCROLL_PRIME_JS = """
+async () => {
+  const step = window.innerHeight;
+  const height = () => document.documentElement.scrollHeight;
+  for (let y = 0; y < height() + step; y += step) {
+    window.scrollTo(0, y);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+  }
+  window.scrollTo(0, 0);
+  await new Promise((r) => requestAnimationFrame(() => r(null)));
+  return height();
+}
+"""
+
+_MAX_PRIME_SCROLL_PX = 60000
+
+
+def prime_scroll_reveals(page, *, settle_ms: int = 250) -> int:
+    """Scroll the whole page once and return to the top. Returns page height.
+
+    A full-page screenshot of an unscrolled SPA shows the hero and then blank
+    space: every section below the fold is wrapped in `observeSectionReveal`,
+    which sets `opacity: 0` until an IntersectionObserver fires. Nothing below the
+    first viewport had ever been intersected, so "screenshot the page" quietly
+    meant "screenshot the hero" — for the vision critic as well as for
+    `scripts/preview-qa.sh`.
+
+    Returns 0 and logs on any failure: a page that will not scroll must still be
+    screenshotted, just without the guarantee.
+    """
+    try:
+        height = int(page.evaluate(_SCROLL_PRIME_JS) or 0)
+        if height > _MAX_PRIME_SCROLL_PX:
+            log.warning("page is %spx tall — capture may be truncated", height)
+        page.wait_for_timeout(settle_ms)
+        return height
+    except Exception as e:  # noqa: BLE001 - never lose the screenshot over this
+        log.warning("scroll prime failed (%s); capturing unprimed", e)
+        return 0
+
 
 def capture_route_visual(
     base_url: str,
@@ -96,7 +140,17 @@ def capture_route_visual(
         with sync_playwright() as p:
             browser = _launch_chromium(p)
             try:
-                page = browser.new_page(viewport=viewport or {"width": 1280, "height": 900})
+                # `reduced_motion` is load-bearing, not an accessibility nicety.
+                # Every section below the fold is wrapped in `observeSectionReveal`,
+                # which sets `opacity: 0` and only animates to 1 on intersection —
+                # so a `full_page=True` screenshot captured the hero and then a
+                # column of blank space, and the critic scored *that*. Both reveal
+                # paths (`observeSectionReveal`, `AnimeStagger`) short-circuit to
+                # visible when `prefers-reduced-motion: reduce` matches.
+                page = browser.new_page(
+                    viewport=viewport or {"width": 1280, "height": 900},
+                    reduced_motion="reduce",
+                )
                 page.goto(full_url, wait_until="networkidle", timeout=timeout_ms)
                 # SPA-specific: wait for React to actually mount content into
                 # #root, not just for the network to go quiet — index.html +
@@ -106,6 +160,7 @@ def capture_route_visual(
                 # One extra tick for any post-mount effects (data seeding,
                 # image decode) to settle before the shot.
                 page.wait_for_timeout(300)
+                prime_scroll_reveals(page)
                 page.screenshot(path=str(out_path), full_page=True)
                 try:
                     broken = [str(src) for src in page.evaluate(_BROKEN_IMAGES_JS) or []]
