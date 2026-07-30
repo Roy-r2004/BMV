@@ -3,7 +3,8 @@
 Written and executed 2026-07-30 (session 4). Closes the four items left open at
 the end of [PREVIEW_JOURNEY_IMPLEMENTATION.md](PREVIEW_JOURNEY_IMPLEMENTATION.md)
 — P0-2 through P0-5 from [HANDOFF.md](../HANDOFF.md), the `catalogue.json` drift
-gap, and the QA screenshot blind spot.
+gap, and the QA screenshot blind spot — and then the half of **P0-1** that turned
+out never to have landed.
 
 ## The thread
 
@@ -18,13 +19,79 @@ takes correctly and then does not act on**:
 | P0-4 | `_route_surface` knows a page is owner-only | never consulted for `broken_rendered_image` |
 | P0-3 | the visual report | written once pre-refine, never re-derived |
 | P0-2 | `reviewed` / `unmeasured` / `measurement_failed` | zero production readers |
+| P0-1b | which keywords a brief actually matched | discarded — the first bucket with any hit won |
 | drift | `registry.ts` declares itself canonical | nothing compared it to the generated file |
 | shots | `full_page=True` was already set | the page below the fold was at `opacity: 0` |
 
 A measurement with no reader is indistinguishable from one that was never taken.
-Four of the six could withhold a working preview; two could ship an unexamined one.
+Five of the seven could withhold or spoil a working preview; two could ship an
+unexamined one.
 
 ---
+
+## P0-1's second half — the bucket was a first-match guess
+
+Added after the four above, once P0-1 turned out to be only half fixed. Its first
+half had landed (role queries lead with the brief's own words again); its second had
+not, and it was still shipping wrong photographs on the default path.
+
+`_resolve_category` returned the **first** category in table order with *any*
+keyword hit, so one ordinary word decided the whole bucket:
+
+```
+"Boutique law firm — estate and family law"  ->  retail      (on "boutique")
+"Commercial cleaning company"                ->  realestate  (on "commercial")
+```
+
+Two paths carry that, and the second has no dilution at all:
+
+- the roleless query appends the bucket's hint, so a law firm searched Pexels for
+  `"... fashion retail apparel outdoor gear hero lifestyle wide"`, and a commercial
+  cleaner for `"... modern home real estate"`.
+- **`_curated_fallback` picks an entire photo library from this one value**, with
+  none of the brief's words involved. The law firm's hero *was* an Unsplash
+  photograph of a shopfront.
+
+### The proposed fix could not have worked
+
+The handoff prescribed anchoring on `\bboutique\b` / `\bcommercial\b`. That cannot
+help: "Boutique law firm" genuinely contains the word `boutique`, and "Commercial
+cleaning company" genuinely contains `commercial`. Anchoring — which *had* landed —
+fixed `ai` inside `repair`; it has nothing to say about a real word appearing in
+the wrong industry.
+
+The actual defect is that a **weak keyword was allowed to win alone**, which is
+P0-5's defect one module over: resolve without requiring confidence.
+
+### The fix
+
+`_WEAK_KEYWORDS` names the keywords that are ordinary words in some *other*
+industry's description of itself — `boutique`, `commercial`, `home`, `agent`,
+`shop`, `store`, `bar`, `coach`, `workshop`, `course`, `kitchen`, `hair`, `nail`,
+`health`, `canvas`, `platform`, `digital` — each carrying the counter-example that
+earns it a place, for the same reason `_ADJACENT_FAMILY_PAIRS` does.
+
+Weak scores 1, specific scores 2; a bucket needs **2 points and a strict lead**
+over the runner-up. So:
+
+| brief | scores | resolves |
+|---|---|---|
+| `gym` | fitness 2 | **fitness** — one specific keyword is enough |
+| `boutique` | retail 1 | **generic** — one weak keyword never is |
+| `outdoor gear shops` | retail 3 | **retail** — weak keywords corroborate each other |
+| `hair salon with a coffee bar` | beauty 3, food 3 | **generic** — a tie is not evidence |
+| `Boutique law firm …` | retail 1 | **generic** |
+
+`generic` is a real answer rather than a failure: its hint is "professional small
+business", which is correct for every vertical this nine-bucket table has no home
+for — and there are many. Legal, trades, automotive, logistics, bookshops and
+barbers all resolve there now, honestly, instead of confidently wrong.
+
+One thing deliberately left alone: the roleless branch composes its query with a
+raw f-string rather than `_compose_query`, so it is uncapped and can repeat words.
+`test_roleless_callers_keep_legacy_queries` pins that on purpose. With the bucket
+now correct the hint it appends is right, which was the actual harm; the wording is
+cosmetic.
 
 ## P0-5 — margins computed, never read
 
@@ -352,9 +419,9 @@ now-correct preview. See open item 3.
 
 ## Verification
 
-Suite: **946 passed, 1 failed** — the failure is the documented
+Suite: **976 passed, 1 failed** — the failure is the documented
 `test_appspec_v2_policy` fixture, unchanged. Entering this session it was 897/1,
-so 49 tests added and none broken. The preview template typechecks clean after the
+so 79 tests added and none broken. The preview template typechecks clean after the
 `registry.ts` edit.
 
 Every mechanism is mutation-proven — disabled in turn, each kills exactly the test
@@ -374,13 +441,20 @@ the broken-image probe's own `evaluate`, so the scroll prime could be deleted wi
 nothing failing. The fake page now keeps an ordered event log and the test asserts
 the prime happened *before* the shot.
 
+P0-1b's four mechanisms held first time: reverting to first-match, dropping the
+minimum score, letting a tie win, or weighting weak keywords like specific ones each
+kill their own guards.
+
 ## Still open
 
 Carried from the previous session, untouched here:
 
-1. **The imagery bucket for a barbershop is `generic`.** Harmless now that the
-   brief's prose leads the query and the pack supplies barbershop framings, but
-   `_CATEGORY_QUERY_HINT` has no grooming bucket.
+1. **`_CATEGORY_QUERY_HINT` has no bucket for whole verticals.** Barbering,
+   grooming, legal, trades, automotive, logistics and bookshops all resolve to
+   `generic` — correctly now, and deliberately, since "professional small business"
+   beats a confident lie. Harmless while the brief's prose leads the query and the
+   pack supplies framings. It becomes worth doing when a vertical's *curated
+   fallback* matters, because that path has only the bucket to go on.
 2. **Real persistence.** `InquiryPanel.onSubmit` / `BookingPanel` are seams, not
    implementations. Booking is where correctness bites (availability,
    double-booking, notifications) and it needs tenancy and auth first.
