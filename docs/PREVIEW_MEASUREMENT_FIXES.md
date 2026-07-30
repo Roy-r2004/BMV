@@ -276,6 +276,58 @@ The advisory `journey_dead_link_offpath` findings also fired for real, so the
 ops/WARN branch that was added specifically to stop it being dead code is being
 exercised by a real generation.
 
+### The final verdict, and the measurements that explain it
+
+```
+status: failed                     journey_hops_ok: 2   (detail, inquire)
+visual_review_status: reviewed     journey_hops_broken: 9
+visual_pages_reviewed: 6           typecheck_status: errors
+visual_pages_unmeasured: 0         type_errors: 35
+```
+
+`journey_hops_ok` / `journey_hops_broken` on real generated output is what the
+open item asked for, and this is it. The funnel's `detail` and `inquire` hops hold;
+`browse` does not — *"no item link points at a detail route (/collection,
+/gallery)"*.
+
+**The withhold was correct.** Three blockers survived heal:
+
+| blocker | surface | verdict |
+|---|---|---|
+| `visual_defect_severe` `ContactUsPage` (30) | public | **genuine** — missing `ContactForm`, hero copy contradicting the brief, and agency-pitch text leaking into the nav |
+| `journey_browse_not_linked` `GalleryPage` | public | **genuine** — the browse hop is dead |
+| `visual_defect_severe` `admin/LoginPage` (20) | ops | **false positive** — fixed by the ops-severity change |
+
+So this is the pipeline refusing to ship a broken preview on the strength of
+measurements it actually took — the opposite of request 36, which shipped
+`status=ready` having looked at nothing.
+
+Two caveats stated plainly: the run executed with the **pre-fix** ops severity
+(`UVICORN_RELOAD=false`, and the api was restarted before that commit), and the
+severity is decided at emit time, so the fix applies to fresh runs rather than
+retroactively to 39's persisted report. And it removes only one of the three
+blockers — the other two are real, and 39 *should* be withheld.
+
+The advisory sweep also earned its place, catching footer links no route serves:
+`/privacy`, `/terms`, `/about`, `/contact-us#custom-inquiry`. All WARN, none
+withholding, which is the policy working as designed.
+
+### A planner bug this surfaced
+
+`admin/LoginPage.tsx` was assigned the **`ops-list`** skeleton, so it rendered a
+page header, a filter bar and a records table where a login form belongs — which is
+*why* it scored 20. `_infer_skeleton_id` matches `login` / `sign in` / `register`
+into `public-utility` on the public surface, but its ops branch has no auth case
+and falls through to `ops-list`:
+
+```python
+if surface == "ops":
+    ... settings / dashboard / detail ...
+    return "ops-list"        # a login page lands here
+```
+
+The visual critic caught the symptom. The cause is one missing branch.
+
 ### And it exposed one more instance of the same bug
 
 Both `visual_defect_severe` findings survived **both** gate repair attempts
@@ -362,5 +414,11 @@ New, found while doing the above:
    `/collection` and `/gallery`, funnelled through the first and left the second
    unreachable. The gate caught it and healed 6 of 7 hops, but the *planner* should
    not be producing two browse faces for one catalogue in the first place.
-5. **`nav_clutter`'s cap-at-8 backstop is still there** behind the journey-driven
+5. **`_infer_skeleton_id` has no ops auth case, so a login page becomes a data
+   table.** The public branch routes `login` / `sign in` / `register` to
+   `public-utility`; the ops branch falls through to `ops-list`, so
+   `admin/LoginPage.tsx` rendered a header, a filter bar and a records table. It
+   scored 20 and — pre-fix — withheld the whole storefront. One missing branch, or
+   an `ops-auth` skeleton.
+6. **`nav_clutter`'s cap-at-8 backstop is still there** behind the journey-driven
    ranking, as noted last session.
