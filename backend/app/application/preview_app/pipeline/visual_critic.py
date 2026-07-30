@@ -951,11 +951,16 @@ def _remeasure_refined_pages(
     if not refined:
         return
     _forget_pages(report, refined)
-    recheck = [
-        (i, rt)
-        for i, rt in indexed_routes
-        if (rt.get("component_file") or "").replace("\\", "/") in set(refined)
-    ]
+    # One route per refined component file. Several declared routes routinely share
+    # a page (`/artworks/:id`, `/artworks/:slug`, `/artworks/:artworkSlug` are one
+    # component), and re-measuring costs a screenshot plus a vision call each.
+    wanted = set(refined)
+    recheck: list = []
+    for i, rt in indexed_routes:
+        component_file = (rt.get("component_file") or "").replace("\\", "/")
+        if component_file in wanted:
+            wanted.discard(component_file)
+            recheck.append((i, rt))
     if not recheck:
         # Refined a file that is not one of the screenshotted routes. Its stale
         # findings are gone, which is correct; there is nothing to re-shoot.

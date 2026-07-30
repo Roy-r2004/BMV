@@ -20,6 +20,7 @@ from __future__ import annotations
 import inspect
 import re
 import sys
+import threading
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -81,6 +82,11 @@ class _Harness:
         self.builds = 0
         self.emitted: list[tuple[str, str]] = []
         self.route_for_shot: dict[str, str] = {}
+        # Routes are reviewed on a thread pool, so the visit counter needs a lock
+        # and each critique must read the visit number belonging to *its own*
+        # capture rather than whatever the shared counter reached.
+        self._lock = threading.Lock()
+        self._visit_for_shot: dict[str, int] = {}
 
     def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(vc, "capture_route_visual", self._capture)
@@ -93,19 +99,28 @@ class _Harness:
     # -- seams ------------------------------------------------------------
     def _capture(self, base_url, route_path, shot_path, **_kw) -> RouteCapture:
         component_file = HOME if route_path in ("/", "") else GALLERY
-        visit = self.visits.get(component_file, 0) + 1
-        self.visits[component_file] = visit
+        with self._lock:
+            visit = self.visits.get(component_file, 0) + 1
+            self.visits[component_file] = visit
         if not self.capture_ok(component_file, visit):
             return RouteCapture(ok=False)
         shot_path = Path(shot_path)
         shot_path.parent.mkdir(parents=True, exist_ok=True)
         shot_path.write_bytes(b"png")
-        self.route_for_shot[str(shot_path)] = component_file
+        with self._lock:
+            self.route_for_shot[str(shot_path)] = component_file
+            self._visit_for_shot[str(shot_path)] = visit
         return RouteCapture(ok=True, path=shot_path, broken_images=[])
 
     def _critique(self, _workspace, component_file, shot_path, *_a, **_kw) -> dict:
-        visit = self.visits.get(component_file, 1)
-        return dict(self.verdicts[(component_file, visit)])
+        with self._lock:
+            visit = self._visit_for_shot.get(str(shot_path), 1)
+        verdict = self.verdicts.get((component_file, visit))
+        if verdict is None:
+            # `(file, "*")` is the any-visit fallback: when several routes share a
+            # page the pool decides which visit number each one gets.
+            verdict = self.verdicts[(component_file, "*")]
+        return dict(verdict)
 
     def _refine(self, workspace, component_file, *_a, **_kw) -> None:
         (Path(workspace) / component_file).write_text(
@@ -290,6 +305,39 @@ def test_refining_a_file_with_no_screenshot_route_still_drops_its_stale_findings
     assert report.reviewed == [HOME]
     assert GALLERY not in report.scores
     assert [f.path for f in report.findings] == [HOME]
+
+
+def test_a_page_behind_several_routes_is_re_measured_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Re-measurement costs a screenshot and a vision call, so pay it per page.
+
+    Declared routes routinely share a component: app 37 shipped `/artworks/:id`,
+    `/artworks/:slug` and `/artworks/:artworkSlug` on one page.
+    """
+    architect = _architect()
+    architect["routes"].append(
+        {"path": "/gallery/:slug", "component_file": GALLERY, "surface": "public", "title": "Piece"}
+    )
+    harness = _Harness(
+        {
+            (HOME, "*"): _PASS,
+            (GALLERY, 1): _revise(30, "SEVERE: the grid renders three of nine works"),
+            (GALLERY, 2): _revise(30, "SEVERE: the grid renders three of nine works"),
+            (GALLERY, 3): _PASS,
+        }
+    )
+    harness.install(monkeypatch)
+
+    report = vc._run_visual_critique(
+        None, 36, _workspace(tmp_path), architect, {}, {}, "", {}, {},
+        "Alder & Ash", "#111", "#222", "Inter", "/api/preview-apps/36", None, None,
+    )
+
+    # Two routes visit the page on the first pass, exactly one on the re-measure.
+    assert harness.visits[GALLERY] == 3
+    assert report.reviewed.count(GALLERY) == 1
+    assert report.blocking == []
 
 
 def test_forget_pages_is_exact_and_survives_windows_separators() -> None:
