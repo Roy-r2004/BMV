@@ -111,6 +111,28 @@ def _typecheck_summary(workspace) -> dict:
     }
 
 
+def _visual_review_summary(workspace) -> dict:
+    """Surface *how much was actually looked at*, next to the verdict.
+
+    `gate.ok` and `status: "ready"` were both reportable with zero pages judged:
+    a vision outage lands every page in `unmeasured` at WARN, `report.blocking`
+    comes back empty, and the gate passes. `measurement_failed` existed to say so
+    and had no production reader at all.
+
+    Deliberately does not gate `viewable` — see
+    `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED` for the operator who wants that.
+    An unreported measurement is indistinguishable from a clean one, which is the
+    actual defect being fixed here.
+    """
+    from app.application.preview_app.pipeline.visual_critic import visual_review_summary
+
+    try:
+        return visual_review_summary(workspace)
+    except (OSError, ValueError) as e:
+        log.warning("visual review summary unreadable: %s", e)
+        return {}
+
+
 def run_finalize(ctx: PipelineContext) -> dict:
     db = ctx.db
     request_id = ctx.request_id
@@ -412,6 +434,32 @@ def run_finalize(ctx: PipelineContext) -> dict:
         "built_at": int(time.time()),
     }
     preview_app_result.update(_typecheck_summary(workspace))
+    preview_app_result.update(_visual_review_summary(workspace))
+    if (
+        preview_app_result.get("status") == "ready"
+        and preview_app_result.get("visual_review_status") == "unmeasured"
+    ):
+        # Reportable, but never silently. `status` keeps its three-value
+        # vocabulary because four production readers and the frontend poller
+        # branch on it; the honesty lives in the field beside it.
+        log.error(
+            "  WARN preview %s is ready but NOT visually reviewed — 0 of %s page(s) "
+            "were judged (vision outage). Set "
+            "PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED=true to withhold instead.",
+            request_id,
+            preview_app_result.get("visual_pages_selected", 0),
+        )
+        _emit(
+            db,
+            request_id,
+            "visual_critic",
+            "Preview is ready but was not visually reviewed",
+            92,
+            detail=(
+                f"0 of {preview_app_result.get('visual_pages_selected', 0)} page(s) "
+                "could be judged — vision measurement failed"
+            ),
+        )
     # Carry the journey walk the way _typecheck_summary carries type errors, so
     # "ready" is never read as "the funnel works" without the evidence beside it.
     # Several measurements on this pipeline were accurate and had no reader.

@@ -220,6 +220,10 @@ class VisualCritiqueReport:
     unmeasured: list[str] = field(default_factory=list)
     refined: list[str] = field(default_factory=list)
     scores: dict[str, int] = field(default_factory=dict)
+    # How many routes the critic set out to judge. Without it "reviewed 0 pages"
+    # cannot be told apart from "there was nothing to review", and a total vision
+    # outage reads identically to an app with no routes.
+    routes_selected: int = 0
 
     @property
     def blocking(self) -> list[VisualFinding]:
@@ -243,6 +247,20 @@ class VisualCritiqueReport:
     def verified(self) -> bool:
         return bool(self.reviewed) and not self.unmeasured
 
+    @property
+    def review_status(self) -> str:
+        """`reviewed` | `partial` | `unmeasured` | `no_routes`.
+
+        The one field a caller can read to find out whether "ok" means anything.
+        `unmeasured` is the vision-outage case: the critic ran, had pages to
+        judge, and judged none of them.
+        """
+        if not self.routes_selected and not self.reviewed and not self.unmeasured:
+            return "no_routes"
+        if not self.reviewed:
+            return "unmeasured"
+        return "reviewed" if not self.unmeasured else "partial"
+
     def add(self, code: str, message: str, path: str = "", severity: str = BLOCK) -> None:
         self.findings.append(
             VisualFinding(code=code, message=message, path=path, severity=severity)
@@ -255,6 +273,9 @@ class VisualCritiqueReport:
             "unmeasured": list(self.unmeasured),
             "refined": list(self.refined),
             "scores": dict(self.scores),
+            "routes_selected": int(self.routes_selected),
+            # Derived, but written so a reader of the file on disk cannot miss it.
+            "review_status": self.review_status,
         }
 
     @classmethod
@@ -274,12 +295,22 @@ class VisualCritiqueReport:
                 )
             )
         scores = value.get("scores")
+        reviewed = [str(p) for p in (value.get("reviewed") or [])]
+        unmeasured = [str(p) for p in (value.get("unmeasured") or [])]
+        try:
+            routes_selected = int(value.get("routes_selected") or 0)
+        except (TypeError, ValueError):
+            routes_selected = 0
         return cls(
             findings=findings,
-            reviewed=[str(p) for p in (value.get("reviewed") or [])],
-            unmeasured=[str(p) for p in (value.get("unmeasured") or [])],
+            reviewed=reviewed,
+            unmeasured=unmeasured,
             refined=[str(p) for p in (value.get("refined") or [])],
             scores={str(k): int(v) for k, v in (scores or {}).items() if isinstance(v, int)},
+            # Reports written before this field existed still have to classify:
+            # fall back to what was actually attempted rather than to 0, which
+            # would read a real vision outage as "no routes".
+            routes_selected=routes_selected or len(reviewed) + len(unmeasured),
         )
 
 
@@ -500,6 +531,13 @@ def find_missing_local_image_assets(workspace) -> dict[str, list[str]]:
     return {ref: sorted(set(files)) for ref, files in sorted(missing.items())}
 
 
+# Every code `imagery_findings` can emit. These are deterministic and free, so
+# they are recomputed rather than carried across a refine pass — a page the model
+# just rewrote can introduce a new broken reference, or repair an old one.
+# `test_imagery_finding_codes_are_complete` fails if this drifts.
+_IMAGERY_FINDING_CODES = frozenset({"imagery_industry_mismatch", "missing_image_asset"})
+
+
 def imagery_findings(
     workspace,
     *,
@@ -533,6 +571,60 @@ def imagery_findings(
             )
         )
     return findings
+
+
+def _forget_pages(report: VisualCritiqueReport, component_files) -> None:
+    """Drop every measurement recorded for these pages so they can be re-judged.
+
+    The persisted report is the only BLOCK source the quality gate reads that is
+    not re-derived per gate run. It used to be written once, pre-refine, and
+    persisted *unchanged* on the refine success path — so a page the pipeline had
+    just repaired kept failing the gate forever, and the preview shipped as
+    `status="failed"` with a perfectly good `dist/` on disk (P0-3).
+
+    A finding the pipeline has since rewritten is not evidence. It is stale.
+    """
+    targets = {str(p).replace("\\", "/") for p in component_files if p}
+    if not targets:
+        return
+    report.findings = [
+        f for f in report.findings if f.path.replace("\\", "/") not in targets
+    ]
+    report.reviewed = [p for p in report.reviewed if p.replace("\\", "/") not in targets]
+    report.unmeasured = [
+        p for p in report.unmeasured if p.replace("\\", "/") not in targets
+    ]
+    report.scores = {
+        k: v for k, v in report.scores.items() if k.replace("\\", "/") not in targets
+    }
+
+
+def visual_review_summary(workspace) -> dict:
+    """Measurement facts for the API result — never a verdict, always a count.
+
+    `ok` on this report means "nothing blocking was found", which is not the same
+    claim as "the pages were looked at". A vision outage produced the former and
+    was reported as `status: "ready"` with zero pages judged, while the progress
+    feed said `Visually reviewed 6/6`. Callers get the counts here so "ready" can
+    never again be read on its own as "reviewed".
+
+    Returns `{}` when the critic never ran, which is not a measurement failure —
+    `PREVIEW_SKIP_VISUAL_CRITIC` is a legitimate configuration.
+    """
+    path = report_path(workspace)
+    try:
+        if not path.is_file():
+            return {}
+    except OSError as e:
+        log.warning("visual critique report unreadable: %s", e)
+        return {}
+    report = load_visual_critique_report(workspace)
+    return {
+        "visual_review_status": report.review_status,
+        "visual_pages_reviewed": len(report.reviewed),
+        "visual_pages_unmeasured": len(report.unmeasured),
+        "visual_pages_selected": report.routes_selected,
+    }
 
 
 def _business_context(plan: dict, manifest: dict, full_context: str) -> str:
@@ -633,13 +725,16 @@ def _run_visual_critique(
     was already built", never raises.
 
     Returns the report AND persists it to the workspace, so a later phase can
-    fail the quality gate on `report.blocking` without re-running anything.
+    fail the quality gate on `report.blocking` without re-running anything —
+    except for whatever the refine pass rewrote, which is re-measured here before
+    the report is handed on (see `_forget_pages`).
     """
     report = VisualCritiqueReport()
     resolved_industry = _resolve_industry(plan, manifest, industry)
     business_context = _business_context(plan, manifest, full_context)
-    report.findings.extend(
-        imagery_findings(
+
+    def _fresh_imagery_findings() -> list[VisualFinding]:
+        return imagery_findings(
             workspace,
             industry=resolved_industry,
             brand_name=brand_name,
@@ -647,7 +742,8 @@ def _run_visual_critique(
             imagery_queries=plan.get("imagery_roles"),
             template_id=str(plan.get("industry_template_id") or ""),
         )
-    )
+
+    report.findings.extend(_fresh_imagery_findings())
     for finding in report.blocking:
         log.error("    visual critic BLOCK %s: %s", finding.code, finding.message)
     # Persist before any screenshot work: a later crash must not lose findings
@@ -655,6 +751,7 @@ def _run_visual_critique(
     write_visual_critique_report(workspace, report)
 
     routes = _select_visual_critique_routes(architect)
+    report.routes_selected = len(routes)
     if not routes:
         write_visual_critique_report(workspace, report)
         return report
@@ -692,37 +789,74 @@ def _run_visual_critique(
           detail=f"workers={workers}")
 
     flagged: list[tuple[str, str, dict]] = []
-    done = 0
+
+    def _make_consumer(total: int, verb: str, collect_flagged: bool):
+        """One place both review passes fold a result into the report.
+
+        The progress line used to be emitted *before* the exception check, so a
+        total vision outage still told the user `Visually reviewed 6/6` while
+        judging nothing. The counter here only advances on a page that was
+        actually judged, and a failure gets its own visible line.
+        """
+        state = {"judged": 0}
+
+        def _consume(item, result, exc) -> None:
+            _i, rt = item
+            route_path = rt.get("path") or "/"
+            fallback_file = rt.get("component_file") or route_path or "?"
+            if exc:
+                log.error(f"    visual critic route error: {exc}")
+                report.unmeasured.append(fallback_file)
+                report.add(
+                    "visual_critique_unavailable",
+                    f"Visual review of {route_path} raised ({exc}) — page was never judged.",
+                    path=(rt.get("component_file") or ""),
+                    severity=_unmeasured_severity(),
+                )
+                _emit(db, request_id, "visual_critic",
+                      f"Visual review FAILED for {route_path} — page not judged", 90,
+                      detail=str(exc)[:200])
+                return
+            if not result:
+                return
+            component_file, review, spec = result
+            _absorb_review(report, component_file, review, surface=_route_surface(rt))
+            if _review_verdict(review) == "unavailable":
+                _emit(db, request_id, "visual_critic",
+                      f"Visual review unavailable for {route_path} — page not judged", 90,
+                      detail=component_file)
+            else:
+                state["judged"] += 1
+                _emit(db, request_id, "visual_critic",
+                      f"Visually {verb} {state['judged']}/{total}: "
+                      f"{rt.get('title', rt.get('path', ''))}", 90,
+                      detail=route_path)
+            if not collect_flagged or review.get("verdict") != "revise":
+                return
+            notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
+            if notes:
+                flagged.append((component_file, notes, spec))
+
+        return _consume
+
+    _consume_first_pass = _make_consumer(len(indexed_routes), "reviewed", True)
     for _item, result, exc in parallel_map(
         indexed_routes,
         _review_route,
         max_workers=workers,
         on_done=lambda d, tot, item, _res, _exc: None,
     ):
-        done += 1
-        i, rt = _item
+        _consume_first_pass(_item, result, exc)
+
+    if report.review_status == "unmeasured":
+        log.error(
+            "    visual critic: 0 of %s page(s) could be judged — this is a "
+            "measurement outage, not a pass",
+            len(indexed_routes),
+        )
         _emit(db, request_id, "visual_critic",
-              f"Visually reviewed {done}/{len(indexed_routes)}: {rt.get('title', rt.get('path', ''))}", 90,
-              detail=rt.get("path") or "/")
-        if exc:
-            log.error(f"    visual critic route error: {exc}")
-            report.unmeasured.append((rt.get("component_file") or rt.get("path") or "?"))
-            report.add(
-                "visual_critique_unavailable",
-                f"Visual review of {rt.get('path') or '/'} raised ({exc}) — page was never judged.",
-                path=(rt.get("component_file") or ""),
-                severity=_unmeasured_severity(),
-            )
-            continue
-        if not result:
-            continue
-        component_file, review, spec = result
-        _absorb_review(report, component_file, review, surface=_route_surface(rt))
-        if review.get("verdict") != "revise":
-            continue
-        notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
-        if notes:
-            flagged.append((component_file, notes, spec))
+              f"Visual review measured 0 of {len(indexed_routes)} page(s)", 90,
+              detail="vision unavailable — the pages were not judged")
 
     try:
         import shutil
@@ -768,6 +902,16 @@ def _run_visual_critique(
 
     if ok2:
         log.info("    visual critic: rebuild OK, keeping visually-refined version")
+        _remeasure_refined_pages(
+            db, request_id, report, indexed_routes, _review_route, _make_consumer, workers,
+        )
+        # Deterministic and free, so there is no reason to carry the pre-refine
+        # verdict: a rewritten page can introduce a broken local reference or
+        # remove the one that was found.
+        report.findings = [
+            f for f in report.findings if f.code not in _IMAGERY_FINDING_CODES
+        ]
+        report.findings.extend(_fresh_imagery_findings())
         write_visual_critique_report(workspace, report)
         return report
 
@@ -783,8 +927,83 @@ def _run_visual_critique(
     return report
 
 
+def _remeasure_refined_pages(
+    db,
+    request_id: int,
+    report: VisualCritiqueReport,
+    indexed_routes: list,
+    review_route,
+    make_consumer,
+    workers: int,
+) -> None:
+    """Re-judge the pages the refine pass rewrote, discarding the stale verdict.
+
+    This is P0-3's fix. The report was written once, pre-refine, and persisted
+    unchanged here — the only BLOCK source the gate reads that never got a second
+    look. A page scored 30, got rewritten, rebuilt clean, and the dead score kept
+    the whole preview at `status="failed"`.
+
+    Re-measurement can itself fail. That is recorded as `unmeasured`, not as a
+    pass and not as the old BLOCK: after a rewrite we genuinely no longer know,
+    and `visual_review_summary` makes not-knowing visible.
+    """
+    refined = sorted({str(p).replace("\\", "/") for p in report.refined if p})
+    if not refined:
+        return
+    _forget_pages(report, refined)
+    recheck = [
+        (i, rt)
+        for i, rt in indexed_routes
+        if (rt.get("component_file") or "").replace("\\", "/") in set(refined)
+    ]
+    if not recheck:
+        # Refined a file that is not one of the screenshotted routes. Its stale
+        # findings are gone, which is correct; there is nothing to re-shoot.
+        log.info("    visual critic: %s refined file(s) had no route to re-review", len(refined))
+        return
+    log.info("    visual critic: re-reviewing %s refined page(s)", len(recheck))
+    _emit(db, request_id, "visual_critic",
+          f"Re-reviewing {len(recheck)} refined page(s)...", 91,
+          detail="a repaired page must not keep its old verdict")
+    consume = make_consumer(len(recheck), "re-reviewed", False)
+    try:
+        for item, result, exc in parallel_map(recheck, review_route, max_workers=workers):
+            consume(item, result, exc)
+    except Exception as e:
+        log.error("    visual critic: re-review pass raised (%s)", e)
+    # Anything that neither produced a review nor an error is still unaccounted
+    # for — a silently-dropped page must read as unmeasured, never as repaired.
+    judged = {p.replace("\\", "/") for p in report.reviewed + report.unmeasured}
+    for component_file in refined:
+        if component_file in judged:
+            continue
+        report.unmeasured.append(component_file)
+        report.add(
+            "visual_critique_unavailable",
+            f"{component_file} was refined but never re-reviewed — the repaired "
+            "page was not judged; this is a measurement failure, not a pass.",
+            path=component_file,
+            severity=_unmeasured_severity(),
+        )
+
+
 def _unmeasured_severity() -> str:
+    """Severity for a page the critic could not judge.
+
+    Defaults to WARN: a vision outage is *our* measurement failing, not a defect
+    in the generated app, and withholding a working preview because OpenRouter
+    429'd is the same pathology as P0-3. Operators who would rather ship nothing
+    than ship unreviewed set `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED=true`.
+
+    Either way the counts reach the API result via `visual_review_summary`, so
+    "ready" is never the only thing a caller sees.
+    """
     return BLOCK if _env_flag("PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED", False) else WARN
+
+
+def _review_verdict(review: dict) -> str:
+    """The one place a raw critic result is turned into a verdict string."""
+    return str(review.get("visual_verdict") or review.get("verdict") or "unavailable")
 
 
 def _absorb_review(
@@ -800,7 +1019,7 @@ def _absorb_review(
     component path when the caller has no route to hand.
     """
     surface = (surface or "").strip().lower() or _infer_surface(component_file)
-    verdict = str(review.get("visual_verdict") or review.get("verdict") or "unavailable")
+    verdict = _review_verdict(review)
     issues = [str(i) for i in (review.get("issues") or [])]
     score = review.get("score")
     broken_images = [str(u) for u in (review.get("broken_images") or [])]
@@ -872,5 +1091,6 @@ __all__ = [
     "imagery_findings",
     "load_visual_critique_report",
     "visual_critique_gate_issues",
+    "visual_review_summary",
     "write_visual_critique_report",
 ]

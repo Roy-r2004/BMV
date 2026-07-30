@@ -247,6 +247,7 @@ class Settings:
     PREVIEW_QUALITY_AI_REPAIR: bool
     PREVIEW_MAX_QUALITY_FIX_ATTEMPTS: int
     PREVIEW_SKIP_VISUAL_CRITIC: bool
+    PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED: bool
     PREVIEW_SCAFFOLD_FIRST: bool
     PREVIEW_SCAFFOLD_SLOT_FILL: bool
     INTERNAL_BASE_URL: str
@@ -732,6 +733,21 @@ class Settings:
         # demo quality. Skip with PREVIEW_SKIP_VISUAL_CRITIC=true for speed.
         self.PREVIEW_SKIP_VISUAL_CRITIC = os.getenv(
             "PREVIEW_SKIP_VISUAL_CRITIC", "false"
+        ).strip().lower() in ("1", "true", "yes", "on")
+        # Should a page the vision critic could not judge withhold the preview?
+        # OFF: a vision outage (model unservable, 429, missing key, budget spent)
+        # is our measurement failing, not a defect in the generated app, and
+        # withholding a working preview for it is the same pathology as shipping
+        # a stale BLOCK. The counts always reach the API result as
+        # `visual_review_status` / `visual_pages_reviewed` regardless, so nothing
+        # downstream can read "ready" as "reviewed". Turn ON to refuse to ship
+        # anything a human or model has not actually looked at.
+        #
+        # This read used to be the flag's ONLY appearance in the repo — no
+        # Settings field, no .env template, no doc, no test — so it was off
+        # everywhere by accident rather than by decision.
+        self.PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED = os.getenv(
+            "PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED", "false"
         ).strip().lower() in ("1", "true", "yes", "on")
         # `vite build` never typechecks, so prop-contract violations ship as
         # empty components. tsc costs ~2s per run — ON by default.
