@@ -178,26 +178,33 @@ All of these were in the generator, not model output:
 
 ## Still open
 
-1. **Not demonstrated in a live generation.** Everything above is verified through
-   the deterministic scaffold and a hand-built app. A real end-to-end run (with
-   the AI codegen path, not the fallback) has not happened — the prompts now carry
-   the journey rules but no generated output has been inspected against them.
-2. **`catalogue.json` has no generator.** `registry.ts` says
-   `npm run sync:ui`, but that script was deliberately removed when the template
-   was slimmed (`sync-ui-catalogue` is in `test_scaffold_pruned.py`'s forbidden
-   list). The two files are hand-synced and can drift silently. Either restore a
-   generator or add a drift test.
-3. **QA harness screenshots only capture the hero.** Every attempt to screenshot
-   below the fold returned the hero, because public heroes are viewport-height and
-   the sections below use scroll-triggered reveals. `scripts/preview-qa.sh` cannot
-   currently see a broken catalogue grid, so "look at the screenshots" has a blind
-   spot. A scrolling capture (CDP `captureBeyondViewport`) would close it.
+Items 1, 2, 3 and 5 were closed in session 4 — see
+[PREVIEW_MEASUREMENT_FIXES.md](PREVIEW_MEASUREMENT_FIXES.md). Kept here with their
+resolution because what each one turned out to be is the useful part.
+
+1. ~~**Not demonstrated in a live generation.**~~ **Closed.** A live run went
+   through the AI codegen path; see the live-generation section of
+   PREVIEW_MEASUREMENT_FIXES.md for what it produced and what it exposed.
+2. ~~**`catalogue.json` has no generator.**~~ **Closed** — and the two files had
+   *already* drifted: `CatalogGrid` and `InquiryPanel`, both added by this session's
+   own work, were in `catalogue.json` and `index.ts` but never in `registry.ts`'s
+   `CATALOGUE_COMPONENTS`. `python -m app.application.ui_registry --write`
+   regenerates; `test_ui_catalogue_drift.py` fails when they diverge.
+3. ~~**QA harness screenshots only capture the hero.**~~ **Closed, and it was
+   worse than described** — the same blind spot was in the *production* visual
+   critic. `capture_route_visual` already passed `full_page=True`, but every
+   below-fold section sits at `opacity: 0` until an IntersectionObserver fires, so
+   the critic was scoring a hero over blank space. `reduced_motion="reduce"` plus a
+   scroll prime fixes both; the harness now uses Playwright and reads its routes
+   from the app's own `App.tsx`.
 4. **The imagery bucket for a barbershop is `generic`.** Harmless now that the
    brief's prose leads the query and the pack supplies barbershop framings, but
-   `_CATEGORY_QUERY_HINT` has no grooming bucket.
-5. **P0-2, P0-3, P0-4, P0-5 in the previous handoff are untouched.** All four are
-   in `visual_critic.py`. P0-3 and P0-5 still compound into permanently
-   withholding a correct preview.
+   `_CATEGORY_QUERY_HINT` has no grooming bucket. **Still open.**
+5. ~~**P0-2, P0-3, P0-4, P0-5 in the previous handoff are untouched.**~~
+   **Closed.** All four fixed. P0-3's stale BLOCK is now re-derived rather than
+   ignored, and P0-5's margins are finally read — both were withholding correct
+   previews, P0-5 against imagery the pipeline had chosen correctly itself.
 6. **Real persistence.** `InquiryPanel.onSubmit` / `BookingPanel` are seams, not
    implementations. Booking is where correctness bites (availability,
    double-booking, notifications) and it needs tenancy and auth first.
+   **Still open.**
