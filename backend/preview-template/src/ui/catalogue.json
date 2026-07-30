@@ -979,7 +979,6 @@
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
-        "InquiryPanel",
         "TestimonialRail",
         "ProcessSection",
         "CTABand",
@@ -996,7 +995,8 @@
         "AiFeaturePanel",
         "Button",
         "Badge",
-        "UiIcon"
+        "UiIcon",
+        "InquiryPanel"
       ],
       "supportedVariants": {
         "MarketingHero": [
@@ -1048,7 +1048,6 @@
         "MarketingHero",
         "FeatureBento",
         "ProductShowcase",
-        "CatalogGrid",
         "TestimonialRail",
         "ProcessSection",
         "CTABand",
@@ -1066,6 +1065,7 @@
         "Button",
         "Badge",
         "UiIcon",
+        "CatalogGrid",
         "ScheduleRail",
         "Input",
         "Select",
