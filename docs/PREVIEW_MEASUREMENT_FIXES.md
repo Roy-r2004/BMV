@@ -226,6 +226,78 @@ dependency. PNGs come back base64 on stdout, so no shared volume either.
 
 ---
 
+## The live generation
+
+Request **39** — "Alder & Ash Ceramics", a handmade-pottery storefront — submitted
+through the API and generated end to end on the shipping configuration, with the
+AI codegen path and the vision critic both live. This is what the journey doc's
+open item #1 was asking for.
+
+### The two fixes ran in production, not just in tests
+
+`_bmv_visual_critique.json` after the run:
+
+```
+review_status: reviewed   routes_selected: 6   unmeasured: []
+refined: ['src/pages/CollectionPage.tsx']
+scores: HomePage 75, admin/LoginPage 20, admin/DashboardPage 79,
+        AboutUsPage 75, ContactUsPage 30, CollectionPage 75
+```
+
+- **P0-2.** `review_status`, `routes_selected` and per-page scores are all present
+  and honest: six routes selected, six judged, none unmeasured.
+- **P0-3.** The log shows `visual critic: re-reviewing 1 refined page(s)`, and
+  `CollectionPage` carries **75** — its *post*-refine score. Its pre-refine score
+  was 60. Before this session the 60 would have been the number the gate read.
+
+### The journey walk caught real defects in AI output
+
+The open item's worry was that the prompts carry the journey rules but no
+generated output had been checked against them. It has now, and the prompts alone
+were **not** sufficient:
+
+```
+journey broken (7 blocking, 9 warn):
+  journey_browse_not_linked:/gallery
+  journey_dead_link:/gallery/:id   ×6      (src/pages/ArtworkDetailPage.tsx)
+  journey_dead_link_offpath:/collection    (advisory)
+```
+
+The model generated *two* browse-ish pages — `/collection` (`CollectionPage`) and
+`/gallery` (`GalleryPage`) — linked the funnel through `/collection`, and left
+`/gallery` unreachable while `ArtworkDetailPage` at `/gallery/:id` linked to
+routes that resolve to nothing. Exactly the class of defect the journey contract
+exists for, produced by a model that had been told not to.
+
+The gate then repaired 6 of the 7 blocking hops in a single AI attempt
+(**7 blocking → 1**), which is the gate doing its job on live output.
+
+The advisory `journey_dead_link_offpath` findings also fired for real, so the
+ops/WARN branch that was added specifically to stop it being dead code is being
+exercised by a real generation.
+
+### And it exposed one more instance of the same bug
+
+Both `visual_defect_severe` findings survived **both** gate repair attempts
+byte-identically:
+
+```
+attempt 1/2 (9 issues) → visual critique blocking (2): admin/LoginPage; ContactUsPage
+attempt 2/2 (3 issues) → visual critique blocking (2): admin/LoginPage; ContactUsPage
+```
+
+That is P0-3's pathology at the *outer* seam. My fix re-derives the report inside
+`_run_visual_critique`, before the gate reads it — which is what P0-3 asked for.
+But `run_quality_gate_with_heal` is a second rewrite path that runs *after* the
+report is final, and `evaluate_quality_gate` re-reads the persisted report
+unchanged. So the gate can repair a page and its visual BLOCK still fails the gate
+forever. Note the handoff's own reproduction used this loop.
+
+`admin/LoginPage` is fixed by the ops-severity change above — it is a WARN now. But
+`ContactUsPage` is **public**, scored 30 for genuinely having lost its contact
+form, and if the repair loop adds the form back, the stale BLOCK still withholds a
+now-correct preview. See open item 3.
+
 ## Verification
 
 Suite: **946 passed, 1 failed** — the failure is the documented
@@ -263,11 +335,32 @@ Carried from the previous session, untouched here:
 
 New, found while doing the above:
 
-3. **`visual_defect_severe` is still surface-blind.** P0-4 fixed
-   `broken_rendered_image` because that is what it named, but an ops page scoring
-   20 still BLOCKs the public storefront through the same
-   one-page-withholds-everything shape. Deliberately left alone rather than widened
-   silently — a garbage admin page *is* a real defect, so the right policy needs a
-   decision, not a patch.
-4. **`nav_clutter`'s cap-at-8 backstop is still there** behind the journey-driven
+3. **The gate's heal loop cannot clear a visual BLOCK — P0-3 at the outer seam.**
+   This is the most important thing left, and it is live, not theoretical.
+   `_run_visual_critique` now re-derives its report before the gate reads it, but
+   `run_quality_gate_with_heal` rewrites files *after* that, and
+   `evaluate_quality_gate` re-reads the persisted report unchanged. On request 39
+   both `visual_defect_severe` findings survived both repair attempts
+   byte-identically. `ContactUsPage` is public and scored 30 for genuinely missing
+   its contact form; if the repair adds the form, the stale BLOCK still withholds a
+   corrected preview.
+
+   Two candidate fixes, and this one needs a decision rather than a patch:
+   - **re-measure** the pages the heal loop rewrote. Correct, but the gate has no
+     screenshot/vision machinery wired and it would cost a vision call per repair
+     attempt.
+   - **forget** them: `_forget_pages(report, patched)` plus record them as
+     `unmeasured`, so the finding stops being treated as evidence about source it
+     no longer describes, and `visual_review_status` honestly becomes `partial`.
+     Consistent with the principle this whole session ran on — *a finding the
+     pipeline has since rewritten is stale, not evidence* — and it reuses the
+     machinery already built here. It does mean a "repaired" page can ship without
+     being re-examined, which is what the `unmeasured` record and
+     `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED` exist to make visible.
+
+4. **The AI codegen path invents a second browse page.** Request 39 generated both
+   `/collection` and `/gallery`, funnelled through the first and left the second
+   unreachable. The gate caught it and healed 6 of 7 hops, but the *planner* should
+   not be producing two browse faces for one catalogue in the first place.
+5. **`nav_clutter`'s cap-at-8 backstop is still there** behind the journey-driven
    ranking, as noted last session.
