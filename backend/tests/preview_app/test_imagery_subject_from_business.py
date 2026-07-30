@@ -278,6 +278,115 @@ def test_word_anchoring_keeps_matching_plurals_and_phrases() -> None:
     assert _resolve_category("something entirely unmapped") == "generic"
 
 
+# --------------------------------------------------------------------------
+# The other half of P0-1: the bucket itself was a first-match guess
+# --------------------------------------------------------------------------
+
+# One row per bucket. Word anchoring alone left this table half-wrong, because a
+# single ordinary word decided the whole category.
+BUCKET_CASES: tuple[tuple[str, str], ...] = (
+    ("art", "Fine art gallery with original oil paintings"),
+    ("beauty", "Day spa and beauty salon"),
+    ("fitness", "Boutique gym and yoga studio"),
+    ("food", "Neighbourhood restaurant and bakery"),
+    ("health", "Dental clinic and orthodontics"),
+    ("tech", "B2B SaaS software platform"),
+    ("realestate", "Real estate brokerage and property management"),
+    ("education", "Private tutoring academy"),
+    ("retail", "Fashion apparel boutique and online shop"),
+)
+
+# Verticals this nine-bucket table has no home for. `generic` is the correct
+# answer for all of them — "professional small business" beats a confident lie.
+UNMAPPED_VERTICALS: tuple[str, ...] = (
+    "Boutique law firm — estate and family law",
+    "Commercial cleaning company",
+    "Auto repair garage and detailing",
+    "Plumbing and heating repair",
+    "Independent bookshop and reading room",
+    "Barbershop and grooming",
+    "Freight forwarding and logistics",
+)
+
+
+@pytest.mark.parametrize("expected,industry", BUCKET_CASES)
+def test_every_bucket_resolves_from_a_plain_brief(expected: str, industry: str) -> None:
+    assert _resolve_category(industry) == expected, industry_images._category_scores(industry)
+
+
+@pytest.mark.parametrize("industry", UNMAPPED_VERTICALS)
+def test_an_unmapped_vertical_resolves_generic_rather_than_guessing(industry: str) -> None:
+    """`_resolve_category` returned the first bucket with *any* keyword hit.
+
+    So "Boutique law firm" was `retail` on the word `boutique`, and "Commercial
+    cleaning company" was `realestate` on `commercial`. Word-boundary anchoring —
+    the half of the fix that did land — cannot help: both briefs genuinely contain
+    those words. The defect was that one weak keyword won alone.
+    """
+    assert _resolve_category(industry) == "generic", (
+        industry,
+        industry_images._category_scores(industry),
+    )
+
+
+def test_one_weak_keyword_never_carries_a_bucket_but_two_do() -> None:
+    """"In company" is the whole idea: `_WEAK_KEYWORDS` are real words elsewhere."""
+    assert industry_images._category_scores("boutique") == {"retail": 1}
+    assert _resolve_category("boutique") == "generic"
+    # Two weak matches corroborate each other.
+    assert _resolve_category("outdoor gear shops") == "retail"
+    # One specific match is enough on its own.
+    assert industry_images._category_scores("gym") == {"fitness": 2}
+    assert _resolve_category("gym") == "fitness"
+
+
+def test_a_tie_between_buckets_resolves_generic() -> None:
+    """A brief that reads equally as two industries is not evidence for either."""
+    scores = industry_images._category_scores("hair salon with a coffee bar")
+    assert scores["beauty"] == scores["food"], scores
+    assert _resolve_category("hair salon with a coffee bar") == "generic"
+
+
+def test_every_weak_keyword_is_a_real_keyword_with_a_stated_reason() -> None:
+    """A typo here silently promotes a keyword back to deciding on its own."""
+    known = {kw for keywords in industry_images._INDUSTRY_KEYWORDS.values() for kw in keywords}
+    stray = sorted(set(industry_images._WEAK_KEYWORDS) - known)
+    assert stray == [], f"_WEAK_KEYWORDS names keywords that do not exist: {stray}"
+    for keyword, reason in industry_images._WEAK_KEYWORDS.items():
+        assert reason.strip(), f"{keyword} has no stated counter-example"
+
+
+def test_the_curated_fallback_follows_the_bucket(monkeypatch: Any) -> None:
+    """The worst path, because there is no dilution: it picks a whole library.
+
+    A law firm's hero *was* an Unsplash photograph of a shopfront — the retail
+    bucket's hero — with none of the brief's own words involved at all.
+    """
+    law = industry_images._curated_fallback("Boutique law firm — estate and family law")
+    generic = industry_images._curated_fallback("something entirely unmapped")
+    retail = industry_images._curated_fallback("fashion apparel clothing")
+    assert law["hero"] == generic["hero"]
+    assert law["hero"] != retail["hero"]
+
+
+@pytest.mark.parametrize("industry", UNMAPPED_VERTICALS)
+def test_an_unmapped_vertical_carries_no_contradictory_hint(industry: str) -> None:
+    """The roleless path appends the hint to the query, so the bucket must be right.
+
+    Before: a law firm searched Pexels for "... fashion retail apparel outdoor
+    gear", and a commercial cleaner for "... modern home real estate".
+    """
+    hero = _slot_queries("Acme", industry).get("hero", "").lower()
+    assert _CATEGORY_QUERY_HINT["generic"] in hero, hero
+    for bucket, hint in _CATEGORY_QUERY_HINT.items():
+        if bucket == "generic":
+            continue
+        for word in hint.split():
+            if word in industry.lower():
+                continue  # the brief's own word, not a hint leak
+            assert word not in hero.split(), (bucket, word, hero)
+
+
 def test_roleless_callers_keep_legacy_queries() -> None:
     industry = "Dental clinic healthcare"
     queries = _slot_queries("Acme Dental", industry)

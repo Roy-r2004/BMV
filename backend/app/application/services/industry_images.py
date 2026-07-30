@@ -163,6 +163,46 @@ _MAX_QUERY_WORDS = 14
 _MAX_INDUSTRY_QUERY_WORDS = 6
 
 
+# Keywords that only mean their bucket in company. Each is an ordinary word in
+# some *other* industry's own description of itself, so on its own it is not
+# evidence of anything. The value is the counter-example that earns it a place —
+# "these feel vague" is not a reason, and this table is what stops the resolver
+# guessing.
+_WEAK_KEYWORDS: dict[str, str] = {
+    "boutique": "a boutique law firm or consultancy is not a shop",
+    "commercial": "commercial cleaning, commercial law, commercial insurance",
+    "home": "home services, care at home, home cooking",
+    "agent": "insurance, travel and booking agents",
+    "agency": "any agency, not only a digital one",
+    "shop": "a body shop, a bike shop, a print shop",
+    "store": "any business at all with a storefront",
+    "outdoor": "outdoor dining, an outdoor venue, outdoor events",
+    "gear": "gear as machinery, gear as any trade's equipment",
+    "platform": "every business calls something a platform",
+    "digital": "digital anything",
+    "app": "shortened from an application of any kind",
+    "coach": "coach a team, a subject, or a career",
+    "coaching": "and education claims it too",
+    "training": "staff training, dog training, strength training",
+    "workshop": "an auto workshop and a teaching workshop",
+    "course": "a golf course and a training course",
+    "kitchen": "a kitchen fitter and a restaurant kitchen",
+    "bar": "a bar of soap, the bar association, a crossbar",
+    "sport": "a sports bar, sportswear",
+    "wellness": "beauty, fitness and health all claim it",
+    "hair": "a salon and a pet groomer",
+    "nail": "a manicure and a nail gun",
+    "health": "a health coach, health food, health insurance",
+    "canvas": "canvas awnings, and a learning platform",
+}
+
+_SPECIFIC_KEYWORD_WEIGHT = 2
+_WEAK_KEYWORD_WEIGHT = 1
+# One specific keyword is enough; one weak keyword never is. Two weak keywords
+# corroborate each other, which is what "in company" means here.
+_MIN_CATEGORY_SCORE = 2
+
+
 def _keyword_pattern(keyword: str) -> re.Pattern[str]:
     """Word-anchored keyword matcher that still tolerates a plural (``salon`` → ``salons``).
 
@@ -173,18 +213,59 @@ def _keyword_pattern(keyword: str) -> re.Pattern[str]:
     return re.compile(rf"\b{re.escape(keyword)}(?:e?s)?\b")
 
 
-_INDUSTRY_KEYWORD_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
-    category: tuple(_keyword_pattern(kw) for kw in keywords)
+_INDUSTRY_KEYWORD_PATTERNS: dict[str, tuple[tuple[re.Pattern[str], int], ...]] = {
+    category: tuple(
+        (
+            _keyword_pattern(kw),
+            _WEAK_KEYWORD_WEIGHT if kw in _WEAK_KEYWORDS else _SPECIFIC_KEYWORD_WEIGHT,
+        )
+        for kw in keywords
+    )
     for category, keywords in _INDUSTRY_KEYWORDS.items()
 }
 
 
-def _resolve_category(industry: str) -> str:
+def _category_scores(industry: str) -> dict[str, int]:
     industry_lower = (industry or "").lower()
+    scores: dict[str, int] = {}
     for category, patterns in _INDUSTRY_KEYWORD_PATTERNS.items():
-        if any(pattern.search(industry_lower) for pattern in patterns):
-            return category
-    return "generic"
+        score = sum(weight for pattern, weight in patterns if pattern.search(industry_lower))
+        if score:
+            scores[category] = score
+    return scores
+
+
+def _resolve_category(industry: str) -> str:
+    """Best-supported imagery bucket for an industry phrase, or ``generic``.
+
+    Scored, not first-match. This used to return the first category in table order
+    with *any* keyword hit, so one ordinary word decided the whole bucket: a
+    "Boutique law firm — estate and family law" resolved to ``retail`` on the word
+    ``boutique`` and a "Commercial cleaning company" to ``realestate`` on
+    ``commercial``.
+
+    That is not a cosmetic misfile. `_curated_fallback` picks an entire photo
+    library from this one value, so the law firm's hero *was* a stock photograph of
+    a shopfront, and the roleless query carried "fashion retail apparel outdoor
+    gear" into a search for a law firm.
+
+    Note that word-boundary anchoring — the other half of the original fix, and
+    already in place — cannot help here: "Boutique law firm" genuinely contains the
+    word ``boutique``. The defect is that a weak keyword was allowed to win alone.
+
+    ``generic`` is a real answer, not a failure: its hint is "professional small
+    business", which is right for every industry this table has no bucket for
+    (legal, trades, automotive, logistics...).
+    """
+    scores = _category_scores(industry)
+    if not scores:
+        return "generic"
+    ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+    top_category, top_score = ranked[0]
+    runner_up = ranked[1][1] if len(ranked) > 1 else 0
+    if top_score < _MIN_CATEGORY_SCORE or top_score <= runner_up:
+        return "generic"
+    return top_category
 
 
 def resolve_industry_category(industry: str) -> str:
