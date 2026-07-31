@@ -1193,6 +1193,71 @@ def test_a_nested_seed_path_gets_the_shape_it_is_used_as(tmp_path: Path) -> None
     assert "availableWorks" in block, "the field the page reads must exist"
 
 
+def test_a_stub_never_displaces_content_the_page_already_had(tmp_path: Path) -> None:
+    """The worst kind of repair: one that makes the page worse than not repairing.
+
+    Request 47's home page read
+    `seed.showcase?.length ? seed.showcase : [three real paintings]`. This guard
+    invented a one-row `seed.showcase`, `?.length` became truthy, all three real
+    items were displaced, and the page shipped a heading over an empty band.
+    """
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() {\n"
+        "  return <ProductShowcase\n"
+        '    heading={seed.showcaseHeading ?? "Featured Works"}\n'
+        "    items={seed.showcase?.length ? seed.showcase : [\n"
+        '      { title: "Golden Hour", imageSrc: images.product1 },\n'
+        '      { title: "Forest Serenade", imageSrc: images.product2 },\n'
+        "    ]}\n"
+        "  />;\n"
+        "}\n",
+    )
+
+    added = ensure_seed_keys_pages_read(workspace, "Jeanne Kassab Art")
+    mock = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    assert "showcase" not in added, f"a real fallback must be left alone: {added}"
+    assert "showcaseHeading" not in added, "so must a real string fallback"
+    assert "showcase:" not in mock
+
+    # An *empty* fallback supplies nothing, so filling it is still a repair.
+    empty = _seed_workspace(
+        tmp_path / "empty",
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() { return <ul>{(seed.awards ?? []).map((a) => "
+        "<li>{a.title}</li>)}</ul>; }\n",
+    )
+    assert ensure_seed_keys_pages_read(empty, "Jeanne Kassab Art") == ["awards"]
+
+
+def test_seed_filler_reads_as_copy_not_as_the_key_name() -> None:
+    """Request 47's closing band read "Cta heading — Jeanne Kassab Art".
+
+    `_sub_value` matched field names exactly, so `ctaHeading` — which is neither
+    "heading" nor "description" — fell through to the identifier echo and shipped
+    on the money page.
+    """
+    from app.application.preview_app.safety.seed_keys import _default_for
+
+    for key in ("ctaHeading", "showcaseHeading", "featuresTitle"):
+        value = _default_for(key, f"<p>{{seed.{key}}}</p>", "Jeanne Kassab Art")
+        assert _humanize_leak(key) not in value, f"{key} echoed its own name: {value}"
+        assert "Jeanne Kassab Art" in value
+
+    body = _default_for("ctaDescription", "<p>{seed.ctaDescription}</p>", "Studio")
+    assert "Cta description" not in body, body
+    assert body.count(" ") >= 5, f"a description should read as a sentence: {body}"
+
+
+def _humanize_leak(key: str) -> str:
+    """The identifier echo this must never produce again, e.g. "Cta heading"."""
+    return re.sub(r"(?<!^)(?=[A-Z])", " ", key).replace("_", " ").strip().capitalize()
+
+
 def test_a_chart_collection_defaults_to_rows_a_chart_can_draw() -> None:
     """`const chartData = seed.ops.chartData` proves nothing about the shape.
 

@@ -161,6 +161,14 @@ def _humanize(key: str) -> str:
     return spaced.strip().capitalize()
 
 
+#: Substrings that say what a field is *for*. Matched inside the name, not against
+#: it: request 47 read `seed.ctaHeading` and `seed.ctaDescription`, neither of which
+#: equals "heading" or "description", so both fell through to the identifier echo
+#: and the home page's closing band read "Cta heading — Jeanne Kassab Art".
+_HEADLINE_HINTS = ("heading", "headline", "title", "eyebrow", "kicker")
+_BODY_HINTS = ("description", "subcopy", "body", "detail", "summary", "copy", "blurb")
+
+
 def _sub_value(sub: str, key: str, brand: str) -> str:
     lowered = sub.lower()
     if lowered in {"id", "slug", "key"}:
@@ -172,10 +180,12 @@ def _sub_value(sub: str, key: str, brand: str) -> str:
         return ""
     if lowered in {"count", "total", "value", "amount", "price", "number"}:
         return "0"
-    if lowered in {"title", "heading", "headline", "name", "label"}:
-        return f"{_humanize(key)} — {brand}"
-    if lowered in {"description", "subcopy", "body", "text", "detail", "summary", "copy"}:
-        return f"{brand}: {_humanize(key).lower()} content is being prepared."
+    if lowered in {"name", "label"}:
+        return brand
+    if any(hint in lowered for hint in _HEADLINE_HINTS):
+        return f"Discover {brand}"
+    if any(hint in lowered for hint in _BODY_HINTS) or lowered == "text":
+        return f"See what {brand} offers, and get in touch about anything you like."
     # Unknown field: brand it rather than echoing the identifier, so a form input
     # or a caption reads as content instead of as a variable name.
     return f"{_humanize(sub)} — {brand}"
@@ -255,12 +265,46 @@ def _default_for_path(path: str, sources: str, brand: str, depth: int = 1) -> st
             for sub in subs
         )
         return f"{{ {inner} }}"
-    return json.dumps(f"{_humanize(leaf)} — {brand}", ensure_ascii=False)
+    # Route the terminal string through the same vocabulary: this value goes on the
+    # page verbatim, so it has to read as copy rather than as the key's name.
+    return json.dumps(_sub_value(leaf, leaf, brand), ensure_ascii=False)
 
 
 def _default_for(key: str, sources: str, brand: str) -> str:
     """TS literal for a missing seed key, inferred from how pages use it."""
     return _default_for_path(key, sources, brand)
+
+
+#: A guard that hands the read off to a fallback: `?? …`, `|| …`, or the
+#: `seed.x?.length ? seed.x : …` idiom.
+_PAGE_FALLBACK_RE = re.compile(
+    r"""^\s*(?:\?\s*\.\s*length\s*\?[^:]{0,80}:|(?:\?\?|\|\|))\s*"""
+)
+#: `[]`, `{}`, `''` — a fallback that supplies nothing.
+_EMPTY_LITERAL_RE = re.compile(r"""^(?:\[\s*\]|\{\s*\}|["'`]\s*["'`])""")
+
+
+def _page_supplies_its_own(key: str, sources: str) -> bool:
+    """True when a read of `seed.<key>` falls back to a literal that has content.
+
+    Then the key's absence breaks nothing *and* the page already has something
+    better to show, so injecting a stub is not a repair — it is a regression.
+    Request 47's home page read
+    `seed.showcase?.length ? seed.showcase : [three real paintings]`; this guard
+    invented a one-row `seed.showcase`, which made `?.length` truthy and displaced
+    all three. The page shipped a heading over an empty band.
+
+    An *empty* fallback — `?? []`, `?? {}`, `?? ''` — supplies nothing, so the key
+    is still worth filling: that is content where the page had none.
+    """
+    for match in re.finditer(_path_read_re(key), sources):
+        window = sources[match.end() : match.end() + 400]
+        guard = _PAGE_FALLBACK_RE.match(window)
+        if not guard:
+            continue
+        if not _EMPTY_LITERAL_RE.match(window[guard.end() :]):
+            return True
+    return False
 
 
 def ensure_seed_keys_pages_read(workspace, brand_name: str = "Brand") -> list[str]:
@@ -296,7 +340,13 @@ def ensure_seed_keys_pages_read(workspace, brand_name: str = "Brand") -> list[st
         return []
 
     referenced = {k for k in _SEED_READ_RE.findall(blob) if k}
-    missing = sorted(referenced - existing - _NEVER_INJECT)
+    candidates = sorted(referenced - existing - _NEVER_INJECT)
+    missing = [k for k in candidates if not _page_supplies_its_own(k, blob)]
+    deferred = [k for k in candidates if k not in missing]
+    if deferred:
+        log.info(
+            "seed keys left to the page's own fallback: %s", ", ".join(deferred)
+        )
     if not missing:
         return []
 

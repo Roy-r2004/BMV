@@ -17,6 +17,7 @@ from app.application.preview_app.safety.brand_contract import (
 )
 from app.application.preview_app.safety.catalogue_guards import enforce_catalogue_workspace_contracts
 from app.application.preview_app.safety.copy_hygiene import (
+    decode_html_entities,
     decode_literal_unicode_escapes,
     strip_template_jargon_copy,
 )
@@ -244,6 +245,7 @@ def apply_workspace_guards(
     # Copy hygiene runs last — every earlier writer is a possible source.
     for fn, label in (
         (lambda: decode_literal_unicode_escapes(workspace), "unicode escapes decoded"),
+        (lambda: decode_html_entities(workspace), "html entities decoded"),
         (lambda: strip_template_jargon_copy(workspace), "template jargon replaced"),
     ):
         try:

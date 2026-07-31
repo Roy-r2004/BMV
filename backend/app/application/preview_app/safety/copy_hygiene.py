@@ -65,6 +65,61 @@ def decode_literal_unicode_escapes(workspace) -> list[str]:
     return fixed
 
 
+#: Named HTML entities React never decodes — it escapes text, so `&copy;` reaches
+#: the DOM as five visible characters. Request 47's home page footer read
+#: "&copy; 2024 Jeanne Kassab Art".
+#:
+#: Deliberately excludes `&lt;`, `&gt;`, `&quot;` and `&apos;`: their replacements
+#: are JSX and string-literal syntax, so decoding them would break the file rather
+#: than the copy.
+_HTML_ENTITIES: tuple[tuple[str, str], ...] = (
+    ("&copy;", "©"),
+    ("&reg;", "®"),
+    ("&trade;", "™"),
+    ("&nbsp;", " "),
+    ("&mdash;", "—"),
+    ("&ndash;", "–"),
+    ("&hellip;", "…"),
+    ("&middot;", "·"),
+    ("&bull;", "•"),
+    ("&lsquo;", "‘"),
+    ("&rsquo;", "’"),
+    ("&ldquo;", "“"),
+    ("&rdquo;", "”"),
+    ("&times;", "×"),
+    ("&deg;", "°"),
+    ("&euro;", "€"),
+    ("&pound;", "£"),
+    ("&amp;", "&"),
+)
+
+
+def decode_html_entities(workspace) -> list[str]:
+    """Decode named HTML entities that reached rendered copy.
+
+    React escapes the text it renders, so an entity in a string literal or a JSX
+    text node ships verbatim: `&copy; 2024` is five characters and a year. Files
+    using `dangerouslySetInnerHTML` are skipped — there the entity is doing its job.
+
+    `&amp;` is decoded last so `&amp;copy;` does not become `©`.
+    """
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        if not rel.endswith((".tsx", ".jsx")):
+            continue
+        raw = read_file(workspace, rel)
+        if "&" not in raw or "dangerouslySetInnerHTML" in raw:
+            continue
+        updated = raw
+        for entity, char in _HTML_ENTITIES:
+            updated = updated.replace(entity, char)
+        if updated != raw:
+            write_file(workspace, rel, updated)
+            fixed.append(rel)
+            guard_log.info("decoded literal html entities in %s", rel)
+    return fixed
+
+
 # Mirrors the meta-demo ban in templates/prompts/preview_app_slot_fill.j2 so it
 # holds when the model ignores the prompt, plus the catalogue template's own
 # placeholder eyebrows.
