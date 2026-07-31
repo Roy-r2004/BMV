@@ -13,7 +13,10 @@ export type AiFeatureItem = {
   surface?: string;
   demo_hint?: string;
   demo_prompts?: string[];
-  demo_results?: Record<string, string>;
+  // Partial by construction: the synthesizer writes one entry per demo prompt
+  // and the union of prompt sets across features leaves the rest `undefined`,
+  // which a `Record<string, string>` rejected (TS2322 on every AI hub).
+  demo_results?: Record<string, string | undefined>;
   placement_label?: string;
   placement_path?: string;
   placement_title?: string;
@@ -41,14 +44,18 @@ export function categoryLabel(category: string | undefined): string {
 
 export function resolveDemo(feature: AiFeatureItem, brandName: string, prompt: string): string {
   const text = prompt.trim() || feature.name;
+  // Entries can be `undefined` now that the type admits a partial record, so the
+  // lookups below must not hand a `string | undefined` back as the answer.
   const results = feature.demo_results || {};
-  if (results[text]) return results[text];
+  const exact = results[text];
+  if (exact) return exact;
   const fold = text.toLowerCase();
-  const match = Object.entries(results).find(([key]) => {
+  const match = Object.entries(results).find(([key, value]) => {
+    if (!value) return false;
     const k = key.toLowerCase();
     return k === fold || fold.includes(k) || k.includes(fold);
   });
-  if (match) return match[1];
+  if (match && match[1]) return match[1];
 
   const category = (feature.category || feature.surface || 'automation').toLowerCase();
   if (category === 'chat') {

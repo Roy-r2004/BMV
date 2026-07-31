@@ -40,6 +40,12 @@ def _ident(stem: str) -> str:
 #: create form must never be aliased onto it.
 _CREATE_LEAVES = frozenset({"add", "new", "create", "upload", "import", "compose"})
 
+#: Surface namespaces. A param route hung straight off one of these matches every
+#: page in the surface and belongs to none of them.
+_SURFACE_ROOTS = frozenset(
+    {"/owner", "/admin", "/ops", "/staff", "/member", "/desk", "/account"}
+)
+
 
 def _is_record_component(leaf: str, comp: str) -> bool:
     """True for a page that renders or edits one existing record."""
@@ -890,6 +896,13 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
                 # "Add New Painting" form while AdminEditPaintingPage sat
                 # reachable only at `/owner/paintings/edit/:id`.
                 if leaf in _CREATE_LEAVES:
+                    detailish = False
+                # `/owner/artworks` must not mint `/owner/:id`. A surface root is a
+                # namespace, not a listing, so a param directly under it matches
+                # every page in the surface and belongs to none of them. Request 41
+                # declared `/owner/:id` and `/owner/:slug` pointing at the artwork
+                # manager purely because `artworks` looked detail-ish.
+                if parent_key in _SURFACE_ROOTS:
                     detailish = False
                 if detailish and parent_key not in ("", "/"):
                     for alias in (f"{parent}/:id", f"{parent}/:slug"):

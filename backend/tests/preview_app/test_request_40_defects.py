@@ -1116,3 +1116,47 @@ def test_the_seed_key_guard_is_idempotent(tmp_path: Path) -> None:
 
     assert second == []
     assert twice == once
+
+
+def test_a_surface_root_does_not_mint_a_catch_all_param_route(tmp_path: Path) -> None:
+    """Request 41 declared `/owner/:id` and `/owner/:slug`.
+
+    `/owner/artworks` looked detail-ish, so the alias pass hung a param straight
+    off the surface namespace — a route that matches every owner page and belongs
+    to none of them.
+    """
+    architect = {
+        "routes": [
+            {"path": path, "component_file": f"src/pages/owner/{component}.tsx",
+             "component": component, "surface": "ops"}
+            for path, component in [
+                ("/owner/dashboard", "DashboardPage"),
+                ("/owner/artworks", "ArtworkManagementPage"),
+                ("/owner/settings", "SettingsPage"),
+            ]
+        ],
+        "files_to_generate": [],
+        "roles": [],
+    }
+
+    routes = _routes_in_app_tsx(architect, tmp_path)
+
+    assert "/owner/:id" not in routes, f"a catch-all under the surface root: {sorted(routes)}"
+    assert "/owner/:slug" not in routes
+    assert "/owner/dashboard" in routes
+
+
+def test_page_header_actions_accept_the_button_vocabulary() -> None:
+    """Generated ops pages write `variant: "outline"` for a Cancel button.
+
+    The prop admitted only `'primary' | 'secondary'`, so every such page carried a
+    TS2322 — while the renderer already treated anything non-secondary as solid.
+    """
+    header = (
+        Path(__file__).resolve().parents[2]
+        / "preview-template" / "src" / "ui" / "ops" / "PageHeader.tsx"
+    ).read_text(encoding="utf-8")
+
+    for variant in ("outline", "ghost", "destructive"):
+        assert f"'{variant}'" in header, f"{variant} must be an accepted action variant"
+    assert "variant === 'outline'" in header, "outline must render as the subtle style"

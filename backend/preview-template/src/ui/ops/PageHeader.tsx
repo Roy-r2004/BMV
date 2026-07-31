@@ -7,7 +7,13 @@ export interface PageHeaderAction {
   label: string;
   href?: string;
   onClick?: () => void;
-  variant?: 'primary' | 'secondary';
+  /**
+   * Accepts the whole Button vocabulary, because that is what generated pages
+   * write: `variant: "outline"` and `variant: "destructive"` were TS2322 on every
+   * ops page that had a Cancel button, and rendering already treated anything
+   * non-secondary as the solid style. Two buckets, one wider door.
+   */
+  variant?: 'primary' | 'secondary' | 'default' | 'outline' | 'ghost' | 'destructive';
 }
 
 export interface PageHeaderProps {
@@ -26,7 +32,7 @@ function isActionDescriptorList(value: unknown): value is PageHeaderAction[] {
 function actionClassName(variant?: PageHeaderAction['variant']): string {
   return cn(
     'rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-    variant === 'secondary'
+    variant === 'secondary' || variant === 'outline' || variant === 'ghost'
       ? 'border border-border-subtle bg-card text-foreground hover:bg-[color-mix(in_srgb,var(--color-brand)_8%,var(--color-background))]'
       : 'bg-brand text-white shadow-[var(--shadow-ui)] hover:opacity-95'
   );

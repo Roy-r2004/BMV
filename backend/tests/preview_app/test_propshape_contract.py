@@ -105,8 +105,16 @@ def test_optionality_and_literal_unions_are_captured():
     assert "type" in button["optional"]
 
     assert ui_type_shape("FeatureBentoVariant")["alias"] == "'bento' | 'grid' | 'alternating'"
+    # The full union is parsed…
+    assert ui_type_shape("PageHeaderAction")["members"]["variant"] == (
+        "'primary' | 'secondary' | 'default' | 'outline' | 'ghost' | 'destructive'"
+    )
+    # …and the compact prompt line drops it rather than showing a clipped one, which
+    # would read as the complete list of allowed values. `variant` widened to the
+    # Button vocabulary when generated ops pages kept writing `variant: "outline"`
+    # and earning a TS2322, so there is nothing left for the prompt to prevent.
     assert dict(prop_shape_entries("PageHeader"))["PageHeader.actions[]"] == (
-        "label, href?, onClick?:fn, variant?:'primary' | 'secondary'"
+        "label, href?, onClick?:fn, variant?"
     )
 
 
