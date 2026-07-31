@@ -1026,6 +1026,7 @@
       ],
       "optionalSections": [
         "trust",
+        "filters",
         "features",
         "spotlight",
         "testimonials",
@@ -1035,6 +1036,7 @@
         "shell",
         "hero",
         "trust",
+        "filters",
         "showcase",
         "features",
         "spotlight",
@@ -1072,7 +1074,8 @@
         "Tabs",
         "Card",
         "Table",
-        "Dialog"
+        "Dialog",
+        "FilterBar"
       ],
       "supportedVariants": {
         "MarketingHero": [

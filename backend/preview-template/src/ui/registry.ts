@@ -555,8 +555,12 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     purpose:
       'Browsable product / plan grid with filtering — merchandising, not storytelling. The showcase slot must be a CatalogGrid listing every item and linking each into the detail route; ProductShowcase caps at three and is an editorial mosaic, not a catalogue.',
     requiredSections: ['shell', 'hero', 'showcase', 'footer'],
-    optionalSections: ['trust', 'features', 'spotlight', 'testimonials', 'cta'],
-    recommendedOrder: ['shell', 'hero', 'trust', 'showcase', 'features', 'spotlight', 'testimonials', 'cta', 'footer'],
+    // `filters` exists because a browsable grid needs listing controls *above* it.
+    // Without the slot, request 47's gallery put its search box and availability
+    // select in `features` — which this skeleton renders after the grid — and even
+    // wrote `-mt-24` trying to drag it back up.
+    optionalSections: ['trust', 'filters', 'features', 'spotlight', 'testimonials', 'cta'],
+    recommendedOrder: ['shell', 'hero', 'trust', 'filters', 'showcase', 'features', 'spotlight', 'testimonials', 'cta', 'footer'],
     allowedComponents: [
       ...PUBLIC_ALLOWED,
       'CatalogGrid',
@@ -567,6 +571,9 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
       'Card',
       'Table',
       'Dialog',
+      // The `filters` slot's component. Token-driven, so a search row above a
+      // public grid reads as part of the brand rather than as an admin toolbar.
+      'FilterBar',
     ],
     supportedVariants: {
       MarketingHero: ['compact', 'editorial', 'product', 'atelier', 'split'],

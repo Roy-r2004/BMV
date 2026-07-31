@@ -1920,6 +1920,42 @@ def test_the_gate_retires_a_verdict_for_every_file_it_rewrites() -> None:
     )
 
 
+def test_a_browsable_grid_has_a_slot_for_its_controls_above_it() -> None:
+    """Request 47's gallery put its search box and availability select *below* the grid.
+
+    `public-catalog` had no listing-controls slot, so the model used `features` —
+    which this skeleton renders after `showcase` — and wrote `-mt-24` trying to drag
+    it back up.
+    """
+    from app.application.ui_catalogue import load_catalogue
+
+    catalog = next(
+        s for s in load_catalogue()["skeletons"] if s["id"] == "public-catalog"
+    )
+    order = catalog["recommendedOrder"]
+
+    assert "filters" in catalog["optionalSections"]
+    assert "FilterBar" in catalog["allowedComponents"], "the slot needs its component"
+    assert order.index("filters") < order.index("showcase"), (
+        f"controls must precede the grid: {order}"
+    )
+
+
+def test_every_catalog_recipe_orders_the_controls_before_the_grid() -> None:
+    """A recipe order owns the page face and drops slots it does not list.
+
+    A `filters` slot missing from a recipe's order is a filter bar that vanishes.
+    """
+    from app.application.preview_app.design_recipes import RECIPES
+
+    for recipe_id, recipe in RECIPES.items():
+        order = (recipe.get("section_orders") or {}).get("public-catalog")
+        if not order:
+            continue
+        assert "filters" in order, f"{recipe_id} would drop the listing controls"
+        assert order.index("filters") < order.index("showcase"), recipe_id
+
+
 def test_no_kit_image_can_render_an_empty_rectangle() -> None:
     """Request 45's gallery shipped ten cards and one blank grey box.
 

@@ -21,14 +21,20 @@ export function KitImage({ alt, className, onError, src, ...rest }: KitImageProp
   }, [src]);
 
   if (!src || failed) {
+    // Unmistakably deliberate. At 20% over the card's own tint this read as a
+    // plain grey box — request 47's gallery showed two of them beside six
+    // paintings, which is worse than a crop and worse than nothing.
     return (
       <div
         aria-hidden="true"
         className={cn(
-          'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-brand)_20%,transparent),transparent_72%)]',
+          'relative overflow-hidden',
+          'bg-[linear-gradient(140deg,color-mix(in_srgb,var(--color-brand)_38%,var(--color-background))_0%,color-mix(in_srgb,var(--color-brand)_16%,var(--color-background))_55%,color-mix(in_srgb,var(--color-brand)_28%,var(--color-background))_100%)]',
           className
         )}
-      />
+      >
+        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_30%_25%,rgba(255,255,255,0.22),transparent_70%)]" />
+      </div>
     );
   }
 
