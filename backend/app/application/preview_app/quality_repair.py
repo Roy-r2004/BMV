@@ -18,6 +18,7 @@ from app.application.preview_app.protected_paths import (
     is_template_owned_path,
     safe_source_path,
 )
+from app.application.preview_app.source_quality import tsx_parse_error
 from app.application.preview_app.text_utils import _parse_json, _strip_fences
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 from app.core.config import settings
@@ -83,11 +84,31 @@ class RepairAPI:
     def read(self, path: str) -> str:
         return read_file(self.workspace, self._safe(path)) or ""
 
+    def _write_if_parseable(self, rel: str, updated: str, previous: str) -> bool:
+        """Write `updated`, unless it breaks source that parsed before.
+
+        Request 45's gate lost both of its AI repair attempts to
+        `rebuild after AI repair failed` — a repair that cannot compile costs a
+        full `vite build` to discover and takes its whole batch down with it. Only
+        `.tsx`/`.ts` are checked, and only when the previous content parsed: a file
+        that was already broken is exactly what a repair is for.
+        """
+        if not rel.endswith((".ts", ".tsx")):
+            write_file(self.workspace, rel, updated)
+            return True
+        error = tsx_parse_error(updated)
+        if error and not tsx_parse_error(previous):
+            log.warning("repair rejected — %s would not parse (%s)", rel, error)
+            return False
+        write_file(self.workspace, rel, updated)
+        return True
+
     def write(self, path: str, content: str) -> None:
         if not isinstance(content, str) or not content.strip():
             raise ValueError("write requires non-empty string content")
         rel = self._safe(path)
-        write_file(self.workspace, rel, content)
+        if not self._write_if_parseable(rel, content, read_file(self.workspace, rel) or ""):
+            return
         if rel not in self.touched:
             self.touched.append(rel)
 
@@ -105,7 +126,8 @@ class RepairAPI:
         else:
             updated = src.replace(old, new)
         if updated != src:
-            write_file(self.workspace, rel, updated)
+            if not self._write_if_parseable(rel, updated, src):
+                return 0
             if rel not in self.touched:
                 self.touched.append(rel)
         return src.count(old) if not count else min(count, src.count(old))

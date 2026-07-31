@@ -1495,6 +1495,41 @@ def test_an_on_subject_photo_outranks_a_harvested_person_shot() -> None:
     assert filled["item2"] == "https://p/person.jpg"
 
 
+def test_the_gate_repair_cannot_write_source_that_does_not_parse(tmp_path: Path) -> None:
+    """Request 45 lost both AI repair attempts to `rebuild after AI repair failed`.
+
+    A repair that cannot compile costs a full `vite build` to discover and takes
+    its whole batch down with it. `refine_file` and slot-fill both check this; the
+    gate's repair wrote straight to disk.
+    """
+    from app.application.preview_app.quality_repair import RepairAPI
+    from app.application.preview_app.source_quality import tsx_parse_error
+
+    broken = "export default function P() {\n  return (\n    <a />\n    <b />\n  );\n}\n"
+    if not tsx_parse_error(broken):
+        pytest.skip("the TypeScript parser is unavailable in this environment")
+
+    good = "export default function P() {\n  return <main>ok</main>;\n}\n"
+    page = tmp_path / "src/pages/GalleryPage.tsx"
+    page.parent.mkdir(parents=True)
+    page.write_text(good, encoding="utf-8")
+
+    api = RepairAPI(tmp_path, {"routes": [], "files_to_generate": []})
+    api.write("src/pages/GalleryPage.tsx", broken)
+
+    assert page.read_text(encoding="utf-8") == good, "unparseable source was written"
+    assert api.touched == [], "a rejected write must not be reported as a change"
+
+    # A replace that produces the same wreckage is rejected the same way.
+    assert api.replace("src/pages/GalleryPage.tsx", "<main>ok</main>", "(<a /><b />") == 0
+    assert page.read_text(encoding="utf-8") == good
+
+    # And a repair that *does* parse still lands.
+    api.write("src/pages/GalleryPage.tsx", good.replace("ok", "better"))
+    assert "better" in page.read_text(encoding="utf-8")
+    assert api.touched == ["src/pages/GalleryPage.tsx"]
+
+
 def test_a_repaired_page_does_not_keep_the_verdict_of_the_page_it_replaced(
     tmp_path: Path,
 ) -> None:
