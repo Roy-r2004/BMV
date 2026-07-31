@@ -22,14 +22,34 @@ previews and inspecting them:
 | 43 | `failed` | 6/6 pages judged, 9 rendered, 3/3 journey hops walking — withheld by *our own* dead-link block over `/privacy` |
 | 44 | `failed` | 12 rendered, 0 crashed — withheld by a **false positive**: template links judged as bare paths |
 | 45 | `failed` | **6/6 judged, 12 rendered, 0 journey blocks** — and its own critic was right about three pages we then fixed. Also exposed the appspec hook strip emitted as adjacent JSX (build died) and a repair model holding one call open for **1040 s** before returning truncated output |
+| 46 | `failed` | the retire-verdicts fix worked *too* well — five of six pages repaired, so five verdicts retired and coverage collapsed to one page. Also `/contact#contact-form` judged as a dead link, and `seed.ops` injected as four strings against `seed.ops.items.slice(0,4).map(…)` |
+| 47 | **`ready`** — first pass since 40 | six of eight gallery cards were real close-up oil paintings. Still shipped: a truncated page from the *fix agent* (so `/artwork/1` served the home page), listing controls **below** the grid, `&copy; 2024` as literal text, and "Cta heading — Jeanne Kassab Art" — the last two mine |
 
 The progression is the point. 40's defects were invisible. 43's and 44's were the *gate* being
 wrong — visible, and therefore fixable. By 45 the instruments were sound enough that the pipeline's
 own critic found three real product defects and described each one accurately. That is the
 difference the session bought.
 
-**17 commits** on `chore/remove-preview-generator-v2` (`31afda1`…`69ebba2`),
-**suite 1047 passed / 0 failed**, `docs/KNOWN_TEST_FAILURES.md` empty.
+**26 commits** on `chore/remove-preview-generator-v2` (`31afda1`…`569ef40`),
+**suite 1065 passed / 0 failed**, `docs/KNOWN_TEST_FAILURES.md` empty.
+
+## The lesson request 47 taught, which is the one worth keeping
+
+Three of its defects were **mine**, and all three had the same shape: a guard I
+added to prevent a crash made the page worse than no guard at all.
+
+The clearest is `seed.showcase`. The home page read
+`seed.showcase?.length ? seed.showcase : [three real paintings]`. The seed guard saw
+an undefined key, invented a one-row stub, `?.length` became truthy — and displaced
+all three paintings. The page shipped a dark band with a heading over nothing. The
+guard was correct about the absence and wrong about what to do with it.
+
+So: **a repair has to be better than the thing it replaces, and that has to be
+checked, not assumed.** A key whose read already falls back to a literal with
+content is now left alone. An empty fallback (`?? []`) is still filled, because
+there the page genuinely has nothing. Same principle as the four write guards and
+the verdict retirement — the difference is that here the pipeline was overwriting
+*good* data, which no gate was ever going to catch.
 
 ## What request 45's critic saw, and what it cost
 
@@ -101,6 +121,12 @@ renames `src/pages/*.tsx` to canonical `*Page.tsx` and unlinks the original.
 
 # Where this stands
 
+Request 47 is the first `status=ready` since 40, and the first that is *close* to
+demo-grade: an editorial gallery with six real close-up oil paintings, coherent
+titles and prices, a working browse → detail → inquire path, and a footer wordmark
+that renders. The four defects it still shipped are fixed; request 48 is the run
+that tests them.
+
 ## What is now verified working, in a live run
 
 - **Visual review: 6/6 pages judged**, 0 lost (was 1 of 6). The Playwright sync API cannot be
@@ -118,31 +144,33 @@ renames `src/pages/*.tsx` to canonical `*Page.tsx` and unlinks the original.
 
 ## What is not
 
-1. **No clean `status=ready` run yet.** 43, 44 and 45 each failed on a *different* defect of ours,
-   every one now fixed. The next run is the first to carry the whole set.
-2. **Type errors are 15–24 per run before repair.** Session 3 cut the deterministic contributors
-   (below); what remains is mostly the model inventing props on ops pages. Note that request 44's
-   *shipped* count was only 5, four of them ours — the pre-repair number is the one to watch.
-3. **The refine critic scores four pages 0–60 and skips them** (`refine SKIPPED … left as-is`).
-   Honest, but it means those pages ship at their scaffold quality. Request 45's login page was one
-   of them, and it was genuinely unusable.
-4. **The gate's AI repair broke the build twice on request 45** ("rebuild after AI repair failed"),
-   so both attempts rolled back, and one repair response was unparseable JSON. The repair loop is
-   the weakest remaining link: it is asked to fix visual findings, which it is not well suited to.
-5. **The home page hero is a stock photo of someone painting** (scored 65, a warn). The item grid now
-   ranks people last; the *hero* deliberately does not, because for many businesses a person in the
-   hero is right. For a portfolio it probably is not. Unresolved judgement call.
+1. **Type errors are 16–26 per run before repair.** The *composition* keeps changing as each
+   deterministic cause is removed — TS2339×10 → TS7006×9 → TS2304×12 — and each wave has been a
+   real defect, so this number is a useful thermometer rather than noise. Request 44's *shipped*
+   count was 5; the pre-repair number is the one to watch.
+2. **The refine critic scores four pages 0–60 and skips them** (`refine SKIPPED … left as-is`).
+   Honest, but those pages ship at their scaffold quality. Request 45's login page was one of them,
+   and it was genuinely unusable.
+3. **The gate's AI repair is the weakest remaining link.** It broke the build twice on 45 and twice
+   on 47, and once returned unparseable JSON. It is asked to fix *visual* findings — "this page is
+   off-brief" — which is not a patch instruction. It also tried to create a new kit component
+   (`src/ui/QuantityAdjuster.tsx`), correctly refused, and then left a page importing something that
+   does not exist.
+4. **The home page hero is a stock photo of someone painting** (scored 65, a warn). The item grid
+   ranks people last and `card1` does too; the *hero* deliberately does not, because for many
+   businesses a person in the hero is right. For a portfolio it probably is not. Unresolved.
+5. **`/admin/paintings/1/edit` crashed the render smoke check** on 47 (`Cannot read properties of
+   undefined (reading 'trim')`). Ops surface, so recorded and not blocking — but it is a crash.
 
 ## Next steps, in order
 
-1. **Read request 46 end to end** — it is the first run carrying every fix. Check `journey_hops_ok`,
+1. **Read request 48 end to end** — the first run carrying all 26 commits. Check `journey_hops_ok`,
    `visual_review_status`, `render_pages_checked/crashed`, the tsc count, and every screenshot. The
-   gallery grid is the page to look at first: it is the one that has to say "wow".
-2. **The gate's AI repair loop** (item 4 above). A visual finding — "this page is off-brief" — is
-   not a patch instruction. Either give it the screenshot, or route visual findings to the composer
-   that owns the page rather than to a generic repair prompt.
-3. **The residual type errors** (item 2) are worth one focused pass now the deterministic ones are
-   gone.
+   gallery grid first: it is the page that has to say "wow", and it is close.
+2. **The gate's AI repair loop** (item 3). Either give it the screenshot, or route visual findings to
+   the composer that owns the page rather than to a generic repair prompt. Blocking a component write
+   it needed is also a dead end worth closing: refuse the *plan*, not just the write.
+3. **The residual type errors** (item 1) — one focused pass per wave, as each has been real.
 4. Carried forward, unchanged: listing-page headers clipped against the nav on `/gallery`; no
    deterministic contrast guard on hero legibility; AppSpec shadow authoring's three failure modes;
    `requests.py:303-314` reads a `preview_contract.status` key v1 never returns; `retry-generation`'s
@@ -194,6 +222,23 @@ page while the vision model wrote approvingly about its hero.
 the page it describes. The page becomes `unmeasured` — not a pass, not a permanent block. This is
 the same principle as the refine re-measurement, applied to the other writer.
 
+Retiring alone turned out to be half a fix: request 46 repaired five of six pages and finished with
+one verdict standing. `_run_visual_critique(only_components=…)` re-judges exactly the retired pages
+after the gate settles, so the verdicts describe the source that ships. A page whose route the pass
+cannot find stays `unmeasured` — clearing the list on the way past would turn "we could not judge
+these" into "there was nothing to judge".
+
+## No writer may replace parseable source with unparseable source
+
+Four AI writers can replace a page: slot-fill, refine, the build fix agent, and the gate's repair
+API. Slot-fill had checked its output since the start; the other three were added one at a time as
+each shipped a broken page — the fix agent last, after request 47 truncated a detail page mid-attribute
+so `dist/` kept an older bundle and `/artwork/1` quietly served the home page.
+`test_every_ai_writer_checks_that_its_output_parses` pins all four together.
+
+A failed rebuild after gate repair now rolls the repair back, so `evaluate_quality_gate` can never
+judge source that `dist/` was not built from.
+
 ## The gate must be right before it is allowed to block
 
 - `internal_hrefs` returns literals only; template bases go through `internal_href_prefixes` and are
@@ -234,6 +279,14 @@ saying exactly what was wrong.
 `ui/lib/KitImage.tsx` degrades to the brand gradient on a load error; all twelve `<img>`s in the
 public kit go through it. Every one already had a fallback for a missing `src` and none for a `src`
 that does not resolve, so one dead Pexels URL left a grey rectangle in request 45's gallery.
+
+## A page must be shaped for what it does
+
+`public-catalog` gained a `filters` slot, ordered before `showcase` in the skeleton and in all six
+recipe orders. Request 47's gallery put its search box *below* the grid and wrote `-mt-24` trying to
+drag it up: the affordance was missing, not misused. A recipe order owns the page face and drops
+slots it does not list, so a `filters` missing from one order is a filter bar that vanishes — hence
+the test that walks every recipe.
 
 ## An item photograph is of the thing being sold
 
