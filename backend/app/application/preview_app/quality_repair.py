@@ -20,7 +20,13 @@ from app.application.preview_app.protected_paths import (
 )
 from app.application.preview_app.source_quality import tsx_parse_error
 from app.application.preview_app.text_utils import _parse_json, _strip_fences
-from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.preview_app.workspace import (
+    list_source_files,
+    read_file,
+    restore_source,
+    snapshot_source,
+    write_file,
+)
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.infrastructure.logging import get_logger
@@ -138,8 +144,17 @@ def apply_repair_ops(
     ops: list[dict[str, Any]],
     architect: dict[str, Any] | None = None,
 ) -> list[str]:
-    """Apply structured ops: replace | write. Returns touched paths."""
+    """Apply structured ops: replace | write. Returns touched paths.
+
+    All or nothing. A plan's ops are written against each other: request 47's tried
+    to create `src/ui/QuantityAdjuster.tsx`, which is correctly refused as
+    template-owned — and the *other* ops in that plan had already imported it, so a
+    half-applied plan left a page referencing a component that does not exist and
+    cost a full `vite build` to find out. If any op is refused, the workspace goes
+    back to how the plan found it.
+    """
     api = RepairAPI(workspace, architect)
+    before = snapshot_source(Path(workspace))
     for raw in ops or []:
         if not isinstance(raw, dict):
             continue
@@ -158,7 +173,16 @@ def apply_repair_ops(
             else:
                 log.warning("quality repair: unknown op %s", op)
         except Exception as e:
-            log.warning("quality repair op failed (%s %s): %s", op, path, e)
+            log.warning(
+                "quality repair op failed (%s %s): %s — abandoning the whole plan, "
+                "its other %s op(s) were written against this one",
+                op,
+                path,
+                e,
+                max(0, len(ops or []) - 1),
+            )
+            restore_source(Path(workspace), before)
+            return []
     return api.touched
 
 

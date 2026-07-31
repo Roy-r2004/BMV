@@ -1812,6 +1812,52 @@ def test_the_gate_repair_cannot_write_source_that_does_not_parse(tmp_path: Path)
     assert api.touched == ["src/pages/GalleryPage.tsx"]
 
 
+def test_a_repair_plan_is_all_or_nothing(tmp_path: Path) -> None:
+    """Request 47's plan tried to create `src/ui/QuantityAdjuster.tsx`.
+
+    That is correctly refused as template-owned — but the plan's *other* ops had
+    already imported it, so a half-applied plan left a page referencing a component
+    that does not exist, and cost a full `vite build` to discover.
+    """
+    from app.application.preview_app.quality_repair import apply_repair_ops
+
+    page = tmp_path / "src/pages/CartPage.tsx"
+    page.parent.mkdir(parents=True)
+    original = "export default function CartPage() {\n  return <main>cart</main>;\n}\n"
+    page.write_text(original, encoding="utf-8")
+    (tmp_path / "src/ui").mkdir(parents=True)
+
+    # The live trigger was a template-owned path; any refusal has to behave the
+    # same way, so this uses one that holds in a bare workspace.
+    touched = apply_repair_ops(
+        tmp_path,
+        [
+            {
+                "op": "write",
+                "path": "src/pages/CartPage.tsx",
+                "content": "import { QuantityAdjuster } from '@/ui';\n"
+                "export default function CartPage() { return <QuantityAdjuster />; }\n",
+            },
+            {"op": "write", "path": "../../escaped.tsx", "content": "export const x = 1;\n"},
+        ],
+        {"routes": [], "files_to_generate": []},
+    )
+
+    assert touched == [], "a plan with a refused op must report nothing applied"
+    assert page.read_text(encoding="utf-8") == original, (
+        "the page must not be left importing a component the plan could not create"
+    )
+
+    # A plan whose every op lands is applied normally.
+    ok = apply_repair_ops(
+        tmp_path,
+        [{"op": "write", "path": "src/pages/CartPage.tsx", "content": original.replace("cart", "basket")}],
+        {"routes": [], "files_to_generate": []},
+    )
+    assert ok == ["src/pages/CartPage.tsx"]
+    assert "basket" in page.read_text(encoding="utf-8")
+
+
 def test_a_repaired_page_does_not_keep_the_verdict_of_the_page_it_replaced(
     tmp_path: Path,
 ) -> None:
