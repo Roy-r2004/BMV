@@ -24,14 +24,15 @@ previews and inspecting them:
 | 45 | `failed` | **6/6 judged, 12 rendered, 0 journey blocks** — and its own critic was right about three pages we then fixed. Also exposed the appspec hook strip emitted as adjacent JSX (build died) and a repair model holding one call open for **1040 s** before returning truncated output |
 | 46 | `failed` | the retire-verdicts fix worked *too* well — five of six pages repaired, so five verdicts retired and coverage collapsed to one page. Also `/contact#contact-form` judged as a dead link, and `seed.ops` injected as four strings against `seed.ops.items.slice(0,4).map(…)` |
 | 47 | **`ready`** — first pass since 40 | six of eight gallery cards were real close-up oil paintings. Still shipped: a truncated page from the *fix agent* (so `/artwork/1` served the home page), listing controls **below** the grid, `&copy; 2024` as literal text, and "Cta heading — Jeanne Kassab Art" — the last two mine |
+| 48 | **in flight at handoff** | **5 initial type errors** (TS2322×2, TS2552×2, TS2353×1) against 26 on 47, 16 on 46, 15 on 45. Nothing else read yet — see [Next steps](#next-steps-in-order) |
 
 The progression is the point. 40's defects were invisible. 43's and 44's were the *gate* being
 wrong — visible, and therefore fixable. By 45 the instruments were sound enough that the pipeline's
 own critic found three real product defects and described each one accurately. That is the
 difference the session bought.
 
-**26 commits** on `chore/remove-preview-generator-v2` (`31afda1`…`569ef40`),
-**suite 1065 passed / 0 failed**, `docs/KNOWN_TEST_FAILURES.md` empty.
+**29 commits** on `chore/remove-preview-generator-v2` (`31afda1`…`2b71943`),
+**suite 1067 passed / 0 failed**, `docs/KNOWN_TEST_FAILURES.md` empty, working tree clean.
 
 ## The lesson request 47 taught, which is the one worth keeping
 
@@ -164,13 +165,39 @@ that tests them.
 
 ## Next steps, in order
 
-1. **Read request 48 end to end** — the first run carrying all 26 commits. Check `journey_hops_ok`,
-   `visual_review_status`, `render_pages_checked/crashed`, the tsc count, and every screenshot. The
-   gallery grid first: it is the page that has to say "wow", and it is close.
-2. **The gate's AI repair loop** (item 3). Either give it the screenshot, or route visual findings to
-   the composer that owns the page rather than to a generic repair prompt. Blocking a component write
-   it needed is also a dead end worth closing: refuse the *plan*, not just the write.
-3. **The residual type errors** (item 1) — one focused pass per wave, as each has been real.
+**Start here.** Request 48 was mid-fix-loop when this session ended. Its initial typecheck was
+**5 errors** — a real step down from 26/16/15 on the three runs before it. Read it end to end:
+
+```bash
+docker compose logs api --since 90m 2>&1 | grep -viE "urllib3|AIRetry|GET /api" \
+  | grep -iE "quality gate|journey|visual critic|render smoke|retired|re-measur|OK Preview|not marking"
+docker compose exec -T api sh -c 'cd /app/data/preview-apps/48 && \
+  ./node_modules/.bin/tsc --noEmit -p tsconfig.app.json'
+docker compose exec -T api python -c "import json; \
+  d=json.load(open('/app/data/preview-apps/48/_bmv_visual_critique.json')); \
+  print(d['review_status'], d['scores'], d['unmeasured'])"
+QA_OUT_DIR=/tmp/qa48 scripts/preview-qa.sh 48 qa48
+```
+
+Then **look at the screenshots** — `/tmp/qa48/gallery.png` first. That is the page that has to say
+"wow", and on 47 it was close: six real close-up oil paintings, coherent titles and prices. Four
+things were fixed after it and none are verified live yet:
+
+- the two grey placeholder cards (now a brand-tinted crop);
+- the listing controls, which sat below the grid (now a `filters` slot ordered above it);
+- `&copy; 2024` shipping as literal text;
+- "Cta heading — Jeanne Kassab Art" shipping as body copy.
+
+After that, in order:
+
+1. **The gate's AI repair loop** — the weakest remaining link. It broke the build on 45 and 47, and
+   returned unparseable JSON once. A visual finding ("this page is off-brief") is not a patch
+   instruction: either give the repair the screenshot, or route visual findings to the composer that
+   owns the page. Rollback and all-or-nothing plans now contain the damage; they do not fix the cause.
+2. **The residual type errors** — one focused pass per wave. Each wave so far has been a real defect
+   with a deterministic fix, and the composition keeps changing as each cause is removed.
+3. **Two pages per run come back "no usable verdict"** from the vision model. Nobody has looked at a
+   raw response yet.
 4. Carried forward, unchanged: listing-page headers clipped against the nav on `/gallery`; no
    deterministic contrast guard on hero legibility; AppSpec shadow authoring's three failure modes;
    `requests.py:303-314` reads a `preview_contract.status` key v1 never returns; `retry-generation`'s
@@ -310,9 +337,24 @@ plain background" is gone from the framing: it asked for product mockups.
 had returned untouched, both of which then failed the build. `assemble.py` stops minting
 `parent/:id` under an already-parameterised parent (`/admin/artworks/:id/:id` bound one name twice).
 
+## Damage containment, when a cause cannot be removed
+
+The gate's AI repair is a model, and models write bad patches. Three layers now bound what one can
+cost: a plan is **all or nothing** (a refused op restores the workspace, because a plan's ops are
+written against each other), a **failed rebuild rolls the repair back** (so the gate can never judge
+source `dist/` was not built from), and every writer **checks that its output parses**. None of these
+make the repair better; they stop a bad one from reaching a demo.
+
 ## Tests
 
-`backend/tests/preview_app/test_request_40_defects.py` (~58 cases) covers every fix above, each named
-for the defect it prevents and documenting the run that shipped it.
-`backend/tests/infrastructure/ai_providers/test_retry_wall_clock.py` covers the deadline.
+`backend/tests/preview_app/test_request_40_defects.py` (~85 cases) covers every fix above, each named
+for the defect it prevents and documenting the run that shipped it. Notable ones that pin *sets*
+rather than single behaviours:
+
+- `test_every_ai_writer_checks_that_its_output_parses` — all four writers, one place.
+- `test_every_catalog_recipe_orders_the_controls_before_the_grid` — walks all six recipes.
+- `test_a_shell_cannot_be_crashed_by_the_data_it_is_handed` — the crashes that take a whole page.
+- `test_a_stub_never_displaces_content_the_page_already_had` — the lesson above, executable.
+
+`backend/tests/infrastructure/ai_providers/test_retry_wall_clock.py` covers the wall-clock deadline.
 `docs/KNOWN_TEST_FAILURES.md` is empty and should stay that way.
