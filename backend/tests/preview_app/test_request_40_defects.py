@@ -956,3 +956,59 @@ def test_the_smoke_check_walks_public_routes_first_and_resolves_params() -> None
 
     assert [r[0] for r in routes] == ["/gallery/1", "/", "/owner/dashboard"]
     assert [r[2] for r in routes] == ["public", "public", "ops"]
+
+
+# --------------------------------------------------------------------------- #
+# a fix model that failed is not asked again in the same run
+# --------------------------------------------------------------------------- #
+
+def test_a_failed_fix_model_is_skipped_for_the_rest_of_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`FIX_MODEL` failed on every run observed: unparseable JSON (39), truncated
+    output after 230s (40), truncated again (42). The fallback then did the work.
+    Paying that charge once per process instead of once per round is most of why
+    request 40's typecheck repair took 6m10s of a 13m28s run.
+    """
+    import app.application.preview_app.codegen.fix_agent as fa
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "FIX_MODEL", "slow/model")
+    monkeypatch.setattr(settings, "PREVIEW_APP_MODEL", "fast/model")
+    monkeypatch.setattr(settings, "TEXT_MODEL", "fast/model")
+    monkeypatch.setattr(fa, "_FAILED_FIX_MODELS", set())
+
+    asked: list[str] = []
+
+    class _AI:
+        def ask_chat(self, model, _messages, **_kw):
+            asked.append(model)
+            if model == "slow/model":
+                raise RuntimeError("Provider output was truncated.")
+            return '{"files": []}'
+
+    ai = _AI()
+    assert fa._ask_fix_model(ai, "round one")
+    assert fa._ask_fix_model(ai, "round two")
+
+    assert asked.count("slow/model") == 1, f"the failing model was re-asked: {asked}"
+    assert asked.count("fast/model") == 2
+
+
+def test_every_model_failing_still_falls_back_to_the_full_chain(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skipping must never leave the chain empty — an outage may have ended."""
+    import app.application.preview_app.codegen.fix_agent as fa
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "FIX_MODEL", "a/model")
+    monkeypatch.setattr(settings, "PREVIEW_APP_MODEL", "b/model")
+    monkeypatch.setattr(settings, "TEXT_MODEL", "c/model")
+    monkeypatch.setattr(fa, "_FAILED_FIX_MODELS", {"a/model", "b/model", "c/model"})
+
+    asked: list[str] = []
+
+    class _AI:
+        def ask_chat(self, model, _messages, **_kw):
+            asked.append(model)
+            return '{"files": []}'
+
+    assert fa._ask_fix_model(_AI(), "prompt")
+    assert asked == ["a/model"], f"the chain must still be tried, got {asked}"

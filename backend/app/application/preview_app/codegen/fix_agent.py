@@ -130,17 +130,39 @@ def _fix_prompt_inputs(
     return files_content, file_tree
 
 
+#: Models that failed on this worker, so a repair loop stops re-paying for them.
+#: Not persisted: a provider outage is per-run, and a fresh request should try the
+#: configured model again.
+_FAILED_FIX_MODELS: set[str] = set()
+
+
 def _ask_fix_model(ai_provider: AIProvider, prompt_text: str) -> str:
-    for model in (settings.FIX_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL):
+    """Ask the fix chain, skipping models that already failed this process.
+
+    `FIX_MODEL` failed on every observed run: request 39 returned unparseable
+    JSON, request 40 spent 230s and came back `Provider output was truncated`, and
+    request 42 did it again a round later. Each failure is a wall-clock charge
+    before the fallback does the actual work — the typecheck repair took 6m10s of
+    request 40's 13m28s and landed nothing. Remembering the failure inside a run
+    turns three of those into one.
+    """
+    chain = [settings.FIX_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL]
+    ordered = [m for m in chain if m and m not in _FAILED_FIX_MODELS] or [
+        m for m in chain if m
+    ]
+    for model in ordered:
         try:
             raw = ai_provider.ask_chat(
                 model, [{"role": "user", "content": prompt_text}], max_tokens=16000,
             )
         except Exception as e:
             fix_log.warning("fix agent model %s failed: %s", model, e)
+            _FAILED_FIX_MODELS.add(model)
             continue
         if raw and str(raw).strip():
             return str(raw)
+        fix_log.warning("fix agent model %s returned nothing", model)
+        _FAILED_FIX_MODELS.add(model)
     return ""
 
 

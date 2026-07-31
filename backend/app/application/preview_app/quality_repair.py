@@ -287,9 +287,16 @@ Rules:
     )
 
     def _ask(text: str) -> str:
-        for model in models:
-            if not model:
-                continue
+        # Same rule as the build fix agent: a model that already failed in this
+        # process is not asked again. The configured primary has taken minutes per
+        # attempt to return truncated output on every run observed so far, and the
+        # gate repair gets two attempts, so the charge was paid twice per request.
+        from app.application.preview_app.codegen.fix_agent import _FAILED_FIX_MODELS
+
+        candidates = [m for m in models if m and m not in _FAILED_FIX_MODELS] or [
+            m for m in models if m
+        ]
+        for model in candidates:
             try:
                 raw = ai_provider.ask_chat(
                     model,
@@ -298,9 +305,12 @@ Rules:
                 )
             except Exception as e:
                 log.warning("quality repair model %s failed: %s", model, e)
+                _FAILED_FIX_MODELS.add(model)
                 continue
             if raw and str(raw).strip():
                 return str(raw)
+            log.warning("quality repair model %s returned nothing", model)
+            _FAILED_FIX_MODELS.add(model)
         return ""
 
     raw = _ask(prompt)
