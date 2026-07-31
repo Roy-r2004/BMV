@@ -91,7 +91,10 @@ def test_component_prop_shape_resolves_one_hop_of_indirection():
     assert hero["types"]["MarketingCta"] == "{ label: string; href: string }"
 
     assert "target" not in component_prop_shape("Button")["props"]
-    assert "children" not in component_prop_shape("MarketingHero")["props"]
+    assert "badge" not in component_prop_shape("MarketingHero")["props"]
+    # The hero does take overlay children — a detail page composes a
+    # "Back to the collection" chip into it — and the shape must say so.
+    assert "children?: React.ReactNode" in hero["props"]
     assert "name" not in component_prop_shape("TestimonialRail")["types"]["TestimonialRailItem"]
 
 

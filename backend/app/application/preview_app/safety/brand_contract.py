@@ -285,20 +285,32 @@ def _default_brand_top_value(
         }
     return name if key in {"name", "brand_name", "owner_name"} else {}
 
+def _brand_key_re(key: str) -> str:
+    """Match `key:` whether or not the key is quoted.
+
+    `assemble.py` writes brand with `json.dumps`, so every original key arrives
+    as `"name":`. A regex anchored on `[,{\\s]` sees the opening quote instead of
+    a delimiter and reports the key missing — so request 44 appended a second
+    `name` and a second `tagline` to an object that already had both (TS1117),
+    and the `tagline` it invented was `{}`, which `PublicLayout` then rendered as
+    a ReactNode (TS2322).
+    """
+    k = re.escape(key)
+    return rf"""(?:^|[,{{\s])['"]?{k}['"]?\s*:"""
+
+
 def _brand_has_top_key(body: str, key: str) -> bool:
-    return re.search(rf"(?:^|[,{{\s]){re.escape(key)}\s*:", body) is not None
+    return re.search(_brand_key_re(key), body) is not None
 
 def _find_brand_prop_span(body: str, key: str) -> tuple[int, int] | None:
     """Return [value_start, value_end) for a top-level `key:` inside brand body."""
-    m = re.search(rf"(?:^|[,{{\s])({re.escape(key)}\s*:)", body)
+    pattern = _brand_key_re(key)
+    m = re.search(pattern, body)
     if not m:
-        m = re.search(rf"(?:^|\n)\s*({re.escape(key)}\s*:)", body)
+        m = re.search(rf"""(?:^|\n)\s*['"]?{re.escape(key)}['"]?\s*:""", body)
     if not m:
         return None
-    key_match = re.search(rf"{re.escape(key)}\s*:", body[m.start() :])
-    if not key_match:
-        return None
-    val_start = m.start() + key_match.end()
+    val_start = m.end()
     while val_start < len(body) and body[val_start] in " \t\n\r":
         val_start += 1
     if val_start >= len(body):
@@ -410,7 +422,7 @@ def _inject_object_fields(obj_src: str, fields: set[str], brand_name: str, prima
     """Add missing keys into a TS object literal `{ ... }` — never removes existing keys."""
     if not obj_src.strip().startswith("{"):
         return obj_src
-    missing = [f for f in sorted(fields) if not re.search(rf"(?:^|[,{{\s]){re.escape(f)}\s*:", obj_src)]
+    missing = [f for f in sorted(fields) if not re.search(_brand_key_re(f), obj_src)]
     if not missing:
         return obj_src
     pieces = [
@@ -707,7 +719,7 @@ def ensure_brand_shape(
     # sealed brand (display font, radius, recipe tokens) was silently replaced by
     # this generic patch. `tsc` reported it as TS1117 on request 40 and nothing
     # read that. `_fill_design_system_gaps` patches inside the existing object.
-    has_ds = bool(re.search(r"\bdesign_system\s*:", body))
+    has_ds = _brand_has_top_key(body, "design_system")
     needs_ds = not has_ds
     filled_ds = False
     if has_ds:

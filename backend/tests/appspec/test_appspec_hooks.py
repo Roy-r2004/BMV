@@ -25,6 +25,7 @@ from app.application.appspec.workspace_validation import (  # noqa: E402
 from app.application.preview_app.catalogue_contract.scaffold import (  # noqa: E402
     minimal_catalogue_page_scaffold,
 )
+from app.application.preview_app.source_quality import tsx_parse_error  # noqa: E402
 from app.domain.schemas.app_spec import AppSpec  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "app_spec" / "valid_booking.json"
@@ -195,6 +196,52 @@ def test_ensure_workspace_hooks_heals_missing_attrs() -> None:
         assert validate_app_spec_workspace(workspace, spec, scope, architecture) == []
 
 
+def test_injected_strip_is_never_a_second_jsx_root() -> None:
+    """Request 45: the strip landed beside `<PublicShell>` and rolldown refused it.
+
+    `Adjacent JSX elements must be wrapped in an enclosing tag` failed the build
+    for all twelve pages because one AI rewrite had dropped the page attribute.
+    """
+    source = """
+export default function LoginPage() {
+  const slots = { hero: (<div>Hi</div>) };
+  return (
+    <PublicShell brandName={"Studio"} chrome="solid">
+      <SkeletonComposer slots={slots} />
+    </PublicShell>
+  );
+}
+"""
+    out = inject_appspec_contract_hooks(source, page_id="cms-login")
+
+    assert 'data-appspec-page="cms-login"' in out
+    assert out.count("return (") == 1
+    # The strip and the shell must share one enclosing tag.
+    body = out[out.index("return (") : out.index("</PublicShell>")]
+    assert "<>" in body, f"strip was emitted as a second root:\n{out}"
+    assert body.index("<>") < body.index("data-appspec-page")
+    assert tsx_parse_error(out) == ""
+
+
+def test_injecting_into_an_existing_fragment_does_not_double_wrap() -> None:
+    source = """
+export default function Page() {
+  return (
+    <>
+      <Header />
+      <main>Body</main>
+    </>
+  );
+}
+"""
+    out = inject_appspec_contract_hooks(source, page_id="PAGE-X")
+
+    assert 'data-appspec-page="PAGE-X"' in out
+    assert out.count("<>") == 1
+    assert out.index("data-appspec-page") < out.index("<Header />")
+    assert tsx_parse_error(out) == ""
+
+
 def main() -> None:
     test_inject_hooks_into_bare_page()
     test_inject_hooks_into_bare_jsx_return_is_reachable()
@@ -203,7 +250,9 @@ def main() -> None:
     test_page_hooks_present_requires_attr_binding()
     test_scaffold_includes_appspec_hooks_from_route()
     test_ensure_workspace_hooks_heals_missing_attrs()
-    print("AppSpec hooks tests passed (7 tests)")
+    test_injected_strip_is_never_a_second_jsx_root()
+    test_injecting_into_an_existing_fragment_does_not_double_wrap()
+    print("AppSpec hooks tests passed (9 tests)")
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ a `journey_dead_link_offpath` warning — and no reader that could stop a demo.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import threading
 from pathlib import Path
@@ -488,6 +489,30 @@ def test_completing_the_design_system_is_idempotent(tmp_path: Path) -> None:
 
     assert twice == once
     assert twice.count("primary_color") == 1
+
+
+def test_a_json_quoted_brand_key_counts_as_present(tmp_path: Path) -> None:
+    """`assemble.py` writes brand with `json.dumps`, so keys arrive quoted.
+
+    Request 44 appended a second `name` and a second `tagline` to an object that
+    already had both — TS1117 twice — and the `tagline` it invented was `{}`,
+    which `PublicLayout` then handed to React as a child (TS2322).
+    """
+    (tmp_path / "src/data").mkdir(parents=True)
+    (tmp_path / "src/data/mock.ts").write_text(
+        'export const brand = {"name": "Jeanne Kassab Art", "tagline": "Layered oils"};\n',
+        encoding="utf-8",
+    )
+
+    ensure_brand_shape(tmp_path, "Jeanne Kassab Art", "#0f172a", "#0369a1", "Fraunces")
+    mock = (tmp_path / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    # A duplicate is appended as its own top-level line inside the object.
+    appended = re.findall(r"(?m)^\s+(name|tagline)\s*:", mock)
+    assert appended == [], f"a key that already existed was appended: {appended}\n{mock}"
+    assert '"name": "Jeanne Kassab Art"' in mock
+    assert "Layered oils" in mock, "the real tagline must survive"
+    assert "tagline: {}" not in mock
 
 
 # --------------------------------------------------------------------------- #
@@ -1144,6 +1169,84 @@ def test_a_surface_root_does_not_mint_a_catch_all_param_route(tmp_path: Path) ->
     assert "/owner/:id" not in routes, f"a catch-all under the surface root: {sorted(routes)}"
     assert "/owner/:slug" not in routes
     assert "/owner/dashboard" in routes
+
+
+def test_an_already_parameterised_parent_does_not_take_a_second_param(tmp_path: Path) -> None:
+    """`/admin/artworks/:id/edit` minted `/admin/artworks/:id/:id`.
+
+    Two segments binding the same name is not a wildcard — React Router keeps the
+    last, so the record id the edit page reads was the trailing segment's value.
+    """
+    architect = {
+        "routes": [
+            {"path": path, "component_file": f"src/pages/admin/{component}.tsx",
+             "component": component, "surface": "ops"}
+            for path, component in [
+                ("/admin/artworks", "ArtworkListPage"),
+                ("/admin/artworks/:id", "ArtworkDetailPage"),
+                ("/admin/artworks/:id/edit", "ArtworkEditPage"),
+            ]
+        ],
+        "files_to_generate": [],
+        "roles": [],
+    }
+
+    routes = _routes_in_app_tsx(architect, tmp_path)
+
+    doubled = [r for r in routes if r.count(":") > 1]
+    assert not doubled, f"a route binds one name twice: {doubled}"
+    assert "/admin/artworks/:id" in routes
+    assert "/admin/artworks/:id/edit" in routes
+
+
+class _FixedAI:
+    def __init__(self, response: str) -> None:
+        self.response = response
+
+    def ask_chat(self, _model, _messages, **_kwargs):
+        return self.response
+
+
+def test_a_refine_that_does_not_parse_keeps_the_previous_page(tmp_path: Path) -> None:
+    """Request 45's second pass on LoginPage wrote adjacent JSX.
+
+    Slot-fill has rejected unparseable answers since the start; refine wrote them
+    straight to disk, and one bad page failed the vite build for all twelve.
+    """
+    from app.application.preview_app.codegen.critic import refine_file
+    from app.application.preview_app.source_quality import tsx_parse_error
+
+    broken = (
+        "export default function GalleryPage() {\n"
+        "  return (\n"
+        "    <div className=\"contents\" />\n"
+        "    <main>Gallery</main>\n"
+        "  );\n"
+        "}\n"
+    )
+    if not tsx_parse_error(broken):
+        pytest.skip("the TypeScript parser is unavailable in this environment")
+
+    good = "export default function GalleryPage() {\n  return <main>Gallery</main>;\n}\n"
+    page = tmp_path / "src/pages/GalleryPage.tsx"
+    page.parent.mkdir(parents=True)
+    page.write_text(good, encoding="utf-8")
+
+    returned = refine_file(
+        tmp_path,
+        "src/pages/GalleryPage.tsx",
+        "Gallery listing",
+        "Tighten the spacing",
+        "business context",
+        {"brand": {"name": "Jeanne Kassab Art"}},
+        {},
+        _FixedAI(broken),
+        get_template_renderer(),
+        architect={"routes": [], "files_to_generate": []},
+    )
+
+    assert tsx_parse_error(returned) == "", "an unparseable rewrite was accepted"
+    assert page.read_text(encoding="utf-8") == good
 
 
 def test_page_header_actions_accept_the_button_vocabulary() -> None:

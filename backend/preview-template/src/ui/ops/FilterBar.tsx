@@ -12,6 +12,12 @@ export interface FilterBarFilter {
   onSelect?: () => void;
   /** Accepted as an alias for onSelect since generated pages commonly use onClick. */
   onClick?: () => void;
+  /**
+   * A control to render in place of the chip — codegen reaches for
+   * `{ label: 'Status', render: <Select ... /> }` when the filter is a dropdown
+   * rather than a toggle. Rendered with the label as its accessible name.
+   */
+  render?: React.ReactNode;
 }
 
 export interface FilterBarAction {
@@ -92,6 +98,18 @@ export function FilterBar({
             }
             const chip = filter as FilterBarFilter;
             const key = chip.id ?? chip.value ?? `${chip.label}-${index}`;
+            if (chip.render) {
+              return (
+                <div key={key} className="flex items-center gap-2">
+                  {chip.label ? (
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                      {chip.label}
+                    </span>
+                  ) : null}
+                  {chip.render}
+                </div>
+              );
+            }
             return (
               <button
                 key={key}

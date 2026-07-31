@@ -25,7 +25,7 @@ from app.application.preview_app.fallback import (
 )
 from app.application.preview_app.parallel import parallel_map
 from app.application.preview_app.protected_paths import is_template_owned_path, safe_source_path
-from app.application.preview_app.source_quality import looks_truncated_source
+from app.application.preview_app.source_quality import looks_truncated_source, tsx_parse_error
 from app.application.preview_app.utility_compositor import is_utility_catalogue_route
 from app.application.preview_app.workspace import read_file, write_file
 from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
@@ -315,6 +315,19 @@ def refine_file(
             )
         ):
             cg_log.warning("refine rejected — keeping pre-refine %s", file_path)
+            content = current
+    # A rewrite that does not parse must never replace source that did. The
+    # slot-fill path has checked this since the start; refine did not, so
+    # request 45's second pass on LoginPage wrote adjacent JSX and killed the
+    # build for all twelve pages.
+    if content != current:
+        parse_error = tsx_parse_error(content)
+        if parse_error and not tsx_parse_error(current):
+            cg_log.warning(
+                "refine rejected — %s does not parse (%s); keeping pre-refine source",
+                file_path,
+                parse_error,
+            )
             content = current
     content, replaced = enforce_catalogue_page_contract(
         file_path,

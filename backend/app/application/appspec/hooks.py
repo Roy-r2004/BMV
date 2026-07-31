@@ -101,6 +101,32 @@ def _statement_semicolon_end(text: str, expr_start: int) -> int | None:
     return None
 
 
+def _matching_paren(text: str, open_index: int) -> int | None:
+    """Index of the `)` closing the `(` at open_index, ignoring strings."""
+    depth = 0
+    in_str: str | None = None
+    escape = False
+    for i in range(open_index, len(text)):
+        ch = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == in_str:
+                in_str = None
+            continue
+        if ch in {'"', "'", "`"}:
+            in_str = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return None
+
+
 def _find_bare_jsx_return(text: str, search_from: int) -> tuple[int, int, int] | None:
     """Locate `return <jsx…>;` → (return_kw_start, jsx_start, semicolon_index)."""
     region = text[search_from:]
@@ -146,12 +172,24 @@ def inject_appspec_contract_hooks(
     strip = _hook_strip(page_id=page_id, action_ids=actions, evidence_ids=evidences)
     search_from = default_export_search_from(text)
 
-    # Prefer injecting immediately after `return (` inside the default export.
+    # Prefer injecting into the `return ( … )` of the default export — as a
+    # *sibling inside a fragment*, never as a bare second root. Inserting the
+    # strip straight after `return (` left request 45's LoginPage with
+    # `<div/>` followed by `<PublicShell>`, and rolldown refuses adjacent JSX:
+    # the whole preview build died on one page's missing attribute.
     marker = "return ("
     idx = text.find(marker, search_from)
     if idx >= 0:
-        insert_at = idx + len(marker)
-        return text[:insert_at] + "\n" + strip + text[insert_at:]
+        open_paren = idx + len(marker) - 1
+        close_paren = _matching_paren(text, open_paren)
+        if close_paren is not None:
+            expr = text[open_paren + 1 : close_paren].strip()
+            if expr.startswith("<>") and expr.endswith("</>"):
+                # Already a fragment — the strip is just one more child.
+                inner_at = open_paren + 1 + text[open_paren + 1 :].index("<>") + 2
+                return text[:inner_at] + "\n" + strip + text[inner_at:]
+            wrapped = f"\n    <>\n{strip}\n      {expr}\n    </>\n  "
+            return text[: open_paren + 1] + wrapped + text[close_paren:]
 
     # Bare `return <jsx…>;` — wrap so the strip is a sibling in the same tree.
     bare = _find_bare_jsx_return(text, search_from)

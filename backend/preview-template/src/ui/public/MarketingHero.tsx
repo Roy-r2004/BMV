@@ -1,3 +1,5 @@
+import * as React from 'react';
+
 import { Button } from '../core/Button';
 import { AnimeHeroItem } from '../motion';
 import { cn } from '../lib/cn';
@@ -30,11 +32,29 @@ export interface MarketingHeroProps {
   eyebrow?: string;
   variant?: MarketingHeroVariant;
   className?: string;
+  /**
+   * Overlay content — a detail page's "Back to the collection" chip, a badge,
+   * a price tag. Rendered as a sibling of the hero section inside a positioned
+   * wrapper, so the `absolute top-6 left-6` codegen writes for it lands over the
+   * artwork instead of over whatever section happens to be above.
+   */
+  children?: React.ReactNode;
 }
 
 const DEFAULT_PRIMARY_CTA: MarketingCta = { label: 'Explore', href: '/gallery' };
 
-export function MarketingHero({
+export function MarketingHero({ children, ...props }: MarketingHeroProps) {
+  const hero = <MarketingHeroBody {...props} />;
+  if (!children) return hero;
+  return (
+    <div className="relative">
+      {hero}
+      {children}
+    </div>
+  );
+}
+
+function MarketingHeroBody({
   brandName,
   className,
   eyebrow,
@@ -45,7 +65,7 @@ export function MarketingHero({
   secondaryCta,
   subcopy,
   variant: _variant,
-}: MarketingHeroProps) {
+}: Omit<MarketingHeroProps, 'children'>) {
   const safe = useMotionSafe();
   const recipeId = currentRecipeId();
   // Recipe owns hero composition — codegen cannot collapse every business to one layout.

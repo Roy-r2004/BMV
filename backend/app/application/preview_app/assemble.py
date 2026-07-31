@@ -904,6 +904,14 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
                 # manager purely because `artworks` looked detail-ish.
                 if parent_key in _SURFACE_ROOTS:
                     detailish = False
+                # A parent that is already parameterised cannot take another
+                # param. `/admin/artworks/:id/edit` minted
+                # `/admin/artworks/:id/:id` — a route whose two segments bind
+                # the same name, so React Router keeps only the last and the
+                # record id is lost. The sibling to alias here is the parent
+                # itself, which is already declared.
+                if ":" in parent_key:
+                    detailish = False
                 if detailish and parent_key not in ("", "/"):
                     for alias in (f"{parent}/:id", f"{parent}/:slug"):
                         priority = 2 if _is_record_component(leaf, comp) else 1
