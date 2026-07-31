@@ -1200,3 +1200,43 @@ def test_other_utility_faces_are_unchanged() -> None:
     assert infer_utility_workspace_type("/account", "Your account", "") == "account"
     assert infer_utility_workspace_type("/thank-you", "Thanks", "") == "confirmation"
     assert infer_utility_workspace_type("/legal", "Legal", "") == "generic"
+
+
+def test_the_item_pool_query_asks_for_the_product_not_its_environment() -> None:
+    """Request 41's grid showed an artist at an easel for three of six pieces.
+
+    The vision critic blocked the page for it: "all of the artwork catalog images
+    show people painting rather than the finished artworks". Item photos are the
+    thing being sold, so their query drops the brand (noise in a stock index) and
+    the category hint, whose environment words are what pulled people in.
+    """
+    from app.application.services.industry_images import (
+        _ITEM_POOL_SLOT,
+        _slot_queries,
+    )
+
+    queries = _slot_queries(
+        "Jeanne Kassab Art",
+        "Fine art gallery · original oil paintings · artist portfolio",
+        {"card1": "product detail"},
+    )
+    item_query = queries[_ITEM_POOL_SLOT]
+
+    assert "oil paintings" in item_query, "the brief's own nouns must lead"
+    assert "product detail close up" in item_query
+    assert "Jeanne Kassab Art" not in item_query, "brand names are stock-search noise"
+    assert "studio" not in item_query, "the environment hint is what returned people"
+
+
+def test_the_item_pool_key_never_reaches_the_image_map() -> None:
+    """`_items` is a query key, not a slot a page could read."""
+    from app.application.services.industry_images import (
+        _ITEM_POOL_SLOT,
+        _ITEM_SLOTS,
+        normalize_image_slot_map,
+    )
+
+    slots = normalize_image_slot_map({"hero": "https://images.pexels.com/photos/1/a.jpeg"})
+
+    assert _ITEM_POOL_SLOT not in slots
+    assert set(_ITEM_SLOTS) <= set(slots)

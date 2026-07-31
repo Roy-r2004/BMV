@@ -136,6 +136,9 @@ _SLOTS = ("hero", "hero2", "card1", "card2", "card3", "ambient")
 # already paid for, so this costs at most one extra request.
 _ITEM_SLOT_COUNT = 8
 _ITEM_SLOTS = tuple(f"item{i}" for i in range(1, _ITEM_SLOT_COUNT + 1))
+#: Internal query key for the item pool — never a slot in the returned map.
+_ITEM_POOL_SLOT = "_items"
+_ITEM_POOL_FRAMING = "product detail close up on plain background"
 
 _SLOT_QUERY_SUFFIX: dict[str, str] = {
     "hero": "hero lifestyle wide",
@@ -343,6 +346,13 @@ def _slot_queries(
     }
     queries: dict[str, str] = {}
     industry_head = _clip_words(industry_clean, _MAX_INDUSTRY_QUERY_WORDS)
+    # Catalogue items are the *thing being sold*, so their query carries neither the
+    # brand (noise in a stock-photo index) nor the category hint, whose environment
+    # words are what pulled people into the grid: `art gallery painting studio` on
+    # request 41 returned an artist at an easel for three of six pieces, and the
+    # vision critic blocked the page for exactly that — "all of the artwork catalog
+    # images show people painting rather than the finished artworks".
+    queries[_ITEM_POOL_SLOT] = _compose_query(industry_head, _ITEM_POOL_FRAMING)
     for slot in _SLOTS:
         role = roles.get(slot)
         if role:
@@ -469,7 +479,10 @@ def _item_slot_urls(
     if len(spare) < _ITEM_SLOT_COUNT:
         try:
             for photo in _search_pexels(
-                api_key, queries.get("card1") or "", page=(seed_n % 3) + 1, per_page=16
+                api_key,
+                queries.get(_ITEM_POOL_SLOT) or queries.get("card1") or "",
+                page=(seed_n % 3) + 1,
+                per_page=16,
             ):
                 _take(photo.get("id"), _pexels_photo_url(photo, large=False))
         except Exception as exc:  # noqa: BLE001 — item photos are an enhancement
