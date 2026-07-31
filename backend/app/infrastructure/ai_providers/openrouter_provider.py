@@ -105,6 +105,11 @@ _CLAUDE_MODEL_PREFIXES = (
     "anthropic/claude-haiku",
 )
 
+#: A single attempt may take this many times its socket timeout before it is
+#: cancelled. Slow-but-working generations must survive; a call that has stopped
+#: making progress must not hold a pipeline stage open indefinitely.
+_WALL_CLOCK_BUDGET_FACTOR = 2.5
+
 
 class OpenRouterAIProvider(AIProvider):
     """Implements `AIProvider` against the OpenRouter API."""
@@ -231,6 +236,13 @@ class OpenRouterAIProvider(AIProvider):
                     base_delay=3,
                     heartbeat_interval=20,
                     on_heartbeat=_heartbeat,
+                    # `timeout` only fires on socket inactivity. A model that
+                    # trickles bytes never trips it: request 45 held one repair
+                    # call open for fourteen minutes. Cap an attempt's total wall
+                    # clock generously — a long generation is legitimate, a
+                    # quarter of an hour on one call is not.
+                    hard_deadline=timeout * _WALL_CLOCK_BUDGET_FACTOR,
+                    on_deadline=self.cancel_inflight,
                 )
             except (requests.HTTPError, requests.Timeout, requests.ConnectionError) as exc:
                 latency = int((time.monotonic() - started) * 1000)

@@ -21,18 +21,27 @@ T = TypeVar("T")
 
 _RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
+#: After the socket is closed under it, how long to let the worker surface its own
+#: error before we stop waiting on a thread that may never return.
+_CANCEL_GRACE_SECONDS = 15.0
+
 
 def _run_with_heartbeat(
     fn: Callable[[], T],
     heartbeat_interval: float,
     on_heartbeat: Callable[[float], None],
+    hard_deadline: float | None = None,
+    on_deadline: Callable[[], None] | None = None,
 ) -> T:
     """Run `fn` on a worker thread, calling `on_heartbeat(elapsed_seconds)` on the
     calling thread every `heartbeat_interval` seconds while it's still running.
 
-    `fn`'s own timeout (e.g. `requests.post(timeout=...)`) still governs the
-    max wait — this only adds visibility into "still waiting" vs "stuck",
-    which a plain blocking call can't distinguish from the outside.
+    `fn`'s own timeout is a *socket inactivity* timeout, not a ceiling: any byte
+    within the window resets it, so a model that trickles output holds the
+    connection indefinitely. Request 45 sat on one repair call for fourteen
+    minutes with `timeout=120` set. `hard_deadline` is the total wall-clock cap;
+    when it passes, `on_deadline` (the provider's `cancel_inflight`) closes the
+    socket under the worker and this raises `requests.Timeout`.
     """
     box: dict = {}
 
@@ -45,15 +54,40 @@ def _run_with_heartbeat(
     thread = threading.Thread(target=_target, daemon=True)
     start = time.monotonic()
     thread.start()
+    aborted = False
     while thread.is_alive():
         thread.join(timeout=heartbeat_interval)
-        if thread.is_alive():
-            try:
-                on_heartbeat(time.monotonic() - start)
-            except Exception:
-                pass  # heartbeat logging must never break the actual call
+        if not thread.is_alive():
+            break
+        elapsed = time.monotonic() - start
+        if hard_deadline is not None and elapsed >= hard_deadline and not aborted:
+            aborted = True
+            retry_log.warning(
+                "hard deadline hit after %.0fs (cap %.0fs) — cancelling the in-flight call",
+                elapsed,
+                hard_deadline,
+            )
+            if on_deadline is not None:
+                try:
+                    on_deadline()
+                except Exception:
+                    pass
+            # The socket is closed; give the worker a moment to surface its own
+            # error, then stop waiting on a thread that may never return.
+            thread.join(timeout=_CANCEL_GRACE_SECONDS)
+            if thread.is_alive():
+                raise requests.exceptions.Timeout(
+                    f"call exceeded its {hard_deadline:.0f}s wall-clock budget"
+                )
+            break
+        try:
+            on_heartbeat(elapsed)
+        except Exception:
+            pass  # heartbeat logging must never break the actual call
     if "error" in box:
         raise box["error"]
+    if "result" not in box:
+        raise requests.exceptions.Timeout("call was cancelled before returning a result")
     return box["result"]  # type: ignore[return-value]
 
 
@@ -65,6 +99,8 @@ def call_with_retry(
     max_delay: float = 20.0,
     heartbeat_interval: float | None = None,
     on_heartbeat: Callable[[float], None] | None = None,
+    hard_deadline: float | None = None,
+    on_deadline: Callable[[], None] | None = None,
 ) -> T:
     """Call `fn`, retrying on transient network/API errors with exponential backoff.
 
@@ -72,10 +108,15 @@ def call_with_retry(
     called periodically while a single attempt is still in flight, so a slow
     call is visibly "still waiting" in the logs instead of looking identical
     to a stuck one until it finally times out.
+
+    `hard_deadline` caps a single attempt's total wall clock, which the socket
+    timeout cannot — see `_run_with_heartbeat`.
     """
     def _attempt() -> T:
         if heartbeat_interval and on_heartbeat:
-            return _run_with_heartbeat(fn, heartbeat_interval, on_heartbeat)
+            return _run_with_heartbeat(
+                fn, heartbeat_interval, on_heartbeat, hard_deadline, on_deadline
+            )
         return fn()
 
     last_exc: Exception | None = None
