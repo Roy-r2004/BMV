@@ -304,10 +304,29 @@ _LISTING_PATH_RE = re.compile(
 )
 
 
+#: Footer boilerplate. A preview has no legal pages and should not pretend to; an
+#: inert anchor is honest and, unlike a dead path, cannot bounce a visitor.
+_INERT_LEAVES = frozenset(
+    {"privacy", "terms", "policy", "policies", "cookies", "legal", "imprint",
+     "disclaimer", "accessibility", "sitemap", "logout", "signout", "sign-out"}
+)
+#: Surface namespaces a link may address without naming a page inside them.
+_SURFACE_LEAVES = frozenset({"admin", "owner", "ops", "staff", "dashboard", "login", "signin"})
+_OPS_SURFACE_PREFIXES = ("/admin", "/owner", "/ops", "/staff", "/member", "/desk")
+
+
 def _best_declared_target(href: str, declared: set[str]) -> str:
-    """Nearest declared route for a dead internal link, or "" to leave it alone."""
+    """Nearest declared route for a dead internal link, or "" to leave it alone.
+
+    Returns `"#"` for footer boilerplate: those links must be repairable, because
+    the sweep blocks on a dead public link and a "Privacy Policy" in the footer
+    would otherwise withhold a working storefront. Request 43 was withheld by
+    exactly that — four of them, on an app whose funnel and rendering were clean.
+    """
     target = _norm(href)
-    leaf = target.strip("/").split("/")[-1].lower()
+    segments = [s for s in target.strip("/").split("/") if s]
+    leaf = segments[-1].lower() if segments else ""
+    head = segments[0].lower() if segments else ""
     statics = sorted(p for p in declared if p and ":" not in p and "{" not in p and p != "/")
 
     def _first(predicate) -> str:
@@ -326,6 +345,18 @@ def _best_declared_target(href: str, declared: set[str]) -> str:
         contact = _first(lambda p: any(word in p.lower() for word in _CONTACT_SYNONYMS))
         if contact:
             return contact
+    # `/admin` on its own, or `/admin/logout` — send it to an ops entry page. The
+    # named surface may not be the one this app declared: a page can link `/admin`
+    # while the owner pages live under `/owner`.
+    if leaf in _SURFACE_LEAVES or head in _SURFACE_LEAVES:
+        entry = _first(lambda p: p.startswith(f"/{head}/")) or _first(
+            lambda p: any(p.startswith(f"{root}/") for root in _OPS_SURFACE_PREFIXES)
+        )
+        if entry:
+            return entry
+        return "#"
+    if leaf in _INERT_LEAVES or head in _INERT_LEAVES:
+        return "#"
     return ""
 
 

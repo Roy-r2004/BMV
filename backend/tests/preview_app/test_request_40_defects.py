@@ -1236,3 +1236,42 @@ def test_the_item_pool_query_is_not_a_slot() -> None:
 
     slots = normalize_image_slot_map({"hero": "https://images.pexels.com/photos/1/a.jpeg"})
     assert set(_ITEM_SLOTS) <= set(slots)
+
+
+def test_footer_boilerplate_is_repairable_so_it_cannot_withhold_a_preview(tmp_path: Path) -> None:
+    """Request 43 was withheld over four footer links.
+
+    Its funnel walked, all six pages were visually reviewed and all nine rendered —
+    and `status` was `failed` because the home page linked `/privacy`,
+    `/policy/terms`, `/policy/privacy` and `/admin`. Blocking on a dead public link
+    is only defensible if the heal can fix every kind of them.
+    """
+    architect = _storefront(
+        tmp_path,
+        _DEAD_CTA_HOME.replace(
+            'primaryCta={{ label: "View the Collection", href: "/collection" }}',
+            'primaryCta={{ label: "View the Collection", href: "/collection" }}\n'
+            '      links={[{ label: "Privacy", href: "/privacy" },'
+            ' { label: "Terms", href: "/policy/terms" },'
+            ' { label: "Owner", href: "/admin" }]}',
+        ),
+    )
+
+    repair_dead_internal_links(tmp_path, architect)
+    home = (tmp_path / "src/pages/HomePage.tsx").read_text(encoding="utf-8")
+
+    assert '"/privacy"' not in home and '"/policy/terms"' not in home
+    assert '"/collection"' not in home
+    assert '"#"' in home, "legal boilerplate becomes an inert anchor"
+    assert walk_journey(tmp_path, architect).blocking == []
+
+
+def test_a_surface_link_goes_to_that_surface_entry_page(tmp_path: Path) -> None:
+    from app.application.preview_app.capabilities.journey import _best_declared_target
+
+    declared = {"/", "/gallery", "/owner/paintings", "/owner/dashboard"}
+
+    assert _best_declared_target("/owner", declared) == "/owner/dashboard"
+    assert _best_declared_target("/owner/logout", declared) == "/owner/dashboard"
+    assert _best_declared_target("/privacy", declared) == "#"
+    assert _best_declared_target("/franchise-opportunities", declared) == ""
