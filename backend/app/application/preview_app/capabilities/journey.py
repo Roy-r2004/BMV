@@ -290,7 +290,13 @@ def internal_hrefs(source: str) -> list[str]:
             continue  # anchor, mailto:, external, or a template expression
         if "${" in value:
             continue
-        found.append(value)
+        # A fragment or a query is not part of the route. Request 46's contact page
+        # linked its own form as `/contact#contact-form` and was blocked for it,
+        # against a route table that declares `/contact`.
+        target = value.split("#", 1)[0].split("?", 1)[0]
+        if not target:
+            continue  # a bare `#anchor` on the current page
+        found.append(target)
     return found
 
 

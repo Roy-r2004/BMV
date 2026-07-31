@@ -37,7 +37,59 @@ _ARRAY_USE_RE_TMPL = (
     r"\bseed\s*\??\.\s*{key}\s*(?:\?\?\s*\[\]|\)?\s*\??\.\s*(?:" + _ARRAY_METHODS + r")\b)"
 )
 
+#: Reading past a value is not reading the value. Every array method is also a
+#: property name, so these can never be mistaken for a sub-key of their own.
+_ARRAY_METHOD_NAMES = frozenset(_ARRAY_METHODS.split("|"))
+
+#: How deep the shape inference walks. `seed.ops.kpis.availableWorks` is depth 3,
+#: which is as deep as a generated page has ever read.
+_MAX_SHAPE_DEPTH = 3
+
+#: Names that mean "a collection" even with no observed array usage. Request 46's
+#: dashboard did `const chartData = seed.ops.chartData` and handed it to a chart —
+#: the read itself proves nothing, and a string there draws no chart.
+_COLLECTION_NAMES = frozenset(
+    {
+        "chartdata",
+        "chart",
+        "series",
+        "datapoints",
+        "points",
+        "rows",
+        "items",
+        "list",
+        "entries",
+        "records",
+        "columns",
+        "options",
+        "tags",
+        "steps",
+    }
+)
+
 _NEVER_INJECT = frozenset({"items", "hero", "cta", "footer", "map", "length", "filter"})
+
+
+def _path_read_re(path: str) -> str:
+    """Regex matching a dotted read like `seed.ops.items`, `?.` tolerated between."""
+    parts = [re.escape(part) for part in path.split(".")]
+    head = r"\bseed\s*(?:as\s+any\s*\)?\s*)?\??\.\s*"
+    return head + r"\s*\??\.\s*".join(parts)
+
+
+def _path_used_as_array(path: str, sources: str) -> bool:
+    pattern = (
+        _path_read_re(path)
+        + r"\s*(?:\?\?\s*\[\]|\)?\s*\??\.\s*(?:"
+        + _ARRAY_METHODS
+        + r")\b)"
+    )
+    return re.search(pattern, sources) is not None
+
+
+def _path_sub_keys(path: str, sources: str) -> list[str]:
+    found = set(re.findall(_path_read_re(path) + r"\s*\??\.\s*([A-Za-z_][A-Za-z0-9_]*)", sources))
+    return sorted(found - _ARRAY_METHOD_NAMES)
 
 
 def _seed_span(mock: str) -> tuple[int, int] | None:
@@ -111,6 +163,9 @@ def _humanize(key: str) -> str:
 
 def _sub_value(sub: str, key: str, brand: str) -> str:
     lowered = sub.lower()
+    if lowered in {"id", "slug", "key"}:
+        # A detail route resolves by this. "Id — Brand" is not a URL segment.
+        return "1"
     if lowered in {"href", "path", "url", "link", "to"}:
         return "#"
     if lowered in {"image", "imagesrc", "img", "photo", "src", "avatar", "logo"}:
@@ -126,28 +181,38 @@ def _sub_value(sub: str, key: str, brand: str) -> str:
     return f"{_humanize(sub)} — {brand}"
 
 
-def _default_for(key: str, sources: str, brand: str) -> str:
-    """TS literal for a missing seed key, inferred from how pages use it."""
-    if re.search(_ARRAY_USE_RE_TMPL.format(key=re.escape(key)), sources):
-        fields = {"title": f"{_humanize(key)} — {brand}", "description": f"Prepared by {brand}."}
-        # `(seed.exhibitions ?? []).map((e) => e.venue)` — the callback parameter is
-        # a few tokens past the key, not adjacent to it, so look ahead rather than
-        # anchoring. The fields the row is destructured or dotted for must exist or
-        # the map body throws on the first row.
-        for match in re.finditer(rf"\b{re.escape(key)}\b", sources):
-            window = sources[match.end() : match.end() + 400]
-            callback = re.search(
-                r"\??\.\s*(?:" + _ARRAY_METHODS + r")\s*\(\s*\(?\s*"
-                r"(?:\{\s*(?P<destructured>[^}]*)\}|(?P<alias>[A-Za-z_][A-Za-z0-9_]*))",
-                window,
-            )
-            if not callback:
-                continue
-            if callback.group("destructured"):
-                for sub in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", callback.group("destructured")):
-                    fields.setdefault(sub, _sub_value(sub, key, brand))
-                break
-            alias = callback.group("alias")
+def _array_default_for(path: str, sources: str, brand: str) -> str:
+    """A one-row array literal carrying the fields the map body reads off a row."""
+    leaf = path.rsplit(".", 1)[-1]
+    if leaf.lower() in {"chartdata", "chart", "series", "datapoints", "points"}:
+        # A chart row is `{ label, value }` in every kit component that draws one;
+        # `{ title, description }` renders an empty plot.
+        fields: dict[str, object] = {"label": "Jan", "value": 12}
+    else:
+        fields = {"title": f"{_humanize(leaf)} — {brand}", "description": f"Prepared by {brand}."}
+    # `(seed.exhibitions ?? []).map((e) => e.venue)` — the callback parameter is
+    # a few tokens past the key, not adjacent to it, so look ahead rather than
+    # anchoring. The fields the row is destructured or dotted for must exist or
+    # the map body throws on the first row.
+    # Anchor on the arrow, not on the method name: `slice(0, 4).map(item => …)`
+    # puts two calls and a pair of numbers between the key and the parameter, and
+    # only `=>` distinguishes a callback parameter from an argument.
+    callback_re = re.compile(
+        r"\(?\s*(?:\{\s*(?P<destructured>[^}]*)\}|(?P<alias>[A-Za-z_][A-Za-z0-9_]*))"
+        r"\s*(?::[^)=]+)?\s*\)?\s*=>"
+    )
+    for match in re.finditer(_path_read_re(path), sources):
+        window = sources[match.end() : match.end() + 400]
+        callback = callback_re.search(window)
+        if not callback:
+            continue
+        destructured = callback.group("destructured")
+        alias = callback.group("alias")
+        if destructured:
+            for sub in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", destructured):
+                fields.setdefault(sub, _sub_value(sub, leaf, brand))
+            break
+        if alias and alias not in _ARRAY_METHOD_NAMES:
             for sub in sorted(
                 set(
                     re.findall(
@@ -155,24 +220,47 @@ def _default_for(key: str, sources: str, brand: str) -> str:
                     )
                 )
             ):
-                fields.setdefault(sub, _sub_value(sub, key, brand))
+                fields.setdefault(sub, _sub_value(sub, leaf, brand))
             break
-        one = ", ".join(
-            f"{name}: {json.dumps(value, ensure_ascii=False)}" for name, value in fields.items()
-        )
-        return f"[{{ {one} }}]"
-
-    subs = sorted(
-        set(re.findall(_SUB_READ_RE_TMPL.format(key=re.escape(key)), sources))
+    one = ", ".join(
+        f"{name}: {json.dumps(value, ensure_ascii=False)}" for name, value in fields.items()
     )
-    subs = [s for s in subs if s not in {"map", "filter", "slice", "length", "forEach"}]
-    if subs:
+    return f"[{{ {one} }}]"
+
+
+def _default_for_path(path: str, sources: str, brand: str, depth: int = 1) -> str:
+    """TS literal for a seed path, inferred from how the pages use *that path*.
+
+    Recursive, because the shape rule is the same at every level and applying it
+    only at the top produced request 46's crash: `seed.ops` was injected as four
+    strings while the dashboard read `seed.ops.items.slice(0, 4).map(…)`,
+    `seed.ops.activity.map(…)` and `seed.ops.kpis.availableWorks`. The page loaded
+    the error boundary with "items.slice(...).map is not a function".
+    """
+    if _path_used_as_array(path, sources):
+        return _array_default_for(path, sources, brand)
+    subs = _path_sub_keys(path, sources)
+    leaf = path.rsplit(".", 1)[-1]
+    if not subs and depth > 1 and leaf.lower() in _COLLECTION_NAMES:
+        return _array_default_for(path, sources, brand)
+    if subs and depth < _MAX_SHAPE_DEPTH:
         inner = ", ".join(
-            f"{sub}: {json.dumps(_sub_value(sub, key, brand), ensure_ascii=False)}"
+            f"{sub}: {_default_for_path(f'{path}.{sub}', sources, brand, depth + 1)}"
             for sub in subs
         )
         return f"{{ {inner} }}"
-    return json.dumps(f"{_humanize(key)} — {brand}", ensure_ascii=False)
+    if subs:
+        inner = ", ".join(
+            f"{sub}: {json.dumps(_sub_value(sub, leaf, brand), ensure_ascii=False)}"
+            for sub in subs
+        )
+        return f"{{ {inner} }}"
+    return json.dumps(f"{_humanize(leaf)} — {brand}", ensure_ascii=False)
+
+
+def _default_for(key: str, sources: str, brand: str) -> str:
+    """TS literal for a missing seed key, inferred from how pages use it."""
+    return _default_for_path(key, sources, brand)
 
 
 def ensure_seed_keys_pages_read(workspace, brand_name: str = "Brand") -> list[str]:

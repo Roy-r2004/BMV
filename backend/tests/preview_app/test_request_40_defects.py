@@ -1162,6 +1162,57 @@ def test_the_ops_table_scaffold_reads_a_row_it_does_not_own(tmp_path: Path) -> N
     assert "row?.title" in projection, "fall back through the names a record uses"
 
 
+def test_a_nested_seed_path_gets_the_shape_it_is_used_as(tmp_path: Path) -> None:
+    """Request 46 crashed on `items.slice(...).map is not a function`.
+
+    `seed.ops` was injected as four strings while the dashboard read
+    `seed.ops.items.slice(0, 4).map(…)`, `seed.ops.activity.map(…)` and
+    `seed.ops.kpis.availableWorks`. The shape rule is the same at every level; it
+    was only being applied at the top.
+    """
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() {\n"
+        "  const kpi = seed.ops.kpis.availableWorks;\n"
+        "  const rows = seed.ops.items.slice(0, 4).map(item => ({ id: item.id, title: item.title }));\n"
+        "  const feed = seed.ops.activity.map(a => ({ title: a.title }));\n"
+        "  return <div>{kpi}{rows.length}{feed.length}</div>;\n"
+        "}\n",
+    )
+
+    assert ensure_seed_keys_pages_read(workspace, "Jeanne Kassab Art") == ["ops"]
+    body = (workspace / "src/data/mock.ts").read_text(encoding="utf-8").split("ops:")[1]
+    block = body[: body.index("\n")] if "\n" in body else body
+
+    assert re.search(r"items:\s*\[", block), f"a sliced-and-mapped path must be a list: {block}"
+    assert re.search(r"activity:\s*\[", block), f"a mapped path must be a list: {block}"
+    assert re.search(r"kpis:\s*\{", block), f"a dotted path must be an object: {block}"
+    assert "availableWorks" in block, "the field the page reads must exist"
+
+
+def test_a_chart_collection_defaults_to_rows_a_chart_can_draw() -> None:
+    """`const chartData = seed.ops.chartData` proves nothing about the shape.
+
+    The read is a bare assignment; the value goes to a chart. A string draws
+    nothing, and `{ title, description }` rows draw an empty plot.
+    """
+    from app.application.preview_app.safety.seed_keys import _default_for
+
+    literal = _default_for(
+        "ops",
+        "const chartData = seed.ops.chartData;\nconst k = seed.ops.kpis.total;\n",
+        "Brand",
+    )
+
+    assert re.search(r"chartData:\s*\[\{", literal), literal
+    assert "label" in literal and "value" in literal
+    # A name that means nothing in particular still stays a string.
+    assert '"Total — Brand"' in literal or "total:" in literal
+
+
 def test_keys_that_already_exist_are_left_alone(tmp_path: Path) -> None:
     from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
 
@@ -1735,6 +1786,24 @@ def test_a_surface_link_goes_to_that_surface_entry_page(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- #
 # request 44: a working link reported dead, and a base nothing serves
 # --------------------------------------------------------------------------- #
+
+def test_a_fragment_on_a_declared_path_is_not_a_dead_link() -> None:
+    """Request 46's contact page linked its own form as `/contact#contact-form`.
+
+    The gate blocked it against a route table that declares `/contact`.
+    """
+    from app.application.preview_app.capabilities.journey import internal_hrefs
+
+    source = (
+        'export default function P() { return (<div>'
+        '<a href="/contact#contact-form">Write to us</a>'
+        '<a href="/gallery?filter=oils">Browse</a>'
+        '<a href="#top">Back to top</a>'
+        '</div>); }'
+    )
+
+    assert sorted(set(internal_hrefs(source))) == ["/contact", "/gallery"]
+
 
 def test_a_template_link_is_judged_by_the_route_under_it() -> None:
     """`` href={`/artwork/${id}`} `` is a prefix, not a URL.
