@@ -1160,3 +1160,43 @@ def test_page_header_actions_accept_the_button_vocabulary() -> None:
     for variant in ("outline", "ghost", "destructive"):
         assert f"'{variant}'" in header, f"{variant} must be an accepted action variant"
     assert "variant === 'outline'" in header, "outline must render as the subtle style"
+
+
+# --------------------------------------------------------------------------- #
+# a contact page is a form, not a grid of links
+# --------------------------------------------------------------------------- #
+
+def test_a_contact_route_composes_an_inquiry_form() -> None:
+    """The visual critic reported the missing contact form on 39 and 41.
+
+    Both times correctly, both times as a warning nobody acted on: `/contact` fell
+    through `infer_utility_workspace_type` to `generic`, whose workspace is a grid
+    of link cards.
+    """
+    from app.application.preview_app.utility_compositor import (
+        compose_utility_page_tsx,
+        infer_utility_workspace_type,
+    )
+
+    assert infer_utility_workspace_type("/contact", "Connect with Jeanne", "") == "contact"
+
+    tsx = compose_utility_page_tsx(
+        file_path="src/pages/ContactPage.tsx",
+        route={"path": "/contact", "title": "Connect with Jeanne", "skeleton_id": "public-utility"},
+        content={},
+        brand_name="Jeanne Kassab Art",
+    )
+
+    assert "InquiryPanel" in tsx, "the page must render the kit's inquiry form"
+    assert 'id="inquire"' in tsx, "hero CTAs anchor at #inquire"
+    assert "InquiryPanel" in tsx.split("from '@/ui'")[0], "and import it"
+
+
+def test_other_utility_faces_are_unchanged() -> None:
+    from app.application.preview_app.utility_compositor import infer_utility_workspace_type
+
+    assert infer_utility_workspace_type("/cart", "Your cart", "") == "cart"
+    assert infer_utility_workspace_type("/checkout", "Checkout", "") == "checkout"
+    assert infer_utility_workspace_type("/account", "Your account", "") == "account"
+    assert infer_utility_workspace_type("/thank-you", "Thanks", "") == "confirmation"
+    assert infer_utility_workspace_type("/legal", "Legal", "") == "generic"

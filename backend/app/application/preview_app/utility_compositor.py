@@ -14,7 +14,7 @@ from typing import Any
 UTILITY_SKELETON_ID = "public-utility"
 
 _WORKSPACE_TYPES = frozenset(
-    {"cart", "checkout", "tracking", "account", "confirmation", "generic"}
+    {"cart", "checkout", "tracking", "account", "confirmation", "contact", "generic"}
 )
 
 
@@ -34,6 +34,15 @@ def infer_utility_workspace_type(path: str = "", title: str = "", page_type: str
         return "tracking"
     if re.search(r"account|profile|login|sign[- ]?in|wishlist|orders?\b", blob):
         return "account"
+    # A contact page's whole job is the form. Falling through to `generic` gave it
+    # a grid of link cards instead, and the visual critic reported "the page is
+    # missing the contact form the brief explicitly called for" on requests 39 and
+    # 41 — correctly, twice, with nothing acting on it.
+    if re.search(
+        r"contact|get[- ]in[- ]touch|reach[- ]us|enquir|inquir|message us|say hello",
+        blob,
+    ):
+        return "contact"
     return "generic"
 
 
@@ -187,6 +196,32 @@ def default_utility_content(
                 ]
             },
             "footer": {"description": f"Signed-in experience for {brand} customers."},
+        }
+    if workspace_type == "contact":
+        return {
+            "header": {
+                "title": page_title or f"Contact {brand}",
+                "description": (
+                    f"Send {brand} a message and get a reply — or use one of the "
+                    "direct channels below."
+                ),
+            },
+            "workspace": {
+                "cards": [
+                    {
+                        "title": "Send a message",
+                        "description": (
+                            "Tell us what you are looking for and we will come back "
+                            "to you with specifics."
+                        ),
+                        "cta_label": "Send",
+                        "cta_href": "#inquire",
+                    },
+                ]
+            },
+            "footer": {
+                "description": f"{brand} — real replies, no contact-form limbo."
+            },
         }
     if workspace_type == "confirmation":
         return {
@@ -378,6 +413,28 @@ def normalize_utility_content(
 
 
 def _workspace_jsx(workspace_type: str, workspace: dict[str, Any]) -> str:
+    if workspace_type == "contact":
+        # The kit's own inquiry form, with the local confirmation path the detail
+        # page already uses. A contact page whose workspace is a grid of links is
+        # the defect this branch exists to prevent.
+        card = next(
+            (c for c in (workspace.get("cards") or []) if isinstance(c, dict)),
+            {},
+        )
+        heading = _s(card.get("title"), "Send a message")
+        description = _s(
+            card.get("description"),
+            "Tell us what you are looking for and we will come back to you.",
+        )
+        return (
+            '<div id="inquire">\n'
+            "          <InquiryPanel\n"
+            f"            heading={{{_js(heading)}}}\n"
+            f"            description={{{_js(description)}}}\n"
+            f"            ctaLabel={{{_js(_s(card.get('cta_label'), 'Send message'))}}}\n"
+            "          />\n"
+            "        </div>"
+        )
     if workspace_type == "cart":
         columns = [
             {"key": "name", "header": "Item"},
@@ -609,6 +666,8 @@ export default function {component}() {{
         components.append("Input")
     elif wtype == "tracking":
         components.append("Badge")
+    elif wtype == "contact":
+        components.append("InquiryPanel")
 
     slot_parts = [
         "    header: (\n"
