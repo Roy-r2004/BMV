@@ -231,6 +231,37 @@ def ensure_named_ui_icon_exports(workspace) -> list[str]:
         pass
     return [f"UiIcons.tsx (named exports: {', '.join(missing)})"]
 
+#: Any relative import of the icon component, singular or plural, default or named.
+_ICON_MODULE_IMPORT_RE = re.compile(
+    r"import\s+(?:UiIcon|\{\s*UiIcon\s*\})\s+from\s+"
+    r"['\"][^'\"]*components/UiIcons?['\"]\s*;?"
+)
+
+
+def normalize_kit_icon_imports(workspace) -> list[str]:
+    """Point every `UiIcon` import at `@/ui`, whatever path the model invented.
+
+    Request 47's artwork page wrote `from '../components/UiIcon'` — singular, and
+    no such module — for a TS2307 that failed the page. The kit re-exports `UiIcon`,
+    the prompt already says to import page UI exclusively from `@/ui`, and this is
+    the one module name the model gets wrong often enough to be worth a codemod.
+    Runs for catalogue workspaces too, where the standalone-component repairs do not.
+    """
+    fixed: list[str] = []
+    for rel in list_source_files(workspace):
+        norm = rel.replace("\\", "/")
+        if not norm.endswith((".tsx", ".ts")) or not norm.startswith("src/pages/"):
+            continue
+        content = read_file(workspace, rel)
+        if "UiIcon" not in content:
+            continue
+        updated, n = _ICON_MODULE_IMPORT_RE.subn("import { UiIcon } from '@/ui';", content)
+        if n:
+            write_file(workspace, rel, updated)
+            fixed.append(norm)
+    return fixed
+
+
 def normalize_ui_icon_imports(workspace) -> list[str]:
     """Rewrite `import { UiIcon } from '...UiIcons'` → default import."""
     fixed: list[str] = []

@@ -4,9 +4,28 @@ import { MotionReveal, MotionStagger, MotionStaggerItem } from '../motion';
 import { cn } from '../lib/cn';
 
 export interface TestimonialRailItem {
-  quote: string;
-  author: string;
+  quote?: string;
+  author?: string;
   role?: string;
+  /**
+   * Aliases are tolerated but not advertised: this shape is fed to codegen, and
+   * naming every alias invites them. `brand.testimonials` — written by this very
+   * pipeline — carries `name` and `text` and no `author` at all, so the strict
+   * three both failed the typecheck and rendered an empty attribution.
+   */
+  [key: string]: unknown;
+}
+
+function asText(value: unknown): string {
+  return value == null ? '' : String(value);
+}
+
+function normalize(item: TestimonialRailItem): { quote: string; author: string; role: string } {
+  return {
+    quote: asText(item.quote ?? item.text ?? item.body),
+    author: asText(item.author ?? item.name ?? item.client),
+    role: asText(item.role ?? item.service),
+  };
 }
 
 export interface TestimonialRailProps {
@@ -21,7 +40,9 @@ export function TestimonialRail({
   heading,
   items: itemsProp = [],
 }: TestimonialRailProps) {
-  const items = Array.isArray(itemsProp) ? itemsProp : [];
+  const items = (Array.isArray(itemsProp) ? itemsProp : [])
+    .map(normalize)
+    .filter((item) => item.quote);
   const [lead, ...rest] = items;
   // A heading over nothing reads as a broken page; render nothing instead.
   if (!items.length) return null;
@@ -60,7 +81,7 @@ export function TestimonialRail({
         {rest.length > 0 ? (
           <MotionStagger className="mt-16 grid gap-10 border-t border-foreground/10 pt-12 md:grid-cols-2">
             {rest.map((item) => (
-              <MotionStaggerItem key={item.author}>
+              <MotionStaggerItem key={`${item.author}-${item.quote.slice(0, 24)}`}>
                 <blockquote>
                   <p className="text-lg leading-8 text-foreground/85">“{item.quote}”</p>
                   <footer className="mt-5 text-sm">

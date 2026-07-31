@@ -41,9 +41,36 @@ _SLOTS_DECL_RE = re.compile(r"const\s+slots\s*(?::\s*[\w$<>,.\s\[\]]+?)?=\s*\{")
 _UI_IMPORT_RE = re.compile(r"import\s*\{([^}]*)\}\s*from\s*['\"]@/ui['\"]\s*;?")
 
 
-_IMAGES_IMPORT_RE = re.compile(
-    r"import\s*\{[^}]*\bimages\b[^}]*\}\s*from\s*['\"]@/data/mock['\"]"
+_MOCK_IMPORT_RE = re.compile(
+    r"import\s*\{(?P<names>[^}]*)\}\s*from\s*(?P<q>['\"])@/data/mock(?P=q)\s*;?"
 )
+
+
+def _ensure_mock_import_names(content: str, names: list[str]) -> str:
+    """Guarantee `import { …names } from '@/data/mock'`, extending any existing one.
+
+    A second `import … from '@/data/mock'` line would shadow nothing but reads as a
+    duplicate; extending the named list is what the rest of the pipeline does. This
+    exists because slot injection ensured `images` and not `seed`: request 47's cart
+    and checkout pages got a `cta` slot reading `seed.cta?.heading` on a page that
+    never imported `seed` — twelve TS2304s, six per page, all on one line.
+    """
+    wanted = [n for n in names if n]
+    if not wanted:
+        return content
+    match = _MOCK_IMPORT_RE.search(content)
+    if not match:
+        return f"import {{ {', '.join(sorted(set(wanted)))} }} from '@/data/mock';\n" + content
+    present = {n.strip() for n in match.group("names").split(",") if n.strip()}
+    missing = [n for n in wanted if n not in present]
+    if not missing:
+        return content
+    merged = ", ".join(sorted(present | set(missing)))
+    return (
+        content[: match.start()]
+        + f"import {{ {merged} }} from '@/data/mock';"
+        + content[match.end() :]
+    )
 
 
 _COMPOSER_INVOCATION_RE = re.compile(
@@ -262,12 +289,16 @@ def repair_missing_catalogue_slots(
     if needed:
         repaired = _ensure_ui_import_names(repaired, needed)
 
-    needs_images = any(
-        "images." in _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
+    injected_jsx = "".join(
+        _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
         for slot in ordered_missing
     )
-    if needs_images and not _IMAGES_IMPORT_RE.search(repaired):
-        repaired = "import { images } from '@/data/mock';\n" + repaired
+    # Every identifier an injected slot reads out of the mock must be imported,
+    # not just `images`.
+    repaired = _ensure_mock_import_names(
+        repaired,
+        [name for name in ("images", "seed") if f"{name}." in injected_jsx],
+    )
 
     if blocking_contract_errors(validate_catalogue_page_content(repaired, route)):
         return content, False

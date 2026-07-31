@@ -18,6 +18,7 @@ from app.application.preview_app.safety.ui_icons import (
     ensure_named_ui_icon_exports,
     ensure_ui_icon_coverage,
     ensure_ui_icons,
+    normalize_kit_icon_imports,
     normalize_ui_icon_imports,
 )
 from app.infrastructure.logging import get_logger
@@ -42,6 +43,12 @@ def run_deterministic_local_repairs(workspace: Path, architect: dict) -> list[st
             repaired.extend(strip_forbidden_npm_imports(workspace))
         except Exception as e:
             log.warning("npm-import deterministic repair failed: %s", e)
+        try:
+            # Path normalization applies to every workspace: a catalogue page that
+            # imports the icon from an invented path fails just the same.
+            repaired.extend(normalize_kit_icon_imports(workspace))
+        except Exception as e:
+            log.warning("icon import path repair failed: %s", e)
         if not has_catalogue_routes(architect):
             try:
                 if ensure_ui_icons(workspace):

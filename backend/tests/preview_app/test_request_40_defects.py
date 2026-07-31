@@ -1369,6 +1369,78 @@ def test_a_refine_that_does_not_parse_keeps_the_previous_page(tmp_path: Path) ->
     assert page.read_text(encoding="utf-8") == good
 
 
+def test_an_injected_slot_imports_everything_it_reads() -> None:
+    """Request 47's cart and checkout pages read `seed.cta` without importing it.
+
+    Slot injection ensured `images` and not `seed` — twelve TS2304s, six per page,
+    all on the one injected line.
+    """
+    from app.application.preview_app.catalogue_contract.repair import (
+        _ensure_mock_import_names,
+    )
+
+    composed = (
+        "// composed public-utility page\n"
+        "import { PublicShell, CTABand } from '@/ui';\n"
+        "export default function CartPage() { return <PublicShell />; }\n"
+    )
+
+    with_seed = _ensure_mock_import_names(composed, ["seed"])
+    assert "import { seed } from '@/data/mock';" in with_seed
+
+    # An existing mock import is extended, never duplicated.
+    already = "import { images } from '@/data/mock';\nconst x = 1;\n"
+    both = _ensure_mock_import_names(already, ["images", "seed"])
+    assert both.count("@/data/mock") == 1, both
+    assert "images" in both and "seed" in both
+    # Idempotent.
+    assert _ensure_mock_import_names(both, ["images", "seed"]) == both
+
+
+def test_an_invented_icon_module_path_is_normalized(tmp_path: Path) -> None:
+    """Request 47 wrote `from '../components/UiIcon'` — singular, no such module.
+
+    The existing icon repairs were gated on *not* having catalogue routes, so a
+    catalogue workspace never got them and the page failed on a TS2307.
+    """
+    from app.application.preview_app.safety.ui_icons import normalize_kit_icon_imports
+
+    page = tmp_path / "src/pages/ArtworkDetailPage.tsx"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        "import { UiIcon } from '../components/UiIcon';\n"
+        "export default function P() { return <UiIcon name=\"star\" />; }\n",
+        encoding="utf-8",
+    )
+
+    changed = normalize_kit_icon_imports(tmp_path)
+
+    assert changed == ["src/pages/ArtworkDetailPage.tsx"]
+    updated = page.read_text(encoding="utf-8")
+    assert "import { UiIcon } from '@/ui';" in updated
+    assert "components/UiIcon" not in updated
+    # Idempotent, and the plural form is normalized too.
+    assert normalize_kit_icon_imports(tmp_path) == []
+
+
+def test_the_testimonial_rail_reads_the_rows_this_pipeline_writes() -> None:
+    """`brand.testimonials` carries `name` and `text` and no `author` at all.
+
+    The strict three-field shape both failed request 47's typecheck and would have
+    rendered an empty attribution for data the pipeline itself produced.
+    """
+    rail = (
+        Path(__file__).resolve().parents[2]
+        / "preview-template" / "src" / "ui" / "public" / "TestimonialRail.tsx"
+    ).read_text(encoding="utf-8")
+
+    assert "[key: string]: unknown" in rail, "aliases are tolerated, not advertised"
+    assert "item.text" in rail and "item.name" in rail, "and actually read"
+    assert ".filter((item) => item.quote)" in rail, (
+        "a row with no quote must be dropped, not rendered blank"
+    )
+
+
 def test_a_callback_prop_declares_one_signature_not_a_union() -> None:
     """`render` was a union of two call shapes, so `(row) => …` could not be typed.
 

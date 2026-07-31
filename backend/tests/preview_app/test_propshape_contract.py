@@ -102,7 +102,10 @@ def test_component_prop_shape_resolves_one_hop_of_indirection():
 
 def test_optionality_and_literal_unions_are_captured():
     testimonial = ui_type_shape("TestimonialRailItem")
-    assert testimonial["optional"] == ("role",)
+    # All three are optional since the rail accepts the aliases its own callers
+    # write (`brand.testimonials` carries `name`/`text`); a row with no quote is
+    # dropped by the component rather than rendered blank.
+    assert testimonial["optional"] == ("quote", "author", "role")
     assert component_prop_shape("TestimonialRail")["props"].endswith("className?: string")
 
     button = ui_type_shape("ButtonProps")
@@ -203,7 +206,7 @@ def test_rendered_prompts_expose_item_member_names():
     )
     for expected in (
         '"CredentialStrip.items[]":"title, detail"',
-        '"TestimonialRail.items[]":"quote, author, role?"',
+        '"TestimonialRail.items[]":"quote?, author?, role?"',
         "PROP CONTRACT",
         "never omit",
         "after:bg-blend-multiply",
@@ -232,7 +235,7 @@ def test_rendered_prompts_expose_item_member_names():
     )
     for expected in (
         "CredentialStrip.items[] = { title, detail }",
-        "TestimonialRail.items[] = { quote, author, role? }",
+        "TestimonialRail.items[] = { quote?, author?, role? }",
         "`{ title, detail }` — NOT `{ label, value }`",
         "seed.features",
         "TS1117",
