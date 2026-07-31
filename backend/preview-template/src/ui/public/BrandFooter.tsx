@@ -190,7 +190,11 @@ export function BrandFooter({
 
         <p
           aria-hidden="true"
-          className="mt-10 select-none whitespace-nowrap font-display leading-[0.85] tracking-[-0.04em] text-white/95 [mask-image:linear-gradient(to_bottom,black_55%,transparent_100%)]"
+          // `pl-[0.06em]`: the display face is italic, so the first glyph's
+          // left overhang sat outside the box and the ancestor's `overflow-hidden`
+          // (there for the fade mask) sheared it — every page footer rendered
+          // "Jeanne Kassab Art" with a clipped J.
+          className="mt-10 select-none whitespace-nowrap pl-[0.06em] font-display leading-[0.85] tracking-[-0.04em] text-white/95 [mask-image:linear-gradient(to_bottom,black_55%,transparent_100%)]"
           style={{ fontSize: wordmarkSize }}
         >
           {brandName}
