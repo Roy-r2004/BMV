@@ -1210,17 +1210,11 @@ def test_the_item_pool_query_asks_for_the_product_not_its_environment() -> None:
     thing being sold, so their query drops the brand (noise in a stock index) and
     the category hint, whose environment words are what pulled people in.
     """
-    from app.application.services.industry_images import (
-        _ITEM_POOL_SLOT,
-        _slot_queries,
-    )
+    from app.application.services.industry_images import item_pool_query
 
-    queries = _slot_queries(
-        "Jeanne Kassab Art",
-        "Fine art gallery · original oil paintings · artist portfolio",
-        {"card1": "product detail"},
+    item_query = item_pool_query(
+        "Fine art gallery · original oil paintings · artist portfolio"
     )
-    item_query = queries[_ITEM_POOL_SLOT]
 
     assert "oil paintings" in item_query, "the brief's own nouns must lead"
     assert "product detail close up" in item_query
@@ -1228,15 +1222,17 @@ def test_the_item_pool_query_asks_for_the_product_not_its_environment() -> None:
     assert "studio" not in item_query, "the environment hint is what returned people"
 
 
-def test_the_item_pool_key_never_reaches_the_image_map() -> None:
-    """`_items` is a query key, not a slot a page could read."""
+def test_the_item_pool_query_is_not_a_slot() -> None:
+    """`_slot_queries` stays exactly slot -> query; several callers assume it."""
     from app.application.services.industry_images import (
-        _ITEM_POOL_SLOT,
         _ITEM_SLOTS,
+        _SLOTS,
+        _slot_queries,
         normalize_image_slot_map,
     )
 
-    slots = normalize_image_slot_map({"hero": "https://images.pexels.com/photos/1/a.jpeg"})
+    queries = _slot_queries("Brand", "Fine art gallery", {"card1": "product detail"})
+    assert set(queries) == set(_SLOTS)
 
-    assert _ITEM_POOL_SLOT not in slots
+    slots = normalize_image_slot_map({"hero": "https://images.pexels.com/photos/1/a.jpeg"})
     assert set(_ITEM_SLOTS) <= set(slots)

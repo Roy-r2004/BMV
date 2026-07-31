@@ -144,7 +144,17 @@ def test_jeanne_imagery_urls_carry_art_subject_only(monkeypatch: Any) -> None:
         seed="jeanne-36",
         imagery_roles=plan["imagery_roles"],
     )
-    assert urls and len(urls) == 6
+    # Six layout slots plus the catalogue's per-item photographs, which are
+    # harvested from search results the slot loop already paid for. Every one of
+    # them must still be on-subject — an item photo captioned as a specific
+    # painting is the same defect as an off-industry hero, one tile smaller.
+    from app.application.services.industry_images import _SLOTS
+
+    assert urls
+    assert set(_SLOTS) <= set(urls)
+    assert any(slot.startswith("item") for slot in urls), (
+        "the item pool must be filled when search results are available"
+    )
     for slot, url in urls.items():
         lowered = url.lower()
         assert any(word in lowered for word in ART_SUBJECT_WORDS), (slot, url)
