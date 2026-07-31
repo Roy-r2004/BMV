@@ -133,6 +133,162 @@ def _visual_review_summary(workspace) -> dict:
         return {}
 
 
+#: Routes worth loading for the smoke test. Every declared public route plus the
+#: ops surfaces an owner would open in a demo; params resolve to `1`.
+_SMOKE_MAX_ROUTES = 12
+
+
+def _smoke_routes(architect: dict) -> list[tuple[str, str, str]]:
+    """(url path, component_file, surface) for each distinct page, public first."""
+    seen: set[str] = set()
+    public: list[tuple[str, str, str]] = []
+    ops: list[tuple[str, str, str]] = []
+    for route in architect.get("routes") or []:
+        if not isinstance(route, dict):
+            continue
+        component = str(route.get("component_file") or "").replace("\\", "/")
+        raw = str(route.get("path") or "")
+        if not component or not raw or "*" in raw or component in seen:
+            continue
+        seen.add(component)
+        import re as _re
+
+        url = _re.sub(r"/:[A-Za-z_][A-Za-z0-9_]*", "/1", raw) or "/"
+        surface = str(route.get("surface") or "").strip().lower()
+        is_ops = surface == "ops" or url.startswith(
+            ("/admin", "/owner", "/ops", "/staff", "/member", "/desk")
+        )
+        (ops if is_ops else public).append((url, component, "ops" if is_ops else "public"))
+    return (public + ops)[:_SMOKE_MAX_ROUTES]
+
+
+def _render_smoke_check(ctx: PipelineContext, architect: dict, brand_name: str) -> dict:
+    """Load every page once and replace any that crashed with a safe stub.
+
+    Deterministic, no model call, one browser session. This is the only check that
+    runs *after* the gate's heal and AI repair have rewritten source, and it exists
+    because those rewrites are unrendered: request 41's home page was repaired into
+    `aiFeatures is not defined` and shipped an error box under `status=ready`.
+
+    A crashed public page is replaced with the known-good stub the build phase
+    already uses for compile failures — a plain, on-brand page beats a stack trace
+    in front of an investor — and the workspace is rebuilt. Ops pages are recorded
+    but never rebuilt over, matching the surface policy everywhere else.
+    """
+    from app.application.preview_app.build import run_build
+    from app.application.preview_app.fallback import write_safe_stub
+    from app.application.preview_app.screenshot import capture_routes_visual
+    from app.core.config import settings
+
+    workspace = Path(ctx.workspace)
+    summary: dict = {"checked": 0, "crashed": [], "stubbed": [], "unresolved": []}
+    if not (workspace / "dist" / "index.html").is_file():
+        return summary
+    routes = _smoke_routes(architect)
+    if not routes:
+        return summary
+
+    base_url = f"{settings.INTERNAL_BASE_URL}{ctx.base_path}/"
+    shots = workspace / "_render_smoke"
+
+    def _probe(targets: list[tuple[str, str, str]]) -> dict[str, str]:
+        captures = capture_routes_visual(
+            base_url,
+            [(url, shots / f"smoke_{i}.png") for i, (url, _c, _s) in enumerate(targets)],
+        )
+        errors: dict[str, str] = {}
+        for (url, component, _surface), capture in zip(targets, captures):
+            message = str(getattr(capture, "render_error", "") or "")
+            if message:
+                errors[component] = f"{url}: {message}"
+        return errors
+
+    try:
+        crashed = _probe(routes)
+        summary["checked"] = len(routes)
+    except Exception as e:  # noqa: BLE001 — a probe failure must not fail the run
+        log.warning("    render smoke check skipped: %s", e)
+        return summary
+
+    if not crashed:
+        log.info("    render smoke: %s page(s) rendered", len(routes))
+        _cleanup_dir(shots)
+        return summary
+
+    summary["crashed"] = sorted(crashed)
+    for component, detail in sorted(crashed.items()):
+        log.error("    render smoke FAILED %s — %s", component, detail[:200])
+
+    public_crashed = [
+        (url, component, surface)
+        for url, component, surface in routes
+        if surface == "public" and component in crashed
+    ]
+    if not public_crashed:
+        _cleanup_dir(shots)
+        return summary
+
+    _emit(
+        ctx.db,
+        ctx.request_id,
+        "quality_gate",
+        f"Repairing {len(public_crashed)} page(s) that failed to render...",
+        92,
+        detail="; ".join(crashed[c][:80] for _u, c, _s in public_crashed),
+    )
+    from app.application.preview_app.catalogue_contract.slots import (
+        catalogue_route_for_file,
+    )
+
+    for _url, component, _surface in public_crashed:
+        try:
+            route = catalogue_route_for_file(component, architect)
+            write_safe_stub(
+                workspace,
+                component,
+                brand_name=brand_name,
+                industry=ctx.industry,
+                route=route,
+            )
+            summary["stubbed"].append(component)
+            log.warning("    render smoke: replaced %s with a safe stub", component)
+        except Exception as e:  # noqa: BLE001
+            log.error("    render smoke: could not stub %s: %s", component, e)
+
+    if not summary["stubbed"]:
+        _cleanup_dir(shots)
+        return summary
+
+    built, _log = run_build(workspace, ctx.base_path, ctx.template_renderer)
+    if not built:
+        log.error("    render smoke: rebuild after stubbing failed")
+        _cleanup_dir(shots)
+        summary["unresolved"] = sorted(crashed)
+        return summary
+
+    still_broken = _probe(public_crashed)
+    summary["unresolved"] = sorted(still_broken)
+    if still_broken:
+        log.error(
+            "    render smoke: %s page(s) still crash after stubbing — %s",
+            len(still_broken),
+            "; ".join(sorted(still_broken)),
+        )
+    else:
+        log.info("    render smoke: every public page renders after repair")
+    _cleanup_dir(shots)
+    return summary
+
+
+def _cleanup_dir(path: Path) -> None:
+    try:
+        import shutil
+
+        shutil.rmtree(path, ignore_errors=True)
+    except Exception:
+        pass
+
+
 def run_finalize(ctx: PipelineContext) -> dict:
     db = ctx.db
     request_id = ctx.request_id
@@ -348,13 +504,34 @@ def run_finalize(ctx: PipelineContext) -> dict:
             detail=f"healed={len(gate.healed)}",
         )
 
+    # Last word before "ready": does each page actually render? The gate's heal
+    # and AI repair rewrite source *after* the visual critique took its
+    # screenshots, so a repair can introduce a crash that nothing re-renders.
+    # Request 41 shipped `aiFeatures is not defined` on its home page that way,
+    # after a critic had scored the same page 65 for its (nonexistent) hero.
+    render_report = _render_smoke_check(ctx, architect, brand_name)
+
     # Vite may succeed while AppSpec stub/contract checks still fail. Prefer
     # showing the compiled site over leaving Live Product on a blank spinner.
     dist_ok = (Path(workspace) / "dist" / "index.html").is_file()
     # Hard lock: only the automated quality gate blocks Live Product.
     # Soft contract/fallback/AI-surface flags (ok=False) must not hide a built dist
     # behind "Website preview is being generated…".
-    viewable = bool(dist_ok and gate.ok)
+    #
+    # A public page that still renders a stack trace after the stub repair is the
+    # one soft flag that must hard-block: there is nothing to show behind it.
+    crash_unresolved = [
+        c for c in (render_report.get("unresolved") or [])
+    ]
+    viewable = bool(dist_ok and gate.ok and not crash_unresolved)
+    if dist_ok and gate.ok and crash_unresolved:
+        log.error(
+            "  FAIL preview %s passed the gate but %s public page(s) render an error "
+            "boundary — withholding rather than showing a stack trace: %s",
+            request_id,
+            len(crash_unresolved),
+            "; ".join(crash_unresolved[:4]),
+        )
     preview_url = f"{ctx.base_path}/" if viewable else None
     if viewable:
         log.info("  OK Preview built: %s", preview_url)
@@ -435,6 +612,14 @@ def run_finalize(ctx: PipelineContext) -> dict:
     }
     preview_app_result.update(_typecheck_summary(workspace))
     preview_app_result.update(_visual_review_summary(workspace))
+    # Rendering is a measurement like any other, and it gets a reader beside
+    # `status` for the same reason the visual counts do.
+    preview_app_result["render_pages_checked"] = int(render_report.get("checked") or 0)
+    preview_app_result["render_pages_crashed"] = len(render_report.get("crashed") or [])
+    preview_app_result["render_pages_stubbed"] = len(render_report.get("stubbed") or [])
+    preview_app_result["render_pages_unresolved"] = len(
+        render_report.get("unresolved") or []
+    )
     if (
         preview_app_result.get("status") == "ready"
         and preview_app_result.get("visual_review_status") == "unmeasured"

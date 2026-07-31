@@ -362,16 +362,36 @@ def _detail_param_block(brand: str, detail_base: str) -> str:
         "  const params = useParams();\n"
         "  const catalogItems = (seed.items ?? []) as any[];\n"
         "  const itemKey = String(params.id ?? params.slug ?? '').trim();\n"
+        # A listing that numbered its cards 1..n linked every one of them to a
+        # page that resolved nothing, because seed ids are slugs. Match on any of
+        # the four things a link in this app can carry — id, slug, slugified
+        # title, or 1-based position — so browse -> detail cannot dead-end on a
+        # naming disagreement between two files.
+        "  const itemToken = (value: any) =>\n"
+        "    String(value ?? '')\n"
+        "      .trim()\n"
+        "      .toLowerCase()\n"
+        "      .replace(/[^a-z0-9]+/g, '-')\n"
+        "      .replace(/^-+|-+$/g, '');\n"
+        "  const wantedToken = itemToken(itemKey);\n"
         "  const itemIndex = catalogItems.findIndex(\n"
         "    (entry: any, index: number) =>\n"
-        "      String(entry?.id ?? entry?.slug ?? index + 1) === itemKey,\n"
+        "      wantedToken !== '' &&\n"
+        "      (itemToken(entry?.id) === wantedToken ||\n"
+        "        itemToken(entry?.slug) === wantedToken ||\n"
+        "        itemToken(entry?.title) === wantedToken ||\n"
+        "        String(index + 1) === itemKey),\n"
         "  );\n"
         "  const item: any = itemIndex >= 0 ? catalogItems[itemIndex] : undefined;\n"
         "  const notFound = itemKey !== '' && itemIndex < 0;\n"
         "  const itemTitle = String(item?.title ?? 'This piece');\n"
-        "  const itemImage = [images.card1, images.card2, images.card3][\n"
-        "    (itemIndex >= 0 ? itemIndex : 0) % 3\n"
-        "  ];\n"
+        "  const itemImage = String(\n"
+        "    item?.image ??\n"
+        "      [images.item1, images.item2, images.item3, images.item4,\n"
+        "       images.item5, images.item6, images.item7, images.item8][\n"
+        "        (itemIndex >= 0 ? itemIndex : 0) % 8\n"
+        "      ],\n"
+        "  );\n"
         "  const itemSpecs = [\n"
         "    { title: 'Reference', detail: itemKey || String(itemIndex + 1) },\n"
         "    item?.medium ? { title: 'Medium', detail: String(item.medium) } : null,\n"
@@ -569,8 +589,14 @@ def _safe_slot_jsx(
             f'description={{seed.footer?.description ?? {footer_desc_fb}}} />'
         ),
         "trust": (
+            # `trustLabels` is a list of strings in the deterministic seed and a
+            # list of `{ label }` objects when the model writes it. Wrapping
+            # blindly produced `{ label: { label } }`, which `tsc` reported as
+            # TS2322 and the marquee rendered as an empty band.
             '<LogoMarquee size="display" '
-            'items={(seed.trustLabels ?? []).map((label) => ({ label }))} />'
+            'items={(seed.trustLabels ?? [])'
+            '.map((entry: any) => ({ label: String(entry?.label ?? entry ?? \'\') }))'
+            '.filter((entry: { label: string }) => entry.label)} />'
         ),
         "credentials": (
             f'<CredentialStrip heading={{seed.credentialsHeading ?? {credentials_heading_fb}}} '
@@ -1040,6 +1066,8 @@ def _directory_listing_scaffold(
     page_id: str,
     action_ids: list[str],
     evidence_ids: list[str],
+    people_directory: bool = False,
+    skeleton_id: str = "",
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
@@ -1058,14 +1086,35 @@ def _directory_listing_scaffold(
             f"{evidence_id}</span>"
         )
     appspec_hook_spans = ("\n" + "\n".join(span_lines) + "\n") if span_lines else "\n"
-    storefront_listing = bool(
-        re.search(
-            r"gallery|artwork|collection|shop|store|menu|catalog|boutique",
-            f"{brand} {title} {base}",
-            re.I,
-        )
-    )
-    if storefront_listing:
+    # Three faces, decided by what the page *is* rather than by keyword luck.
+    # "Meet the team / Dr. Avery Chen / Book a visit" used to be the default for
+    # every listing whose brand, title and path all missed a nine-word keyword
+    # list — which is how a fine-art gallery's own listing shipped a clinic.
+    #
+    # The CTA target is chosen separately from the copy: a service business's
+    # listing must hand off to its booking route (that hop is the funnel), while a
+    # storefront's cards each carry their own detail link.
+    booking_face = (skeleton_id or "").lower() in {"public-service", "public-booking"}
+    storefront_listing = not people_directory
+    if people_directory:
+        cta_primary = '{ label: "Book a visit", href: "/book" }'
+        cta_secondary = '{ label: "Ask AI assistant", href: "/ai-features" }'
+        footer_desc = "Real providers. Clear booking. Not another homepage clone."
+        page_desc = "Browse providers, specialties, and availability — then book the right visit."
+        showcase_heading = "Meet the team"
+        showcase_desc = "Each card opens a provider profile. Book when you are ready."
+        cta_heading = "Ready to schedule?"
+        cta_desc = "Pick a time online — same team you just reviewed."
+    elif booking_face:
+        cta_primary = '{ label: "Book a visit", href: "/book" }'
+        cta_secondary = '{ label: "Back home", href: "/" }'
+        footer_desc = f"{brand} — clear options, real availability."
+        page_desc = "Browse what is offered, then pick a time that works."
+        showcase_heading = "What we offer"
+        showcase_desc = "Each card opens the details. Book when you are ready."
+        cta_heading = "Ready to book?"
+        cta_desc = "Choose a time online and get a confirmation straight away."
+    else:
         # "/about" is not in the storefront route table — this CTA was a dead link.
         # The grid anchor CatalogGrid renders (#catalog) is on this page, and the
         # per-item inquiry lives on the detail route each card already links to.
@@ -1077,21 +1126,20 @@ def _directory_listing_scaffold(
         showcase_desc = "Each card opens a closer look. Inquire when you are ready."
         cta_heading = "Interested in a piece?"
         cta_desc = "Ask about availability, commissions, or a studio visit."
-    else:
-        cta_primary = '{ label: "Book a visit", href: "/book" }'
-        cta_secondary = '{ label: "Ask AI assistant", href: "/ai-features" }'
-        footer_desc = "Real providers. Clear booking. Not another homepage clone."
-        page_desc = "Browse providers, specialties, and availability — then book the right visit."
-        showcase_heading = "Meet the team"
-        showcase_desc = "Each card opens a provider profile. Book when you are ready."
-        cta_heading = "Ready to schedule?"
-        cta_desc = "Pick a time online — same team you just reviewed."
     return f"""// directory listing scaffold — distinct from home marketing clone
 import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
-import {{ BRAND_MANIFEST, images }} from '@/data/mock';
+import {{ images, seed }} from '@/data/mock';
 import {{ PublicShell, PublicNav, PageHeader, CatalogGrid, CTABand, BrandFooter }} from '@/ui';
 
-const services = Array.isArray(BRAND_MANIFEST?.services) ? BRAND_MANIFEST.services : [];
+// One catalogue for the whole app: `seed.items` is what the detail route resolves
+// against, so a listing that invents its own array links every card to a page
+// that renders "not found". `BRAND_MANIFEST.services` used to be read here and
+// does not exist at that level — `tsc` reported it as TS2339 and the array below
+// fell through to three hardcoded doctors on every business that took this path.
+const catalogue: any[] = Array.isArray((seed as any).items) ? (seed as any).items : [];
+const offerings: any[] = Array.isArray((seed as any).services) ? (seed as any).services : [];
+const entries: any[] = catalogue.length ? catalogue : offerings;
+const IMAGE_POOL = [images.item1, images.item2, images.item3, images.item4, images.item5, images.item6, images.item7, images.item8];
 const LISTING_BASE = {base_js};
 
 export default function {component}() {{
@@ -1099,18 +1147,20 @@ export default function {component}() {{
   const navCta = publicCta();
   // CatalogGrid renders every entry and links each into LISTING_BASE/:id.
   // ProductShowcase used to fill this slot and silently showed only three.
-  const people = (services.length ? services : [
-    {{ id: 'dr-1', name: 'Dr. Avery Chen', description: 'Family medicine · accepting new patients' }},
-    {{ id: 'dr-2', name: 'Dr. Jordan Miles', description: 'Pediatrics · same-week visits' }},
-    {{ id: 'dr-3', name: 'Dr. Sam Rivera', description: 'Internal medicine · telehealth available' }},
-  ]).map((s: any, i: number) => ({{
+  const people = entries.map((s: any, i: number) => ({{
     id: String(s.id || s.slug || i + 1),
-    title: String(s.name || s.title || `Provider ${{i + 1}}`),
-    description: String(s.description || s.specialty || s.role || 'Available for appointments'),
-    imageSrc: [images.card1, images.card2, images.card3][i % 3],
-    imageAlt: String(s.name || s.title || 'Provider'),
+    title: String(s.name || s.title || {brand_js} + ' ' + (i + 1)),
+    description: String(s.description || s.specialty || s.role || ''),
+    imageSrc: String(s.image || s.imageSrc || IMAGE_POOL[i % IMAGE_POOL.length]),
+    imageAlt: String(s.name || s.title || 'Item'),
+    meta: s.medium ? String(s.medium) : undefined,
     category: s.category ? String(s.category) : undefined,
     badge: s.badge ? String(s.badge) : undefined,
+    status: s.status ? String(s.status) : undefined,
+    // Written out per item with the base inlined, not left to CatalogGrid's
+    // `detailBase` derivation: the journey walk reads links, and a page that only
+    // named its base in a const looked like a browse face with no way out of it.
+    href: `{base}/${{String(s.slug || s.id || i + 1)}}`,
   }}));
 
   return (
@@ -1158,9 +1208,18 @@ def minimal_catalogue_page_scaffold(
     page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
     action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
     evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
-    # Product Face Contract: page_intent wins over industry/path keywords.
+    # Product Face Contract: page_intent wins over industry/path keywords — but
+    # NOT over surface. `_directory_listing_scaffold` builds a *public* face
+    # (PublicShell + PublicNav + CatalogGrid); handing it an ops route produced
+    # the owner's "Manage Paintings" page wearing the storefront nav, and the
+    # contract validator then rejected it for the OpsShell/header/filters/table
+    # it could not contain. An ops listing falls through to the generic scaffold
+    # below, which builds the shell and slots its own skeleton declares.
     intent = str(route.get("page_intent") or "").strip().lower()
-    if intent == "listing":
+    public_face = expected_shell(route) != "OpsShell" and not _is_ops_path(
+        str(route.get("path") or "")
+    )
+    if intent == "listing" and public_face:
         return _directory_listing_scaffold(
             component=component,
             brand=brand,
@@ -1169,6 +1228,8 @@ def minimal_catalogue_page_scaffold(
             page_id=page_id,
             action_ids=action_ids,
             evidence_ids=evidence_ids,
+            people_directory=_is_directory_listing_route(file_path, route),
+            skeleton_id=str(route.get("skeleton_id") or ""),
         )
     # Keyword face pickers — only when intent is absent (legacy / thin contracts).
     if not intent and _is_directory_listing_route(file_path, route):
@@ -1180,6 +1241,8 @@ def minimal_catalogue_page_scaffold(
             page_id=page_id,
             action_ids=action_ids,
             evidence_ids=evidence_ids,
+            people_directory=True,
+            skeleton_id=str(route.get("skeleton_id") or ""),
         )
     if not intent and _is_schedule_listing_route(file_path, route):
         return _schedule_listing_scaffold(

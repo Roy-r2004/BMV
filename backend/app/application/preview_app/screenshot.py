@@ -8,12 +8,26 @@ waits for both conditions before capturing.
 """
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.infrastructure.logging import get_logger
 
 log = get_logger("Screenshot")
+
+# Playwright's *sync* API drives its own event loop and spawns a driver process
+# per session. Two threads entering `sync_playwright()` at the same time race
+# for that spawn and one of them dies with
+# `RuntimeError: Racing with another loop to spawn a process.`
+#
+# The visual critic fans its routes out over `PREVIEW_PARALLEL_WORKERS` threads,
+# so on request 40 five of six pages were lost that way: the run shipped
+# `visual_review_status="partial"` with one page judged, and the four content
+# defects on the unjudged pages reached the artifact unseen. Capture is a browser
+# operation and belongs behind one lock; the vision call is what deserves the
+# workers.
+_SESSION_LOCK = threading.Lock()
 
 _ROOT_HAS_CHILDREN_JS = (
     "() => { const el = document.getElementById('root'); "
@@ -31,6 +45,14 @@ _BROKEN_IMAGES_JS = (
 )
 
 
+#: The template's error boundary stamps its message here. A page that rendered it
+#: is a white screen with a stack trace on it, whatever else the shot contains.
+_RENDER_ERROR_JS = (
+    "() => { const el = document.querySelector('[data-preview-render-error]'); "
+    "return el ? (el.getAttribute('data-preview-render-error') || 'render failed') : ''; }"
+)
+
+
 @dataclass
 class RouteCapture:
     """Screenshot outcome plus the render defects the browser can see for free."""
@@ -38,6 +60,8 @@ class RouteCapture:
     ok: bool
     path: Path | None = None
     broken_images: list[str] = field(default_factory=list)
+    #: Error-boundary message when the page crashed instead of rendering.
+    render_error: str = ""
 
 
 def launch_chromium(p):
@@ -108,6 +132,116 @@ def prime_scroll_reveals(page, *, settle_ms: int = 250) -> int:
         return 0
 
 
+def _capture_one(browser, base_url: str, route_path: str, out_path: Path,
+                 *, timeout_ms: int, viewport: dict | None) -> RouteCapture:
+    """One route, inside an already-open browser. Never raises."""
+    base = base_url.rstrip("/")
+    suffix = route_path.lstrip("/")
+    full_url = f"{base}/{suffix}" if suffix else f"{base}/"
+    broken: list[str] = []
+    render_error = ""
+    page = None
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        # `reduced_motion` is load-bearing, not an accessibility nicety.
+        # Every section below the fold is wrapped in `observeSectionReveal`,
+        # which sets `opacity: 0` and only animates to 1 on intersection —
+        # so a `full_page=True` screenshot captured the hero and then a
+        # column of blank space, and the critic scored *that*. Both reveal
+        # paths (`observeSectionReveal`, `AnimeStagger`) short-circuit to
+        # visible when `prefers-reduced-motion: reduce` matches.
+        page = browser.new_page(
+            viewport=viewport or {"width": 1280, "height": 900},
+            reduced_motion="reduce",
+        )
+        page.goto(full_url, wait_until="networkidle", timeout=timeout_ms)
+        # SPA-specific: wait for React to actually mount content into
+        # #root, not just for the network to go quiet — index.html +
+        # the JS bundle can finish "loading" well before anything is
+        # painted.
+        page.wait_for_function(_ROOT_HAS_CHILDREN_JS, timeout=timeout_ms)
+        # One extra tick for any post-mount effects (data seeding,
+        # image decode) to settle before the shot.
+        page.wait_for_timeout(300)
+        prime_scroll_reveals(page)
+        page.screenshot(path=str(out_path), full_page=True)
+        try:
+            broken = [str(src) for src in page.evaluate(_BROKEN_IMAGES_JS) or []]
+        except Exception as e:
+            log.warning("broken-image probe failed for %s: %s", route_path, e)
+        try:
+            render_error = str(page.evaluate(_RENDER_ERROR_JS) or "")
+        except Exception as e:
+            log.warning("render-error probe failed for %s: %s", route_path, e)
+    except Exception as e:
+        log.warning("screenshot capture failed for %s (%s): %s", route_path, full_url, e)
+        return RouteCapture(ok=False)
+    finally:
+        if page is not None:
+            try:
+                page.close()
+            except Exception:
+                pass
+
+    if not (out_path.is_file() and out_path.stat().st_size > 0):
+        return RouteCapture(ok=False)
+    if broken:
+        log.error("broken images on %s: %s", route_path, broken[:6])
+    if render_error:
+        log.error("%s rendered the error boundary: %s", route_path, render_error[:200])
+    return RouteCapture(
+        ok=True, path=out_path, broken_images=broken, render_error=render_error
+    )
+
+
+def capture_routes_visual(
+    base_url: str,
+    routes: list[tuple[str, Path]],
+    *,
+    timeout_ms: int = 20000,
+    viewport: dict | None = None,
+) -> list[RouteCapture]:
+    """Screenshot several routes in ONE browser session, serially.
+
+    Returns one `RouteCapture` per input route, in order, with `ok=False` for any
+    route that failed — a screenshot failure must never crash the pipeline, it
+    just means that route does not get visually critiqued this run.
+
+    Serial by construction: see `_SESSION_LOCK`. Reusing one browser also drops
+    five browser launches from a six-route run, which is most of what the
+    parallel version was buying.
+    """
+    routes = [(str(rt), Path(out)) for rt, out in routes]
+    if not routes:
+        return []
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        log.warning("screenshot skipped: playwright is not installed")
+        return [RouteCapture(ok=False) for _ in routes]
+
+    with _SESSION_LOCK:
+        try:
+            with sync_playwright() as p:
+                browser = _launch_chromium(p)
+                try:
+                    return [
+                        _capture_one(
+                            browser, base_url, route_path, out_path,
+                            timeout_ms=timeout_ms, viewport=viewport,
+                        )
+                        for route_path, out_path in routes
+                    ]
+                finally:
+                    browser.close()
+        except Exception as e:
+            # A launch failure loses every route, and must say so rather than
+            # look like N independent page errors.
+            log.error("screenshot session failed (%s) — %s route(s) unmeasured", e, len(routes))
+            return [RouteCapture(ok=False) for _ in routes]
+
+
 def capture_route_visual(
     base_url: str,
     route_path: str,
@@ -123,60 +257,12 @@ def capture_route_visual(
     main codegen pipeline, it should just mean that route doesn't get visually
     critiqued this run.
     """
-    out_path = Path(out_path)
-    base = base_url.rstrip("/")
-    suffix = route_path.lstrip("/")
-    full_url = f"{base}/{suffix}" if suffix else f"{base}/"
-    broken: list[str] = []
-
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        log.warning("screenshot skipped: playwright is not installed")
-        return RouteCapture(ok=False)
-
-    try:
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with sync_playwright() as p:
-            browser = _launch_chromium(p)
-            try:
-                # `reduced_motion` is load-bearing, not an accessibility nicety.
-                # Every section below the fold is wrapped in `observeSectionReveal`,
-                # which sets `opacity: 0` and only animates to 1 on intersection —
-                # so a `full_page=True` screenshot captured the hero and then a
-                # column of blank space, and the critic scored *that*. Both reveal
-                # paths (`observeSectionReveal`, `AnimeStagger`) short-circuit to
-                # visible when `prefers-reduced-motion: reduce` matches.
-                page = browser.new_page(
-                    viewport=viewport or {"width": 1280, "height": 900},
-                    reduced_motion="reduce",
-                )
-                page.goto(full_url, wait_until="networkidle", timeout=timeout_ms)
-                # SPA-specific: wait for React to actually mount content into
-                # #root, not just for the network to go quiet — index.html +
-                # the JS bundle can finish "loading" well before anything is
-                # painted.
-                page.wait_for_function(_ROOT_HAS_CHILDREN_JS, timeout=timeout_ms)
-                # One extra tick for any post-mount effects (data seeding,
-                # image decode) to settle before the shot.
-                page.wait_for_timeout(300)
-                prime_scroll_reveals(page)
-                page.screenshot(path=str(out_path), full_page=True)
-                try:
-                    broken = [str(src) for src in page.evaluate(_BROKEN_IMAGES_JS) or []]
-                except Exception as e:
-                    log.warning("broken-image probe failed for %s: %s", route_path, e)
-            finally:
-                browser.close()
-    except Exception as e:
-        log.warning("screenshot capture failed for %s (%s): %s", route_path, full_url, e)
-        return RouteCapture(ok=False)
-
-    if not (out_path.is_file() and out_path.stat().st_size > 0):
-        return RouteCapture(ok=False)
-    if broken:
-        log.error("broken images on %s: %s", route_path, broken[:6])
-    return RouteCapture(ok=True, path=out_path, broken_images=broken)
+    return capture_routes_visual(
+        base_url,
+        [(route_path, Path(out_path))],
+        timeout_ms=timeout_ms,
+        viewport=viewport,
+    )[0]
 
 
 def capture_route_screenshot(

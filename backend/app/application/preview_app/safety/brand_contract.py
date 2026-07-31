@@ -633,6 +633,50 @@ def _brand_completeness_patch(
         f"  social_proof: {json.dumps(f'Trusted by over 2,400 delighted {name} clients.', ensure_ascii=False)}"
     )
 
+_DESIGN_SYSTEM_KEY_RE = re.compile(r"\bdesign_system\s*:\s*\{")
+
+
+def _fill_design_system_gaps(body: str, primary: str, secondary: str, font: str) -> str:
+    """Add only the scalar keys a present-but-thin `design_system` is missing.
+
+    Returns `body` unchanged when nothing is missing or the object cannot be
+    spanned — a brand contract guard must never be the thing that corrupts
+    `mock.ts`.
+    """
+    m = _DESIGN_SYSTEM_KEY_RE.search(body)
+    if not m:
+        return body
+    start = m.end()
+    depth = 1
+    i = start
+    while i < len(body) and depth:
+        ch = body[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        i += 1
+    if depth != 0:
+        return body
+    inner = body[start : i - 1]
+    missing = [
+        (key, value)
+        for key, value in (
+            ("primary_color", primary or "#0f172a"),
+            ("secondary_color", secondary or "#0369a1"),
+            ("font_family", font or "Inter"),
+        )
+        # `mock.ts` carries both `primary_color:` (authored) and `"primary_color":`
+        # (JSON-dumped by this guard's own earlier pass) — a check that misses the
+        # quoted form re-inserts the key on every call and never converges.
+        if not re.search(rf"""['"]?\b{key}\b['"]?\s*:""", inner)
+    ]
+    if not missing:
+        return body
+    addition = "".join(f"\n    {key}: {json.dumps(value)}," for key, value in missing)
+    return body[:start] + addition + body[start:]
+
+
 def ensure_brand_shape(
     workspace,
     brand_name: str,
@@ -658,12 +702,29 @@ def ensure_brand_shape(
     body_start, close_at = span
     body = mock[body_start:close_at]
 
-    needs_ds = "design_system" not in body or "primary_color" not in body
+    # A `design_system` that exists but is missing a colour must be *completed*,
+    # never re-declared: appending a sibling key makes the last one win, so the
+    # sealed brand (display font, radius, recipe tokens) was silently replaced by
+    # this generic patch. `tsc` reported it as TS1117 on request 40 and nothing
+    # read that. `_fill_design_system_gaps` patches inside the existing object.
+    has_ds = bool(re.search(r"\bdesign_system\s*:", body))
+    needs_ds = not has_ds
+    filled_ds = False
+    if has_ds:
+        filled_body = _fill_design_system_gaps(body, primary, secondary, font)
+        if filled_body != body:
+            mock = mock[:body_start] + filled_body + mock[close_at:]
+            close_at += len(filled_body) - len(body)
+            body = filled_body
+            filled_ds = True
     needs_services = not re.search(r"\bservices\s*:", body)
     needs_testimonials = not re.search(r"\btestimonials\s*:", body)
     needs_proof = "social_proof" not in body
     needs_client_names = not re.search(r"\bclient_names\s*:", body)
     if not (needs_ds or needs_services or needs_testimonials or needs_proof or needs_client_names):
+        if filled_ds:
+            write_file(workspace, mock_path, mock)
+            return True
         return False
 
     names = _toplevel_string_array(mock, "client_names") or _default_client_names(brand_name)

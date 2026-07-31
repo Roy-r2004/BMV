@@ -6,6 +6,10 @@ import logging
 import re
 
 from app.application.preview_app.catalogue_contract.imports import normalize_catalogue_page_imports
+from app.application.preview_app.catalogue_contract.item_source import (
+    catalogue_detail_base,
+    unify_catalogue_item_source,
+)
 from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
     _is_directory_listing_route,
@@ -298,6 +302,19 @@ def _is_ai_hub_file(file_path: str, route: dict) -> bool:
     )
 
 
+def _is_ops_surface_file(file_path: str, route: dict | None) -> bool:
+    """Owner pages keep their own tables; the storefront catalogue is not theirs."""
+    path = str((route or {}).get("path") or "").lower()
+    rel = (file_path or "").replace("\\", "/").lower()
+    return (
+        str((route or {}).get("surface") or "").lower() == "ops"
+        or path.startswith(("/admin", "/owner", "/ops", "/staff", "/member", "/desk"))
+        or "/admin/" in rel
+        or "/owner/" in rel
+        or "/ops/" in rel
+    )
+
+
 def enforce_catalogue_page_contract(
     file_path: str,
     content: str,
@@ -306,6 +323,23 @@ def enforce_catalogue_page_contract(
     brand_name: str | None = None,
 ) -> tuple[str, bool]:
     route = catalogue_route_for_file(file_path, architect)
+    # Before anything else: a listing that inlined its own catalogue links every
+    # card at an id the detail route cannot resolve. Rewrite the item source, keep
+    # the authored layout and copy. Runs on scaffolds too and is a no-op there.
+    if content and not _is_ops_surface_file(file_path, route):
+        try:
+            unified, touched = unify_catalogue_item_source(
+                content, detail_base=catalogue_detail_base(architect)
+            )
+            if touched:
+                logger.info(
+                    "catalogue item source unified in %s (%s)",
+                    file_path,
+                    ", ".join(touched),
+                )
+                content = unified
+        except Exception as e:  # noqa: BLE001 — never fail a build over a codemod
+            logger.warning("catalogue item source rewrite skipped for %s: %s", file_path, e)
     # AI hub: always restore AiFeatureDeck if missing (even with empty skeleton_id).
     if _is_ai_hub_file(file_path, route) and "AiFeatureDeck" not in (content or ""):
         return (

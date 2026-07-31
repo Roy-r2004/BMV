@@ -216,14 +216,25 @@ def refine_file(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     architect: dict | None = None,
+    skipped_out: list[str] | None = None,
 ) -> str:
+    """Rewrite a page to satisfy the critic's notes.
+
+    Two routes are deliberately left alone (template-owned, and contract-driven
+    utility pages). Callers used to record those as refined anyway: request 40
+    logged `refined 2 page(s)` for two pages the critic had scored 60 `revise`
+    and this function returned untouched — and both then failed the build with
+    syntax errors nobody had looked for. `skipped_out` collects them so a caller
+    can report what actually happened.
+    """
     safe_file_path = safe_source_path(file_path, workspace)
     if not safe_file_path:
         raise ValueError(f"Unsafe generated source path: {file_path}")
     file_path = safe_file_path
-    """Rewrite a page to satisfy the critic's notes."""
     current = read_file(workspace, file_path)
     if is_template_owned_path(file_path, architect, workspace):
+        if skipped_out is not None:
+            skipped_out.append(file_path)
         return current
     route = _route_for_file(file_path, architect or {})
     skeleton_id = str(route.get("skeleton_id") or "")
@@ -231,6 +242,8 @@ def refine_file(
     # the contract and reintroduce invent-React crashes — keep them intact.
     if is_utility_catalogue_route(route, skeleton_id) or "composed public-utility page" in current:
         cg_log.debug("refine skip composed utility page %s", file_path)
+        if skipped_out is not None:
+            skipped_out.append(file_path)
         return current
     catalogue_page = bool(skeleton_id)
     catalogue_contract_json = (
@@ -407,8 +420,11 @@ def critique_and_refine(
             to_refine.append((spec, review))
 
     refined: list[str] = []
+    # Pages `refine_file` declined to touch. Counting them as refined turned a
+    # "revise" verdict into a silent no-op with a reassuring log line.
+    skipped: list[str] = []
 
-    def _refine_item(item: tuple[dict, dict]) -> str:
+    def _refine_item(item: tuple[dict, dict]) -> str | None:
         spec, review = item
         path = spec.get("path", "")
         notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
@@ -423,7 +439,16 @@ def critique_and_refine(
             ai_provider,
             template_renderer,
             architect,
+            skipped_out=skipped,
         )
+        if path in skipped:
+            cg_log.warning(
+                "refine SKIPPED %s — critic asked for a revision (%s) and the page "
+                "was left as-is",
+                path,
+                review.get("score"),
+            )
+            return None
         return path
 
     if to_refine:
@@ -431,7 +456,8 @@ def critique_and_refine(
             for spec, review in to_refine:
                 path = spec.get("path", "")
                 try:
-                    _refine_item((spec, review))
+                    if _refine_item((spec, review)) is None:
+                        continue
                     refined.append(path)
                     cg_log.info("refined %s", path)
                     if review.get("score", 100) < 55:
@@ -456,6 +482,8 @@ def critique_and_refine(
                 path = spec.get("path", "")
                 if exc:
                     cg_log.error("refine FAIL %s: %s", path, exc)
+                    continue
+                if result is None:
                     continue
                 refined.append(path)
                 cg_log.info("refined %s", path)

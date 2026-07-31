@@ -130,6 +130,13 @@ _INDUSTRY_KEYWORDS: dict[str, list[str]] = {
 
 _SLOTS = ("hero", "hero2", "card1", "card2", "card3", "ambient")
 
+# Per-catalogue-item photographs. The six layout slots are shared page furniture;
+# a storefront's items each need their own picture or the grid captions two
+# different products with one photo. Harvested from search results the slot loop
+# already paid for, so this costs at most one extra request.
+_ITEM_SLOT_COUNT = 8
+_ITEM_SLOTS = tuple(f"item{i}" for i in range(1, _ITEM_SLOT_COUNT + 1))
+
 _SLOT_QUERY_SUFFIX: dict[str, str] = {
     "hero": "hero lifestyle wide",
     "hero2": "workspace interior",
@@ -394,6 +401,9 @@ def _fetch_pexels_images(
     seed_n = _seed_int(seed)
     used_ids: set[int] = set()
     result: dict[str, str] = {}
+    # Every slot search asks for 8 photos and keeps 1. The other 7 were thrown
+    # away, which is why an eight-item catalogue had to reuse three pictures.
+    spare: list[tuple[int | None, str]] = []
 
     for index, slot in enumerate(_SLOTS):
         page = (seed_n + index) % 5 + 1
@@ -410,9 +420,14 @@ def _fetch_pexels_images(
             if isinstance(pid, int) and pid in used_ids:
                 continue
             url = _pexels_photo_url(photo, large=(slot.startswith("hero")))
-            if url:
+            if not url:
+                continue
+            if chosen is None:
                 chosen = (pid, url)
-                break
+                continue
+            # Detail/product framings first: those are the photographs that can
+            # plausibly *be* a catalogue item, rather than a room or a team shot.
+            spare.append((pid, url))
         if not chosen:
             return None
         pid, url = chosen
@@ -420,7 +435,48 @@ def _fetch_pexels_images(
             used_ids.add(pid)
         result[slot] = url
 
+    result.update(_item_slot_urls(api_key, queries, seed_n, used_ids, spare))
     return result
+
+
+def _item_slot_urls(
+    api_key: str,
+    queries: dict[str, str],
+    seed_n: int,
+    used_ids: set[int],
+    spare: list[tuple[int | None, str]],
+) -> dict[str, str]:
+    """One distinct photograph per catalogue slot, best-effort.
+
+    Returns only the slots it could fill; `normalize_image_slot_map` rotates the
+    layout photos into whatever is left, so a partial result is never a hole.
+    """
+    pool: list[str] = []
+    seen: set[str] = set()
+
+    def _take(pid, url) -> None:
+        if url in seen:
+            return
+        if isinstance(pid, int) and pid in used_ids:
+            return
+        seen.add(url)
+        if isinstance(pid, int):
+            used_ids.add(pid)
+        pool.append(url)
+
+    # `card1` carries the product-detail framing, so its result set is the most
+    # likely to contain photographs of the thing being sold.
+    if len(spare) < _ITEM_SLOT_COUNT:
+        try:
+            for photo in _search_pexels(
+                api_key, queries.get("card1") or "", page=(seed_n % 3) + 1, per_page=16
+            ):
+                _take(photo.get("id"), _pexels_photo_url(photo, large=False))
+        except Exception as exc:  # noqa: BLE001 — item photos are an enhancement
+            logger.warning("Pexels item-pool fetch failed (%s); reusing slot photos", exc)
+    for pid, url in spare:
+        _take(pid, url)
+    return {slot: pool[i] for i, slot in enumerate(_ITEM_SLOTS) if i < len(pool)}
 
 
 def curated_library_urls() -> frozenset[str]:
@@ -467,6 +523,16 @@ def normalize_image_slot_map(images: dict[str, str] | None) -> dict[str, str]:
             str(out.get(slot) or ""), allowed_ids=allowed_ids
         ):
             out[slot] = base[slot]
+    # Catalogue slots are always present, even when the fetch could not fill them,
+    # so a page can write `images.item3` without `tsc` complaining and without the
+    # eight-item grid showing the same photograph twice (request 40 mapped `card1`
+    # to both "Whispering Winds" and "Desert Bloom").
+    rotation = [out[s] for s in ("card1", "card2", "card3", "ambient", "hero2", "hero")]
+    for index, slot in enumerate(_ITEM_SLOTS):
+        if slot not in out or not _is_allowed_image_url(
+            str(out.get(slot) or ""), allowed_ids=allowed_ids
+        ):
+            out[slot] = rotation[index % len(rotation)]
     return out
 
 

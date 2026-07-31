@@ -41,6 +41,10 @@ _CONDITIONAL_ROUTES = frozenset({"/ai-features"})
 _HREF_LITERAL_RE = re.compile(r"""href\s*[:=]\s*\{?\s*["'`](?P<value>[^"'`]+)""")
 #: Template-literal bases: `/gallery/${...}` → "/gallery"
 _TEMPLATE_BASE_RE = re.compile(r"[\"'`](?P<base>/[A-Za-z0-9\-_/]*?)/\$\{")
+#: `detailBase="/gallery"` — CatalogGrid turns this into one link per card.
+_DETAIL_BASE_RE = re.compile(
+    r"""detailBase\s*=\s*\{?\s*["'`](?P<base>/[A-Za-z0-9\-_/]*)"""
+)
 
 
 @dataclass(frozen=True)
@@ -188,6 +192,14 @@ def _read(workspace: Path, rel: str) -> str:
         return ""
 
 
+def _write(workspace: Path, rel: str, content: str) -> bool:
+    try:
+        (workspace / rel).write_text(content, encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
 def _routes(architect: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [r for r in (architect.get("routes") or []) if isinstance(r, dict)]
 
@@ -276,6 +288,83 @@ def internal_hrefs(source: str) -> list[str]:
     return found
 
 
+#: Hrefs a storefront invents for its catalogue when the route is named something
+#: else. Request 40's hero CTA said "View the Collection" and pointed at
+#: `/collection` while the browse route was `/gallery`.
+_BROWSE_SYNONYMS = (
+    "collection", "collections", "gallery", "galleries", "shop", "store", "catalog",
+    "catalogue", "products", "product", "works", "artwork", "artworks", "paintings",
+    "pieces", "menu", "listings",
+)
+_CONTACT_SYNONYMS = ("contact", "inquire", "inquiry", "enquire", "book", "booking", "appointment")
+_LISTING_PATH_RE = re.compile(
+    r"^/(gallery|collection|collections|shop|catalog|catalogue|products|works|menu|"
+    r"paintings|pieces|listings)(/|$)",
+    re.I,
+)
+
+
+def _best_declared_target(href: str, declared: set[str]) -> str:
+    """Nearest declared route for a dead internal link, or "" to leave it alone."""
+    target = _norm(href)
+    leaf = target.strip("/").split("/")[-1].lower()
+    statics = sorted(p for p in declared if p and ":" not in p and "{" not in p and p != "/")
+
+    def _first(predicate) -> str:
+        return next((p for p in statics if predicate(p)), "")
+
+    # Same leaf under a different parent — `/paintings` when `/owner/paintings` and
+    # `/gallery` both exist prefers the public one by sort order.
+    same_leaf = _first(lambda p: p.strip("/").split("/")[-1].lower() == leaf)
+    if same_leaf:
+        return same_leaf
+    if leaf in _BROWSE_SYNONYMS:
+        browse = _first(lambda p: bool(_LISTING_PATH_RE.match(p + "/")))
+        if browse:
+            return browse
+    if leaf in _CONTACT_SYNONYMS:
+        contact = _first(lambda p: any(word in p.lower() for word in _CONTACT_SYNONYMS))
+        if contact:
+            return contact
+    return ""
+
+
+def repair_dead_internal_links(
+    workspace: Path, architect: Mapping[str, Any]
+) -> list[str]:
+    """Point public dead links at the route they meant. Returns healed files.
+
+    Deterministic counterpart to the sweep's new BLOCK on public surfaces: a dead
+    primary CTA is worth failing the gate over only because this can fix it
+    without a model call. Links with no plausible target are left for the AI
+    repair pass rather than guessed at.
+    """
+    declared = declared_route_paths(architect)
+    healed: list[str] = []
+    for route in _routes(architect):
+        if _surface(route) != "public":
+            continue
+        rel = str(route.get("component_file") or "").replace("\\", "/")
+        if not rel:
+            continue
+        src = _read(workspace, rel)
+        if not src:
+            continue
+        updated = src
+        for href in sorted(set(internal_hrefs(src)), key=len, reverse=True):
+            if _route_matches(href, declared):
+                continue
+            replacement = _best_declared_target(href, declared)
+            if not replacement or replacement == _norm(href):
+                continue
+            for quote in ('"', "'", "`"):
+                updated = updated.replace(f"{quote}{href}{quote}", f"{quote}{replacement}{quote}")
+        if updated != src:
+            _write(workspace, rel, updated)
+            healed.append(rel)
+    return healed
+
+
 # --------------------------------------------------------------------------- #
 # the walk
 # --------------------------------------------------------------------------- #
@@ -352,11 +441,17 @@ def _sweep_non_hop_links(
     journey: Journey,
     declared: set[str],
 ) -> None:
-    """Advisory dead-link sweep over every page the journey does not walk.
+    """Dead-link sweep over every page the journey does not walk.
 
-    Blocking is confined to the funnel on purpose. A dead link on an admin page
-    is a real defect worth surfacing, but withholding a correct public storefront
-    over an owner-only page is the failure mode already logged as P0-4.
+    Blocking follows *surface*, not hop membership. Ops pages stay advisory: a
+    dead link on an owner-only page is a real defect, but withholding a correct
+    public storefront over it is the failure mode logged as P0-4.
+
+    A public page is different. Request 40's home page pointed both of its primary
+    CTAs — "View the Collection" and "View Available Paintings" — at `/collection`,
+    a path no route serves, so the first thing a visitor clicked bounced them back
+    to the page they were on. That was reported as a warning purely because
+    HomePage is not the designated browse hop, and the preview shipped `ready`.
     """
     walked = set()
     for hop in journey.hops:
@@ -371,6 +466,7 @@ def _sweep_non_hop_links(
         src = _read(workspace, rel)
         if not src:
             continue
+        surface = _surface(route)
         for href in sorted(set(internal_hrefs(src))):
             if _route_matches(href, declared):
                 continue
@@ -378,10 +474,10 @@ def _sweep_non_hop_links(
                 "journey_dead_link_offpath",
                 f"{rel} links to {href}, which no declared route serves",
                 swept,
-                surface=_surface(route),
+                surface=surface,
                 component_file=rel,
                 path=_norm(str(route.get("path") or "")),
-                advisory=True,
+                advisory=surface != "public",
             )
 
 
@@ -457,6 +553,10 @@ def _check_browse(
         detail_bases = {target}
     referenced = set(internal_hrefs(src)) | {
         m.group("base") for m in _TEMPLATE_BASE_RE.finditer(src)
+    } | {
+        # `CatalogGrid` derives `${detailBase}/${item.id}` for every card, so a
+        # declared detailBase is a real item link even with no `href` in sight.
+        m.group("base") for m in _DETAIL_BASE_RE.finditer(src)
     }
     if not any(
         _norm(ref).startswith(_norm(base)) for ref in referenced for base in detail_bases

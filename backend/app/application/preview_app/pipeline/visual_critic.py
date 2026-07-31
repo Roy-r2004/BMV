@@ -27,7 +27,7 @@ from app.application.preview_app.build import run_build
 from app.application.preview_app.codegen.critic import critique_file_visual, refine_file
 from app.application.preview_app.parallel import parallel_map
 from app.application.preview_app.safety.orchestrator import apply_workspace_guards
-from app.application.preview_app.screenshot import capture_route_visual
+from app.application.preview_app.screenshot import capture_routes_visual
 from app.application.preview_app.workspace import list_source_files, read_file, restore_source, snapshot_source
 from app.application.services.progress import emit as _emit
 from app.core.config import settings
@@ -775,15 +775,40 @@ def _run_visual_critique(
     base_url = f"{settings.INTERNAL_BASE_URL}{base_path}/"
     workers = max(1, settings.PREVIEW_PARALLEL_WORKERS)
 
+    captures_by_index: dict[int, object] = {}
+
+    def _capture_batch(items: list[tuple[int, dict]]) -> int:
+        """Screenshot every route in one serial browser session.
+
+        Capture used to happen inside the worker thread that then made the vision
+        call, so `PREVIEW_PARALLEL_WORKERS` threads entered Playwright's sync API
+        at once and raced for its driver spawn. Request 40 lost 5 of 6 pages to
+        `RuntimeError: Racing with another loop to spawn a process.` and shipped
+        with one page judged. Screenshots are serial now; the vision calls, which
+        are what the workers are for, still fan out below.
+        """
+        wanted = [
+            (i, rt) for i, rt in items
+            if (rt.get("component_file") or "").strip()
+        ]
+        if not wanted:
+            return 0
+        captures = capture_routes_visual(
+            base_url,
+            [(rt.get("path") or "/", screenshot_dir / f"shot_{i}.png") for i, rt in wanted],
+        )
+        fresh = {i: cap for (i, _rt), cap in zip(wanted, captures)}
+        captures_by_index.update(fresh)
+        return sum(1 for cap in fresh.values() if getattr(cap, "ok", False))
+
     def _review_route(item: tuple[int, dict]) -> tuple[str, dict, dict] | None:
         i, rt = item
-        route_path = rt.get("path") or "/"
         component_file = (rt.get("component_file") or "").replace("\\", "/")
         if not component_file:
             return None
         shot_path = screenshot_dir / f"shot_{i}.png"
-        capture = capture_route_visual(base_url, route_path, shot_path)
-        if not capture.ok:
+        capture = captures_by_index.get(i)
+        if capture is None or not getattr(capture, "ok", False):
             log.error(f"    visual critic: skip {component_file} (screenshot failed)")
             return component_file, {"verdict": "unavailable"}, {}
         spec = specs_by_path.get(component_file) or {}
@@ -793,12 +818,22 @@ def _run_visual_critique(
             ai_provider, template_renderer, architect,
             business_identity=business_identity,
         )
-        review = {**review, "broken_images": capture.broken_images}
+        review = {**review, "broken_images": getattr(capture, "broken_images", [])}
         return component_file, review, spec
 
     indexed_routes = list(enumerate(routes, 1))
     _emit(db, request_id, "visual_critic",
-          f"Visually reviewing {len(indexed_routes)} page(s) in parallel...", 90,
+          f"Screenshotting {len(indexed_routes)} page(s)...", 90,
+          detail="one browser session, one page at a time")
+    shot_ok = _capture_batch(indexed_routes)
+    if shot_ok < len(indexed_routes):
+        log.error(
+            "    visual critic: %s of %s screenshot(s) failed — those pages cannot be judged",
+            len(indexed_routes) - shot_ok, len(indexed_routes),
+        )
+    _record_render_errors(report, indexed_routes, captures_by_index, db, request_id)
+    _emit(db, request_id, "visual_critic",
+          f"Visually reviewing {shot_ok} page(s) in parallel...", 90,
           detail=f"workers={workers}")
 
     flagged: list[tuple[str, str, dict]] = []
@@ -917,6 +952,7 @@ def _run_visual_critique(
         log.info("    visual critic: rebuild OK, keeping visually-refined version")
         _remeasure_refined_pages(
             db, request_id, report, indexed_routes, _review_route, _make_consumer, workers,
+            recapture=_capture_batch,
         )
         # Deterministic and free, so there is no reason to carry the pre-refine
         # verdict: a rewritten page can introduce a broken local reference or
@@ -940,6 +976,58 @@ def _run_visual_critique(
     return report
 
 
+def _record_render_errors(
+    report: VisualCritiqueReport,
+    indexed_routes: list,
+    captures_by_index: dict,
+    db,
+    request_id: int,
+) -> None:
+    """A page that rendered the error boundary is a crash, not a low score.
+
+    This is deterministic on purpose. Request 41's home page threw
+    `aiFeatures is not defined` and rendered the template's error box; the vision
+    model looked at that box and reported *"the hero image is a photograph of an
+    artist painting in a studio"*, scoring it 65 — a warning. Asking a model
+    whether a page rendered is asking the wrong component: the browser knows.
+
+    Public surfaces BLOCK. Ops surfaces WARN, following `asset_integrity`'s policy
+    that an owner-only page must not withhold a working storefront (P0-4) — the
+    error is still reported and still reaches the repair loop.
+    """
+    for i, rt in indexed_routes:
+        capture = captures_by_index.get(i)
+        message = str(getattr(capture, "render_error", "") or "")
+        if not message:
+            continue
+        component_file = (rt.get("component_file") or "").replace("\\", "/")
+        route_path = rt.get("path") or "/"
+        surface = _route_surface(rt)
+        severity = BLOCK if surface == "public" else WARN
+        log.error(
+            "    visual critic %s page_failed_to_render %s (%s): %s",
+            severity.upper(),
+            route_path,
+            component_file,
+            message[:200],
+        )
+        report.add(
+            "page_failed_to_render",
+            f"{route_path} ({component_file}) rendered the preview error boundary "
+            f"instead of the page: {message[:300]}",
+            path=component_file,
+            severity=severity,
+        )
+        _emit(
+            db,
+            request_id,
+            "visual_critic",
+            f"{route_path} failed to render",
+            90,
+            detail=message[:200],
+        )
+
+
 def _remeasure_refined_pages(
     db,
     request_id: int,
@@ -948,6 +1036,7 @@ def _remeasure_refined_pages(
     review_route,
     make_consumer,
     workers: int,
+    recapture=None,
 ) -> None:
     """Re-judge the pages the refine pass rewrote, discarding the stale verdict.
 
@@ -979,6 +1068,11 @@ def _remeasure_refined_pages(
         _emit(db, request_id, "visual_critic",
               f"Re-reviewing {len(recheck)} refined page(s)...", 91,
               detail="a repaired page must not keep its old verdict")
+        if callable(recapture):
+            # The refine pass rewrote these files and the workspace was rebuilt.
+            # Judging the pre-refine screenshot again would re-measure nothing —
+            # it would re-read the defect we just repaired.
+            recapture(recheck)
         consume = make_consumer(len(recheck), "re-reviewed", False)
         try:
             for item, result, exc in parallel_map(recheck, review_route, max_workers=workers):

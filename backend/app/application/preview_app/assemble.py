@@ -36,6 +36,16 @@ def _ident(stem: str) -> str:
     return s
 
 
+#: Leaves that create a new record. `parent/:id` addresses an existing one, so a
+#: create form must never be aliased onto it.
+_CREATE_LEAVES = frozenset({"add", "new", "create", "upload", "import", "compose"})
+
+
+def _is_record_component(leaf: str, comp: str) -> bool:
+    """True for a page that renders or edits one existing record."""
+    return bool(re.search(r"(detail|edit|update|record|profile|view)", f"{leaf} {comp}", re.I))
+
+
 def _collision_component_name(rel: str, stem: str) -> str:
     """Prefer AdminDropsPage over path-slug aliases when stems collide."""
     parts = rel.replace("\\", "/").split("/")
@@ -843,6 +853,10 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
         lines: list[str] = []
         registered: set[str] = set()
         all_paths = {p.rstrip("/") or "/" for p, _ in items}
+        # alias path -> (priority, component). An edit/detail page outranks any
+        # other sibling for `parent/:id`, and the winner is emitted after the loop
+        # so declaration order cannot decide it.
+        alias_candidates: dict[str, tuple[int, str]] = {}
         for path, comp in items:
             lines.append(f'          <Route path="{path}" element={{<{comp} />}} />')
             registered.add(path)
@@ -870,21 +884,34 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
                     )
                     or parent_key in all_paths
                 )
+                # `/owner/paintings/add` is a *create* form, not the record at
+                # `/owner/paintings/:id`. Request 40 aliased the param route onto
+                # AdminAddPaintingPage, so opening any painting showed an empty
+                # "Add New Painting" form while AdminEditPaintingPage sat
+                # reachable only at `/owner/paintings/edit/:id`.
+                if leaf in _CREATE_LEAVES:
+                    detailish = False
                 if detailish and parent_key not in ("", "/"):
                     for alias in (f"{parent}/:id", f"{parent}/:slug"):
-                        if alias not in registered:
-                            lines.append(
-                                f'          <Route path="{alias}" element={{<{comp} />}} />'
-                            )
-                            registered.add(alias)
+                        priority = 2 if _is_record_component(leaf, comp) else 1
+                        current = alias_candidates.get(alias)
+                        if alias not in registered and (
+                            current is None or current[0] < priority
+                        ):
+                            alias_candidates[alias] = (priority, comp)
             # Booking aliases — scaffolds historically emitted /book-appointment.
-            if leaf in {"book", "booking"} and path.rstrip("/") in {"/book", "/booking"}:
+            if leaf in {"book", "booking"} and path.rstrip("/") in {"/book", "/booking"}:  # noqa: E501
                 for alias in ("/book-appointment", "/book-appointments"):
                     if alias not in registered:
                         lines.append(
                             f'          <Route path="{alias}" element={{<{comp} />}} />'
                         )
                         registered.add(alias)
+        for alias, (_priority, comp) in alias_candidates.items():
+            if alias in registered:
+                continue
+            lines.append(f'          <Route path="{alias}" element={{<{comp} />}} />')
+            registered.add(alias)
         # Catalogue cards link /gallery/<slug> even when detail was planned as
         # /artwork (or similar). Wire listing/:id onto the detail component.
         listing_re = re.compile(

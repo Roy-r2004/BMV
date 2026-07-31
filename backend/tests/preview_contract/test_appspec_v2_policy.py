@@ -174,7 +174,13 @@ def test_v2_generation_rejects_fallback_instead_of_marking_it_complete(
         )
         monkeypatch.setattr(settings, "APPSPEC_MAX_REPAIR_ATTEMPTS", 0)
         monkeypatch.setattr(settings, "APPSPEC_MAX_DETERMINISTIC_HEALS", 0)
-        ai = _NeverPaidAI(["not valid json"])
+        # Two responses, not one: `APPSPEC_AUTHORING_MALFORMED_RETRY_MAX` gives the
+        # authoring loop one re-ask on unparseable output, and that budget is
+        # independent of `APPSPEC_MAX_REPAIR_ATTEMPTS` (which governs *repair* of a
+        # parsed-but-invalid spec). Scripting one response made the fixture's own
+        # "unplanned provider call" assertion fire before the policy under test
+        # could, which is why this was the last row on KNOWN_TEST_FAILURES.md.
+        ai = _NeverPaidAI(["not valid json", "still not valid json"])
 
         with pytest.raises(AppSpecGenerationError, match="fallback is disabled"):
             ensure_approved_app_spec(
@@ -203,6 +209,10 @@ def test_v2_generation_rejects_fallback_instead_of_marking_it_complete(
             schema_version=settings.APPSPEC_SCHEMA_VERSION,
             product_strategy_sha256=inputs.strategy.strategy_sha256,
         ) is None
-        assert ai.calls == ["google/gemini-2.5-flash"]
+        # The authoring model, then its one malformed-output re-ask. What matters
+        # for this policy is that *no other* model was paid — no repair model, no
+        # coverage model, no fallback — and that both calls went to the authoring
+        # model the policy assigned.
+        assert ai.calls == ["google/gemini-2.5-flash", "google/gemini-2.5-flash"]
     finally:
         db.close()

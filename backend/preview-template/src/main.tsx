@@ -27,6 +27,11 @@ class PreviewErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <div
+          // Machine-readable so the pipeline's own browser probe can see a crashed
+          // page without asking a model. A vision critic looked at this very box
+          // on request 41 and reported "the hero image is a photograph of an
+          // artist painting in a studio", scoring it 65.
+          data-preview-render-error={this.state.error.message || 'render failed'}
           style={{
             fontFamily: 'system-ui, sans-serif',
             padding: '2rem',

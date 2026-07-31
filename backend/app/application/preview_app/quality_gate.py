@@ -615,6 +615,19 @@ def heal_quality_gate(
     except Exception as e:
         log.warning("quality heal asset references failed: %s", e)
 
+    # 9) Public dead links → the declared route they meant
+    try:
+        from app.application.preview_app.capabilities.journey import (
+            repair_dead_internal_links,
+        )
+
+        relinked = repair_dead_internal_links(workspace, architect)
+        if relinked:
+            log.info("quality heal repointed dead links in %s", ", ".join(relinked))
+        healed.extend(relinked)
+    except Exception as e:
+        log.warning("quality heal dead links failed: %s", e)
+
     # De-dupe while preserving order
     return list(dict.fromkeys(healed))
 

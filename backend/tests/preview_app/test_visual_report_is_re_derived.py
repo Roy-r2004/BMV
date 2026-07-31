@@ -89,7 +89,7 @@ class _Harness:
         self._visit_for_shot: dict[str, int] = {}
 
     def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(vc, "capture_route_visual", self._capture)
+        monkeypatch.setattr(vc, "capture_routes_visual", self._capture_batch)
         monkeypatch.setattr(vc, "critique_file_visual", self._critique)
         monkeypatch.setattr(vc, "refine_file", self._refine)
         monkeypatch.setattr(vc, "apply_workspace_guards", lambda *a, **k: None)
@@ -97,6 +97,17 @@ class _Harness:
         monkeypatch.setattr(vc, "_emit", self._emit)
 
     # -- seams ------------------------------------------------------------
+    def _capture_batch(self, base_url, routes, **_kw) -> list[RouteCapture]:
+        """Screenshots are taken serially in one browser session now.
+
+        Capture used to happen inside each vision worker, so `PREVIEW_PARALLEL_WORKERS`
+        threads entered Playwright's sync API together and raced for its driver
+        spawn — request 40 lost 5 of 6 pages that way. The batch seam is what
+        production calls; patching the per-route helper would no longer intercept
+        anything.
+        """
+        return [self._capture(base_url, route_path, shot_path) for route_path, shot_path in routes]
+
     def _capture(self, base_url, route_path, shot_path, **_kw) -> RouteCapture:
         component_file = HOME if route_path in ("/", "") else GALLERY
         with self._lock:

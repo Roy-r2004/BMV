@@ -1,41 +1,42 @@
-# Session handoff — preview quality: from "gates green" to "actually looks good" (2026-07-29)
+# Session handoff — preview quality (2026-07-29, session 2)
 
 Successor to [docs/handoffs/2026-07-29-v2-removal.md](docs/handoffs/2026-07-29-v2-removal.md)
 (archived, still accurate on branch/deploy constraints). Process notes, not product docs.
 The permanent record of *why* the pipeline shipped bad output is
 [docs/PREVIEW_QUALITY_FINDINGS.md](docs/PREVIEW_QUALITY_FINDINGS.md) — read that first.
 
+**If you read one thing: [Next steps](#next-steps), item P0-1.** An adversarial review confirmed
+that our own imagery fix introduced a new way to ship wrong photographs. It is a regression against
+`main` and it is not yet fixed.
+
 ## TL;DR
 
-Preview request 36 — `status=ready`, `quality gate PASSED`, recorded by the previous handoff as
-meeting or beating the 8.5/10 reference on every measured axis — **was not shippable to an
-investor.** Its hero image was a dental clinic. Its "Featured Works" cards, captioned *Crimson
-Tide*, *Emerald Depths* and *Desert Bloom*, were dentures in surgical gloves, a dentist beside a
-"Smile" sign, and oral surgery in progress. It carried **59 TypeScript errors**, seven image
-paths that resolved to HTML, four empty credential cards on four separate pages, and a hero
-headline rendered white-on-white.
+Preview request 36 — `status=ready`, `quality gate PASSED` — was not shippable: a dental-clinic
+hero on a fine-art gallery, 59 TypeScript errors, seven image paths resolving to HTML, four empty
+credential cards, a white-on-white headline. Every measurement was accurate and every measurement
+was blind to the page. Root cause: **nothing in the pipeline ever looked at the artifact.**
 
-Every one of those measurements was accurate. Every one was blind to the page.
+Session 1 fixed that and demonstrated it end to end (request 38: real artist imagery, 0 broken
+paths, 23 type errors, correct shell identity). Session 2 did the review that session 1 never got,
+plus the repair loop that had never worked.
 
-Root cause in one line: **nothing in the pipeline ever looked at the artifact.** Twelve substring
-matches over source text, one `is_file()`, and a policy flag. The only component that rendered
-pixels could not fail a build. The compiler that would have caught 59 contract violations in
-seconds was never run.
-
-The design system is genuinely strong — confident editorial typography, a deep green palette,
-generous whitespace, tasteful motion. Nothing needed redesigning. Every defect was content
-correctness.
+**Session 2 outcome, honestly stated:** the review confirmed **6 defects, 1 a blocker**, and
+**22 of its 33 agents died**, so coverage is partial — two subsystems were never reviewed at all
+and 18 candidate findings were never verified. Details in
+[Review coverage](#review-coverage-read-this-before-trusting-the-result). The pipeline is in better
+shape than session 1 left it *and* it has a confirmed release-blocking regression. Both are true.
 
 ## Branch and deploy constraints — unchanged, still binding
 
-- Work is **uncommitted** on `chore/remove-preview-generator-v2` (last commit `27c5de9`).
-  `main` and `origin/main` remain at `66902f0`. No PR opened.
+- All of session 1 and session 2's code is **committed** as `fcee0f5` ("refining v1") on
+  `chore/remove-preview-generator-v2` — 115 files. `main` and `origin/main` remain at `66902f0`, so
+  **nothing has deployed.** No PR opened.
 - **Pushing `main` auto-deploys to production** via Coolify (`DEPLOY.md`).
 - **Do not force-push. Do not amend `5fcae7c`.**
 - **`.env.prod` is gitignored and holds real production values.** Do not undo the `.gitignore`
   rules denying `.env` / `.env.*` at any depth.
-- The six commits (`f98e6eb`…`66902f0`) that landed mid-session during the v2 removal are
-  already reconciled. **Do not redo that work** — see the archived handoff.
+- The six commits (`f98e6eb`…`66902f0`) that landed mid-session during the v2 removal are already
+  reconciled. **Do not redo that work** — see the archived handoff.
 
 ## Use this test command — both documented ones lie
 
@@ -50,263 +51,383 @@ docker run --rm -v "$PWD:/repo" -w /repo/backend \
 ```
 
 - Plain `docker run -v "$PWD:/repo"` fails template-dependent tests: the image sets
-  `PREVIEW_TEMPLATE_DIR=/app/backend/preview-template`, and that env var **wins over**
-  `Settings`' path discovery — so tests read the template *baked into the image* while your edits
-  sit unread under `/repo`. Symptom: `test_task5_deterministic_fixture` reports `src/ui/**` drift
-  that does not exist in the repo. Hence the explicit `-e` override.
-- `docker compose exec api` fixes the template (compose mounts `./backend` onto `/app/backend`)
-  but fails `test_admin_build_info.py::test_deploy_files_stamp_the_code_policy_revision`, which
-  walks to `parents[3]` for the repo root, finds `/app`, and cannot see the deploy files.
+  `PREVIEW_TEMPLATE_DIR=/app/backend/preview-template`, and that env var **wins over** `Settings`'
+  path discovery — so tests read the template *baked into the image* while your edits sit unread
+  under `/repo`. Symptom: `test_task5_deterministic_fixture` reports `src/ui/**` drift that does not
+  exist in the repo. Hence the explicit `-e` override.
+- `docker compose exec api` fixes the template (compose mounts `./backend` onto `/app/backend`) but
+  fails `test_admin_build_info.py::test_deploy_files_stamp_the_code_policy_revision`, which walks to
+  `parents[3]` for the repo root, finds `/app`, and cannot see the deploy files.
 
 Neither is a code defect. Recorded in `docs/KNOWN_TEST_FAILURES.md`.
 
-## Verification status
+---
 
-| Check | Result |
-|---|---|
-| Backend suite | **836 passed / 4 failed** under the command above; the 4 are the documented pre-existing set. Baseline was 671/4 → **+165 tests, zero regressions** |
-| End-to-end | **Two full generations run** (requests 37 and 38), both `ready`, both inspected with the QA harness and screenshotted |
-| Imagery P0 | Verified in a live run (`imagery subject=art`, `template=art-gallery-portfolio-home`, `ops=-`) **and by looking at the photographs** |
-| Typecheck gate | Live in the pipeline. Verified against app 36: 59 errors in 1.7s |
-| Asset 404 | Verified live: broken paths 404 while real assets and SPA routes are untouched |
-| Every new behavior | Paired with a test proven to fail without its fix |
+# Next steps
 
-### Measured before/after — request 36 (baseline) vs request 38 (after)
+Ordered by what would stop a demo. P0 items can ship a wrong preview or withhold a correct one.
 
-Same brief, same harness (`scripts/preview-qa.sh`).
+## P0-1 — Imagery role queries dropped the industry text (**regression vs `main`, blocker**)
 
-| | req 36 (before) | req 38 (after) |
+`backend/app/application/services/industry_images.py:236`
+
+```python
+queries[slot] = _compose_query(brand, category_hint, role)   # industry_clean never passed
+```
+
+`industry_clean` is computed at line 221 and never used on this branch, so the **entire subject** of
+every Pexels query is `_CATEGORY_QUERY_HINT[_resolve_category(industry)]` — one of nine buckets.
+`_resolve_category` is an *unanchored substring* match, so it mis-buckets badly:
+
+| brief industry | resolves to | subject actually searched |
 |---|---|---|
-| Hero image | a dental clinic | **an artist painting at her easel** |
-| "Featured works" | dentures, a dentist, oral surgery | **real oil paintings and gallery scenes** |
-| Browser tab | `Preview App` | **`Jeanne Kassab Art`** |
-| Meta description | none | **business-specific** |
-| npm package name | `preview-app` | **`jeanne-kassab-art`** |
-| Broken image paths | **7** (200 `text/html`) | **0** |
-| TypeScript errors | **59** | **23** (−61%; TS1117 duplicate keys 13 → 1) |
-| Clinic JPGs served in `dist` | **1.09 MB** | **0** — no non-JS assets at all |
-| Workspace size | 4,448 KB | **880 KB** (−80%) |
-| Credential cards | 4 **empty** shells, on 4 pages | **populated** ("Layered Oils", "Archival Quality", …) |
-| Section eyebrow on `/gallery` | — | was **"CLINICAL TRUST"**, now "WHY JEANNE KASSAB ART" |
-| Carousel counter | `GUEST PATH · 01 / 00` | **`02 / 03`** |
-| Hero headline | white on near-white, unreadable | **legible** |
-| Nav | `About Jeanne Kassab` **and** `About` | **deduplicated** |
+| `Auto repair garage and detailing` | `tech` (`"ai"` inside `"repair"`) | `software office technology` |
+| `Plumbing and heating repair` | `tech` | `software office technology` |
+| `Boutique law firm — estate and family law` | `retail` (`"boutique"`) | `fashion retail apparel outdoor gear` |
+| `Commercial cleaning company` | `realestate` (`"commercial"`) | `modern home real estate` |
 
-Two caveats on that table, so nobody over-reads it. Request 38 still shipped 23 type errors
-because **both** runs' typecheck repair rounds produced a patch that broke the build and were
-rolled back (see open item 1) — the 59 → 23 improvement comes from the prop-shape prompts, not
-from the repair loop. And request 38's route table still contained `/gallery/:id/:id`; that was
-diagnosed and fixed **after** the run (open item 2), so it is fixed in code but not yet
-demonstrated in a generation.
+Reproduced against the real pack picker: `industry="Auto repair garage and detailing"`,
+`brand="Ridge Motors"` → pack `home-services-trades` → **all six slots** query
+`Ridge Motors software office technology <framing>`. On `main` the same input queried
+`home services plumber electrician hvac handyman cleaning repair trades …`. So the change swapped
+on-industry pack tags for a mis-bucketed hint *and* dropped the one signal that was still correct.
 
-## What changed
+This is the pipeline's default path: `apply.py:_pack_imagery_roles` returns `_ROLE_FRAMINGS`
+whenever a pack has no explicit `imagery_roles` (**18 of 25 packs**), `apply_industry_template_to_plan`
+gap-fills all six slots, and `plan_phase.py:226` merges the role-path result over everything the
+roleless branch produced. Nothing downstream catches it — `asset_integrity` only checks
+reachability, and `check_imagery_industry_consistency` returns `[]` for these cases.
 
-### 1. Imagery subject comes from the business; a pack may only contribute framing
+**Fix:** put the business prose back at the head of the subject —
+`_compose_query(brand, industry_clean, category_hint, role)` — and note that `_MAX_QUERY_WORDS = 14`
+clips, so brand + industry + role must win and the category hint must be filler, not the head term.
+The comment already on line 235 describes the intended behaviour; the code one line below
+contradicts it. Separately, anchor `_resolve_category` on word boundaries (`\bai\b`, `\bhome\b`,
+`\bagent\b`, `\bcommercial\b`) so the hint stops mis-firing on the roleless path too.
 
-The fix for the dental photos, and the architectural point worth preserving: **a pack is a choice
-about layout, and must never redefine what the photographs depict.**
+**Why the tests missed it:** `tests/preview_app/test_imagery_subject_from_business.py` only exercises
+the art case, where the bucket happens to resolve correctly. Add a table-driven case per bucket, and
+one asserting the composed query **contains the brief's own industry words**.
 
-- `services/industry_images.py` — a role query now **composes** with the resolved business subject
-  (brand + category subject + role framing, deduped and word-capped) instead of replacing it
-  wholesale. The four callers passing no `imagery_roles` get byte-identical queries.
-- `industry_templates/apply.py` — no longer joins a pack's `industry_tags` into a search subject.
-  A pack without explicit `imagery_roles` contributes **no subject at all** rather than a wrong
-  one, and a pack whose imagery category disagrees with the business logs a WARN naming both.
-- `industry_templates/loader.py` — three defects: negated clauses are now dropped (the brief said
-  *"not a booking SaaS or clinic front desk"*, and `clinic` picked a dental pack); a lone tag hit
-  must be a ≥6-char token from the **declared** industry rather than any word in model prose; ties
-  break on merit with a seeded hash instead of descending template-id spelling, which is why
-  `clinic-*` beat `agency-portfolio-*` at every seed. `art`/`arts`/`craft`/`creative` removed from
-  the weak-token blacklist.
-- **New pack** `art-gallery-portfolio-home` — no existing pack contained any art, gallery,
-  painting, sculpture or exhibition vocabulary.
-- `pipeline/plan_phase.py` — refines the correct appspec-gate imagery instead of replacing it.
+## P0-2 — A vision outage still reports "quality gate PASSED / status ready"
 
-**Verified on the real brief:** pack is `art-gallery-portfolio-home` at every seed (was
-`clinic-dental-home`); the ops surface correctly returns `None` instead of stamping a bogus ledger
-pack; recipe still resolves to `editorial`; queries carry art vocabulary with zero dental words. I
-downloaded the resulting photographs and looked at them — a warm abstract landscape oil, a cool
-layered oil on visible canvas, and a visitor viewing framed paintings in a gallery.
+`backend/app/application/preview_app/pipeline/visual_critic.py:726`
 
-### 2. Assets must resolve, and a missing one must be visible
+If `VISION_MODEL` is unservable again, or OpenRouter 5xx/429s, or the key is missing, or the vision
+budget is exhausted: every route raises → all pages land in `report.unmeasured` at severity
+**WARN** → `report.blocking == []` → `visual_critique_gate_issues() == []` → `gate.ok` →
+`viewable=True` → `status: "ready"`. **Zero pages were judged.** Worse, `visual_critic.py:643`
+emits the progress line `Visually reviewed 6/6` *before* the exception check, so the user-visible
+feed claims full coverage.
 
-- `api/v1/routers/preview_apps.py` — asset-like paths now **404** instead of SPA-falling-back to
-  `index.html` with `200 text/html`. Safe because generated React-Router paths are extensionless;
-  `.html` is deliberately excluded so the shell still falls back.
-- **New** `preview_app/asset_integrity.py` — finds runtime-resolved asset references that exist in
-  neither `public/` nor `dist/`, ignoring remote URLs, `data:`/`blob:` and bundler imports.
-- `quality_gate.py` — wired in with a deliberate threshold: **public-surface** breakage blocks (a
-  broken hero is worse than no preview), owner/admin-only breakage is repaired and reported but
-  still ships. Plus a heal that repoints broken refs at imagery known to load.
+The severity hinges on `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED`, which appears **exactly once in
+the repo** — at the line that reads it. It is in no `Settings` field, no `.env` template, no doc, no
+test, so it is off everywhere and every unmeasured page is a warning.
 
-### 3. The visual loop can now fail a build
+`VisualCritiqueReport.measurement_failed` carries the docstring *"callers must not read `ok` as 'the
+pages were checked and are fine' without also checking this"* — and has **zero production readers**
+(only `tests/preview_app/test_visual_feedback_loop.py`). Same for `.verified`, `.reviewed`,
+`.scores`, `.refined`. `build_phase.py:487` discards the returned report inside a bare
+`except Exception`, so it is unreachable in-process too.
 
-- `pipeline/visual_critic.py` — findings carry severity; an **unavailable verdict is a measurement
-  failure, never a pass**; route selection covers ops/admin surfaces rather than the first six
-  public routes; the page cap is configurable.
-- `codegen/critic.py` — the scaffold exemption is resolved rather than deleted: scaffold pages are
-  no longer *rewritten* (which used to break Vite) but they **are** now honestly judged.
-- `preview_app_visual_critic.j2` — asks whether the photography depicts *this* business, with the
-  dental case as a worked example, reserving severe verdicts for unmistakable mismatch.
-- A **zero-cost deterministic detector** (`check_imagery_industry_consistency`) compares the
-  resolved business family against the imagery actually installed — no model call. Both sides must
-  classify confidently, so an abstract brief is not treated as evidence of a defect.
+**Fix:** surface measurement into the API result the way `_typecheck_summary` already does —
+`finalize.py` should carry `visual_pages_reviewed` / `visual_pages_unmeasured`, and "ready" must not
+be reportable when nothing was measured. Define the flag in `Settings` with a documented default, or
+delete it and decide the policy in code. Move the progress emit after the exception check.
 
-### 4. Codegen stops failing silently
+## P0-3 — A blocking visual finding can never be cleared, so a repaired preview still ships nothing
 
-- `codegen/generate.py` — a rejected slot-fill now **retries once** (bounded at
-  `_MAX_SLOT_FILL_ATTEMPTS = 2` so it cannot starve `PREVIEW_MAX_AI_CALLS`) with guidance tailored
-  to the failure mode, and logs the reason. Previously a truncated answer silently kept the
-  scaffold, indistinguishable from one never attempted.
-- `source_quality.py` — adds `tsx_parse_error`, a **real** TSX parse check via the TypeScript
-  compiler, closing the old open item where slot-fill accepted syntactically-invalid JSX. Size
-  capped, timeout bounded, and deliberately fails open so a missing toolchain cannot demote every
-  page to a scaffold.
-- `pipeline/finalize.py` — `fallback_pages` is measured from source alone at the measurement site,
-  with `enforce_app_spec` gating only the *failure*. Previously the clearing branch was unreachable
-  in the default configuration, so the metric inflated to "every catalogue page" — and that
-  inflated number is what the previous handoff used to judge quality.
+`backend/app/application/preview_app/pipeline/visual_critic.py:708`
 
-### 5. Shell identity and scaffold weight
+`_bmv_visual_critique.json` is written **once, pre-refine**, and is the only BLOCK source in the
+gate that is never re-derived. On the refine success path the report is persisted *unchanged* — no
+re-screenshot, no re-critique, only `report.refined.append(...)`. So: vision scores `/gallery` 30 →
+BLOCK recorded → `refine_file` rewrites the page → guards and build succeed → the page is now fine →
+the stale BLOCK still fails the gate → `viewable=False`, `url=None`, `status="failed"`.
 
-- Generated apps carry the real business name in `<title>`, a meta description, and a slugified
-  valid npm `name`. Every app in the fleet previously shipped `Preview App` / `preview-app`, and
-  nothing in the pipeline rewrote either.
-- Deleted from the scaffold: 19 screenshots of unrelated businesses, 12 laser-clinic images, three
-  demo reference pages plus their screenshots, and two never-invoked dev scripts. **3.64 MB less
-  copied per generation; 1.09 MB less served in every `dist/`** — the clinic imagery alone was
-  larger than the JS bundle.
+Proven: `run_quality_gate_with_heal` on a workspace whose only defect was a persisted BLOCK returned
+`ok=False` after deterministic heal, 3 AI repair attempts that each touched the file, and 4
+successful rebuilds — with the report byte-identical on disk.
 
-### 6. The compiler now runs — the highest-leverage fix in the system
+**Fix:** re-measure the refined pages and rewrite the report before the gate reads it, or have the
+gate ignore BLOCKs for paths listed in `report.refined`. The first is correct; the second is cheap.
 
-`vite build` uses rolldown and does not typecheck, so the component library's exported
-TypeScript interfaces — a precise, complete, machine-checkable spec of what every generated page
-must satisfy — were never enforced. Running `tsc` takes **1.7 seconds** and found **59 errors
-across 11 files** in the app that shipped as "ready".
+## P0-4 — `broken_rendered_image` blocks on every surface, defeating the deliberate deferral
 
-- **New** `preview_app/typecheck.py` — runs the workspace's own `tsc` and returns structured
-  diagnostics with a **three-state** result: `clean` / `errors` / `unavailable`. A broken compiler
-  run can never be reported as a healthy app. Uses project mode
-  (`-p tsconfig.app.json --noEmit --incremental false`) rather than `tsc -b`, because workspaces
-  symlink a shared `node_modules` and build mode would race on one `tsBuildInfoFile` across
-  concurrent generations.
-- `pipeline/build_phase.py` — repairs run after the Vite build succeeds and before the visual
-  critic, bounded by `PREVIEW_MAX_TYPECHECK_FIX_ROUNDS` (2) and the existing fix-loop budget.
-  Each round snapshots sources **and the shipping `dist`**; a round whose rebuild fails is rolled
-  back and the pre-typecheck `dist` restored — Vite empties `outDir` on start, so without that a
-  failed repair would delete a servable preview. Leftover errors are recorded to
-  `.bmv-debug/typecheck/summary.json` and **the app still ships**.
-- `codegen/fix_agent.py` — the existing build-fix flow is refactored and reused rather than
-  duplicated (its signature and behavior are unchanged), plus `regressive_fix_reason`, a
-  deterministic veto on the failure mode that matters: a "fix" that **deletes a component usage,
-  empties an array that had content, or adds `as any` / `: any` / `@ts-ignore`** is rejected.
-  Silencing the compiler by making the page emptier is the exact defect being removed.
-- `PREVIEW_TYPECHECK` **defaults on**. A quality gate that defaults off is the disease.
+`backend/app/application/preview_app/pipeline/visual_critic.py:757`
 
-### 7. The model is now shown the contract it must satisfy
+`report.add("broken_rendered_image", ...)` relies on `add`'s `severity=BLOCK` default and applies no
+surface check — while the gate deliberately filters the visual `missing_image_asset` code for exactly
+this reason, and `asset_integrity.blocking_missing_assets()` blocks only on `ref.public_surface`.
+Since route selection now deliberately screenshots an ops/admin route, **one broken owner-only
+thumbnail withholds the entire public storefront.** It fires even on a `pass` verdict at score 90,
+because `broken_images` comes from the browser probe, not the model.
 
-`catalogue.json` told the model `CredentialStrip` requires `items` but never that an item is
-`{title, detail}` — so it invented `{label, value}`, and four empty cards shipped on four pages.
+Our own two new tests encode the contradiction for the same defect on the same kind of page:
+`test_visual_report_reaches_gate.py:100-124` asserts a missing image on `admin/ManageArtworksPage.tsx`
+must **not** fail the gate; `test_visual_feedback_loop.py:206-225` asserts a missing local image on
+`admin/DashboardPage.tsx` **does** produce a BLOCK.
 
-`ui_catalogue.py` now derives prop and item type shapes **from the component `.tsx` sources** at
-prompt-build time, so the contract can never drift from the components, and there is no second
-copy to maintain. Wired into `preview_app_slot_fill.j2`, `preview_app_mock_synthesize.j2` and
-`preview_app_file.j2` for **~649 tokens**. Verified output:
-`CredentialStripItem { title, detail }`, `TestimonialRailItem { quote, author, role? }`,
-`MarketingHero.imageSrc` required with no `children`, `Button` with no `target` — every guess the
-model previously got wrong is now stated, including allowed literal unions.
+**Fix:** pass `WARN` when `_route_surface(rt)` says the page is ops/owner-only, mirroring
+`asset_integrity`'s `public_surface` policy. Keep the BLOCK for public surfaces — it is correct
+there. Then reconcile the two tests.
 
-### 8. Rendered hygiene
+## P0-5 — Industry-mismatch margins are computed and never read
 
-- `catalogue_contract/scaffold.py` — a single `_js()` helper (mirroring the existing
-  `utility_compositor.py:66` pattern) replaces every raw `json.dumps`, so `ensure_ascii=True` can
-  no longer ship `—` as six visible characters through a JSX attribute. All 31 call sites
-  fixed, not just the one that was visibly broken.
-- **New** `safety/copy_hygiene.py` — a deterministic net so a literal `\uXXXX` escape or template
-  jargon ("LEAD DROP", "NEXT MOVE", "GUEST PATH") cannot reach rendered copy from any source,
-  including model output.
-- `pipeline/architect_normalize.py` — route-table normalization. On app 36's real routes this
-  collapses **17 → 10**: `/works*` merges into `/gallery/:slug` (they rendered byte-identical
-  pages), `/works/:slug/:slug` (the same param name twice) is gone, `/admin/:id` and
-  `/admin/:slug` unify, and literal admin routes are ordered ahead of the dynamic sibling that
-  used to shadow them.
-- `safety/mock_data.py` — nav deduplicated by destination and ordered primary-journey-first, so
-  "About Jeanne Kassab" and "About" can no longer both appear.
+`backend/app/application/preview_app/pipeline/visual_critic.py:383`
 
-### 9. The vision model had no endpoints — so the visual gate could never run
+`classify_industry_family` returns `(family, margin)` and `check_imagery_industry_consistency` binds
+`business_margin` / `imagery_margin` — then uses them **only inside the f-string message**. No
+threshold reads them. The docstring's *"Both must classify confidently"* is enforced only by a weak
+internal rule (≥2 hits and strictly more than the runner-up), so a 3–2 win counts as confident. And
+nothing reconciles the semantically overlapping `health` and `beauty` families.
 
-Found by reading the logs of a real generation. Every route logged
-`visual critic route error: No endpoints found for meta-llama/llama-3.2-11b-vision-instruct`.
-OpenRouter no longer serves that model, and it was the `openrouter` **default** in
-`_DEFAULT_MODELS`, with `.env.prod.example` pinning it **uncommented** so production actively
-selected it. The consequence is the worst possible shape: the one component that renders pixels
-failed on every page, reviewed nothing, and — because an unavailable verdict is correctly *not* a
-pass — the run still completed. We had just given that gate teeth and it could not bite.
+Reproduced with the real pack picker and real pack roles: `industry="spa and wellness clinic"` →
+pack `spa-wellness-home` → business `('health', 2)`, imagery `('beauty', 3)` → **BLOCK
+`imagery_industry_mismatch`** against imagery the pipeline itself selected as on-industry. A med-spa
+brief gets `('health', 1)` vs `('beauty', 3)` → same BLOCK. Combined with P0-3, that permanently
+withholds a correct preview.
 
-Verified directly against the provider with a real screenshot:
-`google/gemini-2.5-flash` → `VISION_OK`; the old default → `No endpoints found`. Changed the
-default to `google/gemini-2.5-flash` (already the pipeline's codegen model, and multimodal), fixed
-`.env.prod.example`, `backend/.env.example` and `docs/architecture/PREVIEW_GENERATOR_V1_BASELINE.md`.
-`backend/.env` has it commented out, so it inherits the new default — nothing to change there.
-Guarded by `tests/preview_app/test_vision_model_is_servable.py`, which pins the default away from
-known-dead models, asserts it looks multimodal, and fails if a deploy template or doc re-advertises
-a dead one.
+**Fix:** require a real margin on both sides before reporting, and add a family-adjacency allowance
+(`health`/`beauty`, and check the other pairs in `_CATEGORY_FAMILY` for the same overlap).
 
-### 10. The shared kit shipped a clinic-branded default and rendered empty shells
+## P1-1 — Re-run the full suite; I could not
 
-Found only by rendering a generated page and looking at it. On the fine-art gallery's `/gallery`,
-a section eyebrow read **"CLINICAL TRUST"** — `CredentialStrip`'s default heading was the literal
-`'Clinical trust'`, the single industry-specific default in an otherwise generic kit, and it leaked
-onto every business that did not pass its own heading.
+My shell tool went down partway through session 2 (sandbox outage, not a repo problem). Everything
+below was verified before it did — **but the full suite has not been run since the repair-loop
+changes, so `fcee0f5` is committed without a full-suite pass.** Do this first; it is one command.
 
-Worse, the generated page passed `<CredentialStrip items={[]} />` — a hardcoded empty array — and
-the component happily rendered its heading, its background and its gradient over nothing.
-`FeatureBento` did the same and added a counter reading `01 / 00`; `TestimonialRail` too. A heading
-over an empty body reads as a broken page, whereas an absent section reads as a design choice.
+Verified in isolation, 10/10 in its own file, and mutation-proven (each mechanism disabled in turn
+kills exactly the test that guards it):
 
-All three now return `null` when they have no items (with `FeatureBento`'s guard placed after its
-hooks, or React throws "rendered fewer hooks than expected"), the default heading is neutral, and
-the `Guest path ·` jargon is gone from the counter. Guarded by
-`tests/preview_app/test_kit_empty_and_neutral.py`, which also scans **every** kit component for
-industry-specific default copy so the next `'Clinical trust'` cannot be introduced quietly.
+- `tests/preview_app/test_typecheck_repair_loop.py` — 10 passed
+- `tests/preview_app/test_task4_prompt_contract.py` — 7 passed (**was a documented failure**)
+- `tests/preview_app/test_task3_security.py` — 7 passed (**was a documented failure**)
 
-## Two integration gaps found by reviewing the work rather than trusting it
+Not yet re-run: everything else, including `tests/preview_app/test_typecheck_fix_guard.py` and
+`test_typecheck_diagnostics.py` (37 passed together with the prompt-contract file before the
+outage).
 
-All five adversarial QA reviewers died on a session usage limit, so the change sets landed
-unreviewed. Reviewing them by hand surfaced two instances of the *exact* disease this session was
-about — a check that records a defect into something nobody reads:
+## P1-2 — Finish the template typecheck triage (interrupted mid-verification)
 
-1. **Warning-only asset breakage was never repaired.** `GateReport.ok` ignores warnings and
-   `run_quality_gate_with_heal` early-returns when `ok`. So a run whose only defect was
-   owner-surface breakage — precisely request 36's shape, all seven broken paths on admin pages —
-   returned before `heal_quality_gate`, the deterministic asset repair never fired, and
-   `report.warnings` was written to a field with no readers. Fixed via `_settle_warnings`, which
-   repairs and logs on that path, and deliberately adopts only the rescan's *warnings* — never its
-   issues — so a repair can never withhold an app that was about to ship.
-   Test: `tests/preview_app/test_warning_only_asset_settle.py`. Proven pre-fix: `ok=True`,
-   `healed=[]`, broken references still present.
-2. **The visual report never reached the gate.** `visual_critique_gate_issues()` existed,
-   documented as "triples a quality gate can fail on directly" — and nothing called it. The loop
-   rendered pixels, persisted a report, and the report was never read. Now wired into
-   `evaluate_quality_gate`. Test: `tests/preview_app/test_visual_report_reaches_gate.py`. Proven
-   pre-fix: `ok=True` with a blocking mismatch sitting on disk.
-   The wiring deliberately **excludes** `missing_image_asset`, because `imagery_findings` emits it
-   at BLOCK on every surface and would otherwise re-break the owner-surface threshold that
-   `asset_integrity` sets correctly.
+`tests/preview_app/test_task3_catalogue_guards.py::test_catalogue_fallback_typechecks_with_template`
+used to invoke `node_modules/.bin/tsc.cmd` — the **Windows** shim — so on Linux it raised
+`FileNotFoundError` and never typechecked anything. That was its documented "pre-existing failure".
+It now resolves the compiler through the production `typecheck_workspace`, and immediately finds
+**4 type errors in the shipped preview template**, which every generated app inherits:
 
-## The QA harness
+```
+src/ui/motion/anime.ts(5,74):            TS2307  Cannot find module 'animejs'
+src/ui/public/ProductShowcase.tsx(59,18): TS2741  Property 'children' is missing … required in
+src/ui/public/ProductShowcase.tsx(82,22): TS2741    type '{ href: string; children: ReactNode }'
+src/ui/public/ProductShowcase.tsx(100,26):TS2741
+```
 
-`scripts/preview-qa.sh <request_id> [tag]` reports, for any request id, what the pipeline's own
-gates cannot see: shell identity, the declared route table, every image reference resolved **by
-content-type** rather than status code, `tsc` error count by code, leaked placeholder/jargon/escape
-strings, shipped bundle weight, and screenshots of every public route. Artifacts land in
-`.preview-qa/<tag>/` (gitignored); `QA_OUT_DIR`, `QA_BASE_URL` and `QA_CHROME` override the
-defaults. Run it from the repo root — it shells into the `api` compose service.
+- The three `ProductShowcase` errors **look real**: `AppLink` is used as a full-area overlay click
+  target with `href` + `className` + `aria-label` and no children, which is a legitimate accessible
+  pattern that `AppLink`'s prop type forbids. Likely correct fix: make `children` optional on
+  `AppLink`.
+- The `animejs` error is **unverified** — `animejs@^4.5.0` *is* in `package.json` and
+  `package-lock.json`, so this may be an artifact of the test's temp workspace resolving modules
+  differently, not a template defect. I was interrupted running `tsc` against the template in place
+  to settle it. **Do that before changing anything.**
 
-The content-type check is the important part: a missing asset used to return `200 text/html` via
-SPA fallback, so any status-code-based check saw a healthy app.
+Net test count is unchanged either way (it failed before, it fails now) but the failure is now
+informative rather than a crash. Either fix the template or scope the test, and update
+`docs/KNOWN_TEST_FAILURES.md` — three of its four rows are now stale.
 
-Screenshots need no new dependency:
+## P1-3 — Verify the 18 candidate findings whose verifiers died
+
+Three subsystems produced findings that were never adversarially verified, so they are **leads, not
+defects.** Recover them from the workflow journal:
+
+```
+/Users/maurice/.claude/projects/-Users-maurice-Documents-Dev-BMV/\
+8176582d-9cdb-4839-8c98-929e788ce52a/subagents/workflows/wf_816c9888-98b/journal.jsonl
+```
+
+One `{"type":"result",...}` line per agent; the `review:*` rows carry the full findings arrays.
+
+| subsystem | candidates | verified | flagged locations from the run log |
+|---|---|---|---|
+| `gate-and-repair` | 5 | **0** | `quality_gate.py:306,586,630`, `asset_integrity.py:223`, `source_quality.py:151` |
+| `typecheck-repair` | 5 | **0** | `build_phase.py:58,260,500`, `fix_agent.py:82`, `test_typecheck_repair_loop.py:305` |
+| `safety-copy` | 8 | **0** | `copy_hygiene.py:101`, `BookingPanel.tsx:135`, `CTABand.tsx:40`, `ProcessSection.tsx:28`, `preview_app_mock_synthesize.j2:25` |
+
+Note `build_phase.py` and `test_typecheck_repair_loop.py` are files **I edited after** that reviewer
+ran, so those two leads may already be moot — check line numbers against the current file.
+
+## P1-4 — Two subsystems were never reviewed at all
+
+`codegen-scaffold` and `test-integrity` reviewers both stalled through all 6 attempts and returned
+nothing. Re-run just those two. `test-integrity` matters most: its whole job was to find tests that
+pass vacuously, and **the two vacuous-assertion bugs found by hand this session were both of exactly
+that shape**, so its absence is a real gap.
+
+Re-run with the cached prefix (unchanged agents replay instantly):
+
+```
+Workflow({ scriptPath: "…/workflows/scripts/maverick-adversarial-review-wf_816c9888-98b.js",
+           resumeFromRunId: "wf_816c9888-98b" })
+```
+
+Cut it to those two dimensions and reduce concurrency — the stalls looked like contention, and the
+run burned 2.5 M tokens over 74 minutes for 11 useful agents.
+
+## P1-5 — Negation stripping is a closed cue list
+
+`backend/app/application/preview_app/industry_templates/loader.py:47`
+
+`_NEGATED_CLAUSE_RE` matches only `not|never|no longer|isn't|aren't|rather than|instead of`. So
+`no`, `without`, `unlike`, `other than`, `as opposed to`, `far from` still let a negated word pick a
+pack. Reproduced: `industry="Independent bookshop, no clinic front desk"` → `clinic-dental-home`,
+yielding hero copy *"Care that starts on time and explains every step"*, CTA *"Book a visit"*, and
+**14 occurrences of "clinic"** in the plan. `check_imagery_industry_consistency` returns `[]`, so
+nothing catches it.
+
+Precise statement: it is not "any negated word wins" — the leaked evidence must still clear the
+existing gates (one *declared* token ≥6 chars, or ≥2 strong tokens). The bug is that **negated words
+are indistinguishable from claimed words once they clear the distinctiveness gate.** Fix in
+`_NEGATED_CLAUSE_RE`/`_claimed_tokens` so both the public and ops call paths inherit it
+(`plan_phase.py:174` passes the same unstripped context to the ops pack), and add a regression test
+per cue word. The committed test covers only the `not a …` phrasing.
+
+## P2 — carried forward
+
+1. **The repair loop is fixed but not yet demonstrated in a generation.** See
+   [What session 2 changed](#what-session-2-changed). Run a fresh generation and confirm from
+   `.bmv-debug/typecheck/summary.json` that `repair_rounds > 0` and the error count actually dropped.
+2. **`/gallery/:id/:id` — fixed in code, still not demonstrated.** Guarded by
+   `test_router_alias_params.py`. A fresh generation should confirm it.
+3. **Listing page headers are still clipped** against the nav on `/gallery`. Cosmetic, unfixed.
+4. **The hero can still be made illegible by the model.** Prompts forbid overlay/blend utilities on
+   catalogue components that manage their own contrast, but there is no deterministic guard. A
+   contrast check on the screenshot, or scrubbing those utilities off kit components, would close it.
+5. **AppSpec shadow authoring is fragile, now with three failure modes** — `call_budget_exhausted`
+   (req 34), `coverage_review_malformed` (req 36), and req 37's `app_spec_schema_parse_failed` +
+   `invalid_page_shape` followed by `unresolved_requirement_source_ref`. That last looks like a real
+   bug: the authoring prompt invites citations into a `reference_evidence.screenshot_analysis.*` path
+   the validator does not accept. Non-fatal under `APPSPEC_MODE=shadow` but it costs ~2.5 min/run and
+   means the AppSpec contract is never exercised. It also makes the shadow pass a **misleading
+   signal** — a `failed` blip appears in `/progress` while `is_failed` stays false; poll
+   `is_generating`, not the stage string.
+6. **`requests.py:303-314` reads `result["preview_contract"]["status"]`**, which v1 `run_finalize`
+   never returns (it returns `{"preview_app", "experience_plan"}`) — that key came from the removed
+   v2 service. So `req.status` is left stale after any preview-only regeneration.
+7. **`retry-generation`'s lock does not serialize** — `requests.py:188-193` builds the thread inside
+   `with _preview_gen_lock(...)` but calls `.start()` outside it.
+8. **31 empty v2 tables** and **`APPSPEC_V2_COVERAGE_MODEL`** (a live v1 setting with a v2 name)
+   carry over unchanged from the archived handoff.
+
+---
+
+# Review coverage — read this before trusting the result
+
+The adversarial review ran 7 file-disjoint reviewers, each finding piped into independent
+refutation-oriented verifiers. **33 agents: 11 completed, 22 died** on repeated stalls
+(6 attempts each). So:
+
+| dimension | reviewed? | findings verified? |
+|---|---|---|
+| `vision-path` | yes | **4 of 4** — complete |
+| `imagery-subject` | yes | 2 of 7 |
+| `gate-and-repair` | yes | **0 of 5** |
+| `typecheck-repair` | yes | **0 of 5** |
+| `safety-copy` | yes | **0 of 8** |
+| `codegen-scaffold` | **no — reviewer died** | — |
+| `test-integrity` | **no — reviewer died** | — |
+
+**The run's own `clean_dimensions` field lists five of these as clean. That field is wrong** — my
+post-processing conflated "no verified findings" with "verifiers never ran". Only `vision-path` got
+a complete find-and-verify pass. Treat the other six as open.
+
+Of the 6 verified findings, **0 were refuted** — every one survived a verifier explicitly instructed
+to refute it and to default to refuted when uncertain. Two came back with corrections to the
+reviewer's details (wrong pack name, a branch wrongly called dead code, a nonexistent `template_id`,
+a margin of 2 rather than 1); those corrections are folded into the P0 items above.
+
+# What session 2 changed
+
+## The typecheck repair loop now keeps its good patches
+
+The loop had never landed a repair: in both live runs it patched 8 files, the rebuild failed, and
+**all 8 rolled back**. The rollback was correct; the granularity was not.
+
+`pipeline/build_phase.py` now screens each round with `tsc` (~2 s) before spending a `vite build`
+(~20 s) on it, compares **per-file** error counts across the two reports, hands back only the files
+the model made worse, and keeps the rest of the batch. One bad patch out of eight now costs one
+patch.
+
+The subtle part: a parse failure **hides from an error-count comparison.** `tsc` abandons a file it
+cannot parse and reports a single `'}' expected.` where twelve type errors stood — so a broken patch
+scores as a large *improvement*. Mutation-testing showed this exactly: with the check disabled, the
+log reads `typecheck initial: 6 error(s)` → `after round 1: 1 error(s)` while the file no longer
+compiles. `_unparseable_files` matches on the diagnostic message rather than a `TS1xxx` code range,
+because that range also holds grammar complaints esbuild accepts — `TS1117` (duplicate object key)
+being the one this pipeline hits most.
+
+Also: a round that is strictly worse is now given back **without spending a build**, and a round
+that makes no net progress stops the loop instead of repeating three more times.
+
+**Rejection reasons now reach the next round.** `regressive_fix_reason` logged why a patch was thrown
+away and dropped it — the same computed-never-read shape this whole effort is about — so the model
+reoffered the same forbidden patch every round. `fix_type_errors` now takes `prior_rejections` and
+fills `rejections_out`, and `preview_app_fix.j2` renders them under
+*"YOUR PREVIOUS ATTEMPT WAS THROWN AWAY FOR THESE REASONS"*.
+
+Each mechanism is proven load-bearing by mutation: disabling it kills exactly the test that guards
+it, and the file returns green when restored.
+
+## Three of four "pre-existing" failures cleared — and one was masking a regression
+
+`test_task4_prompt_contract.py::test_production_callsites_render_with_strict_undefined` was failing
+for the documented reason (`synthesize_mock_data` returning falsy). But it was **also** failing
+earlier in the same test, at `assert inconsistent_ai.prompts == []` — an assertion identical to
+`main`'s that Wave 2 had broken. Because the test id was already on the known-failure list, nobody
+saw it.
+
+The behaviour change was correct: scaffold pages used to short-circuit to `{"score":72,"verdict":"ok"}`
+**without calling the vision model**, which is how a dental hero shipped inside a "PASSED" gallery.
+They are now judged, with `verdict` held at `ok` (so no freeform rewrite fires) and `visual_verdict`
+carrying the honest judgement. I confirmed `visual_verdict` really is consumed — `_absorb_review`
+prefers it over `verdict` — so this one is not a computed-never-read. The stale assertion was
+updated to pin the new intent, including that the 80-point threshold still overrides a self-declared
+`pass` at score 20.
+
+The documented `synthesize_mock_data` failure was a **stale fixture**, not a code defect: the
+workspace's pages import `images`, `reservations` **and** `seed`, and the canned response defined
+only the first two, so validation correctly refused to write a `mock.ts` missing an imported symbol.
+Fixture completed, and the fail-closed path it had been exercising by accident is now pinned
+deliberately.
+
+`test_task3_security.py::test_workspace_writes_fail_closed` failed on the same
+`src/pages/*.tsx` canonicalisation that bit my own fixture: `write_file` renames non-canonical page
+names and unlinks the pre-canonical entry. Worse, `assert not linked_file.is_symlink()` was passing
+**vacuously** — the path no longer existed. Fixed by using an already-canonical `LinkedPage.tsx` so
+the symlink is genuinely replaced in place, and by asserting `is_file() and not is_symlink()`.
+
+**Watch for this trap in fixtures:** any test writing `src/pages/Foo.tsx` through `write_file` gets
+`FooPage.tsx` and loses `Foo.tsx`.
+
+## Session 1's changes — unchanged summary
+
+Imagery subject from the business (**now partly regressed, see P0-1**); asset 404s instead of
+`200 text/html`; the visual loop can fail a build; slot-fill retries and a real TSX parse check;
+shell identity and a 3.64 MB lighter scaffold; `tsc` in the pipeline; prop shapes derived from
+component sources for ~649 tokens; `_js()` fixing all 31 `json.dumps` JSX-attribute call sites;
+route normalisation 17 → 10; nav dedup; the servable vision model. Full detail in
+[docs/PREVIEW_QUALITY_FINDINGS.md](docs/PREVIEW_QUALITY_FINDINGS.md) and the archived handoff.
+
+# The QA harness
+
+`scripts/preview-qa.sh <request_id> [tag]` reports what the pipeline's own gates cannot see: shell
+identity, the declared route table, every image reference resolved **by content-type** rather than
+status code, `tsc` errors by code, leaked placeholder/jargon/escape strings, bundle weight, and
+screenshots of every public route. Artifacts land in `.preview-qa/<tag>/` (gitignored);
+`QA_OUT_DIR`, `QA_BASE_URL`, `QA_CHROME` override defaults. Run from the repo root.
+
+The content-type check is the important part: a missing asset used to return `200 text/html` via SPA
+fallback, so any status-code check saw a healthy app.
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu \
@@ -314,79 +435,37 @@ Screenshots need no new dependency:
   --screenshot=/tmp/shot.png "http://localhost:8001/api/preview-apps/<id>/"
 ```
 
-**Baseline for request 36**, to compare any future run against: title `Preview App`, 7 broken
-image paths, 6 dental photos, **59** TypeScript errors, 1.09 MB of clinic JPGs in `dist`, and a
-route table containing `/works/:slug/:slug` plus `/admin/:id` shadowing `/admin/dashboard`.
+**Baseline for request 36**, to compare any future run against: title `Preview App`, 7 broken image
+paths, 6 dental photos, **59** TypeScript errors, 1.09 MB of clinic JPGs in `dist`, and a route
+table containing `/works/:slug/:slug` plus `/admin/:id` shadowing `/admin/dashboard`.
 
-## Environment gotchas that cost time
+# Environment gotchas that cost time
 
 - **The test command.** See above. This is the big one.
 - **`docker compose exec api` does not reload code.** No `--reload`, so edits are invisible until
   `docker compose up -d api` (not `restart`, which does not re-read `env_file`). Verify with
   `docker compose exec api env | grep KEY`.
+- **`write_file` renames `src/pages/*.tsx`** to canonical `*Page.tsx` and unlinks the original. Name
+  fixture pages canonically or you will measure the rename instead of your code.
 - **`POST /api/requests` is multipart `Form(...)`, not JSON.** Use `-F`; the trailing slash
   307-redirects and drops the body.
 - **Local DB is Postgres.** `sum(bool)` fails; use `count(*) FILTER (WHERE ...)`.
 - **`tests/appspec/` cannot always be collected as a directory** — importing
-  `app.domain.appspec.validation` before `app.application.appspec` triggers a circular import.
-  Name individual files.
+  `app.domain.appspec.validation` before `app.application.appspec` triggers a circular import. Name
+  individual files.
 - `awk` and `timeout` are absent from this shell; `ugrep` rejects some PCRE repeats.
+- **Working directory drifts.** A `cd` persists across tool calls; prefix with
+  `cd /Users/maurice/Documents/Dev/BMV` or `docker compose` and `git` both fail confusingly.
 
-## Still open
+# If you are demoing to an investor
 
-1. **The typecheck repair loop has never produced a usable patch.** In both live runs it patched 8
-   files, the rebuild failed, and all 8 were rolled back — so the loop currently costs two builds
-   and delivers nothing. The rollback is working exactly as designed (a viewable preview is never
-   traded for a broken one), but the repair itself is not. Look at
-   `.bmv-debug/typecheck/summary.json` and the `fix-agent/` dumps in
-   `/app/data/preview-apps/38/.bmv-debug/` to see what it emitted. My suspicion is that patching 8
-   files in one shot is too coarse — a per-file patch-and-rebuild, or feeding the rejection reason
-   back to the model (which the author deliberately did not do, to save calls), would likely fix it.
-   Until then the 59 → 23 error reduction comes entirely from the prop-shape prompts.
-2. **`/gallery/:id/:id` — fixed in code, not yet demonstrated.** Diagnosed after request 38:
-   `assemble.py`'s detail-alias loop appended `/:id` to paths that were *already* dynamic, because
-   `/gallery/:id` also matches the listing regex. Note this is **separate** from the architect route
-   normalization, which was working — `App.tsx` routes 49-62 were clean and 63-69 were appended
-   aliases. Guarded by `tests/preview_app/test_router_alias_params.py`, proven to reproduce the
-   exact malformed paths without the fix. A fresh generation should confirm it.
-3. **Two Wave-2 packages died on a session limit while writing their final report**, after their
-   code and tests had landed. The prop-shape and rendered-hygiene work is on disk, its 28 tests
-   pass, and I verified the behavior by hand. What is missing is their written self-assessment — and
-   **no package in either wave ever received an independent adversarial review** (all five Wave-1
-   reviewers also died on a limit). Reviewing Wave 1 by hand found two real blockers, so **a review
-   pass over both waves is the highest-value next step.**
-4. **Listing page headers are still clipped** against the nav on `/gallery` — cosmetic, unfixed,
-   and it was in the rendered-hygiene brief.
-5. **The hero can still be made illegible by the model.** The prompts now forbid adding
-   overlay/blend/background utilities to catalogue components that manage their own contrast, but
-   there is no deterministic guard — a model that ignores the instruction can still ship
-   `after:bg-blend-multiply … bg-background` and a white-on-white headline. A contrast check on the
-   rendered screenshot, or a scrub of those utilities off kit components, would close it properly.
-6. **AppSpec shadow authoring is fragile, and now has a third failure mode.** The archived handoff
-   recorded `call_budget_exhausted` (req 34) and `coverage_review_malformed` (req 36). Request 37
-   added two more in a single run: first `app_spec_schema_parse_failed` + `invalid_page_shape`
-   ("Tuple should have at least 1 item after validation, not 0"), then on the preview pass
-   `unresolved_requirement_source_ref` — three requirements citing
-   `reference_evidence.screenshot_analysis.features_worth_adapting.0` and similar paths that carry
-   no authoritative source value. That last one looks like a real bug rather than model flakiness:
-   the authoring prompt is inviting citations into a evidence path that the validator does not
-   accept. Non-fatal only because `APPSPEC_MODE=shadow`, but it costs ~2.5 minutes per run and
-   means the AppSpec contract is never actually exercised. **Note this also makes the shadow pass a
-   misleading signal** — a `failed` blip appears in `/progress` mid-run while `is_failed` stays
-   false and generation continues; poll `is_generating`, not the stage string.
-7. **`requests.py:303-314` reads `result["preview_contract"]["status"]`**, which v1 `run_finalize`
-   never returns (it returns `{"preview_app", "experience_plan"}`) — that key came from the removed
-   v2 service. So `req.status` is left stale after any preview-only regeneration.
-8. **`retry-generation`'s lock does not serialize** — `requests.py:188-193` builds the thread
-   inside `with _preview_gen_lock(...)` but calls `.start()` outside it.
-9. **31 empty v2 tables** and **`APPSPEC_V2_COVERAGE_MODEL`** (a live v1 setting with a v2 name)
-   carry over unchanged from the archived handoff.
-
-## If you are demoing to an investor
+**Fix P0-1 first.** Until then any brief whose industry words mis-bucket ships confidently wrong
+photography — and the buckets mis-fire on ordinary phrasings like "auto repair" and "boutique law
+firm". P0-2 through P0-5 can either pass a preview nobody looked at or withhold a correct one.
 
 Do **not** show request 36 — it is the broken baseline, kept only for comparison. Generate fresh,
 run the QA harness, and actually look at the screenshots before showing anyone.
 
 Reproduce the reference brief with the `curl` in the archived handoff (unchanged). Expect
-`product_kind=storefront`, recipe `editorial`, and 8-12 minutes end to end. Per the previous
+`product_kind=storefront`, recipe `editorial`, and 8–12 minutes end to end. Per the previous
 handoff: do not re-run rematerialize or pack-seed nit loops for a demo.

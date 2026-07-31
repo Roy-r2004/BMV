@@ -200,18 +200,27 @@ def _ensure_import(source: str, symbol: str, module: str = "@/ui") -> str:
 
 
 def _ensure_mock_import(source: str) -> str:
-    if "aiFeatures" in source and "@/data/mock" in source:
-        # May already import brand/images/seed — extend named import.
-        mock_re = re.compile(r"import\s*\{([^}]*)\}\s*from\s*['\"]@/data/mock['\"];?")
-        match = mock_re.search(source)
-        if match:
-            names = [part.strip() for part in match.group(1).split(",") if part.strip()]
-            if "aiFeatures" not in names:
-                names.append("aiFeatures")
-                replacement = f"import {{ {', '.join(names)} }} from '@/data/mock';"
-                return source[: match.start()] + replacement + source[match.end() :]
+    """Guarantee `aiFeatures` is imported, whatever else the page already imports.
+
+    Called *before* `_panel_jsx` appends the reference, so the old guard's
+    `if "aiFeatures" in source` precondition was never true on a first injection.
+    Execution then fell to "already imports from @/data/mock — nothing to do" and
+    returned untouched, so every page that imported `images`/`seed` and received a
+    panel shipped `aiFeatures is not defined`. Request 41 crashed its home page
+    and its artwork-management page exactly that way, and the vision critic
+    described a hero image on the resulting error box.
+    """
+    mock_re = re.compile(r"import\s*\{([^}]*)\}\s*from\s*(['\"])@/data/mock\2;?")
+    match = mock_re.search(source)
+    if match:
+        names = [part.strip() for part in match.group(1).split(",") if part.strip()]
+        if "aiFeatures" in names:
             return source
+        names.append("aiFeatures")
+        replacement = f"import {{ {', '.join(names)} }} from '@/data/mock';"
+        return source[: match.start()] + replacement + source[match.end() :]
     if "from '@/data/mock'" in source or 'from "@/data/mock"' in source:
+        # A namespace or default import this cannot safely extend.
         return source
     lines = source.splitlines()
     insert_at = 0

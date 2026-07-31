@@ -8,12 +8,12 @@ Keep this list short. If you fix one, delete its row.
 
 ## Backend
 
-| Test | Notes |
-|---|---|
-| `tests/preview_contract/test_appspec_v2_policy.py::test_v2_generation_rejects_fallback_instead_of_marking_it_complete` | Fixture scripts one provider response but the authoring loop asks for a second, so it raises `fixture attempted an unplanned provider call` instead of the expected fallback error. |
+**None.** The list is empty for the first time — expect **0 failed** from
+`pytest tests/` under the invocation below (1004 passed as of the request-40
+defect fixes).
 
-Expect exactly **1 failed** from `pytest tests/` in the API container using the
-invocation below (863 passed as of the P0-1 imagery fix).
+Add a row only for a failure that reproduces on `main` after stashing local
+edits, and delete it the moment it is fixed.
 
 `tests/rollout/test_phase7e_ops_dashboard.py::test_known_preexisting_failures_documented`
 reads this file from the repo root and skips only when `docs/` is absent. Under the
