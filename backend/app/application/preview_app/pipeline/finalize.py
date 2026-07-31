@@ -162,6 +162,60 @@ def _smoke_routes(architect: dict) -> list[tuple[str, str, str]]:
     return (public + ops)[:_SMOKE_MAX_ROUTES]
 
 
+def _remeasure_repaired_pages(ctx: PipelineContext, architect: dict) -> list[str]:
+    """Re-judge the pages whose visual verdict the gate retired.
+
+    Retiring a verdict when a repair rewrites the page it describes stops a
+    repaired page from failing the gate forever. On its own it also *removes* the
+    only reading of pixels we have: request 46 ended with one page reviewed and
+    five retired. This is the other half — the pages go back through the same
+    screenshot-and-judge path they came from, against the source that will ship.
+
+    Best-effort by construction. A failure here leaves them `unmeasured`, which is
+    what the report already said, so nothing gets a pass it did not earn.
+    """
+    from app.core.config import settings
+
+    if settings.PREVIEW_SKIP_VISUAL_CRITIC:
+        return []
+    workspace = Path(ctx.workspace)
+    try:
+        from app.application.preview_app.pipeline.visual_critic import (
+            _run_visual_critique,
+            load_visual_critique_report,
+        )
+
+        pending = [
+            p for p in load_visual_critique_report(workspace).unmeasured if str(p).strip()
+        ]
+        if not pending:
+            return []
+        log.info("    visual critic: re-measuring %s repaired page(s)", len(pending))
+        _run_visual_critique(
+            ctx.db,
+            ctx.request_id,
+            workspace,
+            architect,
+            ctx.plan,
+            ctx.specs_by_path,
+            ctx.full_context,
+            ctx.manifest,
+            ctx.images,
+            ctx.brand_name,
+            ctx.primary,
+            ctx.secondary,
+            ctx.font,
+            ctx.base_path,
+            ctx.ai_provider,
+            ctx.template_renderer,
+            only_components=set(pending),
+        )
+        return pending
+    except Exception as e:  # noqa: BLE001 — a measurement retry must never fail a run
+        log.warning("    visual critic: re-measure pass failed (%s)", e)
+        return []
+
+
 def _render_smoke_check(ctx: PipelineContext, architect: dict, brand_name: str) -> dict:
     """Load every page once and replace any that crashed with a safe stub.
 
@@ -503,6 +557,15 @@ def run_finalize(ctx: PipelineContext) -> dict:
             92,
             detail=f"healed={len(gate.healed)}",
         )
+
+    # The gate retires the verdict for every page it repairs, so those pages are
+    # `unmeasured` now. Judge them again against the source that will actually
+    # ship — a retired verdict with no replacement is coverage we quietly lost.
+    #
+    # Deliberately for the record, not for enforcement: the gate has already run,
+    # and re-blocking here with no repair path left is what withheld requests 43,
+    # 44 and 45. `visual_review_summary` carries the result into the API response.
+    _remeasure_repaired_pages(ctx, architect)
 
     # Last word before "ready": does each page actually render? The gate's heal
     # and AI repair rewrite source *after* the visual critique took its

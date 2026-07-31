@@ -1310,6 +1310,22 @@ class _FixedAI:
     def ask_chat(self, _model, _messages, **_kwargs):
         return self.response
 
+    def ask_vision(self, *_args, **_kwargs):
+        return self.response
+
+
+class _StubDb:
+    """Progress emits go somewhere; nothing here reads them back."""
+
+    def commit(self) -> None:
+        pass
+
+    def add(self, _obj) -> None:
+        pass
+
+    def rollback(self) -> None:
+        pass
+
 
 def test_a_refine_that_does_not_parse_keeps_the_previous_page(tmp_path: Path) -> None:
     """Request 45's second pass on LoginPage wrote adjacent JSX.
@@ -1664,6 +1680,123 @@ def test_a_repaired_page_does_not_keep_the_verdict_of_the_page_it_replaced(
     assert after.scores["src/pages/HomePage.tsx"] == 82
     # Idempotent: a second repair pass over the same file changes nothing.
     assert invalidate_visual_verdicts(tmp_path, ["src/pages/ContactPage.tsx"]) == []
+
+
+def test_a_retired_verdict_is_re_measured_not_just_dropped(tmp_path: Path) -> None:
+    """Retiring a verdict without replacing it is coverage we quietly lost.
+
+    Request 46 ended with one page reviewed and five retired, because the gate had
+    repaired five of six pages. The re-measure pass judges exactly those, against
+    the source that will ship, and folds the result into the same report.
+    """
+    from app.application.preview_app.pipeline import visual_critic as vc
+
+    report = vc.VisualCritiqueReport()
+    report.reviewed = ["src/pages/HomePage.tsx"]
+    report.scores = {"src/pages/HomePage.tsx": 82}
+    report.unmeasured = ["src/pages/GalleryPage.tsx"]
+    report.routes_selected = 2
+    vc.write_visual_critique_report(tmp_path, report)
+
+    architect = {
+        "routes": [
+            {
+                "path": "/gallery",
+                "component_file": "src/pages/GalleryPage.tsx",
+                "component": "GalleryPage",
+                "surface": "public",
+                "title": "Gallery",
+            }
+        ],
+        "roles": [],
+    }
+
+    judged: list[str] = []
+
+    from app.application.preview_app.screenshot import RouteCapture
+
+    # A 1x1 PNG: the review path base64-encodes the file, so it has to exist.
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d494844520000000100000001080600000"
+        "01f15c4890000000a49444154789c6300010000050001"
+        "0d0a2db40000000049454e44ae426082"
+    )
+
+    def _fake_capture(_base, routes, **_kwargs):
+        out = []
+        for _route_path, target in routes:
+            Path(target).parent.mkdir(parents=True, exist_ok=True)
+            Path(target).write_bytes(png)
+            out.append(RouteCapture(ok=True, path=Path(target), render_error=""))
+        return out
+
+    def _fake_critique(_workspace, component_file, *_args, **_kwargs):
+        judged.append(component_file)
+        return {"verdict": "pass", "score": 88, "issues": []}
+
+    original_capture = vc.capture_routes_visual
+    original_critique = vc.critique_file_visual
+    try:
+        vc.capture_routes_visual = _fake_capture
+        vc.critique_file_visual = _fake_critique
+        vc._run_visual_critique(
+            _StubDb(),
+            46,
+            tmp_path,
+            architect,
+            {},
+            {},
+            "context",
+            {"brand": {"name": "Jeanne Kassab Art"}},
+            {},
+            "Jeanne Kassab Art",
+            "#0f172a",
+            "#0369a1",
+            "Fraunces",
+            "/api/preview-apps/46",
+            _FixedAI(json.dumps({"verdict": "pass", "score": 88, "issues": []})),
+            get_template_renderer(),
+            only_components={"src/pages/GalleryPage.tsx"},
+        )
+    finally:
+        vc.capture_routes_visual = original_capture
+        vc.critique_file_visual = original_critique
+
+    after = vc.load_visual_critique_report(tmp_path)
+    assert judged == ["src/pages/GalleryPage.tsx"], "only the retired page is re-judged"
+    # The page nobody asked about keeps its measurement.
+    assert "src/pages/HomePage.tsx" in after.reviewed
+    assert after.scores["src/pages/HomePage.tsx"] == 82
+    # The retired page is no longer merely retired — it has a real verdict now.
+    assert "src/pages/GalleryPage.tsx" not in after.unmeasured
+    assert after.scores["src/pages/GalleryPage.tsx"] == 88
+    assert "src/pages/GalleryPage.tsx" in after.reviewed
+
+
+def test_an_unfindable_page_stays_unmeasured(tmp_path: Path) -> None:
+    """If the re-measure cannot find a route for the page, "we do not know" holds.
+
+    Clearing the list on the way past would turn "we could not judge these" into
+    "there was nothing to judge" — the exact substitution this whole area exists
+    to prevent.
+    """
+    from app.application.preview_app.pipeline import visual_critic as vc
+
+    report = vc.VisualCritiqueReport(
+        unmeasured=["src/pages/HomePage.tsx"], routes_selected=1
+    )
+    vc.write_visual_critique_report(tmp_path, report)
+
+    vc._run_visual_critique(
+        _StubDb(), 46, tmp_path, {"routes": [], "roles": []}, {}, {}, "", {}, {},
+        "Brand", "#000", "#111", "", "/api/preview-apps/46",
+        _FixedAI("{}"), get_template_renderer(),
+        only_components={"src/pages/HomePage.tsx"},
+    )
+
+    assert vc.load_visual_critique_report(tmp_path).unmeasured == [
+        "src/pages/HomePage.tsx"
+    ]
 
 
 def test_the_gate_retires_a_verdict_for_every_file_it_rewrites() -> None:

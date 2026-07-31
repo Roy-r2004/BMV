@@ -759,6 +759,7 @@ def _run_visual_critique(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     industry: str = "",
+    only_components: set[str] | None = None,
 ) -> VisualCritiqueReport:
     """Post-build visual critique: screenshot the actually-built app (a real
     rendered page, not raw source) and feed each screenshot to a
@@ -774,8 +775,15 @@ def _run_visual_critique(
     fail the quality gate on `report.blocking` without re-running anything —
     except for whatever the refine pass rewrote, which is re-measured here before
     the report is handed on (see `_forget_pages`).
+
+    `only_components` runs a *re-measure* pass: judge exactly these component
+    files, fold the results into the persisted report, and refine nothing. The
+    quality gate retires the verdict for any page it repairs, and request 46
+    ended with one page reviewed and five retired — honest, and no coverage at
+    all. Retiring a verdict is only half the job; this is the other half.
     """
-    report = VisualCritiqueReport()
+    remeasure = bool(only_components)
+    report = load_visual_critique_report(workspace) if remeasure else VisualCritiqueReport()
     resolved_industry = _resolve_industry(plan, manifest, industry)
     business_context = _business_context(plan, manifest, full_context)
 
@@ -789,18 +797,39 @@ def _run_visual_critique(
             template_id=str(plan.get("industry_template_id") or ""),
         )
 
-    report.findings.extend(_fresh_imagery_findings())
-    for finding in report.blocking:
-        log.error("    visual critic BLOCK %s: %s", finding.code, finding.message)
-    # Persist before any screenshot work: a later crash must not lose findings
-    # the gate is supposed to fail on.
-    write_visual_critique_report(workspace, report)
+    if not remeasure:
+        report.findings.extend(_fresh_imagery_findings())
+        for finding in report.blocking:
+            log.error("    visual critic BLOCK %s: %s", finding.code, finding.message)
+        # Persist before any screenshot work: a later crash must not lose findings
+        # the gate is supposed to fail on.
+        write_visual_critique_report(workspace, report)
 
     routes = _select_visual_critique_routes(architect)
-    report.routes_selected = len(routes)
+    if remeasure:
+        wanted = {str(c).replace("\\", "/") for c in (only_components or set())}
+        routes = [
+            rt
+            for rt in routes
+            if str(rt.get("component_file") or "").replace("\\", "/") in wanted
+        ]
+    else:
+        report.routes_selected = len(routes)
     if not routes:
+        # Nothing to look at. In a re-measure that means the pages stay
+        # `unmeasured` — clearing the list here would turn "we could not judge
+        # these" into "there was nothing to judge".
         write_visual_critique_report(workspace, report)
         return report
+    if remeasure:
+        # Only the pages this pass will actually judge lose their old entry.
+        judging = {
+            str(rt.get("component_file") or "").replace("\\", "/") for rt in routes
+        }
+        _forget_pages(report, judging)
+        report.unmeasured = [
+            p for p in report.unmeasured if p.replace("\\", "/") not in judging
+        ]
 
     design_direction = architect.get("design_direction", "")
     business_identity = _business_identity(brand_name, resolved_industry, business_context)
@@ -920,7 +949,9 @@ def _run_visual_critique(
 
         return _consume
 
-    _consume_first_pass = _make_consumer(len(indexed_routes), "reviewed", True)
+    _consume_first_pass = _make_consumer(
+        len(indexed_routes), "re-reviewed" if remeasure else "reviewed", not remeasure
+    )
     for _item, result, exc in parallel_map(
         indexed_routes,
         _review_route,
@@ -929,7 +960,7 @@ def _run_visual_critique(
     ):
         _consume_first_pass(_item, result, exc)
 
-    if report.review_status == "unmeasured":
+    if report.review_status == "unmeasured" and not remeasure:
         log.error(
             "    visual critic: 0 of %s page(s) could be judged — this is a "
             "measurement outage, not a pass",
