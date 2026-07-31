@@ -1432,6 +1432,51 @@ def test_ranking_item_photos_never_returns_fewer_of_them() -> None:
     assert len(set(filled.values())) == len(imgs._ITEM_SLOTS), "each slot needs its own"
 
 
+def test_the_product_detail_slot_takes_the_photo_of_a_thing() -> None:
+    """`card1`'s stated purpose is "product detail"; the other five set a scene.
+
+    A hero of an empty room is worse than a hero of someone at work, so only the
+    object slot reorders — and it takes the first on-subject photo, not the first.
+    """
+    from app.application.services import industry_images as imgs
+
+    # Every search returns the same shape — two people, then the artwork — with
+    # ids unique per call so `used_ids` cannot do the reordering for us.
+    calls = {"n": 0}
+
+    def _fake_search(*_args, **_kwargs):
+        calls["n"] += 1
+        base = calls["n"] * 10
+        return [
+            {
+                "id": base + offset,
+                "alt": alt,
+                "src": {
+                    "large": f"https://p/{base + offset}.jpg",
+                    "large2x": f"https://p/{base + offset}.jpg",
+                },
+            }
+            for offset, alt in enumerate(
+                ["a woman painting", "person holding a brush", "abstract oil painting"],
+                start=1,
+            )
+        ]
+
+    original = imgs._search_pexels
+    try:
+        imgs._search_pexels = _fake_search
+        slots = imgs._fetch_pexels_images(
+            "key", "Fine art gallery", business_name="Studio", seed=1
+        )
+    finally:
+        imgs._search_pexels = original
+
+    assert slots is not None
+    assert slots["card1"] == "https://p/33.jpg", "the product slot must skip the people"
+    # A scene slot keeps search order — the index ranked that photo first for a reason.
+    assert slots["hero"] == "https://p/11.jpg"
+
+
 def test_an_on_subject_photo_outranks_a_harvested_person_shot() -> None:
     from app.application.services import industry_images as imgs
 

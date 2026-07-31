@@ -130,6 +130,10 @@ _INDUSTRY_KEYWORDS: dict[str, list[str]] = {
 
 _SLOTS = ("hero", "hero2", "card1", "card2", "card3", "ambient")
 
+#: Layout slots whose subject is a *thing*, not a scene. The rest are
+#: scene-setting, where a person in frame is usually the better photograph.
+_OBJECT_SLOTS = frozenset({"card1"})
+
 # Per-catalogue-item photographs. The six layout slots are shared page furniture;
 # a storefront's items each need their own picture or the grid captions two
 # different products with one photo. Harvested from search results the slot loop
@@ -480,7 +484,8 @@ def _fetch_pexels_images(
             fallback_q = f"{category} {_SLOT_QUERY_SUFFIX[slot]}"
             photos = _search_pexels(api_key, fallback_q, page=page)
 
-        chosen = None
+        # Usable candidates in search order, with the index's own verdict on each.
+        candidates: list[tuple[int | None, str, bool]] = []
         for photo in photos:
             pid = photo.get("id")
             if isinstance(pid, int) and pid in used_ids:
@@ -488,15 +493,23 @@ def _fetch_pexels_images(
             url = _pexels_photo_url(photo, large=(slot.startswith("hero")))
             if not url:
                 continue
-            if chosen is None:
-                chosen = (pid, url)
-                continue
-            # Detail/product framings first: those are the photographs that can
-            # plausibly *be* a catalogue item, rather than a room or a team shot.
-            spare.append((pid, url, _photo_is_on_subject(photo)))
-        if not chosen:
+            candidates.append((pid, url, _photo_is_on_subject(photo)))
+        if not candidates:
             return None
-        pid, url = chosen
+        # `card1` is the product-detail slot by definition, so it takes the first
+        # photograph of a *thing*. The other five are scene-setting, where a person
+        # in frame is usually right — a hero of an empty room is worse than a hero
+        # of someone at work.
+        pick = 0
+        if slot in _OBJECT_SLOTS:
+            pick = next(
+                (i for i, (_p, _u, ok) in enumerate(candidates) if ok),
+                0,
+            )
+        pid, url, _ok = candidates.pop(pick)
+        # Detail/product framings first: those are the photographs that can
+        # plausibly *be* a catalogue item, rather than a room or a team shot.
+        spare.extend(candidates)
         if isinstance(pid, int):
             used_ids.add(pid)
         result[slot] = url
