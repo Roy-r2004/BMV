@@ -456,7 +456,7 @@ def heal_quality_gate(
                 write_file(
                     workspace,
                     rel,
-                    minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name),
+                    minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name, architect=architect),
                 )
                 healed.append(rel)
     except Exception as e:
@@ -520,7 +520,7 @@ def heal_quality_gate(
             write_file(
                 workspace,
                 rel,
-                minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name),
+                minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name, architect=architect),
             )
             healed.append(rel)
         if _is_directory_listing_route(rel, rt) and src and (
@@ -531,7 +531,7 @@ def heal_quality_gate(
             write_file(
                 workspace,
                 rel,
-                minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name),
+                minimal_catalogue_page_scaffold(rel, rt, brand_name=brand_name, architect=architect),
             )
             healed.append(rel)
 

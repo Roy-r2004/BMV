@@ -94,16 +94,44 @@ _DEFAULT_CATALOG_BASE = "/gallery"
 _BOOKING_ROUTE = "/book"
 
 
-def catalog_base_from_path(route_path: str = "") -> str:
+def catalog_base_from_path(route_path: str = "", architect: dict | None = None) -> str:
     """Browse route that a detail route hangs off.
 
     ``/gallery/:id`` → ``/gallery``, ``/works/:slug`` → ``/works``. Derived rather
     than hardcoded so a renamed catalogue route keeps its cards and its
     back-to-collection link pointing somewhere real.
+
+    "Somewhere real" is the part that needs the route table. A planner that puts
+    the detail page at ``/artwork/:id`` while the listing lives at ``/gallery``
+    leaves ``/artwork`` undeclared, so request 44's detail page offered "Back to the
+    collection" to a path that fell through to the catch-all — three blocking
+    findings on an app whose links all otherwise worked. When the derived base is
+    not a declared route, the declared listing wins.
     """
     raw = str(route_path or "").strip()
     base = raw.split("/:")[0].split("/{")[0].rstrip("/")
-    return base or _DEFAULT_CATALOG_BASE
+    if not base:
+        return _DEFAULT_CATALOG_BASE
+    declared = {
+        str(r.get("path") or "").rstrip("/")
+        for r in ((architect or {}).get("routes") or [])
+        if isinstance(r, dict)
+    }
+    if not declared or base in declared:
+        return base
+    listing = sorted(
+        p for p in declared
+        if p and ":" not in p and _LISTING_BASE_RE.match(p + "/")
+    )
+    return listing[0] if listing else base
+
+
+#: Browse-route names a catalogue listing goes by.
+_LISTING_BASE_RE = re.compile(
+    r"^/(gallery|collection|collections|shop|catalog|catalogue|products|works|menu|"
+    r"paintings|pieces|artworks|listings)(/|$)",
+    re.I,
+)
 
 
 # Slots that give a page somewhere for its journey to end.
@@ -1126,6 +1154,15 @@ def _directory_listing_scaffold(
         showcase_desc = "Each card opens a closer look. Inquire when you are ready."
         cta_heading = "Interested in a piece?"
         cta_desc = "Ask about availability, commissions, or a studio visit."
+
+    # A service listing has no per-item detail route — the funnel goes straight to
+    # booking — so numbering its cards into `/services/:id` would point every one of
+    # them at a path the planner never declared.
+    item_href = (
+        _js(_BOOKING_ROUTE)
+        if booking_face
+        else f"`{base}/${{String(s.slug || s.id || i + 1)}}`"
+    )
     return f"""// directory listing scaffold — distinct from home marketing clone
 import {{ usePublicNavItems, publicCta }} from '@/lib/app-nav';
 import {{ images, seed }} from '@/data/mock';
@@ -1157,10 +1194,10 @@ export default function {component}() {{
     category: s.category ? String(s.category) : undefined,
     badge: s.badge ? String(s.badge) : undefined,
     status: s.status ? String(s.status) : undefined,
-    // Written out per item with the base inlined, not left to CatalogGrid's
+    // Written out per item with the target inlined, not left to CatalogGrid's
     // `detailBase` derivation: the journey walk reads links, and a page that only
     // named its base in a const looked like a browse face with no way out of it.
-    href: `{base}/${{String(s.slug || s.id || i + 1)}}`,
+    href: {item_href},
   }}));
 
   return (
@@ -1198,6 +1235,7 @@ def minimal_catalogue_page_scaffold(
     route: dict,
     *,
     brand_name: str | None = None,
+    architect: dict | None = None,
 ) -> str:
     stem = canonical_workspace_path(file_path).split("/")[-1].rsplit(".", 1)[0]
     component = re.sub(r"[^A-Za-z0-9_]", "", stem) or "CataloguePage"
@@ -1283,7 +1321,7 @@ def minimal_catalogue_page_scaffold(
         if slot_component and slot_component not in components:
             components.append(slot_component)
     path = str(route.get("path") or "")
-    detail_base = catalog_base_from_path(path)
+    detail_base = catalog_base_from_path(path, architect)
     slot_lines = "\n".join(
         "    {slot}: (\n      {jsx}\n    ),".format(
             slot=slot,

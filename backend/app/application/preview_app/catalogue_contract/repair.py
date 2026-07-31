@@ -365,7 +365,7 @@ def enforce_catalogue_page_contract(
     if _is_schedule_listing_route(file_path, route) and "ScheduleRail" not in (content or ""):
         return (
             minimal_catalogue_page_scaffold(
-                file_path, route, brand_name=brand_name
+                file_path, route, brand_name=brand_name, architect=architect
             ),
             True,
         )

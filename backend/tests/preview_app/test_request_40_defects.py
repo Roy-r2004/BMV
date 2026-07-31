@@ -1275,3 +1275,76 @@ def test_a_surface_link_goes_to_that_surface_entry_page(tmp_path: Path) -> None:
     assert _best_declared_target("/owner/logout", declared) == "/owner/dashboard"
     assert _best_declared_target("/privacy", declared) == "#"
     assert _best_declared_target("/franchise-opportunities", declared) == ""
+
+
+# --------------------------------------------------------------------------- #
+# request 44: a working link reported dead, and a base nothing serves
+# --------------------------------------------------------------------------- #
+
+def test_a_template_link_is_judged_by_the_route_under_it() -> None:
+    """`` href={`/artwork/${id}`} `` is a prefix, not a URL.
+
+    At runtime it resolves to `/artwork/<something>`, which a declared
+    `/artwork/:id` serves. Comparing the bare base against the route table called
+    it dead, and request 44 was withheld on three such findings while every one of
+    those links worked.
+    """
+    from app.application.preview_app.capabilities.journey import (
+        _prefix_is_served,
+        internal_href_prefixes,
+        internal_hrefs,
+    )
+
+    src = 'const x = <a href={`/artwork/${item.id}`}>open</a>;\n<a href="/gallery">all</a>'
+
+    assert internal_hrefs(src) == ["/gallery"], "a template base is not a literal href"
+    assert internal_href_prefixes(src) == ["/artwork"]
+    assert _prefix_is_served("/artwork", {"/", "/gallery", "/artwork/:id"}) is True
+    assert _prefix_is_served("/artwork", {"/", "/gallery"}) is False
+
+
+def test_the_detail_page_links_back_to_a_declared_listing() -> None:
+    """A planner can put the detail at `/artwork/:id` and the listing at `/gallery`.
+
+    `/artwork` is then undeclared, so "Back to the collection" fell through to the
+    catch-all — request 44's detail page offered a dead primary way out.
+    """
+    from app.application.preview_app.catalogue_contract.scaffold import catalog_base_from_path
+
+    architect = {
+        "routes": [
+            {"path": "/"},
+            {"path": "/gallery"},
+            {"path": "/artwork/:id"},
+        ]
+    }
+
+    assert catalog_base_from_path("/artwork/:id", architect) == "/gallery"
+    # When the derived base *is* declared, it wins — nothing to second-guess.
+    assert catalog_base_from_path("/gallery/:id", architect) == "/gallery"
+    # With no route table, behaviour is unchanged.
+    assert catalog_base_from_path("/works/:slug") == "/works"
+
+
+def test_a_service_listing_card_links_to_booking_not_a_missing_detail_route() -> None:
+    """A booking funnel declares no per-item detail route.
+
+    Numbering the cards into `/services/:id` pointed every one of them at a path
+    the planner never created.
+    """
+    route = {
+        "path": "/services",
+        "component_file": "src/pages/ServicesPage.tsx",
+        "surface": "public",
+        "skeleton_id": "public-service",
+        "title": "Services",
+        "page_intent": "listing",
+        "section_slots": ["hero", "showcase", "footer"],
+    }
+
+    tsx = minimal_catalogue_page_scaffold(
+        route["component_file"], route, brand_name="Fade & Blade"
+    )
+
+    assert "/services/${" not in tsx, "there is no /services/:id to link into"
+    assert '"/book"' in tsx

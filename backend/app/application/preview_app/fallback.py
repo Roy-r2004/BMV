@@ -444,6 +444,7 @@ def write_safe_stub(
     industry: str | None = None,
     page_title: str | None = None,
     route: dict | None = None,
+    architect: dict | None = None,
 ) -> None:
     """Overwrite `path` with a minimal, guaranteed-compiling placeholder page.
 
@@ -457,6 +458,7 @@ def write_safe_stub(
             path,
             route or {},
             brand_name=brand_name,
+            architect=architect,
         )
         errors = validate_catalogue_page_content(content, route or {})
         if errors:

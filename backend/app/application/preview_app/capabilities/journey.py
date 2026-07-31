@@ -274,7 +274,15 @@ def _find_route(
 
 
 def internal_hrefs(source: str) -> list[str]:
-    """In-app href targets referenced by a page (skips external and anchors)."""
+    """Literal in-app href targets (skips external, anchors, and templates).
+
+    Template bases are deliberately *not* here. `` href={`/artwork/${id}`} `` is a
+    prefix, not a URL: at runtime it resolves to `/artwork/<something>`, which a
+    declared `/artwork/:id` serves — but comparing the bare base against the route
+    table says it is dead. Request 44 was withheld on three such findings while
+    every one of those links worked. Prefixes are checked by
+    `internal_href_prefixes` against the rule that actually applies to them.
+    """
     found: list[str] = []
     for match in _HREF_LITERAL_RE.finditer(source or ""):
         value = match.group("value").strip()
@@ -283,9 +291,24 @@ def internal_hrefs(source: str) -> list[str]:
         if "${" in value:
             continue
         found.append(value)
-    for match in _TEMPLATE_BASE_RE.finditer(source or ""):
-        found.append(match.group("base"))
     return found
+
+
+def internal_href_prefixes(source: str) -> list[str]:
+    """Bases of template-literal links: `` `/artwork/${id}` `` -> `/artwork`."""
+    return [match.group("base") for match in _TEMPLATE_BASE_RE.finditer(source or "")]
+
+
+def _prefix_is_served(prefix: str, declared: Iterable[str]) -> bool:
+    """True when some declared route hangs under `prefix`.
+
+    The link is `prefix + "/" + <value>`, so what must exist is a child route —
+    `/artwork/:id` for `` `/artwork/${id}` `` — not `prefix` itself.
+    """
+    base = _norm(prefix)
+    if base == "/":
+        return True
+    return any(_norm(candidate).startswith(base + "/") for candidate in declared)
 
 
 #: Hrefs a storefront invents for its catalogue when the route is named something
@@ -390,6 +413,14 @@ def repair_dead_internal_links(
                 continue
             for quote in ('"', "'", "`"):
                 updated = updated.replace(f"{quote}{href}{quote}", f"{quote}{replacement}{quote}")
+        # A template base is repaired in place: `` `/artwork/${id}` `` -> `` `/gallery/${id}` ``.
+        for prefix in sorted(set(internal_href_prefixes(src)), key=len, reverse=True):
+            if _prefix_is_served(prefix, declared):
+                continue
+            replacement = _best_declared_target(prefix, declared)
+            if not replacement or replacement in ("#", _norm(prefix)):
+                continue
+            updated = updated.replace(f"{prefix}/${{", f"{replacement}/${{")
         if updated != src:
             _write(workspace, rel, updated)
             healed.append(rel)
@@ -498,9 +529,12 @@ def _sweep_non_hop_links(
         if not src:
             continue
         surface = _surface(route)
-        for href in sorted(set(internal_hrefs(src))):
-            if _route_matches(href, declared):
-                continue
+        dead = [h for h in sorted(set(internal_hrefs(src))) if not _route_matches(h, declared)]
+        dead += [
+            p for p in sorted(set(internal_href_prefixes(src)))
+            if not _prefix_is_served(p, declared)
+        ]
+        for href in dead:
             report.add(
                 "journey_dead_link_offpath",
                 f"{rel} links to {href}, which no declared route serves",
@@ -582,9 +616,7 @@ def _check_browse(
             )
             return
         detail_bases = {target}
-    referenced = set(internal_hrefs(src)) | {
-        m.group("base") for m in _TEMPLATE_BASE_RE.finditer(src)
-    } | {
+    referenced = set(internal_hrefs(src)) | set(internal_href_prefixes(src)) | {
         # `CatalogGrid` derives `${detailBase}/${item.id}` for every card, so a
         # declared detailBase is a real item link even with no `href` in sight.
         m.group("base") for m in _DETAIL_BASE_RE.finditer(src)
@@ -656,9 +688,12 @@ def _check_dead_links(
     declared: set[str],
 ) -> None:
     """Generalises `dead_ai_step_link` to every in-app href on a journey page."""
-    for href in sorted(set(internal_hrefs(src))):
-        if _route_matches(href, declared):
-            continue
+    dead = [h for h in sorted(set(internal_hrefs(src))) if not _route_matches(h, declared)]
+    dead += [
+        p for p in sorted(set(internal_href_prefixes(src)))
+        if not _prefix_is_served(p, declared)
+    ]
+    for href in dead:
         conditional = _norm(href) in _CONDITIONAL_ROUTES
         report.add(
             "journey_dead_link",

@@ -288,6 +288,7 @@ def _generate_catalogue_scaffold_first_file(
         file_path,
         merged,
         brand_name=brand_name,
+        architect=architect,
     )
     page_id = str(merged.get("app_spec_page_id") or merged.get("page_id") or "")
     if page_id:
