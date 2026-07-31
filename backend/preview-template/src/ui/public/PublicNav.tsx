@@ -40,7 +40,12 @@ function useActiveHref(items: PublicNavItem[] | undefined) {
 
   React.useEffect(() => {
     const ids = safeItems
-      .map((item) => (item.href.startsWith('#') ? item.href.slice(1) : ''))
+      // A nav item without an href would crash the *shell*, taking every page
+      // with it — the one crash a preview can least afford.
+      .map((item) => {
+        const href = String(item?.href ?? '');
+        return href.startsWith('#') ? href.slice(1) : '';
+      })
       .filter(Boolean);
 
     const update = () => {

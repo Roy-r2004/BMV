@@ -64,9 +64,11 @@ export function OpsShell({
 
   const resolvedNav = React.useMemo(
     () =>
-      navItems.map((item) => ({
+      // An absent or malformed nav list must not take the whole workspace down.
+      (Array.isArray(navItems) ? navItems : []).map((item) => ({
         ...item,
-        active: pathMatches(pathname, item.href) || Boolean(item.active && !item.href),
+        label: String(item?.label ?? ''),
+        active: pathMatches(pathname, item?.href) || Boolean(item?.active && !item?.href),
       })),
     [navItems, pathname]
   );
@@ -170,7 +172,7 @@ export function OpsShell({
               className={cn('font-display text-xl leading-none', soft ? 'font-semibold' : 'italic')}
               aria-hidden="true"
             >
-              {brandName.slice(0, 1)}
+              {String(brandName ?? 'B').slice(0, 1)}
             </p>
           ) : null}
         </div>
@@ -188,7 +190,7 @@ export function OpsShell({
                   : 'text-white/55 hover:bg-white/6 hover:text-white',
               collapsed && 'flex items-center justify-center px-0 text-center text-xs tracking-wide'
             );
-            const label = collapsed ? item.label.slice(0, 1) : item.label;
+            const label = collapsed ? item.label.slice(0, 1) || '·' : item.label;
             if (item.href) {
               return (
                 <AppLink

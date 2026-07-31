@@ -1985,6 +1985,26 @@ def test_the_gate_retires_a_verdict_for_every_file_it_rewrites() -> None:
     )
 
 
+def test_a_shell_cannot_be_crashed_by_the_data_it_is_handed() -> None:
+    """A crash in a shell takes every page that uses it, not one section.
+
+    Request 47's `/admin/paintings/1/edit` rendered the error boundary on
+    `Cannot read properties of undefined (reading 'trim')` — `resolveDemo` was
+    handed `feature.name` for a generated feature that had none.
+    """
+    ui = Path(__file__).resolve().parents[2] / "preview-template" / "src" / "ui"
+
+    stage = (ui / "public" / "AiFeatureStage.tsx").read_text(encoding="utf-8")
+    assert "String(prompt ?? '').trim()" in stage, "an absent prompt must not crash"
+
+    ops = (ui / "ops" / "OpsShell.tsx").read_text(encoding="utf-8")
+    assert "Array.isArray(navItems) ? navItems : []" in ops
+    assert "String(brandName ?? 'B')" in ops
+
+    nav = (ui / "public" / "PublicNav.tsx").read_text(encoding="utf-8")
+    assert "String(item?.href ?? '')" in nav, "a nav item with no href must not crash"
+
+
 def test_a_browsable_grid_has_a_slot_for_its_controls_above_it() -> None:
     """Request 47's gallery put its search box and availability select *below* the grid.
 

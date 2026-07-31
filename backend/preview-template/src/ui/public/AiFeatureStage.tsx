@@ -42,8 +42,15 @@ export function categoryLabel(category: string | undefined): string {
   return map[c] || 'AI';
 }
 
-export function resolveDemo(feature: AiFeatureItem, brandName: string, prompt: string): string {
-  const text = prompt.trim() || feature.name;
+export function resolveDemo(
+  feature: AiFeatureItem,
+  brandName: string,
+  prompt?: string | null,
+): string {
+  // `prompt` is routinely `feature.name`, and a generated feature object need not
+  // have one. Request 47's `/admin/paintings/1/edit` rendered the error boundary
+  // with "Cannot read properties of undefined (reading 'trim')" for exactly that.
+  const text = String(prompt ?? '').trim() || String(feature.name ?? 'this feature');
   // Entries can be `undefined` now that the type admits a partial record, so the
   // lookups below must not hand a `string | undefined` back as the answer.
   const results = feature.demo_results || {};
