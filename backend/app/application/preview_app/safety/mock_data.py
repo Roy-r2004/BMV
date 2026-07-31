@@ -490,61 +490,90 @@ def _strip_forbidden_mock_stubs(mock: str) -> str:
     return updated
 
 def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
-    """Guarantee seed.hero (and related scaffold keys) exist for catalogue pages.
+    """Guarantee the scaffold keys under `seed`, one key at a time.
 
     AI mock synthesis often replaces `seed` with domain-specific data and drops
     hero/cta/footer — HomePage then crashes on `seed.hero.headline`.
+
+    Injecting the whole block whenever `hero` was absent re-declared every other
+    key the model *had* written: request 43 shipped six TS1117 duplicate-property
+    errors, with the stub first and the real content second (so the right value won
+    by accident). Only missing keys are added now — the same lesson as the brand
+    `design_system` patch.
     """
     if "export const seed" not in mock:
         return mock
-    # Already has a hero object under seed — leave it alone.
-    if re.search(r"export const seed\s*=\s*\{[\s\S]*?\bhero\s*:", mock):
+
+    from app.application.preview_app.safety.seed_keys import _seed_span, _top_level_keys
+
+    span = _seed_span(mock)
+    if not span:
         return mock
+    body_start, close_at = span
+    existing = _top_level_keys(mock[body_start:close_at])
 
     brand = (brand_name or "Brand").replace("\\", "\\\\").replace("'", "\\'")
-    inject = (
-        "\n  hero: {\n"
-        f"    eyebrow: '{brand}',\n"
-        f"    headline: '{brand}',\n"
-        f"    subcopy: 'A clear next step from {brand} — warm, specific, and ready when you are.',\n"
-        "    primaryCta: { label: 'Get started', href: '#details' },\n"
-        "    secondaryCta: { label: 'See how it works', href: '#process' },\n"
-        "  },\n"
-        "  items: [\n"
-        f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
-        "    { title: 'Everyday essential', description: 'Built for daily use.' },\n"
-        f"    {{ title: 'Guest favorite', description: 'The one people come back to {brand} for.' }},\n"
-        "  ],\n"
-        "  features: [\n"
-        f"    {{ title: 'What {brand} is known for', description: 'Concrete offerings guests can book without guessing.' }},\n"
-        "    { title: 'Guided next step', description: 'Every section points toward a clear action.' },\n"
-        f"    {{ title: 'Built for return visits', description: 'Details that make {brand} easy to come back to.' }},\n"
-        "  ],\n"
-        f"  featuresHeading: 'What {brand} offers',\n"
-        f"  showcaseHeading: 'From {brand}',\n"
-        f"  credentialsHeading: 'Why {brand}',\n"
-        "  credentials: [\n"
-        f"    {{ title: 'Known locally', detail: 'Neighbors recommend {brand} for consistent results.' }},\n"
-        "    { title: 'Clear next steps', detail: 'Booking and follow-up stay simple from the start.' },\n"
-        "  ],\n"
-        "  trustLabels: [\n"
-        f"    '{brand} quality', 'On schedule', 'Repeat guests', 'Local favorite',\n"
-        "  ],\n"
-        "  cta: {\n"
-        f"    heading: 'Ready for {brand}?',\n"
-        f"    description: 'Tell {brand} what you need — clear options, real next steps.',\n"
-        "    primaryLabel: 'Get started',\n"
-        "    primaryHref: '#details',\n"
-        "    secondaryLabel: 'Talk to us',\n"
-        "    secondaryHref: '#contact',\n"
-        "  },\n"
-        "  footer: {\n"
-        f"    description: '{brand} — clear choices and real bookings.',\n"
-        "  },\n"
-    )
+    blocks: dict[str, str] = {
+        "hero": (
+            "hero: {\n"
+            f"    eyebrow: '{brand}',\n"
+            f"    headline: '{brand}',\n"
+            f"    subcopy: 'A clear next step from {brand} — warm, specific, and ready when you are.',\n"
+            "    primaryCta: { label: 'Get started', href: '#details' },\n"
+            "    secondaryCta: { label: 'See how it works', href: '#process' },\n"
+            "  }"
+        ),
+        "items": (
+            "items: [\n"
+            f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
+            "    { title: 'Everyday essential', description: 'Built for daily use.' },\n"
+            f"    {{ title: 'Guest favorite', description: 'The one people come back to {brand} for.' }},\n"
+            "  ]"
+        ),
+        "features": (
+            "features: [\n"
+            f"    {{ title: 'What {brand} is known for', description: 'Concrete offerings guests can book without guessing.' }},\n"
+            "    { title: 'Guided next step', description: 'Every section points toward a clear action.' },\n"
+            f"    {{ title: 'Built for return visits', description: 'Details that make {brand} easy to come back to.' }},\n"
+            "  ]"
+        ),
+        "featuresHeading": f"featuresHeading: 'What {brand} offers'",
+        "showcaseHeading": f"showcaseHeading: 'From {brand}'",
+        "credentialsHeading": f"credentialsHeading: 'Why {brand}'",
+        "credentials": (
+            "credentials: [\n"
+            f"    {{ title: 'Known locally', detail: 'Neighbors recommend {brand} for consistent results.' }},\n"
+            "    { title: 'Clear next steps', detail: 'Booking and follow-up stay simple from the start.' },\n"
+            "  ]"
+        ),
+        "trustLabels": (
+            "trustLabels: [\n"
+            f"    '{brand} quality', 'On schedule', 'Repeat guests', 'Local favorite',\n"
+            "  ]"
+        ),
+        "cta": (
+            "cta: {\n"
+            f"    heading: 'Ready for {brand}?',\n"
+            f"    description: 'Tell {brand} what you need — clear options, real next steps.',\n"
+            "    primaryLabel: 'Get started',\n"
+            "    primaryHref: '#details',\n"
+            "    secondaryLabel: 'Talk to us',\n"
+            "    secondaryHref: '#contact',\n"
+            "  }"
+        ),
+        "footer": (
+            "footer: {\n"
+            f"    description: '{brand} — clear choices and real bookings.',\n"
+            "  }"
+        ),
+    }
+    missing = [text for key, text in blocks.items() if key not in existing]
+    if not missing:
+        return mock
+    inject = "".join(f"\n  {text}," for text in missing)
     updated, n = re.subn(
         r"(export const seed\s*=\s*\{)",
-        r"\1" + inject,
+        lambda m: m.group(1) + inject,
         mock,
         count=1,
     )
@@ -606,7 +635,7 @@ def ensure_mock_exports(
     if seeded != mock:
         mock = seeded
         write_file(workspace, "src/data/mock.ts", mock)
-        guard_log.info("seed.hero restored for scaffold pages (brand=%s)", brand_name)
+        guard_log.info("seed scaffold keys completed for scaffold pages (brand=%s)", brand_name)
     cleaned = _strip_forbidden_mock_stubs(_clean_mock(mock))
     if cleaned != mock:
         mock = cleaned
