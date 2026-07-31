@@ -23,17 +23,33 @@ export interface FeatureBentoProps {
   /** When items lack imageSrc, pull from this pool (card1/card2/…) so bento stays cinematic. */
   imagePool?: string[];
   className?: string;
+  /**
+   * Content below the grid — request 46's contact page composed its form into the
+   * section this way. Rendered after the items, inside the same container.
+   */
+  children?: React.ReactNode;
 }
 
 /** Feature section — default variant comes from the active design recipe. */
-export function FeatureBento({
+export function FeatureBento({ children, ...props }: FeatureBentoProps) {
+  const section = <FeatureBentoBody {...props} />;
+  if (!children) return section;
+  return (
+    <>
+      {section}
+      {children}
+    </>
+  );
+}
+
+function FeatureBentoBody({
   className,
   description,
   heading,
   imagePool,
   items: itemsProp = [],
   variant: _variant,
-}: FeatureBentoProps) {
+}: Omit<FeatureBentoProps, 'children'>) {
   const safe = useMotionSafe();
   // Recipe owns feature composition — ignore AI-passed variants.
   const resolved = recipeFeatureVariant(currentRecipeId());

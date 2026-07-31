@@ -11,8 +11,13 @@ export interface DataTableColumn {
   /**
    * Preferred: `(row) => …`.
    * Also tolerates mistaken `(value) => value.toFixed(2)` and `(value, row) => …`.
+   *
+   * Deliberately ONE signature. A union of two call shapes gives TypeScript no
+   * contextual type to infer from, so every generated `render: (row) => …` became
+   * "Parameter 'row' implicitly has an 'any' type" — eight of request 46's sixteen
+   * type errors, all from this one declaration.
    */
-  render?: ((row: Record<string, unknown>) => React.ReactNode) | ((value: unknown, row: Record<string, unknown>) => React.ReactNode);
+  render?: (row: any, fullRow?: Record<string, unknown>) => React.ReactNode;
 }
 
 export interface DataTableProps {

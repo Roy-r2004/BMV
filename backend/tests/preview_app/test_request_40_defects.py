@@ -1302,6 +1302,47 @@ def test_a_refine_that_does_not_parse_keeps_the_previous_page(tmp_path: Path) ->
     assert page.read_text(encoding="utf-8") == good
 
 
+def test_a_callback_prop_declares_one_signature_not_a_union() -> None:
+    """`render` was a union of two call shapes, so `(row) => …` could not be typed.
+
+    TypeScript will not infer a parameter's type from a union of signatures, so
+    every generated `render: (row) => …` came back as "Parameter 'row' implicitly
+    has an 'any' type" — eight of request 46's sixteen type errors, one declaration.
+    """
+    ui = Path(__file__).resolve().parents[2] / "preview-template" / "src" / "ui"
+    table = (ui / "ops" / "DataTable.tsx").read_text(encoding="utf-8")
+
+    declaration = table.split("render?:", 1)[1].split(";", 1)[0]
+    assert "=>" in declaration
+    assert declaration.count("=>") == 1, (
+        f"a union of signatures cannot be inferred from: {declaration.strip()}"
+    )
+    assert "row: any" in declaration, "the parameter needs an explicit type"
+
+
+def test_the_ops_kit_accepts_the_vocabulary_request_46_wrote() -> None:
+    """Six declarations narrower than the pages generated against them."""
+    ui = Path(__file__).resolve().parents[2] / "preview-template" / "src" / "ui"
+
+    def source(rel: str) -> str:
+        return (ui / rel).read_text(encoding="utf-8")
+
+    # A toolbar's primary action reads solid.
+    assert "variant?:" in source("ops/FilterBar.tsx").split("FilterBarAction", 1)[1][:400]
+    # `glass`/`solid` are the words ops pages reach for; two faces, four words.
+    assert "'glass'" in source("ops/OpsShell.tsx")
+    # A detail line can carry a Badge, not only a string.
+    assert "detail?: React.ReactNode" in source("ops/ActivityFeed.tsx")
+    assert "React.isValidElement(item.detail)" in source("ops/ActivityFeed.tsx"), (
+        "widening the type without rendering the node would silently drop it"
+    )
+    # A hero CTA may open something in place instead of navigating.
+    hero = source("public/MarketingHero.tsx")
+    assert "onClick={cta.onClick}" in hero
+    # A section may compose extra content beneath its grid.
+    assert "children?: React.ReactNode" in source("public/FeatureBento.tsx")
+
+
 def test_page_header_actions_accept_the_button_vocabulary() -> None:
     """Generated ops pages write `variant: "outline"` for a Cancel button.
 

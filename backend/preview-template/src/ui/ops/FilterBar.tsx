@@ -23,6 +23,9 @@ export interface FilterBarFilter {
 export interface FilterBarAction {
   label: string;
   onClick?: () => void;
+  /** Emphasis, if the page asked for it — a toolbar's primary action reads solid. */
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'subtle' | 'danger';
+  icon?: React.ReactNode;
 }
 
 export interface FilterBarProps {
@@ -58,8 +61,16 @@ export function FilterBar({
           key={`${action.label}-${index}`}
           type="button"
           onClick={action.onClick}
-          className="rounded-full border border-border-subtle bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-card"
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold',
+            action.variant === 'primary'
+              ? 'bg-foreground text-background hover:bg-foreground/90'
+              : action.variant === 'danger'
+                ? 'bg-[#b42318] text-white hover:bg-[#a11a10]'
+                : 'border border-border-subtle bg-background text-foreground hover:bg-card'
+          )}
         >
+          {action.icon}
           {action.label}
         </button>
       ))}

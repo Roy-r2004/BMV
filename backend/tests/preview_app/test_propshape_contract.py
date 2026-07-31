@@ -88,7 +88,9 @@ def test_component_prop_shape_resolves_one_hop_of_indirection():
 
     hero = component_prop_shape("MarketingHero")
     assert "imageSrc: string" in hero["props"]
-    assert hero["types"]["MarketingCta"] == "{ label: string; href: string }"
+    assert hero["types"]["MarketingCta"] == (
+        "{ label: string; href: string; onClick?: () => void }"
+    )
 
     assert "target" not in component_prop_shape("Button")["props"]
     assert "badge" not in component_prop_shape("MarketingHero")["props"]

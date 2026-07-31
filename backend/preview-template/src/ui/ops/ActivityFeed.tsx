@@ -15,8 +15,15 @@ function safeRelative(value: string): string {
 export interface ActivityFeedItem {
   id?: string;
   title?: string;
-  detail?: string;
+  /**
+   * Text, or a node: request 46's dashboard composed a `<Badge>` and a link into
+   * the detail line. A node is rendered as given; anything else is coerced to text
+   * through the alias chain below.
+   */
+  detail?: React.ReactNode;
   time?: string;
+  /** A leading glyph for the row, in place of the title's initial. */
+  icon?: React.ReactNode;
   /** Common AI aliases — normalized at render time. */
   text?: string;
   message?: string;
@@ -46,10 +53,12 @@ function normalizeItem(item: ActivityFeedItem, index: number) {
     asText(item.message) ||
     asText(item.label) ||
     asText(item.description);
-  const detail =
-    asText(item.detail) ||
-    (asText(item.description) !== title ? asText(item.description) : '') ||
-    (asText(item.message) !== title ? asText(item.message) : '');
+  // A node is content, not a string to be coerced: `asText` would drop it.
+  const detail: React.ReactNode = React.isValidElement(item.detail)
+    ? item.detail
+    : asText(item.detail) ||
+      (asText(item.description) !== title ? asText(item.description) : '') ||
+      (asText(item.message) !== title ? asText(item.message) : '');
   const time =
     asText(item.time) || asText(item.timestamp) || asText(item.createdAt) || asText(item.at);
   return {
@@ -57,6 +66,7 @@ function normalizeItem(item: ActivityFeedItem, index: number) {
     title: title || 'Activity update',
     detail,
     time,
+    icon: item.icon,
   };
 }
 
@@ -101,7 +111,7 @@ export function ActivityFeed({ className, heading = 'Activity', items }: Activit
                   className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-brand)_12%,white)] text-xs font-semibold text-brand"
                   aria-hidden="true"
                 >
-                  {initial}
+                  {item.icon ?? initial}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">

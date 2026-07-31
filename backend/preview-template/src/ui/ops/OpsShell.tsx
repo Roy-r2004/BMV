@@ -18,7 +18,9 @@ function pathMatches(pathname: string, href?: string): boolean {
   return false;
 }
 
-export type OpsShellAppearance = 'soft' | 'floor';
+// `glass` and `solid` are the words generated ops pages reach for; both resolve to
+// an existing face rather than failing the page over vocabulary.
+export type OpsShellAppearance = 'soft' | 'floor' | 'glass' | 'solid';
 
 export interface OpsShellProps {
   brandName: string;
@@ -51,7 +53,8 @@ export function OpsShell({
   rail,
   topbar,
 }: OpsShellProps) {
-  const soft = appearance === 'soft';
+  // `glass` reads as the soft face, `solid` as the floor — two faces, four words.
+  const soft = appearance === 'soft' || appearance === 'glass';
   const { pathname } = useLocation();
   const [collapsed, setCollapsed] = React.useState(defaultSidebarCollapsed);
   const [width, setWidth] = React.useState(

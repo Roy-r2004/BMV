@@ -15,6 +15,12 @@ import {
 export interface MarketingCta {
   label: string;
   href: string;
+  /**
+   * A hero CTA that opens something in place rather than navigating — request 46's
+   * artwork page wanted "Inquire" to raise a dialog. `Button` fires it alongside
+   * the href, so a page that supplies only `onClick` still has a working link.
+   */
+  onClick?: () => void;
 }
 
 /** @deprecated legacy page props still accepted; recipe composition wins when omitted */
@@ -76,11 +82,11 @@ function MarketingHeroBody({
 
   const ctas = (
     <div className="mt-8 flex flex-wrap gap-3">
-      <Button href={cta.href} size="lg">
+      <Button href={cta.href} onClick={cta.onClick} size="lg">
         {cta.label}
       </Button>
       {secondaryCta ? (
-        <Button href={secondaryCta.href} size="lg" variant="outline">
+        <Button href={secondaryCta.href} onClick={secondaryCta.onClick} size="lg" variant="outline">
           {secondaryCta.label}
         </Button>
       ) : null}
@@ -90,7 +96,7 @@ function MarketingHeroBody({
   const onDarkCtas = (
     <div className="mt-8 flex flex-wrap gap-3">
       <Button
-        href={cta.href}
+        href={cta.href} onClick={cta.onClick}
         size="lg"
         className="bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground"
       >
@@ -98,7 +104,7 @@ function MarketingHeroBody({
       </Button>
       {secondaryCta ? (
         <Button
-          href={secondaryCta.href}
+          href={secondaryCta.href} onClick={secondaryCta.onClick}
           size="lg"
           variant="outline"
           className="border-white/45 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15 hover:text-white"
@@ -157,7 +163,7 @@ function MarketingHeroBody({
           <AnimeHeroItem index={4}>
             <div className="mt-10 flex flex-wrap gap-3">
               <Button
-                href={cta.href}
+                href={cta.href} onClick={cta.onClick}
                 size="lg"
                 className="bg-white text-foreground shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] hover:bg-white/92 hover:text-foreground"
               >
@@ -165,7 +171,7 @@ function MarketingHeroBody({
               </Button>
               {secondaryCta ? (
                 <Button
-                  href={secondaryCta.href}
+                  href={secondaryCta.href} onClick={secondaryCta.onClick}
                   size="lg"
                   variant="outline"
                   className="border-white/45 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15"
@@ -216,11 +222,11 @@ function MarketingHeroBody({
             </AnimeHeroItem>
             <AnimeHeroItem index={3}>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Button href={cta.href} size="default">
+                <Button href={cta.href} onClick={cta.onClick} size="default">
                   {cta.label}
                 </Button>
                 {secondaryCta ? (
-                  <Button href={secondaryCta.href} size="default" variant="outline">
+                  <Button href={secondaryCta.href} onClick={secondaryCta.onClick} size="default" variant="outline">
                     {secondaryCta.label}
                   </Button>
                 ) : null}
@@ -293,7 +299,7 @@ function MarketingHeroBody({
           <AnimeHeroItem index={headlineDistinct ? 4 : 3}>
             <div className="mt-10 flex flex-wrap gap-3">
               <Button
-                href={cta.href}
+                href={cta.href} onClick={cta.onClick}
                 size="lg"
                 className="bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground"
               >
@@ -301,7 +307,7 @@ function MarketingHeroBody({
               </Button>
               {secondaryCta ? (
                 <Button
-                  href={secondaryCta.href}
+                  href={secondaryCta.href} onClick={secondaryCta.onClick}
                   size="lg"
                   variant="outline"
                   className="border-white/45 bg-white/5 text-white backdrop-blur-sm hover:bg-white/15"
