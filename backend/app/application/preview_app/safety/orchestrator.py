@@ -39,6 +39,7 @@ from app.application.preview_app.safety.mock_data import (
     sync_mock_images,
 )
 from app.application.preview_app.safety.runtime import ensure_runtime_correctness
+from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
 from app.application.preview_app.safety.source_sanitize import (
     fix_nested_import_paths,
     repair_uneven_card_grids,
@@ -151,6 +152,14 @@ def apply_workspace_guards(
             guard_log.info("enriched date-starved mock exports: %s", ", ".join(dated))
     except Exception as e:
         guard_log.warning("date-starved mock enrich skipped: %s", e)
+    try:
+        # A `seed.<key>` a page reads and the seed never defined is `undefined`,
+        # and one property access later the error boundary replaces the page.
+        added = ensure_seed_keys_pages_read(workspace, brand_name)
+        if added:
+            actions.extend([f"seed-key:{n}" for n in added])
+    except Exception as e:
+        guard_log.warning("seed key guard skipped: %s", e)
     try:
         floor = assert_brand_content_floor(workspace, brand_name)
         if floor:

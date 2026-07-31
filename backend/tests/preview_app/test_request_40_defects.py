@@ -1012,3 +1012,107 @@ def test_every_model_failing_still_falls_back_to_the_full_chain(monkeypatch: pyt
 
     assert fa._ask_fix_model(_AI(), "prompt")
     assert asked == ["a/model"], f"the chain must still be tried, got {asked}"
+
+
+# --------------------------------------------------------------------------- #
+# request 42: a page read a seed key the seed never defined
+# --------------------------------------------------------------------------- #
+
+_SEED_MOCK = """\
+export const seed = {
+  hero: { headline: 'Capturing Light', subcopy: 'Original oils.' },
+  items: [{ id: 'whispering-winds', title: 'Whispering Winds' }],
+};
+"""
+
+
+def _seed_workspace(tmp_path: Path, page_source: str) -> Path:
+    (tmp_path / "src/data").mkdir(parents=True)
+    (tmp_path / "src/data/mock.ts").write_text(_SEED_MOCK, encoding="utf-8")
+    (tmp_path / "src/pages").mkdir(parents=True)
+    (tmp_path / "src/pages/AdminAboutEditPage.tsx").write_text(page_source, encoding="utf-8")
+    return tmp_path
+
+
+def test_a_seed_key_a_page_reads_is_added_with_the_shape_it_is_used_as(tmp_path: Path) -> None:
+    """`seed.aboutPage.title` on an absent key is `undefined.title` — a crash.
+
+    Request 42 read `seed.aboutPage` five times. `tsc` reported all five as TS2339
+    and the page would have rendered the error boundary.
+    """
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() {\n"
+        "  return (\n"
+        "    <div>\n"
+        "      <h1>{seed.aboutPage.biography}</h1>\n"
+        "      <p>{seed.aboutPage.artistStatement}</p>\n"
+        "    </div>\n"
+        "  );\n"
+        "}\n",
+    )
+
+    added = ensure_seed_keys_pages_read(workspace, "Jeanne Kassab Art")
+    mock = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    assert added == ["aboutPage"]
+    assert "aboutPage:" in mock
+    assert "biography:" in mock and "artistStatement:" in mock
+    assert "Jeanne Kassab Art" in mock.split("aboutPage:")[1][:300]
+
+
+def test_a_seed_key_used_as_a_list_becomes_a_list(tmp_path: Path) -> None:
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() {\n"
+        "  return <ul>{(seed.exhibitions ?? []).map((e) => <li key={e.venue}>{e.venue}</li>)}</ul>;\n"
+        "}\n",
+    )
+
+    added = ensure_seed_keys_pages_read(workspace, "Jeanne Kassab Art")
+    mock = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    assert added == ["exhibitions"]
+    body = mock.split("exhibitions:")[1]
+    assert body.lstrip().startswith("["), f"a mapped key must be an array, got {body[:60]!r}"
+    assert "venue" in body[:200], "the field the page reads off each row must exist"
+
+
+def test_keys_that_already_exist_are_left_alone(tmp_path: Path) -> None:
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() { return <h1>{seed.hero.headline}</h1>; }\n",
+    )
+    before = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    added = ensure_seed_keys_pages_read(workspace, "Jeanne Kassab Art")
+
+    assert added == []
+    assert (workspace / "src/data/mock.ts").read_text(encoding="utf-8") == before
+
+
+def test_the_seed_key_guard_is_idempotent(tmp_path: Path) -> None:
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() { return <h1>{seed.aboutPage.biography}</h1>; }\n",
+    )
+
+    ensure_seed_keys_pages_read(workspace, "Brand")
+    once = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+    second = ensure_seed_keys_pages_read(workspace, "Brand")
+    twice = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    assert second == []
+    assert twice == once
