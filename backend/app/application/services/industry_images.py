@@ -136,7 +136,34 @@ _SLOTS = ("hero", "hero2", "card1", "card2", "card3", "ambient")
 # already paid for, so this costs at most one extra request.
 _ITEM_SLOT_COUNT = 8
 _ITEM_SLOTS = tuple(f"item{i}" for i in range(1, _ITEM_SLOT_COUNT + 1))
-_ITEM_POOL_FRAMING = "product detail close up on plain background"
+# No "plain background": that phrase is what matched the product *mockups* —
+# request 45 captioned "Deep Sea Currents" with two blank canvases on easels.
+_ITEM_POOL_FRAMING = "close up detail"
+
+#: Words in a Pexels `alt` that mean the photograph is of a *person*, or of an
+#: empty prop, rather than of the thing being sold. Query wording alone cannot
+#: keep these out: request 45's gallery captioned four pieces with photos of
+#: someone painting, and "Deep Sea Currents" with two blank canvases on easels —
+#: a product mockup that "product detail on plain background" asked for. The
+#: search index knows what its photographs contain; this reads that.
+_ITEM_SUBJECT_REJECT_RE = re.compile(
+    r"\b(?:person|people|woman|women|man|men|girl|boy|lady|guy|human|child|"
+    r"children|kid|couple|family|crowd|group|portrait|face|smil\w*|posing|model|"
+    r"artist|painter|hand|hands|arm|holding|wearing|sitting|standing|working|"
+    r"blank|empty|plain|mockup|mock[-\s]?up|template|easel|frame\s+mockup)\b",
+    re.I,
+)
+
+
+def _photo_is_on_subject(photo: dict[str, Any]) -> bool:
+    """True when the photo's own description does not name a person or an empty prop.
+
+    An absent `alt` is treated as on-subject: unknown must not outrank rejected.
+    """
+    alt = str(photo.get("alt") or "").strip()
+    if not alt:
+        return True
+    return _ITEM_SUBJECT_REJECT_RE.search(alt) is None
 
 _SLOT_QUERY_SUFFIX: dict[str, str] = {
     "hero": "hero lifestyle wide",
@@ -162,6 +189,23 @@ _CATEGORY_QUERY_HINT: dict[str, str] = {
 }
 
 _GENERIC_QUERY_HINT = _CATEGORY_QUERY_HINT["generic"]
+
+# The *thing being sold*, per category. `_CATEGORY_QUERY_HINT` names the
+# environment — "art gallery painting studio" is what put an artist at an easel on
+# four of request 45's ten pieces — so the item grid needs its own vocabulary,
+# naming the artifact and nothing around it.
+_CATEGORY_ITEM_HINT: dict[str, str] = {
+    "art": "abstract oil painting canvas artwork",
+    "beauty": "skincare product bottle jar",
+    "fitness": "gym equipment weights kit",
+    "food": "plated dish food",
+    "health": "medical supplies equipment",
+    "tech": "app screen dashboard device",
+    "realestate": "house exterior interior room",
+    "education": "book course material",
+    "retail": "apparel garment product",
+    "generic": "product",
+}
 
 # Pexels truncates at 120 chars; keep composed role queries inside that budget.
 _MAX_QUERY_WORDS = 14
@@ -369,7 +413,10 @@ def item_pool_query(industry: str) -> str:
     """
     industry_clean = (industry or "business").strip() or "business"
     head = _clip_words(industry_clean, _MAX_INDUSTRY_QUERY_WORDS)
-    return _compose_query(head, _ITEM_POOL_FRAMING)
+    item_hint = _CATEGORY_ITEM_HINT.get(
+        _resolve_category(industry_clean), _CATEGORY_ITEM_HINT["generic"]
+    )
+    return _compose_query(head, item_hint, _ITEM_POOL_FRAMING)
 
 
 def _pexels_photo_url(photo: dict[str, Any], *, large: bool) -> str | None:
@@ -420,7 +467,9 @@ def _fetch_pexels_images(
     result: dict[str, str] = {}
     # Every slot search asks for 8 photos and keeps 1. The other 7 were thrown
     # away, which is why an eight-item catalogue had to reuse three pictures.
-    spare: list[tuple[int | None, str]] = []
+    # `on_subject` carries the search index's own verdict on each spare, so the
+    # item grid can prefer a photograph of a thing over one of a person.
+    spare: list[tuple[int | None, str, bool]] = []
 
     for index, slot in enumerate(_SLOTS):
         page = (seed_n + index) % 5 + 1
@@ -444,7 +493,7 @@ def _fetch_pexels_images(
                 continue
             # Detail/product framings first: those are the photographs that can
             # plausibly *be* a catalogue item, rather than a room or a team shot.
-            spare.append((pid, url))
+            spare.append((pid, url, _photo_is_on_subject(photo)))
         if not chosen:
             return None
         pid, url = chosen
@@ -463,36 +512,57 @@ def _item_slot_urls(
     pool_query: str,
     seed_n: int,
     used_ids: set[int],
-    spare: list[tuple[int | None, str]],
+    spare: list[tuple[int | None, str, bool]],
 ) -> dict[str, str]:
     """One distinct photograph per catalogue slot, best-effort.
+
+    Photographs whose own description names a person or an empty prop go to the
+    back of the queue rather than being dropped — a filter that can return fewer
+    than eight pictures would reintroduce the repeated-photo defect it was written
+    to fix. Ranking cannot: the grid gets the same count, better ordered.
 
     Returns only the slots it could fill; `normalize_image_slot_map` rotates the
     layout photos into whatever is left, so a partial result is never a hole.
     """
-    pool: list[str] = []
+    on_subject: list[str] = []
+    off_subject: list[str] = []
     seen: set[str] = set()
 
-    def _take(pid, url) -> None:
-        if url in seen:
+    def _take(pid, url, subject_ok: bool) -> None:
+        if not url or url in seen:
             return
         if isinstance(pid, int) and pid in used_ids:
             return
         seen.add(url)
         if isinstance(pid, int):
             used_ids.add(pid)
-        pool.append(url)
+        (on_subject if subject_ok else off_subject).append(url)
 
-    if len(spare) < _ITEM_SLOT_COUNT:
-        try:
-            for photo in _search_pexels(
-                api_key, pool_query, page=(seed_n % 3) + 1, per_page=16
-            ):
-                _take(photo.get("id"), _pexels_photo_url(photo, large=False))
-        except Exception as exc:  # noqa: BLE001 — item photos are an enhancement
-            logger.warning("Pexels item-pool fetch failed (%s); reusing slot photos", exc)
-    for pid, url in spare:
-        _take(pid, url)
+    # The pool search is worth making even when the spares would cover the count:
+    # spares come from hero/workspace/team framings, which is how people ended up
+    # in the item grid in the first place.
+    try:
+        for photo in _search_pexels(
+            api_key, pool_query, page=(seed_n % 3) + 1, per_page=16
+        ):
+            _take(
+                photo.get("id"),
+                _pexels_photo_url(photo, large=False),
+                _photo_is_on_subject(photo),
+            )
+    except Exception as exc:  # noqa: BLE001 — item photos are an enhancement
+        logger.warning("Pexels item-pool fetch failed (%s); reusing slot photos", exc)
+    for pid, url, subject_ok in spare:
+        _take(pid, url, subject_ok)
+
+    pool = on_subject + off_subject
+    if off_subject and len(on_subject) < _ITEM_SLOT_COUNT:
+        logger.info(
+            "item photos: %s on-subject, falling back to %s that show a person or "
+            "an empty prop",
+            len(on_subject),
+            min(len(off_subject), _ITEM_SLOT_COUNT - len(on_subject)),
+        )
     return {slot: pool[i] for i, slot in enumerate(_ITEM_SLOTS) if i < len(pool)}
 
 

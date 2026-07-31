@@ -1364,7 +1364,9 @@ def test_the_item_pool_query_asks_for_the_product_not_its_environment() -> None:
     The vision critic blocked the page for it: "all of the artwork catalog images
     show people painting rather than the finished artworks". Item photos are the
     thing being sold, so their query drops the brand (noise in a stock index) and
-    the category hint, whose environment words are what pulled people in.
+    the category hint, whose environment words are what pulled people in. Request 45
+    then showed that "on plain background" asks for product *mockups*: one piece was
+    captioned with two blank canvases on easels. The framing now names the artifact.
     """
     from app.application.services.industry_images import item_pool_query
 
@@ -1373,9 +1375,129 @@ def test_the_item_pool_query_asks_for_the_product_not_its_environment() -> None:
     )
 
     assert "oil paintings" in item_query, "the brief's own nouns must lead"
-    assert "product detail close up" in item_query
+    assert "close up detail" in item_query
+    assert "canvas artwork" in item_query, "the item hint must name the thing sold"
+    assert "plain" not in item_query, "'plain background' is what returned mockups"
     assert "Jeanne Kassab Art" not in item_query, "brand names are stock-search noise"
     assert "studio" not in item_query, "the environment hint is what returned people"
+
+
+def test_a_photo_of_a_person_loses_to_a_photo_of_the_thing() -> None:
+    """Request 45: four of ten gallery cards were photos of someone painting.
+
+    Query wording alone cannot keep them out — the search index knows what its
+    photographs contain, and it says so in `alt`.
+    """
+    from app.application.services.industry_images import _photo_is_on_subject
+
+    for alt in (
+        "a woman painting in her studio",
+        "person holding a paint brush",
+        "a blank canvas on an easel",
+        "two empty canvases on small easels",
+        "product mockup on a plain background",
+        "smiling artist in front of her work",
+    ):
+        assert not _photo_is_on_subject({"alt": alt}), f"should rank last: {alt!r}"
+
+    for alt in (
+        "close up of an abstract oil painting",
+        "orange and blue textured artwork",
+        "detail of thick impasto brushwork",
+        "",
+    ):
+        assert _photo_is_on_subject({"alt": alt}), f"should rank first: {alt!r}"
+
+
+def test_ranking_item_photos_never_returns_fewer_of_them() -> None:
+    """A filter that drops photos would reintroduce the repeated-picture defect.
+
+    Eight distinct slots must still be filled even when every photograph the
+    search returned shows a person.
+    """
+    from app.application.services import industry_images as imgs
+
+    people = [
+        {"id": i, "alt": "a woman painting", "src": {"large": f"https://p/{i}.jpg"}}
+        for i in range(1, 13)
+    ]
+    original = imgs._search_pexels
+    try:
+        imgs._search_pexels = lambda *_a, **_k: people
+        filled = imgs._item_slot_urls("key", "query", 1, set(), [])
+    finally:
+        imgs._search_pexels = original
+
+    assert len(filled) == len(imgs._ITEM_SLOTS)
+    assert len(set(filled.values())) == len(imgs._ITEM_SLOTS), "each slot needs its own"
+
+
+def test_an_on_subject_photo_outranks_a_harvested_person_shot() -> None:
+    from app.application.services import industry_images as imgs
+
+    pool = [
+        {"id": 1, "alt": "a woman painting", "src": {"large": "https://p/person.jpg"}},
+        {"id": 2, "alt": "abstract oil painting", "src": {"large": "https://p/art.jpg"}},
+    ]
+    original = imgs._search_pexels
+    try:
+        imgs._search_pexels = lambda *_a, **_k: pool
+        filled = imgs._item_slot_urls("key", "query", 1, set(), [])
+    finally:
+        imgs._search_pexels = original
+
+    assert filled["item1"] == "https://p/art.jpg"
+    assert filled["item2"] == "https://p/person.jpg"
+
+
+def test_no_kit_image_can_render_an_empty_rectangle() -> None:
+    """Request 45's gallery shipped ten cards and one blank grey box.
+
+    Every image in the kit had a fallback for a missing `src` and none for a `src`
+    that fails to resolve, so a single dead remote URL left a hole in the page.
+    """
+    ui = Path(__file__).resolve().parents[2] / "preview-template" / "src" / "ui"
+    kit_image = (ui / "lib" / "KitImage.tsx").read_text(encoding="utf-8")
+
+    assert "onError" in kit_image, "the fallback has to be driven by a load failure"
+    assert "--color-brand" in kit_image, "the placeholder must be brand-tinted"
+
+    bare = []
+    for path in sorted((ui / "public").glob("*.tsx")):
+        source = path.read_text(encoding="utf-8")
+        if re.search(r"<img[\s>]", source):
+            bare.append(path.name)
+    assert bare == [], f"these render a raw <img> with no load-failure fallback: {bare}"
+
+
+def test_a_sign_in_page_is_a_credentials_form_not_a_card_grid() -> None:
+    """Request 45's "Owner Login" rendered three marketing cards and no way in.
+
+    The visual critic scored it 20 and blocked the entire public storefront.
+    """
+    from app.application.preview_app.utility_compositor import (
+        compose_utility_page_tsx,
+        infer_utility_workspace_type,
+    )
+
+    assert infer_utility_workspace_type("/owner/login", "Owner Login", "") == "auth"
+    assert infer_utility_workspace_type("/signin", "Sign In", "") == "auth"
+    assert infer_utility_workspace_type("/register", "Create account", "") == "auth"
+    # An account *dashboard* is still a dashboard.
+    assert infer_utility_workspace_type("/account", "Your account", "") == "account"
+
+    source = compose_utility_page_tsx(
+        file_path="src/pages/owner/LoginPage.tsx",
+        route={"path": "/owner/login", "title": "Owner Login", "surface": "public"},
+        content={},
+        brand_name="Jeanne Kassab Art",
+        workspace_type="auth",
+    )
+
+    assert 'type={"password"}' in source, "a sign-in page needs a password field"
+    assert 'type={"email"}' in source
+    imports = "\n".join(line for line in source.splitlines() if line.startswith("import"))
+    assert "Input" in imports, f"Input must be imported:\n{imports}"
 
 
 def test_the_item_pool_query_is_not_a_slot() -> None:

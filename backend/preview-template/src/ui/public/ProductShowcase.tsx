@@ -3,6 +3,7 @@ import * as React from 'react';
 import { AppLink } from '../lib/AppLink';
 import { MotionReveal, MotionStagger, MotionStaggerItem, useMotionSafe } from '../motion';
 import { cn } from '../lib/cn';
+import { KitImage } from '../lib/KitImage';
 
 export interface ProductShowcaseItem {
   title: string;
@@ -58,7 +59,7 @@ export function ProductShowcase({ className, children, description, heading, ite
               {featured.href ? (
                 <AppLink href={featured.href} className="absolute inset-0 z-10" aria-label={featured.title} />
               ) : null}
-              <img
+              <KitImage
                 src={featured.imageSrc}
                 alt={featured.imageAlt ?? ''}
                 className={cn(
@@ -81,7 +82,7 @@ export function ProductShowcase({ className, children, description, heading, ite
                   {secondary.href ? (
                     <AppLink href={secondary.href} className="absolute inset-0 z-10" aria-label={secondary.title} />
                   ) : null}
-                  <img
+                  <KitImage
                     src={secondary.imageSrc}
                     alt={secondary.imageAlt ?? ''}
                     className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.03]"

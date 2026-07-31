@@ -4,6 +4,7 @@ import { Button } from '../core/Button';
 import { AnimeHeroItem } from '../motion';
 import { cn } from '../lib/cn';
 import { useMotionSafe } from '../motion/presets';
+import { KitImage } from '../lib/KitImage';
 import {
   currentRecipeId,
   recipeDisplayClass,
@@ -115,7 +116,7 @@ function MarketingHeroBody({
         data-hero="service"
         className={cn('relative isolate min-h-[100svh] overflow-hidden bg-[#120e0c] text-white', className)}
       >
-        <img
+        <KitImage
           src={imageSrc}
           alt={imageAlt}
           className={cn(
@@ -228,7 +229,7 @@ function MarketingHeroBody({
           </div>
           <AnimeHeroItem index={1}>
             <div className="overflow-hidden rounded-[var(--radius-ui)] border border-border-subtle shadow-[var(--shadow-ui)] ring-1 ring-brand/10">
-              <img
+              <KitImage
                 src={imageSrc}
                 alt={imageAlt}
                 className={cn('aspect-[16/11] w-full object-cover', safe && 'ui-kenburns')}
@@ -252,7 +253,7 @@ function MarketingHeroBody({
         data-hero="product"
         className={cn('relative isolate min-h-[100svh] overflow-hidden bg-[#0a0c0e] text-white', className)}
       >
-        <img
+        <KitImage
           src={imageSrc}
           alt={imageAlt}
           className={cn('absolute inset-0 h-full w-full object-cover', safe && 'ui-kenburns')}
@@ -374,7 +375,7 @@ function MarketingHeroBody({
                   safe && 'ui-float'
                 )}
               >
-                <img
+                <KitImage
                   src={imageSrc}
                   alt={imageAlt}
                   className={cn(
@@ -417,7 +418,7 @@ function MarketingHeroBody({
           </div>
           <AnimeHeroItem index={1}>
             <div className={cn('relative overflow-hidden rounded-[var(--radius-ui)]', safe && 'ui-float')}>
-              <img
+              <KitImage
                 src={imageSrc}
                 alt={imageAlt}
                 className={cn('aspect-[5/4] w-full object-cover shadow-[var(--shadow-ui)]', safe && 'ui-kenburns')}
@@ -469,7 +470,7 @@ function MarketingHeroBody({
         <AnimeHeroItem index={eyebrow ? 4 : 3}>{ctas}</AnimeHeroItem>
       </div>
       <div className="relative order-1 min-h-[52vh] overflow-hidden md:order-2 md:min-h-full">
-        <img
+        <KitImage
           src={imageSrc}
           alt={imageAlt}
           className={cn('absolute inset-0 h-full w-full object-cover', safe && 'ui-kenburns')}

@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { MotionReveal, MotionStagger, MotionStaggerItem } from '../motion';
 import { cn } from '../lib/cn';
+import { KitImage } from '../lib/KitImage';
 
 export interface ResultRailItem {
   label: string;
@@ -38,13 +39,13 @@ export function ResultRail({ className, description, heading, items }: ResultRai
               <article className="group overflow-hidden rounded-[calc(var(--radius-ui)+0.35rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)] transition duration-500 hover:-translate-y-1 hover:border-brand/25">
                 <div className="grid grid-cols-2 gap-px bg-border-subtle">
                   <figure className="bg-card">
-                    <img src={item.beforeSrc} alt={item.beforeAlt ?? `${item.label} before`} className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
+                    <KitImage src={item.beforeSrc} alt={item.beforeAlt ?? `${item.label} before`} className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
                     <figcaption className="px-3 py-2 text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">
                       Before
                     </figcaption>
                   </figure>
                   <figure className="bg-card">
-                    <img src={item.afterSrc} alt={item.afterAlt ?? `${item.label} after`} className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
+                    <KitImage src={item.afterSrc} alt={item.afterAlt ?? `${item.label} after`} className="aspect-[4/5] w-full object-cover transition duration-700 group-hover:scale-[1.02]" />
                     <figcaption className="px-3 py-2 text-[10px] font-semibold tracking-[0.16em] text-brand uppercase">
                       After
                     </figcaption>

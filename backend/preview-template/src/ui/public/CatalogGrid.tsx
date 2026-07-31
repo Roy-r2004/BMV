@@ -4,6 +4,7 @@ import { AnimeReveal, AnimeStagger, AnimeStaggerItem } from '../motion';
 import { AppLink } from '../lib/AppLink';
 import { Badge } from '../core/Badge';
 import { cn } from '../lib/cn';
+import { KitImage } from '../lib/KitImage';
 
 export type CatalogItem = {
   /** Stable id — also the detail-route segment when `href` is absent. */
@@ -146,7 +147,7 @@ export function CatalogGrid({
                   />
                   <div className="relative overflow-hidden rounded-[var(--radius-ui)] bg-foreground/5">
                     {item.imageSrc ? (
-                      <img
+                      <KitImage
                         src={item.imageSrc}
                         alt={item.imageAlt ?? ''}
                         loading="lazy"

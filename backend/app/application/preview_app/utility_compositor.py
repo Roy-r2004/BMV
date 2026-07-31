@@ -14,7 +14,7 @@ from typing import Any
 UTILITY_SKELETON_ID = "public-utility"
 
 _WORKSPACE_TYPES = frozenset(
-    {"cart", "checkout", "tracking", "account", "confirmation", "contact", "generic"}
+    {"cart", "checkout", "tracking", "account", "confirmation", "contact", "auth", "generic"}
 )
 
 
@@ -32,7 +32,13 @@ def infer_utility_workspace_type(path: str = "", title: str = "", page_type: str
         return "checkout"
     if re.search(r"track|tracking|shipment|delivery status|order status", blob):
         return "tracking"
-    if re.search(r"account|profile|login|sign[- ]?in|wishlist|orders?\b", blob):
+    # A sign-in page is a credentials form, not an account dashboard. Request 45's
+    # "Owner Login · Jeanne Kassab Art" rendered three marketing cards — Manage
+    # Artworks, Review Inquiries, Update Profile — and no way to sign in. The
+    # visual critic scored it 20 and blocked the whole storefront, correctly.
+    if re.search(r"log[- ]?in|sign[- ]?in|sign[- ]?up|register|auth\b|password", blob):
+        return "auth"
+    if re.search(r"account|profile|wishlist|orders?\b", blob):
         return "account"
     # A contact page's whole job is the form. Falling through to `generic` gave it
     # a grid of link cards instead, and the visual critic reported "the page is
@@ -172,6 +178,24 @@ def default_utility_content(
                 "primary_cta": {"label": "View catalog", "href": "/"},
             },
             "footer": {"description": f"{brand} keeps you updated until delivery."},
+        }
+    if workspace_type == "auth":
+        return {
+            "header": {
+                "title": page_title or f"Sign in to {brand}",
+                "description": "Enter your details to reach your workspace.",
+            },
+            "workspace": {
+                "cards": [
+                    {
+                        "title": "Sign in",
+                        "description": "Use the email address this workspace was set up with.",
+                        "cta_label": "Sign in",
+                        "cta_href": path or "#",
+                    },
+                ]
+            },
+            "footer": {"description": f"{brand} — private workspace."},
         }
     if workspace_type == "account":
         return {
@@ -435,6 +459,32 @@ def _workspace_jsx(workspace_type: str, workspace: dict[str, Any]) -> str:
             "          />\n"
             "        </div>"
         )
+    if workspace_type == "auth":
+        # A sign-in page's whole job is the credentials. Anything else on it — the
+        # three feature cards request 45 shipped — is a page that cannot be used.
+        card = next(
+            (c for c in (workspace.get("cards") or []) if isinstance(c, dict)),
+            {},
+        )
+        cta = _s(card.get("cta_label"), "Sign in")
+        return (
+            '<Card className="mx-auto w-full max-w-md space-y-4 p-6">\n'
+            "          <Input\n"
+            '            label={"Email"}\n'
+            '            type={"email"}\n'
+            '            placeholder={"you@example.com"}\n'
+            "          />\n"
+            "          <Input\n"
+            '            label={"Password"}\n'
+            '            type={"password"}\n'
+            '            placeholder={"••••••••"}\n'
+            "          />\n"
+            f"          <Button className=\"w-full\">{{{_js(cta)}}}</Button>\n"
+            '          <p className="text-center text-sm text-muted">\n'
+            f"            {{{_js(_s(card.get('description'), 'Use the email address this workspace was set up with.'))}}}\n"
+            "          </p>\n"
+            "        </Card>"
+        )
     if workspace_type == "cart":
         columns = [
             {"key": "name", "header": "Item"},
@@ -662,7 +712,7 @@ export default function {component}() {{
     ]
     if wtype == "cart":
         components.append("Table")
-    elif wtype == "checkout":
+    elif wtype in ("checkout", "auth"):
         components.append("Input")
     elif wtype == "tracking":
         components.append("Badge")

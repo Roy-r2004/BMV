@@ -3,6 +3,7 @@ import * as React from 'react';
 import { MotionReveal, MotionStagger, MotionStaggerItem, useMotionSafe } from '../motion';
 import { cn } from '../lib/cn';
 import { currentRecipeId, recipeFeatureVariant } from '../../lib/recipe';
+import { KitImage } from '../lib/KitImage';
 
 export interface FeatureBentoItem {
   title: string;
@@ -151,7 +152,7 @@ export function FeatureBento({
                     )}
                   >
                     {item.imageSrc ? (
-                      <img
+                      <KitImage
                         src={item.imageSrc}
                         alt={item.imageAlt ?? ''}
                         className={cn(
