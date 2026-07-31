@@ -685,6 +685,39 @@ def visual_critique_gate_issues(workspace) -> list[tuple[str, str, str]]:
     ]
 
 
+def invalidate_visual_verdicts(workspace, component_files) -> list[str]:
+    """Retire the persisted verdicts for pages rewritten *after* they were judged.
+
+    `_remeasure_refined_pages` covers the pages the visual critic itself refined.
+    The quality gate's own AI repair rewrites pages too, and those verdicts were
+    never re-derived — so request 45's contact page was repaired from a checkout
+    stub into a proper form, rebuilt clean, and still failed the gate on the score
+    of 20 the stub had earned. The gate was reading a measurement of source that no
+    longer existed.
+
+    The page becomes `unmeasured`, never a pass: after a rewrite we genuinely do not
+    know what it looks like, and `visual_review_summary` reports not-knowing. Returns
+    the paths whose verdicts were retired.
+    """
+    targets = {str(p).replace("\\", "/") for p in component_files if p}
+    if not targets:
+        return []
+    report = load_visual_critique_report(workspace)
+    judged = {p.replace("\\", "/") for p in report.reviewed}
+    retired = sorted(targets & judged)
+    if not retired:
+        return []
+    _forget_pages(report, retired)
+    report.unmeasured = list(dict.fromkeys([*report.unmeasured, *retired]))
+    write_visual_critique_report(workspace, report)
+    log.info(
+        "    visual critic: %s verdict(s) retired after repair — %s",
+        len(retired),
+        ", ".join(retired),
+    )
+    return retired
+
+
 def _issue_severity(score, verdict: str, issues: list[str], surface: str = "public") -> str:
     """How hard a page's own visual verdict should bite.
 
@@ -1202,6 +1235,7 @@ __all__ = [
     "collect_installed_image_urls",
     "find_missing_local_image_assets",
     "imagery_findings",
+    "invalidate_visual_verdicts",
     "load_visual_critique_report",
     "visual_critique_gate_issues",
     "visual_review_summary",

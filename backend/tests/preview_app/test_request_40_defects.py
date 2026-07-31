@@ -1450,6 +1450,62 @@ def test_an_on_subject_photo_outranks_a_harvested_person_shot() -> None:
     assert filled["item2"] == "https://p/person.jpg"
 
 
+def test_a_repaired_page_does_not_keep_the_verdict_of_the_page_it_replaced(
+    tmp_path: Path,
+) -> None:
+    """Request 45's contact page shipped as a checkout stub, scored 20, and blocked.
+
+    The gate then repaired it into a proper contact form, rebuilt clean — and read
+    the stub's verdict again, because only the visual critic's *own* refinements were
+    ever re-derived. No amount of repair could clear it.
+    """
+    from app.application.preview_app.pipeline.visual_critic import (
+        VisualCritiqueReport,
+        invalidate_visual_verdicts,
+        load_visual_critique_report,
+        visual_critique_gate_issues,
+        write_visual_critique_report,
+    )
+
+    report = VisualCritiqueReport()
+    report.reviewed = ["src/pages/ContactPage.tsx", "src/pages/HomePage.tsx"]
+    report.scores = {"src/pages/ContactPage.tsx": 20, "src/pages/HomePage.tsx": 82}
+    report.add(
+        "visual_defect_severe",
+        "src/pages/ContactPage.tsx scored 20: the page is completely off-brief",
+        path="src/pages/ContactPage.tsx",
+    )
+    write_visual_critique_report(tmp_path, report)
+    assert visual_critique_gate_issues(tmp_path), "precondition: the stub blocks"
+
+    retired = invalidate_visual_verdicts(tmp_path, ["src/pages/ContactPage.tsx"])
+
+    assert retired == ["src/pages/ContactPage.tsx"]
+    assert visual_critique_gate_issues(tmp_path) == [], "a repaired page still blocks"
+    after = load_visual_critique_report(tmp_path)
+    # Retired, not passed: after a rewrite we do not know what the page looks like.
+    assert "src/pages/ContactPage.tsx" in after.unmeasured
+    assert "src/pages/ContactPage.tsx" not in after.reviewed
+    assert "src/pages/ContactPage.tsx" not in after.scores
+    # The page nobody touched keeps its measurement.
+    assert "src/pages/HomePage.tsx" in after.reviewed
+    assert after.scores["src/pages/HomePage.tsx"] == 82
+    # Idempotent: a second repair pass over the same file changes nothing.
+    assert invalidate_visual_verdicts(tmp_path, ["src/pages/ContactPage.tsx"]) == []
+
+
+def test_the_gate_retires_a_verdict_for_every_file_it_rewrites() -> None:
+    """The wiring: an invalidation nobody calls is no invalidation."""
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "quality_gate.py"
+    ).read_text(encoding="utf-8")
+
+    assert source.count("invalidate_visual_verdicts(") == 2, (
+        "both the deterministic heal and the AI repair rewrite pages"
+    )
+
+
 def test_no_kit_image_can_render_an_empty_rectangle() -> None:
     """Request 45's gallery shipped ten cards and one blank grey box.
 

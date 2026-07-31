@@ -716,6 +716,15 @@ def run_quality_gate_with_heal(
                 log.warning("quality gate rebuild after heal failed")
         except Exception as e:
             log.warning("quality gate rebuild error: %s", e)
+    if healed:
+        from app.application.preview_app.pipeline.visual_critic import (
+            invalidate_visual_verdicts,
+        )
+
+        try:
+            invalidate_visual_verdicts(workspace, healed)
+        except Exception as e:  # noqa: BLE001 — never let bookkeeping fail a gate
+            log.warning("could not retire stale visual verdicts: %s", e)
 
     final = evaluate_quality_gate(
         workspace, architect, require_ai_hub=require_ai_hub
@@ -768,6 +777,20 @@ def run_quality_gate_with_heal(
                     log.warning("quality gate rebuild after AI repair failed")
             except Exception as e:
                 log.warning("quality gate rebuild error after AI repair: %s", e)
+
+        if touched:
+            # A visual verdict describes source. Once this repair replaced that
+            # source, keeping the verdict makes the next `evaluate_quality_gate`
+            # read a measurement of a page that no longer exists — and no amount of
+            # repair can ever clear it.
+            from app.application.preview_app.pipeline.visual_critic import (
+                invalidate_visual_verdicts,
+            )
+
+            try:
+                invalidate_visual_verdicts(workspace, [*touched, *more])
+            except Exception as e:  # noqa: BLE001 — never let bookkeeping fail a gate
+                log.warning("could not retire stale visual verdicts: %s", e)
 
         final = evaluate_quality_gate(
             workspace, architect, require_ai_hub=require_ai_hub
