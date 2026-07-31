@@ -21,13 +21,31 @@ previews and inspecting them:
 | 41 | `failed` | a repair introduced `aiFeatures is not defined`; the vision model then **described a hero image on the error box** |
 | 43 | `failed` | 6/6 pages judged, 9 rendered, 3/3 journey hops walking — withheld by *our own* dead-link block over `/privacy` |
 | 44 | `failed` | 12 rendered, 0 crashed — withheld by a **false positive**: template links judged as bare paths |
-| 45 | in flight at handoff time | exposed two more of ours: the appspec hook strip emitted as adjacent JSX (build died), and a repair model held one call open for **1040 s** before returning truncated output |
+| 45 | `failed` | **6/6 judged, 12 rendered, 0 journey blocks** — and its own critic was right about three pages we then fixed. Also exposed the appspec hook strip emitted as adjacent JSX (build died) and a repair model holding one call open for **1040 s** before returning truncated output |
 
 The progression is the point. 40's defects were invisible. 43's and 44's were the *gate* being
-wrong — visible, and therefore fixable. That is the difference the session bought.
+wrong — visible, and therefore fixable. By 45 the instruments were sound enough that the pipeline's
+own critic found three real product defects and described each one accurately. That is the
+difference the session bought.
 
-**14 commits** on `chore/remove-preview-generator-v2` (`31afda1`…`b42e3a6`), 42 files,
-**suite 1040 passed / 0 failed**, `docs/KNOWN_TEST_FAILURES.md` empty.
+**17 commits** on `chore/remove-preview-generator-v2` (`31afda1`…`69ebba2`),
+**suite 1047 passed / 0 failed**, `docs/KNOWN_TEST_FAILURES.md` empty.
+
+## What request 45's critic saw, and what it cost
+
+Worth reading as a worked example of the instruments doing their job.
+
+| page | score | the critic's words | the actual defect |
+|---|---|---|---|
+| Gallery | 60 | *"the image for 'Deep Sea Currents' clearly shows two blank canvases on small easels"* | 4 of 10 cards were photos of someone painting, one was a product mockup, one was an empty grey box |
+| Owner login | 20 | *"the rest of the workspace displays three marketing cards … instead"* | `login` was lumped in with `account`, so a sign-in page rendered a card grid and no way to sign in |
+| Contact | 20 | *"what is rendered is 'Your details', 'LINE ITEMS Signature package · Qty 1'"* | **true when measured, false when read** — the gate had since repaired the stub into a proper form, and the stale verdict withheld the preview |
+
+The first two are fixed at `4979aac`, the third at `69ebba2`. The third is the more interesting one:
+it is P0-3 one layer out. `_remeasure_refined_pages` re-derives the verdicts for pages the *visual
+critic* refined; the *quality gate's* own heal and AI repair rewrite pages too, and nothing
+re-derived those. A verdict describes source, so when a repair replaces that source the verdict is
+now retired — the page becomes `unmeasured`, which is neither a pass nor a permanent block.
 
 ## Branch and deploy constraints — unchanged, still binding
 
@@ -94,30 +112,37 @@ renames `src/pages/*.tsx` to canonical `*Page.tsx` and unlinks the original.
   `viewable` is false while a public page still crashes.
 - **Journey: 3/3 storefront hops** (browse → detail → inquire) walking, with a deterministic repair
   that rewrites dead public links to a declared target before the gate blocks on them.
-- **Item photography** is per-item now (`item1…item8` slots off a product-framed pool query), so the
-  gallery cards are eight different paintings rather than one stock photo of an artist at an easel.
+- **Item photography** is per-item now (`item1…item8` slots off a dedicated pool query), so the
+  gallery cards are eight different pictures rather than one stock photo reused. Whether they are
+  pictures *of paintings* is what `4979aac` addresses and request 46 tests.
 
 ## What is not
 
 1. **No clean `status=ready` run yet.** 43, 44 and 45 each failed on a *different* defect of ours,
    every one now fixed. The next run is the first to carry the whole set.
-2. **Two pages per run come back "no usable verdict"** from the vision model (req 44: 2 of 6 →
-   `visual_review_status: partial`). Recorded honestly rather than counted as reviewed, but real
-   coverage is 4 of 6.
-3. **Type errors are 15–24 per run before repair.** Session 3 cut the deterministic contributors
-   (below); what remains is mostly the model inventing props on ops pages.
-4. **The refine critic scores four pages 0–60 and skips them** (`refine SKIPPED … left as-is`).
-   Honest, but it means those pages ship at their scaffold quality.
+2. **Type errors are 15–24 per run before repair.** Session 3 cut the deterministic contributors
+   (below); what remains is mostly the model inventing props on ops pages. Note that request 44's
+   *shipped* count was only 5, four of them ours — the pre-repair number is the one to watch.
+3. **The refine critic scores four pages 0–60 and skips them** (`refine SKIPPED … left as-is`).
+   Honest, but it means those pages ship at their scaffold quality. Request 45's login page was one
+   of them, and it was genuinely unusable.
+4. **The gate's AI repair broke the build twice on request 45** ("rebuild after AI repair failed"),
+   so both attempts rolled back, and one repair response was unparseable JSON. The repair loop is
+   the weakest remaining link: it is asked to fix visual findings, which it is not well suited to.
+5. **The home page hero is a stock photo of someone painting** (scored 65, a warn). The item grid now
+   ranks people last; the *hero* deliberately does not, because for many businesses a person in the
+   hero is right. For a portfolio it probably is not. Unresolved judgement call.
 
 ## Next steps, in order
 
-1. **Run a generation on the current head and read it end to end.** This is the direct continuation
-   of the loop. Check: `journey_hops_ok`, `visual_review_status`, `render_pages_checked/crashed`,
-   the tsc count, and every screenshot.
-2. **Chase the two-in-six vision no-verdicts.** Whether it is prompt, image size, or model choice is
-   unknown — nobody has looked at the raw response.
-3. **Item 3 above**: the residual type errors are worth one focused pass now that the deterministic
-   ones are gone.
+1. **Read request 46 end to end** — it is the first run carrying every fix. Check `journey_hops_ok`,
+   `visual_review_status`, `render_pages_checked/crashed`, the tsc count, and every screenshot. The
+   gallery grid is the page to look at first: it is the one that has to say "wow".
+2. **The gate's AI repair loop** (item 4 above). A visual finding — "this page is off-brief" — is
+   not a patch instruction. Either give it the screenshot, or route visual findings to the composer
+   that owns the page rather than to a generic repair prompt.
+3. **The residual type errors** (item 2) are worth one focused pass now the deterministic ones are
+   gone.
 4. Carried forward, unchanged: listing-page headers clipped against the nav on `/gallery`; no
    deterministic contrast guard on hero legibility; AppSpec shadow authoring's three failure modes;
    `requests.py:303-314` reads a `preview_contract.status` key v1 never returns; `retry-generation`'s
@@ -163,6 +188,12 @@ page while the vision model wrote approvingly about its hero.
 - `finalize`'s render smoke check stubs a crashed public page, rebuilds, and re-probes before
   reporting `viewable`.
 
+## A measurement is only about the artifact that was measured
+
+`invalidate_visual_verdicts` retires a persisted verdict when the gate's heal or AI repair rewrites
+the page it describes. The page becomes `unmeasured` — not a pass, not a permanent block. This is
+the same principle as the refine re-measurement, applied to the other writer.
+
 ## The gate must be right before it is allowed to block
 
 - `internal_hrefs` returns literals only; template bases go through `internal_href_prefixes` and are
@@ -190,6 +221,27 @@ so the gap-fill appended a second `name` and a second `tagline` — and the `tag
 `PageHeader` action variants, `AiFeatureStage`'s demo record, `MarketingHero`'s overlay children,
 `FilterBar`'s `{ label, render }` dropdown filter, `Dialog`'s optional children. Each was a real
 page failing on a prop a careful developer would have written.
+
+## A page must be the page it says it is
+
+A **sign-in** page is a credentials form; `login`/`sign-in`/`register` are now their own `auth`
+workspace type rather than sharing `account`'s card grid. A **contact** page is a form, not a grid of
+links (`contact`, session 3 earlier). Both were found by the visual critic scoring the page 20 and
+saying exactly what was wrong.
+
+## An image that fails to load is not a hole in the page
+
+`ui/lib/KitImage.tsx` degrades to the brand gradient on a load error; all twelve `<img>`s in the
+public kit go through it. Every one already had a fallback for a missing `src` and none for a `src`
+that does not resolve, so one dead Pexels URL left a grey rectangle in request 45's gallery.
+
+## An item photograph is of the thing being sold
+
+The item pool reads Pexels' own `alt` text and ranks a photograph of a person or an empty prop last —
+ranking, not filtering, because returning fewer than eight pictures reintroduces the repeated-photo
+defect. `_CATEGORY_ITEM_HINT` names the artifact per category, since `_CATEGORY_QUERY_HINT` names the
+*environment* and "art gallery painting studio" is how an artist at an easel reached the grid. "on
+plain background" is gone from the framing: it asked for product mockups.
 
 ## Time is a resource the pipeline can waste
 
