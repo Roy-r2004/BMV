@@ -26,9 +26,15 @@ log = get_logger("SafetyGuards")
 _SEED_READ_RE = re.compile(r"\bseed\s*(?:as\s+any\s*\)?\s*)?\??\.\s*([A-Za-z_][A-Za-z0-9_]*)")
 #: The sub-keys a page reads off that value, e.g. `seed.aboutPage.title`
 _SUB_READ_RE_TMPL = r"\bseed\s*\??\.\s*{key}\s*\??\.\s*([A-Za-z_][A-Za-z0-9_]*)"
-#: Array usage: `.map(`, `.length`, `?? []`, `.filter(`, `.slice(`
+#: Array usage: `?? []` or any array method. Request 45's edit page did
+#: `seed.artworks.find((art) => …)` — `find` was not in this list, so the key was
+#: defaulted to a string and `.find` became "Type 'String' has no call signatures".
+_ARRAY_METHODS = (
+    "map|filter|slice|forEach|length|find|findIndex|findLast|some|every|reduce"
+    "|flatMap|flat|sort|concat|includes|indexOf|join|at|reverse|keys|entries"
+)
 _ARRAY_USE_RE_TMPL = (
-    r"\bseed\s*\??\.\s*{key}\s*(?:\?\?\s*\[\]|\)?\s*\.\s*(?:map|filter|slice|forEach|length)\b)"
+    r"\bseed\s*\??\.\s*{key}\s*(?:\?\?\s*\[\]|\)?\s*\??\.\s*(?:" + _ARRAY_METHODS + r")\b)"
 )
 
 _NEVER_INJECT = frozenset({"items", "hero", "cta", "footer", "map", "length", "filter"})
@@ -131,8 +137,8 @@ def _default_for(key: str, sources: str, brand: str) -> str:
         for match in re.finditer(rf"\b{re.escape(key)}\b", sources):
             window = sources[match.end() : match.end() + 400]
             callback = re.search(
-                r"\.\s*(?:map|forEach|filter)\s*\(\s*\(?\s*(?:\{\s*(?P<destructured>[^}]*)\}"
-                r"|(?P<alias>[A-Za-z_][A-Za-z0-9_]*))",
+                r"\??\.\s*(?:" + _ARRAY_METHODS + r")\s*\(\s*\(?\s*"
+                r"(?:\{\s*(?P<destructured>[^}]*)\}|(?P<alias>[A-Za-z_][A-Za-z0-9_]*))",
                 window,
             )
             if not callback:

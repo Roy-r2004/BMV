@@ -805,7 +805,17 @@ def _safe_slot_jsx(
                     '{ id: "t3", name: "Completed item", status: "Done", owner: "Ops" }'
                 ),
             )
-            + ']).map((row) => ({ name: row.name, status: row.status, owner: row.owner || row.updated || "—" }))} />'
+            # `seed.tableRows` is generated, so its rows carry whatever fields the
+            # business needed — request 45's were `{ title, artwork, collector, … }`
+            # and this projection asserted `name`, `owner`, and an `updated` that
+            # exists in no shape at all: nine TS2339s across three ops pages, the
+            # same line each time. Read the row loosely and fall back through the
+            # names a record actually uses.
+            + "]).map((row: any) => ({"
+            ' name: String(row?.name ?? row?.title ?? row?.label ?? row?.id ?? ""),'
+            ' status: String(row?.status ?? row?.state ?? ""),'
+            ' owner: String(row?.owner ?? row?.collector ?? row?.assignee ?? row?.client ?? "—")'
+            " }))} />"
         ),
         "activity": (
             '<ActivityFeed heading="Activity" items={(seed.activity ?? ['

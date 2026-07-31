@@ -5,7 +5,11 @@ import { cn } from '../lib/cn';
 
 export interface DialogProps {
   title: string;
-  children: React.ReactNode;
+  /**
+   * Optional: a delete confirmation is title + description + footer buttons and
+   * has no body at all. Requiring children made that page a TS2741.
+   */
+  children?: React.ReactNode;
   description?: string;
   triggerLabel?: string;
   /** When false, dialog is opened only via controlled `open` (row drill, etc.). */
@@ -48,7 +52,7 @@ export function Dialog({
           {description ? (
             <DialogPrimitive.Description className="mt-2 text-sm leading-6 text-muted">{description}</DialogPrimitive.Description>
           ) : null}
-          <div className="mt-4 text-sm text-foreground">{children}</div>
+          {children ? <div className="mt-4 text-sm text-foreground">{children}</div> : null}
           {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}
           <DialogPrimitive.Close
             className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-background hover:text-foreground"

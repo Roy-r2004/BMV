@@ -1109,6 +1109,59 @@ def test_a_seed_key_used_as_a_list_becomes_a_list(tmp_path: Path) -> None:
     assert "venue" in body[:200], "the field the page reads off each row must exist"
 
 
+def test_a_seed_key_used_with_find_becomes_a_list(tmp_path: Path) -> None:
+    """Request 45: `seed.artworks.find((art) => art.id === artworkId)`.
+
+    `find` was missing from the array-method list, so the key was defaulted to a
+    string and the edit page reported "Type 'String' has no call signatures".
+    """
+    from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
+
+    workspace = _seed_workspace(
+        tmp_path,
+        "import { seed } from '@/data/mock';\n"
+        "export default function P() {\n"
+        "  const current = seed.artworks.find((art) => art.id === '1');\n"
+        "  return <h1>{current?.title}</h1>;\n"
+        "}\n",
+    )
+
+    added = ensure_seed_keys_pages_read(workspace, "Jeanne Kassab Art")
+    mock = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
+
+    assert added == ["artworks"]
+    body = mock.split("artworks:")[1]
+    assert body.lstrip().startswith("["), f"a key used with find must be an array, got {body[:60]!r}"
+    assert "id" in body[:250], "the field the predicate reads must exist on each row"
+
+
+def test_the_ops_table_scaffold_reads_a_row_it_does_not_own(tmp_path: Path) -> None:
+    """Request 45: nine TS2339s, the same projection line in three ops pages.
+
+    `seed.tableRows` carried `{ title, artwork, collector, … }`, and the scaffold
+    asserted `name`, `owner`, and an `updated` no shape has at all.
+    """
+    route = {
+        "path": "/owner/inquiries",
+        "component_file": "src/pages/owner/InquiriesPage.tsx",
+        "surface": "ops",
+        "skeleton_id": "ops-list",
+        "intent": "listing",
+    }
+    source = minimal_catalogue_page_scaffold(
+        "src/pages/owner/InquiriesPage.tsx",
+        route,
+        brand_name="Jeanne Kassab Art",
+    )
+
+    if "DataTable" not in source:
+        pytest.skip("this skeleton does not compose a table")
+    projection = source[source.index("DataTable") :]
+    assert "row.updated" not in projection, "a field no row shape carries"
+    assert "(row: any)" in projection, "the row must be read loosely, not asserted"
+    assert "row?.title" in projection, "fall back through the names a record uses"
+
+
 def test_keys_that_already_exist_are_left_alone(tmp_path: Path) -> None:
     from app.application.preview_app.safety.seed_keys import ensure_seed_keys_pages_read
 
