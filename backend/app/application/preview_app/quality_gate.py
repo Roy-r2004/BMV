@@ -18,7 +18,13 @@ from app.application.preview_app.catalogue_contract.scaffold import (
     minimal_catalogue_page_scaffold,
 )
 from app.application.preview_app.catalogue_contract.slots import catalogue_route_for_file
-from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.preview_app.workspace import (
+    list_source_files,
+    read_file,
+    restore_source,
+    snapshot_source,
+    write_file,
+)
 from app.infrastructure.logging import get_logger
 
 log = get_logger("QualityGate")
@@ -747,6 +753,9 @@ def run_quality_gate_with_heal(
     from app.application.preview_app.quality_repair import run_ai_quality_repair
 
     for attempt in range(1, attempts + 1):
+        # Taken before the repair so a failed rebuild can be undone rather than
+        # left for the gate to judge against a `dist/` it never produced.
+        pre_repair = snapshot_source(workspace)
         log.warning(
             "quality gate AI repair attempt %s/%s (%s issues)",
             attempt,
@@ -774,7 +783,29 @@ def run_quality_gate_with_heal(
             try:
                 ok, _log = rebuild()
                 if not ok:
-                    log.warning("quality gate rebuild after AI repair failed")
+                    # Roll back, the way the visual critic's refine pass does. Left
+                    # in place, the repair means `evaluate_quality_gate` judges
+                    # source that `dist/` was never built from: request 47 reported
+                    # PASSED while its last two rebuilds had failed, and the served
+                    # bundle was an older one whose `/artwork/:id` fell through to
+                    # the home page.
+                    log.warning(
+                        "quality gate rebuild after AI repair failed — rolling back "
+                        "%s file(s) so source and dist agree",
+                        len(touched),
+                    )
+                    restore_source(workspace, pre_repair)
+                    try:
+                        restored_ok, _ = rebuild()
+                        if not restored_ok:
+                            log.error(
+                                "quality gate rollback rebuild ALSO failed — "
+                                "workspace may be inconsistent"
+                            )
+                    except Exception as e:
+                        log.warning("quality gate rollback rebuild error: %s", e)
+                    healed = [p for p in healed if p not in set(touched)]
+                    touched = []
             except Exception as e:
                 log.warning("quality gate rebuild error after AI repair: %s", e)
 

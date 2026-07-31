@@ -1675,6 +1675,43 @@ def test_an_on_subject_photo_outranks_a_harvested_person_shot() -> None:
     assert filled["item2"] == "https://p/person.jpg"
 
 
+def test_every_ai_writer_checks_that_its_output_parses() -> None:
+    """Four writers can replace a page; all four must check the same thing.
+
+    Request 47's artwork detail page was cut off mid-attribute by the *fix agent* —
+    `<section className="py-16` — so the source shipped unparseable while `dist/`
+    kept an older build, and `/artwork/1` quietly served the home page instead. The
+    other three writers had been guarded one at a time; this pins the whole set.
+    """
+    root = Path(__file__).resolve().parents[2] / "app" / "application" / "preview_app"
+    writers = {
+        "codegen/generate.py": "tsx_parse_error(filled)",
+        "codegen/critic.py": "tsx_parse_error(content)",
+        "codegen/fix_agent.py": "tsx_parse_error(candidate)",
+        "quality_repair.py": "tsx_parse_error(updated)",
+    }
+    for rel, expected in writers.items():
+        source = (root / rel).read_text(encoding="utf-8")
+        assert expected in source, f"{rel} writes without checking its output parses"
+
+
+def test_a_failed_rebuild_after_repair_rolls_the_repair_back() -> None:
+    """Request 47 reported `quality gate PASSED` after two failed rebuilds.
+
+    The gate then judged source that `dist/` was never built from, and the bundle it
+    served was an older one whose `/artwork/:id` fell through to the home page.
+    """
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "quality_gate.py"
+    ).read_text(encoding="utf-8")
+
+    assert "pre_repair = snapshot_source(workspace)" in source
+    assert "restore_source(workspace, pre_repair)" in source
+    # And the rolled-back files must stop being reported as healed.
+    assert "healed = [p for p in healed if p not in set(touched)]" in source
+
+
 def test_the_gate_repair_cannot_write_source_that_does_not_parse(tmp_path: Path) -> None:
     """Request 45 lost both AI repair attempts to `rebuild after AI repair failed`.
 

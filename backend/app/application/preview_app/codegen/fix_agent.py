@@ -29,6 +29,10 @@ from app.application.preview_app.protected_paths import (
     is_template_owned_path,
     safe_source_path,
 )
+from app.application.preview_app.source_quality import (
+    looks_truncated_source,
+    tsx_parse_error,
+)
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
 from app.core.config import settings
@@ -337,6 +341,19 @@ def _run_fix_agent(
                 if rejections_out is not None:
                     rejections_out.append(rejection)
                 continue
+        # A patch that does not parse must not replace source that did. Request 47's
+        # artwork detail page was cut off mid-attribute — `<section className="py-16`
+        # — so the source shipped unparseable while `dist/` kept an older build, and
+        # `/artwork/1` quietly served the home page instead.
+        previous = read_file(workspace, path)
+        truncated = looks_truncated_source(candidate)
+        parse_error = "" if truncated else tsx_parse_error(candidate)
+        if (truncated or parse_error) and not tsx_parse_error(previous):
+            reason = "truncated" if truncated else f"does not parse ({parse_error})"
+            fix_log.warning("fix agent patch REJECTED — %s is %s", path, reason)
+            if rejections_out is not None:
+                rejections_out.append(f"{path}: patch was {reason}; return the COMPLETE file")
+            continue
         fixed_content, replaced = enforce_catalogue_page_contract(
             path,
             candidate,
