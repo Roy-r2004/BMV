@@ -21,10 +21,83 @@ from app.application.preview_app.pipeline.context import PipelineContext
 log = get_logger("PreviewPipeline")
 
 
+def resolve_industry(ctx: PipelineContext) -> str:
+    """The industry every later stage reads — declared, derived, or loudly absent.
+
+    `industry` is an optional form field (`requests.py:202` is
+    `industry: str = Form(None)`), and requests 66, 67 and 68 arrived without it.
+    Each one resolved to `generic` in silence and shipped camera-lens packaging, a
+    sales-volume chart and an audio-editing timeline to a fine-art gallery whose
+    own `business_description` opens *"An independent fine-art gallery … original
+    oil paintings"*. Request 70 is the same description with the field set: it
+    logged `imagery subject=art` and shipped paintings.
+
+    So this runs before the first `req.industry` read in the pipeline, and every
+    later stage takes `ctx.industry` rather than the raw column. Two rules:
+
+    * a blank field is **derived** from the description, deterministically, with
+      no model call — the derivation is on the critical path;
+    * a blank field that still resolves to `generic` **warns with the request id
+      and emits a progress event**, because that combination is the exact shape of
+      the four runs above and it must never again be something only a reader who
+      already knew to look could find.
+    """
+    from app.application.services.industry_images import (
+        industry_or_derived,
+        resolve_industry_category,
+    )
+
+    declared = (ctx.req.industry or "").strip()
+    if declared:
+        return declared
+
+    derived = industry_or_derived(declared, getattr(ctx.req, "business_description", None))
+    if derived:
+        log.info(
+            "    industry: form field empty on request %s — derived %r "
+            "(subject=%s) from the business description",
+            ctx.request_id,
+            derived,
+            resolve_industry_category(derived),
+        )
+        _emit(
+            ctx.db,
+            ctx.request_id,
+            "analyze",
+            "Industry read from the business description",
+            26,
+            detail=(
+                f"industry field was empty; derived={derived!r}; "
+                f"imagery subject={resolve_industry_category(derived)}"
+            ),
+        )
+        return derived
+
+    log.warning(
+        "    industry: request %s has no industry field and none could be derived "
+        "from its business description — imagery and packs fall back to generic",
+        ctx.request_id,
+    )
+    _emit(
+        ctx.db,
+        ctx.request_id,
+        "analyze",
+        "No industry — imagery falls back to generic",
+        26,
+        detail=(
+            "industry field empty and the business description names no trade "
+            "this pipeline recognises; imagery subject=generic"
+        ),
+    )
+    return ""
+
+
 def run_appspec_gate(ctx: PipelineContext) -> None:
     db = ctx.db
     request_id = ctx.request_id
     req = ctx.req
+
+    ctx.industry = resolve_industry(ctx)
 
     mode = app_spec_mode()
     prior_bundle: dict = {}
@@ -124,7 +197,7 @@ def run_appspec_gate(ctx: PipelineContext) -> None:
     demo = ensure_brand_brief(
         demo,
         business_name=req.business_name or req.concept_name,
-        industry=req.industry,
+        industry=ctx.industry,
         business_description=getattr(req, "business_description", None),
         seed=request_id,
     )
@@ -148,7 +221,7 @@ def run_appspec_gate(ctx: PipelineContext) -> None:
         except Exception:
             ref_meta = {}
     images = get_images_for_industry(
-        req.industry or "",
+        ctx.industry,
         seed=request_id,
         hero_override=ref_meta.get("og_image") or None,
         business_name=req.business_name,

@@ -17,7 +17,11 @@ from app.application.preview_app.codegen.shared import (
     _catalogue_contract_errors,
     _catalogue_retry_context,
 )
-from app.application.preview_app.text_utils import _bounded_json, _parse_json, _strip_fences
+from app.application.preview_app.text_utils import (
+    _bounded_json,
+    _strip_fences,
+    parse_json_with_meta,
+)
 from app.application.preview_app.typecheck import (
     TypecheckReport,
     collect_type_declarations,
@@ -143,6 +147,28 @@ def _fix_prompt_inputs(
 _FAILED_FIX_MODELS: set[str] = set()
 
 
+def fix_model_candidates(chain) -> tuple[list[str], bool]:
+    """Resolve a model chain to the ids actually worth asking, in order.
+
+    Two settings resolving to the same id is the default, not an edge case:
+    `FIX_MODEL` defaults to `PREVIEW_APP_MODEL` and `QUALITY_FIX_MODEL` defaults
+    to `FIX_MODEL` (`config.py:300-312`), so the gate repair's four-name chain
+    resolved to two distinct models, each asked twice in a row. A model that just
+    failed does not succeed when asked again one millisecond later; it costs
+    another timeout.
+
+    Returns `(candidates, exhausted)`. `exhausted` is True when every model in the
+    chain has already failed this process — the caller then tries them anyway,
+    because a provider outage can end and an empty chain would disable repair for
+    the life of the worker.
+    """
+    ordered = list(dict.fromkeys(m for m in chain if m))
+    fresh = [m for m in ordered if m not in _FAILED_FIX_MODELS]
+    if fresh:
+        return fresh, False
+    return ordered, True
+
+
 def _ask_fix_model(ai_provider: AIProvider, prompt_text: str) -> str:
     """Ask the fix chain, skipping models that already failed this process.
 
@@ -154,10 +180,13 @@ def _ask_fix_model(ai_provider: AIProvider, prompt_text: str) -> str:
     turns three of those into one.
     """
     chain = [settings.FIX_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL]
-    ordered = [m for m in chain if m and m not in _FAILED_FIX_MODELS] or [
-        m for m in chain if m
-    ]
+    ordered, exhausted = fix_model_candidates(chain)
     for model in ordered:
+        # Re-checked per iteration, not just when the list was built: a failure
+        # recorded by a concurrent run mid-loop is still a failure.
+        if not exhausted and model in _FAILED_FIX_MODELS:
+            fix_log.info("fix agent skipping %s — already failed this process", model)
+            continue
         try:
             raw = ai_provider.ask_chat(
                 model, [{"role": "user", "content": prompt_text}], max_tokens=16000,
@@ -183,8 +212,14 @@ def _parse_fix_payload(
         fix_log.warning("fix agent %s: empty response", label)
         return None
     try:
-        parsed = _parse_json(raw)
+        parsed, meta = parse_json_with_meta(raw)
         if isinstance(parsed, dict):
+            if meta.get("method") not in ("direct", "fence"):
+                # Says out loud that the response arrived intact and needed
+                # salvage — the failure mode that was logged as truncation.
+                fix_log.info(
+                    "fix agent %s: recovered via %s (len=%s)", label, meta.get("method"), len(raw)
+                )
             return parsed
         fix_log.warning(
             "fix agent %s: JSON was %s, expected object", label, type(parsed).__name__

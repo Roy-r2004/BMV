@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 
-from app.shared.json_utils import extract_json_from_text
+from app.shared.json_utils import extract_json_with_meta
 
 _FENCE_RE = re.compile(r"^```(?:tsx?|typescript|javascript|css)?\s*\n?", re.MULTILINE)
 
@@ -31,18 +31,23 @@ def strip_fences(text: str) -> str:
 _strip_fences = strip_fences
 
 
-def parse_json(raw: str) -> dict:
+def parse_json_with_meta(raw: str) -> tuple[dict, dict]:
+    """Parse model JSON and report *how* it was recovered.
+
+    The method matters in the log: `repaired` means the model under-escaped its
+    own output and we salvaged it, which is a prompt problem, not a truncation.
+    Requests 67 and 69 spent 161 s re-asking for output they had already sent.
+    """
     if not raw or not raw.strip():
         raise ValueError("Empty response from model")
     try:
-        return extract_json_from_text(raw)
+        return extract_json_with_meta(raw)
     except Exception as first:
-        from app.shared.json_utils import _strip_markdown_fence_once
+        raise ValueError(f"Could not parse model JSON: {first}") from first
 
-        try:
-            return json.loads(_strip_markdown_fence_once(raw))
-        except Exception:
-            raise ValueError(f"Could not parse model JSON: {first}") from first
+
+def parse_json(raw: str) -> dict:
+    return parse_json_with_meta(raw)[0]
 
 
 _parse_json = parse_json

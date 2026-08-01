@@ -42,6 +42,11 @@ class PipelineContext:
     primary: str = "#0f766e"
     secondary: str = "#134e4a"
     images: dict = field(default_factory=dict)
+    #: Declared `Request.industry`, or the one derived from the business
+    #: description when the form field is blank. Set first, before any stage
+    #: reads it — requests 66/67/68 arrived with the field empty and resolved to
+    #: `generic` in silence. Every stage reads this, never `req.industry`.
+    industry: str = ""
 
     # --- plan_phase ---
     full_context: str = ""
@@ -52,7 +57,6 @@ class PipelineContext:
     architect: dict = field(default_factory=dict)
     workspace: Any = None
     brand_name: str = "Brand"
-    industry: str = ""
     files_to_gen: list = field(default_factory=list)
     specs_by_path: dict = field(default_factory=dict)
 

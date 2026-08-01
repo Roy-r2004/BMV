@@ -161,6 +161,17 @@ _ITEM_SUBJECT_REJECT_RE = re.compile(
 )
 
 
+def item_slot_names() -> tuple[str, ...]:
+    """The catalogue photo pool, in order — ``item1…itemN``.
+
+    Public because the pool is a *contract* between three modules: the fetcher
+    fills it, `normalize_image_slot_map` guarantees it, and the catalogue codemods
+    bind cards to it. Request 70 shipped two cards showing a person at an easel
+    because the page-side pool was restated as a literal instead of read from here.
+    """
+    return _ITEM_SLOTS
+
+
 def _photo_is_on_subject(photo: dict[str, Any]) -> bool:
     """True when the photo's own description does not name a person or an empty prop.
 
@@ -341,6 +352,80 @@ def _resolve_category(industry: str) -> str:
 def resolve_industry_category(industry: str) -> str:
     """Coarse imagery category for an industry phrase (``generic`` when unknown)."""
     return _resolve_category(industry)
+
+
+#: Enough words to name the trade without turning a paragraph into a search query.
+_DERIVED_INDUSTRY_MAX_KEYWORDS = 4
+
+
+def derive_industry_from_description(description: str) -> str:
+    """The industry phrase a business description already states, or ``""``.
+
+    Requests 66, 67 and 68 were created without the `industry` form field. Each
+    one carried *"An independent fine-art gallery representing a single painter …
+    original oil paintings"* in `business_description`, and each resolved to
+    `generic` — shipping SIGMA camera-lens packaging, a sales-volume chart and an
+    audio-editing timeline to a fine-art gallery. Request 70 is the same
+    description with the field filled in, and it shipped paintings. **The pipeline
+    had the answer in hand and did not read it.**
+
+    Deterministic, and deliberately so — this runs on the latency budget's
+    critical path, before the first model call. It reuses the scoring the imagery
+    resolver already applies to the `industry` field: weak keywords need
+    corroboration, the winner must clear the runner-up, and anything short of that
+    is `generic`. A paragraph offers more words than a form field, not different
+    ones, so the same bar is the right bar.
+
+    Returns the category's own specific keywords *as the description states them*,
+    in the order they appear, rather than a canned label. Two consumers need that:
+    `get_images_for_industry` composes them into a photo search, and
+    `pick_template_id` counts them as declared tokens.
+    """
+    text = (description or "").strip()
+    if not text:
+        return ""
+    category = _resolve_category(text)
+    return _keywords_naming(category, text)
+
+
+def industry_or_derived(industry: str | None, business_description: str | None) -> str:
+    """The declared industry, or the one the description states. Never guesses.
+
+    One rule, so an entry point that is not the main pipeline cannot quietly keep
+    the old behaviour. A blank field is blank whether it arrived as ``None``,
+    ``""`` or three spaces — `requests.py:202` accepts all three.
+    """
+    declared = (industry or "").strip()
+    if declared:
+        return declared
+    return derive_industry_from_description(business_description or "")
+
+
+def _keywords_naming(category: str, text: str) -> str:
+    """The category's own specific keywords, as ``text`` states them, in order."""
+    if category == "generic":
+        return ""
+    lowered = text.lower()
+    found: list[tuple[int, str]] = []
+    for keyword in _INDUSTRY_KEYWORDS.get(category, []):
+        # Weak keywords corroborate a category; they do not name one. "home" is
+        # not what to send to a stock-photo search for a real-estate brief.
+        if keyword in _WEAK_KEYWORDS:
+            continue
+        match = _keyword_pattern(keyword).search(lowered)
+        if match:
+            found.append((match.start(), keyword))
+    found.sort()
+    kept: list[str] = []
+    for _, keyword in found:
+        # "art gallery" already carries "gallery"; repeating it wastes the
+        # 14-word query budget without adding a term.
+        if any(keyword in other or other in keyword for other in kept):
+            continue
+        kept.append(keyword)
+        if len(kept) >= _DERIVED_INDUSTRY_MAX_KEYWORDS:
+            break
+    return " ".join(kept)
 
 
 def _clip_words(text: str, limit: int) -> str:
@@ -646,7 +731,28 @@ def normalize_image_slot_map(images: dict[str, str] | None) -> dict[str, str]:
     # so a page can write `images.item3` without `tsc` complaining and without the
     # eight-item grid showing the same photograph twice (request 40 mapped `card1`
     # to both "Whispering Winds" and "Desert Bloom").
-    rotation = [out[s] for s in ("card1", "card2", "card3", "ambient", "hero2", "hero")]
+    # Rotation order is the item-subject ranking, not slot-declaration order.
+    # `card2` ("customer experience") and `card3` ("team service") are the two
+    # slots whose queries ask for a person *on purpose*, so filling a catalogue
+    # position from them reintroduces the exact defect `_ITEM_SUBJECT_REJECT_RE`
+    # exists to prevent — request 70 captioned two photographs of someone at an
+    # easel "Still Life with Pears · Oil on Panel". They are out of the rotation
+    # entirely, not merely last: repeating a photograph the grid already shows is
+    # a blemish, whereas a person where the artifact should be is a wrong page.
+    # What remains is still six distinct photographs — the item slots the fetch
+    # did fill, then `card1` (the object slot) and the three scene slots — so
+    # request 40's repeated-photo defect does not come back to pay for this.
+    filled_items = [
+        out[s]
+        for s in _ITEM_SLOTS
+        if _is_allowed_image_url(str(out.get(s) or ""), allowed_ids=allowed_ids)
+    ]
+    rotation = filled_items + [
+        out[s] for s in ("card1", "ambient", "hero2", "hero") if s in out
+    ]
+    # Only if the map somehow carries nothing else: a hole in `images.item3` is a
+    # `tsc` error and a broken page, which is worse than a badly chosen photo.
+    rotation = rotation or [out[s] for s in ("card2", "card3") if s in out]
     for index, slot in enumerate(_ITEM_SLOTS):
         if slot not in out or not _is_allowed_image_url(
             str(out.get(slot) or ""), allowed_ids=allowed_ids

@@ -20,7 +20,7 @@ from app.application.preview_app.protected_paths import (
     safe_source_path,
 )
 from app.application.preview_app.source_quality import tsx_parse_error
-from app.application.preview_app.text_utils import _parse_json, _strip_fences
+from app.application.preview_app.text_utils import _strip_fences, parse_json_with_meta
 from app.application.preview_app.workspace import (
     list_source_files,
     read_file,
@@ -31,6 +31,10 @@ from app.application.preview_app.workspace import (
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.infrastructure.logging import get_logger
+from app.infrastructure.logging.diagnostics import (
+    analyze_json_response,
+    dump_unparsed_fix_agent_response,
+)
 
 log = get_logger("QualityRepair")
 
@@ -341,12 +345,18 @@ Rules:
         # process is not asked again. The configured primary has taken minutes per
         # attempt to return truncated output on every run observed so far, and the
         # gate repair gets two attempts, so the charge was paid twice per request.
-        from app.application.preview_app.codegen.fix_agent import _FAILED_FIX_MODELS
+        # These four settings resolve to two distinct ids by default, which is why
+        # the chain has to be deduplicated by *resolved id*, not by setting name.
+        from app.application.preview_app.codegen.fix_agent import (
+            _FAILED_FIX_MODELS,
+            fix_model_candidates,
+        )
 
-        candidates = [m for m in models if m and m not in _FAILED_FIX_MODELS] or [
-            m for m in models if m
-        ]
+        candidates, exhausted = fix_model_candidates(models)
         for model in candidates:
+            if not exhausted and model in _FAILED_FIX_MODELS:
+                log.info("quality repair skipping %s — already failed this process", model)
+                continue
             try:
                 raw = ai_provider.ask_chat(
                     model,
@@ -364,26 +374,52 @@ Rules:
         return ""
 
     raw = _ask(prompt)
-    data = _try_parse_plan(raw, "primary")
+    data = _try_parse_plan(raw, "primary", workspace)
     if data is None:
         raw2 = _ask(
             prompt
             + "\n\nSTRICT: JSON only. Prefer ops. Shape "
             '{"strategy":"ops","ops":[{"op":"replace","path":"...","old":"...","new":"..."}]}'
         )
-        data = _try_parse_plan(raw2, "strict-retry")
+        data = _try_parse_plan(raw2, "strict-retry", workspace)
     return data
 
 
-def _try_parse_plan(raw: str, label: str) -> dict[str, Any] | None:
+def _try_parse_plan(
+    raw: str,
+    label: str,
+    workspace: Path | None = None,
+) -> dict[str, Any] | None:
     if not raw or not str(raw).strip():
         log.warning("quality repair %s: empty response", label)
         return None
     try:
-        parsed = _parse_json(raw)
+        parsed, meta = parse_json_with_meta(raw)
     except Exception as e:
+        # The fix agent dumps its unparsed responses; this path did not, so
+        # request 67's `12:08:48 quality repair primary: parse failed` left no
+        # artifact and the diagnosis had to be reconstructed from the fix agent's.
         log.warning("quality repair %s: parse failed: %s", label, e)
+        if workspace is not None:
+            analysis = analyze_json_response(raw)
+            dump_unparsed_fix_agent_response(
+                Path(workspace), label=f"quality-repair-{label}", raw=raw, error=e
+            )
+            log.error(
+                "quality repair %s parse diagnostics: len=%s lines=%s fenced=%s "
+                "brace_imbalance=%s likely_truncated=%s",
+                label,
+                analysis["length"],
+                analysis["lines"],
+                analysis["fenced"],
+                analysis["depth_imbalance"],
+                analysis["likely_truncated"],
+            )
         return None
+    if meta.get("method") not in ("direct", "fence"):
+        log.info(
+            "quality repair %s: recovered via %s (len=%s)", label, meta.get("method"), len(raw)
+        )
     if not isinstance(parsed, dict):
         log.warning("quality repair %s: expected object", label)
         return None

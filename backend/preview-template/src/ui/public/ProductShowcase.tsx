@@ -70,7 +70,10 @@ export function ProductShowcase({ className, children, description, heading, ite
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
               <figcaption className="mt-5 max-w-xl">
                 <p className="text-[11px] font-semibold tracking-[0.2em] text-white/50 uppercase">
-                  {featured.badge || 'Lead drop'}
+                  {/* This fallback was banned copy the pipeline could never
+                      strip: `src/ui/**` is template-owned, so `copy_hygiene`'s
+                      rewrite was restored before every build. */}
+                  {featured.badge || 'Featured'}
                 </p>
                 <h3 className="mt-2 font-display text-4xl tracking-tight">{featured.title}</h3>
                 <p className="mt-3 text-sm leading-7 text-white/60">{featured.description}</p>

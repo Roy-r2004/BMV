@@ -54,7 +54,10 @@ from app.application.preview_app.workspace import (
     write_file,
 )
 from app.application.prompts import PromptTemplate
-from app.application.services.industry_images import get_images_for_industry
+from app.application.services.industry_images import (
+    get_images_for_industry,
+    industry_or_derived,
+)
 from app.application.services.progress import emit as _emit
 from app.application.services.visual_demo_enrichment import enrich_visual_demo
 from app.application.services.visual_demo_merge import merge_visual_demo
@@ -363,7 +366,9 @@ def refine_preview_app_from_chat(
             except Exception:
                 ref_meta = {}
         images = get_images_for_industry(
-            req.industry or "",
+            industry_or_derived(
+                req.industry, getattr(req, "business_description", None)
+            ),
             seed=request_id,
             hero_override=ref_meta.get("og_image") or None,
             business_name=req.business_name,

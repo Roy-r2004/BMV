@@ -1,4 +1,4 @@
-import { stats } from '../../data/mock';
+import { brand, stats } from '../../data/mock';
 
 interface StatCard {
   label: string;
@@ -28,11 +28,17 @@ function statCards(source: unknown): StatCard[] {
 
 export default function AdminDashboardPage() {
   const cards = statCards(stats);
+  // "Overview of your business" shipped on every owner hub — generic template
+  // voice, and a hit for the harness's `your business` leak pattern once that
+  // went case-insensitive. Bind the brand instead of silencing the pattern:
+  // named is better copy than generic, and `brand` is read as defensively as
+  // `stats` above because `mock.ts` is generated and owns neither shape.
+  const brandName = String((brand as { name?: unknown } | null)?.name ?? '').trim();
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-      <p className="mt-1 text-slate-600">Overview of your business</p>
+      <p className="mt-1 text-slate-600">{brandName ? `Overview of ${brandName}` : 'Overview'}</p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((s, index) => (
           <div

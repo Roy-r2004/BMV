@@ -14,10 +14,37 @@ export interface CTABandProps {
   primaryCta: CTALink;
   description?: string;
   secondaryCta?: CTALink;
+  /**
+   * Small caps line above the heading. Pass business copy; the default is
+   * deliberately plain rather than a slogan.
+   *
+   * This was a hardcoded two-word phrase that `safety/copy_hygiene._BANNED_COPY`
+   * has banned since it was written — and the ban could never take effect. The
+   * guard rewrites the file, then `restore_template_owned_files` restores it from
+   * the template, `src/ui/**` being template-owned on every catalogue workspace.
+   * So the guard logged "template jargon replaced" on every run while the banned
+   * phrase — in caps, because of the `uppercase` class below — shipped above the
+   * CTA of every generated site.
+   *
+   * The ownership rule is right and stays; the kit simply must not ship a string
+   * the pipeline bans. A prop with a default is the pattern the rest of the kit
+   * already uses — see `ConfirmStage`'s `eyebrow = 'Confirmed'`.
+   *
+   * (The banned phrase is not repeated here on purpose: `scripts/preview-qa.sh`
+   * greps this tree, and a comment quoting it is a false positive forever.)
+   */
+  eyebrow?: string;
   className?: string;
 }
 
-export function CTABand({ className, description, heading, primaryCta, secondaryCta }: CTABandProps) {
+export function CTABand({
+  className,
+  description,
+  eyebrow = 'What comes next',
+  heading,
+  primaryCta,
+  secondaryCta,
+}: CTABandProps) {
   // Keep ink readable even when callers pass light `bg-*` / `text-*` overrides.
   return (
     <section
@@ -37,7 +64,11 @@ export function CTABand({ className, description, heading, primaryCta, secondary
       <MotionReveal>
         <div className="relative mx-auto flex w-full max-w-[92rem] flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl text-inherit">
-            <p className="text-[11px] font-semibold tracking-[0.28em] text-current/45 uppercase">Next move</p>
+            {eyebrow ? (
+              <p className="text-[11px] font-semibold tracking-[0.28em] text-current/45 uppercase">
+                {eyebrow}
+              </p>
+            ) : null}
             <h2 className="mt-4 font-display text-[clamp(2.75rem,5.5vw,5.25rem)] leading-[0.92] tracking-[-0.04em] text-current">
               {heading}
             </h2>

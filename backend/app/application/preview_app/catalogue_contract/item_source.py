@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import re
 
+from app.application.services.industry_images import item_slot_names
+
 _ITEMS_PROP_RE = re.compile(r"\bitems=\{\s*\[")
 _LISTING_COMPONENTS = ("CatalogGrid", "ProductShowcase")
 
@@ -29,11 +31,12 @@ _LISTING_COMPONENTS = ("CatalogGrid", "ProductShowcase")
 # `item1..item8` exist, so this never reads an undefined key, and the pool is as
 # long as the grid — request 40 showed `card1` for both "Whispering Winds" and
 # "Desert Bloom" because its pool was three deep.
-_IMAGE_POOL = (
-    "[images.item1, images.item2, images.item3, images.item4, "
-    "images.item5, images.item6, images.item7, images.item8]"
-)
-_IMAGE_POOL_SIZE = 8
+#
+# Derived from the imagery service rather than restated, so the pool the pages
+# read and the pool the fetcher fills cannot drift apart.
+_IMAGE_POOL_SLOTS = item_slot_names()
+_IMAGE_POOL_SIZE = len(_IMAGE_POOL_SLOTS)
+_IMAGE_POOL = "[" + ", ".join(f"images.{s}" for s in _IMAGE_POOL_SLOTS) + "]"
 
 
 def _matching_bracket(src: str, open_idx: int) -> int:
@@ -107,7 +110,7 @@ def _catalog_items_expr(detail_base: str) -> str:
         "    id: String(it.slug ?? it.id ?? i + 1),\n"
         "    title: String(it.title ?? it.name ?? ''),\n"
         "    description: String(it.description ?? ''),\n"
-        f"    imageSrc: String(it.image ?? {_IMAGE_POOL}[i % 8]),\n"
+        f"    imageSrc: String(it.image ?? {_IMAGE_POOL}[i % {_IMAGE_POOL_SIZE}]),\n"
         "    imageAlt: String(it.title ?? it.name ?? ''),\n"
         "    meta: it.medium ? String(it.medium) : (it.price ? String(it.price) : undefined),\n"
         "    category: it.category ? String(it.category) : undefined,\n"
@@ -130,7 +133,7 @@ def _showcase_items_expr(detail_base: str) -> str:
         "{(seed.items ?? []).slice(0, 3).map((it: any, i: number) => ({\n"
         "    title: String(it.title ?? it.name ?? ''),\n"
         "    description: String(it.description ?? ''),\n"
-        f"    imageSrc: String(it.image ?? {_IMAGE_POOL}[i % 8]),\n"
+        f"    imageSrc: String(it.image ?? {_IMAGE_POOL}[i % {_IMAGE_POOL_SIZE}]),\n"
         "    imageAlt: String(it.title ?? it.name ?? ''),\n"
         "    badge: it.badge ? String(it.badge) : (it.status ? String(it.status) : undefined),\n"
         f"{href}"
@@ -195,6 +198,75 @@ def unify_catalogue_item_source(content: str, *, detail_base: str = "") -> tuple
     ):
         out = _ensure_mock_named_import(out, "images")
     return out, changed
+
+
+_ITEMS_KEY_RE = re.compile(r"(?<![A-Za-z0-9_$.])['\"]?items['\"]?\s*:\s*\[")
+_ITEM_IMAGE_BINDING_RE = re.compile(
+    r"\b(?:image|imageSrc|imageUrl|thumbnail|photo)\s*:\s*images\s*\.\s*"
+    r"([A-Za-z_][A-Za-z0-9_]*)"
+)
+
+
+def rebind_catalogue_item_images(source: str) -> tuple[str, int]:
+    """Force every catalogue photo onto the ``item*`` pool. Returns (source, rebound).
+
+    The imagery service supplies a fixed number of `item*` slots; the mock writer
+    is asked for "10–20 items for catalogs" and is handed the *whole* slot map, so
+    on request 70 it wrote eleven artworks, ran out at `images.item8`, and
+    continued into `images.card1`, `card2`, `card3` (`src/data/mock.ts:459,471,483`).
+    `card2` and `card3` are the "customer experience" and "team service" role
+    slots — the two the item ranker pushes to the back *precisely because their
+    photographs show people* — so "Still Life with Pears · Oil on Panel" and
+    "Forest Edge Path · Oil on Linen" shipped as photographs of a person at an easel.
+
+    Capping the item count would have fixed the photograph by deleting three real
+    artworks, and extending the pool cannot hold: the pool is sized during planning
+    and the item count is chosen later by the model, so any fixed size is a bound
+    the model can exceed. Cycling within `item*` is the only form of the fix that
+    makes the defect unrepresentable at any item count.
+
+    Positions are counted over image *bindings* in source order, which is the
+    catalogue order whenever items bind their photos the same way — and an item
+    that carries a literal URL instead of a slot is left alone, so it neither
+    shifts the ring nor gets overwritten.
+
+    Idempotent, and a no-op on any array whose end this cannot locate with
+    certainty.
+    """
+    if not source or "images." not in source:
+        return source, 0
+    pool = _IMAGE_POOL_SLOTS
+    if not pool:
+        return source, 0
+    allowed = set(pool)
+    edits: list[tuple[int, int, str]] = []
+    searched_from = 0
+    while True:
+        key = _ITEMS_KEY_RE.search(source, searched_from)
+        if not key:
+            break
+        open_idx = source.index("[", key.start())
+        end = _matching_bracket(source, open_idx)
+        if end == -1:
+            searched_from = open_idx + 1
+            continue
+        searched_from = end
+        for position, match in enumerate(
+            _ITEM_IMAGE_BINDING_RE.finditer(source, open_idx, end)
+        ):
+            if match.group(1) in allowed:
+                continue
+            edits.append((match.start(1), match.end(1), pool[position % len(pool)]))
+    if not edits:
+        return source, 0
+    out: list[str] = []
+    cursor = 0
+    for start, stop, slot in edits:
+        out.append(source[cursor:start])
+        out.append(slot)
+        cursor = stop
+    out.append(source[cursor:])
+    return "".join(out), len(edits)
 
 
 _MOCK_IMPORT_RE = re.compile(r"import\s*\{([^}]*)\}\s*from\s*(['\"])@/data/mock\2\s*;?")

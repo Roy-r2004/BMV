@@ -818,6 +818,24 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         actions.append("unsplash-scrub")
         mock = scrubbed
 
+    # A catalogue card may only name a photograph from the catalogue pool. The
+    # mock writer is handed the whole slot map, so once it runs past `item8` it
+    # keeps going into `card1`/`card2`/`card3` — the role slots whose photographs
+    # show people. Request 70 shipped two of eleven cards as a person at an easel.
+    from app.application.preview_app.catalogue_contract.item_source import (
+        rebind_catalogue_item_images,
+    )
+
+    rebound, count = rebind_catalogue_item_images(mock)
+    if count:
+        actions.append(f"item-pool:{count}")
+        guard_log.info(
+            "catalogue photos rebound onto the item pool: %s card(s) named a "
+            "layout slot",
+            count,
+        )
+        mock = rebound
+
     # Dead booking CTAs — map to canonical /book (App.tsx also aliases these paths).
     rewritten = mock
     for dead in _DEAD_BOOK_HREFS:

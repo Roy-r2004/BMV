@@ -10,7 +10,10 @@ from app.application.pipelines._shared import get_request
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
-from app.application.services.industry_images import get_images_for_industry
+from app.application.services.industry_images import (
+    get_images_for_industry,
+    industry_or_derived,
+)
 from app.application.services.page_bundle import build_role_site_bundle
 from app.application.services.page_experience import (
     build_design_manifest,
@@ -119,7 +122,7 @@ def generate_role_pages(
     secondary = theme.get("secondary_color", "#0d9488")
     concept = req.concept_name or req.business_name
     images = get_images_for_industry(
-        req.industry or "",
+        industry_or_derived(req.industry, getattr(req, "business_description", None)),
         seed=req.id,
         business_name=req.business_name,
     )
@@ -236,7 +239,7 @@ def enhance_generated_pages(
     manifest = {"accent": design_system.get("primary_color", primary), "brand_name": req.concept_name or req.business_name}
 
     images = get_images_for_industry(
-        req.industry or "",
+        industry_or_derived(req.industry, getattr(req, "business_description", None)),
         seed=req.id,
         business_name=req.business_name,
     )

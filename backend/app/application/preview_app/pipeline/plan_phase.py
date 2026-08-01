@@ -61,7 +61,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     industry_context = " ".join(
         part
         for part in (
-            getattr(req, "industry", None) or "",
+            ctx.industry,
             getattr(req, "business_description", None) or "",
             getattr(req, "main_problem", None) or "",
             getattr(req, "desired_outcome", None) or "",
@@ -133,14 +133,14 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     template_recipe = None
     if not brief_recipe:
         template_recipe = template_recipe_hint(
-            industry=req.industry,
+            industry=ctx.industry,
             seed=request_id,
             surface=pack_surface,
             context=industry_context,
         ) or kind_contract.recipe_id
     plan = apply_recipe_to_plan(
         plan,
-        industry=req.industry,
+        industry=ctx.industry,
         business_description=getattr(req, "description", None)
         or getattr(req, "business_description", None)
         or full_context[:800],
@@ -152,7 +152,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     if kind_contract.kind in OPS_KINDS:
         plan = apply_ops_industry_template_to_plan(
             plan,
-            industry=req.industry,
+            industry=ctx.industry,
             seed=request_id,
             context=industry_context,
             brand_name=brand_name,
@@ -165,7 +165,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     else:
         plan = apply_industry_template_to_plan(
             plan,
-            industry=req.industry,
+            industry=ctx.industry,
             seed=request_id,
             surface="public",
             context=industry_context,
@@ -173,7 +173,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         )
         plan = apply_ops_industry_template_to_plan(
             plan,
-            industry=req.industry,
+            industry=ctx.industry,
             seed=request_id,
             context=industry_context,
             brand_name=brand_name,
@@ -218,7 +218,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         # Roles are framing only — subject stays the business industry/brand, so the
         # business-derived set from the appspec gate is refined, never replaced.
         framed = get_images_for_industry(
-            req.industry or "",
+            ctx.industry,
             seed=request_id,
             business_name=req.business_name,
             imagery_roles=imagery_roles,
@@ -227,7 +227,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         ctx.images = images
         log.info(
             "    imagery subject=%s roles=%s",
-            resolve_industry_category(req.industry or ""),
+            resolve_industry_category(ctx.industry),
             ",".join(sorted(imagery_roles)),
         )
     recipe = get_recipe(plan.get("recipe_id"))
@@ -250,7 +250,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         plan,
         seed=request_id,
         context=industry_context or full_context[:800],
-        industry=req.industry or "",
+        industry=ctx.industry,
         business_name=req.business_name or "",
     )
     # Collapse recipe/pack/brand/overlay/kind pile-ons into one sealed brief.
@@ -415,8 +415,6 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         )
     files_to_gen = _sort_gen_order(capped)
     clear_stubbed_paths(workspace)
-    industry = req.industry or ""
-
     ctx.full_context = full_context
     ctx.plan = plan
     ctx.manifest = manifest
@@ -429,6 +427,5 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     ctx.architect = architect
     ctx.workspace = workspace
     ctx.brand_name = brand_name
-    ctx.industry = industry
     ctx.files_to_gen = files_to_gen
     ctx.specs_by_path = {f.get("path", ""): f for f in files_to_gen}

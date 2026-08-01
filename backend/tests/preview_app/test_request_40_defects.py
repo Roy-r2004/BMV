@@ -3681,3 +3681,372 @@ def test_the_visual_critic_opens_a_detail_page_not_its_route_pattern() -> None:
         "the substitution has to happen on the way into the browser session, "
         "or only some callers get it"
     )
+
+
+# --------------------------------------------------------------------------- #
+# requests 66-68 and 70 — the industry field, the item pool, and the leak check
+# --------------------------------------------------------------------------- #
+
+
+def test_a_catalogue_card_never_shows_a_slot_ranked_last_for_showing_people(
+    tmp_path: Path,
+) -> None:
+    """Request 70 captioned two photographs of a person at an easel "Oil on Panel".
+
+    Nine of eleven cards were real paintings. The other two — "Still Life with
+    Pears · Oil on Panel" and "Forest Edge Path · Oil on Linen" — were
+    `images.card2` and `images.card3` (`src/data/mock.ts:471,483`), the
+    "customer experience" and "team service" role slots whose photographs
+    `_ITEM_SUBJECT_REJECT_RE` pushes to the *back* of the item queue precisely
+    because they show people.
+
+    The cause is a bound, not the model: the imagery service supplies eight
+    `item*` slots, `preview_app_mock_synthesize.j2` asks for "10-20 items for
+    catalogs", and the writer is handed the whole slot map, so it ran past
+    `item8` and kept going into the layout slots.
+
+    Capping the item count would have deleted three researched artworks to fix a
+    photograph. Extending the pool cannot hold, because the pool is sized during
+    planning and the count is chosen later. Cycling inside `item*` is the only
+    form that holds at any count.
+    """
+    from app.application.preview_app.catalogue_contract.item_source import (
+        rebind_catalogue_item_images,
+    )
+    from app.application.services.industry_images import item_slot_names
+
+    pool = set(item_slot_names())
+    # Request 70's shape: eleven items, eight slots, then the layout slots.
+    items = "".join(
+        f'    {{ id: "p{n}", title: "Piece {n}", image: images.{slot} }},\n'
+        for n, slot in enumerate(
+            list(item_slot_names()) + ["card1", "card2", "card3"], start=1
+        )
+    )
+    mock = "export const seed = {\n  items: [\n" + items + "  ],\n};\n"
+
+    out, rebound = rebind_catalogue_item_images(mock)
+    assert rebound == 3, "the three cards that overflowed the pool must be rebound"
+
+    bound = re.findall(r"image: images\.(\w+)", out)
+    assert len(bound) == 11, "no item may be dropped to fix a photograph"
+    assert all(slot in pool for slot in bound), (
+        f"a catalogue card may only name the item pool; got {bound}"
+    )
+    # The overflow wraps to the front of the ring, not onto a scene slot.
+    assert bound[8:] == ["item1", "item2", "item3"]
+    # Idempotent — the guard sweep runs before every build attempt.
+    assert rebind_catalogue_item_images(out) == (out, 0)
+
+    # An item that carries a real URL keeps it, and does not shift the ring.
+    literal = (
+        "export const seed = {\n  items: [\n"
+        '    { title: "a", image: images.item1 },\n'
+        '    { title: "b", image: "https://images.pexels.com/photos/1/x.jpeg" },\n'
+        '    { title: "c", image: images.card3 },\n'
+        "  ],\n};\n"
+    )
+    fixed, n = rebind_catalogue_item_images(literal)
+    assert n == 1 and "https://images.pexels.com/photos/1/x.jpeg" in fixed
+    assert re.findall(r"image: images\.(\w+)", fixed) == ["item1", "item2"]
+
+    # The other half of the same bound: when the fetch cannot fill every item
+    # slot, `normalize_image_slot_map` used to seed the gap from
+    # ("card1", "card2", "card3", ...) in that order — putting the two people
+    # slots at positions 2 and 3 of the catalogue.
+    from app.application.services.industry_images import normalize_image_slot_map
+
+    partial = normalize_image_slot_map(
+        {
+            "hero": "https://images.pexels.com/photos/10/h.jpeg",
+            "hero2": "https://images.pexels.com/photos/11/h2.jpeg",
+            "card1": "https://images.pexels.com/photos/12/c1.jpeg",
+            "card2": "https://images.pexels.com/photos/13/c2.jpeg",
+            "card3": "https://images.pexels.com/photos/14/c3.jpeg",
+            "ambient": "https://images.pexels.com/photos/15/a.jpeg",
+            "item1": "https://images.pexels.com/photos/20/i1.jpeg",
+            "item2": "https://images.pexels.com/photos/21/i2.jpeg",
+        }
+    )
+    filled = [partial[s] for s in item_slot_names()]
+    people = {partial["card2"], partial["card3"]}
+    assert not (set(filled) & people), (
+        "card2 and card3 ask a stock search for a person on purpose; a hole in "
+        "the item pool must never be filled from them"
+    )
+    assert filled[0] == partial["item1"] and filled[1] == partial["item2"], (
+        "photographs the fetch did vet for an item slot must be kept"
+    )
+    # Six distinct photographs still reach the grid, so request 40's
+    # repeated-photo defect is not the price of this fix.
+    assert len(set(filled)) >= 6, sorted(set(filled))
+
+    # And it is wired into the guard sweep that runs before every build attempt,
+    # not merely available. A codemod nothing calls is the shape of a fix that
+    # passes its own test and ships the defect anyway.
+    from app.application.preview_app.safety.mock_data import sync_mock_images
+    from app.application.preview_app.workspace import read_file, write_file
+
+    write_file(tmp_path, "src/data/mock.ts", mock)
+    sync_mock_images(tmp_path, {slot: partial[slot] for slot in partial})
+    swept = re.findall(r"image: images\.(\w+)", read_file(tmp_path, "src/data/mock.ts"))
+    assert swept and all(slot in pool for slot in swept), (
+        f"the guard sweep must land the invariant on mock.ts; got {swept}"
+    )
+
+
+def test_an_empty_industry_field_never_reaches_generic_in_silence() -> None:
+    """Requests 66, 67 and 68 shipped a camera lens and a sales chart to a gallery.
+
+    All three were created without the optional `industry` form field
+    (`requests.py:202` is `industry: str = Form(None)`). Each logged
+    `imagery subject=generic` and shipped SIGMA camera-lens packaging, a
+    calculator over a "SALES VOLUME" chart, and an audio-editing timeline.
+    Request 70 is the *same* `business_description` with the field filled in: it
+    logged `imagery subject=art` and shipped nine paintings out of eleven.
+
+    The description on all four runs opens *"An independent fine-art gallery
+    representing a single painter ... original oil paintings"*. The pipeline had
+    the answer and did not read it, and nothing said so.
+    """
+    from app.application.services.industry_images import (
+        derive_industry_from_description,
+        industry_or_derived,
+        resolve_industry_category,
+    )
+
+    description = (
+        "An independent fine-art gallery representing a single painter. Visitors "
+        "browse a collection of original oil paintings, open any piece to see its "
+        "full specifications - medium, dimensions, year, price and availability - "
+        "and contact the gallery to purchase or arrange a studio visit. The owner "
+        "signs in privately to add paintings, edit listings and read incoming "
+        "purchase inquiries."
+    )
+    derived = derive_industry_from_description(description)
+    assert derived, "requests 66/67/68 had this text and resolved to generic"
+    assert resolve_industry_category(derived) == "art", (
+        f"the derived phrase must land the same subject request 70 got; "
+        f"derived={derived!r}"
+    )
+
+    # Blank in every shape `Form(None)` can deliver.
+    for blank in (None, "", "   "):
+        assert industry_or_derived(blank, description) == derived
+    # A declared field always wins — derivation is a fallback, not an override.
+    assert industry_or_derived("Boutique law firm", description) == "Boutique law firm"
+
+    # Deterministic, and conservative: the same bar the industry field is held
+    # to. A description that names no trade stays empty rather than guessing.
+    assert derive_industry_from_description("We help people do their best work.") == ""
+    assert derive_industry_from_description("") == ""
+
+    # ...and the pipeline resolves it before the first stage that reads it.
+    from app.application.preview_app.pipeline import appspec_gate
+
+    gate_src = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "pipeline" / "appspec_gate.py"
+    ).read_text(encoding="utf-8")
+    assert gate_src.index("ctx.industry = resolve_industry(ctx)") < gate_src.index(
+        "images = get_images_for_industry("
+    ), "the derivation must run before the first consumer, not beside it"
+    plan_src = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "pipeline" / "plan_phase.py"
+    ).read_text(encoding="utf-8")
+    assert "req.industry" not in plan_src, (
+        "a stage that reads the raw column bypasses the derivation"
+    )
+
+    # The fallback is loud: request id in the log, and a progress event so it is
+    # in the pipeline's own reporting rather than only in a log a reader has to
+    # already suspect.
+    class _Req:
+        industry = None
+        business_description = "We help people do their best work."
+
+    class _Ctx:
+        db = None
+        request_id = 68
+        req = _Req()
+        industry = ""
+
+    emitted: list[tuple] = []
+    warned: list[str] = []
+
+    class _Log:
+        """Records `warning` and swallows every other level.
+
+        Deliberately tolerant: downgrading the call to `log.debug` is exactly the
+        regression this test exists to catch, so it must fail on the missing
+        warning, not on a missing attribute.
+        """
+
+        @staticmethod
+        def warning(msg, *args):
+            warned.append(msg % args if args else msg)
+
+        def __getattr__(self, _name):
+            return lambda *a, **k: None
+
+    real_emit, real_log = appspec_gate._emit, appspec_gate.log
+    try:
+        appspec_gate._emit = lambda *a, **k: emitted.append((a, k))
+        appspec_gate.log = _Log()
+        assert appspec_gate.resolve_industry(_Ctx()) == ""
+    finally:
+        appspec_gate._emit, appspec_gate.log = real_emit, real_log
+
+    assert warned and "68" in warned[0], f"the warning must name the request: {warned}"
+    assert "generic" in warned[0]
+    assert emitted, "an empty industry falling back to generic must be reported"
+    assert "generic" in str(emitted[0])
+
+
+def test_the_leak_check_reads_the_kit_and_names_bracketed_placeholders() -> None:
+    """`scripts/preview-qa.sh` reported clean while request 68 shipped a placeholder.
+
+    Request 68's `/about-artist` rendered *"Discover the World of Fine Art by
+    [Painter's Name]"* and its owner hub carried `[Owner Name]`
+    (`src/data/mock.ts:193,249,336`). Section 5 reported clean, because no
+    pattern in it described a bracketed placeholder — a leak check that greps for
+    the wrong things is worse than none, since it certifies.
+
+    The pattern has to be tight as well as present: `const [name, setName] =
+    useState()` is on nearly every kit component, and a check that fires on it
+    would be turned off within a day.
+
+    And it has to read the casing the *source* uses, not the casing the page
+    renders. `CTABand.tsx:40` held `Next move` under a Tailwind `uppercase`
+    class; the visitor read **NEXT MOVE**, the disk said `Next move`, and a
+    case-sensitive grep for the rendered form certified the page clean.
+    """
+    qa = Path(__file__).resolve().parents[3] / "scripts" / "preview-qa.sh"
+    source = qa.read_text(encoding="utf-8")
+
+    exact = re.search(r"^LEAK_RE='(.+)'$", source, re.M)
+    fold = re.search(r"^LEAK_RE_I='(.+)'$", source, re.M)
+    assert exact and fold, "section 5 must keep its pattern sets in named places"
+    case_sensitive = re.compile(exact.group(1))
+    case_folded = re.compile(fold.group(1), re.I)
+
+    # The flags the *script* passes, not the flags this test would like it to.
+    # Compiling the folded set with `re.I` here and calling it proven is the same
+    # mistake as grepping for the rendered casing: it tests the intention.
+    folded_calls = re.findall(r"grep -(\w+) '\$LEAK_RE_I'", source)
+    exact_calls = re.findall(r"grep -(\w+) '\$LEAK_RE'", source)
+    assert folded_calls, "the case-folded set must actually reach a grep"
+    assert all("i" in flags for flags in folded_calls), (
+        f"the rendered-copy set must be grepped case-insensitively; got {folded_calls}"
+    )
+    assert exact_calls, "the case-sensitive set must actually reach a grep"
+    assert all("i" not in flags for flags in exact_calls), (
+        f"`-i` on this set matches `placeholder=` on every input; got {exact_calls}"
+    )
+
+    def hit(text: str) -> bool:
+        return bool(case_sensitive.search(text) or case_folded.search(text))
+
+    # The strings request 68 actually shipped.
+    for leak in (
+        "Discover the World of Fine Art by [Painter's Name]",
+        "represents the singular vision of [Painter's Name], ensuring",
+        'headline: "[Owner Name] dashboard"',
+        "Contact [Your Name] today",
+        'const label = "Caf\\u00e9";',
+        "// TODO: replace",
+        '<p className="mt-1 text-slate-600">Overview of your business</p>',
+    ):
+        assert hit(leak), f"section 5 must catch {leak!r}"
+
+    # A source string a CSS text-transform renders in another case. Both forms
+    # must be caught, because only one of them is ever on disk and the check
+    # cannot know which.
+    uppercase_eyebrow = (
+        '<p className="text-[11px] tracking-[0.28em] uppercase">Next move</p>'
+    )
+    assert hit(uppercase_eyebrow), (
+        "a rendered-copy pattern must be case-insensitive; `uppercase` in a "
+        "className is all it takes to defeat a literal match"
+    )
+    assert hit("NEXT MOVE"), "the rendered form must still be caught"
+    assert hit("lead drop") and hit("LEAD DROP")
+    assert hit("Guest Path")
+
+    # ...without firing on the kit's own React, or on the `placeholder=`
+    # attribute that case-folding `PLACEHOLDER` would light up on every input.
+    for ok in (
+        "const [name, setName] = useState('');",
+        "const [items, setItems] = useState<Item[]>([]);",
+        "useEffect(() => reset(), [pathname]);",
+        "useMemo(() => nav, [location.pathname]);",
+        "<motion.div animate={{ opacity: 1 }} />",
+        "items.map((it, i) => arr[i % 8])",
+        '<input placeholder="Search records" />',
+        "placeholder = 'Select…',",
+    ):
+        assert not hit(ok), f"section 5 must not fire on {ok!r}"
+
+    # Both trees, and a verdict either way. "reported clean" and "could not run"
+    # printed the same empty section before.
+    assert "PREVIEW_TEMPLATE_DIR" in source, (
+        "a kit string this request never renders still ships to the next twenty"
+    )
+    assert "kit at source" in source and "generated pages + data" in source, (
+        "a kit-origin leak is a template commit; a page leak is a re-run"
+    )
+    assert "CLEAN" in source and "NOT CHECKED" in source, (
+        "an empty section must not mean both 'clean' and 'did not run'"
+    )
+
+
+def test_the_kit_never_ships_copy_the_pipeline_has_banned() -> None:
+    """"NEXT MOVE" rendered above the CTA of every generated site, guard and all.
+
+    `safety/copy_hygiene._BANNED_COPY` has banned `next move`, `lead drop` and
+    `guest path` — case-insensitively — since it was written, and
+    `strip_template_jargon_copy` really did rewrite
+    `src/ui/public/CTABand.tsx`. It then lost the file:
+    `apply_workspace_guards` calls `restore_template_owned_files`
+    (`orchestrator.py:257`) eight lines after the strip, and
+    `is_template_owned_path` (`protected_paths.py:126`) claims all of
+    `src/ui/**` on any catalogue workspace. So every run logged "template jargon
+    replaced" and every run shipped the banned phrase.
+
+    The ownership rule is not the bug — request 67 lost its whole storefront to a
+    writer that ignored it. The bug is a kit that ships a string the pipeline has
+    declared it will remove, in a tree the pipeline is forbidden to keep changes
+    in. Only one of those two can move, and it is the kit.
+
+    This asserts the fixed point directly: no phrase in the ban table may appear
+    in the shipped template. A guard that cannot win is not a guard.
+    """
+    from app.application.preview_app.safety.copy_hygiene import _BANNED_COPY
+
+    template = Path(__file__).resolve().parents[2] / "preview-template" / "src"
+    assert template.is_dir(), template
+
+    offenders: list[str] = []
+    for path in sorted(template.rglob("*")):
+        if path.suffix not in {".tsx", ".ts", ".jsx", ".css"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for pattern, _replacement in _BANNED_COPY:
+            for match in pattern.finditer(text):
+                line = text[: match.start()].count("\n") + 1
+                offenders.append(
+                    f"{path.relative_to(template.parent)}:{line}: {match.group(0)!r}"
+                )
+    assert not offenders, (
+        "the kit ships copy `_BANNED_COPY` forbids, and `src/ui/**` is "
+        "template-owned so the guard's rewrite is restored before every build — "
+        "fix the template, not the ownership rule:\n  " + "\n  ".join(offenders)
+    )
+
+    # The specific escape hatch that replaced the hardcoded eyebrow: it is a prop
+    # now, the way the rest of the kit does it, so a caller can pass brand copy.
+    band = (template / "ui" / "public" / "CTABand.tsx").read_text(encoding="utf-8")
+    assert "eyebrow?: string" in band and "eyebrow =" in band, (
+        "the eyebrow must be overridable, or the next business gets this one too"
+    )

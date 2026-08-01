@@ -197,10 +197,30 @@ latency dependency. **Merge only the pre-gate captures; keep the post-gate smoke
 document generations serially *after* the preview is built, for 37.1 / 49.8 / 22.8 s the user is not
 waiting on. Mark ready first, then run them concurrently.
 
-**1.6 Fix the JSON extractor.** Three of four "truncated" failures reported
-`brace_imbalance=0, files_key=True, likely_truncated=False` on a 37 KB fenced response — structurally
-complete JSON the extractor cannot find. 161.4 s across 3 calls on run 67 for zero net error
-reduction. Unit-test against the `.bmv-debug/` dumps.
+**1.6 Fix the JSON extractor. — DONE, and this section's original diagnosis was wrong.** It claimed
+the failures were structurally complete JSON the extractor could not find. Measured against the six
+captured payloads in `/app/data/preview-apps/{67,68,69}/.bmv-debug/fix-agent/`, that is true of
+**one**. There were three distinct failure modes read as one:
+
+- **Ours (1 of 6).** Prose before the fence. `_strip_markdown_fence_once` only fired at position 0,
+  so the bracket matcher latched onto a `{` inside the model's opening sentence, failed, and
+  `break`-ed instead of trying the next candidate. A valid repair plan, discarded.
+- **The model's, and unfixable by re-asking (4 of 6).** Inside a ~30 KB `content` value the model
+  escapes correctly for thousands of characters and then drifts — bare `"` where `\"` was required,
+  or `\` + newline as a shell-style line continuation. Structurally complete, not valid JSON.
+  Re-asking never fixed it because it is a habit, not a limit; requests 67 and 69 each burned three
+  calls for zero applied ops.
+- **A genuine truncation (1 of 6),** `finish_reason: length` from glm-5.2.
+
+Fixed in `shared/json_utils.py`: strict parse first, then every fenced block, then a skeleton-tracking
+re-escaping repair pass, then candidate spans — with the decoder's own error in the failure message.
+6 of 6 now parse. **Three other extractor implementations exist**
+(`appspec/sanitize/preparse_normalize.py:149` carries both original bugs;
+`services/page_experience.py:133`; `pipelines/_shared.py:107`) — untouched, flagged.
+
+**The strategic read matters more than the fix.** Asking a model for a 30 KB JSON document with
+escaped source code inside it is fragile by construction. That is an independent argument for
+ops-only repair (small payloads do not hit this) and for the Phase 2 content flip.
 
 **1.7 Validate repair-plan paths before the first write.** Run `RepairAPI._safe`
 (`quality_repair.py:76-84`) over **every** op before applying **any**; name the offending path in a
@@ -362,6 +382,22 @@ got here. **Deepen the 6 public-reachable recipes into complete designs that eac
 spacing scale, container width, grid logic, image treatment and page composition — expressed as
 tokens, with axes as *within-recipe* choices from a declared valid set, never a free cross-product.**
 
+**3.0a Brand voice — the kit speaks in one business's voice on every site.** A sweep of
+`src/ui/**` found 92 hardcoded strings; most are legitimate chrome. These carry *business voice*
+and are a sameness defect, not a leak (none is in `_BANNED_COPY`):
+
+*Unoverridable literal JSX — no prop exists, so no caller can change them. Each needs a prop first,
+exactly as `CTABand`'s eyebrow did:* `MarketingHero.tsx:269` "Scroll to taste" (restaurant);
+`ProcessSection.tsx:43,79` "The path", "You arrive" (hotel/spa); `InquiryPanel.tsx:119,200`
+"Enquiries", "We never share your details."; `AiFeatureDeck.tsx:71` "Previewed on this hub";
+`BookingPanel.tsx:135,206,210` "Choose treatment", "Treatment", "Duration" (clinic);
+`ScheduleRail.tsx:104,134,143,145` "Level", "Availability", "Waitlist" (fitness);
+`ConfirmStage.tsx:85` "What you can do next".
+
+*Overridable defaults carrying business voice:* `BrandFooter.tsx:67` — agency marketing copy in
+every footer, the worst of these; `CatalogGrid.tsx:67,69,70` "/gallery", "The collection", "pieces"
+as the default catalogue; `CashPulseBar.tsx:27,28` a fabricated "$48,220"; and three CTA defaults.
+
 **3.0 The design corpus, signed (1 designer-week, runs during Phase 1).** This is where the
 100-template impulse is captured. Deliverable is not a list of names but a **signed spec sheet per
 archetype**: grid logic, type ramp (six named steps with actual clamp values), spacing scale,
@@ -513,9 +549,21 @@ the AI must author. That is what makes deferring Phase 2 safe.
 14. **Do not delete `test_request_40_defects.py` tests as obsolete.** Rewrite each at the new layer,
     keeping docstring and request number.
 15. **Do not treat "≥ 95 % data-bound" as a variety metric.** Mad-libs score 100 % on it.
-16. **Do not trust `scripts/preview-qa.sh`'s leak check alone.** It greps generated page source;
-    "NEXT MOVE" shipped as visible CTA copy on five pages of request 70 and the check reported clean,
-    because the string lives in the UI kit. Extend it to the kit, and to `[.*Name]` placeholders.
+16. **Do not trust a guard that reports success. — Worked example, now fixed.** "NEXT MOVE" shipped
+    as visible CTA copy on every generated site while `preview-qa.sh` reported clean *and*
+    `strip_template_jargon_copy` logged "template jargon replaced" on every run. Three layers were
+    each wrong in a different way. The source says `Next move`; a CSS `uppercase` class renders it
+    as `NEXT MOVE`, and the harness grepped the **rendered** casing case-sensitively. The ban table
+    (`safety/copy_hygiene.py:137-139`) *did* match it case-insensitively and *did* rewrite the file
+    — and then `restore_template_owned_files` (`orchestrator.py:257`, eight lines later) put it back,
+    because `is_template_owned_path` claims all of `src/ui/**`. And when this was audited, the
+    auditing agent grepped the uppercase literal too, concluded the string did not exist, and nearly
+    closed it as unreproducible.
+    Fixed in the kit rather than by weakening `src/ui/**` ownership, which is load-bearing
+    (`protected_paths.py:132-142`). `test_the_kit_never_ships_copy_the_pipeline_has_banned` is the
+    standing invariant. Casing is now split deliberately: folded for rendered copy, exact for
+    `PLACEHOLDER` (11 false hits on `placeholder=`) and bracket classes (4 false hits on
+    `[location.pathname]` dep arrays).
 
 ---
 

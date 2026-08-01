@@ -57,7 +57,65 @@ grep -oE "error TS[0-9]+" "$OUT/tsc.txt" 2>/dev/null | sort | uniq -c | sort -rn
 
 echo
 echo "===== 5. LEAKED PLACEHOLDER / JARGON / ESCAPES IN COPY ====="
-docker compose exec -T api sh -c "cd /app/data/preview-apps/$ID && grep -rnoE 'LEAD DROP|NEXT MOVE|GUEST PATH|Lorem ipsum|\\\\\\\\u[0-9a-fA-F]{4}|TODO|PLACEHOLDER|Your Business' src 2>/dev/null | head -20" 2>/dev/null || echo "  none"
+# Two trees, and which one a hit lands in is the whole point. A leak under
+# src/pages or src/data belongs to this request. A leak under src/ui came from
+# the UI kit, so it is on every request in the fleet and the fix is a template
+# commit, not a re-run — the kit is scanned at source as well, because a kit
+# string this request never renders is still shipping to the next twenty.
+#
+# `[Painter's Name]` rendered on request 68's /about-artist and this section
+# reported clean, because no pattern described bracketed placeholders. They are
+# their own class now, anchored on a capital and comma-free so that
+# `const [name, setName] = useState()` is not a hit.
+#
+# The section also prints a verdict either way. It used to print nothing when it
+# found nothing AND nothing when it could not run, and those must not look alike.
+#
+# CASING. Two pattern sets, because one flag cannot serve both.
+#
+# `LEAK_RE_I` is matched case-INSENSITIVELY. What a visitor reads is not what the
+# source says: `CTABand.tsx:40` held the string `Next move` under a Tailwind
+# `uppercase` class and rendered **NEXT MOVE** above the CTA of every generated
+# site. A case-sensitive grep for `NEXT MOVE` returns nothing and certifies the
+# page clean — and that is exactly what this check did, and what the engineer
+# auditing this check did before writing this comment. Any pattern describing
+# *rendered copy* must be case-insensitive, or a CSS text-transform defeats it.
+# Case-insensitivity also caught "Overview of your business" on request 68's
+# owner hub, which `Your Business` had missed.
+#
+# `LEAK_RE` stays case-SENSITIVE, and each member has a measured reason:
+#   * `PLACEHOLDER` — `-i` matches the `placeholder=` attribute on every form
+#     input; 11 hits across the kit's Input/Select/FilterBar/DataTable alone.
+#   * the bracket classes — anchored on a capital so `[pathname]` and
+#     `[location.pathname]` (React hook dep arrays) are not hits; `-i` turned
+#     `[filename]`-shaped identifiers into leaks.
+#   * `\u` escapes are a literal byte sequence, not copy.
+LEAK_RE_I='lead drop|next move|guest path|lorem ipsum|your business|\btodo\b|\btbd\b'
+LEAK_RE='PLACEHOLDER|\\u[0-9a-fA-F]{4}|\[[A-Z][^],]{0,40}(Name|NAME|Business|Company|City|Address|Email|Phone|Date|Title|Here)\]|\[(Your|Insert|Enter|Add|TBD)[^],]{0,40}\]'
+docker compose exec -T api sh -c "cd /app/data/preview-apps/$ID && test -f src/data/mock.ts && echo READABLE" > "$OUT/leak-probe.txt" 2>/dev/null
+if ! grep -q READABLE "$OUT/leak-probe.txt" 2>/dev/null; then
+  echo "  NOT CHECKED — /app/data/preview-apps/$ID/src is not readable from the api service"
+else
+  docker compose exec -T api sh -c \
+    "cd /app/data/preview-apps/$ID && { grep -rnoE '$LEAK_RE' src; grep -rnoiE '$LEAK_RE_I' src; } 2>/dev/null | sort -u" \
+    > "$OUT/leaks.txt" 2>/dev/null
+  docker compose exec -T api sh -c \
+    "cd \"\${PREVIEW_TEMPLATE_DIR:-/app/backend/preview-template}\" && { grep -rnoE '$LEAK_RE' src; grep -rnoiE '$LEAK_RE_I' src; } 2>/dev/null | sort -u" \
+    > "$OUT/leaks-kit.txt" 2>/dev/null
+  GEN_N=$(awk '!/^src\/ui\//' "$OUT/leaks.txt" 2>/dev/null | wc -l | tr -d ' ')
+  KIT_N=$(awk '/^src\/ui\//' "$OUT/leaks.txt" 2>/dev/null | wc -l | tr -d ' ')
+  TPL_N=$(wc -l < "$OUT/leaks-kit.txt" 2>/dev/null | tr -d ' ')
+  echo "  generated pages + data : $GEN_N"
+  echo "  kit as shipped here    : $KIT_N   (src/ui in this workspace)"
+  echo "  kit at source          : $TPL_N   (template — every future request)"
+  if [ "$GEN_N" = "0" ] && [ "$KIT_N" = "0" ] && [ "$TPL_N" = "0" ]; then
+    echo "  CLEAN"
+  else
+    awk '{ print "  WORKSPACE  " $0 }' "$OUT/leaks.txt" 2>/dev/null | head -20
+    awk '{ print "  KIT        " $0 }' "$OUT/leaks-kit.txt" 2>/dev/null | head -20
+    echo "  (full lists: $OUT/leaks.txt, $OUT/leaks-kit.txt)"
+  fi
+fi
 
 echo
 echo "===== 6. SCAFFOLD BLOAT SHIPPED ====="
