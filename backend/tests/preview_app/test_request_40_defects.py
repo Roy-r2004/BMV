@@ -4050,3 +4050,251 @@ def test_the_kit_never_ships_copy_the_pipeline_has_banned() -> None:
     assert "eyebrow?: string" in band and "eyebrow =" in band, (
         "the eyebrow must be overridable, or the next business gets this one too"
     )
+
+
+# --------------------------------------------------------------------------- #
+# request 71: three defects that shipped under `status=ready`
+# --------------------------------------------------------------------------- #
+def _invoke_render_body() -> str:
+    """The body of `DataTable.invokeRender`, as shipped."""
+    table = (
+        Path(__file__).resolve().parents[2]
+        / "preview-template"
+        / "src"
+        / "ui"
+        / "ops"
+        / "DataTable.tsx"
+    ).read_text(encoding="utf-8")
+    assert "function invokeRender(" in table, "the dispatcher was renamed or removed"
+    after = table.split("function invokeRender(", 1)[1]
+    end = after.index("\n}\n") if "\n}\n" in after else len(after)
+    return after[:end]
+
+
+def test_a_table_cell_renderer_that_produces_nothing_is_not_treated_as_success() -> None:
+    """Request 71's `/owner/paintings` shipped five thumbnails with no `src`.
+
+    QA proved it by DOM inspection: all five images on the page reported
+    `src=null, alt=null, naturalWidth=0`.
+
+    `DataTable.tsx:56-67` dispatched on two weak signals — the renderer's arity,
+    and the *type of the cell value*. A one-parameter `render` whose cell value
+    was a non-object was called with the value. `OwnerPaintingsListPage.tsx:125`
+    wrote `render: (row) => <img src={row.image} />` on a column keyed `image`,
+    so the parameter the page named `row` arrived as the URL string, `row.image`
+    was `undefined`, and every thumbnail shipped with no source.
+    `OwnerDashboardPage.tsx:84,94` lost two more columns the same way.
+
+    Nothing threw, so the `try/catch` never fired — and the `?? cellContent(value)`
+    fallback could not fire either, because `<img src={undefined} />` is truthy
+    JSX. That second half is the defect worth naming: "returned truthy JSX" was
+    read as "rendered fine", which makes the whole class silent by construction.
+
+    Both halves are pinned, because fixing either alone leaves the class open.
+    """
+    body = _invoke_render_body()
+
+    # 1. The value-type dispatch is gone. Arity cannot tell `(row) => …` from
+    #    `(value) => …` — 53 of the 71 `render:` sites in the workspaces declare
+    #    one parameter and mean the row — and the *value's* type says nothing at
+    #    all about which one the author meant.
+    assert "typeof value !== 'object'" not in body, (
+        "the cell value's type is what picked the wrong argument on request 71"
+    )
+
+    # 2. The declared contract is tried first: `render?: (row, fullRow?)`.
+    one_param = body.split(": [", 1)[1].split("]", 1)[0]
+    assert one_param.index("fn(row)") < one_param.index("fn(value)"), (
+        f"the one-parameter call must offer the row before the value: {one_param}"
+    )
+    assert "cellContext(" in one_param, (
+        "`({ row }) => …` is 14 of 71 call sites and must be recoverable too"
+    )
+
+    # 3. THE FALLBACK CONDITION. Every value this function returns is either the
+    #    deterministic fallback or one the content check approved — there is no
+    #    third path, so a renderer's output can never again be shipped
+    #    unexamined. This is the closed property; `??` was not one.
+    assert "?? cellContent(value)" not in body, (
+        "`?? cellContent(value)` reads truthy JSX as success, which is how five "
+        "empty <img> elements passed for five thumbnails"
+    )
+    for expression in re.findall(r"return ([^;]+);", body):
+        expression = expression.strip()
+        if expression == "cellContent(value)":
+            continue
+        assert re.search(
+            rf"hasRenderableContent\([^)]*\)\)\s*return {re.escape(expression)};", body
+        ), f"`return {expression}` ships a renderer result the content check never saw"
+
+    # 4. What the content check is allowed to call content. An element with no
+    #    children is judged empty only on evidence: `<img>` with no `src` and
+    #    `<a>` with no `href` are visible defects, and a stringified object is
+    #    the signature of a value formatter handed the whole row. A custom
+    #    component is never judged — we cannot see inside it.
+    table = (
+        Path(__file__).resolve().parents[2]
+        / "preview-template"
+        / "src"
+        / "ui"
+        / "ops"
+        / "DataTable.tsx"
+    ).read_text(encoding="utf-8")
+    url_elements = table.split("URL_ELEMENTS: Record<string, string> = {", 1)[1].split("}", 1)[0]
+    assert "img: 'src'" in url_elements and "a: 'href'" in url_elements, url_elements
+    assert re.search(r"OBJECT_STRINGIFICATION\s*=\s*/\\\[object ", table), (
+        "`[object Object]` is how a value formatter fails on a row; it is not content"
+    )
+    predicate = table.split("function hasRenderableContent(", 1)[1].split("\n}\n", 1)[0]
+    assert "'children' in props" in predicate, (
+        "`<span>{undefined}</span>` — children supplied and empty — is the "
+        "dashboard's version of the same defect and must not read as content"
+    )
+    assert "typeof node.type === 'string'" in predicate, (
+        "only intrinsic elements may be judged empty; a custom component's "
+        "output is not visible from here"
+    )
+
+
+def test_the_seed_backfill_never_puts_a_caption_where_an_image_url_belongs() -> None:
+    """Request 71's `mock.ts:374` shipped a sentence as an image URL.
+
+    The seed guard wrote `images: { card1: "Card1 — Atelier Vaugirard" }`, and
+    `OwnerPaintingEditPage.tsx:20` read it as `imageUrl`. The page rendered the
+    broken-image glyph.
+
+    `_sub_value` already returned `""` for an image-ish leaf, but it matched on
+    the leaf alone. `card1` names nothing; `images` names everything; and the
+    terminal branch of `_default_for_path` passed the leaf twice, throwing away
+    the one segment of the path that knew what the value was for.
+
+    This is the rule commit 569ef40 was written to enforce — *a backfilled value
+    must be better than the absence it replaces*. `KitImage` degrades an empty
+    `src` to a brand-tinted placeholder. It cannot degrade a sentence.
+    """
+    from app.application.preview_app.safety.seed_keys import _default_for
+
+    brand = "Atelier Vaugirard"
+
+    # Request 71, as it was written: the container says image, the usage site
+    # says image, and only the leaf is uninformative.
+    request_71 = (
+        "import { seed } from '@/data/mock';\n"
+        "const mockPainting = { title: 'x', imageUrl: seed.images.card1 };\n"
+    )
+    assert _default_for("images", request_71, brand) == '{ card1: "" }', (
+        _default_for("images", request_71, brand)
+    )
+
+    # Each signal has to carry the classification on its own, because request 71
+    # is the easy case where two of them agree.
+    container_only = _default_for("images", "<p>{seed.images.card1}</p>", brand)
+    assert container_only == '{ card1: "" }', f"the container alone: {container_only}"
+    usage_only = _default_for("panel", "<KitImage src={seed.panel.slotA} />", brand)
+    assert usage_only == '{ slotA: "" }', f"the usage site alone: {usage_only}"
+    leaf_only = _default_for("row", "<img src={seed.row.thumbnailUrl} />", brand)
+    assert leaf_only == '{ thumbnailUrl: "" }', (
+        f"exact leaf matching missed every URL-suffixed name: {leaf_only}"
+    )
+
+    # The same leaf-only matching ran the other destructive classes. A sentence
+    # in an href is a dead link; a sentence in a stat tile is prose in a number.
+    assert _default_for("links", "<a href={seed.links.primary}>x</a>", brand) == '{ primary: "#" }'
+    assert _default_for("stats", "<b>{seed.stats.availableWorks}</b>", brand) == (
+        '{ availableWorks: "0" }'
+    )
+
+    # And the container must not swallow a leaf that already said it is prose,
+    # or the fix trades one wrong value for another.
+    caption = _default_for("images", "<h1>{seed.images.title}</h1>", brand)
+    assert brand in caption, f"a title inside `images` is still a caption: {caption}"
+
+    # Word matching, never substring: `logout` is not a logo.
+    assert _default_for("nav", "<a>{seed.nav.logout}</a>", brand) == f'{{ logout: "Logout — {brand}" }}'
+
+
+def test_the_leak_check_bills_a_kit_string_to_the_kit_not_to_the_request(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Section 5 of `preview-qa.sh` bucketed on `^src/ui/`, a hand copy of the
+    pipeline's ownership rule — and it had drifted.
+
+    The template also ships `src/pages/HomePage.tsx` and `src/pages/admin/**`
+    into every workspace. On request 71 that meant two kit strings in
+    `src/pages/admin/AdminDashboardPage.tsx` were reported as *"generated pages
+    + data"*: a fleet-wide template defect billed to one request, where a re-run
+    is the obvious next move and cannot possibly help.
+
+    The boundary is `is_template_owned_path` (`protected_paths.py:118`) — the
+    rule the pipeline itself applies when it snapshots and restores files around
+    every guard pass — called, not restated. The two trees do not agree, so the
+    unprotected-but-template-shipped files get their own bucket, decided by
+    reading the template's copy of the file rather than by guessing.
+
+    This runs the classifier the script actually embeds. Asserting on the
+    script's prose would be testing the intention.
+    """
+    import contextlib
+    import io
+
+    qa = Path(__file__).resolve().parents[3] / "scripts" / "preview-qa.sh"
+    source = qa.read_text(encoding="utf-8")
+
+    assert "awk '!/^src" not in source, (
+        "the hand-copied `^src/ui/` bucket is the drift this replaced"
+    )
+    embedded = re.search(r"api python -c '\n(.+?)\n' <", source, re.S)
+    assert embedded, "section 5 must classify its hits with an inline python block"
+    code = embedded.group(1)
+    assert "is_template_owned_path" in code and "protected_paths" in code, (
+        "the boundary must be the pipeline's own rule, not a second definition"
+    )
+    assert "OWNERSHIP NOT RESOLVED" in source, (
+        "a bucket that cannot run must not read like a bucket that found nothing"
+    )
+
+    # Constructed, never quoted: a banned phrase written literally in this file
+    # would make the check flag it forever, exactly as `CTABand.tsx` notes.
+    banned = "your " + "business"
+
+    template = tmp_path / "preview-template"
+    (template / "src" / "pages" / "admin").mkdir(parents=True)
+    (template / "src" / "ui" / "public").mkdir(parents=True)
+    (template / "src" / "pages" / "admin" / "AdminDashboardPage.tsx").write_text(
+        f"<p>Overview of {banned}</p>\n", encoding="utf-8"
+    )
+    (template / "src" / "ui" / "public" / "CTABand.tsx").write_text(
+        "const eyebrow = 'Next move';\n", encoding="utf-8"
+    )
+
+    hits = [
+        f"src/pages/admin/AdminDashboardPage.tsx:31:{banned}",
+        "src/ui/public/CTABand.tsx:40:Next move",
+        f"src/pages/owner/OwnerPaintingsListPage.tsx:9:{banned}",
+        "src/data/mock.ts:187:[Artist Name]",
+    ]
+    monkeypatch.setenv("PREVIEW_TEMPLATE_DIR", str(template))
+    monkeypatch.setattr(sys, "stdin", io.StringIO("\n".join(hits)))
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        exec(compile(code, str(qa), "exec"), {"__name__": "__main__"})
+
+    bucket = {}
+    for line in printed.getvalue().splitlines():
+        name, _, raw = line.partition("\t")
+        bucket[raw] = name
+
+    assert bucket[hits[0]] == "KIT-COPY", (
+        f"a verbatim template line in a template-shipped page is the kit's: {bucket}"
+    )
+    assert bucket[hits[1]] == "KIT-OWNED", (
+        f"`src/ui/**` is what the ownership rule protects: {bucket}"
+    )
+    # And the bucket has to stay useful in the other direction: a generated page
+    # and generated data are still this request's, or the fix just relabels
+    # everything as the kit's and the section stops saying anything.
+    assert bucket[hits[2]] == "REQUEST", bucket
+    assert bucket[hits[3]] == "REQUEST", bucket
+    capsys.readouterr()

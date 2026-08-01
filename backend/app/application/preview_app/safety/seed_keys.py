@@ -169,17 +169,164 @@ _HEADLINE_HINTS = ("heading", "headline", "title", "eyebrow", "kicker")
 _BODY_HINTS = ("description", "subcopy", "body", "detail", "summary", "copy", "blurb")
 
 
-def _sub_value(sub: str, key: str, brand: str) -> str:
+def _tokens(name: str) -> frozenset[str]:
+    """`imageUrl` → {image, url}; `card1` → {card1}. Words, never substrings.
+
+    Substring matching reads `logout` as a logo and `linkedin` as a link. Exact
+    matching — what this used to do — misses `imageUrl`, `heroImage`,
+    `thumbnailUrl` and `photoUrl`, every one of which is a URL.
+    """
+    spaced = re.sub(r"(?<!^)(?=[A-Z])", " ", name or "").replace("_", " ").replace("-", " ")
+    return frozenset(token.lower() for token in spaced.split() if token)
+
+
+#: The four classes whose wrong value is *destructive* rather than merely
+#: generic. A sentence in any of these slots is worse than no value at all: an
+#: `<img src>` shows the broken-image glyph, an `<a href>` goes nowhere, a detail
+#: route stops resolving, and a stat tile reads as prose.
+#:
+#: Only these are widened to word matching. `name`/`label` and the copy hints
+#: below stay exactly as they were — a merely generic string is not worth the
+#: blast radius of matching `className` as a name.
+_ID_WORDS = frozenset({"id", "slug", "key"})
+_IMAGE_WORDS = frozenset(
+    {
+        "image",
+        "imagesrc",
+        "imageurl",
+        "img",
+        "photo",
+        "src",
+        "avatar",
+        "logo",
+        "thumbnail",
+        "thumb",
+        "picture",
+        "headshot",
+        "poster",
+    }
+)
+_LINK_WORDS = frozenset({"href", "path", "url", "link", "to"})
+_NUMBER_WORDS = frozenset(
+    {"count", "total", "value", "amount", "price", "number", "qty", "quantity"}
+)
+
+#: The same four classes, said by the *container* instead of the leaf. Request
+#: 71's `images: { card1: … }` names nothing at the leaf and everything at the
+#: container, so leaf-only matching produced the caption
+#: `"Card1 — Atelier Vaugirard"` where `OwnerPaintingEditPage.tsx:20` reads an
+#: `imageUrl`. A container is only consulted when the leaf classifies as nothing,
+#: so `images.title` is still a heading and `images.alt` is still copy.
+_IMAGE_CONTAINERS = frozenset(
+    {
+        "images",
+        "imagery",
+        "imgs",
+        "photos",
+        "pictures",
+        "pics",
+        "thumbnails",
+        "thumbs",
+        "avatars",
+        "logos",
+        "media",
+        "headshots",
+        "screenshots",
+    }
+)
+_LINK_CONTAINERS = frozenset({"links", "urls", "hrefs", "routes", "social", "socials"})
+_NUMBER_CONTAINERS = frozenset(
+    {"counts", "totals", "metrics", "kpis", "stats", "numbers", "figures", "prices"}
+)
+
+#: `imageUrl: seed.images.card1`, `src={seed.images.card1}` — the identifier a
+#: value is assigned to, immediately before the read.
+_ASSIGNMENT_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*\{?\s*$")
+#: `style={{ backgroundImage: `url(${seed.images.card1})` }}`
+_CSS_URL_RE = re.compile(r"url\(\s*['\"]?\s*(?:\$\{)?\s*$")
+
+
+def _usage_class(path: str, sources: str) -> str:
+    """What the *pages* do with this value, which outranks both names.
+
+    A name is a guess about intent; the prop a value is handed to is the DOM's
+    own statement of its type. This is the signal that catches the case both
+    names miss — a leaf and a container that are each uninformative, read into
+    an `<img src>` two files away.
+    """
+    for match in re.finditer(_path_read_re(path), sources):
+        before = sources[max(0, match.start() - 80) : match.start()]
+        if _CSS_URL_RE.search(before):
+            return "image"
+        assigned = _ASSIGNMENT_RE.search(before)
+        if not assigned:
+            continue
+        words = _tokens(assigned.group(1))
+        if words & _IMAGE_WORDS:
+            return "image"
+        if words & _LINK_WORDS:
+            return "href"
+    return ""
+
+
+def _leaf_is_copy(sub: str) -> bool:
+    """True when the leaf's own name already says "this is prose"."""
     lowered = sub.lower()
-    if lowered in {"id", "slug", "key"}:
+    return (
+        lowered in {"name", "label", "text"}
+        or any(hint in lowered for hint in _HEADLINE_HINTS)
+        or any(hint in lowered for hint in _BODY_HINTS)
+    )
+
+
+def _value_class(sub: str, container: str, usage: str = "") -> str:
+    """`id` | `image` | `href` | `number`, or `""` — strongest signal first.
+
+    Usage site, then leaf, then container. `image` is tested before `href`
+    because `imageUrl` is both, and `"#"` in an `<img src>` is a broken image
+    while an image URL in an `<a href>` still navigates.
+    """
+    if usage:
+        return usage
+    words = _tokens(sub)
+    for name, vocabulary in (
+        ("id", _ID_WORDS),
+        ("image", _IMAGE_WORDS),
+        ("href", _LINK_WORDS),
+        ("number", _NUMBER_WORDS),
+    ):
+        if words & vocabulary:
+            return name
+    if _leaf_is_copy(sub):
+        # The leaf classified itself as prose, so the container has no gap to
+        # fill: `images.title` is a caption, not a second URL.
+        return ""
+    lowered_container = (container or "").lower()
+    for name, vocabulary in (
+        ("image", _IMAGE_CONTAINERS),
+        ("href", _LINK_CONTAINERS),
+        ("number", _NUMBER_CONTAINERS),
+    ):
+        if lowered_container in vocabulary:
+            return name
+    return ""
+
+
+def _sub_value(sub: str, container: str, brand: str, usage: str = "") -> str:
+    """Filler for one leaf. `container` is the key this leaf hangs off."""
+    value_class = _value_class(sub, container, usage)
+    if value_class == "id":
         # A detail route resolves by this. "Id — Brand" is not a URL segment.
         return "1"
-    if lowered in {"href", "path", "url", "link", "to"}:
-        return "#"
-    if lowered in {"image", "imagesrc", "img", "photo", "src", "avatar", "logo"}:
+    if value_class == "image":
+        # `KitImage` degrades an empty src to a brand-tinted placeholder. It
+        # cannot degrade a sentence — that renders the broken-image glyph.
         return ""
-    if lowered in {"count", "total", "value", "amount", "price", "number"}:
+    if value_class == "href":
+        return "#"
+    if value_class == "number":
         return "0"
+    lowered = sub.lower()
     if lowered in {"name", "label"}:
         return brand
     if any(hint in lowered for hint in _HEADLINE_HINTS):
@@ -261,13 +408,22 @@ def _default_for_path(path: str, sources: str, brand: str, depth: int = 1) -> st
         return f"{{ {inner} }}"
     if subs:
         inner = ", ".join(
-            f"{sub}: {json.dumps(_sub_value(sub, leaf, brand), ensure_ascii=False)}"
+            f"{sub}: "
+            f"{json.dumps(_sub_value(sub, leaf, brand, _usage_class(f'{path}.{sub}', sources)), ensure_ascii=False)}"
             for sub in subs
         )
         return f"{{ {inner} }}"
     # Route the terminal string through the same vocabulary: this value goes on the
     # page verbatim, so it has to read as copy rather than as the key's name.
-    return json.dumps(_sub_value(leaf, leaf, brand), ensure_ascii=False)
+    #
+    # The container comes from the path, not from the leaf. Passing `leaf` twice
+    # is what shipped request 71's `images: { card1: "Card1 — Atelier Vaugirard" }`:
+    # the one signal that said "URL" was the segment this branch threw away.
+    parts = path.split(".")
+    container = parts[-2] if len(parts) > 1 else leaf
+    return json.dumps(
+        _sub_value(leaf, container, brand, _usage_class(path, sources)), ensure_ascii=False
+    )
 
 
 def _default_for(key: str, sources: str, brand: str) -> str:

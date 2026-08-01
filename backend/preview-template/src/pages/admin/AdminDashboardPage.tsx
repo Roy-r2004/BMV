@@ -28,11 +28,13 @@ function statCards(source: unknown): StatCard[] {
 
 export default function AdminDashboardPage() {
   const cards = statCards(stats);
-  // "Overview of your business" shipped on every owner hub — generic template
-  // voice, and a hit for the harness's `your business` leak pattern once that
-  // went case-insensitive. Bind the brand instead of silencing the pattern:
-  // named is better copy than generic, and `brand` is read as defensively as
-  // `stats` above because `mock.ts` is generated and owns neither shape.
+  // This subtitle used to name the generic placeholder business instead of the
+  // real one — template voice on every owner hub, and a leak-check hit once the
+  // harness folded case. Bind the brand rather than silence the pattern: named
+  // is better copy than generic. Read defensively like `stats` above, because
+  // `mock.ts` is generated and owns neither shape.
+  // (The banned phrase is deliberately not repeated here — quoting it makes the
+  // leak check flag this file forever, exactly as CTABand.tsx notes.)
   const brandName = String((brand as { name?: unknown } | null)?.name ?? '').trim();
 
   return (

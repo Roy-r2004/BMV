@@ -102,18 +102,72 @@ else
   docker compose exec -T api sh -c \
     "cd \"\${PREVIEW_TEMPLATE_DIR:-/app/backend/preview-template}\" && { grep -rnoE '$LEAK_RE' src; grep -rnoiE '$LEAK_RE_I' src; } 2>/dev/null | sort -u" \
     > "$OUT/leaks-kit.txt" 2>/dev/null
-  GEN_N=$(awk '!/^src\/ui\//' "$OUT/leaks.txt" 2>/dev/null | wc -l | tr -d ' ')
-  KIT_N=$(awk '/^src\/ui\//' "$OUT/leaks.txt" 2>/dev/null | wc -l | tr -d ' ')
+  # OWNERSHIP. Which bucket a hit lands in decides who fixes it, and the
+  # boundary is not this script's opinion. `is_template_owned_path`
+  # (backend/app/application/preview_app/protected_paths.py) is the rule the
+  # pipeline itself applies — snapshot before the guards, restore after — so a
+  # hit under it survives every re-run and only a template commit clears it.
+  # This calls that function rather than restating it; `^src/ui/` was a hand
+  # copy and it had already drifted.
+  #
+  # Three buckets, because the ownership rule and the set of files the template
+  # ships do not agree. The template also puts `src/pages/HomePage.tsx` and
+  # `src/pages/admin/**` in every workspace, and the ownership rule covers
+  # neither — the pipeline may rewrite them and does not restore them. So a hit
+  # there is the kit's when the line is verbatim from the template and this
+  # request's when it is not, and the script decides that by reading the
+  # template's own copy of the file rather than by guessing. Request 71 billed
+  # two kit strings in `src/pages/admin/AdminDashboardPage.tsx` to the request.
+  docker compose exec -T api python -c '
+import os, sys
+from pathlib import Path
+from app.application.preview_app.protected_paths import is_template_owned_path
+
+template = Path(os.environ.get("PREVIEW_TEMPLATE_DIR", "/app/backend/preview-template"))
+architect = {"_catalogue_workspace": True}
+for raw in sys.stdin.read().splitlines():
+    if not raw.strip():
+        continue
+    fields = raw.split(":", 2)
+    path, hit = fields[0], (fields[2] if len(fields) > 2 else "")
+    if is_template_owned_path(path, architect):
+        bucket = "KIT-OWNED"
+    else:
+        try:
+            verbatim = bool(hit) and hit in (template / path).read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except OSError:
+            verbatim = False
+        bucket = "KIT-COPY" if verbatim else "REQUEST"
+    print(bucket + "\t" + raw)
+' < "$OUT/leaks.txt" > "$OUT/leaks-bucketed.txt" 2>"$OUT/leaks-bucketed.log"
+
   TPL_N=$(wc -l < "$OUT/leaks-kit.txt" 2>/dev/null | tr -d ' ')
-  echo "  generated pages + data : $GEN_N"
-  echo "  kit as shipped here    : $KIT_N   (src/ui in this workspace)"
-  echo "  kit at source          : $TPL_N   (template — every future request)"
-  if [ "$GEN_N" = "0" ] && [ "$KIT_N" = "0" ] && [ "$TPL_N" = "0" ]; then
-    echo "  CLEAN"
-  else
-    awk '{ print "  WORKSPACE  " $0 }' "$OUT/leaks.txt" 2>/dev/null | head -20
+  if [ -s "$OUT/leaks.txt" ] && [ ! -s "$OUT/leaks-bucketed.txt" ]; then
+    # A bucket that cannot run must not read like a bucket that found nothing.
+    echo "  OWNERSHIP NOT RESOLVED — protected_paths.py was not reachable from the api"
+    echo "  service, so no hit below is attributed. This is not a clean result."
+    awk '{ print "  UNATTRIBUTED  " $0 }' "$OUT/leaks.txt" | head -20
+    echo "  kit at source          : $TPL_N   (template — every future request)"
     awk '{ print "  KIT        " $0 }' "$OUT/leaks-kit.txt" 2>/dev/null | head -20
-    echo "  (full lists: $OUT/leaks.txt, $OUT/leaks-kit.txt)"
+    echo "  (why: $OUT/leaks-bucketed.log)"
+  else
+    GEN_N=$(grep -c '^REQUEST' "$OUT/leaks-bucketed.txt" 2>/dev/null | tr -d ' ')
+    OWN_N=$(grep -c '^KIT-OWNED' "$OUT/leaks-bucketed.txt" 2>/dev/null | tr -d ' ')
+    CPY_N=$(grep -c '^KIT-COPY' "$OUT/leaks-bucketed.txt" 2>/dev/null | tr -d ' ')
+    echo "  generated pages + data : ${GEN_N:-0}"
+    echo "  kit, ownership-protected: ${OWN_N:-0}   (is_template_owned_path — restored every run)"
+    echo "  kit, shipped unprotected: ${CPY_N:-0}   (template file, verbatim line, rewritable)"
+    echo "  kit at source          : ${TPL_N:-0}   (template — every future request)"
+    if [ "${GEN_N:-0}" = "0" ] && [ "${OWN_N:-0}" = "0" ] && [ "${CPY_N:-0}" = "0" ] \
+       && [ "${TPL_N:-0}" = "0" ]; then
+      echo "  CLEAN"
+    else
+      awk -F'\t' '{ printf "  %-10s %s\n", $1, $2 }' "$OUT/leaks-bucketed.txt" | head -20
+      awk '{ print "  KIT        " $0 }' "$OUT/leaks-kit.txt" 2>/dev/null | head -20
+      echo "  (full lists: $OUT/leaks-bucketed.txt, $OUT/leaks-kit.txt)"
+    fi
   fi
 fi
 

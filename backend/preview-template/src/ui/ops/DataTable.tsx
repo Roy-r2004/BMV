@@ -9,8 +9,11 @@ export interface DataTableColumn {
   accessor?: string;
   header: string;
   /**
-   * Preferred: `(row) => …`.
-   * Also tolerates mistaken `(value) => value.toFixed(2)` and `(value, row) => …`.
+   * The contract: `(row) => …`. The first parameter is the whole row.
+   *
+   * `invokeRender` below also recovers `({ row }) => …` and `(value) => …` by
+   * calling and checking the result, but this declaration is what the model is
+   * shown and what generated pages should write.
    *
    * Deliberately ONE signature. A union of two call shapes gives TypeScript no
    * contextual type to infer from, so every generated `render: (row) => …` became
@@ -44,30 +47,131 @@ function cellContent(value: unknown): React.ReactNode {
   return String(value);
 }
 
+/** `String(someRow)`. A renderer handed the wrong argument produces this. */
+const OBJECT_STRINGIFICATION = /\[object [A-Za-z]+\]/;
+
+/**
+ * Host elements whose entire content is a URL they were handed. A missing one
+ * is a visible defect — the broken-image glyph, or a link that goes nowhere —
+ * not a styling choice, so these are the only childless tags judged empty.
+ */
+const URL_ELEMENTS: Record<string, string> = {
+  a: 'href',
+  audio: 'src',
+  embed: 'src',
+  iframe: 'src',
+  img: 'src',
+  source: 'src',
+  track: 'src',
+  video: 'src',
+};
+
+/**
+ * Does this node put anything on the page?
+ *
+ * The reason request 71 shipped five `src=null, alt=null, naturalWidth=0`
+ * thumbnails is that `invokeRender` treated "the renderer returned truthy JSX"
+ * as "the renderer worked". `<img src={undefined} alt={undefined} />` is truthy
+ * JSX. So the wrong-argument branch below could never be reached by the `??`
+ * fallback, and the failure was silent by construction.
+ *
+ * Deliberately conservative in one direction: a *custom* component with no
+ * children is assumed to render something, because we cannot see inside it.
+ * Only intrinsic elements are judged, and only on evidence.
+ */
+function hasRenderableContent(node: React.ReactNode, depth = 0): boolean {
+  if (node == null || node === false || node === true || node === '') return false;
+  if (depth > 8) return true;
+  if (Array.isArray(node)) {
+    return node.some((child) => hasRenderableContent(child as React.ReactNode, depth + 1));
+  }
+  if (typeof node === 'string' || typeof node === 'number') {
+    const text = String(node).trim();
+    return text !== '' && !OBJECT_STRINGIFICATION.test(text);
+  }
+  if (React.isValidElement(node)) {
+    const props = (node.props ?? {}) as Record<string, unknown>;
+    // Children were supplied and every one of them is empty: the element is a
+    // wrapper around nothing, whatever its type.
+    if ('children' in props) {
+      return hasRenderableContent(props.children as React.ReactNode, depth + 1);
+    }
+    const urlProp = typeof node.type === 'string' ? URL_ELEMENTS[node.type] : undefined;
+    if (urlProp) return String(props[urlProp] ?? '').trim() !== '';
+    return true;
+  }
+  // A bare object where a node belongs is React #31 waiting to happen, and it is
+  // the signature of a value formatter that was handed the whole row.
+  return false;
+}
+
+/** The cell context TanStack hands its own `cell`, for `({ row }) => …`. */
+function cellContext(row: Record<string, unknown>, value: unknown) {
+  return { row, value, getValue: () => value };
+}
+
+/**
+ * Call a column's `render` with the argument it actually meant.
+ *
+ * **Arity is not the signal.** Every shape below declares one parameter, and
+ * they mean three different things. Measured over the 71 `render:` call sites in
+ * the generated workspaces under `/app/data/preview-apps`:
+ *
+ * | shape                              | sites | means      |
+ * |------------------------------------|------:|------------|
+ * | `(row) => …`, `(row: T) => …`      |    51 | the row    |
+ * | `({ painting, imageUrl }) => …`    |     2 | the row    |
+ * | `({ row }) => …`                   |    14 | a context  |
+ * | `(value: unknown) => …`            |     2 | the value  |
+ * | `() => …`                          |     2 | —          |
+ * | `(value, row) => …`                |     0 | —          |
+ *
+ * So the rule is: **try the declared contract first, then judge the result.**
+ * The row is first because the type declaration above says the first parameter
+ * is the row, that is what the model is shown, and it is 53 of 71 sites. The
+ * two-argument value-first shape the old comment claimed codegen emits does not
+ * appear in a single workspace; the declared `(row, fullRow?)` is honoured
+ * instead, and the legacy order is kept as a second attempt.
+ *
+ * What makes trying the row first *safe* rather than a coin flip is
+ * `hasRenderableContent`: the two ways a renderer fails on the wrong argument —
+ * reading fields off a primitive, and stringifying an object — both produce a
+ * result this can see. Request 71's `(row) => <img src={row.image} />` given the
+ * string produced an element with no `src`; `(value) => String(value)` given the
+ * row produces `[object Object]`. Neither reads as success any more.
+ */
 function invokeRender(
   render: DataTableColumn['render'],
   row: Record<string, unknown>,
   value: unknown
 ): React.ReactNode {
   if (!render) return cellContent(value);
-  try {
-    const fn = render as (...args: unknown[]) => React.ReactNode;
-    // `(value, row) => …` — e.g. action columns from codegen.
-    if (fn.length >= 2) {
-      return fn(value, row) ?? cellContent(value);
+  const fn = render as (...args: unknown[]) => React.ReactNode;
+  const attempts: Array<() => React.ReactNode> =
+    fn.length >= 2
+      ? [() => fn(row, row), () => fn(value, row)]
+      : [() => fn(row), () => fn(cellContext(row, value)), () => fn(value)];
+
+  let structureWithoutContent = false;
+  for (const attempt of attempts) {
+    let out: React.ReactNode;
+    try {
+      out = attempt();
+    } catch {
+      continue;
     }
-    // Prefer cell value for formatters like `(amount) => amount.toFixed(2)`.
-    if (value !== null && value !== undefined && typeof value !== 'object') {
-      try {
-        return fn(value) ?? cellContent(value);
-      } catch {
-        /* fall through to row API */
-      }
-    }
-    return fn(row) ?? cellContent(value);
-  } catch {
-    return cellContent(value);
+    if (hasRenderableContent(out)) return out;
+    // `=> null` is a deliberately empty cell and says nothing is wrong. An
+    // element that came back holding nothing is the defect worth reporting.
+    if (out != null && out !== false) structureWithoutContent = true;
   }
+  if (structureWithoutContent) {
+    console.warn(
+      '[DataTable] a column renderer returned an element with no content for every ' +
+        'call shape; showing the raw cell value instead.'
+    );
+  }
+  return cellContent(value);
 }
 
 export function DataTable({

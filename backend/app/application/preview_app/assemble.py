@@ -349,7 +349,19 @@ def _resolve_page(
 ) -> str | None:
     cf = (route.get("component_file") or "").replace("\\", "/")
     if cf and read_file(workspace, cf).strip():
-        return cf if cf not in used_files else None
+        # A *declared* component_file may serve more than one path. `/` and
+        # `/gallery` are one catalogue page under two names, and both are linked:
+        # request 71's architect declared both onto `GalleryHomePage.tsx`, `/`
+        # claimed the file first, and `/gallery` was dropped from App.tsx without
+        # a word. The primary nav item, the footer link and the "View collection"
+        # hero CTA then fell through `path="*"` to home on all eight public
+        # routes, and the journey sweep — which reads the *architect* table —
+        # saw `/gallery` declared and called every one of them alive.
+        #
+        # The `used_files` exclusion still applies to the ranked fallback below,
+        # which is a guess: two routes must not silently claim the same guessed
+        # page. An explicit declaration is not a guess.
+        return cf
 
     ranked = sorted(
         (( _score_page_for_route(rel, route), rel) for rel in catalog if rel not in used_files),
@@ -875,6 +887,7 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
     imports: dict[str, str] = {}
     used_files: set[str] = set()
     used_components: dict[str, str] = {}  # component -> path (detect duplicates)
+    component_files: dict[str, str] = {}  # component -> rel (alias vs collision)
 
     def _register(rel: str) -> str:
         stem = rel.split("/")[-1].rsplit(".", 1)[0]
@@ -893,7 +906,14 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
         if not rel:
             continue
         comp = _register(rel)
-        if comp in used_components and used_components[comp] != path:
+        # Rename only a genuine *collision* — two different files that reduce to
+        # one identifier. An alias route (same file, second path) keeps the same
+        # component, or App.tsx imports one module twice under two names.
+        if (
+            comp in used_components
+            and used_components[comp] != path
+            and component_files.get(comp) != rel
+        ):
             stem = rel.split("/")[-1].rsplit(".", 1)[0]
             role = str(rt.get("role_id") or "role")
             comp = _ident(f"{role}_{stem}")
@@ -901,6 +921,7 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
             imports[comp] = imp
         used_files.add(rel)
         used_components[comp] = path
+        component_files[comp] = rel
         resolved.append((path, comp, _layout_for(rt), rel, _route_owns_shell(rt)))
 
     if not resolved and catalog:

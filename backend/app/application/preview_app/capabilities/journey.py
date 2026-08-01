@@ -50,14 +50,36 @@ _PARAM_READ_RE = re.compile(r"\buseParams\s*[<(]")
 #: later, and a false withhold is worse than a late warning.
 _CONDITIONAL_ROUTES = frozenset({"/ai-features"})
 
-#: href values in emitted TSX: href="/x", href: "/x", href={`/x/${...}`}
-_HREF_LITERAL_RE = re.compile(r"""href\s*[:=]\s*\{?\s*["'`](?P<value>[^"'`]+)""")
+#: Link-bearing keys. `defaultPath` is a role's landing route — a dead one drops
+#: the visitor on the catch-all exactly like a dead nav item does.
+_LINK_KEYS = "href|defaultPath"
+#: href values in emitted TSX **and** in the JSON-shaped props the writers emit.
+#:
+#: The key may be quoted. Request 71's `InquiryConfirmationPage.tsx:24` carried
+#: `nextSteps={[{"title": …, "href": "/about"}, …]}` and `src/data/mock.ts` holds
+#: the whole nav, footer and hero CTA set as `"href": "/gallery"`. The old
+#: pattern required `href` to be followed directly by `:` or `=`, so a quoted key
+#: never matched and **every link the generator emits as data was invisible to
+#: the sweep** — including the primary nav item on all eight public routes.
+_HREF_LITERAL_RE = re.compile(
+    rf"""(?<![\w-])["']?(?:{_LINK_KEYS})["']?\s*[:=]\s*\{{?\s*["'`](?P<value>[^"'`]+)"""
+)
+#: Whole template-literal link: `` href={`/gallery/${id}`} ``.
+_TEMPLATE_HREF_RE = re.compile(
+    rf"""(?<![\w-])["']?(?:{_LINK_KEYS})["']?\s*[:=]\s*\{{?\s*`(?P<value>/[^`]*)`"""
+)
 #: Template-literal bases: `/gallery/${...}` → "/gallery"
 _TEMPLATE_BASE_RE = re.compile(r"[\"'`](?P<base>/[A-Za-z0-9\-_/]*?)/\$\{")
 #: `detailBase="/gallery"` — CatalogGrid turns this into one link per card.
 _DETAIL_BASE_RE = re.compile(
     r"""detailBase\s*=\s*\{?\s*["'`](?P<base>/[A-Za-z0-9\-_/]*)"""
 )
+#: Every `<Route path="…">` the shipped router declares.
+_ROUTE_PATH_RE = re.compile(r'<Route\s+path="([^"]+)"')
+#: Modules every page renders but no route names. `src/data/mock.ts` holds the
+#: nav, the footer, the role landing paths and the hero CTAs — read by the whole
+#: app, scanned by nothing, and the source of 11 of request 71's 13 dead hrefs.
+_SHARED_LINK_SOURCES = ("src/data/mock.ts",)
 
 
 @dataclass(frozen=True)
@@ -90,6 +112,12 @@ class HopFinding:
     component_file: str = ""
     #: Reported but never blocking, whatever the surface.
     advisory: bool = False
+    #: The dead href this finding is about, when it is a link finding.
+    href: str = ""
+    #: How many times it appears in this file. A repair that rewrites two of
+    #: three occurrences must not be able to present itself as a fix: the
+    #: re-walk reports the survivor with a smaller count, never nothing.
+    occurrences: int = 1
 
     @property
     def public(self) -> bool:
@@ -121,6 +149,8 @@ class JourneyReport:
         component_file: str = "",
         path: str = "",
         advisory: bool = False,
+        href: str = "",
+        occurrences: int = 1,
     ) -> None:
         self.findings.append(
             HopFinding(
@@ -131,6 +161,8 @@ class JourneyReport:
                 surface=surface,
                 component_file=component_file,
                 advisory=advisory,
+                href=href,
+                occurrences=occurrences,
             )
         )
 
@@ -160,9 +192,18 @@ class JourneyReport:
                     "path": f.path,
                     "surface": f.surface,
                     "message": f.message,
+                    **({"href": f.href} if f.href else {}),
+                    **({"file": f.component_file} if f.component_file else {}),
+                    **({"occurrences": f.occurrences} if f.occurrences != 1 else {}),
                 }
                 for f in self.findings
             ],
+            # Every occurrence, not every finding. Request 71 reported 2 and
+            # shipped 13; a count that only ever equals the finding count cannot
+            # tell those apart.
+            "dead_link_occurrences": sum(
+                f.occurrences for f in self.findings if f.href
+            ),
         }
 
 
@@ -232,6 +273,38 @@ def _norm(path: str) -> str:
 
 def declared_route_paths(architect: Mapping[str, Any]) -> set[str]:
     return {_norm(str(r.get("path") or "")) for r in _routes(architect)}
+
+
+def rendered_route_paths(workspace: Path) -> set[str]:
+    """Paths the shipped router actually serves, read from `src/App.tsx`.
+
+    The catch-all is excluded on purpose: `<Route path="*">` serves every URL by
+    redirecting home, which is precisely how a dead link disguises itself.
+    """
+    source = _read(workspace, "src/App.tsx")
+    return {
+        _norm(p) for p in _ROUTE_PATH_RE.findall(source) if p and "*" not in p
+    }
+
+
+def served_route_paths(
+    workspace: Path, architect: Mapping[str, Any]
+) -> set[str]:
+    """The route table a *visitor* meets — not the one the planner declared.
+
+    These two diverge silently. Request 71's architect declared `/gallery` onto
+    `GalleryHomePage.tsx`, `/` had already claimed that file, and
+    `assemble._resolve_page` dropped the route without a word. `App.tsx` shipped
+    13 routes; the sweep compared every href against the architect's 14, found
+    `/gallery` among them, and passed the primary nav item, the footer link and
+    the "View collection" hero CTA on all eight public routes.
+
+    Falls back to the architect when there is no router on disk yet — the same
+    fail-open `_route_table_is_stale` takes, because a walk that runs before
+    assembly must not invent 13 blockers.
+    """
+    rendered = rendered_route_paths(workspace)
+    return rendered or declared_route_paths(architect)
 
 
 def _route_matches(path: str, declared: Iterable[str]) -> bool:
@@ -318,6 +391,37 @@ def internal_href_prefixes(source: str) -> list[str]:
     return [match.group("base") for match in _TEMPLATE_BASE_RE.finditer(source or "")]
 
 
+#: One interpolated segment, normalised to a route param so a template link can
+#: be matched against the route table by the same rule as a literal one.
+_INTERPOLATION_RE = re.compile(r"\$\{[^}]*\}")
+
+
+def internal_href_templates(source: str) -> list[str]:
+    """Template-literal links resolved to the *path shape* they produce.
+
+    `` href={`/gallery/${item.id}`} `` -> `/gallery/:_`, which `_route_matches`
+    then answers against the real table.
+
+    This is strictly better than testing the bare base with `_prefix_is_served`.
+    `` `/owner/paintings/${painting.id}` `` has a base of `/owner/paintings`, and
+    `/owner/paintings/add` hangs under it, so the base test said "served" — while
+    the link resolves to `/owner/paintings/painting-1`, which no route matches.
+    Request 71 shipped exactly that. The shape test keeps request 44's fix
+    intact: `` `/artwork/${id}` `` becomes `/artwork/:_` and a declared
+    `/artwork/:id` still serves it.
+    """
+    out: list[str] = []
+    for match in _TEMPLATE_HREF_RE.finditer(source or ""):
+        raw = match.group("value").split("#", 1)[0].split("?", 1)[0]
+        if "${" not in raw:
+            continue  # a plain literal in backticks — `internal_hrefs` has it
+        segments = [
+            ":_" if "${" in seg else seg for seg in raw.strip("/").split("/")
+        ]
+        out.append(_norm("/".join(segments)))
+    return out
+
+
 def _prefix_is_served(prefix: str, declared: Iterable[str]) -> bool:
     """True when some declared route hangs under `prefix`.
 
@@ -398,7 +502,24 @@ def _best_declared_target(href: str, declared: set[str]) -> str:
     same_leaf = _first(lambda p: p.strip("/").split("/")[-1].lower() == leaf)
     if same_leaf:
         return same_leaf
+    # `/about` when the route is `/about-artist`. Request 71's hero CTA "About
+    # the Artist" pointed at `/about`; the *model* repaired it to `/about-artist`
+    # on one page and the other two occurrences shipped. A rename this obvious
+    # should never need a model call, and a blocker the deterministic repair
+    # cannot clear is a withheld preview.
+    if leaf:
+        kin = _first(
+            lambda p: p.strip("/").split("/")[-1].lower().startswith(f"{leaf}-")
+        )
+        if kin:
+            return kin
     if leaf in _BROWSE_SYNONYMS:
+        browse = _first(lambda p: bool(_LISTING_PATH_RE.match(p + "/")))
+        if browse:
+            return browse
+    # `/paintings/return-to-previous` — a listing namespace with an invented
+    # leaf under it. The listing itself is the honest destination.
+    if head in _BROWSE_SYNONYMS and len(segments) > 1:
         browse = _first(lambda p: bool(_LISTING_PATH_RE.match(p + "/")))
         if browse:
             return browse
@@ -456,15 +577,14 @@ def repair_dead_internal_links(
     primary CTA is worth failing the gate over only because this can fix it
     without a model call. Links with no plausible target are left for the AI
     repair pass rather than guessed at.
+
+    Reads the same table the sweep blocks on — the routes `App.tsx` actually
+    serves. Repairing against a *different* table than the one that blocks is a
+    livelock: the gate fails on a link the repair believes is fine.
     """
-    declared = declared_route_paths(architect)
+    declared = served_route_paths(workspace, architect)
     healed: list[str] = []
-    for route in _routes(architect):
-        if _surface(route) != "public":
-            continue
-        rel = str(route.get("component_file") or "").replace("\\", "/")
-        if not rel:
-            continue
+    for rel in _link_bearing_files(workspace, architect, public_only=True):
         src = _read(workspace, rel)
         if not src:
             continue
@@ -478,9 +598,10 @@ def repair_dead_internal_links(
             for quote in ('"', "'", "`"):
                 updated = updated.replace(f"{quote}{href}{quote}", f"{quote}{replacement}{quote}")
         # A template base is repaired in place: `` `/artwork/${id}` `` -> `` `/gallery/${id}` ``.
-        for prefix in sorted(set(internal_href_prefixes(src)), key=len, reverse=True):
-            if _prefix_is_served(prefix, declared):
+        for shape in sorted(set(internal_href_templates(src)), key=len, reverse=True):
+            if _route_matches(shape, declared):
                 continue
+            prefix = shape.split("/:_", 1)[0] or "/"
             replacement = _best_declared_target(prefix, declared)
             if not replacement or replacement in ("#", _norm(prefix)):
                 continue
@@ -494,7 +615,17 @@ def repair_dead_internal_links(
         # declared and renders fine; it is the wrong destination, not a missing
         # one. Only repointed when there is somewhere real to go — an invented
         # target is the guess this repair exists to avoid.
-        confirm_hrefs = [h for h in set(internal_hrefs(updated)) if _is_confirmation_path(h)]
+        #
+        # Scoped to page source on purpose. `src/data/mock.ts` carries a nav item
+        # whose *label* is "Inquiry Confirm" and whose href correctly points at
+        # `/inquiry-confirm`; repointing that at `/contact` mints a duplicate nav
+        # entry and loses a declared page. The wrong-destination rule is about a
+        # CTA's promise, and only a page makes one.
+        confirm_hrefs = (
+            [h for h in set(internal_hrefs(updated)) if _is_confirmation_path(h)]
+            if rel not in _SHARED_LINK_SOURCES
+            else []
+        )
         if confirm_hrefs:
             target = _contact_target(declared, updated)
             if target:
@@ -534,7 +665,17 @@ def walk_journey(
         (c for c in caps if c.id == journey.terminal_capability),
         None,
     )
-    declared = declared_route_paths(architect)
+    # Every check below answers against the table `App.tsx` serves, not the one
+    # the architect declared. See `served_route_paths`.
+    declared = served_route_paths(workspace, architect)
+
+    # One dead-link pass over the whole app, keyed on the file. Two hops sharing
+    # a component used to run the check twice and report the same href twice:
+    # request 71's "2 findings" were **one** dead `/about` in **one** file,
+    # counted once for the detail hop and once for the inquire hop, both landing
+    # on `ArtworkDetailPage.tsx`.
+    dead_by_file = _collect_dead_links(workspace, architect, declared)
+    reported_files: set[str] = set()
 
     for hop in journey.hops:
         want_param = _is_param_path(hop.path_hint)
@@ -571,23 +712,70 @@ def walk_journey(
         elif hop.kind == "terminal":
             _check_terminal(report, hop, src, path, surface, rel, terminal)
 
-        _check_dead_links(report, hop, src, path, surface, rel, declared)
+        links = dead_by_file.get(rel, ())
+        if rel not in reported_files:
+            reported_files.add(rel)
+            _emit_dead_links(report, hop, "journey_dead_link", links, path, rel)
 
-        if len(report.blocking) == before:
+        # A second hop on the same page does not re-report the link, but it is
+        # not `ok` either — the page it sits on has a blocking dead link.
+        if len(report.blocking) == before and not any(
+            link.blocking for link in links
+        ):
             report.hops_ok.append(hop.id)
 
-    _sweep_non_hop_links(report, workspace, architect, journey, declared)
+    _sweep_non_hop_links(report, dead_by_file, reported_files)
     return report
 
 
-def _sweep_non_hop_links(
-    report: JourneyReport,
+@dataclass(frozen=True)
+class DeadLink:
+    """One dead href, in one file, with every occurrence of it in that file."""
+
+    file: str
+    href: str
+    occurrences: int
+    surface: str
+    route_path: str
+    advisory: bool
+
+    @property
+    def blocking(self) -> bool:
+        return self.surface != "ops" and not self.advisory
+
+
+def _link_bearing_files(
     workspace: Path,
     architect: Mapping[str, Any],
-    journey: Journey,
+    *,
+    public_only: bool = False,
+) -> list[str]:
+    """Every file that can put a link on a page, in a stable order.
+
+    Route components **and** the shared modules every page renders. The nav item,
+    the footer and the hero CTA are not written into any page's source — they are
+    entries in `src/data/mock.ts`, which no route names and the sweep therefore
+    never opened. That is where 11 of request 71's 13 dead hrefs lived.
+    """
+    files: list[str] = []
+    for route in _routes(architect):
+        if public_only and _surface(route) != "public":
+            continue
+        rel = str(route.get("component_file") or "").replace("\\", "/")
+        if rel and rel not in files:
+            files.append(rel)
+    for rel in _SHARED_LINK_SOURCES:
+        if rel not in files and _read(workspace, rel):
+            files.append(rel)
+    return files
+
+
+def _collect_dead_links(
+    workspace: Path,
+    architect: Mapping[str, Any],
     declared: set[str],
-) -> None:
-    """Dead-link sweep over every page the journey does not walk.
+) -> dict[str, tuple[DeadLink, ...]]:
+    """Every dead internal href in the app, grouped by the file that carries it.
 
     Blocking follows *surface*, not hop membership. Ops pages stay advisory: a
     dead link on an owner-only page is a real defect, but withholding a correct
@@ -599,35 +787,108 @@ def _sweep_non_hop_links(
     to the page they were on. That was reported as a warning purely because
     HomePage is not the designated browse hop, and the preview shipped `ready`.
     """
-    walked = set()
-    for hop in journey.hops:
-        route = _find_route(architect, hop, want_param=_is_param_path(hop.path_hint))
-        if route is not None:
-            walked.add(str(route.get("component_file") or "").replace("\\", "/"))
-    swept = JourneyHop("other-pages", "sweep", "", "Other pages")
+    surfaces: dict[str, str] = {}
+    route_paths: dict[str, str] = {}
     for route in _routes(architect):
         rel = str(route.get("component_file") or "").replace("\\", "/")
-        if not rel or rel in walked:
+        if not rel:
             continue
+        # A file reachable from a public route is public, whichever route the
+        # sweep happens to reach it through first.
+        if _surface(route) == "public" or rel not in surfaces:
+            surfaces.setdefault(rel, _surface(route))
+            if _surface(route) == "public":
+                surfaces[rel] = "public"
+        route_paths.setdefault(rel, _norm(str(route.get("path") or "")))
+
+    out: dict[str, tuple[DeadLink, ...]] = {}
+    for rel in _link_bearing_files(workspace, architect):
         src = _read(workspace, rel)
         if not src:
             continue
-        surface = _surface(route)
-        dead = [h for h in sorted(set(internal_hrefs(src))) if not _route_matches(h, declared)]
-        dead += [
-            p for p in sorted(set(internal_href_prefixes(src)))
-            if not _prefix_is_served(p, declared)
-        ]
-        for href in dead:
-            report.add(
-                "journey_dead_link_offpath",
-                f"{rel} links to {href}, which no declared route serves",
-                swept,
-                surface=surface,
-                component_file=rel,
-                path=_norm(str(route.get("path") or "")),
-                advisory=surface != "public",
+        counts: dict[str, int] = {}
+        for href in internal_hrefs(src):
+            if _route_matches(href, declared):
+                continue
+            counts[_norm(href)] = counts.get(_norm(href), 0) + 1
+        for shape in internal_href_templates(src):
+            if _route_matches(shape, declared):
+                continue
+            counts[shape] = counts.get(shape, 0) + 1
+        if not counts:
+            continue
+        # A shared data module has no surface of its own; its nav renders on
+        # every public page, so an ops-prefixed entry is advisory and everything
+        # else blocks.
+        surface = surfaces.get(rel, "public")
+        found: list[DeadLink] = []
+        for href, count in sorted(counts.items()):
+            advisory = _norm(href) in _CONDITIONAL_ROUTES
+            link_surface = surface
+            if rel in _SHARED_LINK_SOURCES:
+                link_surface = (
+                    "ops"
+                    if href.startswith(tuple(f"{p}/" for p in _OPS_SURFACE_PREFIXES))
+                    or href in _OPS_SURFACE_PREFIXES
+                    else "public"
+                )
+            found.append(
+                DeadLink(
+                    file=rel,
+                    href=href,
+                    occurrences=count,
+                    surface=link_surface,
+                    route_path=route_paths.get(rel, ""),
+                    advisory=advisory,
+                )
             )
+        out[rel] = tuple(found)
+    return out
+
+
+def _emit_dead_links(
+    report: JourneyReport,
+    hop: JourneyHop,
+    code: str,
+    links: Iterable[DeadLink],
+    path: str,
+    rel: str,
+) -> None:
+    for link in links:
+        where = f" ({link.occurrences} occurrences)" if link.occurrences > 1 else ""
+        report.add(
+            code,
+            f"{hop.label}: {rel} links to {link.href}{where}, "
+            "which no route in App.tsx serves",
+            hop,
+            surface=link.surface,
+            component_file=rel,
+            path=path or link.route_path,
+            advisory=link.advisory,
+            href=link.href,
+            occurrences=link.occurrences,
+        )
+
+
+def _sweep_non_hop_links(
+    report: JourneyReport,
+    dead_by_file: Mapping[str, tuple[DeadLink, ...]],
+    reported_files: set[str],
+) -> None:
+    """Report the dead links on every file the hop walk did not already cover."""
+    swept = JourneyHop("other-pages", "sweep", "", "Other pages")
+    for rel, links in sorted(dead_by_file.items()):
+        if rel in reported_files:
+            continue
+        reported_files.add(rel)
+        _emit_dead_links(
+            report,
+            swept,
+            "journey_dead_link_offpath",
+            links,
+            links[0].route_path if links else "",
+            rel,
+        )
 
 
 def _check_browse(
@@ -763,34 +1024,6 @@ def _check_terminal(
             surface=surface,
             component_file=rel,
             path=path,
-        )
-
-
-def _check_dead_links(
-    report: JourneyReport,
-    hop: JourneyHop,
-    src: str,
-    path: str,
-    surface: str,
-    rel: str,
-    declared: set[str],
-) -> None:
-    """Generalises `dead_ai_step_link` to every in-app href on a journey page."""
-    dead = [h for h in sorted(set(internal_hrefs(src))) if not _route_matches(h, declared)]
-    dead += [
-        p for p in sorted(set(internal_href_prefixes(src)))
-        if not _prefix_is_served(p, declared)
-    ]
-    for href in dead:
-        conditional = _norm(href) in _CONDITIONAL_ROUTES
-        report.add(
-            "journey_dead_link",
-            f"{hop.label}: links to {href}, which no declared route serves",
-            hop,
-            surface=surface,
-            component_file=rel,
-            path=path,
-            advisory=conditional,
         )
 
 
