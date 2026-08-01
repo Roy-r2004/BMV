@@ -35,6 +35,15 @@ _DEAD_AI_STEP = re.compile(
     re.I,
 )
 _LISTING_HINTS = ("class", "classes", "service", "services", "schedule", "workshop", "session")
+#: `[Artist Name]`, `[Painter's Name]`, `[Owner Name]` — an authoring
+#: placeholder nobody filled in, shipped as visible copy.
+#:
+#: Anchored on a capital and comma-free so JS destructuring is not a hit:
+#: `const [name, setName] = useState()` and `[location.pathname]` dependency
+#: arrays both survive it. Same pattern the QA harness settled on after
+#: measuring four false positives from the naive version.
+_BRACKETED_PLACEHOLDER_RE = re.compile(r"\[[A-Z][^,\[\]\n]{2,40}\]")
+
 _EMPTY_IMAGES_EXPORT_RE = re.compile(
     r"export\s+const\s+images\s*=\s*(?:\[\s*\]|\{\s*\})\s*;"
 )
@@ -232,6 +241,27 @@ def evaluate_quality_gate(
                 f"Public nav too cluttered ({len(paths)} items, {len(deep)} deep)",
                 "src/data/mock.ts",
             )
+
+    # An unfilled authoring placeholder shipped as visible copy. Request 71 put
+    # `[Artist Name]` in the `<h1>` of `/about-artist`; request 68 shipped
+    # `[Painter's Name]` twice and `[Owner Name]` once, in `mock.ts`.
+    #
+    # This is deterministic on purpose. The visual critic *would* have caught
+    # request 71's — it caught the identical defect on 68 — but the 6-page cap
+    # skipped `/about-artist`, and which pages the cap skips is effectively
+    # arbitrary. A text pattern in seed data needs no vision call at all, so the
+    # critic's coverage stops being load-bearing for this class.
+    #
+    # Deliberately narrow: `[A-Z]` start and no comma, so JS destructuring
+    # (`const [name, setName] = useState()`, `[location.pathname]` dep arrays)
+    # is not a hit. Measured against five workspaces and the kit: zero false
+    # positives, three true positives on request 68.
+    for leaked in dict.fromkeys(_BRACKETED_PLACEHOLDER_RE.findall(mock)):
+        report.fail(
+            "placeholder_content_shipped",
+            f"mock.ts ships the unfilled placeholder {leaked} as content",
+            "src/data/mock.ts",
+        )
 
     # `images` is a slot map consumed as images.hero/.card1 — an empty literal of
     # either shape yields undefined src attributes, so it needs its own code and

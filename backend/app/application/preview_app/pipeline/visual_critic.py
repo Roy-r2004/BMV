@@ -393,7 +393,15 @@ def _select_visual_critique_routes(architect: dict, limit: int | None = None) ->
                 None,
             )
         )
-    for surface in sorted({_route_surface(rt) for rt in routes}):
+    # Surface order is by consequence, not alphabet. `sorted()` put `member` and
+    # `ops` ahead of `public` — a 6-page cap therefore spent two of its slots on
+    # internal surfaces before the storefront had more than its homepage, which
+    # is how request 71's `/gallery` went unjudged while `/owner/*` did not.
+    # Ops coverage still matters (request 36's broken imagery lived there), so
+    # this reorders rather than drops it.
+    _SURFACE_PRIORITY = {"public": 0, "customer": 1, "member": 2, "auth": 3, "ops": 4, "admin": 5}
+    present = {_route_surface(rt) for rt in routes}
+    for surface in sorted(present, key=lambda s: (_SURFACE_PRIORITY.get(s, 9), s)):
         _add(next((rt for rt in routes if _route_surface(rt) == surface), None))
     for role in architect.get("roles") or []:
         _add(by_path.get(role.get("defaultPath")))
@@ -409,11 +417,15 @@ def _select_visual_critique_routes(architect: dict, limit: int | None = None) ->
         # Not a blocking state — `review_status` stays honest about the pages it
         # *chose*. But a run that says `reviewed` while N routes were never
         # captured should say so somewhere a person reads.
-        log.info(
-            "    visual critic: %d route(s) past the %d-page cap, not judged: %s",
+        # `warning`, and the *whole* list. This was `info` with the first eight,
+        # which is how three consecutive runs each left 8 routes unlooked-at
+        # while reporting `reviewed`. The cap is a real budget, but which pages
+        # it drops has to be legible or it silently decides what is findable.
+        log.warning(
+            "    visual critic: %d route(s) past the %d-page cap, NOT judged: %s",
             len(dropped),
             cap,
-            ", ".join(dropped[:8]),
+            ", ".join(dropped),
         )
 
     return selected[:cap]

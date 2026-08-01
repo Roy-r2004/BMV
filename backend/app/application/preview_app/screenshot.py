@@ -9,6 +9,7 @@ waits for both conditions before capturing.
 from __future__ import annotations
 
 import threading
+import time
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -155,11 +156,15 @@ def _capture_one(browser, base_url: str, route_path: str, out_path: Path,
             viewport=viewport or {"width": 1280, "height": 900},
             reduced_motion="reduce",
         )
-        page.goto(full_url, wait_until="networkidle", timeout=timeout_ms)
-        # SPA-specific: wait for React to actually mount content into
-        # #root, not just for the network to go quiet — index.html +
-        # the JS bundle can finish "loading" well before anything is
-        # painted.
+        # `domcontentloaded`, not `networkidle`. Every public page carries
+        # remote Pexels `<img>` tags, so `networkidle` made an image CDN a
+        # latency dependency of our own screenshot pass — and it waits for
+        # something we do not actually need. The condition that matters for an
+        # SPA is the next line: React has mounted content into #root. The
+        # network going quiet was never evidence of that (index.html and the
+        # bundle finish "loading" well before anything is painted), which is
+        # why both waits were already here.
+        page.goto(full_url, wait_until="domcontentloaded", timeout=timeout_ms)
         page.wait_for_function(_ROOT_HAS_CHILDREN_JS, timeout=timeout_ms)
         # One extra tick for any post-mount effects (data seeding,
         # image decode) to settle before the shot.
@@ -213,12 +218,24 @@ def _navigable_route(path: str) -> str:
     return _ROUTE_PARAM_RE.sub(f"/{_ROUTE_PARAM_SPECIMEN}", str(path or ""))
 
 
+#: Wall clock for one whole capture session, across every route.
+#:
+#: Capture is not an "ask", so the per-ask ceiling never saw it. The two waits
+#: in `_capture_one` each take `timeout_ms`, so a single route could burn
+#: 2 x 20 s, and twelve routes serially behind `_SESSION_LOCK` is 480 s — most
+#: of a 540 s request. This bounds the session; a route that does not fit comes
+#: back `ok=False`, which the callers already treat as `unmeasured` rather than
+#: as a pass.
+_SESSION_BUDGET_SECONDS = 90.0
+
+
 def capture_routes_visual(
     base_url: str,
     routes: list[tuple[str, Path]],
     *,
-    timeout_ms: int = 20000,
+    timeout_ms: int = 8000,
     viewport: dict | None = None,
+    session_budget_seconds: float = _SESSION_BUDGET_SECONDS,
 ) -> list[RouteCapture]:
     """Screenshot several routes in ONE browser session, serially.
 
@@ -229,6 +246,10 @@ def capture_routes_visual(
     Serial by construction: see `_SESSION_LOCK`. Reusing one browser also drops
     five browser launches from a six-route run, which is most of what the
     parallel version was buying.
+
+    `timeout_ms` is 8 s rather than 20 s because the wait is now
+    `domcontentloaded` plus "React mounted into #root", neither of which
+    depends on a remote image CDN finishing.
     """
     routes = [(_navigable_route(str(rt)), Path(out)) for rt, out in routes]
     if not routes:
@@ -244,14 +265,36 @@ def capture_routes_visual(
         try:
             with sync_playwright() as p:
                 browser = _launch_chromium(p)
+                session_started = time.monotonic()
                 try:
-                    return [
-                        _capture_one(
-                            browser, base_url, route_path, out_path,
-                            timeout_ms=timeout_ms, viewport=viewport,
+                    captures: list[RouteCapture] = []
+                    for index, (route_path, out_path) in enumerate(routes):
+                        spent = time.monotonic() - session_started
+                        if spent >= session_budget_seconds:
+                            remaining = routes[index:]
+                            log.error(
+                                "screenshot session budget of %.0fs spent after %s of %s "
+                                "route(s) — %s unmeasured: %s",
+                                session_budget_seconds,
+                                index,
+                                len(routes),
+                                len(remaining),
+                                ", ".join(str(rt) for rt, _ in remaining[:8]),
+                            )
+                            from app.application.services.request_deadline import (
+                                record_degradation,
+                            )
+
+                            record_degradation("screenshot", "session_budget_exhausted")
+                            captures.extend(RouteCapture(ok=False) for _ in remaining)
+                            break
+                        captures.append(
+                            _capture_one(
+                                browser, base_url, route_path, out_path,
+                                timeout_ms=timeout_ms, viewport=viewport,
+                            )
                         )
-                        for route_path, out_path in routes
-                    ]
+                    return captures
                 finally:
                     browser.close()
         except Exception as e:

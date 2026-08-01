@@ -4298,3 +4298,114 @@ def test_the_leak_check_bills_a_kit_string_to_the_kit_not_to_the_request(
     assert bucket[hits[2]] == "REQUEST", bucket
     assert bucket[hits[3]] == "REQUEST", bucket
     capsys.readouterr()
+
+
+def test_a_slow_capture_session_stops_instead_of_eating_the_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Capture is not an "ask", so the per-ask ceiling never bounded it.
+
+    `_capture_one` spends `timeout_ms` twice — once on `goto`, once waiting for
+    React to mount — so one route could take 2 x 20 s, and twelve routes
+    serially behind `_SESSION_LOCK` is 480 s of a 540 s request. Request 71
+    declared 14 routes.
+
+    A route that does not fit the session budget must come back `ok=False`,
+    which callers already read as `unmeasured` rather than as a pass. Losing
+    the measurement is survivable; losing the request is not.
+    """
+    browser = _Browser()
+    clock = {"now": 0.0}
+
+    def _new_page(**_kwargs):
+        page = _Page()
+        original_goto = page.goto
+
+        def _slow_goto(url, **kw):
+            clock["now"] += 40.0  # a route that spends both of its timeouts
+            return original_goto(url, **kw)
+
+        page.goto = _slow_goto  # type: ignore[method-assign]
+        browser.pages.append(page)
+        return page
+
+    browser.new_page = _new_page  # type: ignore[method-assign]
+
+    class _Ctx:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, *_a):
+            return False
+
+    monkeypatch.setattr(shot, "_launch_chromium", lambda _p: browser)
+    monkeypatch.setattr(shot.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setitem(
+        sys.modules,
+        "playwright.sync_api",
+        type("_M", (), {"sync_playwright": staticmethod(lambda: _Ctx())}),
+    )
+
+    routes = [(f"/page-{i}", tmp_path / f"budget_{i}.png") for i in range(12)]
+    captures = shot.capture_routes_visual(
+        "http://api/api/preview-apps/71", routes, session_budget_seconds=90.0
+    )
+
+    assert len(captures) == len(routes), "every route must get a verdict, in order"
+    captured = [c for c in captures if c.ok]
+    assert 0 < len(captured) < len(routes), (
+        f"the budget bounded nothing: {len(captured)} of {len(routes)} captured"
+    )
+    assert all(not c.ok for c in captures[len(captured):]), (
+        "routes past the budget must report unmeasured, not silently succeed"
+    )
+    assert len(browser.pages) == len(captured), (
+        "a route past the budget must not even open a page"
+    )
+
+
+def test_an_unfilled_authoring_placeholder_is_caught_without_a_vision_call() -> None:
+    """Request 71 shipped an unfilled placeholder as the `<h1>` of `/about-artist`.
+
+    The visual critic would have caught it — it caught the identical defect on
+    request 68 — but the 6-page cap skipped that route. 71 judged 6 of 14, 70
+    judged 6 of 17, 68 judged 6 of 12 and skipped `/gallery`. Which pages the
+    cap drops is effectively arbitrary, so any defect class that *only* the
+    critic can see is a defect class that ships at random.
+
+    A bracketed placeholder in seed data is a text pattern. It needs no vision
+    call, no coverage, and no luck.
+
+    The second half is the part that makes it safe to enable: the naive pattern
+    reads JS destructuring as a leak. Both groups are pinned together, because
+    a gate that fires on `const [name, setName] = useState()` gets switched off
+    within a week and then protects nothing.
+    """
+    from app.application.preview_app.quality_gate import _BRACKETED_PLACEHOLDER_RE as rx
+
+    leaks = [
+        "[Artist Name]",
+        "[Painter's Name]",
+        "[Owner Name]",
+        "[Business Name]",
+        "[Your Company]",
+    ]
+    for leaked in leaks:
+        assert rx.search(f'  tagline: "Discover fine art by {leaked}",'), (
+            f"{leaked} shipped as visible copy and must be caught"
+        )
+
+    not_leaks = [
+        "const [name, setName] = useState('')",
+        "useEffect(() => {}, [location.pathname])",
+        "useMemo(() => rows, [rows, filter])",
+        "const [first, ...rest] = items",
+        "items[0]",
+        "images[index % 8]",
+        "seed.items[i]",
+        "a lowercase [note] in prose",
+    ]
+    for source in not_leaks:
+        assert not rx.search(source), (
+            f"false positive on {source!r} — a gate that cries wolf gets disabled"
+        )
