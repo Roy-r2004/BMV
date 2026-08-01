@@ -208,7 +208,18 @@ def run_codegen_phase(ctx: PipelineContext) -> None:
     ctx.total_files = len(files_to_gen)
     ctx.workers = settings.PREVIEW_PARALLEL_WORKERS
     ctx.max_fix_attempts = settings.PREVIEW_MAX_BUILD_FIX_ATTEMPTS
-    ctx.max_fix_seconds = settings.PREVIEW_MAX_FIX_LOOP_SECONDS
+    # `PREVIEW_MAX_FIX_LOOP_SECONDS` defaults to 900 — 1.5x the entire product
+    # promise — so on its own it bounds nothing. Kept as a configurable ceiling
+    # (it is set in `render.yaml` and two `.env` files, and removing the setting
+    # would break deploys that pass it) but clamped to what this request has
+    # left, minus the reserve the post-gate smoke pass still needs.
+    from app.application.services.request_deadline import RESERVE_SECONDS, remaining_seconds
+
+    _fix_ceiling = settings.PREVIEW_MAX_FIX_LOOP_SECONDS
+    _left = remaining_seconds()
+    if _left is not None:
+        _fix_ceiling = max(30, min(_fix_ceiling, int(_left - RESERVE_SECONDS)))
+    ctx.max_fix_seconds = _fix_ceiling
     log.info(
         f"  [4/6] Codegen agent — {ctx.total_files} files "
         f"(cap={settings.PREVIEW_MAX_FILES}, workers={ctx.workers})..."

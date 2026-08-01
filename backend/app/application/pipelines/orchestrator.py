@@ -55,8 +55,13 @@ class GenerationPipeline:
 
     def run(self, db: Session, request_id: int) -> dict:
         from app.application.services.ai_context import ai_run_scope
+        from app.application.services.request_deadline import request_deadline_scope
 
-        with ai_run_scope(request_id, purpose="pipeline"):
+        # The user's ten minutes starts when they submit, so the deadline is
+        # armed here rather than inside `generate_preview_app`: reference intake
+        # and the blueprint are p50 124 s of it, and a budget that excludes them
+        # cannot close against a 600 s cap.
+        with ai_run_scope(request_id, purpose="pipeline"), request_deadline_scope(request_id):
             return self._run_inner(db, request_id)
 
     def _run_inner(self, db: Session, request_id: int) -> dict:
@@ -206,63 +211,109 @@ class GenerationPipeline:
                     dump_exception(ws, "pipeline", f"preview-gen-attempt-1-{request_id}", e)
             except Exception:
                 pass
-            _emit(db, request_id, "build", "Retrying preview generation...", 86,
-                  detail="First attempt hit an error — trying again")
-            try:
-                generate_preview_app(
-                    db,
-                    request_id,
-                    self.ai_provider,
-                    self.template_renderer,
-                    app_spec_revision_id=(
-                        approved_app_spec.revision_record.id
-                        if approved_app_spec
-                        else None
-                    ),
-                )
-            except Exception as retry_exc:
-                try:
-                    from app.application.preview_app.workspace import get_workspace
+            # A retry needs runway. Without this check the second attempt runs
+            # on whatever time is left *and then some* — the cap would only ever
+            # bound one attempt, so a failing run could spend 94 + 540 + 540.
+            from app.application.services.request_deadline import (
+                MIN_RETRY_RUNWAY_SECONDS,
+                has_retry_runway,
+                record_degradation,
+                remaining_seconds,
+            )
 
-                    ws = get_workspace(request_id)
-                    if ws.exists():
-                        dump_exception(ws, "pipeline", f"preview-gen-attempt-2-{request_id}", retry_exc)
-                        report = summarize_workspace_debug(ws)
-                        for issue in report.get("top_issues", [])[:10]:
-                            self.log.error("request %s debug: %s", request_id, issue)
-                except Exception:
-                    pass
+            if not has_retry_runway():
+                record_degradation("codegen", "retry_skipped_no_runway")
+                self.log.warning(
+                    "request %s: skipping the generation retry — %.0fs left, need %.0fs",
+                    request_id,
+                    remaining_seconds(0.0) or 0.0,
+                    MIN_RETRY_RUNWAY_SECONDS,
+                )
                 if require_app_spec:
                     # A required contract must never degrade into independently
                     # generated role-pages that are not traceable to it.
                     raise
                 try:
-                    role_pages.generate_role_pages(db, request_id, self.ai_provider, self.template_renderer)
+                    role_pages.generate_role_pages(
+                        db, request_id, self.ai_provider, self.template_renderer
+                    )
                 except Exception:
                     pass
+            else:
+                _emit(db, request_id, "build", "Retrying preview generation...", 86,
+                      detail="First attempt hit an error — trying again")
+                try:
+                    generate_preview_app(
+                        db,
+                        request_id,
+                        self.ai_provider,
+                        self.template_renderer,
+                        app_spec_revision_id=(
+                            approved_app_spec.revision_record.id
+                            if approved_app_spec
+                            else None
+                        ),
+                    )
+                except Exception as retry_exc:
+                    try:
+                        from app.application.preview_app.workspace import get_workspace
 
-        try:
-            _emit(db, request_id, "tech", "Writing technical plan...", 90,
-                  detail="Engineering roadmap and architecture")
-            technical_plan.generate_technical_plan(db, request_id, self.ai_provider, self.template_renderer)
-        except Exception:
-            pass
+                        ws = get_workspace(request_id)
+                        if ws.exists():
+                            dump_exception(ws, "pipeline", f"preview-gen-attempt-2-{request_id}", retry_exc)
+                            report = summarize_workspace_debug(ws)
+                            for issue in report.get("top_issues", [])[:10]:
+                                self.log.error("request %s debug: %s", request_id, issue)
+                    except Exception:
+                        pass
+                    if require_app_spec:
+                        # A required contract must never degrade into independently
+                        # generated role-pages that are not traceable to it.
+                        raise
+                    try:
+                        role_pages.generate_role_pages(db, request_id, self.ai_provider, self.template_renderer)
+                    except Exception:
+                        pass
 
-        try:
-            _emit(db, request_id, "proposal", "Writing build proposal...", 93,
-                  detail="Internal proposal for the team")
-            proposal.generate_proposal(db, request_id, self.ai_provider, self.template_renderer)
-        except Exception:
-            pass
-
-        try:
-            _emit(db, request_id, "build_plans", "Writing build packages...", 97,
-                  detail="Launch / Growth / Custom from your preview")
-            build_plans.generate_build_plans(db, request_id, self.ai_provider, self.template_renderer)
-        except Exception:
-            pass
-
+        # The preview is the thing the user is waiting for. These three documents
+        # are internal artifacts they never see on this screen, and they cost
+        # 21-63 s of model time each — measured serially *before* `done`, so the
+        # spinner ran for work the user had no stake in, and they ate the 60 s
+        # the deadline reserves for the post-gate smoke pass.
+        #
+        # Marked complete first, then written. They are elective: past the
+        # deadline they are skipped and recorded, never silently dropped.
+        #
+        # Deliberately still serial. `db` is a SQLAlchemy Session and is not
+        # thread-safe; running these concurrently needs a session per worker,
+        # which is a larger change than the saving justifies now that they are
+        # off the path the user waits on.
         _emit(db, request_id, "done", "Generation complete!", 100)
+
+        from app.application.services.request_deadline import should_skip_elective
+
+        for stage, detail, generate_document in (
+            ("tech", "Engineering roadmap and architecture",
+             technical_plan.generate_technical_plan),
+            ("proposal", "Internal proposal for the team",
+             proposal.generate_proposal),
+            ("build_plans", "Launch / Growth / Custom from your preview",
+             build_plans.generate_build_plans),
+        ):
+            if should_skip_elective(stage):
+                self.log.info(
+                    "request %s: skipping %s — past deadline, preview already delivered",
+                    request_id,
+                    stage,
+                )
+                continue
+            try:
+                # Progress stays at 100: the preview is done. Regressing the bar
+                # to 90 after announcing completion reads as a stalled run.
+                _emit(db, request_id, "done", "Generation complete!", 100, detail=detail)
+                generate_document(db, request_id, self.ai_provider, self.template_renderer)
+            except Exception:
+                pass
 
         req = get_request(db, request_id)
         pipeline_watch.stop()

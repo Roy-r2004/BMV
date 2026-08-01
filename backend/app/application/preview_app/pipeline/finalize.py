@@ -758,6 +758,29 @@ def run_finalize(ctx: PipelineContext) -> dict:
     preview_app_result["render_pages_unresolved"] = len(
         render_report.get("unresolved") or []
     )
+    # A run that ran out of time and took deterministic paths must not look like
+    # one that had time and chose them. Same principle as the visual counts
+    # above: the measurement is worthless without a reader beside `status`.
+    from app.application.services.request_deadline import (
+        current_deadline,
+        degradations as _degradations,
+    )
+
+    _degraded = _degradations()
+    preview_app_result["degraded"] = [entry["stage"] for entry in _degraded]
+    preview_app_result["degradations"] = _degraded
+    _deadline = current_deadline()
+    if _deadline is not None:
+        preview_app_result["deadline_seconds"] = int(_deadline.total_seconds)
+        preview_app_result["elapsed_seconds"] = int(_deadline.elapsed())
+        preview_app_result["deadline_exceeded"] = _deadline.expired()
+    if _degraded:
+        log.warning(
+            "  preview %s degraded %s stage(s) to meet its deadline: %s",
+            ctx.request_id,
+            len(preview_app_result["degraded"]),
+            ", ".join(preview_app_result["degraded"]),
+        )
     if (
         preview_app_result.get("status") == "ready"
         and preview_app_result.get("visual_review_status") == "unmeasured"

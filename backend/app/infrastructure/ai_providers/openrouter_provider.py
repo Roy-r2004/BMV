@@ -22,6 +22,7 @@ from app.infrastructure.ai_providers.response_parser import (
     raise_if_unsuccessful,
     retryable_for_status,
 )
+from app.application.services.request_deadline import ask_budget_seconds
 from app.infrastructure.ai_providers.retry import call_with_retry
 from app.infrastructure.logging import get_logger
 
@@ -243,6 +244,12 @@ class OpenRouterAIProvider(AIProvider):
                     # quarter of an hour on one call is not.
                     hard_deadline=timeout * _WALL_CLOCK_BUDGET_FACTOR,
                     on_deadline=self.cancel_inflight,
+                    # The whole ask — every transport retry and every backoff
+                    # sleep — inside one bound, and never longer than the
+                    # request itself has left. `hard_deadline` above only ever
+                    # capped a single attempt, so two attempts were 600 s and a
+                    # model failover paid it again.
+                    ask_budget=ask_budget_seconds(),
                 )
             except (requests.HTTPError, requests.Timeout, requests.ConnectionError) as exc:
                 latency = int((time.monotonic() - started) * 1000)

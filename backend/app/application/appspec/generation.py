@@ -93,6 +93,23 @@ AppSpecMode = Literal["off", "on", "shadow"]
 # contract but must not block preview when validation/coverage fails.
 _LEGACY_ON_MODES = {"required_new", "required", "true", "1", "yes", "enabled"}
 
+def _appspec_may_call_model() -> bool:
+    """Whether the AppSpec stage may still pay for a repair call.
+
+    AppSpec is a mandatory stage with no wall-clock cap of its own: the Phase
+    0.6 census measured 2-7 calls per run at p95 67 s each, and 340 s on
+    request 70. Every one of those is before a single page has been generated.
+
+    Past the request deadline the stage does not stop — it stops *re-asking*.
+    The deterministic fallback already exists for exactly this, and taking it
+    is recorded so a run that skipped its repairs cannot describe itself like
+    one that never needed them.
+    """
+    from app.application.services.request_deadline import claim_model_time
+
+    return claim_model_time("appspec", mandatory=True)
+
+
 def _normalize_mode(mode: str | None) -> AppSpecMode:
     raw = str(settings.APPSPEC_MODE if mode is None else mode).strip().lower()
     if raw == "shadow":
@@ -1388,6 +1405,13 @@ def ensure_approved_app_spec(
                     if (saw_graph_issues or graph_repairs or trace_evidence_repairs)
                     else settings.APPSPEC_MAX_REPAIR_ATTEMPTS
                 )
+                # AppSpec is mandatory and was uncapped in wall clock: measured
+                # 2-7 calls at p95 67 s each, 340 s on request 70. Past the
+                # request deadline it stops buying repairs and takes the
+                # deterministic fallback below — the spec still exists, it is
+                # simply not re-asked for. Recorded, never silent.
+                if not _appspec_may_call_model():
+                    ai_budget = 0
                 if repairs < ai_budget and candidate is not None:
                     repairs += 1
                     pre_ai_errors = list(validation_payload.get("issues") or [])
@@ -1541,7 +1565,7 @@ def ensure_approved_app_spec(
                     repair_attempts=repairs,
                 )
 
-            if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS:
+            if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS and _appspec_may_call_model():
                 repairs += 1
                 candidate = _sanitize_tracked(
                     repair_app_spec_candidate(

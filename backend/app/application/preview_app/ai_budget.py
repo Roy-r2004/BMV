@@ -58,14 +58,43 @@ class BudgetedAIProvider:
         self._closed = False
         self._close_lock = threading.Lock()
 
+    def _refuse(self, modality: str) -> str:
+        """Record the exhaustion, then return the empty string callers expect.
+
+        The defect worth fixing here is that exhaustion was **silent**: `""` is
+        indistinguishable from a model that answered with nothing, so a budget
+        that ran out surfaced as a stub or a fallback slot several stages
+        downstream of the cause, and a page composed from `""` still passes
+        `tsc` and still builds.
+
+        The roadmap asks for a raise instead. That is deliberately **deferred to
+        Phase 2**, and the reason is in its own justification: a raise matters
+        when "the content asks are load-bearing", which is true after the
+        content flip and not before. Today every caller already has a
+        deterministic fallback — `generate_file`, `synthesize_mock_data`, the
+        critic and the chat-scaffold path each have a test pinning that they
+        preserve existing source on exhaustion. Raising would convert those
+        proven degradations into an exception out of `generate_preview_app`,
+        which the orchestrator answers with a whole-generation retry costing
+        180 s of runway. That trades a working fallback for a worse outcome.
+
+        So: keep the return, remove the silence. `record_degradation` makes the
+        exhaustion machine-readable, which is what "not silent" actually
+        requires — a reader, not an exception.
+        """
+        from app.application.services.request_deadline import record_degradation
+
+        record_degradation("ai_budget", f"exhausted_{modality}")
+        return ""
+
     def ask_chat(self, model: str, messages: list[dict], **kwargs) -> str:
         if not self.budget.acquire(modality="chat"):
-            return ""
+            return self._refuse("chat")
         return self.provider.ask_chat(model, messages, **kwargs)
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         if not self.budget.acquire(modality="vision"):
-            return ""
+            return self._refuse("vision")
         return self.provider.ask_vision(model, prompt, image_path)
 
     def close(self) -> None:

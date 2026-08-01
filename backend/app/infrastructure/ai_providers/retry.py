@@ -106,6 +106,7 @@ def call_with_retry(
     on_heartbeat: Callable[[float], None] | None = None,
     hard_deadline: float | None = None,
     on_deadline: Callable[[], None] | None = None,
+    ask_budget: float | None = None,
 ) -> T:
     """Call `fn`, retrying on transient network/API errors with exponential backoff.
 
@@ -114,18 +115,45 @@ def call_with_retry(
     call is visibly "still waiting" in the logs instead of looking identical
     to a stuck one until it finally times out.
 
-    `hard_deadline` caps a single attempt's total wall clock, which the socket
-    timeout cannot — see `_run_with_heartbeat`.
+    `hard_deadline` caps a **single attempt's** total wall clock, which the
+    socket timeout cannot — see `_run_with_heartbeat`.
+
+    `ask_budget` caps the **whole ask**: every attempt plus every backoff sleep
+    between them. Without it the two interact badly — `timeout=120` x
+    `_WALL_CLOCK_BUDGET_FACTOR=2.5` x `attempts=2` is 600 s for one logical ask,
+    and the caller then fails over to the next model and pays it again. Measured
+    over requests 66-71, `z-ai/glm-5.2` is 6 % of calls and 37 % of the seconds
+    at p95 233 s each; that tail is what a 540 s request deadline cannot absorb.
+
+    An attempt that cannot finish inside what is left is not started, because
+    starting it guarantees the budget is blown *and* nothing is returned.
     """
+    started = time.monotonic()
+
+    def _remaining() -> float | None:
+        if ask_budget is None:
+            return None
+        return ask_budget - (time.monotonic() - started)
+
     def _attempt() -> T:
+        attempt_cap = hard_deadline
+        left = _remaining()
+        if left is not None:
+            attempt_cap = left if attempt_cap is None else min(attempt_cap, left)
         if heartbeat_interval and on_heartbeat:
             return _run_with_heartbeat(
-                fn, heartbeat_interval, on_heartbeat, hard_deadline, on_deadline
+                fn, heartbeat_interval, on_heartbeat, attempt_cap, on_deadline
             )
         return fn()
 
     last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):
+        left = _remaining()
+        if left is not None and left <= 0:
+            retry_log.warning(
+                "ask budget of %.0fs exhausted before attempt %s/%s", ask_budget, attempt, attempts
+            )
+            break
         try:
             return _attempt()
         except requests.exceptions.HTTPError as e:
@@ -149,7 +177,19 @@ def call_with_retry(
 
             observe_ai_transport_retry()
             retry_log.warning("%s on attempt %s/%s, retrying", type(e).__name__, attempt, attempts)
-        time.sleep(min(base_delay * (2 ** (attempt - 1)), max_delay))
+        # Backoff is part of the ask, not free time beside it. At a 20 % 429 rate
+        # over ~17 calls this is 30-70 s of pure sleep, and sleeping past the
+        # budget spends it without ever making the next request.
+        delay = min(base_delay * (2 ** (attempt - 1)), max_delay)
+        left = _remaining()
+        if left is not None:
+            delay = min(delay, max(0.0, left))
+        if delay > 0:
+            time.sleep(delay)
     if last_exc:
         raise last_exc
-    raise RuntimeError("call_with_retry: unreachable")
+    raise requests.exceptions.Timeout(
+        f"ask exceeded its {ask_budget:.0f}s budget before any attempt completed"
+        if ask_budget is not None
+        else "call_with_retry: no attempt completed"
+    )
