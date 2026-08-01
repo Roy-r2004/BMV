@@ -519,8 +519,8 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
             f"    eyebrow: '{brand}',\n"
             f"    headline: '{brand}',\n"
             f"    subcopy: 'A clear next step from {brand} — warm, specific, and ready when you are.',\n"
-            "    primaryCta: { label: 'Get started', href: '#details' },\n"
-            "    secondaryCta: { label: 'See how it works', href: '#process' },\n"
+            "    primaryCta: { label: 'Explore the collection', href: '/gallery' },\n"
+            "    secondaryCta: { label: 'Talk to us', href: '/contact#inquire' },\n"
             "  }"
         ),
         "items": (
@@ -539,11 +539,15 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
         ),
         "featuresHeading": f"featuresHeading: 'What {brand} offers'",
         "showcaseHeading": f"showcaseHeading: 'From {brand}'",
+        # `seed.credentialsHeading` is read by the *home* page's trust strip.
+        # A detail page never reads it — its specs strip is written with a
+        # literal "Details" heading — so setting this to "Details" only ever
+        # degraded the page it was not aimed at.
         "credentialsHeading": f"credentialsHeading: 'Why {brand}'",
         "credentials": (
             "credentials: [\n"
-            f"    {{ title: 'Known locally', detail: 'Neighbors recommend {brand} for consistent results.' }},\n"
-            "    { title: 'Clear next steps', detail: 'Booking and follow-up stay simple from the start.' },\n"
+            f"    {{ title: 'Known for', detail: 'Clear work and a straightforward next step at {brand}.' }},\n"
+            "    { title: 'Next step', detail: 'Browse, then inquire or book — no dead ends.' },\n"
             "  ]"
         ),
         "trustLabels": (
@@ -556,14 +560,14 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
             f"    heading: 'Ready for {brand}?',\n"
             f"    description: 'Tell {brand} what you need — clear options, real next steps.',\n"
             "    primaryLabel: 'Get started',\n"
-            "    primaryHref: '#details',\n"
+            "    primaryHref: '/contact#inquire',\n"
             "    secondaryLabel: 'Talk to us',\n"
-            "    secondaryHref: '#contact',\n"
+            "    secondaryHref: '/contact#inquire',\n"
             "  }"
         ),
         "footer": (
             "footer: {\n"
-            f"    description: '{brand} — clear choices and real bookings.',\n"
+            f"    description: '{brand} — clear choices and a real next step.',\n"
             "  }"
         ),
     }
@@ -700,6 +704,50 @@ _BRAND_POISON_SIMPLE = 'brandName={"Brand"}'
 _BRAND_POISON_SIMPLE_ALT = "brandName={'Brand'}"
 
 
+def dedupe_object_literal_keys(source: str, export_name: str) -> str:
+    """Drop earlier duplicates of a key in a top-level ``export const X = {…};``.
+
+    Last-wins, which is exactly what the JavaScript engine already does — the
+    rewrite is behaviour-preserving by construction. What it removes is the
+    *diagnostic*: request 66 shipped `item4`…`item8` twice in `images` and
+    `tsc` reported five TS1117s, half of that run's ten type errors.
+
+    The duplicates come from the AI that synthesizes `mock.ts`. That writer is
+    checked for the exports pages need and for parsing, and TS1117 is neither —
+    a duplicate key is perfectly parseable, so nothing downstream objected.
+    """
+    pattern = re.compile(
+        r"(export\s+const\s+" + re.escape(export_name) + r"\s*=\s*\{)(.*?)(\n\};)",
+        re.DOTALL,
+    )
+    match = pattern.search(source)
+    if not match:
+        return source
+    body = match.group(2)
+    lines = body.split("\n")
+    key_re = re.compile(r"^\s*[\"']?([A-Za-z_$][\w$]*)[\"']?\s*:")
+    # Only a flat, one-key-per-line literal is safe to filter this way; a nested
+    # object would let a leading `}` line desynchronise the scan.
+    if any(ch in body for ch in ("{", "[")):
+        return source
+    seen_last: dict[str, int] = {}
+    for index, line in enumerate(lines):
+        found = key_re.match(line)
+        if found:
+            seen_last[found.group(1)] = index
+    kept = [
+        line
+        for index, line in enumerate(lines)
+        if not (m := key_re.match(line)) or seen_last[m.group(1)] == index
+    ]
+    if len(kept) == len(lines):
+        return source
+    rebuilt = "\n".join(kept)
+    # A dropped final entry can leave the last surviving line with a comma.
+    rebuilt = re.sub(r",(\s*)$", r"\1", rebuilt)
+    return source[: match.start(2)] + rebuilt + source[match.end(2) :]
+
+
 def sync_mock_images(workspace, images: dict | None, brand_name: str | None = None) -> list[str]:
     """Force ``export const images`` to the pipeline slot map (stops AI photo-ID 404s).
 
@@ -826,10 +874,11 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
     return actions
 
 
-# Nav ranks: primary journey first, contact last. `/ai-features` keeps the slot
-# assemble._nav_items_for pins it into so the hub is never buried.
+# Nav ranks: primary journey first, contact last. AI hub is ops-only chrome —
+# never re-ranked into public marketing nav (assemble public_marketing=True).
 _NAV_HOME_PATHS = frozenset({"/", "/home", "/index"})
-_NAV_HUB_PATHS = frozenset({"/ai-features"})
+_NAV_OPS_PATHS = frozenset({"/ai-features"})
+_OPS_NAV_PREFIXES = ("/admin", "/owner", "/ops", "/staff", "/member", "/desk", "/account")
 _NAV_PRIMARY_TOKENS = frozenset(
     {
         "gallery",
@@ -871,18 +920,38 @@ _NAV_LABEL_NOISE_RE = re.compile(
 )
 
 
+#: Terminal pages — where a form sends you, never where a link takes you.
+_TERMINAL_LEAF_RE = re.compile(
+    r"^(inquiry|enquiry|order|booking|payment|checkout|contact)?[-_]?"
+    r"(confirm|confirmed|confirmation|thank[-_]?you|thanks|success|receipt|complete|completed|sent)$",
+    re.I,
+)
+
+
+def _is_public_marketing_nav_path(path: str) -> bool:
+    p = (path or "").rstrip("/") or "/"
+    if p in _NAV_OPS_PATHS or p.startswith("/ai-"):
+        return False
+    # Request 66 carried `/inquiry-confirm` in the public nav, so every
+    # "Contact" control on the site pointed at a page that says "Inquiry Sent"
+    # and has no form on it.
+    if _TERMINAL_LEAF_RE.match(p.rsplit("/", 1)[-1]):
+        return False
+    if any(p == root or p.startswith(f"{root}/") for root in _OPS_NAV_PREFIXES):
+        return False
+    return True
+
+
 def _nav_rank(path: str) -> int:
     if path in _NAV_HOME_PATHS:
         return 0
-    if path in _NAV_HUB_PATHS:
-        return 1
     segments = [s for s in path.strip("/").split("/") if s]
     token = segments[0].lower() if segments else ""
     if token in _NAV_PRIMARY_TOKENS:
-        return 2
+        return 1
     if token in _NAV_LAST_TOKENS:
-        return 4
-    return 3
+        return 3
+    return 2
 
 
 def _brand_label_variants(brand_name: str) -> list[str]:
@@ -924,6 +993,7 @@ def _normalize_nav_section(
     live_paths: set[str],
     reorder: bool,
     clutter_cap: bool,
+    public_marketing: bool = False,
 ) -> list[dict]:
     cleaned: list[dict] = []
     seen_paths: set[str] = set()
@@ -933,6 +1003,8 @@ def _normalize_nav_section(
             continue
         path = str(item.get("href") or item.get("path") or "").strip()
         if not path.startswith("/") or ":" in path:
+            continue
+        if public_marketing and not _is_public_marketing_nav_path(path):
             continue
         if live_paths and path not in live_paths:
             continue
@@ -1005,6 +1077,7 @@ def normalize_mock_navigation(workspace, architect: dict, brand_name: str) -> li
             # quality_gate.nav_clutter only measures the public list; an ops
             # sidebar is legitimately all-deep and longer.
             clutter_cap=section == "public",
+            public_marketing=section == "public",
         )
         # Never blank out chrome — an empty navbar is worse than a cluttered one.
         normalized[section] = section_items or items

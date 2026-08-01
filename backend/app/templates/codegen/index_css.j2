@@ -36,6 +36,18 @@
     -webkit-font-smoothing: antialiased;
   }
   html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  /* The public header is `fixed inset-x-0 top-0`, so an anchor scrolled to
+     `block: 'start'` puts the section top at viewport y=0 — behind the nav.
+     `preview-template/src/index.css` has carried this floor for a while; this
+     file overwrites that one in every workspace and never did, so a generated
+     app landed every `#anchor` under its own header.
+     `--public-header-h` is what PublicShell measured for the header it actually
+     rendered — a centred two-row lockup is much taller than a compact one, and
+     a constant here was wrong for one of them either way. */
+  [id] { scroll-margin-top: calc(var(--public-header-h, 7rem) + 1.5rem); }
   :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
   h1, h2, h3, .font-display {
     font-family: var(--font-display);

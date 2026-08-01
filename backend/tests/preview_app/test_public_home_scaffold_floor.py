@@ -135,7 +135,10 @@ export const seed = {
     assert "trustLabels:" in out
     assert "credentials:" in out
     assert "Ready for Jane Art?" in out
-    assert "Jane Art — clear choices and real bookings." in out
+    # No "bookings" — the floor is filled for gallery and portfolio brands too,
+    # and asserting a booking model they do not have is the agency mush this
+    # test exists to keep out.
+    assert "Jane Art — clear choices and a real next step." in out
 
 
 def test_slot_fill_template_includes_public_home_floor() -> None:

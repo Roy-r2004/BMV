@@ -129,6 +129,34 @@ def is_template_owned_path(path: str, architect: dict | None, workspace=None) ->
     )
 
 
+#: Files the *generator* owns outright. Not template-owned — `App.tsx` is
+#: written from scratch by `assemble.write_app_tsx` on every run, and
+#: `index.css` from `codegen/index_css.j2` — but equally not something an AI
+#: repair may edit. Two writers disagreed about this and it cost request 67 its
+#: whole storefront: `codegen/fix_agent` refused `App.tsx` via its own private
+#: basename list while `quality_repair.RepairAPI` checked only
+#: `is_template_owned_path`, which covers `src/ui/**` and two files. So the gate's
+#: repair model was handed `App.tsx`, deleted
+#: `<Route path="/collection" element={<CollectionPage />} />` to clear a
+#: dead-link finding, and left 14 links across 7 pages falling through
+#: `path="*"` to the home page.
+_GENERATOR_OWNED_BASENAMES = frozenset(
+    {"app.tsx", "index.css", "package.json", "package-lock.json", "main.tsx"}
+)
+
+
+def is_generator_owned_path(path: str, workspace=None) -> bool:
+    """True for files only the pipeline may write. Deliberately architect-free.
+
+    `is_template_owned_path` yields when a workspace has no catalogue routes;
+    these files are the pipeline's on every run, so this rule has no such door.
+    """
+    norm = canonical_workspace_path(path, workspace).lower()
+    if norm == ".." or norm.startswith("../") or norm.startswith("/"):
+        return False
+    return norm.rsplit("/", 1)[-1] in _GENERATOR_OWNED_BASENAMES
+
+
 def snapshot_template_owned_files(workspace, architect: dict | None) -> dict[str, str]:
     if not has_catalogue_routes(architect):
         return {}

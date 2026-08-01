@@ -97,3 +97,57 @@ def test_nesting_depth_stays_sane(tmp_path) -> None:
     routes = _routes_for(_architect(_REQUEST_38), tmp_path)
     deep = [p for p in routes if p.count(":") > 1]
     assert not deep, f"no generated route should need two params: {deep}"
+
+
+def test_listing_alias_prefers_public_detail_over_add_artwork(tmp_path) -> None:
+    """Request 48 wired /gallery/:id onto AddArtworkPage because 'artwork' matched.
+
+    Gallery cards then opened the owner create form — the admin portal — with no
+    way back to the public storefront.
+    """
+    architect = {
+        "routes": [
+            {
+                "path": path,
+                "component_file": (
+                    f"src/pages/owner/{component}.tsx"
+                    if path.startswith("/owner")
+                    else f"src/pages/{component}.tsx"
+                ),
+                "component": component,
+                "surface": "ops" if path.startswith("/owner") else "public",
+                "owns_shell": True,
+            }
+            for path, component in [
+                ("/", "HomePage"),
+                ("/gallery", "GalleryPage"),
+                ("/owner/artworks/add", "AddArtworkPage"),
+                ("/owner/artworks", "ManageArtworksPage"),
+                ("/artwork/:slug", "ArtworkDetailPage"),
+                ("/ai-features", "AiFeaturesPage"),
+            ]
+        ],
+        "files_to_generate": [],
+        "roles": [],
+    }
+    workspace = tmp_path / "ws"
+    pages = workspace / "src" / "pages"
+    owner = pages / "owner"
+    owner.mkdir(parents=True)
+    for route in architect["routes"]:
+        rel = route["component_file"].removeprefix("src/pages/")
+        target = pages / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            f"export default function {route['component']}() {{ return <div />; }}\n",
+            encoding="utf-8",
+        )
+    write_app_tsx(workspace, architect, get_template_renderer())
+    app = (workspace / "src" / "App.tsx").read_text(encoding="utf-8")
+    assert 'path="/gallery/:id" element={<ArtworkDetailPage />}' in app, app
+    assert 'path="/gallery/:slug" element={<ArtworkDetailPage />}' in app, app
+    assert "AddArtworkPage" in app
+    assert not re.search(
+        r'path="/gallery/:(?:id|slug)" element=\{<AddArtworkPage />\}',
+        app,
+    ), app

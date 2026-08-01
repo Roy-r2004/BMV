@@ -14,6 +14,7 @@ from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
     _is_directory_listing_route,
     _is_schedule_listing_route,
+    _paint_first_detail_slots,
     _safe_slot_jsx,
     has_listing_face_component,
     minimal_catalogue_page_scaffold,
@@ -124,6 +125,10 @@ def lock_recipe_section_order(content: str, route: dict) -> str:
     slots = assigned_non_shell_slots(route)
     if not slots:
         return content
+    # Detail faces must stay painting → specs → inquire even when architect
+    # section_slots still list showcase/features first (catalogue.json / product_kind).
+    if skeleton_id == "public-detail":
+        slots = _paint_first_detail_slots(slots)
 
     order_decl = f"const RECIPE_ORDER = {json.dumps(slots)} as const;"
     if _RECIPE_ORDER_RE.search(content):
@@ -384,6 +389,43 @@ def enforce_catalogue_page_contract(
             ),
             True,
         )
+    # Contact/auth must stay utility forms even when architect assigned public-home
+    # or left skeleton_id empty (request 50 ContactPage was a marketing clone).
+    route_path = str(route.get("path") or "")
+    from app.application.preview_app.utility_compositor import (
+        compose_utility_page_tsx,
+        infer_utility_workspace_type,
+        should_compose_utility_page,
+    )
+
+    if should_compose_utility_page(route, str(route.get("skeleton_id") or "")):
+        wtype = infer_utility_workspace_type(
+            route_path,
+            str(route.get("title") or ""),
+            str(route.get("page_type") or ""),
+        )
+        if wtype in {"contact", "auth"}:
+            needs_form = (
+                (wtype == "contact" and "InquiryPanel" not in (content or ""))
+                or (wtype == "auth" and "<Input" not in (content or ""))
+                or "composed public-utility page" not in (content or "")
+            )
+            if needs_form:
+                return (
+                    compose_utility_page_tsx(
+                        file_path=file_path,
+                        route={**route, "skeleton_id": "public-utility"},
+                        content={},
+                        brand_name=brand_name or "Brand",
+                        workspace_type=wtype,
+                    ),
+                    True,
+                )
+            # Already a composed utility form — do not fall through to catalogue
+            # validation against a wrong architect skeleton (public-home /
+            # public-service). That path replaced request 62's InquiryPanel with a
+            # marketing scaffold ("catalogue scaffold replaced ContactPage").
+            return content, False
     if not route.get("skeleton_id"):
         # Face pages without a skeleton still need protect-on-sight validation.
         if _is_dedicated_face_page(content or ""):
@@ -393,7 +435,15 @@ def enforce_catalogue_page_contract(
                 return content, False
         return content, False
     # Listing routes must keep their dedicated face — AI catalog clones get replaced.
-    if _is_schedule_listing_route(file_path, route) and "ScheduleRail" not in (content or ""):
+    # Param routes are never directory listings (request 50: /gallery/:collectionId).
+    has_route_param = bool(
+        re.search(r"/:\w+", route_path) or re.search(r"/\{[^}]+\}", route_path)
+    )
+    if (
+        _is_schedule_listing_route(file_path, route)
+        and "ScheduleRail" not in (content or "")
+        and not has_route_param
+    ):
         return (
             minimal_catalogue_page_scaffold(
                 file_path, route, brand_name=brand_name, architect=architect
@@ -401,24 +451,70 @@ def enforce_catalogue_page_contract(
             True,
         )
     is_listing_face = (
-        str(route.get("page_intent") or "").strip().lower() == "listing"
-        or _is_directory_listing_route(file_path, route)
+        not has_route_param
+        and str(route.get("skeleton_id") or "") != "public-detail"
+        and (
+            str(route.get("page_intent") or "").strip().lower() == "listing"
+            or _is_directory_listing_route(file_path, route)
+            or str(route.get("skeleton_id") or "") == "public-catalog"
+        )
     )
+    lifestyle_catalogue = bool(
+        re.search(r"imageSrc:\s*\[images\.(?:card|hero)", content or "")
+        or re.search(
+            r"PAINTING_IMAGES\s*=\s*\[[\s\S]*?images\.(?:card|hero)", content or ""
+        )
+        or (
+            ("CatalogGrid" in (content or "") or "ProductShowcase" in (content or ""))
+            and "images.item1" not in (content or "")
+            and "images.item2" not in (content or "")
+        )
+        # Browse pages capped at 3 cards — journey_browse_caps_items on request 64.
+        or (
+            "ProductShowcase" in (content or "")
+            and "CatalogGrid" not in (content or "")
+            and (
+                str(route.get("skeleton_id") or "") == "public-catalog"
+                or re.search(
+                    r"(^|/)(gallery|collection|collections|shop|works|paintings)(/|$)",
+                    route_path,
+                    re.I,
+                )
+            )
+        )
+    )
+    # A refine pass strips comments, and the face marker is one. When the face
+    # itself is intact — it still renders a listing component, it has not
+    # regressed to a home clone — only the label was lost, so put the label back
+    # rather than discarding a refinement over a comment.
+    if (
+        is_listing_face
+        and _DIRECTORY_FACE_MARKER not in (content or "")
+        and has_listing_face_component(content or "")
+        and "seed.hero" not in (content or "")
+        and not lifestyle_catalogue
+    ):
+        content = (
+            f"{_DIRECTORY_FACE_MARKER} — distinct from home marketing clone\n"
+            f"{content or ''}"
+        )
     if is_listing_face and (
         not has_listing_face_component(content or "")
         or "seed.hero" in (content or "")
         or _DIRECTORY_FACE_MARKER not in (content or "")
+        or lifestyle_catalogue
     ):
         # Schedule listings (keyword, no intent) still use ScheduleRail — skip those.
         if (
             str(route.get("page_intent") or "").strip().lower() != "listing"
             and _is_schedule_listing_route(file_path, route)
+            and not lifestyle_catalogue
         ):
             pass
         else:
             return (
                 minimal_catalogue_page_scaffold(
-                    file_path, route, brand_name=brand_name
+                    file_path, route, brand_name=brand_name, architect=architect
                 ),
                 True,
             )

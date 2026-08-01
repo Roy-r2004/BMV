@@ -551,13 +551,19 @@ def test_fetched_item_photos_are_distinct() -> None:
 # --------------------------------------------------------------------------- #
 
 def test_the_trust_slot_accepts_both_seed_shapes() -> None:
-    """`trustLabels` is strings in the deterministic seed and objects from the model."""
+    """`trustLabels` is strings in the deterministic seed and objects from the model.
+
+    Asserted through `/`: a `public-catalog` route now takes the directory
+    listing scaffold, which composes a `CatalogGrid` face and never reaches the
+    slot table. The guard this test exists for lives in `_safe_slot_jsx` and is
+    still shipped by every skeleton that does compose slots.
+    """
     route = {
-        "path": "/gallery",
-        "component_file": "src/pages/GalleryHomePage.tsx",
+        "path": "/",
+        "component_file": "src/pages/HomePage.tsx",
         "surface": "public",
-        "skeleton_id": "public-catalog",
-        "title": "Gallery",
+        "skeleton_id": "public-home",
+        "title": "Jeanne Kassab Art",
         "section_slots": ["hero", "trust", "showcase", "footer"],
     }
     tsx = minimal_catalogue_page_scaffold(
@@ -1577,9 +1583,16 @@ def test_a_contact_route_composes_an_inquiry_form() -> None:
     from app.application.preview_app.utility_compositor import (
         compose_utility_page_tsx,
         infer_utility_workspace_type,
+        should_compose_utility_page,
     )
 
     assert infer_utility_workspace_type("/contact", "Connect with Jeanne", "") == "contact"
+    # Wrong skeleton (public-home) must still force the utility compositor —
+    # request 50 ContactPage was a marketing clone with no form.
+    assert should_compose_utility_page(
+        {"path": "/contact", "title": "Contact", "skeleton_id": "public-home"},
+        "public-home",
+    )
 
     tsx = compose_utility_page_tsx(
         file_path="src/pages/ContactPage.tsx",
@@ -1589,8 +1602,97 @@ def test_a_contact_route_composes_an_inquiry_form() -> None:
     )
 
     assert "InquiryPanel" in tsx, "the page must render the kit's inquiry form"
-    assert 'id="inquire"' in tsx, "hero CTAs anchor at #inquire"
+    # Kit InquiryPanel owns id="inquire" at runtime — composed source imports it.
     assert "InquiryPanel" in tsx.split("from '@/ui'")[0], "and import it"
+    panel_src = (
+        Path(__file__).resolve().parents[2]
+        / "preview-template/src/ui/public/InquiryPanel.tsx"
+    ).read_text(encoding="utf-8")
+    assert 'id="inquire"' in panel_src, "hero CTAs /contact#inquire land on InquiryPanel"
+
+
+def test_contact_marketing_clone_is_repaired_to_inquiry_form() -> None:
+    """enforce_catalogue_page_contract must replace a home-shaped /contact page."""
+    from app.application.preview_app.catalogue_contract.repair import (
+        enforce_catalogue_page_contract,
+    )
+
+    clone = """
+import { PublicShell, getSkeleton, SkeletonComposer, MarketingHero, BrandFooter } from '@/ui';
+const SKELETON_ID = "public-home" as const;
+export default function ContactPage() {
+  const slots = { hero: <MarketingHero brandName="X" headline="Contact" />, footer: <BrandFooter brandName="X" /> };
+  return (
+    <PublicShell brandName="X">
+      <div data-skeleton="public-home">
+        <SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />
+      </div>
+    </PublicShell>
+  );
+}
+"""
+    repaired, changed = enforce_catalogue_page_contract(
+        "src/pages/ContactPage.tsx",
+        clone,
+        {
+            "routes": [
+                {
+                    "path": "/contact",
+                    "title": "Contact",
+                    "skeleton_id": "public-home",
+                    "component_file": "src/pages/ContactPage.tsx",
+                    "surface": "public",
+                }
+            ]
+        },
+        brand_name="Jeanne Kassab Art",
+    )
+    assert changed
+    assert "InquiryPanel" in repaired
+    assert "composed public-utility page" in repaired
+    panel_src = (
+        Path(__file__).resolve().parents[2]
+        / "preview-template/src/ui/public/InquiryPanel.tsx"
+    ).read_text(encoding="utf-8")
+    assert 'id="inquire"' in panel_src
+
+
+def test_composed_contact_utility_is_not_replaced_by_catalogue_scaffold() -> None:
+    """Safety guards must not clobber a good InquiryPanel with public-home/service."""
+    from app.application.preview_app.catalogue_contract.repair import (
+        enforce_catalogue_page_contract,
+    )
+    from app.application.preview_app.utility_compositor import compose_utility_page_tsx
+
+    good = compose_utility_page_tsx(
+        file_path="src/pages/ContactPage.tsx",
+        route={"path": "/contact", "title": "Contact", "skeleton_id": "public-utility"},
+        content={},
+        brand_name="Jeanne Kassab Art",
+        workspace_type="contact",
+    )
+    # Architect often mis-labels contact as public-service / public-home.
+    updated, changed = enforce_catalogue_page_contract(
+        "src/pages/ContactPage.tsx",
+        good,
+        {
+            "routes": [
+                {
+                    "path": "/contact",
+                    "title": "Contact",
+                    "skeleton_id": "public-service",
+                    "component_file": "src/pages/ContactPage.tsx",
+                    "surface": "public",
+                    "section_slots": ["hero", "features", "testimonials", "cta", "footer"],
+                }
+            ]
+        },
+        brand_name="Jeanne Kassab Art",
+    )
+    assert changed is False
+    assert updated == good
+    assert "InquiryPanel" in updated
+    assert "MarketingHero" not in updated
 
 
 def test_other_utility_faces_are_unchanged() -> None:
@@ -2281,3 +2383,1301 @@ def test_a_service_listing_card_links_to_booking_not_a_missing_detail_route() ->
 
     assert "/services/${" not in tsx, "there is no /services/:id to link into"
     assert '"/book"' in tsx
+
+
+# --------------------------------------------------------------------------- #
+# the five navigation defects a person found by clicking through request 48
+#
+# Not one of them was a type error, a dead link or a crash, so nothing in the
+# pipeline was looking for them. They were found the only way this class of
+# defect ever is: by using the site.
+#
+#   1. every page opened at the previous page's scroll offset
+#   2. the fixed nav sat on top of the item-detail hero
+#   3. clicking a painting landed you on "Why Jeanne Kassab Art", not the painting
+#   4. "Contact for Purchase" landed mid-section
+#   5. the footer wordmark was a billboard and the strip above it was illegible
+# --------------------------------------------------------------------------- #
+
+_TEMPLATE_SRC = Path(__file__).resolve().parents[2] / "preview-template" / "src"
+_APP_TSX_J2 = (
+    Path(__file__).resolve().parents[2] / "app" / "templates" / "codegen" / "app_tsx.j2"
+)
+
+_DETAIL_ROUTE = {
+    "path": "/gallery/:id",
+    "component_file": "src/pages/ArtworkDetailPage.tsx",
+    "surface": "public",
+    "skeleton_id": "public-detail",
+    "title": "Artwork",
+    "page_intent": "detail",
+    "section_slots": ["hero", "credentials", "inquire", "cta", "footer"],
+}
+
+
+def _generated_app_tsx(tmp_path: Path) -> str:
+    """Run the real writer — `assemble.write_app_tsx` owns the shipped App.tsx."""
+    architect = {
+        "product_kind": "storefront",
+        "routes": [
+            {"path": "/", "component_file": "src/pages/HomePage.tsx", "surface": "public"},
+            {"path": "/gallery", "component_file": "src/pages/GalleryPage.tsx", "surface": "public"},
+            {"path": "/contact", "component_file": "src/pages/ContactPage.tsx", "surface": "public"},
+            dict(_DETAIL_ROUTE),
+        ],
+    }
+    for route in architect["routes"]:
+        target = tmp_path / route["component_file"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("export default function P() { return <div />; }\n", encoding="utf-8")
+
+    write_app_tsx(tmp_path, architect, get_template_renderer())
+    return (tmp_path / "src" / "App.tsx").read_text(encoding="utf-8")
+
+
+def test_a_generated_app_lands_every_navigation_at_the_top_of_the_page(
+    tmp_path: Path,
+) -> None:
+    """Defect 1: page-to-page navigation kept the previous scroll offset.
+
+    React Router restores nothing on a pathname change, so a click from halfway
+    down `/gallery` opened `/artwork/3` halfway down. The component existed in
+    the template and `assemble.write_app_tsx` rewrites App.tsx from scratch, so
+    the generated app never mounted it. The mount has to be asserted against the
+    *writer's* output, not the template's App.tsx — that file is overwritten in
+    every workspace.
+    """
+    app = _generated_app_tsx(tmp_path)
+
+    assert "<ScrollToTop />" in app, "the generated app must mount the scroll reset"
+    assert "function ScrollToTop()" in app, "...and carry its definition"
+    assert app.index("function ScrollToTop") < app.index("<ScrollToTop />")
+
+    # `html { scroll-behavior: smooth }` ships in every workspace, and a bare
+    # `window.scrollTo(0, 0)` inherits it — so the "reset" animated the whole
+    # page from 3000px while the incoming route was still mounting.
+    css = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "templates" / "codegen" / "index_css.j2"
+    ).read_text(encoding="utf-8")
+    assert "scroll-behavior: smooth" in css, "the premise of this test"
+    assert "window.scrollTo(0, 0)" not in app, "that reset would animate"
+    assert "behavior: 'instant'" in app, "a landing is instant, not animated"
+
+    # And it parses. `write_app_tsx` is a deterministic writer emitting a file
+    # every page depends on, and a comment in a generated file broke the build
+    # once already this session.
+    from app.application.preview_app.source_quality import tsx_parse_error
+
+    assert tsx_parse_error(app) == "", "the generated App.tsx must parse"
+
+    # The dev template's own App.tsx is the reference read by contributors.
+    template_app = (_TEMPLATE_SRC / "App.tsx").read_text(encoding="utf-8")
+    assert "<ScrollToTop />" in template_app
+    assert (_TEMPLATE_SRC / "components" / "ScrollToTop.tsx").exists()
+
+
+def test_the_scroll_reset_ships_one_behaviour_from_two_files() -> None:
+    """`app_tsx.j2` inlines the reset; the template keeps a component.
+
+    Two copies, because a generated App.tsx that imports a file must not be able
+    to lose it — but two copies drift. Pin them to the same alias set here rather
+    than discovering the divergence in a demo.
+    """
+    j2 = _APP_TSX_J2.read_text(encoding="utf-8")
+    component = (_TEMPLATE_SRC / "components" / "ScrollToTop.tsx").read_text(encoding="utf-8")
+
+    aliases = re.compile(r"HASH_ALIASES: Record<string, string> = \{(.*?)\}", re.S)
+    j2_map = aliases.search(j2)
+    component_map = aliases.search(component)
+    assert j2_map and component_map, "both copies declare the alias map"
+
+    def _pairs(block: str) -> set[tuple[str, str]]:
+        return set(re.findall(r"'?([\w-]+)'?:\s*'([\w-]+)'", block))
+
+    assert _pairs(j2_map.group(1)) == _pairs(component_map.group(1))
+
+    # And the *behaviour*, not just the alias table. Pinning the map alone let
+    # the two drift anyway: the j2 moved to `behavior: 'instant'` and then to
+    # measuring the header at scroll time, while the template copy sat on
+    # `scrollIntoView({ behavior: 'auto' })` for two rounds with this test green.
+    def _effect(src: str) -> str:
+        body = src[src.index("const raw = (hash") : src.index("}, [pathname, hash])")]
+        return re.sub(r"\s+|//[^\n]*", " ", re.sub(r"//[^\n]*", "", body)).strip()
+
+    assert _effect(j2) == _effect(component), (
+        "the two copies of the scroll reset must do the same thing, not merely "
+        "share an alias map"
+    )
+    # Every synonym a CTA might use has to reach the one form on the page.
+    assert {"contact", "contact-form", "purchase", "enquiry"} <= {
+        key for key, _ in _pairs(j2_map.group(1))
+    }
+    assert {value for _, value in _pairs(j2_map.group(1))} == {"inquire"}
+
+
+def test_an_item_detail_hero_clears_the_fixed_public_nav() -> None:
+    """Defect 2: "the image and header are into each other".
+
+    `PublicShell` renders the header `fixed inset-x-0 top-0` on an immersive
+    chrome, so it is out of flow and the first section starts at y=0 underneath
+    it. Every hero pays for its own clearance in top padding — and request 48's
+    composed detail page overrode exactly that, with
+    `className="h-[50vh] flex items-end pb-8"` on the hero. `cn` is
+    tailwind-merge, so the caller's padding won, `items-end` pushed the painting
+    above the top of a box now too short to hold it, and `overflow-hidden`
+    clipped it at row 0 with the nav links on top.
+
+    Nothing downstream can know how tall the nav is, so the guard is structural:
+    the clearance sits on the inner wrapper, which no `className` reaches, and
+    the root carries a `min-h` floor, which a caller's `h-*` cannot lower.
+    """
+    hero = (_TEMPLATE_SRC / "ui" / "public" / "MarketingHero.tsx").read_text(encoding="utf-8")
+
+    shell = (_TEMPLATE_SRC / "ui" / "public" / "PublicShell.tsx").read_text(encoding="utf-8")
+    assert "fixed inset-x-0 top-0" in shell, "the premise of this test"
+
+    item_branch = hero.split("resolved === 'item'", 1)
+    assert len(item_branch) == 2, "MarketingHero must offer an item-detail face"
+    body = item_branch[1].split("resolved === 'service'", 1)[0]
+    assert 'data-hero="item"' in body
+
+    root = body.split("className={cn(", 1)[1].split("className", 1)[0]
+    inner = body.split("</section>", 1)[0].split(")}\n      >", 1)[1]
+
+    assert "pt-28" not in root and "lg:pt-32" not in root, (
+        "clearance on the root is one composed `pb-8` away from being deleted"
+    )
+    assert "pt-28" in inner and "lg:pt-32" in inner, (
+        "the item hero must start below the fixed nav, not under it"
+    )
+    assert re.search(r"min-h-\[\d+rem\]", root), (
+        "a forced `h-[30vh]` must not be able to shrink the hero below its "
+        "own content and let `items-end` push it off the top"
+    )
+
+
+def test_a_link_to_an_item_lands_on_that_item() -> None:
+    """Defect 3: the click landed on "Why Jeanne Kassab Art", then the painting.
+
+    A recipe's `section_orders` owns the page face, so the fix is not on the
+    detail page — it is in every recipe that orders one. Request 48 shipped
+    `hero, credentials, showcase, ...` where `credentials` was the brand's
+    trust strip: the visitor asked for a painting and got a sales pitch first.
+    """
+    from app.application.preview_app.design_recipes import RECIPES
+
+    # Slots that talk about the business rather than the thing that was clicked.
+    brand_story = {"features", "testimonials", "trust", "process", "results", "spotlight"}
+
+    for recipe_id, recipe in RECIPES.items():
+        order = (recipe.get("section_orders") or {}).get("public-detail")
+        if not order:
+            continue
+        assert order[0] == "hero", f"{recipe_id} opens a detail page with {order[0]}"
+        assert "inquire" in order, f"{recipe_id} gives the item no way to be bought"
+        before_inquire = set(order[: order.index("inquire")])
+        assert not (before_inquire & brand_story), (
+            f"{recipe_id} puts {sorted(before_inquire & brand_story)} "
+            "between the visitor and the item they clicked"
+        )
+
+
+def test_the_detail_hero_and_its_first_strip_describe_the_item() -> None:
+    """The same defect one layer down: the slots must carry item content.
+
+    Reordering alone is not enough — `credentials` is the brand's "why us" strip
+    everywhere else, and leaving that sample on a detail page would put the
+    pitch back in position two under a different name.
+    """
+    tsx = minimal_catalogue_page_scaffold(
+        _DETAIL_ROUTE["component_file"], dict(_DETAIL_ROUTE), brand_name="Jeanne Kassab Art"
+    )
+
+    assert 'variant="item"' in tsx, "the detail hero is the painting, not a brand billboard"
+    assert "headline={itemTitle}" in tsx
+    assert "imageSrc={itemImage}" in tsx
+    assert "items={itemSpecs}" in tsx, "the strip under the hero carries the item's specs"
+
+    hero_at = tsx.index('variant="item"')
+    assert "Why " not in tsx[:hero_at], "no brand pitch above the item"
+
+
+def test_an_anchor_lands_at_the_top_of_the_section_it_names() -> None:
+    """Defect 4: "contact to purchase" landed in the middle of the contact block.
+
+    Two causes, both fixed here. The anchor has to exist on the *section*, and
+    the section has to reserve the height of the fixed nav — `scrollIntoView`
+    with `block: 'start'` puts the section top at viewport y=0, which is behind
+    the header. `[id] { scroll-margin-top }` is the floor; the panels that CTAs
+    actually target carry their own, because they sit under the taller chrome.
+    """
+    panel = (_TEMPLATE_SRC / "ui" / "public" / "InquiryPanel.tsx").read_text(encoding="utf-8")
+    booking = (_TEMPLATE_SRC / "ui" / "public" / "BookingPanel.tsx").read_text(encoding="utf-8")
+    css = (_TEMPLATE_SRC / "index.css").read_text(encoding="utf-8")
+
+    assert re.search(r"<section\b[^>]*\bid=\"inquire\"", panel, re.S), (
+        "the id belongs on the section wrapper — on an inner element the anchor "
+        "lands mid-block by construction"
+    )
+    # The offset is derived from the header PublicShell actually measured, not
+    # from a constant. `scroll-mt-28` was 112px for every shell, but the centred
+    # brand layout is a two-row header and the compact one is a single row, so a
+    # literal was wrong for one of them by construction. Request 66 also proved
+    # the constant could be defeated outright: the header flipped `sticky`→
+    # `fixed` mid-scroll, the document collapsed 114px, and a section that had
+    # landed at +112 was at −3 a frame later.
+    # The shape, not the number — `test_a_deep_linked_anchor_clears_the_header_
+    # on_a_cold_load` owns how large the fallback has to be.
+    offset = re.compile(r"scroll-mt-\[calc\(var\(--public-header-h,[\d.]+rem\)\+1\.5rem\)\]")
+    assert offset.search(panel) and offset.search(booking), (
+        "anchor panels must offset by the measured header height, not a literal"
+    )
+    assert re.search(r"\[id\]\s*\{\s*scroll-margin-top:", css), "every anchor needs a floor"
+    assert "--public-header-h" in css, "the floor must track the real header too"
+
+    # And the floor has to be in the CSS that *ships*. `index_css.j2` overwrites
+    # the template's `index.css` in every workspace and carried no `[id]` rule,
+    # so a generated app landed every anchor except the two panels above behind
+    # its own header.
+    generated_css = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "templates" / "codegen" / "index_css.j2"
+    ).read_text(encoding="utf-8")
+    assert re.search(r"\[id\]\s*\{\s*scroll-margin-top:", generated_css), (
+        "the dev template's floor never reached a generated app"
+    )
+
+    # A second id="inquire" makes getElementById a coin toss.
+    from app.application.preview_app.utility_compositor import compose_utility_page_tsx
+
+    contact = compose_utility_page_tsx(
+        file_path="src/pages/ContactPage.tsx",
+        route={"path": "/contact", "title": "Contact", "skeleton_id": "public-utility"},
+        content={},
+        brand_name="Jeanne Kassab Art",
+        workspace_type="contact",
+    )
+    assert contact.count('id="inquire"') == 0, (
+        "InquiryPanel already renders it; a wrapper would duplicate the anchor"
+    )
+    assert "InquiryPanel" in contact
+
+
+def test_the_footer_wordmark_is_a_signature_not_a_second_hero() -> None:
+    """Defect 5, part one: "the footer in a huge 'Jane Kassab' font".
+
+    The statement wordmark was `clamp(2.75rem, …, 11rem)` — at 1440px a
+    seventeen-character brand rendered at 110px, taller than the page heading it
+    sat below. It is a signature: a bounded, quiet mark.
+    """
+    footer = (_TEMPLATE_SRC / "ui" / "public" / "BrandFooter.tsx").read_text(encoding="utf-8")
+
+    clamp = re.search(
+        r"clamp\((?P<min>[\d.]+)rem, \$\{Math\.min\((?P<vw>[\d.]+),.*?\)\}vw, (?P<max>[\d.]+)rem\)",
+        footer,
+    )
+    assert clamp, "the wordmark size must stay a bounded clamp"
+    assert float(clamp.group("max")) <= 3.0, "a footer signature never exceeds 3rem"
+    assert float(clamp.group("vw")) <= 6.0, "...at any viewport width"
+    assert "mask-image" not in footer, (
+        "the fade read as a gesture at billboard scale; at signature scale it "
+        "reads as the brand name being cut off"
+    )
+
+
+def test_the_statement_footer_cannot_be_left_white_on_a_pale_plane() -> None:
+    """Defect 5, part two: the strip above the wordmark was unreadable.
+
+    `cn` is tailwind-merge, so `bg-foreground text-white` on the root is only a
+    default — request 62's home page composed
+    `<BrandFooter className="bg-surface text-muted py-8" />` and every white
+    glyph in the footer disappeared into a near-white band. The `nocturne`
+    recipe does the same thing without any caller's help: its
+    `--color-foreground` is #f4f0ea. The dark plane is painted as a child and
+    the ink is set below the root, so neither can reach them.
+    """
+    footer = (_TEMPLATE_SRC / "ui" / "public" / "BrandFooter.tsx").read_text(encoding="utf-8")
+    statement = footer.split('data-footer-variant="statement"', 1)
+    assert len(statement) == 2
+    root, body = statement[0].rsplit("return (", 1)[1], statement[1]
+
+    assert "bg-foreground" not in root, (
+        "a caller className merges after this and wins — the surface must not "
+        "live on the root"
+    )
+    assert "text-white" not in root, "nor may the ink"
+    plane = re.search(r'className="([^"]*absolute inset-0[^"]*)"', body)
+    assert plane and re.search(
+        r'bg-\[color-mix\(in_srgb,var\(--color-brand\)_\d+%,#[0-9a-f]{6}\)\]',
+        plane.group(1),
+    ), "the statement footer paints its own brand-tinted dark plane"
+    assert "text-white" in body, "the ink is set below the root, out of merge range"
+
+    # The recipe that would break it unaided is a real recipe, not a hypothetical.
+    # `index.css` is generated per workspace from this template.
+    css = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "templates" / "codegen" / "index_css.j2"
+    ).read_text(encoding="utf-8")
+    assert re.search(
+        r'\[data-recipe="nocturne"\]\s*\{[^}]*--color-foreground:\s*#f4f0ea', css, re.S
+    ), "the premise of this test"
+
+
+def test_the_footer_is_navigable_even_though_no_page_passes_links() -> None:
+    """Defect 5, part three: the footer was a dead surface on every page.
+
+    Every composed call site writes `brandName` and `description` and nothing
+    else, so `links` was always empty, the nav was dropped, and the right 35% of
+    the statement footer's `md:grid-cols-[1.3fr_0.7fr]` top row rendered blank.
+    Waiting for codegen to start passing links is waiting on a model; the header
+    already computes the public routes that exist.
+    """
+    footer = (_TEMPLATE_SRC / "ui" / "public" / "BrandFooter.tsx").read_text(encoding="utf-8")
+
+    assert "usePublicNavItems" in footer, "an empty footer nav has a real fallback"
+    assert re.search(r"links && links\.length > 0", footer), (
+        "a page that does pass links still wins"
+    )
+
+    # The fallback is only worth anything if it filters the way the header does.
+    nav = (_TEMPLATE_SRC / "lib" / "app-nav.ts").read_text(encoding="utf-8")
+    assert "isPublicMarketingHref" in nav, "no /admin, /owner or /ai-* in a public footer"
+
+
+def test_the_footer_is_divided_from_the_band_above_it() -> None:
+    """Defect 5, part four: "the band above it is unclear".
+
+    A `CTABand` is `bg-foreground`; the statement footer's plane is also
+    near-black. Request 48 rendered 237px of unbroken dark between the last CTA
+    button and the first footer word with no border, no rule and no background
+    step in it — the only cue that a section had ended was the footer's radial
+    glow being off-centre.
+    """
+    footer = (_TEMPLATE_SRC / "ui" / "public" / "BrandFooter.tsx").read_text(encoding="utf-8")
+    band = (_TEMPLATE_SRC / "ui" / "public" / "CTABand.tsx").read_text(encoding="utf-8")
+
+    assert "bg-foreground" in band, "the premise: the section above is dark too"
+    plane = re.search(r'aria-hidden="true"\n\s+className="([^"]*absolute inset-0[^"]*)"', footer)
+    assert plane, "the statement footer paints its own plane"
+    assert "border-t" in plane.group(1), (
+        "the boundary belongs on the plane — on the root a caller className "
+        "merges it away, which is how the surface was lost in the first place"
+    )
+
+
+def test_the_brand_lockup_is_the_way_home() -> None:
+    """`<a href="#top">` scrolled to a sentinel on the page you were already on.
+
+    From `/artwork/3` the one control every visitor tries did nothing at all.
+    """
+    shell = (_TEMPLATE_SRC / "ui" / "public" / "PublicShell.tsx").read_text(encoding="utf-8")
+
+    assert 'href="#top"' not in shell, "the wordmark is not an in-page anchor"
+    assert re.search(r'<AppLink\s+href="/"', shell), "it is a router link home"
+
+
+def test_a_hero_does_not_resurrect_a_cta_the_page_removed() -> None:
+    """`primaryCta={null}` is codegen saying "no CTA in this hero, per brief".
+
+    The old signature made that a TS2322 *and* fell through to
+    `DEFAULT_PRIMARY_CTA`, so an "Explore" button rendered anyway on a page whose
+    own comment said there should be none. Omitting the prop still gets the
+    default — a scaffold hero must not become a dead end.
+    """
+    hero = (_TEMPLATE_SRC / "ui" / "public" / "MarketingHero.tsx").read_text(encoding="utf-8")
+
+    assert "primaryCta?: MarketingCta | null;" in hero, "null must typecheck"
+    assert "secondaryCta?: MarketingCta | null;" in hero
+    assert "const showPrimary = primaryCta !== null;" in hero
+    assert "DEFAULT_PRIMARY_CTA" in hero, "an omitted CTA still gets the default"
+
+    # Every variant renders the primary through the guard, not around it.
+    body = hero.split("function MarketingHeroBody", 1)[1]
+    assert body.count("href={cta.href}") == 1, (
+        "one guarded render site; a second one is a variant that ignores it"
+    )
+    assert body.count("primaryButton(") >= 6, "and every hero variant uses it"
+
+
+def test_a_listing_page_states_its_title_once() -> None:
+    """`/gallery` rendered "Gallery: Available Works" and then "From the
+    collection" 150px below it, with dead space between and no second section
+    to justify a second display heading.
+    """
+    route = {
+        "path": "/gallery",
+        "component_file": "src/pages/GalleryPage.tsx",
+        "surface": "public",
+        "skeleton_id": "public-catalog",
+        "title": "Gallery: Available Works",
+        "page_intent": "listing",
+        "section_slots": ["hero", "showcase", "footer"],
+    }
+    tsx = minimal_catalogue_page_scaffold(
+        route["component_file"], route, brand_name="Jeanne Kassab Art"
+    )
+
+    assert "PageHeader" in tsx, "the page header owns the title"
+    assert 'heading=""' in tsx, "so the grid does not restate it"
+    assert "From the collection" not in tsx
+
+    # An empty heading must drop the header block, not render an empty <h2>.
+    grid = (_TEMPLATE_SRC / "ui" / "public" / "CatalogGrid.tsx").read_text(encoding="utf-8")
+    assert "{heading ? (" in grid, "an empty heading renders no heading"
+    assert not re.search(r'className="[^"]*font-mono', grid), (
+        "a monospace count on a serif storefront reads as debug output"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# the deterministic scaffold is the fallback — it cannot need an AI round
+# --------------------------------------------------------------------------- #
+
+_SCAFFOLD_FACES = [
+    # (label, route) — one per branch of minimal_catalogue_page_scaffold.
+    (
+        "public-home",
+        {
+            "path": "/",
+            "component_file": "src/pages/HomePage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-home",
+            "title": "Jeanne Kassab Art",
+            "section_slots": ["hero", "trust", "features", "showcase", "cta", "footer"],
+        },
+    ),
+    (
+        "catalog-browse",
+        {
+            "path": "/gallery",
+            "component_file": "src/pages/GalleryPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "Gallery: Available Works",
+            "page_intent": "listing",
+            "section_slots": ["hero", "filters", "showcase", "cta", "footer"],
+        },
+    ),
+    (
+        "catalog-browse-no-intent",
+        {
+            "path": "/collection",
+            "component_file": "src/pages/CollectionPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "The Collection",
+            "section_slots": ["hero", "showcase", "footer"],
+        },
+    ),
+    (
+        "people-directory",
+        {
+            "path": "/doctors",
+            "component_file": "src/pages/DoctorsPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "Our Doctors",
+            "page_intent": "listing",
+            "section_slots": ["hero", "showcase", "footer"],
+        },
+    ),
+    (
+        "schedule-listing",
+        {
+            "path": "/services",
+            "component_file": "src/pages/ServicesPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "Services",
+            "section_slots": ["hero", "showcase", "features", "cta", "footer"],
+        },
+    ),
+    (
+        "item-detail",
+        {
+            "path": "/gallery/:id",
+            "component_file": "src/pages/ArtworkDetailPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-detail",
+            "title": "Artwork",
+            "page_intent": "detail",
+            "section_slots": ["hero", "credentials", "showcase", "inquire", "cta", "footer"],
+        },
+    ),
+    (
+        "ops-listing",
+        {
+            "path": "/owner/paintings",
+            "component_file": "src/pages/owner/AdminPaintingListPage.tsx",
+            "surface": "ops",
+            "skeleton_id": "ops-list",
+            "title": "Manage Paintings",
+            "page_intent": "listing",
+            "section_slots": ["header", "filters", "table"],
+        },
+    ),
+    (
+        "ops-dashboard",
+        {
+            "path": "/owner/dashboard",
+            "component_file": "src/pages/owner/DashboardPage.tsx",
+            "surface": "ops",
+            "skeleton_id": "ops-dashboard",
+            "title": "Dashboard",
+            "section_slots": ["header", "kpis", "table", "activity", "risk"],
+        },
+    ),
+]
+
+
+def test_every_deterministic_scaffold_parses() -> None:
+    """The scaffold is what a page falls back to when the AI fill is rejected.
+
+    Request 66 fell back on four of twelve pages and two of them **failed the
+    build**: the `public-catalog` scaffold emitted a `{/* … */}` comment inside
+    `<CatalogGrid`'s attribute list, where `{` begins a spread — so esbuild
+    reported "Expected `...` but found `}`" and the build-fix agent had to
+    recover. `test_every_ai_writer_checks_that_its_output_parses` pins the four
+    writers that can *replace* a page; this pins the writer nobody guarded
+    because it is deterministic, which is exactly why it has to be right.
+    """
+    from app.application.preview_app.source_quality import tsx_parse_error
+
+    broken: list[str] = []
+    for label, route in _SCAFFOLD_FACES:
+        tsx = minimal_catalogue_page_scaffold(
+            route["component_file"], dict(route), brand_name="Jeanne Kassab Art"
+        )
+        error = tsx_parse_error(tsx)
+        if error:
+            broken.append(f"{label} ({route['path']}): {error}")
+    assert not broken, "deterministic scaffold does not parse:\n  " + "\n  ".join(broken)
+
+
+def test_the_composed_utility_pages_parse() -> None:
+    """Same rule for the other deterministic writer.
+
+    `/contact` and `/login` are composed, not scaffolded, and they are the two
+    faces `should_compose_utility_page` now forces regardless of the skeleton
+    the architect assigned — so they ship on more routes than before.
+    """
+    from app.application.preview_app.source_quality import tsx_parse_error
+    from app.application.preview_app.utility_compositor import compose_utility_page_tsx
+
+    for workspace_type, path in (
+        ("contact", "/contact"),
+        ("auth", "/owner/login"),
+        ("cart", "/cart"),
+        ("checkout", "/checkout"),
+        ("account", "/account"),
+        ("confirmation", "/order/confirmed"),
+        ("tracking", "/track"),
+    ):
+        tsx = compose_utility_page_tsx(
+            file_path="src/pages/UtilityPage.tsx",
+            route={"path": path, "title": "Page", "skeleton_id": "public-utility"},
+            content={},
+            brand_name="Jeanne Kassab Art",
+            workspace_type=workspace_type,
+        )
+        assert tsx_parse_error(tsx) == "", f"{workspace_type} does not parse"
+
+
+def test_a_verdict_that_arrives_after_the_gate_still_blocks() -> None:
+    """Request 66 shipped `ready` on a page its own critic scored 5/100.
+
+    Sequence from the log, spanning 34 seconds:
+
+        11:09:54  visual critic: 2 verdict(s) retired after repair
+        11:09:58  quality gate PASSED after AI repair attempt 2
+        11:09:58  visual critic: re-measuring 3 repaired page(s)
+        11:10:28  visual critic PaintingDetailPage.tsx: 5 (revise)
+        11:10:28  visual critic CollectionPage.tsx: 35 (revise)
+
+    Retiring works and re-measuring works. The gate simply was not consulted
+    again, so the two verdicts that confirmed the defects against the shipping
+    source had no reader — the exact condition the handoff names as "a
+    measurement with no reader is indistinguishable from one that was never
+    taken", reached the long way round.
+    """
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "pipeline" / "finalize.py"
+    ).read_text(encoding="utf-8")
+
+    assert "_regate_after_remeasure" in source, "the re-measure must re-enter the gate"
+
+    remeasure_at = source.index("remeasured = _remeasure_repaired_pages(ctx, architect)")
+    # The single place that logs and emits the gate outcome must come after, so
+    # it reports the verdict set that ships rather than the one that was current
+    # four seconds earlier.
+    assert remeasure_at < source.index('log.info("    quality gate PASSED")'), (
+        "the gate outcome is reported before the re-measure can change it"
+    )
+    assert remeasure_at < source.index('log.error("    quality gate FAILED'), (
+        "same for the failure path"
+    )
+
+    # Evaluation only — a repair here would retire the verdict it was handed.
+    body = source[source.index("def _regate_after_remeasure") :]
+    body = body[: body.index("\ndef ")]
+    assert "evaluate_quality_gate(" in body
+    assert "run_quality_gate_with_heal" not in body, (
+        "no heal and no AI repair after the budget is spent; this is a re-read"
+    )
+    # And scoped: only findings against the pages just re-measured may revoke a
+    # pass. Re-running every check here would let something unrelated withhold a
+    # preview with no repair budget left to clear it — requests 43/44/45 arriving
+    # by a different road. A first cut of this fix did exactly that and revoked a
+    # pass over `no_pages`.
+    assert "if str(issue.path or \"\").replace" in body, "findings must be path-scoped"
+    assert "if not scoped:" in body and "return gate" in body
+
+
+def test_a_listing_face_survives_losing_its_marker_comment() -> None:
+    """Request 66 rejected every refine of `/collection`, three times over.
+
+    `errors=['slot:hero', 'slot:trust', 'slot:filters', 'slot:showcase',
+    'slot:features', 'slot:cta', 'slot:footer']` — every assigned slot. Not one
+    of them was really missing: a directory/catalog listing face has no `slots`
+    object at all, and once the refine pass dropped the `// directory listing
+    scaffold` **comment** that identifies the face, the validator judged it as a
+    slot-composed page and demanded all seven.
+
+    Face identity now comes from structure. `SkeletonComposer` is the tell — a
+    slot-composed page has one, a listing face never does.
+    """
+    from app.application.preview_app.catalogue_contract.validate import (
+        validate_catalogue_page_content,
+    )
+
+    route = {
+        "path": "/collection",
+        "component_file": "src/pages/CollectionPage.tsx",
+        "surface": "public",
+        "skeleton_id": "public-catalog",
+        "title": "The Collection",
+        "page_intent": "listing",
+        "section_slots": ["hero", "trust", "filters", "showcase", "features", "cta", "footer"],
+    }
+    scaffold = minimal_catalogue_page_scaffold(
+        route["component_file"], dict(route), brand_name="Jeanne Kassab Art"
+    )
+    assert "// directory listing scaffold" in scaffold, "the premise of this test"
+    assert validate_catalogue_page_content(scaffold, route) == []
+
+    # What a refine returns: same page, comments gone.
+    refined = "\n".join(
+        line for line in scaffold.split("\n") if not line.lstrip().startswith("//")
+    )
+    assert "// directory listing scaffold" not in refined
+    assert "SkeletonComposer" not in refined
+
+    errors = validate_catalogue_page_content(refined, route)
+    assert not [e for e in errors if e.startswith("slot:")], (
+        f"a listing face has no slots object to declare slots in: {errors}"
+    )
+
+
+def test_the_repair_relabels_a_listing_face_instead_of_discarding_it() -> None:
+    """Losing a comment must not cost a page its refinement.
+
+    `enforce_catalogue_page_contract` rebuilt the whole page from the
+    deterministic scaffold when the marker was absent — correct when the face
+    has actually regressed to a home clone, pure waste when the grid is still
+    right there.
+    """
+    from app.application.preview_app.catalogue_contract.repair import (
+        enforce_catalogue_page_contract,
+    )
+
+    route = {
+        "path": "/collection",
+        "component_file": "src/pages/CollectionPage.tsx",
+        "surface": "public",
+        "skeleton_id": "public-catalog",
+        "title": "The Collection",
+        "page_intent": "listing",
+        "section_slots": ["hero", "showcase", "footer"],
+    }
+    scaffold = minimal_catalogue_page_scaffold(
+        route["component_file"], dict(route), brand_name="Jeanne Kassab Art"
+    )
+    refined = scaffold.replace(
+        "// directory listing scaffold — distinct from home marketing clone\n", ""
+    ).replace("Browse the collection.", "Browse every available piece.")
+
+    updated, _ = enforce_catalogue_page_contract(
+        route["component_file"], refined, {"routes": [route]}, brand_name="Jeanne Kassab Art"
+    )
+    assert "// directory listing scaffold" in updated, "the label is restored"
+    assert "Browse every available piece." in updated, (
+        "and the refinement it was carrying is kept"
+    )
+
+
+def test_the_filter_bar_speaks_the_surface_it_is_on() -> None:
+    """`filters` is shared between the storefront and the ops surface.
+
+    Its sample only branched accounting / trading / everything-else, so a public
+    catalogue took the default and offered "Search records" filtered by "Open" —
+    a work-queue vocabulary on a page selling paintings, the same class of defect
+    as request 40's doctor directory on a gallery.
+    """
+    from app.application.preview_app.catalogue_contract.scaffold import _safe_slot_jsx
+
+    public = _safe_slot_jsx("filters", "Jeanne Kassab Art", "Gallery", skeleton_id="public-catalog")
+    assert "Search the collection" in public
+    assert "Available" in public
+    assert "Overdue" not in public and "Open" not in public
+
+    ops = _safe_slot_jsx("filters", "Northwind Books", "Manage", skeleton_id="ops-list")
+    assert "Open" in ops, "the ops queue keeps its own vocabulary"
+
+    ledger = _safe_slot_jsx(
+        "filters", "Ledgerly Accounting", "Invoices", skeleton_id="ops-ledger-home"
+    )
+    assert "Overdue" in ledger and "Search invoices / expenses" in ledger
+
+
+# --------------------------------------------------------------------------- #
+# request 66: three link/layout defects a driven browser found and source
+# review did not
+# --------------------------------------------------------------------------- #
+
+def test_the_public_header_never_changes_positioning_mode() -> None:
+    """A 114px content jolt on the first wheel event, on four of six pages.
+
+    `PublicShell` rendered the header `sticky top-0` until scrollY passed 24 and
+    `fixed inset-x-0 top-0` after. A sticky header occupies layout space and a
+    fixed one does not, so crossing that threshold collapsed the document by the
+    header's own height in a single frame:
+
+        /painting-detail/1   3157 → 3043   (−114)
+        /collection          4438 → 4324   (−114)
+        /gallery             4365 → 4250   (−115)
+        /inquiry-confirm     1207 → 1093   (−114)
+
+    `/` and `/about-artist` were unaffected because their chrome is immersive and
+    already fixed in both states — the asymmetry that makes this diagnosable.
+
+    It compounds: it silently defeats every anchor on the site. QA measured a
+    section landing at +112 and sitting at −3 six hundred milliseconds later with
+    `scrollY` unchanged, so `#inquire` was arriving correctly on the luck of its
+    own 119px of top padding rather than on any scroll-margin. Invisible in
+    source review, invisible to `tsc`, and visible only as a document-height
+    delta in a driven browser — so it is pinned here.
+    """
+    shell = (_TEMPLATE_SRC / "ui" / "public" / "PublicShell.tsx").read_text(encoding="utf-8")
+
+    header = shell[shell.index("<header") :]
+    header = header[: header.index(">\n")]
+
+    # The invariant is that the mode does not depend on scroll position — not
+    # that it is any particular mode. `scrolled` may still drive colour, blur
+    # and shadow; it may never drive `position`.
+    mode = re.search(r"immersive \? '([^']+)' : '([^']+)',", header)
+    assert mode, "the positioning mode must be a plain function of `immersive`"
+    assert "scrolled" not in mode.group(0)
+    assert mode.group(1) == "fixed inset-x-0 top-0", "an immersive hero runs under the nav"
+    assert mode.group(2) == "sticky top-0", (
+        "non-immersive chrome must keep its box in flow, so layout holds the "
+        "space open with no spacer and nothing to measure"
+    )
+
+    # No measured spacer. Request 67 fixed the scroll jolt with one and moved
+    # the same 114px jump to first paint: `headerHeight` starts at 0, so frame 1
+    # was `main.top = 0, docH = 4346` and frame 3 was `main.top = 114,
+    # docH = 4461` — every non-immersive page rendered under its own header and
+    # snapped down.
+    assert "height: headerHeight" not in shell, (
+        "a spacer whose height starts at 0 jolts the page on first paint"
+    )
+
+    # The measurement survives, for anchor offsets only, and the header carries
+    # a stable hook so a scroll handler can read it without waiting for React.
+    assert "ResizeObserver" in shell and "getBoundingClientRect" in shell
+    assert "'--public-header-h'" in shell
+    assert 'data-public-header=""' in shell
+
+
+def test_no_public_cta_lands_on_a_confirmation_page() -> None:
+    """Every site-wide Contact control on request 66 was a terminal dead end.
+
+    "Contact", "Contact the Gallery", "Arrange a Studio Visit" and "Inquire Now"
+    — on `/`, on `/collection` and in every page's footer — all pointed at
+    `/inquiry-confirm`: `h1: "Inquiry Sent"`, zero forms, zero inputs, and body
+    copy thanking the visitor for a message about a painting that is not in the
+    catalogue. The route was declared and rendered fine, so the dead-link sweep
+    could not see it; it is the wrong destination, not a missing one.
+
+    A confirmation page is where a form sends you, never where a link takes you.
+    """
+    from app.application.preview_app.capabilities.journey import (
+        _contact_target,
+        _is_confirmation_path,
+    )
+
+    for terminal in (
+        "/inquiry-confirm",
+        "/inquiry-confirmation",
+        "/order-confirmed",
+        "/thank-you",
+        "/thankyou",
+        "/success",
+        "/receipt",
+        "/checkout-complete",
+        "/booking-confirmation",
+    ):
+        assert _is_confirmation_path(terminal), terminal
+
+    # Over-matching would repoint links that work. A guard that breaks a good
+    # link is worse than the defect it was added for.
+    for safe in (
+        "/contact",
+        "/checkout",
+        "/confirmation-policy",
+        "/gallery/letter-sent",
+        "/complete-collection",
+        "/success-stories",
+        "/receipts-and-returns",
+        "/about",
+        "/",
+    ):
+        assert not _is_confirmation_path(safe), safe
+
+    declared = {"/", "/gallery", "/contact", "/inquiry-confirm"}
+    assert _contact_target(declared, "") == "/contact"
+    # No contact route, but the page renders the form itself.
+    assert _contact_target({"/", "/inquiry-confirm"}, "<InquiryPanel heading=…") == "#inquire"
+    # Nothing real to point at — leave it rather than invent a target.
+    assert _contact_target({"/", "/inquiry-confirm"}, "<MarketingHero />") == ""
+
+
+def test_a_contact_cta_on_a_confirmation_route_is_repointed(tmp_path: Path) -> None:
+    """The repair, end to end, against the shape request 66 shipped."""
+    from app.application.preview_app.capabilities.journey import repair_dead_internal_links
+
+    architect = {
+        "routes": [
+            {"path": "/", "component_file": "src/pages/HomePage.tsx", "surface": "public"},
+            {"path": "/contact", "component_file": "src/pages/ContactPage.tsx", "surface": "public"},
+            {
+                "path": "/inquiry-confirm",
+                "component_file": "src/pages/InquiryConfirmationPage.tsx",
+                "surface": "public",
+            },
+        ]
+    }
+    home = tmp_path / "src/pages/HomePage.tsx"
+    home.parent.mkdir(parents=True, exist_ok=True)
+    home.write_text(
+        'export default function HomePage() {\n'
+        '  return <CTABand primaryCta={{ label: "Contact the Gallery", href: "/inquiry-confirm" }} '
+        'secondaryCta={{ label: "Browse", href: "/" }} />;\n'
+        "}\n",
+        encoding="utf-8",
+    )
+    for rel in ("src/pages/ContactPage.tsx", "src/pages/InquiryConfirmationPage.tsx"):
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("export default function P() { return <div />; }\n", encoding="utf-8")
+
+    repair_dead_internal_links(tmp_path, architect)
+
+    updated = home.read_text(encoding="utf-8")
+    assert '"/inquiry-confirm"' not in updated, "a Contact CTA must reach a form"
+    assert '"/contact"' in updated
+    assert '"/"' in updated, "unrelated links are untouched"
+
+
+_TWO_BROWSE_ARCHITECT = {
+    # Request 66's actual route table: two near-duplicate browse pages over the
+    # same ten items, two detail routes, and no `/gallery/:id`.
+    "routes": [
+        {"path": "/", "surface": "public"},
+        {"path": "/gallery", "surface": "public"},
+        {"path": "/collection", "surface": "public"},
+        {"path": "/collection/:id", "surface": "public"},
+        {"path": "/painting-detail/:id", "surface": "public"},
+        {"path": "/owner/paintings/edit/:id", "surface": "ops"},
+    ],
+}
+
+
+def _card_hrefs(tsx: str) -> list[str]:
+    """The route bases a listing's cards actually link into."""
+    return sorted(
+        {
+            m.group(1).rstrip("/")
+            for m in re.finditer(r"href: `([^`$]*)/\$\{", tsx)
+        }
+        | {m.group(1).rstrip("/") for m in re.finditer(r'LISTING_BASE = "([^"]+)"', tsx)}
+    )
+
+
+def test_every_catalogue_card_links_to_a_route_that_exists() -> None:
+    """Request 66 shipped ten dead cards on its primary browse page.
+
+    The scaffold used the listing page's **own** path as the card base, so
+    `/gallery`'s cards all linked `/gallery/<slug>`. The route table declared
+    `/collection/:id` and `/painting-detail/:id` and no `/gallery/:id`, so
+    `path="*"` sent all ten clicks to the home page: scrolling `/gallery` to
+    2400, clicking "Crimson Horizon", and landing on `h1: "The Vaillant
+    Collection"`. The journey gate saw it — `journey_dead_link:/gallery/:id ×4` —
+    and it shipped anyway.
+
+    Asserted against the declared route table, because the string being right
+    for one architect proves nothing.
+    """
+    declared_param_bases = {
+        str(r["path"]).split("/:", 1)[0].rstrip("/")
+        for r in _TWO_BROWSE_ARCHITECT["routes"]
+        if "/:" in str(r["path"]) and str(r.get("surface")) != "ops"
+    }
+
+    for listing in ("/gallery", "/collection"):
+        route = {
+            "path": listing,
+            "component_file": f"src/pages/{listing.strip('/').title()}Page.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "Browse",
+            "page_intent": "listing",
+        }
+        tsx = minimal_catalogue_page_scaffold(
+            route["component_file"],
+            route,
+            brand_name="The Vaillant Collection",
+            architect=_TWO_BROWSE_ARCHITECT,
+        )
+        bases = _card_hrefs(tsx)
+        assert bases, f"{listing} emitted no card links at all"
+        for base in bases:
+            assert base in declared_param_bases, (
+                f"{listing} cards link into {base}, which no route serves — "
+                f"the catch-all sends every click home. Declared: "
+                f"{sorted(declared_param_bases)}"
+            )
+
+
+def test_two_browse_pages_share_one_catalogue_base() -> None:
+    """`/gallery` and `/collection` are near-duplicates over the same ten items.
+
+    That duplication is a planner-level defect and is **not** fixed here — both
+    pages still ship. What is fixed is the consequence that reached the user: a
+    card's target no longer depends on which of the two pages it was clicked
+    from. One catalogue, one detail base, both browse pages agreeing.
+    """
+    bases = set()
+    for listing in ("/gallery", "/collection"):
+        route = {
+            "path": listing,
+            "component_file": f"src/pages/{listing.strip('/').title()}Page.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "Browse",
+            "page_intent": "listing",
+        }
+        tsx = minimal_catalogue_page_scaffold(
+            route["component_file"],
+            route,
+            brand_name="The Vaillant Collection",
+            architect=_TWO_BROWSE_ARCHITECT,
+        )
+        bases.update(_card_hrefs(tsx))
+    assert len(bases) == 1, f"the two browse pages disagree about the catalogue: {bases}"
+
+
+def test_a_listing_keeps_its_own_base_when_the_planner_declared_one() -> None:
+    """`/gallery` + `/gallery/:id` is the natural pairing and must win.
+
+    Preferring the declared detail base unconditionally would repoint cards away
+    from a perfectly good `/gallery/:id` onto some other param route that
+    happened to be declared first — and then the card link and the "back to the
+    collection" link would disagree.
+    """
+    architect = {
+        "routes": [
+            {"path": "/gallery", "surface": "public"},
+            {"path": "/gallery/:id", "surface": "public"},
+            {"path": "/collection/:id", "surface": "public"},
+        ]
+    }
+    tsx = minimal_catalogue_page_scaffold(
+        "src/pages/GalleryPage.tsx",
+        {
+            "path": "/gallery",
+            "component_file": "src/pages/GalleryPage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-catalog",
+            "title": "Gallery",
+            "page_intent": "listing",
+        },
+        brand_name="Jeanne Kassab Art",
+        architect=architect,
+    )
+    assert _card_hrefs(tsx) == ["/gallery"]
+
+
+def test_a_duplicate_key_never_ships_in_generated_mock_data() -> None:
+    """Request 66 declared `item4`…`item8` twice in `images` — five TS1117s.
+
+    Half that run's ten type errors, from one object literal. The model that
+    synthesizes `mock.ts` is handed the whole slot map and restated part of it
+    alongside its own named keys. That writer is checked for the exports pages
+    import and for parsing, and a duplicate key is neither — it parses fine, so
+    nothing objected.
+
+    Last-wins, which is what the engine already does, so the rewrite cannot
+    change what renders; it removes the diagnostic, not a behaviour.
+    """
+    from app.application.preview_app.safety.mock_data import dedupe_object_literal_keys
+
+    source = "\n".join(
+        [
+            "export const images = {",
+            '  "hero": "h",',
+            '  "item4": "stale",',
+            '  "named": "n",',
+            '  "item4": "fresh"',
+            "};",
+            "",
+            "export const seed = {",
+            '  "x": 1',
+            "};",
+        ]
+    )
+    out = dedupe_object_literal_keys(source, "images")
+    assert out.count('"item4"') == 1
+    assert "fresh" in out and "stale" not in out, "JavaScript semantics are last-wins"
+    assert '"named"' in out and '"hero"' in out, "nothing else is disturbed"
+    assert "export const seed" in out and '"x": 1' in out
+
+    # Idempotent, and a clean literal is returned untouched.
+    assert dedupe_object_literal_keys(out, "images") == out
+
+    # A nested literal is left alone rather than filtered line by line, where a
+    # stray `}` would desynchronise the scan.
+    nested = 'export const images = {\n  "a": { "b": 1 },\n  "a": 2\n};'
+    assert dedupe_object_literal_keys(nested, "images") == nested
+
+
+def test_a_deep_linked_anchor_clears_the_header_on_a_cold_load() -> None:
+    """Request 67: `/painting/1#inquire` landed 18px *under* a 114px header.
+
+        click #inquire in-page:      targetTop 138, headerBottom 114  → +23
+        open /painting/1#inquire:    targetTop  97, headerBottom 114  → −18
+        open /contact#inquire:       targetTop  97, headerBottom 114  → −18
+
+    97 is `4.5rem + 1.5rem`: on a cold load the scroll runs before PublicShell
+    has measured anything, so `--public-header-h` is undefined and the
+    stylesheet fallback fires — and 4.5rem was 42px short of the header this kit
+    actually renders. The in-page click was correct only because by then the
+    measurement had landed.
+
+    Two changes, because either alone leaves a hole. The scroll reads the
+    rendered header instead of a CSS variable that may not exist yet, and the
+    fallback is biased high so that overshooting — harmless space above the
+    target — is the failure mode rather than hiding the heading behind the nav.
+    """
+    j2 = _APP_TSX_J2.read_text(encoding="utf-8")
+    component = (_TEMPLATE_SRC / "components" / "ScrollToTop.tsx").read_text(encoding="utf-8")
+
+    for name, source in (("app_tsx.j2", j2), ("ScrollToTop.tsx", component)):
+        assert "querySelector('[data-public-header]')" in source, (
+            f"{name}: the offset must come from the rendered header, not a "
+            "variable that is undefined on the frame this runs"
+        )
+        assert "scrollIntoView" not in source, (
+            f"{name}: scrollIntoView defers to CSS scroll-margin, which is "
+            "exactly the value that has not been computed yet"
+        )
+        assert "Math.max(0, top)" in source, f"{name}: never scroll to a negative offset"
+
+    # The floor a cold load actually gets, in both stylesheets and both panels.
+    for rel in (
+        _TEMPLATE_SRC / "index.css",
+        _TEMPLATE_SRC / "ui" / "public" / "InquiryPanel.tsx",
+        _TEMPLATE_SRC / "ui" / "public" / "BookingPanel.tsx",
+        Path(__file__).resolve().parents[2] / "app/templates/codegen/index_css.j2",
+    ):
+        text = rel.read_text(encoding="utf-8")
+        fallbacks = re.findall(r"--public-header-h,\s*([\d.]+)rem", text)
+        assert fallbacks, f"{rel.name} must offset by the measured header"
+        for value in fallbacks:
+            assert float(value) >= 7.0, (
+                f"{rel.name}: a {value}rem fallback is shorter than the header "
+                "this kit renders, so a deep link lands behind the nav"
+            )
+
+
+# --------------------------------------------------------------------------- #
+# request 67: what the gate's repair did to a route table nobody re-checked
+# --------------------------------------------------------------------------- #
+
+def test_no_ai_writer_may_edit_a_file_the_generator_owns() -> None:
+    """Two writers disagreed about `App.tsx` and it cost a storefront.
+
+    `codegen/fix_agent` refused it via a private basename list;
+    `quality_repair.RepairAPI._safe` checked only `is_template_owned_path`,
+    which covers `src/ui/**` and two files. So the gate's repair model was handed
+    the router to clear a dead-link finding and cleared it by deleting the route:
+
+        {"op":"replace","path":"src/App.tsx",
+         "old":"          <Route path=\\"/collection\\" element={<CollectionPage />} />",
+         "new":"          "}
+
+    14 links across 7 pages then fell through `path="*"` to the home page.
+    One rule, both writers.
+    """
+    from app.application.preview_app.protected_paths import is_generator_owned_path
+
+    for owned in ("src/App.tsx", "src/index.css", "src/main.tsx", "package.json"):
+        assert is_generator_owned_path(owned), owned
+    for writable in ("src/pages/HomePage.tsx", "src/data/mock.ts", "src/lib/app-nav.ts"):
+        assert not is_generator_owned_path(writable), writable
+
+    root = Path(__file__).resolve().parents[2] / "app" / "application" / "preview_app"
+
+    # In the *write path*, not merely somewhere in the file. `RepairAPI` filters
+    # `list_files` with the same helper, so a check that the module mentions it
+    # stays green while `_safe` — the one gate every write goes through — has
+    # stopped calling it.
+    repair = (root / "quality_repair.py").read_text(encoding="utf-8")
+    safe = repair[repair.index("def _safe(") :]
+    safe = safe[: safe.index("\n    def ")]
+    assert "is_generator_owned_path" in safe, (
+        "every RepairAPI write goes through _safe; the rule has to be there"
+    )
+    assert "is_template_owned_path" in safe
+
+    fix_agent = (root / "codegen" / "fix_agent.py").read_text(encoding="utf-8")
+    assert "is_generator_owned_path" in fix_agent, (
+        "the fix agent must use the shared rule, not its own list"
+    )
+    assert "_PROTECTED_BASENAMES" not in (
+        root / "codegen" / "fix_agent.py"
+    ).read_text(encoding="utf-8"), "the private list is what drifted"
+
+
+def test_no_writer_may_make_a_declared_route_unreachable(tmp_path: Path) -> None:
+    """The sibling of "no writer may replace parseable source with unparseable".
+
+    Deleting a `<Route>` parses perfectly, so `_write_if_parseable` waved request
+    67's repair straight through, and `find_unresolved_routes` runs in
+    `codegen_phase` only — nothing re-checked reachability after a repair. The
+    route table is generated, so restoring it is free and always correct.
+    """
+    from app.application.preview_app.quality_gate import _route_table_is_stale
+
+    architect = {
+        "routes": [
+            {"path": "/", "component_file": "src/pages/HomePage.tsx", "surface": "public"},
+            {
+                "path": "/collection",
+                "component_file": "src/pages/CollectionPage.tsx",
+                "surface": "public",
+            },
+        ]
+    }
+    for rel in ("src/pages/HomePage.tsx", "src/pages/CollectionPage.tsx"):
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("export default function P() { return <div />; }\n", encoding="utf-8")
+
+    def _router(*paths: str) -> None:
+        body = "\n".join(
+            f'          <Route path="{p}" element={{<P />}} />' for p in paths
+        )
+        (tmp_path / "src" / "App.tsx").write_text(
+            f"export default function App() {{\n  return (\n    <Routes>\n{body}\n"
+            '      <Route path="*" element={<Navigate to="/" replace />} />\n'
+            "    </Routes>\n  );\n}\n",
+            encoding="utf-8",
+        )
+
+    _router("/", "/collection")
+    assert not _route_table_is_stale(tmp_path, architect), "a complete table is fine"
+
+    # The deletion request 67 shipped.
+    _router("/")
+    assert _route_table_is_stale(tmp_path, architect), "a deleted route is unreachable"
+
+    # The duplicate an earlier attempt minted — React Router takes the first
+    # match, so everything behind it is dead.
+    _router("/", "/collection", "/collection")
+    assert _route_table_is_stale(tmp_path, architect), "a duplicate path hides a page"
+
+    # A route whose page does not exist is dropped from the router on purpose;
+    # re-adding it would break the build.
+    _router("/")
+    assert not _route_table_is_stale(
+        tmp_path,
+        {"routes": [{"path": "/", "component_file": "src/pages/HomePage.tsx"},
+                    {"path": "/ghost", "component_file": "src/pages/GhostPage.tsx"}]},
+    )
+
+
+def test_a_typecheck_count_describes_the_source_that_ships() -> None:
+    """Request 67 reported 3 type errors and shipped 9.
+
+    The last typecheck ran at 12:06:56; the gate's repair rewrote HomePage.tsx
+    and six other files at 12:09 and nothing measured again. Six of the nine
+    (TS2353, `'icon' does not exist in type 'CredentialStripItem'`) were created
+    by the repair. Same shape as a stale visual verdict, and the same rule: a
+    measurement is only about the artifact that was measured.
+    """
+    from app.application.preview_app import typecheck as tc
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "typecheck.py"
+    ).read_text(encoding="utf-8")
+    assert '"source_fingerprint"' in source, "a verdict must record what it is about"
+    assert hasattr(tc, "refresh_typecheck_record_if_stale")
+
+    finalize = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "pipeline" / "finalize.py"
+    ).read_text(encoding="utf-8")
+    assert "refresh_typecheck_record_if_stale" in finalize, (
+        "the reported count must be refreshed after the gate has written"
+    )
+    assert "read_typecheck_record(workspace)" not in finalize, (
+        "reading the record raw is how a stale count was reported as fresh"
+    )
+
+
+def test_the_visual_critic_opens_a_detail_page_not_its_route_pattern() -> None:
+    """Every detail page scored 0, in every run, for a page that works.
+
+    The critic navigated the literal pattern —
+    `GET /api/preview-apps/67/painting/%3Aid` — so `params.id === ":id"`, no item
+    matched, and the page correctly rendered its own `notFound` branch. The
+    critic then reported "Not Found" and scored it 0 (5 on request 66's
+    `/collection/%3Aid`). `scripts/preview-qa.sh` has substituted params for a
+    while; the pipeline's own critic never did — and detail pages are the pages
+    this whole cycle is about.
+    """
+    from app.application.preview_app.screenshot import _navigable_route
+
+    assert _navigable_route("/painting/:id") == "/painting/1"
+    assert _navigable_route("/collection/:slug") == "/collection/1"
+    assert _navigable_route("/owner/paintings/edit/:id") == "/owner/paintings/edit/1"
+    assert _navigable_route("/works/{slug}") == "/works/1"
+    assert _navigable_route("/a/:x/b/:y") == "/a/1/b/1"
+    # Static routes are untouched.
+    for static in ("/", "/gallery", "/about-artist"):
+        assert _navigable_route(static) == static
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "app" / "application" / "preview_app" / "screenshot.py"
+    ).read_text(encoding="utf-8")
+    assert "_navigable_route(str(rt))" in source, (
+        "the substitution has to happen on the way into the browser session, "
+        "or only some callers get it"
+    )

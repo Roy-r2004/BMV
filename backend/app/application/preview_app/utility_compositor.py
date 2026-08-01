@@ -223,11 +223,15 @@ def default_utility_content(
         }
     if workspace_type == "contact":
         return {
+            # Brand-bound, and about the whole page. "Contact for Purchase" is
+            # the detail page's CTA — it is about one piece. As this page's title
+            # it turns away every visitor asking about a commission, a studio
+            # visit or provenance, which is most of them.
             "header": {
                 "title": page_title or f"Contact {brand}",
                 "description": (
-                    f"Send {brand} a message and get a reply — or use one of the "
-                    "direct channels below."
+                    f"Ask {brand} about availability, dimensions, commissions or a "
+                    "studio visit — we reply directly."
                 ),
             },
             "workspace": {
@@ -235,8 +239,8 @@ def default_utility_content(
                     {
                         "title": "Send a message",
                         "description": (
-                            "Tell us what you are looking for and we will come back "
-                            "to you with specifics."
+                            "Tell us which piece or question you have in mind and "
+                            "we will come back with specifics."
                         ),
                         "cta_label": "Send",
                         "cta_href": "#inquire",
@@ -269,12 +273,6 @@ def default_utility_content(
                         "description": "Questions? Reach out anytime.",
                         "cta_label": "Contact",
                         "cta_href": "/contact",
-                    },
-                    {
-                        "title": "AI features",
-                        "description": "Try the assistants built for this business.",
-                        "cta_label": "Open hub",
-                        "cta_href": "/ai-features",
                     },
                 ]
             },
@@ -448,16 +446,17 @@ def _workspace_jsx(workspace_type: str, workspace: dict[str, Any]) -> str:
         heading = _s(card.get("title"), "Send a message")
         description = _s(
             card.get("description"),
-            "Tell us what you are looking for and we will come back to you.",
+            "Tell us which piece or question you have in mind and we will come "
+            "back with specifics.",
         )
+        # InquiryPanel already renders id="inquire" (ScrollToTop / Contact for Purchase).
+        # Do not wrap with a second id — duplicate anchors break sticky-nav scroll.
         return (
-            '<div id="inquire">\n'
-            "          <InquiryPanel\n"
+            "<InquiryPanel\n"
             f"            heading={{{_js(heading)}}}\n"
             f"            description={{{_js(description)}}}\n"
             f"            ctaLabel={{{_js(_s(card.get('cta_label'), 'Send message'))}}}\n"
-            "          />\n"
-            "        </div>"
+            "          />"
         )
     if workspace_type == "auth":
         # A sign-in page's whole job is the credentials. Anything else on it — the
@@ -813,7 +812,11 @@ def should_compose_utility_page(
 
     AppSpec contracts must not bypass this — they only add content hooks.
     Also recovers when architect assigns the wrong skeleton to a transactional
-    path (cart / checkout / confirm / tracking / account).
+    path (cart / checkout / confirm / tracking / account / contact / auth).
+
+    Request 50's ``/contact`` was planned as ``public-home`` — without ``contact``
+    in this set the page fell through to a marketing clone with no form, so
+    ``/contact#inquire`` and footer Contact links were dead ends.
     """
     route = route or {}
     page_plan = page_plan or {}
@@ -825,4 +828,12 @@ def should_compose_utility_page(
     title = str(route.get("title") or page_plan.get("title") or "")
     page_type = str(route.get("page_type") or page_plan.get("page_type") or "")
     workspace_type = infer_utility_workspace_type(path, title, page_type)
-    return workspace_type in {"cart", "checkout", "tracking", "account", "confirmation"}
+    return workspace_type in {
+        "cart",
+        "checkout",
+        "tracking",
+        "account",
+        "confirmation",
+        "contact",
+        "auth",
+    }

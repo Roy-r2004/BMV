@@ -325,9 +325,14 @@ def test_booking_and_detail_recipe_stacks_differ() -> None:
     assert booking["warm-service"][1] == "process"
     assert booking["bold-retail"][1] == "showcase"
     assert "process" not in booking["bold-retail"]
-    assert detail["craft"][1] == "process"
-    assert detail["bold-retail"][1] == "showcase"
-    assert "booking" in detail["warm-service"]
+    # Detail stacks are painting-first across recipes (hero → credentials → inquire).
+    for rid, stack in detail.items():
+        assert stack[0] == "hero", rid
+        assert "credentials" in stack, rid
+        assert stack.index("credentials") < stack.index("cta"), rid
+        assert "inquire" in stack or "booking" in stack, rid
+        if "inquire" in stack and "credentials" in stack:
+            assert stack.index("credentials") < stack.index("inquire"), rid
 
     tsx = minimal_catalogue_page_scaffold(
         "src/pages/BookPage.tsx",
@@ -341,6 +346,30 @@ def test_booking_and_detail_recipe_stacks_differ() -> None:
     )
     assert "order={RECIPE_ORDER}" in tsx
     assert "seed.treatments ?? []" in tsx
+
+
+def test_detail_scaffold_is_painting_first() -> None:
+    """Artwork detail opens painting → specs → inquire; no features before specs."""
+    route = {
+        "path": "/artwork/:id",
+        "component_file": "src/pages/ArtworkDetailPage.tsx",
+        "surface": "public",
+        "skeleton_id": "public-detail",
+        "title": "Artwork",
+        "section_slots": ["hero", "features", "showcase", "inquire", "cta", "footer"],
+    }
+    tsx = minimal_catalogue_page_scaffold(
+        route["component_file"], route, brand_name="Jeanne Kassab Art"
+    )
+    order_line = next(line for line in tsx.splitlines() if "RECIPE_ORDER" in line)
+    assert '"hero"' in order_line
+    assert order_line.index('"credentials"') < order_line.index('"inquire"')
+    assert order_line.index('"inquire"') < order_line.index('"features"')
+    assert 'variant="item"' in tsx
+    assert 'chrome="solid"' in tsx
+    assert "Contact for Purchase" in tsx
+    assert "Why " not in order_line
+
 
 
 def test_mismatched_template_does_not_override_craft_home() -> None:

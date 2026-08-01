@@ -30,11 +30,34 @@ function shortLabel(label: string, href: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Terminal pages: where a form sends you, never where a link takes you.
+ * Request 66 listed `/inquiry-confirm` in the public nav, so it became the
+ * target of every "Contact" control on the site — a page reading "Inquiry Sent"
+ * with no form on it. The old `confirmation\b` test did not match it.
+ */
+const TERMINAL_LEAF_RE =
+  /^(inquiry|enquiry|order|booking|payment|checkout|contact)?[-_]?(confirm|confirmed|confirmation|thank[-_]?you|thanks|success|receipt|complete|completed|sent)$/i;
+
+export function isTerminalHref(href: string): boolean {
+  const leaf = String(href || '').split('?')[0].replace(/\/+$/, '').split('/').pop() || '';
+  return TERMINAL_LEAF_RE.test(leaf);
+}
+
 function isNavWorthy(href: string): boolean {
   if (!href || !href.startsWith('/')) return false;
   if (href.includes(':')) return false;
   // Skip transactional flow steps from persistent chrome
   if (/^\/(book|payment|confirmation)\b/i.test(href)) return false;
+  if (isTerminalHref(href)) return false;
+  return true;
+}
+
+/** Storefront chrome only — never admin, owner login, or AI hub. */
+function isPublicMarketingHref(href: string): boolean {
+  if (!isNavWorthy(href)) return false;
+  if (/^\/(admin|owner|ops|staff|desk|member|account)(\/|$)/i.test(href)) return false;
+  if (/^\/ai-features(\/|$)/i.test(href) || /^\/ai-/i.test(href)) return false;
   return true;
 }
 
@@ -82,8 +105,8 @@ export function useAdminNavItems(): AppNavLink[] {
 export function usePublicNavItems(): AppNavLink[] {
   const { pathname } = useLocation();
   return useMemo(() => {
-    const links = normalizeList(sectionLinks('public'), pathname).filter(
-      (item) => !item.href.startsWith('/member')
+    const links = normalizeList(sectionLinks('public'), pathname).filter((item) =>
+      isPublicMarketingHref(item.href)
     );
     return withActive(links.slice(0, 5), pathname);
   }, [pathname]);
@@ -97,7 +120,7 @@ export function useMemberNavItems(): AppNavLink[] {
       item.href.startsWith('/member')
     );
     const publicExtras = normalizeList(sectionLinks('public'), pathname)
-      .filter((item) => !item.href.startsWith('/member') && item.href !== '/')
+      .filter((item) => isPublicMarketingHref(item.href) && item.href !== '/')
       .slice(0, 2);
     const seen = new Set<string>();
     const merged: AppNavLink[] = [];
@@ -113,16 +136,19 @@ export function useMemberNavItems(): AppNavLink[] {
 function firstHref(raw: RawNav[] | undefined, fallback: string): string {
   for (const item of raw || []) {
     const href = String(item.href || item.path || '').trim();
-    if (isNavWorthy(href)) return href;
+    if (isPublicMarketingHref(href)) return href;
   }
   return fallback;
 }
 
 export function publicCta() {
-  const publicLinks = sectionLinks('public');
+  const publicLinks = sectionLinks('public').filter((item) =>
+    isPublicMarketingHref(String(item.href || item.path || ''))
+  );
+  // Book / class CTAs only — never owner login ("Get started" → /owner/login).
   const bookish =
     publicLinks.find((item) =>
-      /book|class|schedule|workshop|login|join|start/i.test(
+      /book|class|schedule|workshop|join|start/i.test(
         `${item.label || ''} ${item.path || ''} ${item.href || ''}`
       )
     ) || null;
@@ -152,7 +178,9 @@ export function publicCta() {
 }
 
 export function memberCta() {
-  const publicLinks = sectionLinks('public');
+  const publicLinks = sectionLinks('public').filter((item) =>
+    isPublicMarketingHref(String(item.href || item.path || ''))
+  );
   const bookish =
     publicLinks.find((item) =>
       /book|class|schedule/i.test(`${item.label || ''} ${item.path || ''} ${item.href || ''}`)

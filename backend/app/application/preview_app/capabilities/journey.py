@@ -24,6 +24,19 @@ from app.application.preview_app.capabilities.registry import (
 #: Components that can render a browsable list of linked items.
 LISTING_COMPONENTS = ("CatalogGrid", "ProductShowcase", "ScheduleRail")
 
+
+def _renders(src: str, component: str) -> bool:
+    """True when the source *mounts* the component, not merely names it.
+
+    Same rule as `_PARAM_READ_RE` below: match the call, not the mention. The
+    directory-listing scaffold carries the comment "ProductShowcase used to fill
+    this slot and silently showed only three", and a bare substring test read
+    that as a listing component — so a browse page with no grid at all reported
+    `journey_browse_caps_items` instead of `journey_browse_not_listing`, and a
+    page could have satisfied the listing requirement with a comment.
+    """
+    return f"<{component}" in src
+
 #: How a page reads its own route parameter.
 #
 #: Must match the *call*, not the import: `import { useParams } from ...` is
@@ -336,8 +349,27 @@ _LISTING_PATH_RE = re.compile(
 #: Footer boilerplate. A preview has no legal pages and should not pretend to; an
 #: inert anchor is honest and, unlike a dead path, cannot bounce a visitor.
 _INERT_LEAVES = frozenset(
-    {"privacy", "terms", "policy", "policies", "cookies", "legal", "imprint",
-     "disclaimer", "accessibility", "sitemap", "logout", "signout", "sign-out"}
+    {
+        "privacy",
+        "privacy-policy",
+        "privacypolicy",
+        "terms",
+        "terms-of-service",
+        "terms-of-use",
+        "tos",
+        "policy",
+        "policies",
+        "cookies",
+        "cookie-policy",
+        "legal",
+        "imprint",
+        "disclaimer",
+        "accessibility",
+        "sitemap",
+        "logout",
+        "signout",
+        "sign-out",
+    }
 )
 #: Surface namespaces a link may address without naming a page inside them.
 _SURFACE_LEAVES = frozenset({"admin", "owner", "ops", "staff", "dashboard", "login", "signin"})
@@ -389,6 +421,32 @@ def _best_declared_target(href: str, declared: set[str]) -> str:
     return ""
 
 
+#: A confirmation page is where a form *sends* you, never where a link takes you.
+_CONFIRMATION_LEAF_RE = re.compile(
+    r"^(inquiry|enquiry|order|booking|payment|checkout|contact)?[-_]?"
+    r"(confirm|confirmed|confirmation|thank[-_]?you|thanks|success|receipt|complete|completed|sent)$"
+)
+
+
+def _is_confirmation_path(href: str) -> bool:
+    leaf = _norm(href).rstrip("/").rsplit("/", 1)[-1].lower()
+    return bool(leaf) and bool(_CONFIRMATION_LEAF_RE.match(leaf))
+
+
+def _contact_target(declared: set[str], src: str) -> str:
+    """A route that can actually take an inquiry, or "" when there is none."""
+    for path in sorted(declared, key=len):
+        leaf = path.rstrip("/").rsplit("/", 1)[-1].lower()
+        if _is_confirmation_path(path):
+            continue
+        if leaf in {"contact", "contact-us", "inquire", "inquiry", "enquire", "enquiry", "get-in-touch"}:
+            return path
+    # No contact route: the page's own inquiry form is still a real destination.
+    if "<InquiryPanel" in src:
+        return "#inquire"
+    return ""
+
+
 def repair_dead_internal_links(
     workspace: Path, architect: Mapping[str, Any]
 ) -> list[str]:
@@ -427,6 +485,26 @@ def repair_dead_internal_links(
             if not replacement or replacement in ("#", _norm(prefix)):
                 continue
             updated = updated.replace(f"{prefix}/${{", f"{replacement}/${{")
+        # Links that resolve, to a page that cannot do what the label promises.
+        # Request 66 pointed "Contact", "Contact the Gallery", "Arrange a Studio
+        # Visit" and "Inquire Now" — home, collection and every footer — at
+        # `/inquiry-confirm`: `h1: "Inquiry Sent"`, zero inputs, and body copy
+        # thanking the visitor for a message about a painting not in the
+        # catalogue. The dead-link sweep above cannot see it because the route is
+        # declared and renders fine; it is the wrong destination, not a missing
+        # one. Only repointed when there is somewhere real to go — an invented
+        # target is the guess this repair exists to avoid.
+        confirm_hrefs = [h for h in set(internal_hrefs(updated)) if _is_confirmation_path(h)]
+        if confirm_hrefs:
+            target = _contact_target(declared, updated)
+            if target:
+                for href in sorted(confirm_hrefs, key=len, reverse=True):
+                    if _norm(href) == _norm(target):
+                        continue
+                    for quote in ('"', "'", "`"):
+                        updated = updated.replace(
+                            f"{quote}{href}{quote}", f"{quote}{target}{quote}"
+                        )
         if updated != src:
             _write(workspace, rel, updated)
             healed.append(rel)
@@ -563,7 +641,7 @@ def _check_browse(
     architect: Mapping[str, Any],
     journey: Journey,
 ) -> None:
-    if not any(name in src for name in LISTING_COMPONENTS):
+    if not any(_renders(src, name) for name in LISTING_COMPONENTS):
         report.add(
             "journey_browse_not_listing",
             f"{hop.label}: page renders no listing component "
@@ -575,7 +653,11 @@ def _check_browse(
         )
         return
     # ProductShowcase renders at most three items — a catalogue needs the grid.
-    if "CatalogGrid" not in src and "ScheduleRail" not in src and "ProductShowcase" in src:
+    if (
+        not _renders(src, "CatalogGrid")
+        and not _renders(src, "ScheduleRail")
+        and _renders(src, "ProductShowcase")
+    ):
         report.add(
             "journey_browse_caps_items",
             f"{hop.label}: ProductShowcase renders at most 3 items; a browse page "

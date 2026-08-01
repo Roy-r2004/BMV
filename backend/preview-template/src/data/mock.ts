@@ -8,6 +8,19 @@ export const images = {
   card1: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80&fit=crop&auto=format',
   card2: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80&fit=crop&auto=format',
   card3: 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80&fit=crop&auto=format',
+  // Per-item photography. A generated workspace has these filled from the item
+  // pool, but the deterministic scaffolds read `images.item1…item8` directly —
+  // so without them declared here the template does not typecheck against the
+  // code the generator writes, and `test_catalogue_fallback_typechecks_with_
+  // template` is the only place that ever notices.
+  item1: 'https://images.unsplash.com/photo-1578321272176-b7bbc0679853?w=800&q=80&fit=crop&auto=format',
+  item2: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800&q=80&fit=crop&auto=format',
+  item3: 'https://images.unsplash.com/photo-1549289524-06cf8837ace5?w=800&q=80&fit=crop&auto=format',
+  item4: 'https://images.unsplash.com/photo-1552083375-1447ce886485?w=800&q=80&fit=crop&auto=format',
+  item5: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800&q=80&fit=crop&auto=format',
+  item6: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&q=80&fit=crop&auto=format',
+  item7: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80&fit=crop&auto=format',
+  item8: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=800&q=80&fit=crop&auto=format',
 };
 
 /** Role switcher metadata — AI rewrites ids, labels, and default landing paths */
@@ -35,8 +48,8 @@ export const seed = {
     eyebrow: 'Preview Brand',
     headline: '',
     subcopy: 'A clear next step from Preview Brand — warm, specific, and ready when you are.',
-    primaryCta: { label: 'Explore now', href: '#details' },
-    secondaryCta: { label: 'See how it works', href: '#process' },
+    primaryCta: { label: 'Explore the collection', href: '/gallery' },
+    secondaryCta: { label: 'Talk to us', href: '/contact#inquire' },
   },
   items: [
     { title: 'Preview Brand signature', description: 'A dependable starting point at Preview Brand.' },
@@ -72,11 +85,11 @@ export const seed = {
     heading: 'Ready for Preview Brand?',
     description: 'Tell Preview Brand what you need — clear options, real next steps.',
     primaryLabel: 'Get started',
-    primaryHref: '#details',
+    primaryHref: '/contact#inquire',
     secondaryLabel: 'Talk to us',
-    secondaryHref: '#contact',
+    secondaryHref: '/contact#inquire',
   },
-  footer: { description: 'Preview Brand — clear choices and real bookings.' },
+  footer: { description: 'Preview Brand — clear choices and a real next step.' },
   trustLabels: ['Preview Brand quality', 'On schedule', 'Repeat guests', 'Local favorite'],
 };
 

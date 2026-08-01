@@ -108,7 +108,9 @@ def test_detail_scaffold_inquire_cta() -> None:
     )
     assert "/book-appointment" not in tsx
     assert "Book a visit" not in tsx
-    assert "Inquire about this piece" in tsx
+    # A gallery brand's detail CTA names the transaction; other domains keep
+    # "Inquire about this piece". Both point at the same on-page form.
+    assert "Contact for Purchase" in tsx
     # Pinning the label alone passed while the CTA pointed at "/about" — a route
     # the storefront does not have. The terminal step of the happy path has to
     # land on something, so assert the destination and that it exists on the page.

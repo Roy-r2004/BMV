@@ -92,7 +92,7 @@ export function BookingPanel({
   };
 
   return (
-    <section id="book" className={cn('relative isolate scroll-mt-28 overflow-hidden px-6 py-28 lg:px-12 lg:py-32', className)}>
+    <section id="book" className={cn('relative isolate scroll-mt-[calc(var(--public-header-h,7rem)+1.5rem)] overflow-hidden px-6 py-28 lg:px-12 lg:py-32', className)}>
       <div className="ui-mesh opacity-45" aria-hidden="true" />
       <div className="relative mx-auto grid w-full max-w-[92rem] gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
         <MotionReveal>

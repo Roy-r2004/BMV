@@ -375,12 +375,46 @@ def _select_visual_critique_routes(architect: dict, limit: int | None = None) ->
         selected.append(rt)
 
     _add(by_path.get("/") or by_path.get("/home"))
+    # The item page, before generic surface coverage. `/` already claims the
+    # public surface, so a detail route only ever reached the list through plan
+    # order — and the cap was reached first. Request 48 scored Home, Login,
+    # About, Dashboard, Gallery and Contact, called itself `reviewed` with an
+    # empty `unmeasured`, and never looked at `ArtworkDetailPage`, which was
+    # carrying three of the five defects a person then found by clicking.
+    # It is also the page a storefront is judged on: the thing being sold.
+    for skeleton in ("public-detail", "public-catalog"):
+        _add(
+            next(
+                (
+                    rt
+                    for rt in routes
+                    if str(rt.get("skeleton_id") or "").lower() == skeleton
+                ),
+                None,
+            )
+        )
     for surface in sorted({_route_surface(rt) for rt in routes}):
         _add(next((rt for rt in routes if _route_surface(rt) == surface), None))
     for role in architect.get("roles") or []:
         _add(by_path.get(role.get("defaultPath")))
     for rt in routes:
         _add(rt)
+
+    dropped = [
+        str(rt.get("path"))
+        for rt in routes
+        if rt.get("path") not in {s.get("path") for s in selected}
+    ]
+    if dropped:
+        # Not a blocking state — `review_status` stays honest about the pages it
+        # *chose*. But a run that says `reviewed` while N routes were never
+        # captured should say so somewhere a person reads.
+        log.info(
+            "    visual critic: %d route(s) past the %d-page cap, not judged: %s",
+            len(dropped),
+            cap,
+            ", ".join(dropped[:8]),
+        )
 
     return selected[:cap]
 
@@ -942,6 +976,11 @@ def _run_visual_critique(
                       f"{rt.get('title', rt.get('path', ''))}", 90,
                       detail=route_path)
             if not collect_flagged or review.get("verdict") != "revise":
+                return
+            # Never let vision rewrite utility contact/auth — request 62 replaced
+            # InquiryPanel with a WhatsApp clone and /privacy-policy dead link.
+            route_path = str(rt.get("path") or "").rstrip("/").lower()
+            if re.search(r"(^|/)(contact|contact-us|login|sign-in|signin)(/|$)", route_path):
                 return
             notes = review.get("revision_instructions") or "; ".join(review.get("issues", []))
             if notes:

@@ -47,3 +47,4 @@ bmv-core/
 
 # Local preview QA artifacts (screenshots, tsc output)
 .preview-qa/
+docs/maverick-qa/

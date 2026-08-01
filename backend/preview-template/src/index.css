@@ -43,8 +43,15 @@
     }
   }
 
+  /* Offset every anchor by whatever the public header actually measures.
+     `--public-header-h` is published by PublicShell; the fallback covers ops
+     pages and the moment before the first measurement lands. Biased high on
+     purpose: overshooting leaves harmless space above the target, while
+     undershooting puts the heading behind the nav — 4.5rem here was 42px short
+     of the 114px header this kit renders and request 67 landed every deep link
+     18px under it. */
   [id] {
-    scroll-margin-top: 5.5rem;
+    scroll-margin-top: calc(var(--public-header-h, 7rem) + 1.5rem);
   }
 
   :focus-visible {

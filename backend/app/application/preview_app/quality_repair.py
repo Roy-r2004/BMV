@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from app.application.preview_app.protected_paths import (
+    is_generator_owned_path,
     is_template_owned_path,
     safe_source_path,
 )
@@ -78,6 +79,8 @@ class RepairAPI:
             raise ValueError(f"unsafe path: {path!r}")
         if is_template_owned_path(canonical, self.architect, self.workspace):
             raise ValueError(f"template-owned path blocked: {canonical}")
+        if is_generator_owned_path(canonical, self.workspace):
+            raise ValueError(f"generator-owned path blocked: {canonical}")
         return canonical
 
     def list_files(self) -> list[str]:
@@ -85,6 +88,7 @@ class RepairAPI:
             p
             for p in list_source_files(self.workspace)
             if not is_template_owned_path(p, self.architect, self.workspace)
+            and not is_generator_owned_path(p, self.workspace)
         ]
 
     def read(self, path: str) -> str:
@@ -410,14 +414,20 @@ def run_ai_quality_repair(
         len(plan.get("files") or []) if isinstance(plan.get("files"), list) else 0,
         bool(plan.get("script")),
     )
-    # Persist plan for debugging
+    # Persist plan for debugging, one file per attempt. A single filename meant
+    # round 2 overwrote round 1, and on request 67 that turned "which op minted
+    # the duplicate `/gallery`?" from a reading into a reconstruction QA could
+    # not finish. The unsuffixed name stays as the latest plan so existing
+    # tooling keeps working.
     try:
         debug = Path(workspace) / ".bmv-debug"
         debug.mkdir(parents=True, exist_ok=True)
-        (debug / "quality_repair_plan.json").write_text(
-            json.dumps(plan, indent=2)[:200_000],
-            encoding="utf-8",
+        body = json.dumps(plan, indent=2)[:200_000]
+        attempt = 1 + sum(
+            1 for _ in debug.glob("quality_repair_plan.[0-9]*.json")
         )
+        (debug / f"quality_repair_plan.{attempt}.json").write_text(body, encoding="utf-8")
+        (debug / "quality_repair_plan.json").write_text(body, encoding="utf-8")
     except OSError:
         pass
     return apply_quality_repair_plan(workspace, plan, architect)

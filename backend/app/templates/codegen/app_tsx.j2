@@ -7,6 +7,67 @@ import { notifyParent, registerPreviewNavigate, setupPreviewBridge } from './lib
 
 type Role = { id: string; defaultPath?: string };
 
+/*
+ * ScrollToTop is inlined here, not imported from `src/components/ScrollToTop.tsx`.
+ * assemble.write_app_tsx rewrites App.tsx from scratch in every workspace, so an
+ * import would make the emitted app depend on a template file surviving the
+ * copy. The template keeps its own copy for the dev app;
+ * `test_the_scroll_reset_ships_one_behaviour_from_two_files` pins the two to the
+ * same alias set.
+ */
+
+/** Hash aliases that should land on the inquire / contact form. */
+const HASH_ALIASES: Record<string, string> = {
+  contact: 'inquire',
+  'contact-form': 'inquire',
+  purchase: 'inquire',
+  'inquire-form': 'inquire',
+  enquiry: 'inquire',
+  enquiries: 'inquire',
+};
+
+/**
+ * Every Link/nav change lands at the top — or the hashed section when present.
+ *
+ * `behavior: 'instant'` because this only ever runs for a router navigation:
+ * a same-page `<a href="#x">` is a native anchor, which react-router's
+ * `useLocation` never sees, so it keeps the smooth in-page glide from
+ * `html { scroll-behavior: smooth }`. A landing that animates from 3000px
+ * while the incoming page is still mounting reads as broken, not polished.
+ */
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    const raw = (hash || '').replace(/^#/, '').trim();
+    if (raw) {
+      const id = HASH_ALIASES[raw] || raw;
+      const scrollToHash = () => {
+        const el = document.getElementById(id);
+        if (!el) return false;
+        // Measure the header now rather than trusting `--public-header-h`.
+        // On a cold load of `/painting/1#inquire` this runs before PublicShell
+        // has measured anything, so the CSS variable is still undefined and the
+        // stylesheet fallback fires — request 67 landed such deep links 18px
+        // *under* a 114px header, while the same anchor clicked in-page landed
+        // correctly at +23. Reading the rendered header cannot race itself.
+        const header = document.querySelector('[data-public-header]');
+        const offset = (header ? header.getBoundingClientRect().height : 112) + 24;
+        const top = el.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(0, top), left: 0, behavior: 'instant' });
+        return true;
+      };
+      if (scrollToHash()) return;
+      const t = window.setTimeout(() => {
+        if (!scrollToHash()) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }, 50);
+      return () => window.clearTimeout(t);
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    return undefined;
+  }, [pathname, hash]);
+  return null;
+}
+
 function RouteBridge() {
   const location = useLocation();
   useEffect(() => { notifyParent(location.pathname); }, [location.pathname]);
@@ -30,6 +91,7 @@ function RoleBridge() {
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <ScrollToTop />
       <RouteBridge />
       <RoleBridge />
       <Routes>

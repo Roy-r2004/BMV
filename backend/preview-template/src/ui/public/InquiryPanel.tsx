@@ -107,7 +107,12 @@ export function InquiryPanel({
     <section
       id="inquire"
       data-inquiry-panel=""
-      className={cn('relative isolate px-6 py-20 sm:px-10 lg:px-12 lg:py-28', className)}
+      className={cn(
+        // scroll-margin clears sticky/fixed public nav when Contact for Purchase
+        // or /contact#inquire lands here via ScrollToTop.
+        'relative isolate scroll-mt-[calc(var(--public-header-h,7rem)+1.5rem)] px-6 py-20 sm:px-10 lg:px-12 lg:py-28',
+        className
+      )}
     >
       <div className="mx-auto grid max-w-[92rem] gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
         <AnimeReveal>

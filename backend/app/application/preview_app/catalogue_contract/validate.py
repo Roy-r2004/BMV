@@ -66,8 +66,6 @@ def _validate_schedule_listing_face(content: str) -> list[str]:
     """Accept dedicated ScheduleRail listing pages (not SkeletonComposer clones)."""
     errors: list[str] = []
     text = content or ""
-    if _SCHEDULE_FACE_MARKER not in text:
-        return ["schedule listing face marker"]
     for name in _SCHEDULE_FACE_REQUIRED:
         if name not in text:
             errors.append(f"missing schedule face component:{name}")
@@ -82,8 +80,6 @@ def _validate_directory_listing_face(content: str) -> list[str]:
     """Accept doctor/provider directory pages (not homepage MarketingHero clones)."""
     errors: list[str] = []
     text = content or ""
-    if _DIRECTORY_FACE_MARKER not in text:
-        return ["directory listing face marker"]
     for name in _DIRECTORY_FACE_REQUIRED:
         if name not in text:
             errors.append(f"missing directory face component:{name}")
@@ -153,9 +149,20 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
         return _validate_ai_hub_face(text)
     if not skeleton_id:
         return []
-    if _SCHEDULE_FACE_MARKER in text:
+    # A page's *face* has to survive a rewrite. Both markers are comments, and
+    # refine is the one writer guaranteed to drop them: request 66's
+    # CollectionPage was refined three times and rejected wholesale each time
+    # with every assigned slot reported missing — `slot:hero`, `slot:trust`,
+    # `slot:filters`, all seven — because a listing face has no `slots` object
+    # to declare them in and, once its marker was gone, was judged as though it
+    # should have one. `SkeletonComposer` is the structural tell: a slot-composed
+    # page has one, a dedicated listing face never does.
+    composed = "SkeletonComposer" in text
+    if _SCHEDULE_FACE_MARKER in text or (not composed and "<ScheduleRail" in text):
         return _validate_schedule_listing_face(text)
-    if _DIRECTORY_FACE_MARKER in text:
+    if _DIRECTORY_FACE_MARKER in text or (
+        not composed and has_listing_face_component(text)
+    ):
         return _validate_directory_listing_face(text)
     if _CONFIRM_FACE_MARKER in text or (
         "ConfirmStage" in text and "composed confirmation page" in text
@@ -217,6 +224,57 @@ def validate_catalogue_page_content(content: str, route: dict) -> list[str]:
     shell = expected_shell(route)
     if shell and not _has_token_sequence(tokens, ["<", shell]):
         errors.append(shell)
+    # Public detail must stay painting-first. AI slot_fill on request 50 swapped
+    # variant="item" for a recipe atelier billboard and replaced itemSpecs with
+    # seed.credentials ("Why Brand") — reject so repair re-scaffolds.
+    if skeleton_id == "public-detail" and shell == "PublicShell":
+        if 'variant="item"' not in text and "variant={'item'}" not in text:
+            errors.append("detail painting-first hero (variant=item)")
+        # Must bind specs to the resolved item — seed.credentials is the marketing
+        # "Why brand" strip that buried the painting on request 50.
+        if not re.search(r"items=\{\s*itemSpecs\s*\}", text):
+            errors.append("detail itemSpecs binding")
+        if not re.search(r"""href:\s*['"]#inquire['"]""", text):
+            errors.append("detail inquire CTA (#inquire)")
+        if re.search(r"items=\{\s*seed\.credentials", text):
+            errors.append("detail seed.credentials instead of itemSpecs")
+        if re.search(
+            r"""(credentialsHeading|heading)=\{\s*(seed\.credentialsHeading\s*\?\?\s*)?['"]Why\s""",
+            text,
+        ) or re.search(r"""heading=\{_js\(["']Why\s""", text):
+            errors.append("detail buried Why-brand credentials")
+    # Catalogue / listing faces must bind the per-item photo pool — card/hero
+    # slots are lifestyle and shipped people-in-museums on request 62's gallery.
+    if skeleton_id in {"public-catalog", "public-home"} and shell == "PublicShell":
+        if "CatalogGrid" in text or "ProductShowcase" in text:
+            if "images.item1" not in text and "images.item2" not in text:
+                errors.append("catalogue item photo pool (images.item*)")
+            if re.search(
+                r"imageSrc:\s*\[images\.(?:card|hero)",
+                text,
+            ) or re.search(r"PAINTING_IMAGES\s*=\s*\[[\s\S]*images\.(?:card|hero)", text):
+                errors.append("catalogue lifestyle imageSrc (card/hero)")
+    # Dead hash CTAs on public faces — #details / bare #contact never resolve.
+    if shell == "PublicShell" and re.search(
+        r"""href:\s*['"]#(details|contact)['"]""", text
+    ):
+        errors.append("dead hash CTA (#details/#contact)")
+    # Contact pages must keep the inquiry form (and #inquire anchor). Request 50
+    # shipped /contact as a public-home marketing clone — CTAs to /contact#inquire
+    # then scrolled nowhere useful. Match on path only (titles like "Inquire about
+    # this piece" must not trigger this on detail pages).
+    path_l = str(route.get("path") or "").rstrip("/").lower()
+    if re.search(r"(^|/)(contact|contact-us)(/|$)", path_l):
+        if "InquiryPanel" not in text:
+            errors.append("contact InquiryPanel")
+        # InquiryPanel renders id="inquire" at runtime — composed pages import
+        # the kit component and do not restate the attribute in source.
+        if (
+            "InquiryPanel" not in text
+            and 'id="inquire"' not in text
+            and "id={'inquire'}" not in text
+        ):
+            errors.append("contact #inquire anchor")
     assigned_slots = assigned_non_shell_slots(route)
     skeleton = get_skeleton(skeleton_id)
     valid_slot_ids = {

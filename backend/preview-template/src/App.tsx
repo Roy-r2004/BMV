@@ -4,6 +4,7 @@ import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/AdminLayout';
 import HomePage from './pages/HomePage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import { ScrollToTop } from './components/ScrollToTop';
 import { notifyParent, registerPreviewNavigate, setupPreviewBridge } from './lib/preview-bridge';
 import { roles } from './data/mock';
 
@@ -36,6 +37,7 @@ function RoleBridge() {
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <ScrollToTop />
       <RouteBridge />
       <RoleBridge />
       <Routes>

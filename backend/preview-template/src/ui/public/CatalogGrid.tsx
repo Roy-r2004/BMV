@@ -89,16 +89,28 @@ export function CatalogGrid({
       className={cn('relative isolate px-6 py-20 sm:px-10 lg:px-12 lg:py-28', className)}
     >
       <div className="mx-auto max-w-[92rem]">
+        {/* A listing page already states its own title in `PageHeader`; a second
+            display heading 150px below it is not a section, it is a duplicate.
+            An empty `heading` says "the page owns the title" and leaves the
+            count, which is the one thing the page header cannot know. */}
         <AnimeReveal>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand">Browse</p>
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
-            <h2 className="max-w-3xl font-display text-[clamp(2.4rem,5vw,4rem)] leading-[0.95] tracking-[-0.03em] text-foreground">
-              {heading}
-            </h2>
-            <p className="font-mono text-sm tracking-[0.16em] text-muted">
+          {heading ? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand">Browse</p>
+              <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
+                <h2 className="max-w-3xl font-display text-[clamp(2.4rem,5vw,4rem)] leading-[0.95] tracking-[-0.03em] text-foreground">
+                  {heading}
+                </h2>
+                <p className="text-sm font-medium tracking-[0.16em] text-muted">
+                  {filtered.length} {itemNoun}
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm font-medium tracking-[0.16em] text-muted">
               {filtered.length} {itemNoun}
             </p>
-          </div>
+          )}
           {description ? (
             <p className="mt-4 max-w-2xl text-base leading-7 text-muted">{description}</p>
           ) : null}
@@ -171,8 +183,10 @@ export function CatalogGrid({
                     <h3 className="font-display text-[clamp(1.25rem,2vw,1.6rem)] leading-tight tracking-tight text-foreground">
                       {item.title}
                     </h3>
+                    {/* Not `font-mono`: on a serif/sans storefront a monospace
+                        line reads as debug output, not as a specification. */}
                     {item.meta ? (
-                      <p className="mt-2 font-mono text-xs tracking-[0.14em] text-muted uppercase">
+                      <p className="mt-2 text-xs font-medium tracking-[0.14em] text-muted uppercase">
                         {item.meta}
                       </p>
                     ) : null}

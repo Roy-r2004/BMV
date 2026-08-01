@@ -309,11 +309,11 @@ def normalize_mock_seed(
             ).strip(),
             "primaryCta": {
                 "label": str(primary.get("label") or nav_cta.get("label") or "Explore now"),
-                "href": str(primary.get("href") or nav_cta.get("href") or "#details"),
+                "href": str(primary.get("href") or nav_cta.get("href") or "/gallery"),
             },
             "secondaryCta": {
-                "label": str(secondary.get("label") or "See how it works"),
-                "href": str(secondary.get("href") or "#process"),
+                "label": str(secondary.get("label") or "Talk to us"),
+                "href": str(secondary.get("href") or "/contact#inquire"),
             },
         },
         "items": items,
@@ -334,14 +334,17 @@ def normalize_mock_seed(
                 or f"Tell {brand} what you need — clear options, real next steps."
             ),
             "primaryLabel": str(cta_src.get("primaryLabel") or "Get started"),
-            "primaryHref": str(cta_src.get("primaryHref") or "#details"),
+            "primaryHref": str(cta_src.get("primaryHref") or "/contact#inquire"),
             "secondaryLabel": str(cta_src.get("secondaryLabel") or "Talk to us"),
-            "secondaryHref": str(cta_src.get("secondaryHref") or "#contact"),
+            "secondaryHref": str(cta_src.get("secondaryHref") or "/contact#inquire"),
         },
         "footer": {
             "description": str(
                 footer_src.get("description")
-                or f"{brand} — clear choices and real bookings."
+                # No "bookings": most brands that reach this default do not
+                # take one, and the seed's own scaffold fallback dropped the
+                # word for that reason.
+                or f"{brand} — clear choices and a real next step."
             ),
         },
         "trustLabels": [

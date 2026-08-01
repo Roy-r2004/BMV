@@ -154,7 +154,9 @@ _ITEM_SUBJECT_REJECT_RE = re.compile(
     r"\b(?:person|people|woman|women|man|men|girl|boy|lady|guy|human|child|"
     r"children|kid|couple|family|crowd|group|portrait|face|smil\w*|posing|model|"
     r"artist|painter|hand|hands|arm|holding|wearing|sitting|standing|working|"
-    r"blank|empty|plain|mockup|mock[-\s]?up|template|easel|frame\s+mockup)\b",
+    r"admiring|visitor|museum|tourist|palette|brush|studio\s+shot|"
+    r"blank|empty|plain|mockup|mock[-\s]?up|template|easel|frame\s+mockup|"
+    r"canvas(?:es)?\s+on\s+easel)\b",
     re.I,
 )
 
@@ -176,6 +178,18 @@ _SLOT_QUERY_SUFFIX: dict[str, str] = {
     "card2": "customer experience",
     "card3": "team service",
     "ambient": "atmosphere background",
+}
+
+# Art/portfolio heroes must be the work itself — "lifestyle wide" returns painters.
+_SLOT_QUERY_SUFFIX_BY_CATEGORY: dict[str, dict[str, str]] = {
+    "art": {
+        "hero": "abstract oil painting canvas close up",
+        "hero2": "oil painting texture detail",
+        "card1": "abstract oil painting artwork",
+        "card2": "layered oil painting canvas",
+        "card3": "contemporary painting detail",
+        "ambient": "gallery wall oil paintings",
+    },
 }
 
 # Concrete subject nouns per category — search quality beats raw brief prose.
@@ -374,6 +388,11 @@ def _seed_int(seed: str | int | None) -> int:
     return int(hashlib.sha256(str(seed).encode("utf-8")).hexdigest(), 16)
 
 
+def _slot_suffix(category: str, slot: str) -> str:
+    overrides = _SLOT_QUERY_SUFFIX_BY_CATEGORY.get(category) or {}
+    return overrides.get(slot) or _SLOT_QUERY_SUFFIX[slot]
+
+
 def _slot_queries(
     business_name: str | None,
     industry: str,
@@ -400,7 +419,7 @@ def _slot_queries(
             # is a nine-bucket approximation and must never *be* the subject.
             queries[slot] = _compose_query(brand, industry_head, role, category_hint)
         else:
-            queries[slot] = f"{base} {category_hint} {_SLOT_QUERY_SUFFIX[slot]}".strip()
+            queries[slot] = f"{base} {category_hint} {_slot_suffix(category, slot)}".strip()
     return queries
 
 
@@ -481,7 +500,7 @@ def _fetch_pexels_images(
         if not photos:
             # Retry without brand name for better hit rate
             category = _resolve_category(industry)
-            fallback_q = f"{category} {_SLOT_QUERY_SUFFIX[slot]}"
+            fallback_q = f"{category} {_slot_suffix(category, slot)}"
             photos = _search_pexels(api_key, fallback_q, page=page)
 
         # Usable candidates in search order, with the index's own verdict on each.

@@ -468,10 +468,17 @@ def test_scaffolded_browse_page_links_every_item() -> None:
         "src/pages/GalleryPage.tsx", route, brand_name=BRAND
     )
     assert "CatalogGrid" in tsx
-    assert "ProductShowcase" not in tsx, "the 3-item mosaic is not a catalogue"
-    # Every card carries an id, which is what the link is derived from.
-    assert "id: String((item as any).id" in tsx
-    assert 'detailBase="/gallery"' in tsx
+    # The tag, not the word: the scaffold's own comment explains why it does not
+    # use ProductShowcase here, and a substring test read that as a use.
+    assert "<ProductShowcase" not in tsx, "the 3-item mosaic is not a catalogue"
+    # Every card carries an id, which is what the link is derived from, and the
+    # target is written out per item rather than left to CatalogGrid to derive —
+    # the journey walk reads links, and a base named only in a const looked like
+    # a browse face with no way out of it.
+    assert "id: String(s.id || s.slug || i + 1)" in tsx
+    assert 'const LISTING_BASE = "/gallery";' in tsx
+    assert "href: `/gallery/${String(s.slug || s.id || i + 1)}`" in tsx
+    assert "detailBase={LISTING_BASE}" in tsx
 
 
 # --------------------------------------------------------------------------- #

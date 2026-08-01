@@ -29,6 +29,10 @@ _OPS_BLOTTER_DESK_SLOTS = ["header", "ticker", "kpis", "blotter", "chart", "risk
 _OPS_EXPENSE_QUEUE_SLOTS = ["header", "filters", "expenses"]
 _OPS_LIST_SLOTS = ["header", "filters", "table"]
 _PUBLIC_HOME_SLOTS = ["hero", "features", "cta", "footer"]
+_PUBLIC_DETAIL_SLOTS = ["hero", "credentials", "inquire", "cta", "footer"]
+_PUBLIC_CATALOG_SLOTS = ["hero", "filters", "showcase", "features", "cta", "footer"]
+_PUBLIC_BOOKING_SLOTS = ["hero", "features", "booking", "footer"]
+_PUBLIC_SERVICE_SLOTS = ["hero", "features", "process", "cta", "footer"]
 
 _OPS_HOME_SKELETONS = frozenset(
     {"ops-dashboard", "ops-ledger-home", "ops-blotter-desk"}
@@ -64,6 +68,14 @@ class PageBlueprint:
             return ["header", "filters", "table"]
         if self.skeleton_id == "public-home":
             return list(_PUBLIC_HOME_SLOTS)
+        if self.skeleton_id == "public-detail":
+            return list(_PUBLIC_DETAIL_SLOTS)
+        if self.skeleton_id == "public-catalog":
+            return list(_PUBLIC_CATALOG_SLOTS)
+        if self.skeleton_id == "public-booking":
+            return list(_PUBLIC_BOOKING_SLOTS)
+        if self.skeleton_id == "public-service":
+            return list(_PUBLIC_SERVICE_SLOTS)
         if self.skeleton_id.startswith("ops"):
             return list(_OPS_LIST_SLOTS)
         if self.skeleton_id.startswith("public"):

@@ -23,20 +23,31 @@ export interface MarketingCta {
   onClick?: () => void;
 }
 
-/** @deprecated legacy page props still accepted; recipe composition wins when omitted */
-export type MarketingHeroVariant = HeroVariant | 'split';
+/**
+ * Recipe owns home/marketing heroes. `item` always wins — artwork/detail pages
+ * must open painting-first and must not inherit a brand-billboard recipe hero.
+ */
+export type MarketingHeroVariant = HeroVariant | 'split' | 'item';
 
 export interface MarketingHeroProps {
   brandName: string;
   headline: string;
   subcopy: string;
-  /** Optional — missing CTA must not crash About/utility scaffolds. */
-  primaryCta?: MarketingCta;
+  /**
+   * Omitted falls back to a generic CTA so About/utility scaffolds do not
+   * crash. `null` is the page saying it wants none — codegen writes that
+   * (`primaryCta={null}` with the comment "No CTAs in the hero for this page
+   * as per brief") and the old signature made it a TS2322 *and* rendered an
+   * "Explore" button anyway. A component must not resurrect what the page
+   * deliberately removed.
+   */
+  primaryCta?: MarketingCta | null;
   imageSrc: string;
-  secondaryCta?: MarketingCta;
+  secondaryCta?: MarketingCta | null;
   imageAlt?: string;
   /** Small uppercase kicker above the wordmark (business-specific, e.g. "Custom builds · Trade-ins"). */
   eyebrow?: string;
+  /** `item` overrides the recipe; other values are hints (recipe still wins). */
   variant?: MarketingHeroVariant;
   className?: string;
   /**
@@ -71,20 +82,28 @@ function MarketingHeroBody({
   primaryCta,
   secondaryCta,
   subcopy,
-  variant: _variant,
+  variant: variantProp,
 }: Omit<MarketingHeroProps, 'children'>) {
   const safe = useMotionSafe();
   const recipeId = currentRecipeId();
-  // Recipe owns hero composition — codegen cannot collapse every business to one layout.
-  const resolved = recipeHeroVariant(recipeId);
+  // Recipe owns marketing heroes; item-detail must stay painting-first.
+  const resolved: MarketingHeroVariant =
+    variantProp === 'item' ? 'item' : recipeHeroVariant(recipeId);
   const display = recipeDisplayClass(recipeId);
+  // `null` is the page suppressing the CTA; `undefined` is no opinion, which
+  // still gets the default so a scaffold hero is never a dead end.
+  const showPrimary = primaryCta !== null;
   const cta = primaryCta?.href && primaryCta?.label ? primaryCta : DEFAULT_PRIMARY_CTA;
+  const primaryButton = (className?: string, size: 'lg' | 'default' = 'lg') =>
+    showPrimary ? (
+      <Button href={cta.href} onClick={cta.onClick} size={size} className={className}>
+        {cta.label}
+      </Button>
+    ) : null;
 
   const ctas = (
     <div className="mt-8 flex flex-wrap gap-3">
-      <Button href={cta.href} onClick={cta.onClick} size="lg">
-        {cta.label}
-      </Button>
+      {primaryButton()}
       {secondaryCta ? (
         <Button href={secondaryCta.href} onClick={secondaryCta.onClick} size="lg" variant="outline">
           {secondaryCta.label}
@@ -95,13 +114,9 @@ function MarketingHeroBody({
 
   const onDarkCtas = (
     <div className="mt-8 flex flex-wrap gap-3">
-      <Button
-        href={cta.href} onClick={cta.onClick}
-        size="lg"
-        className="bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground"
-      >
-        {cta.label}
-      </Button>
+      {primaryButton(
+        'bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground'
+      )}
       {secondaryCta ? (
         <Button
           href={secondaryCta.href} onClick={secondaryCta.onClick}
@@ -114,6 +129,79 @@ function MarketingHeroBody({
       ) : null}
     </div>
   );
+
+  /* ─── item detail: painting first, title + inquire near the top (no brand billboard) ─── */
+  if (resolved === 'item') {
+    return (
+      <section
+        data-hero="item"
+        // The nav clearance lives on the inner wrapper, not here, and `min-h`
+        // is deliberate. `PublicShell` renders the header `fixed inset-x-0
+        // top-0` on an immersive chrome, so the first section starts at y=0
+        // underneath it and every hero pays for its own clearance in top
+        // padding. `className` merges *after* this string (tailwind-merge), so
+        // request 48's composed detail page — `h-[50vh] flex items-end pb-8`
+        // on this very prop — deleted that padding, shrank the box below its
+        // content, and `items-end` pushed the painting's top edge to y≈-5
+        // where `overflow-hidden` clipped it and the nav links rendered on top
+        // of it. Padding a caller cannot reach, plus a floor a caller's `h-*`
+        // cannot lower, makes that collision unreachable rather than unlikely.
+        className={cn(
+          'relative isolate min-h-[34rem] overflow-hidden border-b border-border-subtle bg-background px-6 pb-14 lg:px-12 lg:pb-20',
+          className
+        )}
+      >
+        <div className="mx-auto grid max-w-[92rem] gap-10 pt-28 lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:gap-14 lg:pt-32">
+          <AnimeHeroItem index={0}>
+            <div className="overflow-hidden rounded-[var(--radius-ui)] bg-card shadow-[var(--shadow-ui)] ring-1 ring-border-subtle">
+              <KitImage
+                src={imageSrc}
+                alt={imageAlt || String(headline ?? '')}
+                className={cn('aspect-[4/5] w-full object-cover object-center sm:aspect-[5/6]', safe && 'ui-kenburns')}
+              />
+            </div>
+          </AnimeHeroItem>
+          <div className="flex min-w-0 flex-col justify-center lg:sticky lg:top-28 lg:self-start">
+            <AnimeHeroItem index={1}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand">
+                {eyebrow || brandName}
+              </p>
+            </AnimeHeroItem>
+            <AnimeHeroItem index={2}>
+              <h1
+                className={cn(
+                  display,
+                  'mt-4 text-[clamp(2rem,4.2vw,3.35rem)] leading-[1.05] tracking-[-0.03em] text-foreground'
+                )}
+              >
+                {headline}
+              </h1>
+            </AnimeHeroItem>
+            {subcopy ? (
+              <AnimeHeroItem index={3}>
+                <p className="mt-5 max-w-md text-base leading-7 text-muted">{subcopy}</p>
+              </AnimeHeroItem>
+            ) : null}
+            <AnimeHeroItem index={4}>
+              <div className="mt-8 flex flex-wrap gap-3">
+                {primaryButton()}
+                {secondaryCta ? (
+                  <Button
+                    href={secondaryCta.href}
+                    onClick={secondaryCta.onClick}
+                    size="lg"
+                    variant="outline"
+                  >
+                    {secondaryCta.label}
+                  </Button>
+                ) : null}
+              </div>
+            </AnimeHeroItem>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   /* ─── warm-service: full-bleed appetite cinema (not soft inset cards) ─── */
   if (resolved === 'service') {
@@ -162,13 +250,9 @@ function MarketingHeroBody({
           </AnimeHeroItem>
           <AnimeHeroItem index={4}>
             <div className="mt-10 flex flex-wrap gap-3">
-              <Button
-                href={cta.href} onClick={cta.onClick}
-                size="lg"
-                className="bg-white text-foreground shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] hover:bg-white/92 hover:text-foreground"
-              >
-                {cta.label}
-              </Button>
+              {primaryButton(
+                'bg-white text-foreground shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] hover:bg-white/92 hover:text-foreground'
+              )}
               {secondaryCta ? (
                 <Button
                   href={secondaryCta.href} onClick={secondaryCta.onClick}
@@ -222,9 +306,7 @@ function MarketingHeroBody({
             </AnimeHeroItem>
             <AnimeHeroItem index={3}>
               <div className="mt-5 flex flex-wrap gap-2">
-                <Button href={cta.href} onClick={cta.onClick} size="default">
-                  {cta.label}
-                </Button>
+                {primaryButton(undefined, 'default')}
                 {secondaryCta ? (
                   <Button href={secondaryCta.href} onClick={secondaryCta.onClick} size="default" variant="outline">
                     {secondaryCta.label}
@@ -298,13 +380,9 @@ function MarketingHeroBody({
           </AnimeHeroItem>
           <AnimeHeroItem index={headlineDistinct ? 4 : 3}>
             <div className="mt-10 flex flex-wrap gap-3">
-              <Button
-                href={cta.href} onClick={cta.onClick}
-                size="lg"
-                className="bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground"
-              >
-                {cta.label}
-              </Button>
+              {primaryButton(
+                'bg-white text-foreground shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)] hover:bg-white/92 hover:text-foreground'
+              )}
               {secondaryCta ? (
                 <Button
                   href={secondaryCta.href} onClick={secondaryCta.onClick}

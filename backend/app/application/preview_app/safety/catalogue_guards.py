@@ -1,6 +1,8 @@
 """Preview safety — Catalogue Guards."""
 from __future__ import annotations
 
+import re
+
 from app.application.preview_app.catalogue_contract import (
     catalogue_route_for_file,
     enforce_catalogue_page_contract,
@@ -20,10 +22,15 @@ def _must_enforce_route(rel: str, route: dict) -> bool:
         return True
     path = str(route.get("path") or "").rstrip("/").lower()
     page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").casefold()
+    title = str(route.get("title") or "").casefold()
+    leaf = path.rsplit("/", 1)[-1]
     return (
         _is_ai_hub_path(rel)
         or path == "/ai-features"
         or page_id == "page-ai-features"
+        or bool(re.search(r"(^|/)(contact|contact-us)(/|$)", path))
+        or "contact" in title
+        or leaf in {"gallery", "collection", "collections", "shop", "works"}
     )
 
 

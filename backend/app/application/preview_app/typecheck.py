@@ -9,6 +9,7 @@ model call — so it runs on every generation and its diagnostics drive repairs.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -530,6 +531,15 @@ def record_typecheck_report(
         **report.summary(),
         "repair_rounds": rounds,
         "recorded_at": int(time.time()),
+        # What this verdict is *about*. Without it a count is indistinguishable
+        # from a fresh one — request 67 typechecked at 12:06:56, the gate's
+        # repair rewrote HomePage.tsx and six other files at 12:09, and the run
+        # reported the pre-repair 3 while shipping 9. Six of the new ones
+        # (TS2353, `'icon' does not exist in type 'CredentialStripItem'`) were
+        # created by the repair itself.
+        "source_fingerprint": hashlib.sha256(
+            _source_fingerprint(Path(workspace)).encode("utf-8")
+        ).hexdigest(),
         "diagnostics": [
             {
                 "file": diagnostic.file,
@@ -549,6 +559,37 @@ def record_typecheck_report(
         tc_log.warning("could not record typecheck summary: %s", exc)
         return None
     return path
+
+
+def refresh_typecheck_record_if_stale(workspace: Path) -> dict[str, Any]:
+    """Re-typecheck when the recorded verdict describes source that has changed.
+
+    Same principle as retiring a visual verdict after a repair rewrites the page
+    it describes: a measurement is only ever about the artifact that was
+    measured. Cheap in the common case — the fingerprint matches and nothing
+    runs — and only pays for a `tsc` pass when a writer has been past since.
+    """
+    workspace = Path(workspace)
+    record = read_typecheck_record(workspace)
+    if not record:
+        return record
+    current = hashlib.sha256(
+        _source_fingerprint(workspace).encode("utf-8")
+    ).hexdigest()
+    if record.get("source_fingerprint") == current:
+        return record
+    tc_log.warning(
+        "typecheck record is stale (source changed since it was taken) — re-running"
+    )
+    try:
+        report = typecheck_workspace(workspace)
+    except Exception as exc:  # noqa: BLE001 — reporting must never fail a run
+        tc_log.warning("stale typecheck refresh failed: %s", exc)
+        return record
+    record_typecheck_report(
+        workspace, report, rounds=int(record.get("repair_rounds") or 0)
+    )
+    return read_typecheck_record(workspace)
 
 
 def read_typecheck_record(workspace: Path) -> dict[str, Any]:

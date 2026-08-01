@@ -48,8 +48,14 @@ def _clear_caches() -> None:
 
 
 def _declared_members(source_path: Path, type_name: str) -> list[str]:
-    """Member names read straight out of the .tsx with an independent parser."""
-    source = source_path.read_text(encoding="utf-8")
+    """Member names read straight out of the .tsx with an independent parser.
+
+    Comments are stripped first. A doc comment is not a member, and one that
+    quotes JSX — `primaryCta={null}` on MarketingHeroProps — used to close the
+    interface body eight members early, so this cross-check reported a shape
+    mismatch that only existed in its own parser.
+    """
+    source = re.sub(r"/\*.*?\*/|//[^\n]*", "", source_path.read_text(encoding="utf-8"), flags=re.S)
     start = source.index(f"export interface {type_name} ")
     body = source[source.index("{", start) + 1 : source.index("}", start)]
     return re.findall(r"^\s*'?([A-Za-z_$][\w$-]*)'?\??\s*:", body, re.MULTILINE)

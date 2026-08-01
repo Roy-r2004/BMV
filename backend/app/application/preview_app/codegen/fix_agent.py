@@ -26,6 +26,7 @@ from app.application.preview_app.typecheck import (
 from app.application.preview_app.fallback import record_stubbed_path, clear_stubbed_path
 from app.application.preview_app.protected_paths import (
     has_catalogue_routes,
+    is_generator_owned_path,
     is_template_owned_path,
     safe_source_path,
 )
@@ -43,7 +44,9 @@ from app.infrastructure.logging.diagnostics import analyze_json_response, dump_u
 
 fix_log = get_logger("FixAgent")
 
-_PROTECTED_BASENAMES = {"package.json", "package-lock.json", "App.tsx", "index.css"}
+# Kept as one shared rule with `quality_repair.RepairAPI._safe`. These two
+# writers disagreeing about `App.tsx` is what let request 67's repair delete a
+# route declaration — see `protected_paths._GENERATOR_OWNED_BASENAMES`.
 
 # A "fix" that satisfies the compiler by removing the feature trades a visible
 # defect for an invisible one. These patterns are the three ways that happens.
@@ -280,7 +283,7 @@ def _run_fix_agent(
         if not path or not content:
             continue
         if (
-            path.replace("\\", "/").split("/")[-1] in _PROTECTED_BASENAMES
+            is_generator_owned_path(path, workspace)
             or is_template_owned_path(path, architect, workspace)
         ):
             continue

@@ -9,6 +9,7 @@ waits for both conditions before capturing.
 from __future__ import annotations
 
 import threading
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -194,6 +195,24 @@ def _capture_one(browser, base_url: str, route_path: str, out_path: Path,
     )
 
 
+#: A route *pattern* is not an address. `/painting/:id` URL-encodes to
+#: `/painting/%3Aid`, the page reads `params.id === ":id"`, matches no item and
+#: correctly renders its own "not found" branch — so the visual critic scored
+#: request 67's PaintingDetailPage 0 and request 66's CollectionPage 5, both
+#: quoting "Not Found", on pages that work perfectly when opened properly.
+#: `scripts/preview-qa.sh` has substituted params for a while; the pipeline's
+#: own critic never did, so every detail page scored 0 in every run.
+_ROUTE_PARAM_RE = re.compile(r"/:([A-Za-z_][\w]*)\??|/\{([^}]+)\}")
+
+#: The first item of a generated catalogue is always id/index `1`.
+_ROUTE_PARAM_SPECIMEN = "1"
+
+
+def _navigable_route(path: str) -> str:
+    """Turn a declared route pattern into an address a browser can open."""
+    return _ROUTE_PARAM_RE.sub(f"/{_ROUTE_PARAM_SPECIMEN}", str(path or ""))
+
+
 def capture_routes_visual(
     base_url: str,
     routes: list[tuple[str, Path]],
@@ -211,7 +230,7 @@ def capture_routes_visual(
     five browser launches from a six-route run, which is most of what the
     parallel version was buying.
     """
-    routes = [(str(rt), Path(out)) for rt, out in routes]
+    routes = [(_navigable_route(str(rt)), Path(out)) for rt, out in routes]
     if not routes:
         return []
 

@@ -4,6 +4,9 @@ from __future__ import annotations
 import json
 import re
 
+from app.application.preview_app.catalogue_contract.item_source import (
+    catalogue_detail_base,
+)
 from app.application.preview_app.catalogue_contract.slots import (
     assigned_non_shell_slots,
     expected_shell,
@@ -84,9 +87,14 @@ LISTING_FACE_COMPONENTS = ("CatalogGrid", "ProductShowcase")
 
 
 def has_listing_face_component(content: str) -> bool:
-    """True when a listing page renders its items through a catalogue component."""
+    """True when a listing page *renders* its items through a catalogue component.
+
+    The tag, not the word. This scaffold's own source carries the comment
+    "ProductShowcase used to fill this slot", which a substring test read as a
+    listing component — so the check passed on a page that had lost its grid.
+    """
     text = content or ""
-    return any(name in text for name in LISTING_FACE_COMPONENTS)
+    return any(f"<{name}" in text for name in LISTING_FACE_COMPONENTS)
 
 
 _DEFAULT_CATALOG_BASE = "/gallery"
@@ -157,6 +165,61 @@ def _ensure_terminal_action_slot(skeleton_id: str, slots: list[str]) -> list[str
             return ordered
     ordered.append("inquire")
     return ordered
+
+
+# Marketing mid-slots that bury the painting specs when they sit before inquire.
+_DETAIL_DEMOTE_AFTER_INQUIRE = frozenset(
+    {
+        "features",
+        "showcase",
+        "testimonials",
+        "process",
+        "results",
+        "spotlight",
+        "trust",
+        "products",
+        "activity",
+        "risk",
+        "empty",
+        "filters",
+        "table",
+        "chart",
+        "kpis",
+        "header",
+        "booking",
+    }
+)
+
+
+def _paint_first_detail_slots(slots: list[str]) -> list[str]:
+    """Painting → specs → inquire first; demote marketing stacks after inquire.
+
+    Request 48 opened a detail page under a brand-billboard hero plus "Why …"
+    feature cards before the painting specs the visitor clicked for.
+    """
+    ordered = list(slots)
+    if "credentials" not in ordered:
+        anchor = next((s for s in ("inquire", "cta", "footer") if s in ordered), None)
+        ordered = (
+            ordered[: ordered.index(anchor)] + ["credentials"] + ordered[ordered.index(anchor) :]
+            if anchor
+            else ordered + ["credentials"]
+        )
+    front = [s for s in ("hero", "credentials", "inquire") if s in ordered]
+    back = [s for s in ("cta", "footer") if s in ordered]
+    mid = [
+        s
+        for s in ordered
+        if s not in front and s not in back and s not in _DETAIL_DEMOTE_AFTER_INQUIRE
+    ]
+    demoted = [s for s in ordered if s in _DETAIL_DEMOTE_AFTER_INQUIRE]
+    # Preserve relative order within each band; front/back stay fixed.
+    result: list[str] = []
+    for band in (front, mid, demoted, back):
+        for slot in band:
+            if slot not in result:
+                result.append(slot)
+    return result
 
 
 _COMPOSE_LAYOUT_SKELETONS = frozenset(
@@ -278,6 +341,17 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
     # public-booking page emitted a "View collection" CTA to /gallery, which a
     # booking app's route table (/, /services, /book) does not contain.
     if sk in {"public-booking", "public-service"}:
+        # Contact routes must never inherit booking CTAs (request 61).
+        if any(
+            token in blob
+            for token in ("contact", "enquire", "inquire", "get in touch")
+        ):
+            sub = _js(f"{title} — send a note. We reply directly.")
+            return (
+                'primaryCta={{ label: "Send a message", href: "#inquire" }} '
+                'secondaryCta={{ label: "Back home", href: "/" }}',
+                sub,
+            )
         sub = _js(
             f"{title} — pick a time that works. This page is not the homepage story."
         )
@@ -477,6 +551,9 @@ def _safe_slot_jsx(
     gallery = _is_gallery_domain(brand, title)
     # Non-home pages must NOT reuse seed.hero — that makes /doctors look like /.
     home_hero = skeleton_id in {"", "public-home"}
+    # Public storefront skeletons. Slots shared with the ops surface (`filters`)
+    # need to know which vocabulary they are speaking.
+    public_slot_face = (skeleton_id or "").lower().startswith("public-") or not skeleton_id
 
     def _d(accounting_v: str, trading_v: str, default_v: str) -> str:
         if accounting:
@@ -494,7 +571,13 @@ def _safe_slot_jsx(
     products_heading_fb = _fb(f"{brand} picks")
     process_heading_fb = _fb(f"How {brand} works")
     testimonials_heading_fb = _fb(f"Guests of {brand}")
-    credentials_heading_fb = _fb(f"Why {brand}")
+    # `CredentialStrip` is two different things depending on the page. On an item
+    # detail page it lists the piece's specs, so "Details" is right. Everywhere
+    # else it is the brand's trust block, and "Details" over "Family-owned since
+    # 1994 / Free consultation" is worse than the heading it replaced. This is
+    # called from `repair.py` too, for every page type.
+    detail_face = item_bound or (skeleton_id or "").lower() == "public-detail"
+    credentials_heading_fb = _fb("Details" if detail_face else f"Why {brand}")
     cta_heading_fb = _fb(f"Ready for {brand}?")
     cta_desc_fb = _fb(f"Tell {brand} what you need — clear options, real next steps.")
     # Slice 1 (handoff "next slices"): no residual booking copy on gallery brands.
@@ -523,8 +606,12 @@ def _safe_slot_jsx(
     # browse → detail hop cannot be dropped by codegen.
     catalog_detail_base = detail_base or _DEFAULT_CATALOG_BASE
     catalog_item_noun = "pieces" if gallery else "items"
+    # "Contact for Purchase" is about *a piece*, so it belongs on the detail
+    # page. A gallery's standalone /contact page also fields commissions, studio
+    # visits and provenance questions, and narrowing its heading to a purchase
+    # turns those visitors away at the door.
     inquire_heading_fb = _fb(
-        "Inquire about this piece" if gallery else f"Ask {brand} a question"
+        "Contact for Purchase" if gallery and detail_face else f"Ask {brand} a question"
     )
     inquire_desc_fb = _fb(
         "Ask about availability, dimensions, or a studio visit — we reply directly."
@@ -564,7 +651,9 @@ def _safe_slot_jsx(
             f'<ProductShowcase heading={{seed.showcaseHeading ?? {products_heading_fb}}} '
             'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
-            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            # Item pool only — card/hero slots are lifestyle and bury the catalogue.
+            'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
+            'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
             'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
@@ -573,7 +662,8 @@ def _safe_slot_jsx(
             f'<ProductShowcase heading={{seed.showcaseHeading ?? {showcase_heading_fb}}} '
             'items={(seed.items ?? []).map((item, index) => ({ '
             'title: item.title, description: item.description, '
-            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
+            'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
             'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
             '}))} />'
@@ -588,7 +678,8 @@ def _safe_slot_jsx(
             'meta: String((item as any).price || (item as any).meta || (item as any).medium || \'\'), '
             'category: (item as any).category ? String((item as any).category) : undefined, '
             'status: (item as any).status ? String((item as any).status) : undefined, '
-            'imageSrc: [images.card1, images.card2, images.card3][index % 3], imageAlt: item.title, '
+            'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
+            'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             'badge: (item as any).badge ? String((item as any).badge) : undefined '
             '}))} />'
         ),
@@ -609,8 +700,8 @@ def _safe_slot_jsx(
         "cta": (
             f'<CTABand heading={{seed.cta?.heading ?? {cta_heading_fb}}} '
             f'description={{seed.cta?.description ?? {cta_desc_fb}}} '
-            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", href: seed.cta?.primaryHref ?? "#details" }} '
-            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", href: seed.cta?.secondaryHref ?? "#contact" }} />'
+            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", href: seed.cta?.primaryHref ?? "/contact#inquire" }} '
+            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", href: seed.cta?.secondaryHref ?? "/contact#inquire" }} />'
         ),
         "footer": (
             f'<BrandFooter brandName={{{brand_js}}} '
@@ -751,8 +842,20 @@ def _safe_slot_jsx(
                 '{ day: "Thu", value: 22 }, { day: "Fri", value: 19 }]} />',
             )
         ),
+        # A storefront's filter bar is merchandising, not a work queue. `_d` only
+        # distinguishes accounting / trading / everything-else, so a public
+        # catalogue fell into the default and offered "Search records" filtered
+        # by "Open" — the ops vocabulary on a page selling paintings.
         "filters": (
-            '<FilterBar searchPlaceholder="'
+            (
+                '<FilterBar searchPlaceholder="'
+                + ("Search the collection" if gallery else "Search")
+                + '" filters={[{ id: "all", label: "All", active: true }, '
+                '{ id: "available", label: "Available", active: false }, '
+                '{ id: "recent", label: "Recent", active: false }]} />'
+            )
+            if not accounting and not trading and public_slot_face
+            else '<FilterBar searchPlaceholder="'
             + _d("Search invoices / expenses", "Search symbols / orders", "Search records")
             + '" filters={[{ id: "all", label: "All", active: true }, { id: "'
             + _d("overdue", "working", "open")
@@ -865,13 +968,19 @@ def _safe_slot_jsx(
     # A detail page describes the item its route param resolved to. Falling back
     # to the generic slot would render the same page for every id.
     if item_bound:
+        # variant="item" overrides recipeHeroVariant — painting-first, no brand billboard.
+        purchase_cta = (
+            '{ label: "Contact for Purchase", href: "#inquire" }'
+            if gallery
+            else '{ label: "Inquire about this piece", href: "#inquire" }'
+        )
         item_samples = {
             "hero": (
                 f'<MarketingHero brandName={{{brand_js}}} '
                 f'eyebrow={{{brand_js}}} headline={{itemTitle}} '
                 'subcopy={String(item?.description ?? "")} '
-                'variant="product" '
-                'primaryCta={{ label: "Inquire about this piece", href: "#inquire" }} '
+                'variant="item" '
+                f'primaryCta={{{purchase_cta}}} '
                 f'secondaryCta={{{{ label: "Back to the collection", href: {_js(catalog_detail_base)} }}}} '
                 'imageSrc={itemImage} imageAlt={itemTitle} />'
             ),
@@ -1083,9 +1192,9 @@ export default function {component}() {{
       />
       <CTABand
         heading="Not sure which session fits?"
-        description="Open the AI features hub for advisors, FAQs, and waitlist help."
+        description="Browse the schedule, or get in touch and we will help you pick a time."
         primaryCta={{{{ label: "Book a time", href: {book_js} }}}}
-        secondaryCta={{{{ label: "Open AI features", href: "/ai-features" }}}}
+        secondaryCta={{{{ label: "Contact", href: "/contact" }}}}
       />
       <BrandFooter brandName={{{brand_js}}} description="Clear schedules. Real bookings. Brand-first pages." />
       </div>
@@ -1093,6 +1202,43 @@ export default function {component}() {{
   );
 }}
 """
+
+
+def _card_detail_base(listing_path: str, architect: dict | None) -> str:
+    """Where a listing card's link must point — a route that is declared.
+
+    Request 66 shipped ten dead cards on `/gallery`. The scaffold used the
+    listing page's **own** path as the card base, so every card linked
+    `/gallery/<slug>`; the route table declared `/collection/:id` and
+    `/painting-detail/:id` and no `/gallery/:id`, so `path="*"` sent all ten
+    clicks to the home page. The journey gate reported it
+    (`journey_dead_link:/gallery/:id`) and the preview shipped anyway.
+
+    The listing's own path wins when the planner actually declared a param route
+    under it — `/gallery` + `/gallery/:id` is the natural pairing and keeps the
+    card link and the "back to the collection" link agreeing. Otherwise the
+    declared detail base is the only honest answer. Falling back to the listing
+    path preserves today's behaviour when nothing is declared at all, which is a
+    dead link the journey repair still has to catch — but it is no longer the
+    *first* choice over a route that exists.
+    """
+    listing = (listing_path or "").rstrip("/")
+    routes = list((architect or {}).get("routes") or [])
+    declared = {str(r.get("path") or "").rstrip("/") for r in routes}
+    param_bases = set()
+    for route in routes:
+        path = str(route.get("path") or "")
+        if "/:" not in path:
+            continue
+        surface = str(route.get("surface") or "").lower()
+        if surface == "ops" or path.startswith(("/admin", "/owner", "/ops", "/staff")):
+            continue
+        base = path.split("/:", 1)[0].rstrip("/")
+        if base:
+            param_bases.add(base)
+    if listing and listing in param_bases:
+        return listing
+    return catalogue_detail_base(architect) or listing
 
 
 def _directory_listing_scaffold(
@@ -1106,10 +1252,12 @@ def _directory_listing_scaffold(
     evidence_ids: list[str],
     people_directory: bool = False,
     skeleton_id: str = "",
+    architect: dict | None = None,
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
-    base = (listing_path or "/doctors").rstrip("/") or "/doctors"
+    listing_base = (listing_path or "/doctors").rstrip("/") or "/doctors"
+    base = _card_detail_base(listing_base, architect) or listing_base
     base_js = _js(base)
     appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
@@ -1136,10 +1284,9 @@ def _directory_listing_scaffold(
     storefront_listing = not people_directory
     if people_directory:
         cta_primary = '{ label: "Book a visit", href: "/book" }'
-        cta_secondary = '{ label: "Ask AI assistant", href: "/ai-features" }'
+        cta_secondary = '{ label: "Contact", href: "/contact" }'
         footer_desc = "Real providers. Clear booking. Not another homepage clone."
         page_desc = "Browse providers, specialties, and availability — then book the right visit."
-        showcase_heading = "Meet the team"
         showcase_desc = "Each card opens a provider profile. Book when you are ready."
         cta_heading = "Ready to schedule?"
         cta_desc = "Pick a time online — same team you just reviewed."
@@ -1148,7 +1295,6 @@ def _directory_listing_scaffold(
         cta_secondary = '{ label: "Back home", href: "/" }'
         footer_desc = f"{brand} — clear options, real availability."
         page_desc = "Browse what is offered, then pick a time that works."
-        showcase_heading = "What we offer"
         showcase_desc = "Each card opens the details. Book when you are ready."
         cta_heading = "Ready to book?"
         cta_desc = "Choose a time online and get a confirmation straight away."
@@ -1160,11 +1306,22 @@ def _directory_listing_scaffold(
         cta_secondary = '{ label: "Back home", href: "/" }'
         footer_desc = "Browse the collection. Inquire when a piece speaks to you."
         page_desc = "Browse pieces and details — then inquire about availability."
-        showcase_heading = "From the collection"
         showcase_desc = "Each card opens a closer look. Inquire when you are ready."
         cta_heading = "Interested in a piece?"
         cta_desc = "Ask about availability, commissions, or a studio visit."
 
+    # `CatalogGrid heading=""` below: the PageHeader band already states this
+    # page's title, and a second display heading 150px under it is a duplicate,
+    # not a section. CatalogGrid drops its header block on an empty heading and
+    # keeps the item count.
+    #
+    # This note lives in Python on purpose. It was briefly a JSX comment in the
+    # emitted page and broke the build twice over — first inside the opening tag,
+    # where `{` begins a spread, then as a child, where the `*/` in its own
+    # example closed the comment early. A remark about how the generator works is
+    # for whoever reads the generator; the page it writes does not need it, and
+    # every character emitted into a page is a character that can fail to parse.
+    #
     # A service listing has no per-item detail route — the funnel goes straight to
     # booking — so numbering its cards into `/services/:id` would point every one of
     # them at a path the planner never declared.
@@ -1220,7 +1377,7 @@ export default function {component}() {{
         />
       </div>
       <CatalogGrid
-        heading={_js(showcase_heading)}
+        heading=""
         description={_js(showcase_desc)}
         detailBase={{LISTING_BASE}}
         itemNoun={_js("pieces" if storefront_listing else "providers")}
@@ -1256,6 +1413,29 @@ def minimal_catalogue_page_scaffold(
     page_id = str(route.get("app_spec_page_id") or route.get("page_id") or "").strip()
     action_ids = [str(a) for a in (route.get("action_ids") or []) if a]
     evidence_ids = [str(e) for e in (route.get("evidence_ids") or []) if e]
+    # Contact/auth are form faces — never a public-service marketing clone.
+    # Request 61's ContactPage shipped "Book a visit" + FeatureBento and no
+    # InquiryPanel because architect assigned public-service and scaffold-first
+    # skipped the utility compositor.
+    route_path_early = str(route.get("path") or "")
+    from app.application.preview_app.utility_compositor import (
+        compose_utility_page_tsx,
+        infer_utility_workspace_type,
+    )
+
+    early_wtype = infer_utility_workspace_type(
+        route_path_early,
+        title,
+        str(route.get("page_type") or ""),
+    )
+    if early_wtype in {"contact", "auth"}:
+        return compose_utility_page_tsx(
+            file_path=file_path,
+            route={**route, "skeleton_id": "public-utility"},
+            content={},
+            brand_name=brand,
+            workspace_type=early_wtype,
+        )
     # Product Face Contract: page_intent wins over industry/path keywords — but
     # NOT over surface. `_directory_listing_scaffold` builds a *public* face
     # (PublicShell + PublicNav + CatalogGrid); handing it an ops route produced
@@ -1267,20 +1447,69 @@ def minimal_catalogue_page_scaffold(
     public_face = expected_shell(route) != "OpsShell" and not _is_ops_path(
         str(route.get("path") or "")
     )
-    if intent == "listing" and public_face:
+    route_path = str(route.get("path") or "")
+    # Param routes are item detail (or nested record) faces — never a directory
+    # listing. Request 50's CollectionDetail at `/gallery/:collectionId` had
+    # page_intent=listing and shipped CatalogGrid with literal `:collectionId`
+    # in every card href.
+    has_route_param = bool(
+        re.search(r"/:\w+", route_path) or re.search(r"/\{[^}]+\}", route_path)
+    )
+    skeleton_hint = str(route.get("skeleton_id") or "")
+    browse_leaf = (
+        re.sub(r"/:\w+|/\{[^}]+\}", "", route_path).rstrip("/").rsplit("/", 1)[-1].lower()
+    )
+    # Gallery/shop browse routes must always be CatalogGrid faces — even when the
+    # architect left page_intent empty or assigned public-home. Request 64's
+    # /gallery shipped ProductShowcase (3-card cap) and failed journey_browse_caps.
+    force_catalog_browse = browse_leaf in {
+        "gallery",
+        "collection",
+        "collections",
+        "shop",
+        "catalog",
+        "catalogue",
+        "works",
+        "paintings",
+        "products",
+        "menu",
+    }
+    # A classes/services listing is a schedule face, not a product grid — it
+    # needs times and prices, and its funnel goes to /book, not to a per-item
+    # detail route it never declares. `skeleton_hint == "public-catalog"` is new
+    # in this branch and it swallowed every salon `/services` page on the way
+    # past. Scoped to `not intent` so it restores exactly the routes the
+    # keyword picker below used to reach, and nothing more.
+    schedule_face = (
+        not intent
+        and not force_catalog_browse
+        and _is_schedule_listing_route(file_path, route)
+    )
+    if (
+        public_face
+        and not has_route_param
+        and skeleton_hint != "public-detail"
+        and not schedule_face
+        and (intent == "listing" or force_catalog_browse or skeleton_hint == "public-catalog")
+    ):
+        listing_path = route_path or "/listing"
+        # Belt-and-suspenders: never embed `:id` in CatalogGrid detailBase.
+        listing_path = re.sub(r"/:\w+|/\{[^}]+\}", "", listing_path).rstrip("/") or "/listing"
         return _directory_listing_scaffold(
             component=component,
             brand=brand,
             title=title,
-            listing_path=str(route.get("path") or "/listing"),
+            listing_path=listing_path,
             page_id=page_id,
             action_ids=action_ids,
             evidence_ids=evidence_ids,
-            people_directory=_is_directory_listing_route(file_path, route),
-            skeleton_id=str(route.get("skeleton_id") or ""),
+            people_directory=_is_directory_listing_route(file_path, route)
+            and not force_catalog_browse,
+            skeleton_id=skeleton_hint or "public-catalog",
+            architect=architect,
         )
     # Keyword face pickers — only when intent is absent (legacy / thin contracts).
-    if not intent and _is_directory_listing_route(file_path, route):
+    if not intent and not has_route_param and _is_directory_listing_route(file_path, route):
         return _directory_listing_scaffold(
             component=component,
             brand=brand,
@@ -1291,6 +1520,7 @@ def minimal_catalogue_page_scaffold(
             evidence_ids=evidence_ids,
             people_directory=True,
             skeleton_id=str(route.get("skeleton_id") or ""),
+            architect=architect,
         )
     if not intent and _is_schedule_listing_route(file_path, route):
         return _schedule_listing_scaffold(
@@ -1308,15 +1538,9 @@ def minimal_catalogue_page_scaffold(
     slots = _ensure_terminal_action_slot(skeleton_id, slots)
     # A detail page resolves its route param and describes that one item.
     detail_bound = skeleton_id == "public-detail" and shell == "PublicShell"
-    if detail_bound and "credentials" not in slots:
-        # The specs strip is where the resolved item's medium/price/availability
-        # land; without it "see its details" has nowhere to render.
-        anchor = next((s for s in ("inquire", "cta", "footer") if s in slots), None)
-        slots = (
-            slots[: slots.index(anchor)] + ["credentials"] + slots[slots.index(anchor) :]
-            if anchor
-            else slots + ["credentials"]
-        )
+    if detail_bound:
+        # Painting → specs → inquire before any "Why brand" marketing stack.
+        slots = _paint_first_detail_slots(slots)
     components = [shell, "getSkeleton"]
     if detail_bound:
         components.append("Button")  # not-found path links back to the collection
@@ -1429,8 +1653,9 @@ def minimal_catalogue_page_scaffold(
                 "import { useParams } from 'react-router-dom';\n" + nav_import
             )
             nav_hook = nav_hook + _detail_param_block(brand, detail_base)
-        # Shell/nav/footer chrome comes from the active recipe at runtime.
-        chrome_attr = ""
+        # Detail pages use solid chrome so the sticky/fixed nav never paints
+        # over the artwork image (immersive recipes otherwise overlay the hero).
+        chrome_attr = ' chrome="solid"' if detail_bound else ""
         use_recipe_order = skeleton_id in {
             "public-home",
             "public-service",

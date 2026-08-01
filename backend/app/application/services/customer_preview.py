@@ -134,13 +134,23 @@ def _base_customer_status(
     request_status = str(getattr(req, "status", None) or "").lower()
     progress_stage = str(progress.get("stage") or "").lower()
     contract_status = str(contract.get("status") or "").lower()
-    if (
-        preview_url
-        or contract_status == "candidate_visual_accepted"
+    # `preview_url` is *necessary*, not merely sufficient. Request 67 answered
+    # `status: "ready"`, `stage_label: "Your preview is ready"`, `pct: 100`,
+    # `is_failed: false` — with `preview_url: null`. The withholding was correct
+    # (the gate had failed); the label on top of it was a contradiction the user
+    # reads as a broken product. Everything the internal state says is "the
+    # pipeline finished"; only the URL says "there is something to look at".
+    finished = (
+        contract_status == "candidate_visual_accepted"
         or request_status in {"ready", "done", "delivered", "approved"}
         or progress_stage in {"ready", "done", "refine_done"}
-    ):
+    )
+    if preview_url:
         return "ready"
+    if finished:
+        # Finished with nothing to show is not "ready" and not "failed" — the
+        # run completed and the output was withheld.
+        return "reviewing"
     if any(marker in internal for marker in ("visual", "review", "critic")):
         return "reviewing"
     if any(

@@ -213,6 +213,14 @@ def synthesize_mock_data(
     content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
     if not _valid_synthesized_mock_source(content, needed):
         return False
+    # The model is handed the whole slot map and tends to restate part of it
+    # alongside its own named keys. Request 66 emitted `item4`…`item8` twice and
+    # `tsc` reported five TS1117s. Rejecting the file over it would cost the
+    # whole synthesis; last-wins is what the engine does anyway.
+    from app.application.preview_app.safety.mock_data import dedupe_object_literal_keys
+
+    for export_name in ("images", "seed", "navigation"):
+        content = dedupe_object_literal_keys(content, export_name)
     write_file(workspace, mock_path, content)
     return True
 

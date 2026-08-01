@@ -382,6 +382,39 @@ def _journey_pack(architect: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+def _declared_route_paths_in_app_tsx(workspace: Path) -> list[str]:
+    """Every `<Route path="…">` in the generated router, in order, with repeats."""
+    source = read_file(workspace, "src/App.tsx") or ""
+    return re.findall(r'<Route\s+path="([^"]+)"', source)
+
+
+def _route_table_is_stale(workspace: Path, architect: dict[str, Any]) -> bool:
+    """True when App.tsx no longer serves what the architect declared.
+
+    Two failures, both silent: a route that was deleted (its links fall to the
+    catch-all) and a route declared twice (the second element is unreachable —
+    React Router takes the first match).
+    """
+    rendered = _declared_route_paths_in_app_tsx(workspace)
+    if not rendered:
+        return False  # no router yet, or an unreadable file: not this heal's job
+    if len(rendered) != len(set(rendered)):
+        return True
+    served = set(rendered)
+    pages = {p.replace("\\", "/") for p in _pages(workspace)}
+    for route in architect.get("routes") or []:
+        path = str(route.get("path") or "").strip()
+        if not path or path in served:
+            continue
+        # Only routes whose page actually exists — a route with no component is
+        # dropped from the router on purpose, and re-adding it would break the
+        # build.
+        component = str(route.get("component_file") or "").replace("\\", "/")
+        if component and component in pages:
+            return True
+    return False
+
+
 def heal_quality_gate(
     workspace: Path,
     architect: dict[str, Any],
@@ -398,6 +431,35 @@ def heal_quality_gate(
     from app.application.services.ai_features import ai_feature_hub_page_source
 
     healed: list[str] = []
+
+    # 0a) The route table is generated, so restoring it is free and always
+    # correct. Request 67's repair model was handed `src/App.tsx` to clear a
+    # dead-link finding and cleared it by deleting the route:
+    #
+    #   {"op":"replace","path":"src/App.tsx",
+    #    "old":"          <Route path=\"/collection\" element={<CollectionPage />} />",
+    #    "new":"          "}
+    #
+    # 14 links on 7 pages then fell through `path="*"` to the home page, and an
+    # earlier attempt had minted a duplicate `/gallery` that left `CollectionPage`
+    # unreachable behind `GalleryPage`. `_write_if_parseable` waved both through
+    # because deleting a `<Route>` parses perfectly.
+    #
+    # `App.tsx` is now generator-owned so no AI writer can reach it, but a guard
+    # that only forbids is half a guard: this repairs the damage if it arrives by
+    # some other road, and it is the sibling of "no writer may replace parseable
+    # source with unparseable source" — **no writer may make a declared route
+    # unreachable**.
+    try:
+        if _route_table_is_stale(workspace, architect):
+            from app.application.preview_app.assemble import write_app_tsx
+            from app.infrastructure.templating.renderer import get_template_renderer
+
+            write_app_tsx(workspace, architect, get_template_renderer())
+            healed.append("src/App.tsx")
+            log.warning("quality gate healed: route table regenerated from architect")
+    except Exception as e:  # noqa: BLE001 — a heal must never fail the gate
+        log.warning("route table heal failed: %s", e)
 
     # 0) Product-kind chrome repair — rewrite marketing ops homes to catalogue ops scaffold
     try:
@@ -633,6 +695,23 @@ def heal_quality_gate(
         healed.extend(relinked)
     except Exception as e:
         log.warning("quality heal dead links failed: %s", e)
+
+    # 10) Contact/auth utility faces — AI repair and mis-labeled skeletons must
+    # not leave /contact as a marketing clone or a freeform page with dead legal
+    # links (request 62 ContactPage → /privacy-policy, no InquiryPanel).
+    try:
+        from app.application.preview_app.safety.catalogue_guards import (
+            enforce_catalogue_workspace_contracts,
+        )
+
+        restored = enforce_catalogue_workspace_contracts(
+            workspace, architect, brand_name=brand_name or "Brand"
+        )
+        if restored:
+            log.info("quality heal restored catalogue/utility faces: %s", ", ".join(restored))
+            healed.extend(restored)
+    except Exception as e:
+        log.warning("quality heal catalogue contracts failed: %s", e)
 
     # De-dupe while preserving order
     return list(dict.fromkeys(healed))

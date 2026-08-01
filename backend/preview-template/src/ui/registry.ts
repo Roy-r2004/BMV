@@ -516,24 +516,19 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     surface: 'public',
     shell: 'PublicShell',
     purpose:
-      'Single product or treatment detail — resolves its own route param and ends in an inquiry or booking.',
-    requiredSections: ['shell', 'hero', 'showcase', 'footer'],
-    optionalSections: [
-      'process',
-      'features',
-      'testimonials',
-      'credentials',
-      'booking',
-      'inquire',
-      'cta',
-    ],
+      'Single product or treatment detail — painting/item first, specs, then inquire. No marketing stack before the piece.',
+    requiredSections: ['shell', 'hero', 'credentials', 'inquire', 'footer'],
+    // No `trust` marquee and no `spotlight` band. A detail page is the thing
+    // that was clicked; both of those are brand-story slots that put the pitch
+    // ahead of the piece, which is the defect this skeleton was just reordered
+    // to prevent. They also cost the contract its prop-shape budget — see the
+    // note on `allowedComponents` below — so `public-detail` was handing the
+    // model a slot list with no item shapes in it.
+    optionalSections: ['process', 'features', 'testimonials', 'showcase', 'booking', 'cta'],
     recommendedOrder: [
       'shell',
       'hero',
-      'showcase',
-      'features',
-      'process',
-      'testimonials',
+      'credentials',
       'inquire',
       'cta',
       'footer',
@@ -544,7 +539,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     // from rendering empty.
     allowedComponents: [...PUBLIC_ALLOWED, 'InquiryPanel'],
     supportedVariants: {
-      MarketingHero: ['product', 'atelier', 'service', 'editorial', 'compact', 'split'],
+      MarketingHero: ['item', 'product', 'atelier', 'service', 'editorial', 'compact', 'split'],
       FeatureBento: ['alternating', 'grid'],
     },
   },

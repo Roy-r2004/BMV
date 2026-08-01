@@ -946,29 +946,26 @@
       "id": "public-detail",
       "surface": "public",
       "shell": "PublicShell",
-      "purpose": "Single product or treatment detail — resolves its own route param and ends in an inquiry or booking.",
+      "purpose": "Single product or treatment detail — painting/item first, specs, then inquire. No marketing stack before the piece.",
       "requiredSections": [
         "shell",
         "hero",
-        "showcase",
+        "credentials",
+        "inquire",
         "footer"
       ],
       "optionalSections": [
         "process",
         "features",
         "testimonials",
-        "credentials",
+        "showcase",
         "booking",
-        "inquire",
         "cta"
       ],
       "recommendedOrder": [
         "shell",
         "hero",
-        "showcase",
-        "features",
-        "process",
-        "testimonials",
+        "credentials",
         "inquire",
         "cta",
         "footer"
@@ -1000,6 +997,7 @@
       ],
       "supportedVariants": {
         "MarketingHero": [
+          "item",
           "product",
           "atelier",
           "service",

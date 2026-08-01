@@ -52,6 +52,65 @@ def _is_record_component(leaf: str, comp: str) -> bool:
     return bool(re.search(r"(detail|edit|update|record|profile|view)", f"{leaf} {comp}", re.I))
 
 
+_OPS_PATH_PREFIXES = ("/admin", "/owner", "/ops", "/staff", "/member", "/desk", "/account")
+
+
+def _is_ops_path(path: str) -> bool:
+    p = (path or "").rstrip("/") or "/"
+    return any(p == root or p.startswith(f"{root}/") for root in _OPS_PATH_PREFIXES)
+
+
+def _is_create_or_manage_component(leaf: str, comp: str) -> bool:
+    """Create/manage/list forms must never win a public listing → detail alias."""
+    if leaf in _CREATE_LEAVES:
+        return True
+    # PascalCase stems: AddArtworkPage, ManageArtworksPage — not ArtworkDetailPage.
+    return bool(
+        re.search(
+            r"(^|[^A-Za-z])(Add|New|Create|Manage|List|Upload|Import|Compose)([A-Z]|$)",
+            comp or "",
+        )
+    )
+
+
+def _is_public_listing_detail(path: str, comp: str) -> bool:
+    """True when a route is a public item detail suitable for ``listing/:id`` aliases.
+
+    Request 48's listing alias picked ``AddArtworkPage`` first because the name
+    matched ``artwork`` — gallery cards then opened the owner create form.
+    """
+    p = (path or "").rstrip("/") or "/"
+    c = comp or ""
+    leaf = p.rsplit("/", 1)[-1].lower()
+    if _is_ops_path(p):
+        return False
+    if _is_create_or_manage_component(leaf, c):
+        return False
+    # Edit forms under a public path are still wrong for browse → detail.
+    if re.search(r"edit", c, re.I) and not re.search(r"detail", c, re.I):
+        return False
+    return bool(
+        re.search(
+            r"(detail|artwork|painting|item|piece|product|dish|class|service|provider)",
+            f"{p} {c}",
+            re.I,
+        )
+    )
+
+
+def _listing_detail_priority(path: str, comp: str) -> int:
+    """Higher wins when several public detail-ish pages compete for listing aliases."""
+    blob = f"{path} {comp}"
+    score = 0
+    if re.search(r"detail", blob, re.I):
+        score += 100
+    if re.search(r"/(artwork|painting|item|piece|product|work)(/|$)", path or "", re.I):
+        score += 50
+    if ":" in (path or ""):
+        score += 30
+    return score
+
+
 def _collision_component_name(rel: str, stem: str) -> str:
     """Prefer AdminDropsPage over path-slug aliases when stems collide."""
     parts = rel.replace("\\", "/").split("/")
@@ -176,7 +235,7 @@ def _route_owns_shell(route: dict) -> bool:
 
 
 def _pin_ai_features_nav(items: list[dict], routes: list[dict]) -> list[dict]:
-    """Ensure /ai-features appears in ops sidebars, not only public chrome."""
+    """Ensure /ai-features appears in ops sidebars (never the public marketing face)."""
     if any(str(it.get("path") or "") == "/ai-features" for it in items):
         return items
     has_hub = any(
@@ -203,6 +262,24 @@ def _pin_ai_features_nav(items: list[dict], routes: list[dict]) -> list[dict]:
     # Keep Desk/home first when present.
     insert_at = 1 if str(items[0].get("path") or "") in {"/", "/home", "/desk"} else 0
     return items[:insert_at] + [hub] + items[insert_at:]
+
+
+def _is_public_marketing_nav_path(path: str) -> bool:
+    """Public chrome: storefront destinations only — no ops login, admin, or AI hub."""
+    p = (path or "").rstrip("/") or "/"
+    if _is_ops_path(p):
+        return False
+    if p == "/ai-features" or p.startswith("/ai-"):
+        return False
+    # Confirmation / thank-you are post-submit leaves — not marketing chrome
+    # (request 60 put /inquiry-confirmation in the public nav).
+    if re.search(
+        r"(confirm|confirmation|thank[- ]?you|success|waitlist)(/|$)",
+        p.lstrip("/"),
+        re.I,
+    ):
+        return False
+    return True
 
 
 def _score_page_for_route(rel: str, route: dict) -> int:
@@ -361,15 +438,14 @@ def _journey_nav_priority(product_kind: str) -> tuple[str, ...]:
             base = hop.path_hint.split("/:")[0].split("/{")[0].rstrip("/")
             if base and base not in spine:
                 spine.append(base)
-    # The AI hub stays pinned near the top; remaining generic listings follow.
+    # Generic public listings follow the journey spine (AI hub is ops-only chrome).
     for fallback in (
-        "/ai-features",
         "/classes",
         "/services",
         "/schedule",
         "/gallery",
-        "/ai-advisor",
         "/contact",
+        "/about",
     ):
         if fallback not in spine:
             spine.append(fallback)
@@ -377,7 +453,11 @@ def _journey_nav_priority(product_kind: str) -> tuple[str, ...]:
 
 
 def _nav_items_for(
-    routes: list[dict], predicate, *, product_kind: str = ""
+    routes: list[dict],
+    predicate,
+    *,
+    product_kind: str = "",
+    public_marketing: bool = False,
 ) -> list[dict]:
     items: list[dict] = []
     seen: set[str] = set()
@@ -393,6 +473,8 @@ def _nav_items_for(
             path,
             re.I,
         ):
+            continue
+        if public_marketing and not _is_public_marketing_nav_path(path):
             continue
         segments = [s for s in path.strip("/").split("/") if s]
         # Public chrome: listings + hubs only — not /classes/intro-to-wheel clutter.
@@ -424,12 +506,11 @@ def _nav_items_for(
             "href": path,
             "label": label,
         })
-    # Pin the AI hub near the top of public chrome so it's never buried.
-    ai_idx = next((i for i, it in enumerate(items) if it.get("path") == "/ai-features"), -1)
-    if ai_idx > 1:
-        items.insert(1, items.pop(ai_idx))
     # Cap public chrome so generated detail sprawl never overwhelms the demo.
-    if items and all(not str(it.get("path") or "").startswith(("/admin", "/owner")) for it in items):
+    if public_marketing or (
+        items
+        and all(not str(it.get("path") or "").startswith(("/admin", "/owner")) for it in items)
+    ):
         priority = _journey_nav_priority(product_kind)
         ranked = sorted(
             items,
@@ -471,7 +552,10 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
 
     product_kind = str(architect.get("product_kind") or "").strip().lower()
     public_nav = _nav_items_for(
-        routes, lambda rt: _layout_for(rt) == "public", product_kind=product_kind
+        routes,
+        lambda rt: _layout_for(rt) == "public",
+        product_kind=product_kind,
+        public_marketing=True,
     )
     admin_nav = _pin_ai_features_nav(
         _nav_items_for(
@@ -482,8 +566,8 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
         ),
         routes,
     )
-    # Ops-first previews: also surface AI hub in public nav for deep links.
-    public_nav = _pin_ai_features_nav(public_nav, routes)
+    # AI hub stays on ops chrome only — investors must not leave the storefront
+    # via a public-nav "AI features" link (request 48).
     navigation_data = {"public": public_nav, "admin": admin_nav}
     for role in roles_src:
         role_id = role.get("id")
@@ -661,14 +745,13 @@ def write_plumbing_mock(
             "defaultPath": default,
             "icon": ar.get("icon") or "users",
         })
-    public_nav = _pin_ai_features_nav(
-        [
-            {"path": rt["path"], "href": rt["path"], "label": rt.get("title") or rt["path"]}
-            for rt in routes
-            if rt.get("path") and _layout_for(rt) == "public"
-        ],
-        routes,
-    )
+    public_nav = [
+        {"path": rt["path"], "href": rt["path"], "label": rt.get("title") or rt["path"]}
+        for rt in routes
+        if rt.get("path")
+        and _layout_for(rt) == "public"
+        and _is_public_marketing_nav_path(rt["path"])
+    ]
     admin_nav = _pin_ai_features_nav(
         [
             {"path": rt["path"], "href": rt["path"], "label": rt.get("title") or rt["path"]}
@@ -934,7 +1017,8 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
             lines.append(f'          <Route path="{alias}" element={{<{comp} />}} />')
             registered.add(alias)
         # Catalogue cards link /gallery/<slug> even when detail was planned as
-        # /artwork (or similar). Wire listing/:id onto the detail component.
+        # /artwork (or similar). Wire listing/:id onto the public detail component —
+        # never a create/manage form whose name merely contains "artwork".
         listing_re = re.compile(
             r"^/(gallery|collection|collections|shop|catalog|catalogue|products|works|menu)(/|$)",
             re.I,
@@ -942,10 +1026,10 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
         detail_comps = [
             (p, c)
             for p, c in items
-            if re.search(r"(detail|artwork|item|piece|product)", f"{p} {c}", re.I)
-            and not listing_re.match(p.rstrip("/") + "/")
+            if _is_public_listing_detail(p, c) and not listing_re.match(p.rstrip("/") + "/")
         ]
         if detail_comps:
+            detail_comps.sort(key=lambda pc: _listing_detail_priority(*pc), reverse=True)
             detail_comp = detail_comps[0][1]
             for p, _ in items:
                 if not listing_re.match((p.rstrip("/") or "/") + "/"):

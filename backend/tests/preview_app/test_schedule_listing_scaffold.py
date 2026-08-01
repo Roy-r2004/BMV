@@ -28,7 +28,8 @@ def test_classes_route_scaffold_uses_schedule_rail() -> None:
     assert "BRAND_MANIFEST" in tsx
     assert "FeatureBento" not in tsx
     assert "seed.hero" not in tsx
-    assert "/ai-features" in tsx
+    assert "/ai-features" not in tsx
+    assert 'href: "/contact"' in tsx
 
 
 def test_services_catalog_route_uses_schedule_rail() -> None:

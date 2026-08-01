@@ -92,10 +92,16 @@ def _typecheck_summary(workspace) -> dict:
     preview beats no preview — but an unreported count is indistinguishable from
     a clean run, which is how 59 of them shipped unnoticed.
     """
-    from app.application.preview_app.typecheck import read_typecheck_record
+    from app.application.preview_app.typecheck import (
+        refresh_typecheck_record_if_stale,
+    )
 
     try:
-        record = read_typecheck_record(workspace)
+        # The gate's heal and AI repair rewrite source *after* the last
+        # typecheck. Request 67 measured 3 errors at 12:06:56, the repair
+        # rewrote seven files at 12:09, and 9 shipped — six of them created by
+        # the repair. A stale count reads exactly like a fresh one.
+        record = refresh_typecheck_record_if_stale(workspace)
     except (OSError, ValueError) as e:
         log.warning("typecheck record unreadable: %s", e)
         return {}
@@ -215,6 +221,67 @@ def _remeasure_repaired_pages(ctx: PipelineContext, architect: dict) -> list[str
         log.warning("    visual critic: re-measure pass failed (%s)", e)
         return []
 
+
+def _regate_after_remeasure(
+    ctx: PipelineContext,
+    architect: dict,
+    gate,
+    remeasured: list[str],
+    *,
+    require_ai_hub: bool,
+):
+    """Let the verdicts the re-measure produced re-enter the gate.
+
+    A verdict that arrives after the gate ran still has to be read by something.
+    On request 66 nothing read it: the AI repair retired the two
+    `visual_defect_severe` verdicts that were blocking, the gate re-ran with no
+    verdict for those pages and passed on the journey fix alone, and the
+    re-measure came back 5/100 and 35/100 for the same two pages three
+    milliseconds later. `ready` shipped a page its own critic scored 5.
+
+    This is not requests 43/44/45 inverted. Those were withheld by *stale*
+    verdicts describing source a repair had already replaced — the failure mode
+    that retiring exists to prevent. A re-measured verdict describes the source
+    sitting in the workspace, by construction.
+
+    Scoped hard, and deliberately. The gate is re-evaluated so that the surface
+    policy stays in one place (severe blocks on public, warns on ops), but only
+    findings **against the pages that were just re-measured** are allowed to
+    revoke the pass. Re-running every check at this point would let something
+    unrelated withhold a preview with no repair budget left to clear it, which
+    is the 43/44/45 failure mode arriving by a different road. Evaluation only:
+    no heal, no AI repair — a repair here would retire the verdict it was handed
+    and loop.
+    """
+    from app.application.preview_app.quality_gate import evaluate_quality_gate
+
+    wanted = {str(p).replace("\\", "/") for p in remeasured if str(p).strip()}
+    if not wanted:
+        return gate
+    try:
+        rechecked = evaluate_quality_gate(
+            Path(ctx.workspace), architect, require_ai_hub=require_ai_hub
+        )
+    except Exception as e:  # noqa: BLE001 — a re-read must never fail a run
+        log.warning("    quality gate: re-check after re-measure failed (%s)", e)
+        return gate
+    scoped = [
+        issue
+        for issue in rechecked.issues
+        if str(issue.path or "").replace("\\", "/") in wanted
+    ]
+    if not scoped:
+        return gate
+    for issue in scoped:
+        gate.fail(issue.code, issue.message, issue.path)
+    log.error(
+        "    quality gate: pass revoked — the re-measure of %s repaired page(s) "
+        "returned %s blocking finding(s): %s",
+        len(wanted),
+        len(scoped),
+        "; ".join(f"{i.code}@{i.path or '-'}" for i in scoped[:6]),
+    )
+    return gate
 
 def _render_smoke_check(ctx: PipelineContext, architect: dict, brand_name: str) -> dict:
     """Load every page once and replace any that crashed with a safe stub.
@@ -533,6 +600,23 @@ def run_finalize(ctx: PipelineContext) -> dict:
     )
     if gate.healed:
         log.info("    quality gate healed: %s", ", ".join(gate.healed[:10]))
+
+    # The gate retires the verdict for every page it repairs, so those pages are
+    # `unmeasured` now. Judge them again against the source that will actually
+    # ship — a retired verdict with no replacement is coverage we quietly lost.
+    #
+    # This runs *before* the gate outcome is reported, and its result re-enters
+    # the gate. Request 66 did it the other way round: the repair retired two
+    # `visual_defect_severe` verdicts, the gate re-ran with nothing left to block
+    # on and PASSED, and the re-measure returned 5/100 and 35/100 for those same
+    # two pages three milliseconds later — the defects confirmed against the
+    # source that ships, with nothing left to read them. It shipped `ready`.
+    remeasured = _remeasure_repaired_pages(ctx, architect)
+    if remeasured and gate.ok:
+        gate = _regate_after_remeasure(
+            ctx, architect, gate, remeasured, require_ai_hub=bool(planned_ai)
+        )
+
     if not gate.ok:
         ok = False
         detail = "; ".join(
@@ -557,15 +641,6 @@ def run_finalize(ctx: PipelineContext) -> dict:
             92,
             detail=f"healed={len(gate.healed)}",
         )
-
-    # The gate retires the verdict for every page it repairs, so those pages are
-    # `unmeasured` now. Judge them again against the source that will actually
-    # ship — a retired verdict with no replacement is coverage we quietly lost.
-    #
-    # Deliberately for the record, not for enforcement: the gate has already run,
-    # and re-blocking here with no repair path left is what withheld requests 43,
-    # 44 and 45. `visual_review_summary` carries the result into the API response.
-    _remeasure_repaired_pages(ctx, architect)
 
     # Last word before "ready": does each page actually render? The gate's heal
     # and AI repair rewrite source *after* the visual critique took its

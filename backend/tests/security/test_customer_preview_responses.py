@@ -292,25 +292,31 @@ def test_progress_snapshot_is_allowlisted_and_maps_runtime_failure() -> None:
 
 
 @pytest.mark.parametrize(
-    ("internal_status", "public_status"),
+    ("internal_status", "public_status", "has_preview"),
     [
-        ("design_contract_ready", "planning"),
-        ("composition_contract_ready", "generating"),
-        ("candidate_generated", "generating"),
-        ("candidate_build_pending", "validating"),
-        ("candidate_runtime_validated", "validating"),
-        ("candidate_visual_accepted", "ready"),
+        ("design_contract_ready", "planning", False),
+        ("composition_contract_ready", "generating", False),
+        ("candidate_generated", "generating", False),
+        ("candidate_build_pending", "validating", False),
+        ("candidate_runtime_validated", "validating", False),
+        # An accepted candidate is "ready" *because there is something to open*.
+        # Request 67 accepted a candidate, withheld the preview because the
+        # quality gate failed, and still answered "Your preview is ready" with
+        # `preview_url: null`. The URL is now necessary, so this row carries one.
+        ("candidate_visual_accepted", "ready", True),
+        # And the same acceptance with nothing served is not "ready".
+        ("candidate_visual_accepted", "reviewing", False),
     ],
 )
 def test_internal_statuses_map_to_stable_customer_statuses(
     internal_status: str,
     public_status: str,
+    has_preview: bool,
 ) -> None:
-    req = _request(
-        generated_pages=json.dumps(
-            {"preview_contract": {"status": internal_status}}
-        )
-    )
+    bundle: dict = {"preview_contract": {"status": internal_status}}
+    if has_preview:
+        bundle["preview_app"] = {"url": "/api/preview-apps/33/"}
+    req = _request(generated_pages=json.dumps(bundle))
 
     data = _assert_public_payload_is_allowlisted(
         get_preview(req.id, _Db(req))
