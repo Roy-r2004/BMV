@@ -139,10 +139,12 @@ def verify_schema_ready(engine: Engine) -> StartupMigrationResult:
 def run_required_migrations(engine: Engine) -> None:
     """Run Phase 7 + commercial migrations (idempotent). Raises on failure."""
     from app.infrastructure.db.migrations import (
+        migrate_ai_usage_census,
         migrate_candidate_revision_target_tier,
         migrate_tier_orchestration_target_tier,
     )
 
+    migrate_ai_usage_census(engine)
     migrate_candidate_revision_target_tier(engine)
     migrate_tier_orchestration_target_tier(engine)
     migrate_phase7a_rollout(engine)

@@ -1,9 +1,21 @@
-"""Parallel execution helpers for preview-app generation."""
+"""Parallel execution helpers for preview-app generation.
+
+Every worker runs under a *copy* of the submitting context. `ContextVar`s —
+which is where `ai_run_scope` keeps the request id and the current stage — do
+not cross `Executor.submit`; a pool thread starts empty. Before this was wired,
+every AI call the codegen, critic and vision fan-outs made landed in
+`ai_usage_events` with `request_id = NULL` and a provider-default purpose: 39 of
+request 67's 58 rows, so per-request cost and latency queries undercounted by
+roughly two thirds. Each worker needs its own copy; a `Context` cannot be
+entered twice concurrently.
+"""
 from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, TypeVar
+
+from app.application.services.ai_context import propagated_context
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -63,7 +75,9 @@ def parallel_map(
             return index, item, None, exc
 
     with ThreadPoolExecutor(max_workers=min(max_workers, len(items))) as pool:
-        futures = [pool.submit(_run, i, item) for i, item in indexed]
+        futures = [
+            pool.submit(propagated_context().run, _run, i, item) for i, item in indexed
+        ]
         for fut in as_completed(futures):
             index, item, result, exc = fut.result()
             results[index] = (item, result, exc)

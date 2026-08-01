@@ -262,6 +262,8 @@ class OpenRouterAIProvider(AIProvider):
                         success=False,
                         error=typed.error_code,
                         latency_ms=latency,
+                        finish_reason=typed.result.finish_reason,
+                        output_chars=len(typed.result.text or ""),
                     )
                     raise
                 record_usage(
@@ -297,6 +299,8 @@ class OpenRouterAIProvider(AIProvider):
                     success=False,
                     error=parsed.error_code or parsed.error_message_redacted,
                     latency_ms=latency,
+                    finish_reason=parsed.finish_reason,
+                    output_chars=len(parsed.text or ""),
                 )
                 raise_if_unsuccessful(parsed)
 
@@ -310,6 +314,8 @@ class OpenRouterAIProvider(AIProvider):
                 cost_usd=parsed.cost_usd,
                 success=True,
                 latency_ms=latency,
+                finish_reason=parsed.finish_reason,
+                output_chars=len(parsed.text or ""),
             )
             with self._lock:
                 self._last_response_envelope = parsed.envelope

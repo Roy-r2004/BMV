@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -37,8 +38,17 @@ def run_build(
 
     logs: list[str] = []
 
+    # Every phase of the build is timed. `build_phase.py:183` still carries a
+    # "~20 s" comment that measurement puts 40× out; the only way that comment
+    # survived is that nothing here ever said how long it took.
+    attach_started = time.monotonic()
     try:
         logs.append(attach_shared_node_modules(workspace, timeout=timeout))
+        log.info(
+            "npm attach finished in %.2fs workspace=%s",
+            time.monotonic() - attach_started,
+            workspace.name,
+        )
     except Exception as exc:
         log.error("shared npm attach failed: %s", exc)
         logs.append(f"=== shared npm failed ({exc}) — falling back to local npm install ===")
@@ -54,6 +64,12 @@ def run_build(
         logs.append("=== npm install (local fallback) ===")
         logs.append(install.stdout or "")
         logs.append(install.stderr or "")
+        log.info(
+            "npm install (local fallback) finished in %.2fs exit=%s workspace=%s",
+            time.monotonic() - attach_started,
+            install.returncode,
+            workspace.name,
+        )
         if install.returncode != 0:
             return False, "\n".join(logs)
 
@@ -85,6 +101,7 @@ def run_build(
             )
         vite_config.write_text(content, encoding="utf-8")
 
+    build_started = time.monotonic()
     build = subprocess.run(
         [npm, "exec", "--", "vite", "build"],
         cwd=str(workspace),
@@ -94,9 +111,17 @@ def run_build(
         env=install_env,
         shell=(os.name == "nt"),
     )
+    build_seconds = time.monotonic() - build_started
     logs.append("=== vite build ===")
     logs.append(build.stdout or "")
     logs.append(build.stderr or "")
+    log.info(
+        "vite build finished in %.2fs exit=%s total_run_build %.2fs workspace=%s",
+        build_seconds,
+        build.returncode,
+        time.monotonic() - attach_started,
+        workspace.name,
+    )
     if build.returncode != 0:
         err_tail = (build.stderr or build.stdout or "")[-1200:]
         log.error("vite build failed (see dump in .bmv-debug/vite-build/):\n%s", err_tail)

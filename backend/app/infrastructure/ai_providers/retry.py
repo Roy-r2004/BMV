@@ -51,7 +51,12 @@ def _run_with_heartbeat(
         except Exception as e:  # noqa: BLE001 - re-raised on the caller's thread below
             box["error"] = e
 
-    thread = threading.Thread(target=_target, daemon=True)
+    # `fn` runs off the calling thread, so it starts with an empty context unless
+    # one is handed to it — and anything `fn` does that reads the request id or
+    # the active stage would silently see the defaults.
+    from app.application.services.ai_context import propagated_context
+
+    thread = threading.Thread(target=propagated_context().run, args=(_target,), daemon=True)
     start = time.monotonic()
     thread.start()
     aborted = False

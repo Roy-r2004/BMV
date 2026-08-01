@@ -16,6 +16,7 @@ from app.application.preview_app.source_quality import (
 )
 from app.application.preview_app.text_utils import _bounded_json, _parse_json, _strip_fences
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.services.ai_context import UNUSABLE_REJECTED, ai_call
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -209,10 +210,13 @@ def synthesize_mock_data(
         import_context=import_context,
         current_content=read_file(workspace, mock_path)[:4000],
     )
-    raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
-    content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
-    if not _valid_synthesized_mock_source(content, needed):
-        return False
+    with ai_call("seed", writer="mock_synthesize", attempt=1) as call:
+        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
+        content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
+        valid = _valid_synthesized_mock_source(content, needed)
+        call.adjudicate(valid, reason=UNUSABLE_REJECTED)
+        if not valid:
+            return False
     # The model is handed the whole slot map and tends to restate part of it
     # alongside its own named keys. Request 66 emitted `item4`…`item8` twice and
     # `tsc` reported five TS1117s. Rejecting the file over it would cost the

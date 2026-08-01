@@ -28,6 +28,7 @@ from app.application.preview_app.workspace import (
     snapshot_source,
     write_file,
 )
+from app.application.services.ai_context import UNUSABLE_UNPARSEABLE, ai_call
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.infrastructure.logging import get_logger
@@ -373,15 +374,24 @@ Rules:
             _FAILED_FIX_MODELS.add(model)
         return ""
 
-    raw = _ask(prompt)
-    data = _try_parse_plan(raw, "primary", workspace)
+    def _ask_and_parse(text: str, label: str, attempt: int) -> dict[str, Any] | None:
+        # A plan that does not parse — or parses to an object with no ops, no
+        # script and no files — bought nothing. Request 68 spent 882.2 s here
+        # for zero applied operations while every row said `success = true`.
+        with ai_call("quality_repair", writer=label, attempt=attempt) as call:
+            parsed = _try_parse_plan(_ask(text), label, workspace)
+            call.adjudicate(parsed is not None, reason=UNUSABLE_UNPARSEABLE)
+            return parsed
+
+    data = _ask_and_parse(prompt, "primary", 1)
     if data is None:
-        raw2 = _ask(
+        data = _ask_and_parse(
             prompt
             + "\n\nSTRICT: JSON only. Prefer ops. Shape "
-            '{"strategy":"ops","ops":[{"op":"replace","path":"...","old":"...","new":"..."}]}'
+            '{"strategy":"ops","ops":[{"op":"replace","path":"...","old":"...","new":"..."}]}',
+            "strict-retry",
+            2,
         )
-        data = _try_parse_plan(raw2, "strict-retry", workspace)
     return data
 
 
@@ -436,6 +446,21 @@ def run_ai_quality_repair(
     ai_provider: AIProvider | None = None,
 ) -> list[str]:
     """One AI repair attempt. Returns touched paths."""
+    with ai_call("quality_repair") as repair_scope:
+        paths = _run_ai_quality_repair_inner(workspace, architect, issues, ai_provider)
+        # The number the ledger was missing. A repair round that costs minutes
+        # and applies nothing is indistinguishable, in the old schema, from one
+        # that fixed the site.
+        repair_scope.applied_ops(len(paths))
+        return paths
+
+
+def _run_ai_quality_repair_inner(
+    workspace: Path,
+    architect: dict[str, Any],
+    issues: list[Any],
+    ai_provider: AIProvider | None = None,
+) -> list[str]:
     if ai_provider is None:
         from app.infrastructure.ai_providers.factory import get_ai_provider
 

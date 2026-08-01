@@ -236,6 +236,46 @@ def ai_is_allowed(purpose: str = "pipeline") -> tuple[bool, str]:
     return True, ""
 
 
+#: Purposes that are a provider default rather than a statement about the call,
+#: so a stage name from the request context is strictly better information.
+_GENERIC_PURPOSES = ("unknown", "pipeline", "vision")
+
+
+def presumed_usable(
+    *,
+    success: bool,
+    output_chars: int | None,
+    finish_reason: str | None,
+) -> tuple[bool, str | None]:
+    """The provider-side half of the usable verdict.
+
+    Three shapes are unusable on their face and need no caller to say so: the
+    model was cut off mid-answer, the transport failed, or the body was empty.
+    Anything else is presumed usable until whoever had to read it disagrees —
+    `AICall.unusable()` is that disagreement.
+
+    Truncation is checked *before* transport, and that ordering is load-bearing.
+    Eighteen of the nineteen failed calls across requests 66–71 carry
+    `provider_truncated_output`: the socket was fine and the model simply ran
+    out of tokens. Filing all of them under "transport" would point the next
+    engineer at the network, which is not where the 2,105 s went.
+    """
+
+    from app.application.services.ai_context import (
+        UNUSABLE_EMPTY,
+        UNUSABLE_TRANSPORT,
+        UNUSABLE_TRUNCATED,
+    )
+
+    if finish_reason and str(finish_reason).lower() in ("length", "max_tokens"):
+        return False, UNUSABLE_TRUNCATED
+    if not success:
+        return False, UNUSABLE_TRANSPORT
+    if output_chars is not None and int(output_chars) <= 0:
+        return False, UNUSABLE_EMPTY
+    return True, None
+
+
 def record_usage(
     *,
     provider: str,
@@ -249,8 +289,11 @@ def record_usage(
     success: bool = True,
     error: str | None = None,
     latency_ms: int | None = None,
+    finish_reason: str | None = None,
+    output_chars: int | None = None,
 ) -> None:
     from app.application.services.ai_context import (
+        current_ai_call,
         get_ai_purpose,
         get_ai_request_id,
         observe_ai_usage,
@@ -259,7 +302,7 @@ def record_usage(
     if request_id is None:
         request_id = get_ai_request_id()
     ctx_purpose = get_ai_purpose()
-    if ctx_purpose and purpose in ("unknown", "pipeline", "vision"):
+    if ctx_purpose and purpose in _GENERIC_PURPOSES:
         purpose = ctx_purpose
 
     if total_tokens <= 0:
@@ -267,39 +310,84 @@ def record_usage(
     if cost_usd is None and success:
         cost_usd = _estimate_cost(model, prompt_tokens, completion_tokens)
 
-    observe_ai_usage(
-        {
-            "provider": provider,
-            "model": model,
-            "purpose": purpose,
-            "request_id": request_id,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
-            "cost_usd": float(cost_usd or 0.0),
-            "success": success,
-            "error": error,
-            "latency_ms": int(latency_ms or 0),
-        }
+    usable, unusable_reason = presumed_usable(
+        success=success, output_chars=output_chars, finish_reason=finish_reason
     )
 
+    call = current_ai_call()
+    row = {
+        "provider": provider,
+        "model": model,
+        "purpose": purpose,
+        "request_id": request_id,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "cost_usd": float(cost_usd or 0.0),
+        "success": success,
+        "error": error,
+        "latency_ms": int(latency_ms or 0),
+        "stage": (call.stage if call and call.stage else None) or purpose,
+        "writer": call.writer if call else None,
+        "attempt": call.attempt if call else 1,
+        "finish_reason": finish_reason or None,
+        "output_chars": None if output_chars is None else int(output_chars),
+        "usable": usable,
+        "unusable_reason": unusable_reason,
+        "ops_applied": None,
+    }
+
+    observe_ai_usage(dict(row))
+
+    if call is not None:
+        # Buffered, not skipped: the scope writes it once, at exit, with the
+        # usability verdict already on it. No second round trip to adjudicate.
+        call.record(row)
+        return
+    flush_usage_rows([row])
+
+
+def flush_usage_rows(rows: list[dict]) -> None:
+    """Write buffered usage rows. One session, one commit, never raises.
+
+    Batching matters: an `ai_call` scope covering a four-model failover chain
+    writes four rows in one transaction instead of four.
+    """
+
+    if not rows:
+        return
     db = SessionLocal()
     try:
-        db.add(
-            AiUsageEvent(
-                provider=provider,
-                model=model,
-                purpose=purpose[:80],
-                request_id=request_id,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                cost_usd=cost_usd,
-                success=success,
-                error=(error or "")[:2000] or None,
-                latency_ms=latency_ms,
+        for row in rows:
+            db.add(
+                AiUsageEvent(
+                    provider=row.get("provider") or "unknown",
+                    model=row.get("model") or "unknown",
+                    purpose=str(row.get("purpose") or "unknown")[:80],
+                    request_id=row.get("request_id"),
+                    prompt_tokens=int(row.get("prompt_tokens") or 0),
+                    completion_tokens=int(row.get("completion_tokens") or 0),
+                    total_tokens=int(row.get("total_tokens") or 0),
+                    cost_usd=row.get("cost_usd"),
+                    success=bool(row.get("success")),
+                    error=(row.get("error") or "")[:2000] or None,
+                    latency_ms=row.get("latency_ms"),
+                    stage=(str(row.get("stage"))[:64] if row.get("stage") else None),
+                    writer=(str(row.get("writer"))[:80] if row.get("writer") else None),
+                    attempt=row.get("attempt"),
+                    finish_reason=(
+                        str(row.get("finish_reason"))[:40] if row.get("finish_reason") else None
+                    ),
+                    output_chars=row.get("output_chars"),
+                    usable=row.get("usable"),
+                    unusable_reason=(
+                        str(row.get("unusable_reason"))[:80]
+                        if row.get("unusable_reason")
+                        else None
+                    ),
+                    ops_applied=row.get("ops_applied"),
+                )
             )
-        )
         db.commit()
     except Exception as exc:
         log.warning("failed to record AI usage: %s", exc)

@@ -39,6 +39,7 @@ from app.application.preview_app.source_quality import (
     tsx_parse_error,
 )
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
+from app.application.services.ai_context import UNUSABLE_UNPARSEABLE, ai_call
 from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -258,14 +259,59 @@ def _run_fix_agent(
     guard: FixGuard | None = None,
     rejections_out: list[str] | None = None,
 ) -> list[str]:
+    """Ask the fix chain and apply what it returns. Census-instrumented.
+
+    The outer `ai_call` exists only so `ops_applied` — known once the paths have
+    been written, several branches below — lands on the rows the inner scopes
+    already adjudicated. Request 67 spent three fix-agent calls, two of them
+    recorded `success = true`, for zero applied files; that pair of numbers on
+    one row is the whole point.
+    """
+
+    with ai_call("fix_agent") as fix_scope:
+        paths = _run_fix_agent_inner(
+            workspace,
+            architect,
+            ai_provider,
+            prompt=prompt,
+            error_text=error_text,
+            guard=guard,
+            rejections_out=rejections_out,
+        )
+        fix_scope.applied_ops(len(paths))
+        return paths
+
+
+def _run_fix_agent_inner(
+    workspace: Path,
+    architect: dict,
+    ai_provider: AIProvider,
+    *,
+    prompt: str,
+    error_text: str,
+    guard: FixGuard | None = None,
+    rejections_out: list[str] | None = None,
+) -> list[str]:
     def _ask(prompt_text: str) -> str:
         return _ask_fix_model(ai_provider, prompt_text)
 
     def _try_parse(raw: str, label: str) -> dict | None:
         return _parse_fix_payload(workspace, raw, label, error_text)
 
-    raw = _ask(prompt)
-    data = _try_parse(raw, "primary")
+    def _ask_and_parse(prompt_text: str, label: str, attempt: int) -> dict | None:
+        """One logical ask, with the verdict the parse hands down attached to it.
+
+        A 200 whose body no extractor can read is not a success. Recording it as
+        one is what let three dead calls per run hide behind a healthy-looking
+        transport column.
+        """
+
+        with ai_call("fix_agent", writer=label, attempt=attempt) as call:
+            parsed = _try_parse(_ask(prompt_text), label)
+            call.adjudicate(parsed is not None, reason=UNUSABLE_UNPARSEABLE)
+            return parsed
+
+    data = _ask_and_parse(prompt, "primary", 1)
 
     if data is None:
         strict_prompt = (
@@ -274,8 +320,7 @@ def _run_fix_agent(
             '{"files":[{"path":"src/pages/Example.tsx","content":"...full file..."}]}. '
             "No markdown fences, no prose, no empty body."
         )
-        raw2 = _ask(strict_prompt)
-        data = _try_parse(raw2, "strict-retry")
+        data = _ask_and_parse(strict_prompt, "strict-retry", 2)
 
     def _deterministic_local_repair() -> list[str]:
         from app.application.preview_app.deterministic_repairs import (
@@ -348,9 +393,10 @@ def _run_fix_agent(
                     + json.dumps(path)
                     + ',"content":"...complete corrected file..."}]}.'
                 )
-                retry_data = _try_parse(
-                    _ask(contract_retry_prompt),
+                retry_data = _ask_and_parse(
+                    contract_retry_prompt,
                     f"catalogue-contract-retry-{retry_number}",
+                    retry_number,
                 )
                 if not retry_data:
                     continue

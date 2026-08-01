@@ -132,6 +132,8 @@ class OllamaAIProvider(AIProvider):
                     success=False,
                     error=parsed.error_code or parsed.error_message_redacted,
                     latency_ms=latency,
+                    finish_reason=parsed.finish_reason,
+                    output_chars=len(parsed.text or ""),
                 )
                 raise_if_unsuccessful(parsed)
             record_usage(
@@ -143,6 +145,8 @@ class OllamaAIProvider(AIProvider):
                 cost_usd=0.0,
                 success=True,
                 latency_ms=latency,
+                finish_reason=parsed.finish_reason,
+                output_chars=len(parsed.text or ""),
             )
             return parsed.text
         except ProviderGenerationError:
@@ -251,6 +255,8 @@ class OllamaAIProvider(AIProvider):
                     success=False,
                     error=parsed.error_code or parsed.error_message_redacted,
                     latency_ms=latency,
+                    finish_reason=parsed.finish_reason,
+                    output_chars=len(parsed.text or ""),
                 )
                 raise_if_unsuccessful(parsed)
             record_usage(
@@ -260,6 +266,8 @@ class OllamaAIProvider(AIProvider):
                 cost_usd=0.0,
                 success=True,
                 latency_ms=latency,
+                finish_reason=parsed.finish_reason,
+                output_chars=len(parsed.text or ""),
             )
             return parsed.text
         except ProviderGenerationError:

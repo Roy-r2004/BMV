@@ -45,6 +45,11 @@ from app.application.preview_app.utility_compositor import (
     should_compose_utility_page,
 )
 from app.application.preview_app.workspace import list_source_files, read_file, summarize_files, write_file
+from app.application.services.ai_context import (
+    UNUSABLE_REJECTED,
+    UNUSABLE_UNPARSEABLE,
+    ai_call,
+)
 from app.application.services.page_experience import page_required_sections
 from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
 from app.core.config import settings
@@ -175,16 +180,18 @@ def _generate_utility_composed_file(
         "compose_utility %s type=%s model=%s", file_path, workspace_type, settings.PREVIEW_APP_MODEL
     )
     try:
-        raw = ai_provider.ask_chat(
-            settings.PREVIEW_APP_MODEL,
-            [{"role": "user", "content": prompt}],
-            max_tokens=6000,
-        )
-        parsed = _parse_json(_strip_fences(raw))
-        if isinstance(parsed, dict):
-            content_payload = parsed
-        else:
-            cg_log.warning("utility JSON not an object for %s; using defaults", file_path)
+        with ai_call("codegen", writer="utility_content", attempt=1) as call:
+            raw = ai_provider.ask_chat(
+                settings.PREVIEW_APP_MODEL,
+                [{"role": "user", "content": prompt}],
+                max_tokens=6000,
+            )
+            parsed = _parse_json(_strip_fences(raw))
+            if isinstance(parsed, dict):
+                content_payload = parsed
+            else:
+                cg_log.warning("utility JSON not an object for %s; using defaults", file_path)
+            call.adjudicate(bool(content_payload), reason=UNUSABLE_UNPARSEABLE)
     except Exception as exc:
         cg_log.warning("utility content ask failed for %s: %s; using defaults", file_path, exc)
 
@@ -341,42 +348,48 @@ def _generate_catalogue_scaffold_first_file(
     content = scaffold
     attempt_prompt = prompt
     for attempt in range(1, _MAX_SLOT_FILL_ATTEMPTS + 1):
-        try:
-            cg_log.debug(
-                "slot_fill %s attempt %s/%s model=%s",
+        # A fill the rejection check throws away cost exactly as much wall clock
+        # as one that shipped, and the census has to be able to tell them apart.
+        with ai_call("codegen", writer="slot_fill", attempt=attempt) as call:
+            try:
+                cg_log.debug(
+                    "slot_fill %s attempt %s/%s model=%s",
+                    file_path,
+                    attempt,
+                    _MAX_SLOT_FILL_ATTEMPTS,
+                    settings.PREVIEW_APP_MODEL,
+                )
+                raw = ai_provider.ask_chat(
+                    settings.PREVIEW_APP_MODEL,
+                    [{"role": "user", "content": attempt_prompt}],
+                    max_tokens=12000,
+                )
+            except Exception as exc:
+                cg_log.warning(
+                    "slot_fill ask failed for %s: %s — keeping scaffold", file_path, exc
+                )
+                break
+            filled = _sanitize_emoji_icons(_strip_fences(raw))
+            reason, detail = _slot_fill_rejection(filled)
+            call.adjudicate(not reason, reason=UNUSABLE_REJECTED)
+            if not reason:
+                content = filled
+                break
+            retrying = reason != "empty" and attempt < _MAX_SLOT_FILL_ATTEMPTS
+            cg_log.warning(
+                "slot_fill rejected %s attempt %s/%s (%s%s) — %s",
                 file_path,
                 attempt,
                 _MAX_SLOT_FILL_ATTEMPTS,
-                settings.PREVIEW_APP_MODEL,
+                reason,
+                f": {detail}" if detail else "",
+                "retrying" if retrying else "keeping scaffold",
             )
-            raw = ai_provider.ask_chat(
-                settings.PREVIEW_APP_MODEL,
-                [{"role": "user", "content": attempt_prompt}],
-                max_tokens=12000,
-            )
-        except Exception as exc:
-            cg_log.warning("slot_fill ask failed for %s: %s — keeping scaffold", file_path, exc)
-            break
-        filled = _sanitize_emoji_icons(_strip_fences(raw))
-        reason, detail = _slot_fill_rejection(filled)
-        if not reason:
-            content = filled
-            break
-        retrying = reason != "empty" and attempt < _MAX_SLOT_FILL_ATTEMPTS
-        cg_log.warning(
-            "slot_fill rejected %s attempt %s/%s (%s%s) — %s",
-            file_path,
-            attempt,
-            _MAX_SLOT_FILL_ATTEMPTS,
-            reason,
-            f": {detail}" if detail else "",
-            "retrying" if retrying else "keeping scaffold",
-        )
-        if not retrying:
-            # An empty answer is how an exhausted AI call budget reports itself;
-            # re-asking cannot add information and only burns the retry.
-            break
-        attempt_prompt = _slot_fill_retry_prompt(prompt, reason=reason, detail=detail)
+            if not retrying:
+                # An empty answer is how an exhausted AI call budget reports itself;
+                # re-asking cannot add information and only burns the retry.
+                break
+            attempt_prompt = _slot_fill_retry_prompt(prompt, reason=reason, detail=detail)
 
     content, replaced = enforce_catalogue_page_contract(
         file_path,
@@ -583,10 +596,6 @@ def generate_file(
         existing_files_summary=existing[:8000],
     )
 
-    cg_log.debug("ask_chat %s model=%s", file_path, settings.PREVIEW_APP_MODEL)
-    raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
-    content = _sanitize_emoji_icons(_strip_fences(raw))
-
     def _needs_retry(src: str) -> bool:
         if not (src or "").strip():
             return True
@@ -595,6 +604,12 @@ def generate_file(
         if file_kind in ("page", "layout", "component", "router") and "export default" not in src:
             return True
         return False
+
+    cg_log.debug("ask_chat %s model=%s", file_path, settings.PREVIEW_APP_MODEL)
+    with ai_call("codegen", writer="freeform", attempt=1) as call:
+        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
+        content = _sanitize_emoji_icons(_strip_fences(raw))
+        call.adjudicate(not _needs_retry(content), reason=UNUSABLE_REJECTED)
 
     # Up to 2 retries on the primary path — completeness and the catalogue
     # contract are both required before deterministic scaffolding is considered.
@@ -641,24 +656,27 @@ def generate_file(
                 "Return the COMPLETE TypeScript/React file only — start with imports, "
                 f"end with export default. MUST compile. {import_rule} No markdown fences."
             )
-        raw2 = ai_provider.ask_chat(
-            settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=16000,
-        )
-        retry_content = _sanitize_emoji_icons(_strip_fences(raw2))
-        retry_contract_errors = (
-            _catalogue_contract_errors(file_path, retry_content, route, workspace=workspace)
-            if catalogue_page and not _needs_retry(retry_content)
-            else []
-        )
-        if (
-            retry_content
-            and not _needs_retry(retry_content)
-            and not blocking_contract_errors(retry_contract_errors)
-        ):
-            content = retry_content
-            break
-        if retry_content:
-            content = retry_content
+        with ai_call("codegen", writer="freeform-retry", attempt=attempt) as call:
+            raw2 = ai_provider.ask_chat(
+                settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=16000,
+            )
+            retry_content = _sanitize_emoji_icons(_strip_fences(raw2))
+            retry_contract_errors = (
+                _catalogue_contract_errors(file_path, retry_content, route, workspace=workspace)
+                if catalogue_page and not _needs_retry(retry_content)
+                else []
+            )
+            accepted = bool(
+                retry_content
+                and not _needs_retry(retry_content)
+                and not blocking_contract_errors(retry_contract_errors)
+            )
+            call.adjudicate(accepted, reason=UNUSABLE_REJECTED)
+            if accepted:
+                content = retry_content
+                break
+            if retry_content:
+                content = retry_content
 
     if catalogue_page:
         _catalogue_contract_errors(file_path, content, route, workspace=workspace)

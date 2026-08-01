@@ -712,6 +712,69 @@ def assert_tier_orchestration_target_constraint(bind: Engine) -> None:
             )
 
 
+#: Phase 0.6 call census. Additive and nullable on purpose — every row written
+#: before this landed keeps `usable = NULL`, which the census reads as
+#: "not adjudicated" rather than silently counting it as a success.
+_AI_USAGE_CENSUS_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("stage", "VARCHAR(64)", "VARCHAR(64)"),
+    ("writer", "VARCHAR(80)", "VARCHAR(80)"),
+    ("attempt", "INTEGER", "INTEGER"),
+    ("finish_reason", "VARCHAR(40)", "VARCHAR(40)"),
+    ("output_chars", "INTEGER", "INTEGER"),
+    ("usable", "BOOLEAN", "BOOLEAN"),
+    ("unusable_reason", "VARCHAR(80)", "VARCHAR(80)"),
+    ("ops_applied", "INTEGER", "INTEGER"),
+)
+
+_AI_USAGE_CENSUS_INDEXES: tuple[tuple[str, str], ...] = (
+    ("ix_ai_usage_events_stage", "stage"),
+    ("ix_ai_usage_events_usable", "usable"),
+)
+
+
+def migrate_ai_usage_census(bind: Engine) -> None:
+    """Add the per-call census columns to `ai_usage_events`. Idempotent.
+
+    Nullable adds with no default, so Postgres takes a catalogue-only lock and
+    no table rewrite — safe to run while a generation is in flight.
+    """
+
+    dialect = bind.dialect.name
+    if dialect not in ("sqlite", "postgresql"):
+        raise RuntimeError(f"ai_usage census migration unsupported dialect: {dialect}")
+    with bind.connect() as conn:
+        if "ai_usage_events" not in set(inspect(conn).get_table_names()):
+            return
+        if dialect == "sqlite":
+            existing = {
+                row[1] for row in conn.execute(text("PRAGMA table_info(ai_usage_events)"))
+            }
+            for column, sqlite_type, _pg_type in _AI_USAGE_CENSUS_COLUMNS:
+                if column not in existing:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE ai_usage_events ADD COLUMN "
+                            f"{column} {sqlite_type}"
+                        )
+                    )
+        else:
+            for column, _sqlite_type, pg_type in _AI_USAGE_CENSUS_COLUMNS:
+                conn.execute(
+                    text(
+                        "ALTER TABLE ai_usage_events ADD COLUMN IF NOT EXISTS "
+                        f"{column} {pg_type}"
+                    )
+                )
+        for index, column in _AI_USAGE_CENSUS_INDEXES:
+            conn.execute(
+                text(
+                    f"CREATE INDEX IF NOT EXISTS {index} "
+                    f"ON ai_usage_events({column})"
+                )
+            )
+        conn.commit()
+
+
 def run_legacy_column_migrations() -> None:
     """Add legacy missing columns. Raises on failure (fail-closed)."""
     url = settings.DATABASE_URL
@@ -805,6 +868,7 @@ def run_sqlite_migrations() -> None:
     )
 
     run_legacy_column_migrations()
+    migrate_ai_usage_census(engine)
     migrate_candidate_revision_target_tier(engine)
     migrate_tier_orchestration_target_tier(engine)
     migrate_phase7a_rollout(engine)
@@ -819,6 +883,7 @@ def run_sqlite_migrations() -> None:
 __all__ = [
     "assert_candidate_target_tier_constraint",
     "assert_tier_orchestration_target_constraint",
+    "migrate_ai_usage_census",
     "migrate_candidate_revision_target_tier",
     "migrate_phase7a_rollout",
     "migrate_phase7b_shadow",

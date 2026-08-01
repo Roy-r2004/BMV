@@ -497,8 +497,23 @@ def typecheck_workspace(
             duration_ms=duration_ms,
             command=args,
         )
+        # The report has carried `duration_ms` all along and nothing ever said
+        # it out loud, so the ledger had to guess what typecheck cost on the
+        # branch that actually fires — the one with errors, which is also the
+        # one that hands the fix agent its work.
+        tc_log.info(
+            "typecheck finished in %.2fs status=errors errors=%s workspace=%s",
+            duration_ms / 1000.0,
+            len(diagnostics),
+            workspace.name,
+        )
     elif result.returncode == 0:
         report = TypecheckReport(status="clean", duration_ms=duration_ms, command=args)
+        tc_log.info(
+            "typecheck finished in %.2fs status=clean workspace=%s",
+            duration_ms / 1000.0,
+            workspace.name,
+        )
     else:
         # Non-zero exit with nothing parseable is a broken compiler run, not a
         # healthy workspace — saying "clean" here is how bad apps ship.
@@ -508,6 +523,12 @@ def typecheck_workspace(
             + output.strip()[-400:],
             duration_ms=duration_ms,
             command=args,
+        )
+        tc_log.warning(
+            "typecheck finished in %.2fs status=unavailable exit=%s workspace=%s",
+            duration_ms / 1000.0,
+            result.returncode,
+            workspace.name,
         )
     if use_cache and fingerprint:
         if len(_report_cache) >= _MAX_CACHED_REPORTS:

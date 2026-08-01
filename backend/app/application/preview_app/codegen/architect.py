@@ -5,6 +5,7 @@ import json
 
 from app.application.prompts import PromptTemplate
 from app.application.preview_app.text_utils import _bounded_json, _parse_json
+from app.application.services.ai_context import UNUSABLE_UNPARSEABLE, ai_call
 from app.application.ui_catalogue import compact_catalogue_plan_contract, compact_skeleton_contract, infer_section_slots
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -26,12 +27,21 @@ def call_architect(
         images_json=json.dumps(images, ensure_ascii=False, indent=2),
         catalogue_contract_json=_bounded_json(compact_catalogue_plan_contract(), 8000),
     )
-    for model in (settings.ARCHITECT_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL):
-        try:
-            raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
-            return _parse_json(raw)
-        except Exception:
-            continue
+    for attempt, model in enumerate(
+        (settings.ARCHITECT_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL), start=1
+    ):
+        # Each failover link is its own logical ask. Collapsing the chain into
+        # one row is how a model that reliably returns unparseable JSON keeps
+        # looking free — the row that mattered was the one after it.
+        with ai_call("architect", writer=f"architect:{model}", attempt=attempt) as call:
+            try:
+                raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+                parsed = _parse_json(raw)
+                call.mark_usable()
+                return parsed
+            except Exception:
+                call.unusable(UNUSABLE_UNPARSEABLE)
+                continue
     raise ValueError("Architect agent failed to produce valid JSON")
 
 _COLOR_CONSTRAINT = (

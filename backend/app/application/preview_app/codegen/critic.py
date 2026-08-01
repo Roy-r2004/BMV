@@ -28,6 +28,11 @@ from app.application.preview_app.protected_paths import is_template_owned_path, 
 from app.application.preview_app.source_quality import looks_truncated_source, tsx_parse_error
 from app.application.preview_app.utility_compositor import is_utility_catalogue_route
 from app.application.preview_app.workspace import read_file, write_file
+from app.application.services.ai_context import (
+    UNUSABLE_REJECTED,
+    UNUSABLE_UNPARSEABLE,
+    ai_call,
+)
 from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -92,12 +97,18 @@ def critique_file(
         skeleton_id=skeleton_id,
         skeleton_contract_json=skeleton_contract_json,
     )
-    raw = ai_provider.ask_chat(settings.CRITIC_MODEL, [{"role": "user", "content": prompt}], max_tokens=2000)
-    try:
-        parsed = _parse_json(raw)
-    except Exception:
-        parsed = None
-    normalized = _normalize_critic_result(parsed, threshold=88)
+    # `verdict == "unavailable"` is this critic's word for "nothing came back I
+    # could read" — the exact 200-but-useless shape the census has to see.
+    with ai_call("design_critic", writer="critique_file", attempt=1) as call:
+        raw = ai_provider.ask_chat(settings.CRITIC_MODEL, [{"role": "user", "content": prompt}], max_tokens=2000)
+        try:
+            parsed = _parse_json(raw)
+        except Exception:
+            parsed = None
+        normalized = _normalize_critic_result(parsed, threshold=88)
+        call.adjudicate(
+            normalized.get("verdict") != "unavailable", reason=UNUSABLE_UNPARSEABLE
+        )
     if normalized.get("verdict") == "unavailable":
         retry_prompt = (
             prompt
@@ -105,16 +116,20 @@ def critique_file(
             "the required JSON object. Do not propose a rewrite unless you can provide "
             "specific, evidence-based issues."
         )
-        raw_retry = ai_provider.ask_chat(
-            settings.CRITIC_MODEL,
-            [{"role": "user", "content": retry_prompt}],
-            max_tokens=2000,
-        )
-        try:
-            parsed_retry = _parse_json(raw_retry)
-        except Exception:
-            parsed_retry = None
-        normalized = _normalize_critic_result(parsed_retry, threshold=88)
+        with ai_call("design_critic", writer="critique_file-retry", attempt=2) as call:
+            raw_retry = ai_provider.ask_chat(
+                settings.CRITIC_MODEL,
+                [{"role": "user", "content": retry_prompt}],
+                max_tokens=2000,
+            )
+            try:
+                parsed_retry = _parse_json(raw_retry)
+            except Exception:
+                parsed_retry = None
+            normalized = _normalize_critic_result(parsed_retry, threshold=88)
+            call.adjudicate(
+                normalized.get("verdict") != "unavailable", reason=UNUSABLE_UNPARSEABLE
+            )
     return normalized
 
 def critique_file_visual(
@@ -172,12 +187,16 @@ def critique_file_visual(
         skeleton_contract_json=skeleton_contract_json,
         business_identity=business_identity,
     )
-    raw = ai_provider.ask_vision(_vision_model(), prompt, screenshot_path)
-    try:
-        parsed = _parse_json(raw)
-    except Exception:
-        parsed = None
-    normalized = _normalize_critic_result(parsed, threshold=80)
+    with ai_call("vision", writer="critique_file_visual", attempt=1) as call:
+        raw = ai_provider.ask_vision(_vision_model(), prompt, screenshot_path)
+        try:
+            parsed = _parse_json(raw)
+        except Exception:
+            parsed = None
+        normalized = _normalize_critic_result(parsed, threshold=80)
+        call.adjudicate(
+            normalized.get("verdict") != "unavailable", reason=UNUSABLE_UNPARSEABLE
+        )
     if normalized.get("verdict") == "unavailable":
         retry_prompt = (
             prompt
@@ -185,16 +204,20 @@ def critique_file_visual(
             "the required JSON object. Preserve the page unless specific visual issues "
             "can be stated in the required schema."
         )
-        raw_retry = ai_provider.ask_vision(
-            _vision_model(),
-            retry_prompt,
-            screenshot_path,
-        )
-        try:
-            parsed_retry = _parse_json(raw_retry)
-        except Exception:
-            parsed_retry = None
-        normalized = _normalize_critic_result(parsed_retry, threshold=80)
+        with ai_call("vision", writer="critique_file_visual-retry", attempt=2) as call:
+            raw_retry = ai_provider.ask_vision(
+                _vision_model(),
+                retry_prompt,
+                screenshot_path,
+            )
+            try:
+                parsed_retry = _parse_json(raw_retry)
+            except Exception:
+                parsed_retry = None
+            normalized = _normalize_critic_result(parsed_retry, threshold=80)
+            call.adjudicate(
+                normalized.get("verdict") != "unavailable", reason=UNUSABLE_UNPARSEABLE
+            )
     if scaffold_locked and normalized.get("verdict") != "unavailable":
         return {
             **normalized,
@@ -271,8 +294,13 @@ def refine_file(
         shell_component="OpsShell" if route.get("surface") == "ops" else "PublicShell",
         catalogue_contract_json=catalogue_contract_json,
     )
-    raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
-    content = _strip_fences(raw)
+    with ai_call("refine", writer="refine_file", attempt=1) as call:
+        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
+        content = _strip_fences(raw)
+        call.adjudicate(
+            bool((content or "").strip()) and not looks_truncated_source(content),
+            reason=UNUSABLE_REJECTED,
+        )
     for attempt in range(1, 3):
         incomplete = looks_truncated_source(content) or not (content or "").strip()
         contract_errors = (
@@ -296,12 +324,17 @@ def refine_file(
                 "Return the COMPLETE page file."
             )
         )
-        raw2 = ai_provider.ask_chat(
-            settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=14000,
-        )
-        retry_content = _strip_fences(raw2)
-        if retry_content:
-            content = retry_content
+        with ai_call("refine", writer="refine_file-retry", attempt=attempt) as call:
+            raw2 = ai_provider.ask_chat(
+                settings.PREVIEW_APP_MODEL, [{"role": "user", "content": retry_prompt}], max_tokens=14000,
+            )
+            retry_content = _strip_fences(raw2)
+            call.adjudicate(
+                bool(retry_content) and not looks_truncated_source(retry_content),
+                reason=UNUSABLE_REJECTED,
+            )
+            if retry_content:
+                content = retry_content
     if looks_truncated_source(content) or not (content or "").strip():
         content = current
     if catalogue_page:
