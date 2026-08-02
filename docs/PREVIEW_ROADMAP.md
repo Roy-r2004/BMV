@@ -15,6 +15,7 @@ requests 68 and 70, same business, one field different.
 
 | Item | State |
 |---|---|
+| **0.3** gate-issue classification (content vs layout) | **done** — `a0ecff8`. **Reverses the branch 2.6 had chosen** |
 | **0.6** call census, `ai_usage_events` defects | **done** — `a4f8b55` |
 | **1.1** request-scoped deadline + degradation contract | **done** — `c534fdf`, `58b4956`. **540 s, not 480** |
 | **1.2** model-chain dedupe | **done** — `ac10c9b` |
@@ -22,24 +23,62 @@ requests 68 and 70, same business, one field different.
 | **1.4** screenshot session budget | **done** — `a919f86` |
 | **1.5** documents off the critical path | **done** — `c534fdf` |
 | **1.6** JSON extractor | **done** — `ac10c9b`, and the diagnosis in this doc was wrong; see below |
-| **1.7** validate repair-plan paths before the first write | open |
+| **1.7** validate repair-plan paths before the first write | **done** — `1b5e0d1` |
 | **1.8** industry derivation + placeholder gate | **done** — `ac10c9b`, `a919f86`. Token-length work still gated on 0.1 |
-| **1.9** bound items to the image pool | **done** — `ac10c9b`. **Still unverified on a catalogue of ≥ 9 items** |
-| **1.10** JS test runner (vitest) | open — blocks two Phase 2 DoDs |
+| **1.9** bound items to the image pool | **done** — `ac10c9b`, **verified live on request 73** (12 items, below) |
+| **1.10** JS test runner (vitest) | **open** — blocks two Phase 2 DoDs. The only Phase 1 item left |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
 | dead-link occurrence counting, DataTable, seed backfill | **done** — `d8ef2e9` |
 
-Suite 1,107 → 1,244. Phase 0's remaining measurements (0.1 pack thesis, 0.3/0.4
-gate-issue classification, 0.11 test census) are **not** done and still gate Phase 2.
+Suite 1,107 → **1,246 collected, 1,245 passed / 1 skipped / 0 failed**. Phase 0's
+remaining measurements — **0.1** (pack thesis) and **0.4** (are `revision_instructions`
+expressible as content-key edits) — are **not** done and still gate 1.8's token work
+and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
+
+### What request 73 verified, and what it did not
+
+Same brief as request 72, deadline armed on both.
+
+| | 72 (before `58b4956`) | 73 (after) |
+|---|---|---|
+| wall clock | **~37 min** | **579 s** — under the 600 s cap |
+| degradations | none recorded; the clock expired and the run kept asking | `['tech','proposal','build_plans']`, all ELECTIVE, all recorded |
+| overrun past the 540 s deadline | ~1,700 s | **38.7 s** |
+
+- **1.9 exercised for the first time on ≥ 9 items.** 73's catalogue is **12 items**;
+  all 12 bind `item1…item8` (1–4 cycling twice), and **zero** land on
+  `images.card1/2/3` — the people-photo role slots that produced "artist at an easel,
+  captioned *Oil on Linen*" on request 70.
+- **`placeholder_content_shipped` fired on its first live outing** — `[Customer Name]`
+  and `[Painting Title]` — and correctly withheld the preview.
+- **The detail page scored 79** against 0–5 on 66–68, when the critic was fetching
+  `/painting/:id` literally.
+- **73 was still withheld**: 4 gate issues, including a severe visual defect on
+  `/about-artist` and a dead link. Phase 1 bought the clock and the honesty, not the
+  ceiling. Phase 3 is where the ceiling moves.
 
 **Two defects were found by running the pipeline, not by reading it**, and both
 were in the deadline work itself. They are written up at `58b4956`; the short
 version is that a 1 s ask floor past the deadline inverted the degradation
 contract into a fast-fail retry loop, and `_run_with_heartbeat` only checked
 its cap once per 20 s heartbeat, so a short cap could not fire. Request 72 ran
-**37 minutes with the deadline armed and expiring on schedule**. The second bug
+**~37 minutes with the deadline armed and expiring on schedule**. The second bug
 predates this work: any caller passing a `hard_deadline` under 20 s has always
 been silently rounded up to 20 s.
+
+### Two deliberate deviations from this plan, both still standing
+
+1. **`PREVIEW_MAX_FIX_LOOP_SECONDS` was clamped, not deleted.** 1.1 says delete it.
+   It is read by callers that have no other bound, so deleting it removes a ceiling
+   before the deadline is proven to replace it on every path. Clamped to the request
+   deadline instead; revisit once Phase 1's DoD has 3 clean concurrent runs.
+2. **`BudgetedAIProvider.ask_chat` still returns `""` rather than raising.** 1.1 says
+   raise. Making it raise broke 5 tests that pin *outcomes* (deterministic fallbacks
+   preserved), not the mechanism — and the plan's own justification for raising is a
+   Phase 2 condition ("under Phase 2 a silent empty string ships a blank site"). Today
+   raising converts proven degradations into a pipeline exception that triggers the
+   180 s retry. **Exhaustion is now recorded** (`ai_budget/exhausted_chat`), so it is
+   no longer silent. Deferred to Phase 2, documented at `ai_budget.py:_refuse`.
 
 ---
 
@@ -289,10 +328,16 @@ re-escaping repair pass, then candidate spans — with the decoder's own error i
 escaped source code inside it is fragile by construction. That is an independent argument for
 ops-only repair (small payloads do not hit this) and for the Phase 2 content flip.
 
-**1.7 Validate repair-plan paths before the first write.** Run `RepairAPI._safe`
-(`quality_repair.py:76-84`) over **every** op before applying **any**; name the offending path in a
-single re-ask. **Do not weaken all-or-nothing** — half-applied plans left request 47 importing a
-component that does not exist.
+**1.7 Validate repair-plan paths before the first write. — DONE (`1b5e0d1`).** Runs `RepairAPI._safe`
+(`quality_repair.py:76-84`) over **every** op before applying **any**; names the offending path in a
+single re-ask. All-or-nothing is intact.
+
+*A note on how this was tested, because the first test was worthless.*
+`test_a_plan_naming_a_forbidden_path...` passed with the fix reverted — pre-flight
+refusal and post-hoc rollback produce **identical end states**, so an end-state
+assertion cannot tell them apart. It needed a `snapshot_source` spy to assert the
+workspace was never snapshotted, i.e. that no write was attempted. Mutation-test any
+guard whose success looks like its failure.
 
 **1.8 Industry derivation and an empty-industry guard.** *(Re-scoped by request 70.)* When
 `industry` is absent, derive it from `business_description` rather than resolving silently to
@@ -301,26 +346,30 @@ component that does not exist.
 today consumed only by `product_face.py:90`). **Size the `_MIN_DISTINCTIVE_TOKEN_LEN` work from
 0.1's answer, not from the original estimate.**
 
-**1.9 Bound the item pool.** The imagery service supplies 8 `item*` slots; the model writes N. Cap
-items at pool size or extend the pool, so items 9+ cannot wrap onto the people-photo role images.
-Hours. Highest visible-quality-per-hour item in the plan.
+**1.9 Bound the item pool. — DONE (`ac10c9b`), verified on request 73.** The imagery service supplies
+8 `item*` slots; the model writes N. Items now cycle within the pool, so items 9+ cannot wrap onto the
+people-photo role images. Request 73's 12-item catalogue binds `item1…item8` only, `card1/2/3`
+untouched by items.
 
 **1.10 Stand up a JS test runner.** `preview-template/package.json` has `dev`/`build`/`typecheck`
 only — no vitest, jest, testing-library, playwright, and no `.github/`. Two Phase 2 DoDs depend on a
 runner that does not exist. **No test may leave pytest until that CI job is green on main.**
 
-### Phase 1 DoD
+### Phase 1 DoD — with what is evidenced as of `a0ecff8`
 
-- Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s
-  apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`,
-  one with a `reference_file`.
-- p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers.
-- Zero consecutive asks to the same resolved model id.
-- Every degraded run carries a machine-readable `degraded: [stage]` marker.
-- `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never
-  reaches `generic` silently.
-- 11 of 11 catalogue cards show the artifact type the business sells.
-- Suite green at ≥ 1,107. Vitest CI job green on main.
+| | Status |
+|---|---|
+| Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **partial** — one run at 579 s. The concurrent trio, `reference_url` and `reference_file` runs are **not** done, and concurrency is where the serialising locks make the deadline most likely to bind |
+| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **unmeasured** — n=1. Needs the 3-run set above |
+| Zero consecutive asks to the same resolved model id | **done** — `ac10c9b`, pinned by test |
+| Every degraded run carries a machine-readable `degraded: [stage]` marker | **done** — published by `finalize`, seen on 73 |
+| `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
+| 11 of 11 catalogue cards show the artifact type the business sells | **9 of 11 on request 70**; 73's binding is correct but its cards were not scored card-by-card |
+| Suite green at ≥ 1,107 | **done** — 1,245 passed / 1 skipped |
+| Vitest CI job green on main | **not started** — 1.10 |
+
+**The honest summary:** the clock is met and the contract is real, on n=1. The
+remaining Phase 1 work is *evidence*, not code — except 1.10, which is code.
 
 ### Phase 1 risk, stated plainly
 
