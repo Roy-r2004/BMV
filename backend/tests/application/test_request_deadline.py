@@ -78,15 +78,54 @@ def test_an_ask_never_outlives_the_request_that_owns_it() -> None:
         assert rd.ask_budget_seconds() == rd.DEFAULT_ASK_CEILING_SECONDS
 
 
-def test_an_expired_request_still_grants_a_positive_ask_floor() -> None:
-    """`ask_budget` must never return 0 or a negative.
+def test_an_expired_request_grants_zero_ask_time_not_a_token_second() -> None:
+    """Zero means *do not call*, and the distinction is not cosmetic.
 
-    A zero budget makes `call_with_retry` refuse before the first attempt, and
-    a *negative* one would be passed straight into a socket timeout.
+    This asserted `>= 1.0` when it was written, on the reasoning that a socket
+    timeout must never be zero or negative. Request 72 proved that wrong in
+    the worst way: past the deadline every ask got a 1 s budget,
+    `_run_with_heartbeat` only checked its cap once per 20 s heartbeat, so each
+    doomed call waited 20 s, failed, retried, and failed over. AppSpec spent
+    **29 minutes past an expired deadline** making calls that could not succeed.
+
+    Zero makes `call_with_retry` refuse before the first attempt — an immediate
+    clean failure the caller's deterministic fallback already handles.
     """
     with rd.request_deadline_scope(4, total_seconds=-5) as deadline:
         assert deadline.expired()
-        assert deadline.ask_budget() >= 1.0
+        assert deadline.ask_budget() == 0.0
+        assert rd.ask_budget_seconds() == 0.0
+
+    # Unarmed callers are unaffected — they still get the flat ceiling.
+    assert rd.ask_budget_seconds() == rd.DEFAULT_ASK_CEILING_SECONDS
+
+
+def test_a_short_ask_budget_is_honoured_within_it_not_a_heartbeat_later() -> None:
+    """The deadline's resolution used to be the heartbeat interval.
+
+    `_run_with_heartbeat` joined for the full `heartbeat_interval` and only
+    then compared elapsed against `hard_deadline`, so a 1 s cap under a 20 s
+    heartbeat took 20 s to fire. That is the mechanism behind request 72.
+    """
+    def _never_returns():
+        time.sleep(30)
+        return "unreachable"
+
+    started = time.monotonic()
+    with pytest.raises(requests.exceptions.Timeout):
+        call_with_retry(
+            _never_returns,
+            attempts=1,
+            heartbeat_interval=20.0,     # far longer than the cap below
+            on_heartbeat=lambda _elapsed: None,
+            hard_deadline=1.0,
+            on_deadline=lambda: None,
+        )
+    elapsed = time.monotonic() - started
+    assert elapsed < 19.0, (
+        f"a 1s cap took {elapsed:.1f}s — the deadline is still only checked once "
+        "per heartbeat"
+    )
 
 
 def test_an_elective_stage_is_skipped_past_the_deadline_and_a_mandatory_one_degrades() -> None:

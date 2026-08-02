@@ -203,14 +203,27 @@ class RequestDeadline:
             return seen
 
     def ask_budget(self, requested: float | None = None) -> float:
-        """Wall clock one logical ask may spend, floor 1s.
+        """Wall clock one logical ask may spend. **Zero means do not call.**
 
         Never larger than the request has left: an ask that outlives its own
         request is how a "bounded" call reached 1,040 s.
+
+        Zero rather than a small positive floor, and that distinction is not
+        cosmetic. The floor was 1 s, and request 72 showed what that buys: past
+        the deadline every ask got a 1 s budget, `_run_with_heartbeat` only
+        checks its deadline once per heartbeat (20 s), so each doomed call still
+        waited 20 s, failed with a transport error, retried, and failed over to
+        the next model. The stage spent **29 minutes past a deadline that had
+        already expired**, making calls that could never succeed.
+
+        A budget of zero makes `call_with_retry` refuse before the first
+        attempt, which is a clean immediate failure the caller's deterministic
+        fallback already handles. That is the degradation contract working;
+        1 s was the contract quietly inverted into a fast-fail retry loop.
         """
         ceiling = DEFAULT_ASK_CEILING_SECONDS if requested is None else float(requested)
         ceiling = min(ceiling, DEFAULT_ASK_CEILING_SECONDS)
-        return max(1.0, min(ceiling, max(0.0, self.remaining())))
+        return max(0.0, min(ceiling, self.remaining()))
 
 
 _request_deadline: ContextVar[RequestDeadline | None] = ContextVar(

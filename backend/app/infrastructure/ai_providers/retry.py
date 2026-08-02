@@ -61,7 +61,16 @@ def _run_with_heartbeat(
     thread.start()
     aborted = False
     while thread.is_alive():
-        thread.join(timeout=heartbeat_interval)
+        # Wake for whichever comes first: the next heartbeat, or the deadline.
+        # This used to join for the full heartbeat interval and only then look
+        # at `hard_deadline`, so the deadline's resolution was the heartbeat —
+        # 20 s. A caller passing a 1 s cap still waited 20 s. Request 72 spent
+        # 29 minutes that way: every ask past the request deadline got a tiny
+        # budget, waited a full heartbeat regardless, failed, and failed over.
+        wait = heartbeat_interval
+        if hard_deadline is not None and not aborted:
+            wait = min(wait, max(0.05, hard_deadline - (time.monotonic() - start)))
+        thread.join(timeout=wait)
         if not thread.is_alive():
             break
         elapsed = time.monotonic() - start
