@@ -369,3 +369,166 @@ def test_the_screenshot_session_lock_reports_the_queue_in_front_of_it() -> None:
         "a capture that queued behind another session recorded no wait: "
         f"{deadline.waits()}"
     )
+
+
+# --- The degradation marker has to survive the stages that come after finalize -
+#
+# Measured on requests 74/75/76 (three runs 60 s apart) and confirmed against
+# request 73: every one of them degraded `tech`, `proposal` and `build_plans`
+# and every one of them stored `degraded: []`. The roadmap's Phase 1 DoD marked
+# this row done and "seen on 73" — it was seen in a log line at scope exit,
+# which is not a machine-readable marker.
+
+
+class _FakeRequest:
+    def __init__(self, generated_pages: str | None) -> None:
+        self.generated_pages = generated_pages
+        self.updated_at = None
+
+
+class _FakeDB:
+    def __init__(self, req: _FakeRequest) -> None:
+        self.req = req
+        self.commits = 0
+
+    def commit(self) -> None:
+        self.commits += 1
+
+
+def _patch_get_request(monkeypatch, req: _FakeRequest) -> None:
+    import app.application.pipelines._shared as shared
+
+    monkeypatch.setattr(shared, "get_request", lambda db, rid: req)
+
+
+def test_stages_skipped_after_finalize_still_reach_the_stored_marker(monkeypatch) -> None:
+    """`tech`/`proposal`/`build_plans` are skipped after `generate_preview_app`
+    returns, so `finalize` cannot ever have seen them.
+
+    Reverting the `publish_degradations` call in `orchestrator` leaves the
+    stored list at whatever `finalize` wrote — `[]` on all four measured runs.
+    """
+    import json
+
+    req = _FakeRequest(json.dumps({"preview_app": {"status": "failed", "degraded": []}}))
+    db = _FakeDB(req)
+    _patch_get_request(monkeypatch, req)
+
+    with rd.request_deadline_scope(75, total_seconds=0.001):
+        time.sleep(0.01)
+        for stage in ("tech", "proposal", "build_plans"):
+            assert rd.should_skip_elective(stage) is True
+        written = rd.publish_degradations(db, 75)
+
+    assert written == ["tech", "proposal", "build_plans"]
+    stored = json.loads(req.generated_pages)["preview_app"]
+    assert stored["degraded"] == ["tech", "proposal", "build_plans"]
+    assert {entry["reason"] for entry in stored["degradations"]} == {
+        "skipped_past_deadline"
+    }
+    assert stored["deadline_exceeded"] is True
+    assert db.commits == 1
+
+
+def test_publishing_degradations_never_fails_a_delivered_generation(monkeypatch) -> None:
+    """Bookkeeping runs after the preview is already the user's. It may not raise."""
+    req = _FakeRequest("{ this is not json")
+    db = _FakeDB(req)
+    _patch_get_request(monkeypatch, req)
+
+    with rd.request_deadline_scope(76, total_seconds=0.001):
+        time.sleep(0.01)
+        rd.should_skip_elective("tech")
+        assert rd.publish_degradations(db, 76) == []
+
+
+def test_a_run_with_no_preview_says_so_rather_than_inventing_a_container(
+    monkeypatch,
+) -> None:
+    """Request 74 stored no `preview_app` at all. Writing one here would put a
+    marker somewhere no reader looks and make the run appear to have shipped."""
+    import json
+
+    req = _FakeRequest(json.dumps({"roles": []}))
+    db = _FakeDB(req)
+    _patch_get_request(monkeypatch, req)
+
+    with rd.request_deadline_scope(74, total_seconds=0.001):
+        time.sleep(0.01)
+        rd.should_skip_elective("tech")
+        assert rd.publish_degradations(db, 74) == []
+
+    assert "preview_app" not in json.loads(req.generated_pages)
+
+
+def test_a_clean_run_writes_no_marker_and_no_commit(monkeypatch) -> None:
+    """A run that did not degrade must not be touched at all."""
+    import json
+
+    req = _FakeRequest(json.dumps({"preview_app": {"status": "ready"}}))
+    db = _FakeDB(req)
+    _patch_get_request(monkeypatch, req)
+
+    with rd.request_deadline_scope(77, total_seconds=600):
+        assert rd.publish_degradations(db, 77) == []
+
+    assert db.commits == 0
+    assert "degraded" not in json.loads(req.generated_pages)["preview_app"]
+
+
+def test_the_generation_pipeline_publishes_the_final_list_itself(monkeypatch) -> None:
+    """The call site, not just the helper.
+
+    An earlier version of this test called `publish_degradations` directly and
+    passed with the orchestrator's call deleted — a guard whose success looked
+    exactly like its failure, which is this repo's recurring defect. Drive
+    `run()` instead: it owns the deadline scope, so it is the only place the
+    degradation list is provably complete.
+    """
+    import json
+
+    from app.application.pipelines.orchestrator import GenerationPipeline
+
+    req = _FakeRequest(json.dumps({"preview_app": {"status": "ready", "degraded": []}}))
+    db = _FakeDB(req)
+    _patch_get_request(monkeypatch, req)
+
+    pipeline = GenerationPipeline.__new__(GenerationPipeline)
+
+    def _inner(_self, _db, _rid):
+        # Stand in for the three document stages the orchestrator skips after
+        # `generate_preview_app` — the ones `finalize` can never see.
+        for stage in ("tech", "proposal", "build_plans"):
+            rd.record_degradation(stage, "skipped_past_deadline")
+        return {"ok": True}
+
+    monkeypatch.setattr(GenerationPipeline, "_run_inner", _inner)
+    assert pipeline.run(db, 75) == {"ok": True}
+
+    stored = json.loads(req.generated_pages)["preview_app"]
+    assert stored["degraded"] == ["tech", "proposal", "build_plans"], (
+        "the orchestrator did not publish the completed degradation list"
+    )
+
+
+def test_a_crashing_generation_still_records_what_it_degraded(monkeypatch) -> None:
+    """Request 74 raised out of the pipeline. That is when the record matters most."""
+    import json
+
+    from app.application.pipelines.orchestrator import GenerationPipeline
+
+    req = _FakeRequest(json.dumps({"preview_app": {"status": "failed"}}))
+    db = _FakeDB(req)
+    _patch_get_request(monkeypatch, req)
+
+    pipeline = GenerationPipeline.__new__(GenerationPipeline)
+
+    def _inner(_self, _db, _rid):
+        rd.record_degradation("codegen", "retry_skipped_no_runway")
+        raise RuntimeError("Architect agent ran out of time")
+
+    monkeypatch.setattr(GenerationPipeline, "_run_inner", _inner)
+    with pytest.raises(RuntimeError):
+        pipeline.run(db, 74)
+
+    assert json.loads(req.generated_pages)["preview_app"]["degraded"] == ["codegen"]

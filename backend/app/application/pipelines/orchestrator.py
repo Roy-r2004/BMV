@@ -61,8 +61,20 @@ class GenerationPipeline:
         # armed here rather than inside `generate_preview_app`: reference intake
         # and the blueprint are p50 124 s of it, and a budget that excludes them
         # cannot close against a 600 s cap.
+        from app.application.services.request_deadline import publish_degradations
+
         with ai_run_scope(request_id, purpose="pipeline"), request_deadline_scope(request_id):
-            return self._run_inner(db, request_id)
+            try:
+                return self._run_inner(db, request_id)
+            finally:
+                # Published here, not in `finalize`. `finalize` runs inside
+                # `generate_preview_app`, and `tech`/`proposal`/`build_plans`
+                # are skipped *after* it returns — so the stored marker was
+                # always missing exactly the degradations the deadline most
+                # often causes. Requests 73, 75 and 76 each degraded three
+                # stages and each stored `degraded: []`. The scope that armed
+                # the clock is the only place the list is complete.
+                publish_degradations(db, request_id)
 
     def _run_inner(self, db: Session, request_id: int) -> dict:
         req = get_request(db, request_id)

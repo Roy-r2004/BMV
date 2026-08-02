@@ -6,6 +6,7 @@ import json
 from app.application.prompts import PromptTemplate
 from app.application.preview_app.text_utils import _bounded_json, _parse_json
 from app.application.services.ai_context import UNUSABLE_UNPARSEABLE, ai_call
+from app.application.services.request_deadline import require_model_time
 from app.application.ui_catalogue import compact_catalogue_plan_contract, compact_skeleton_contract, infer_section_slots
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -27,9 +28,37 @@ def call_architect(
         images_json=json.dumps(images, ensure_ascii=False, indent=2),
         catalogue_contract_json=_bounded_json(compact_catalogue_plan_contract(), 8000),
     )
-    for attempt, model in enumerate(
-        (settings.ARCHITECT_MODEL, settings.PREVIEW_APP_MODEL, settings.TEXT_MODEL), start=1
-    ):
+    # Past the deadline every ask budget is zero, so all three links below are
+    # refused before the first byte and the loop falls out in ~9 ms — then
+    # blames the model for invalid JSON that no model was ever asked to
+    # produce. Request 74 died exactly that way: the log said "Architect agent
+    # failed to produce valid JSON", the orchestrator read that as transient and
+    # went looking for retry runway, and the actual cause (a 540 s budget
+    # already spent, 390 s of it inside `appspec`) appeared nowhere in the
+    # failure. `architect` is MANDATORY and has no deterministic path, so this
+    # still ends the run — but it must end it naming the deadline.
+    require_model_time("architect")
+
+    # Roadmap 1.2 deduped the *repair* chains and its test pins those; this one
+    # was left resolving three setting names against one id. On requests 74-76
+    # `ARCHITECT_MODEL`, `PREVIEW_APP_MODEL` and `TEXT_MODEL` are all
+    # `google/gemini-2.5-flash`, so "fail over twice" meant asking the same
+    # model three times — request 74 wrote three `architect` rows, one model,
+    # all unusable. A model that just returned unparseable JSON does not parse
+    # when asked again a millisecond later; it costs another full ask.
+    chain = list(
+        dict.fromkeys(
+            m
+            for m in (
+                settings.ARCHITECT_MODEL,
+                settings.PREVIEW_APP_MODEL,
+                settings.TEXT_MODEL,
+            )
+            if m
+        )
+    )
+
+    for attempt, model in enumerate(chain, start=1):
         # Each failover link is its own logical ask. Collapsing the chain into
         # one row is how a model that reliably returns unparseable JSON keeps
         # looking free — the row that mattered was the one after it.

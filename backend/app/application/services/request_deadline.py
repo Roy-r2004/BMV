@@ -392,6 +392,62 @@ def require_model_time(stage: str) -> None:
         raise RequestDeadlineExceeded(stage, deadline.remaining())
 
 
+def publish_degradations(db: object, request_id: int) -> list[str]:
+    """Write the *final* degradation list onto the stored `preview_app`.
+
+    `finalize` publishes what it knows, but it runs inside `generate_preview_app`
+    and the three ELECTIVE document stages (`tech`, `proposal`, `build_plans`)
+    are skipped **after** it returns. So the stored marker could never contain
+    them: requests 73, 75 and 76 each degraded three stages and each stored
+    `degraded: []`. The roadmap recorded that marker as done and "seen on 73" —
+    it was only ever seen in a log line at scope exit, which is the difference
+    between a measurement and a reader for it.
+
+    Returns the stage list written, or `[]` when there is nothing to write.
+    Never raises: a bookkeeping write must not fail a delivered generation.
+    """
+    import json
+
+    deadline = current_deadline()
+    if deadline is None:
+        return []
+    entries = deadline.degradations()
+    if not entries:
+        return []
+    stages = [str(entry["stage"]) for entry in entries]
+    try:
+        from app.application.pipelines._shared import get_request
+
+        req = get_request(db, request_id)
+        stored = json.loads(getattr(req, "generated_pages", None) or "{}")
+        preview_app = stored.get("preview_app")
+        if not isinstance(preview_app, dict):
+            # A run that never produced a preview has nowhere to hang this. The
+            # log line at scope exit stays the only record — say so rather than
+            # invent a container that no reader expects.
+            log.warning(
+                "request %s degraded %s stage(s) but stored no preview_app to record "
+                "them on: %s",
+                request_id,
+                len(stages),
+                ", ".join(stages),
+            )
+            return []
+        preview_app["degraded"] = stages
+        preview_app["degradations"] = entries
+        preview_app["blocked_seconds"] = round(deadline.blocked_seconds(), 1)
+        preview_app["contention"] = deadline.waits()
+        preview_app["elapsed_seconds"] = int(deadline.elapsed())
+        preview_app["deadline_exceeded"] = deadline.expired()
+        stored["preview_app"] = preview_app
+        req.generated_pages = json.dumps(stored)
+        db.commit()  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        log.warning("request %s: could not publish degradations (%s)", request_id, exc)
+        return []
+    return stages
+
+
 def record_wait(resource: str, seconds: float) -> None:
     deadline = current_deadline()
     if deadline is not None:
@@ -470,6 +526,7 @@ __all__ = [
     "degradations",
     "has_retry_runway",
     "is_elective",
+    "publish_degradations",
     "record_degradation",
     "record_wait",
     "remaining_seconds",

@@ -57,6 +57,29 @@ class _RecordingProvider:
         return self.ask_chat(model, [])
 
 
+@pytest.fixture(autouse=True)
+def distinct_architect_models(monkeypatch):
+    """Give the architect chain three genuinely different model ids.
+
+    Without this the fixture contradicts the test names below. `ARCHITECT_MODEL`,
+    `PREVIEW_APP_MODEL` and `TEXT_MODEL` all default to `google/gemini-2.5-flash`
+    in this environment *and in production* — so "each failover link ... with its
+    own model" was asserting `[m, m, m] == [m, m, m]`, which holds for any m.
+    The chain now dedupes by resolved id (roadmap 1.2, which had only ever been
+    applied to the repair chains), so a collapsed chain is one link, not three.
+
+    These tests are about telemetry granularity — one row per link actually
+    asked, with its own model, attempt and latency. Three distinct ids is the
+    setup that exercises that; the collapse itself is pinned separately by
+    `test_architect_deadline.py::test_the_architect_chain_asks_each_resolved_model_once`.
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "ARCHITECT_MODEL", "vendor/model-a", raising=False)
+    monkeypatch.setattr(settings, "PREVIEW_APP_MODEL", "vendor/model-b", raising=False)
+    monkeypatch.setattr(settings, "TEXT_MODEL", "vendor/model-c", raising=False)
+
+
 @pytest.fixture()
 def rows(monkeypatch) -> list[dict]:
     captured: list[dict] = []
