@@ -60,6 +60,33 @@ from app.core.config import settings
 from app.infrastructure.templating.renderer import JinjaTemplateRenderer
 
 
+def _mutated(source: str, old: str, new: str) -> str:
+    """Apply a decoy mutation, refusing to return an unmutated string.
+
+    Every decoy in this file is built with `str.replace`, which returns the
+    input unchanged when its anchor is gone. The scaffold has been rewritten
+    since these were written, and three decoys quietly became no-ops that
+    compared the untouched stub against itself: two failed loudly because they
+    also asserted `decoy != stub` (and were parked as xfails), while
+    `optional_extra` had no such guard and stayed **green while testing
+    nothing** — the worst of the three outcomes.
+
+    Anchoring on an exact count rather than mere presence also catches the
+    opposite drift, where a string the scaffold now emits twice makes a decoy
+    mutate more than intended.
+    """
+    found = source.count(old)
+    if found != 1:
+        raise AssertionError(
+            f"decoy anchor appears {found} times, expected exactly 1 — the "
+            f"scaffold has moved and this mutation tests nothing:\n  {old!r}"
+        )
+    mutated = source.replace(old, new, 1)
+    if mutated == source:
+        raise AssertionError("mutation produced an identical string")
+    return mutated
+
+
 class _CapturingAI:
     def __init__(self, response: str) -> None:
         self.response = response
@@ -82,23 +109,25 @@ class _SequenceAI:
         return self.responses.pop(0)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "STALE exact set: catalogue now also ships ops-ledger-home, "
-        "ops-blotter-desk, ops-recon-split, ops-invoice-board, "
-        "ops-expense-queue (15 skeletons vs the pinned 10). The original "
-        "ten remain (asserted as a subset in test_catalogue_contract). "
-        "Do not shrink this assert — update the expected set deliberately "
-        "when the new faces are considered canonical."
-    ),
-    strict=True,
-    raises=AssertionError,
-)
 def test_catalogue_skeleton_ids_are_exactly_the_known_set() -> None:
-    """Pinned exact set from when the catalogue had ten skeletons."""
+    """The exact catalogue face set. Re-pinned at 15 on 2026-08-03.
+
+    Previously pinned at the original ten and parked as an xfail while five ops
+    faces were added — `ops-ledger-home`, `ops-blotter-desk`, `ops-recon-split`,
+    `ops-invoice-board`, `ops-expense-queue`. They ship, they are referenced by
+    the registry and the scaffold, and they have been live across every trio
+    since; they are canonical. Re-pinned rather than deleted, because the point
+    of an exact set is that growth is a decision.
+
+    **Adding a face is a product decision, not a test failure.** If this goes
+    red, add the id here in the same commit that adds the face — do not relax
+    the equality, and do not park it as an xfail again. The five above spent
+    several sessions invisible behind exactly that.
+    """
     catalogue = load_catalogue()
     skeleton_ids = {item["id"] for item in catalogue["skeletons"]}
     assert skeleton_ids == {
+        # The original ten.
         "public-home",
         "public-service",
         "public-detail",
@@ -109,6 +138,12 @@ def test_catalogue_skeleton_ids_are_exactly_the_known_set() -> None:
         "ops-list",
         "ops-detail",
         "ops-settings",
+        # Added since, and canonical as of 2026-08-03.
+        "ops-ledger-home",
+        "ops-blotter-desk",
+        "ops-recon-split",
+        "ops-invoice-board",
+        "ops-expense-queue",
     }
 
 
@@ -1134,21 +1169,32 @@ def test_catalogue_contract() -> None:
             brand_name="Voltbyte",
         )
         assert validate_catalogue_page_content(service_stub, service_route) == []
-        optional_extra = service_stub.replace(
+
+        # The optional-vs-unknown slot rule belongs to slot-composed pages. The
+        # `public-service` scaffold above is a schedule listing face today — no
+        # `slots` object at all — so this assertion was mutating nothing and
+        # passing: green, and testing nothing. It is the *silent* half of the
+        # same drift that parked the two decoys below as xfails, and the reason
+        # `_mutated` exists.
+        composed_route = {
+            "path": "/",
+            "component_file": "src/pages/HomePage.tsx",
+            "surface": "public",
+            "skeleton_id": "public-home",
+            "section_slots": ["hero", "features", "cta", "footer"],
+        }
+        composed_stub = minimal_catalogue_page_scaffold(
+            composed_route["component_file"],
+            composed_route,
+            brand_name="Voltbyte",
+        )
+        optional_extra = _mutated(
+            composed_stub,
             "  const slots = {\n",
             "  const slots = {\n    process: <section>How it works</section>,\n",
         )
-        assert validate_catalogue_page_content(optional_extra, service_route) == []
-        unknown_extra = service_stub.replace(
-            "  const slots = {\n",
-            "  const slots = {\n    faq: <section>FAQ</section>,\n",
-        )
-        # Moved to `test_an_unknown_slot_key_is_still_rejected` (xfail). Same
-        # dead-decoy cause as the composer one: `const slots = {` does not
-        # appear in the scaffold at all any more, so `unknown_extra` — and the
-        # `optional_extra` assertion just above, which still passes — are both
-        # comparing the untouched stub against itself.
-        assert unknown_extra is not None
+        # `process` is optional for public-home: extra content, not an error.
+        assert validate_catalogue_page_content(optional_extra, composed_route) == []
 
         # Inline skeleton literal in the composer pins the assignment without
         # a SKELETON_ID const.
@@ -1819,60 +1865,62 @@ def test_catalogue_contract() -> None:
 
 
 
-@pytest.mark.xfail(
-    reason=(
-        "STALE, and the current behaviour is the better one. This asserted that a "
-        "legacy plan's home page is filled out to the full recommendedOrder "
-        "(hero, features, showcase, process, testimonials, cta, footer). Today "
-        "`infer_section_slots` returns requested + required only: the page asks for "
-        "`sections: [hero, features]`, public-home requires hero/cta/footer, and "
-        "`showcase`/`process`/`testimonials` are OPTIONAL — so the result is "
-        "[hero, features, cta, footer]. Auto-adding three sections nobody asked for "
-        "is precisely how every generation ends up looking the same, which is the "
-        "complaint this roadmap opens with. Verified NOT a live defect: requests "
-        "77/78/79 ship 7-8 slot home pages because the architect names the slots "
-        "(79: hero, trust, features, process, testimonials, booking, cta, footer). "
-        "Latent risk worth a ticket, not a fix here: a plan that names no sections "
-        "at all yields a four-slot page. Do not weaken this to green — retire it "
-        "deliberately, or replace it with an assertion about the minimum a home "
-        "page must carry when the plan is silent."
-    ),
-    strict=True,
-    raises=AssertionError,
-)
-def test_a_legacy_plan_home_page_is_filled_out_to_the_full_recommended_order() -> None:
-    """Extracted verbatim from `test_catalogue_contract`, where it was fatal.
+def _home_slots(sections) -> list[str]:
+    """`section_slots` a normalized plan gives a `/` page, given its `sections`."""
+    page = {"id": "home", "title": "Home", "path": "/", "layout": "public"}
+    if sections is not None:
+        page["sections"] = sections
+    plan = {"roles": [{"id": "public", "pages": [page]}]}
+    return _normalize_plan(plan, "#123456", "#654321")["roles"][0]["pages"][0][
+        "section_slots"
+    ]
 
-    It stopped that test at its 16th assertion and hid the ~250 after it —
-    the same "assertions that never run" this conversion exists to end, just
-    one layer in.
+
+def test_a_home_page_gets_what_it_asked_for_plus_what_the_skeleton_requires() -> None:
+    """Replaces `test_a_legacy_plan_..._full_recommended_order`, which was xfail.
+
+    That test pinned the *old* behaviour: fill a home page out to the whole
+    `recommendedOrder` — hero, features, showcase, process, testimonials, cta,
+    footer — whatever the plan asked for. `infer_section_slots` returns
+    requested + required now, and the change was an improvement, not a
+    regression: auto-adding three sections nobody asked for is exactly how every
+    generation ends up looking the same, which is the complaint this roadmap
+    opens with.
+
+    So this asserts the rule that replaced it, in the direction that matters —
+    **optional sections are not added on the page's behalf.**
     """
-    old_plan = {
-        "roles": [
-            {
-                "id": "public",
-                "pages": [
-                    {
-                        "id": "home",
-                        "title": "Home",
-                        "path": "/",
-                        "layout": "public",
-                        "sections": [{"name": "hero"}, "features"],
-                    }
-                ],
-            }
-        ]
-    }
-    home = _normalize_plan(old_plan, "#123456", "#654321")["roles"][0]["pages"][0]
-    assert home["section_slots"] == [
+    assert _home_slots([{"name": "hero"}, "features"]) == [
         "hero",
         "features",
-        "showcase",
-        "process",
-        "testimonials",
         "cta",
         "footer",
     ]
+    # public-home's optional sections must not appear uninvited.
+    for uninvited in ("showcase", "process", "testimonials", "trust", "booking"):
+        assert uninvited not in _home_slots([{"name": "hero"}, "features"])
+
+
+def test_a_silent_plan_still_yields_a_home_page_with_the_required_slots() -> None:
+    """The floor, measured — and it is thinner than the previous note assumed.
+
+    The xfail this replaces guessed "a plan that names no sections at all yields
+    a four-slot page". It yields **three**: `public-home`'s required set, and
+    nothing else. `shell` is the layout rather than a section, so hero/cta/footer
+    is the whole page.
+
+    Not a live defect — requests 77/78/79 all ship 7-8 slot home pages because
+    the architect names the slots (79: hero, trust, features, process,
+    testimonials, booking, cta, footer). It is the floor that applies when the
+    architect says nothing, and a three-slot home page is thin enough to be worth
+    a ticket rather than a silent default.
+
+    Pinned in both directions on purpose: if the floor drops below the required
+    set the page is broken, and if it rises the fix was to auto-fill optional
+    sections, which is the variety regression the test above forbids.
+    """
+    for silent in ([], None):
+        assert _home_slots(silent) == ["hero", "cta", "footer"]
 
 
 def _duplicate_plan_and_protected_architect():
@@ -1949,20 +1997,6 @@ def test_the_attached_skeleton_contract_stays_under_four_thousand_chars() -> Non
     assert len(home_instructions.rsplit(marker, 1)[1]) < 4000
 
 
-@pytest.mark.xfail(
-    reason=(
-        "STALE prompt wording. The page prompt no longer contains the literals "
-        "\"Import page UI exclusively from `@/ui`\" or "
-        "\"const SKELETON_ID = 'public-home' as const\". The *contracts* they stood "
-        "for are still enforced and still asserted in `test_catalogue_contract` — "
-        "`getSkeleton(SKELETON_ID)`, `SkeletonComposer`, `PublicShell` and the "
-        "forbidden-import list all still pass. Asserting on exact prompt prose is "
-        "the brittle half of that pair; if the intent is worth keeping, assert the "
-        "behaviour the prompt produces, not its wording."
-    ),
-    strict=True,
-    raises=AssertionError,
-)
 def test_the_page_prompt_still_dictates_the_ui_import_and_skeleton_const() -> None:
     plan, architect = _duplicate_plan_and_protected_architect()
     renderer = JinjaTemplateRenderer(REPO_ROOT / "backend" / "app" / "templates")
@@ -1984,8 +2018,24 @@ def test_the_page_prompt_still_dictates_the_ui_import_and_skeleton_const() -> No
             renderer,
         )
         page_prompt = ai.prompts[0]
-    assert "Import page UI exclusively from `@/ui`" in page_prompt
-    assert "const SKELETON_ID = 'public-home' as const" in page_prompt
+
+    # Re-enabled on 2026-08-03, asserting substance instead of prose.
+    #
+    # This used to pin two exact sentences — "Import page UI exclusively from
+    # `@/ui`" and "const SKELETON_ID = 'public-home' as const". Both were
+    # reworded, the test went xfail, and the *contract* was never at risk: the
+    # prompt still communicates all four constraints below. Pinning prose asserts
+    # the phrasing of an instruction rather than the instruction, which is how a
+    # rewrite reads as a regression while a genuine silent drop would not.
+    #
+    # These are identifiers the generated page must contain, so the prompt has to
+    # name them. If any disappears, pages stop being told which kit to import
+    # from or which face they are, and nothing else in the suite would notice.
+    for required in ("@/ui", "SKELETON_ID", "SkeletonComposer"):
+        assert required in page_prompt, f"page prompt no longer names {required}"
+    # The route's *assigned* skeleton, not a hardcoded one — a prompt that names
+    # the wrong face is worse than one that names none.
+    assert "public-home" in page_prompt
 
 
 @pytest.mark.xfail(
@@ -2081,62 +2131,56 @@ def test_a_contract_invalid_page_is_re_asked_with_its_validation_errors() -> Non
 # current scaffold shape is its own task, of about the same size.
 
 
-@pytest.mark.xfail(
-    reason=(
-        "DEAD DECOY, not a validator regression. The mutation replaces "
-        "'<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />' — a string "
-        "the scaffold no longer emits — so `composer_decoy == stub_content` and "
-        "`validate_catalogue_page_content` correctly returns []. The validator "
-        "still rejects a genuinely wrong composer; this input is not one. Rebuild "
-        "the decoy from what the scaffold emits today, then re-enable."
-    ),
-    strict=True,
-    raises=AssertionError,
-)
 def test_the_composer_decoy_is_still_a_decoy() -> None:
+    """Re-enabled. The decoy was dead, not the validator.
+
+    It replaced `<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />`,
+    and the scaffold has since added `order={RECIPE_ORDER}` to that invocation,
+    so the anchor no longer matched and the "decoy" was the untouched stub.
+    `_mutated` now makes that failure mode impossible rather than latent.
+    """
     _plan, architect = _duplicate_plan_and_protected_architect()
     route = architect["routes"][0]
     stub = minimal_catalogue_page_scaffold(
         "src/pages/HomePage.tsx", route, brand_name="Brand"
     )
-    decoy = stub.replace(
-        "<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} />",
-        "<SkeletonComposer skeletonId={'wrong'} slots={slots} />",
+    decoy = _mutated(
+        stub,
+        "<SkeletonComposer skeletonId={SKELETON_ID} slots={slots} order={RECIPE_ORDER} />",
+        "<SkeletonComposer skeletonId={'wrong'} slots={slots} order={RECIPE_ORDER} />",
     )
-    assert decoy != stub, "the decoy is identical to the valid page"
     assert "SkeletonComposer invocation" in validate_catalogue_page_content(decoy, route)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "DEAD DECOY. The mutation inserts a `faq:` entry after '  const slots = {' "
-        "— and the scaffold contains no `const slots = {` block at all now, nor any "
-        "line mentioning `slots`. So `unknown_extra == service_stub` and there is no "
-        "unknown key to report. Note the assertion immediately above it in "
-        "`test_catalogue_contract` (`optional_extra` validates clean) is the same "
-        "no-op and still passes — green, and testing nothing."
-    ),
-    strict=True,
-    raises=AssertionError,
-)
 def test_an_unknown_slot_key_is_still_rejected() -> None:
-    service_route = {
-        "path": "/services",
-        "component_file": "src/pages/ServicesPage.tsx",
+    """Re-enabled, against a slot-composed page rather than a listing face.
+
+    The decoy inserted a `faq:` entry after `const slots = {` on a
+    `public-service` scaffold. That scaffold is a **schedule listing face**
+    today — no `SkeletonComposer`, no `slots` object at all — and
+    `validate_catalogue_page_content` routes it to `_validate_schedule_listing_
+    face`, which has no slot rules to break. The rule under test only exists for
+    slot-composed pages, so the decoy has to be built on one.
+    """
+    home_route = {
+        "path": "/",
+        "component_file": "src/pages/HomePage.tsx",
         "surface": "public",
-        "skeleton_id": "public-service",
+        "skeleton_id": "public-home",
         "section_slots": ["hero", "features", "cta", "footer"],
     }
     stub = minimal_catalogue_page_scaffold(
-        service_route["component_file"], service_route, brand_name="Voltbyte"
+        home_route["component_file"], home_route, brand_name="Voltbyte"
     )
-    unknown_extra = stub.replace(
+    assert validate_catalogue_page_content(stub, home_route) == []
+
+    unknown_extra = _mutated(
+        stub,
         "  const slots = {\n",
         "  const slots = {\n    faq: <section>FAQ</section>,\n",
     )
-    assert unknown_extra != stub, "the decoy is identical to the valid page"
     assert "extra slot:faq" in validate_catalogue_page_content(
-        unknown_extra, service_route
+        unknown_extra, home_route
     )
 
 
