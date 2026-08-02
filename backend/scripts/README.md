@@ -7,6 +7,7 @@ Operational helpers — not part of the FastAPI runtime. Run from `backend/` so 
 | Path | Purpose |
 |------|---------|
 | `cli/` | Recurring tools (rebuild/finish preview, poll progress, parse debug logs) |
+| `measure/` | Phase 1 evidence tools — trio analysis, tail decomposition, dead-link replay, the trio launchers and the operating traps they encode. See `measure/README.md` |
 | `ops/migrations/` | One-off database migrations |
 | `ops/seeding/` | Seed export helpers |
 | `archive/` | Hardcoded / historical one-offs kept for reference — prefer not to run |

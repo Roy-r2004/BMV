@@ -129,19 +129,25 @@ account is funded. Trio 5 is strong evidence — zero dead-link gate failures wh
 dead links across 9 gate failures — but it is n=3, and this session has twice been wrong about a fix
 after a single trio.
 
-### Tooling in the scratchpad
+### Tooling — rescued into the repo (session 6)
 
-`/private/tmp/claude-501/-Users-maurice-Documents-Dev-BMV/6b80695f-52e9-41af-94b7-df5cba4e352f/scratchpad/`
-(session-scoped — copy anything you want to keep into the repo):
+It was session-scoped and about to be lost. Now at
+**[`backend/scripts/measure/`](backend/scripts/measure/)** with a README of its own, verified
+running from that location: `analyse.py 5` reproduces trio 5's degradation record and `replay.py`
+reproduces "31 dead hrefs → 0".
 
 | file | what |
 |---|---|
-| `analyse.py` | per-trio DoD evidence: wall clock, degradations, contention, logical asks inclusive of failovers. Knows trios 1–6 by launch epoch; add yours the same way |
-| `replay.py` | replays the dead-link guard over stored workspaces **read-only** — how "31 dead hrefs → 0" was measured |
+| `analyse.py <trio>` | per-trio DoD evidence: wall clock, degradations, contention, logical asks inclusive of failovers. Knows trios 1–5 by launch epoch; add yours the same way |
+| `replay.py` | replays the dead-link guard over stored workspaces **read-only**. Reports repair *kind* per run — a link `homed` to `/` improves the gate metric and worsens the artifact |
 | `resolve_probe.py` | measures how much of the real dead-link population each resolver rule can retarget |
 | `tail.py` | decomposes post-deadline time into AI vs non-AI. This is what found the elective-stage defect |
-| `launch_trio*.sh` | the trio launchers — correct `industry`, port, multipart and 60 s spacing already baked in |
-| `api2..6.log` | the raw run logs behind every number in this handoff |
+| `launch_trio*.sh` | the trio launchers, one per trio as provenance — correct `industry`, port, multipart and 60 s spacing baked in. `OUT=` now defaults to `$PWD` |
+| `docs/evidence/preview-trio-logs.tar.gz` | `api.log`…`api6.log`, the raw logs behind every number here (109 KB). `api6.log` is the **void** trio; kept so nobody re-derives from it by accident |
+
+Also added this session: **`scripts/cli/mutate_extractors.py`** (reverts each JSON-extractor fix and
+asserts the parity suite reddens) and **`preview-template-tests/tools/mutate.py`** (the same, for the
+vitest suite). Both exist because a green suite is not evidence.
 
 ---
 
