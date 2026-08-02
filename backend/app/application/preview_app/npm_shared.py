@@ -107,11 +107,15 @@ def _link_node_modules(workspace: Path, shared_nm: Path) -> None:
 
 def ensure_shared_node_modules(timeout: int = 300) -> tuple[Path, str]:
     """Install template deps into the shared cache if needed. Returns (node_modules, log)."""
+    from app.application.services.request_deadline import contended_lock
+
     root = shared_npm_root()
     nm = root / "node_modules"
     logs: list[str] = []
 
-    with _install_lock:
+    # Warm cache makes this a sub-millisecond hold. A cold one holds it for the
+    # whole `npm ci`, and every concurrent run waits out that install in full.
+    with contended_lock(_install_lock, "npm_install"):
         if _vite_ready(nm):
             logs.append(f"=== shared npm: cache hit ({root.name}) ===")
             log.debug("shared npm cache hit at %s", nm)

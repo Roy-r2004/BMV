@@ -47,6 +47,17 @@ keeps rediscovering under other names.
 
 The deadline lives in a `ContextVar` and therefore crosses threads only via
 `ai_context.propagated_context()`, which the parallel workers already use.
+
+## Why blocked time is recorded
+
+Two process-wide locks serialize concurrent generations: `_SESSION_LOCK` in
+`screenshot` and `_install_lock` in `npm_shared`. Neither is visible to the run
+waiting on it — the deadline keeps ticking while that run does nothing, and it
+then degrades stages it had the time for. A degradation caused by another
+request's browser session is not the same event as a degradation caused by this
+request being slow, and a report that cannot tell them apart will conclude the
+contract works when it has merely mislabelled the cause. `contended_lock`
+charges the wait to whichever request paid it; `finalize` publishes the total.
 """
 from __future__ import annotations
 
@@ -81,6 +92,10 @@ DEFAULT_ASK_CEILING_SECONDS = 120.0
 #: be worth starting. `orchestrator` retries once on any exception; without
 #: this it inherits a fresh budget and the cap means nothing.
 MIN_RETRY_RUNWAY_SECONDS = 180.0
+
+#: Below this a lock wait is an uncontended acquisition, not contention. Logged
+#: at debug; still summed, because ten sub-second waits are still a wait.
+CONTENTION_LOG_THRESHOLD_SECONDS = 1.0
 
 
 #: Stages the pipeline cannot omit and still have produced a preview. Past the
@@ -153,6 +168,7 @@ class RequestDeadline:
     reserve_seconds: float = RESERVE_SECONDS
     started_at: float = field(default_factory=time.monotonic)
     _degradations: list[Degradation] = field(default_factory=list, repr=False)
+    _waits: dict[str, float] = field(default_factory=dict, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
@@ -201,6 +217,27 @@ class RequestDeadline:
                 if entry.stage not in seen:
                     seen.append(entry.stage)
             return seen
+
+    def record_wait(self, resource: str, seconds: float) -> None:
+        """Charge `seconds` of blocked-on-a-lock time to this request."""
+        if seconds <= 0.0:
+            return
+        with self._lock:
+            self._waits[resource] = self._waits.get(resource, 0.0) + float(seconds)
+
+    def waits(self) -> dict[str, float]:
+        with self._lock:
+            return {name: round(value, 1) for name, value in self._waits.items()}
+
+    def blocked_seconds(self) -> float:
+        """Total wall clock this request spent waiting on a process-wide lock.
+
+        Read this next to `elapsed()` before believing a degradation: a run that
+        degraded with 200 s of this did not run out of its own time, it ran out
+        of somebody else's.
+        """
+        with self._lock:
+            return sum(self._waits.values())
 
     def ask_budget(self, requested: float | None = None) -> float:
         """Wall clock one logical ask may spend. **Zero means do not call.**
@@ -355,6 +392,54 @@ def require_model_time(stage: str) -> None:
         raise RequestDeadlineExceeded(stage, deadline.remaining())
 
 
+def record_wait(resource: str, seconds: float) -> None:
+    deadline = current_deadline()
+    if deadline is not None:
+        deadline.record_wait(resource, seconds)
+
+
+def blocked_seconds() -> float:
+    deadline = current_deadline()
+    return 0.0 if deadline is None else deadline.blocked_seconds()
+
+
+def contention_waits() -> dict[str, float]:
+    deadline = current_deadline()
+    return {} if deadline is None else deadline.waits()
+
+
+@contextmanager
+def contended_lock(lock: "threading.Lock", resource: str) -> Iterator[None]:
+    """Hold `lock`, charging the time spent waiting for it to this request.
+
+    The wait is measured around `acquire()` and recorded before the body runs,
+    so a run that is still blocked when something else inspects the deadline has
+    not yet been credited — that is deliberate. The number only becomes true
+    once the wait is over, and reporting a partial wait as a total would be the
+    same class of lie as a guard that reports success while the defect ships.
+
+    Releasing is unconditional: an exception inside the body must not strand a
+    process-wide lock and take every later generation down with it.
+    """
+    started = time.monotonic()
+    lock.acquire()
+    waited = time.monotonic() - started
+    try:
+        record_wait(resource, waited)
+        if waited >= CONTENTION_LOG_THRESHOLD_SECONDS:
+            deadline = current_deadline()
+            log.warning(
+                "request %s blocked %.1fs on %s (%.1fs of its deadline remaining)",
+                None if deadline is None else deadline.request_id,
+                waited,
+                resource,
+                float("inf") if deadline is None else deadline.remaining(),
+            )
+        yield
+    finally:
+        lock.release()
+
+
 def has_retry_runway(seconds: float = MIN_RETRY_RUNWAY_SECONDS) -> bool:
     """Whether a whole-generation retry is worth starting.
 
@@ -366,6 +451,7 @@ def has_retry_runway(seconds: float = MIN_RETRY_RUNWAY_SECONDS) -> bool:
 
 
 __all__ = [
+    "CONTENTION_LOG_THRESHOLD_SECONDS",
     "DEFAULT_ASK_CEILING_SECONDS",
     "DEFAULT_TOTAL_SECONDS",
     "ELECTIVE_STAGES",
@@ -376,12 +462,16 @@ __all__ = [
     "RequestDeadline",
     "RequestDeadlineExceeded",
     "ask_budget_seconds",
+    "blocked_seconds",
     "claim_model_time",
+    "contended_lock",
+    "contention_waits",
     "current_deadline",
     "degradations",
     "has_retry_runway",
     "is_elective",
     "record_degradation",
+    "record_wait",
     "remaining_seconds",
     "request_deadline_scope",
     "require_model_time",

@@ -261,7 +261,13 @@ def capture_routes_visual(
         log.warning("screenshot skipped: playwright is not installed")
         return [RouteCapture(ok=False) for _ in routes]
 
-    with _SESSION_LOCK:
+    from app.application.services.request_deadline import contended_lock
+
+    # The session budget below starts *after* the lock is held, so it bounds
+    # this session's own work and says nothing about the queue in front of it.
+    # Under three concurrent runs the wait can be two full sessions, which is a
+    # third of a 540 s request spent doing nothing — invisible until now.
+    with contended_lock(_SESSION_LOCK, "screenshot_session"):
         try:
             with sync_playwright() as p:
                 browser = _launch_chromium(p)

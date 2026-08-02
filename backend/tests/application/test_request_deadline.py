@@ -5,7 +5,10 @@ numbers come from the Phase 0.6 census over requests 66-71.
 """
 from __future__ import annotations
 
+import threading
 import time
+from contextvars import copy_context
+from pathlib import Path
 
 import pytest
 import requests
@@ -252,3 +255,117 @@ def test_no_ask_budget_leaves_the_old_behaviour_untouched() -> None:
 
     assert call_with_retry(_flaky, attempts=3, base_delay=0.01) == "done"
     assert calls == 2
+
+
+# --- Lock contention: the wait a degraded run cannot otherwise account for ----
+#
+# `_SESSION_LOCK` (screenshot) and `_install_lock` (npm) serialize concurrent
+# generations. The deadline keeps ticking while a run is blocked on one, so
+# three runs started 60 s apart can produce a third run that degrades stages it
+# had the time for. Without these numbers the degradation list from a contended
+# run and from a genuinely slow run are the same artifact, and Phase 1's DoD
+# cannot be audited — only asserted.
+
+
+def test_a_run_blocked_on_a_process_wide_lock_is_charged_for_the_wait() -> None:
+    """The wait must land on the deadline of the request that paid it."""
+    lock = threading.Lock()
+    held = threading.Event()
+
+    def _hold() -> None:
+        with lock:
+            held.set()
+            time.sleep(0.4)
+
+    with rd.request_deadline_scope(101, total_seconds=60) as deadline:
+        holder = threading.Thread(target=_hold)
+        holder.start()
+        assert held.wait(2.0), "the holder never took the lock"
+
+        with rd.contended_lock(lock, "screenshot_session"):
+            pass
+        holder.join(2.0)
+
+        assert deadline.blocked_seconds() >= 0.3, (
+            f"blocked {deadline.blocked_seconds():.2f}s on a lock held for 0.4s — "
+            "the wait is not being charged to the request"
+        )
+        assert "screenshot_session" in deadline.waits()
+
+
+def test_an_uncontended_acquisition_is_not_reported_as_contention() -> None:
+    """A number that is never zero is a number nobody will read."""
+    lock = threading.Lock()
+    with rd.request_deadline_scope(102, total_seconds=60) as deadline:
+        for _ in range(5):
+            with rd.contended_lock(lock, "npm_install"):
+                pass
+        assert deadline.blocked_seconds() < 0.1
+
+
+def test_the_lock_is_released_when_the_body_raises() -> None:
+    """A stranded process-wide lock takes every later generation with it."""
+    lock = threading.Lock()
+    with rd.request_deadline_scope(103, total_seconds=60):
+        with pytest.raises(ValueError):
+            with rd.contended_lock(lock, "screenshot_session"):
+                raise ValueError("capture blew up")
+        assert lock.acquire(blocking=False), "the lock was not released"
+        lock.release()
+
+
+def test_contention_is_recorded_with_no_deadline_armed() -> None:
+    """CLI and test callers hold the same locks and must not crash."""
+    lock = threading.Lock()
+    with rd.contended_lock(lock, "npm_install"):
+        pass
+    assert rd.blocked_seconds() == 0.0
+    assert rd.contention_waits() == {}
+
+
+def test_the_screenshot_session_lock_reports_the_queue_in_front_of_it() -> None:
+    """The 90 s session budget starts *after* the lock is held.
+
+    So the budget bounds this session's own work and says nothing about the two
+    sessions queued ahead of it. `capture_routes_visual` must take the lock
+    through `contended_lock`; taking `_SESSION_LOCK` directly makes a 200 s
+    queue wait vanish from the record while still spending the deadline.
+
+    Reverting `screenshot.py` to a bare `with _SESSION_LOCK:` fails this.
+    """
+    from app.application.preview_app import screenshot
+
+    held = threading.Event()
+    release = threading.Event()
+
+    def _hold() -> None:
+        with screenshot._SESSION_LOCK:
+            held.set()
+            release.wait(3.0)
+
+    with rd.request_deadline_scope(104, total_seconds=60) as deadline:
+        holder = threading.Thread(target=_hold)
+        holder.start()
+        assert held.wait(2.0), "the holder never took the session lock"
+        try:
+            # The context must cross the thread or the wait is charged to
+            # nobody — the same defect `a4f8b55` fixed for `request_id`.
+            ctx = copy_context()
+            waiter = threading.Thread(
+                target=lambda: ctx.run(
+                    screenshot.capture_routes_visual,
+                    "http://127.0.0.1:1/",
+                    [("/", Path("unused.png"))],
+                )
+            )
+            waiter.start()
+            time.sleep(0.5)
+        finally:
+            release.set()
+            holder.join(3.0)
+        waiter.join(20.0)
+
+    assert deadline.waits().get("screenshot_session", 0.0) >= 0.3, (
+        "a capture that queued behind another session recorded no wait: "
+        f"{deadline.waits()}"
+    )

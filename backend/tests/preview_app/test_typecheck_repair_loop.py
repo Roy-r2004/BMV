@@ -344,3 +344,38 @@ def test_a_repair_that_breaks_the_build_is_rolled_back(tmp_path: Path, monkeypat
     # A failed rebuild wiped dist; the pre-typecheck build is restored so the
     # preview still serves.
     assert (workspace / "dist" / "index.html").read_text(encoding="utf-8") == "<html>shipping</html>"
+
+
+def test_dist_backup_temp_is_removed_even_when_repair_raises(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """`_backup_dist` mkdtemps a full dist copy — an exception must not leak it."""
+    import tempfile
+
+    workspace = _workspace(tmp_path)
+    monkeypatch.setattr(build_phase.settings, "PREVIEW_MAX_TYPECHECK_FIX_ROUNDS", 1)
+    created: list[Path] = []
+    real_mkdtemp = tempfile.mkdtemp
+
+    def _tracking_mkdtemp(*args, **kwargs):
+        path = real_mkdtemp(*args, **kwargs)
+        created.append(Path(path))
+        return path
+
+    monkeypatch.setattr(build_phase.tempfile, "mkdtemp", _tracking_mkdtemp)
+
+    def _raise_mid_repair(*_a, **_k):
+        raise RuntimeError("simulated mid-repair crash")
+
+    monkeypatch.setattr(build_phase, "typecheck_workspace", lambda *_a, **_k: _errors_report())
+    monkeypatch.setattr(build_phase, "fix_type_errors", _raise_mid_repair)
+    monkeypatch.setattr(build_phase, "_pre_build_fixups", lambda _ctx: None)
+    monkeypatch.setattr(build_phase, "_emit", lambda *a, **k: None)
+    # dump_exception writes diagnostics — keep it quiet and local.
+    monkeypatch.setattr(build_phase, "dump_exception", lambda *a, **k: None)
+
+    build_phase._run_typecheck_repair(_ctx(workspace))
+
+    assert created, "expected _backup_dist to create a temp dir"
+    for path in created:
+        assert not path.exists(), f"leaked dist backup temp: {path}"

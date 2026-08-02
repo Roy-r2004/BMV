@@ -774,6 +774,11 @@ def run_finalize(ctx: PipelineContext) -> dict:
         preview_app_result["deadline_seconds"] = int(_deadline.total_seconds)
         preview_app_result["elapsed_seconds"] = int(_deadline.elapsed())
         preview_app_result["deadline_exceeded"] = _deadline.expired()
+        # Published beside the degradations, not instead of them: a degradation
+        # is only evidence the deadline worked if the run spent its budget on
+        # itself. With 200 s of this, the same list is evidence of contention.
+        preview_app_result["blocked_seconds"] = round(_deadline.blocked_seconds(), 1)
+        preview_app_result["contention"] = _deadline.waits()
     if _degraded:
         log.warning(
             "  preview %s degraded %s stage(s) to meet its deadline: %s",

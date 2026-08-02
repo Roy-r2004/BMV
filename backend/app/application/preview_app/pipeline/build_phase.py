@@ -192,103 +192,108 @@ def _run_typecheck_repair(ctx: PipelineContext) -> TypecheckReport:
         started = time.monotonic()
         dist_backup = _backup_dist(workspace)
         rejections: list[str] = []
-        for round_number in range(1, settings.PREVIEW_MAX_TYPECHECK_FIX_ROUNDS + 1):
-            elapsed = time.monotonic() - started
-            if elapsed > ctx.max_fix_seconds:
-                log.warning(
-                    "    typecheck repair budget exceeded (%.0fs) — keeping remaining errors",
-                    elapsed,
+        try:
+            for round_number in range(1, settings.PREVIEW_MAX_TYPECHECK_FIX_ROUNDS + 1):
+                elapsed = time.monotonic() - started
+                if elapsed > ctx.max_fix_seconds:
+                    log.warning(
+                        "    typecheck repair budget exceeded (%.0fs) — keeping remaining errors",
+                        elapsed,
+                    )
+                    break
+                _emit(
+                    ctx.db, ctx.request_id, "build",
+                    f"Fixing {report.error_count} type contract error(s) "
+                    f"(round {round_number}/{settings.PREVIEW_MAX_TYPECHECK_FIX_ROUNDS})...",
+                    89,
+                    detail="AI is aligning page data with the component contracts",
                 )
-                break
-            _emit(
-                ctx.db, ctx.request_id, "build",
-                f"Fixing {report.error_count} type contract error(s) "
-                f"(round {round_number}/{settings.PREVIEW_MAX_TYPECHECK_FIX_ROUNDS})...",
-                89,
-                detail="AI is aligning page data with the component contracts",
-            )
-            snapshot = _source_snapshot(workspace)
-            round_rejections: list[str] = []
-            try:
-                patched = fix_type_errors(
-                    workspace, report, ctx.architect, ctx.ai_provider, ctx.template_renderer,
-                    prior_rejections=rejections,
-                    rejections_out=round_rejections,
-                )
-            except Exception as exc:
-                dump_exception(
-                    workspace, "typecheck-fix", f"round-{round_number}", exc,
-                    context={"errors": report.error_count},
-                )
-                log.error("    typecheck fix agent failed on round %s: %s", round_number, exc)
-                break
-            rounds_run = round_number
-            rejections = round_rejections
-            log.info("    typecheck round %s patched: %s", round_number, ", ".join(patched) or "none")
+                snapshot = _source_snapshot(workspace)
+                round_rejections: list[str] = []
+                try:
+                    patched = fix_type_errors(
+                        workspace, report, ctx.architect, ctx.ai_provider, ctx.template_renderer,
+                        prior_rejections=rejections,
+                        rejections_out=round_rejections,
+                    )
+                except Exception as exc:
+                    dump_exception(
+                        workspace, "typecheck-fix", f"round-{round_number}", exc,
+                        context={"errors": report.error_count},
+                    )
+                    log.error("    typecheck fix agent failed on round %s: %s", round_number, exc)
+                    break
+                rounds_run = round_number
+                rejections = round_rejections
+                log.info("    typecheck round %s patched: %s", round_number, ", ".join(patched) or "none")
 
-            # Screen with tsc before spending a build on the batch.
-            screened = typecheck_workspace(workspace, timeout=timeout)
-            regressed = _regressed_files(report, screened, patched)
-            if regressed:
-                given_back = _restore_snapshot(workspace, snapshot, only=regressed)
-                log.warning(
-                    "    round %s: reverted %s regressed file(s), kept %s — %s",
-                    round_number,
-                    len(given_back),
-                    len(patched) - len(given_back),
-                    ", ".join(given_back),
-                )
-                rejections = [
-                    *rejections,
-                    *(f"{path}: your rewrite added type errors to this file" for path in given_back),
-                ]
+                # Screen with tsc before spending a build on the batch.
                 screened = typecheck_workspace(workspace, timeout=timeout)
-            if screened.available and screened.error_count > report.error_count:
-                # Strictly worse even after the regressed files went back, so the
-                # damage is in files the model was not asked about. Give the round
-                # back rather than build a workspace that is worse than the one
-                # already shipping.
-                restored = _restore_snapshot(workspace, snapshot)
-                log.warning(
-                    "    round %s left more errors than it found (%s -> %s) "
-                    "— rolled back %s file(s)",
-                    round_number, report.error_count, screened.error_count, len(restored),
-                )
-                break
+                regressed = _regressed_files(report, screened, patched)
+                if regressed:
+                    given_back = _restore_snapshot(workspace, snapshot, only=regressed)
+                    log.warning(
+                        "    round %s: reverted %s regressed file(s), kept %s — %s",
+                        round_number,
+                        len(given_back),
+                        len(patched) - len(given_back),
+                        ", ".join(given_back),
+                    )
+                    rejections = [
+                        *rejections,
+                        *(f"{path}: your rewrite added type errors to this file" for path in given_back),
+                    ]
+                    screened = typecheck_workspace(workspace, timeout=timeout)
+                if screened.available and screened.error_count > report.error_count:
+                    # Strictly worse even after the regressed files went back, so the
+                    # damage is in files the model was not asked about. Give the round
+                    # back rather than build a workspace that is worse than the one
+                    # already shipping.
+                    restored = _restore_snapshot(workspace, snapshot)
+                    log.warning(
+                        "    round %s left more errors than it found (%s -> %s) "
+                        "— rolled back %s file(s)",
+                        round_number, report.error_count, screened.error_count, len(restored),
+                    )
+                    break
 
-            _pre_build_fixups(ctx)
-            ok, build_log = run_build(workspace, ctx.base_path, ctx.template_renderer)
-            if not ok:
-                restored = _restore_snapshot(workspace, snapshot)
-                log.error(
-                    "    typecheck repair broke the build despite a clean tsc screen "
-                    "— rolled back %s file(s)",
-                    len(restored),
-                )
                 _pre_build_fixups(ctx)
                 ok, build_log = run_build(workspace, ctx.base_path, ctx.template_renderer)
-                if ok:
-                    ctx.build_log = build_log
-                else:
-                    log.error("    rebuild after rollback failed — restoring previous dist")
-                break
-            ctx.build_log = build_log
-            previous_count = report.error_count
-            report = screened
-            _log_typecheck(report, f"after round {round_number}")
-            if report.status != "errors":
-                break
-            if report.available and report.error_count >= previous_count:
-                # The batch built, so it is kept — but a round that traded errors
-                # laterally will keep doing that. Stop spending model calls.
-                log.warning(
-                    "    round %s made no net progress (%s errors) — stopping repair",
-                    round_number, report.error_count,
-                )
-                break
-        _restore_dist(workspace, dist_backup)
-        if dist_backup is not None:
-            shutil.rmtree(dist_backup.parent, ignore_errors=True)
+                if not ok:
+                    restored = _restore_snapshot(workspace, snapshot)
+                    log.error(
+                        "    typecheck repair broke the build despite a clean tsc screen "
+                        "— rolled back %s file(s)",
+                        len(restored),
+                    )
+                    _pre_build_fixups(ctx)
+                    ok, build_log = run_build(workspace, ctx.base_path, ctx.template_renderer)
+                    if ok:
+                        ctx.build_log = build_log
+                    else:
+                        log.error("    rebuild after rollback failed — restoring previous dist")
+                    break
+                ctx.build_log = build_log
+                previous_count = report.error_count
+                report = screened
+                _log_typecheck(report, f"after round {round_number}")
+                if report.status != "errors":
+                    break
+                if report.available and report.error_count >= previous_count:
+                    # The batch built, so it is kept — but a round that traded errors
+                    # laterally will keep doing that. Stop spending model calls.
+                    log.warning(
+                        "    round %s made no net progress (%s errors) — stopping repair",
+                        round_number, report.error_count,
+                    )
+                    break
+        finally:
+            # `_backup_dist` copies the full dist/ into a tempfile.mkdtemp — any
+            # exception between that copy and this cleanup leaked a full build
+            # tree into /tmp on every failed repair.
+            _restore_dist(workspace, dist_backup)
+            if dist_backup is not None:
+                shutil.rmtree(dist_backup.parent, ignore_errors=True)
     record_typecheck_report(workspace, report, rounds=rounds_run)
     return report
 
