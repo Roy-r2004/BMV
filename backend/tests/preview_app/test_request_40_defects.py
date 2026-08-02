@@ -4409,3 +4409,71 @@ def test_an_unfilled_authoring_placeholder_is_caught_without_a_vision_call() -> 
         assert not rx.search(source), (
             f"false positive on {source!r} — a gate that cries wolf gets disabled"
         )
+
+
+def test_a_plan_naming_a_forbidden_path_is_refused_before_anything_is_written(
+    tmp_path: Path,
+) -> None:
+    """Request 68 lost eight good ops to one bad path, and shipped nothing.
+
+    The plan arrived at t=1,581 s after six failed calls. Op seven named
+    `src/App.tsx`, which no AI writer may own; all-or-nothing then rolled the
+    whole plan back — including a fix for the catalogue that had nothing to do
+    with `App.tsx`.
+
+    All-or-nothing is correct: a plan's ops are written against each other, and
+    request 47 proved a half-applied plan leaves a page importing a component
+    that does not exist. What was wrong is *when* the refusal happened. Checking
+    every path first costs one pass over a list, writes nothing on refusal, and
+    turns "the plan was discarded" into a sentence naming the offending path.
+    """
+    from app.application.preview_app.quality_repair import apply_repair_ops
+
+    workspace = tmp_path / "ws"
+    (workspace / "src" / "pages").mkdir(parents=True)
+    (workspace / "src" / "data").mkdir(parents=True)
+    page = workspace / "src" / "pages" / "GalleryPage.tsx"
+    page.write_text("const heading = 'BEFORE';\n", encoding="utf-8")
+    app_tsx = workspace / "src" / "App.tsx"
+    app_tsx.write_text("export default function App() { return null; }\n", encoding="utf-8")
+
+    # The end state after a rollback and after a pre-flight refusal is
+    # identical, so file contents cannot tell them apart — an earlier version of
+    # this test asserted them and passed with the check disabled. The observable
+    # difference is whether the workspace was ever snapshotted, which only
+    # happens on the path that is about to start writing.
+    import app.application.preview_app.quality_repair as qr
+
+    snapshots: list[object] = []
+    real_snapshot = qr.snapshot_source
+
+    def _spy(ws):
+        snapshots.append(ws)
+        return real_snapshot(ws)
+
+    ops = [
+        {"op": "replace", "path": "src/pages/GalleryPage.tsx", "old": "BEFORE", "new": "AFTER"},
+        {"op": "write", "path": "src/App.tsx", "content": "// clobbered\n"},
+    ]
+    qr.snapshot_source = _spy  # type: ignore[assignment]
+    try:
+        touched = apply_repair_ops(workspace, ops, {"routes": []})
+    finally:
+        qr.snapshot_source = real_snapshot  # type: ignore[assignment]
+
+    assert touched == [], "a plan naming a generator-owned path must apply nothing"
+    assert snapshots == [], (
+        "the plan was rolled back rather than refused — the legal op was applied "
+        "first and undone, which is what lost request 68 its other eight ops"
+    )
+    assert "BEFORE" in page.read_text(encoding="utf-8")
+    assert "clobbered" not in app_tsx.read_text(encoding="utf-8")
+
+    # And a plan whose paths are all legal still applies in full.
+    ok = apply_repair_ops(
+        workspace,
+        [{"op": "replace", "path": "src/pages/GalleryPage.tsx", "old": "BEFORE", "new": "AFTER"}],
+        {"routes": []},
+    )
+    assert ok, "a legal plan must still apply"
+    assert "AFTER" in page.read_text(encoding="utf-8")

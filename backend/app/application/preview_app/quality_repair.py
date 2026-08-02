@@ -163,6 +163,37 @@ def apply_repair_ops(
     back to how the plan found it.
     """
     api = RepairAPI(workspace, architect)
+
+    # Check every path before touching anything. All-or-nothing is right — the
+    # ops are written against each other — but combining it with a
+    # *discovered-on-the-way* refusal is how request 68 lost eight good ops to
+    # one bad path: the plan arrived at t=1,581 s, op seven named `src/App.tsx`,
+    # and the rollback threw away a fix for the catalogue that had nothing to do
+    # with it. The run then shipped nothing at all.
+    #
+    # Refusing up front costs one pass over a list and turns "the plan was
+    # discarded" into "the plan named a path it may not write", which is a
+    # sentence a re-ask can act on.
+    blocked: list[str] = []
+    for raw in ops or []:
+        if not isinstance(raw, dict):
+            continue
+        if str(raw.get("op") or "").strip().lower() not in {"replace", "write"}:
+            continue
+        try:
+            api._safe(str(raw.get("path") or ""))
+        except Exception as exc:  # noqa: BLE001 — the message is the payload
+            blocked.append(f"{raw.get('path')!r} ({exc})")
+    if blocked:
+        log.warning(
+            "quality repair plan REFUSED before any write — %s of %s op(s) name a "
+            "path the plan may not touch: %s",
+            len(blocked),
+            len(ops or []),
+            "; ".join(blocked[:4]),
+        )
+        return []
+
     before = snapshot_source(Path(workspace))
     for raw in ops or []:
         if not isinstance(raw, dict):
