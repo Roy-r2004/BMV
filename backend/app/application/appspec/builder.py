@@ -17,6 +17,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from app.application.prompts import PromptTemplate
+from app.application.services.ai_context import ai_call
 from app.core.config import settings
 from app.domain.appspec.authoring_parser import (
     AUTHORING_JSON_SYNTAX_INVALID,
@@ -288,13 +289,19 @@ def build_app_spec_candidate(
     last_error: AppSpecBuildError | None = None
 
     for attempt_index in range(1 + APPSPEC_AUTHORING_MALFORMED_RETRY_MAX):
-        raw, provider_diag = _ask_appspec_chat(
-            ai_provider,
-            model=selected_model,
-            messages=messages,
-            max_tokens=token_budget,
-            temperature=0.1 if attempt_index == 0 else 0.0,
-        )
+        # Scope the ask so its row carries a writer and a real attempt number.
+        # Without this the row falls back to `purpose` for its stage and hardcodes
+        # `writer=None, attempt=1` (`admin_ops.py:330-332`), which is why appspec
+        # — the most expensive stage in the pipeline — was the only one whose
+        # sub-calls and re-asks could not be told apart in `ai_usage_events`.
+        with ai_call("appspec", writer="authoring", attempt=attempt_index + 1):
+            raw, provider_diag = _ask_appspec_chat(
+                ai_provider,
+                model=selected_model,
+                messages=messages,
+                max_tokens=token_budget,
+                temperature=0.1 if attempt_index == 0 else 0.0,
+            )
         try:
             candidate = _parse_candidate(
                 raw,
@@ -409,13 +416,14 @@ def repair_app_spec_candidate(
         coverage_review_json=_canonical_json(coverage_review or {}),
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
     )
-    raw, provider_diag = _ask_appspec_chat(
-        ai_provider,
-        model=selected_model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
-        temperature=0.05,
-    )
+    with ai_call("appspec", writer="repair", attempt=1):
+        raw, provider_diag = _ask_appspec_chat(
+            ai_provider,
+            model=selected_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
+            temperature=0.05,
+        )
     return _parse_candidate(
         raw,
         finish_reason=provider_diag.get("finish_reason"),

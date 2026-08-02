@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.application.prompts import PromptTemplate
+from app.application.services.ai_context import ai_call
 from app.domain.appspec.validation import canonical_app_spec_json
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -99,12 +100,13 @@ def review_app_spec_coverage(
         app_spec_json=canonical_app_spec_json(app_spec),
         coverage_schema_json=_canonical_json(AppSpecCoverageReview.model_json_schema()),
     )
-    raw = ai_provider.ask_chat(
-        model or settings.APPSPEC_COVERAGE_MODEL,
-        [{"role": "user", "content": prompt}],
-        max_tokens=max_tokens or settings.APPSPEC_COVERAGE_MAX_TOKENS,
-        temperature=0.0,
-    )
+    with ai_call("appspec", writer="coverage_review", attempt=1):
+        raw = ai_provider.ask_chat(
+            model or settings.APPSPEC_COVERAGE_MODEL,
+            [{"role": "user", "content": prompt}],
+            max_tokens=max_tokens or settings.APPSPEC_COVERAGE_MAX_TOKENS,
+            temperature=0.0,
+        )
     try:
         payload = extract_json_from_text(raw)
         if not isinstance(payload, dict):

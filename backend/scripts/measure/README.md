@@ -24,6 +24,7 @@ resolves `/app/backend` or the checkout, whichever holds the `app` package.
 | `tail.py` | Decomposes post-deadline time into AI vs non-AI. This is what found the elective-stage defect, and what showed the tail is **127 s AI / 255 s non-AI** over nine runs — so `RESERVE_SECONDS = 60`, fitted to the render-smoke and capture pass, was fitted to the smaller third. |
 | `replay.py` | Replays the dead-link guard over the stored workspaces in memory. How "31 dead hrefs → 0" was measured. Reports the repair *kind* per run — `retargeted` / `unlinked` / `homed` — because a link homed to `/` improves the gate metric while making the artifact worse. |
 | `resolve_probe.py` | How much of the real dead-link population each resolver rule can retarget. Written *before* the resolver, so the rules were fitted to hrefs the pipeline actually produced rather than ones that were easy to imagine. |
+| `appspec_cost.py [runs…]` | Splits the AppSpec stage — the pending p50 decision turns on it. Separates authoring from review from repair, first attempts from re-asks, and successful spend from `usable=false` spend. Also prints per-run AI seconds against wall span, so orchestration overhead is visible separately from model time. **Its per-writer breakdown is empty for trios 2-5**: appspec had no `ai_call` scope until session 6, so every historical row is `writer = NULL, attempt = 1`. It fills in on the next funded trio. |
 
 ## `launch_trio*.sh` — the trio launchers
 

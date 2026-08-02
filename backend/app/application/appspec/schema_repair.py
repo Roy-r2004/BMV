@@ -11,6 +11,7 @@ from app.application.appspec.builder import (
     app_spec_json_schema,
 )
 from app.application.prompts import PromptTemplate
+from app.application.services.ai_context import ai_call
 from app.core.config import settings
 from app.domain.appspec.sanitize.empty_trace import schema_repair_trace_context
 from app.domain.appspec.sanitize.preparse_normalize import schema_fragments_for_paths
@@ -96,12 +97,13 @@ def repair_app_spec_schema_candidate(
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
         empty_trace_context_json=_canonical_json(trace_context),
     )
-    raw = ai_provider.ask_chat(
-        model or settings.APPSPEC_REPAIR_MODEL,
-        [{"role": "user", "content": prompt}],
-        max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
-        temperature=0.0,
-    )
+    with ai_call("appspec", writer="schema_repair", attempt=1):
+        raw = ai_provider.ask_chat(
+            model or settings.APPSPEC_REPAIR_MODEL,
+            [{"role": "user", "content": prompt}],
+            max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
+            temperature=0.0,
+        )
     repaired = _parse_candidate(raw)
     return AppSpecCandidate(
         payload=repaired.payload,

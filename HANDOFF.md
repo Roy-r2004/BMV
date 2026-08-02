@@ -155,14 +155,40 @@ vitest suite). Both exist because a green suite is not evidence.
 
 Ordered by what I would do first. Every item has evidence attached; none is speculative.
 
-### 1. p50 is 569–590 s against a ≤ 500 s DoD, and the lever is not the deadline
+### 1. p50 is 569–590 s against a ≤ 500 s DoD, and the lever is call *count*
 
 `appspec` spans **264.5 s and 288.8 s** on requests 83 and 84 — roughly half the whole budget, before
 anything is built. No amount of deadline enforcement fixes a stage that is simply slow, and
 **bounding `appspec` is not in Phase 1's item list.**
 
-This is the same work as item 2. **Owner decision pending:** move the p50 row to Phase 2, or add a
-Phase 1 item for `appspec`. Do not quietly re-fit the number.
+This is the same work as item 2. **Owner decision still pending:** move the p50 row to Phase 2, or
+add a Phase 1 item for `appspec`. Do not quietly re-fit the number.
+
+**Session 6 decomposed the stage so the decision has evidence.**
+`scripts/measure/appspec_cost.py`, over trios 2–5 (12 runs):
+
+| | |
+|---|---|
+| appspec AI time | **147.0 s per run**, 1,763 s total |
+| calls per run | **2 to 7** |
+| runs with 2–3 calls | 49 / 54 / 69 / 94 s |
+| runs with 5–7 calls | 253 / 268 / 294 s |
+| slowest single call | 23.6–76.2 s — **none over 120 s** |
+| non-AI wall clock inside the stage | **0.0–27.3 s** (validation, sanitize, persistence) |
+| AI time recorded `usable=false` | **13 %**, 18.7 s per run, thrown away |
+
+So it is **not** a per-call latency problem and **not** an orchestration problem — ~90 % of the span
+is model calls, and the total is set almost entirely by how many of them a run makes. Each extra
+call costs roughly 50–75 s. Bounding `appspec` means bounding the **repair/coverage loop**, not
+tuning the prompt.
+
+*Which* calls the slow runs make was unanswerable: appspec was the only AI-calling stage in the
+pipeline with **no `ai_call` scope**, so all 49 rows carried `writer = NULL, attempt = 1` (see the
+telemetry note below). Now instrumented — the next funded trio will attribute those 147 s to
+authoring vs coverage vs repair, and show the re-asks.
+
+**Do not decide this from the table above alone.** It tells you where the time is, not which loop
+is spending it.
 
 ### 2. 1.12 — a MANDATORY stage with no deterministic path
 
@@ -294,7 +320,34 @@ Five are in `tests/preview_app/test_catalogue_contract.py` with detailed reasons
 one. Roadmap 0.9 unmasked them by splitting a 266-assertion mega-test that had never been collected.
 Treat each as a filed defect that already has a reproduction written.
 
-### 10. Minor — telemetry vanishes when the visual critic is skipped
+### 10. The most expensive stage was the least instrumented — FIXED, unverified live
+
+`admin_ops.py:330-332` derives a usage row's `stage` from the active `ai_call` scope and, with no
+scope, falls back to `purpose` and hardcodes **`writer = None, attempt = 1`**. Every AI-calling stage
+in the pipeline opens a scope — codegen, fix_agent, design_critic, vision, refine, seed, architect,
+quality_repair — **except appspec**, which had none anywhere. All 49 of its rows across trios 2–5 are
+`writer = NULL, attempt = 1`.
+
+Three consequences, none of them cosmetic:
+
+1. The 147 s per run could not be split into authoring / coverage / repair, which is exactly what the
+   pending decision in item 1 turns on.
+2. **Its re-asks were invisible.** `build_app_spec_candidate` retries a malformed authoring response
+   up to `APPSPEC_AUTHORING_MALFORMED_RETRY_MAX` times and every attempt was recorded as attempt 1.
+   Combined with item 8 — the authoring parser could not read a structurally complete but
+   under-escaped response — the pipeline was re-asking 28k-token calls and *recording them as first
+   attempts*.
+3. The DoD row **"no ask > 120 s inclusive of failovers"** groups logical asks by
+   `(request_id, stage, writer)` with `attempt` not resetting. For appspec that grouping had nothing
+   to group on, so **the row was evaluated on data that structurally could not show an appspec
+   failover.** Treat that row as unproven for this stage until a funded trio re-measures it.
+
+Scopes added in `builder.py` (`authoring`, real attempt numbers; `repair`), `coverage.py`
+(`coverage_review`) and `schema_repair.py` (`schema_repair`). Pinned by
+`tests/appspec/test_appspec_call_telemetry.py`, 5 mutations, 5 caught, 0 survivors. **Verified only
+against fakes** — no live run has produced a labelled row yet, because of the credit wall.
+
+### 11. Minor — telemetry vanishes when the visual critic is skipped
 
 Trios 4 and 5 store `visual_review_status: None` rather than `unmeasured` when the critic is skipped
 past the deadline. The degradation record covers it, so this is an observability nit rather than data
