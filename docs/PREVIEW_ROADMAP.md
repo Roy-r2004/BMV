@@ -481,6 +481,42 @@ deadline — 25× slack. A test that tolerates a 24× overshoot cannot see a 12.
 one. The replacement pins the arithmetic directly (120 → 118) so the production
 number is checked without a test sitting through a 120 s budget.
 
+#### Dead links were 76 % of everything the gate blocked on
+
+Across trios 2-4, nine gate failures carried 49 blocking issues. **37 of them — 76 % — were dead
+links**, and **5 of the 9 failures were dead links and nothing else**. That single class was the
+largest reason a finished preview was withheld.
+
+Measured, they are neither typos nor routes assembly dropped (`declared - rendered` is empty on all
+of 78/81/82/84/85): the writers link to pages that were never planned. Of the 31 distinct dead hrefs,
+**22 have no plausible target at all**, so retargeting could never have been the whole answer.
+
+Repaired deterministically in `safety/dead_links.py`, inside `apply_workspace_guards` — before every
+build attempt, so it costs no ask and no second `vite build`, and it still works past the deadline:
+retarget to a served parent or dash-prefix (9), drop the `href` from a tag whose contract we own (3),
+delete the whole entry when it is an object inside an array (12), ground to `/` and count it as a
+last resort. Replayed over all nine stored workspaces: **31 → 0**. Trio 5 confirmed it live with
+**zero dead-link gate failures**.
+
+Two upstream defects it exposed, both fixed at source:
+
+- `normalize_mock_navigation` judged nav entries against the *architect's declared* routes rather
+  than the shipped router. `served_route_paths` exists precisely because those diverge — that is how
+  78 and 81 shipped nav items for `/contact` and `/gallery` that no `<Route>` served.
+- The template's own `MarketingHero.DEFAULT_PRIMARY_CTA` was `href: '/gallery'`, so every app the
+  architect built without a gallery shipped a dead hero CTA on every page (78, 81, 84).
+
+**The grading is graded because the first version was wrong in a way the gate could not see.**
+Grounding every unresolvable href shipped request 88 with 33 of 81 internal links pointing at `/` — a
+footer whose Activities, Contact and Privacy Policy entries all landed on the home page. That reads
+as navigable and is not, which for a demo is worse than the dead link, and it is the same mistake as
+the reverted screenshot clip in 1.11: the gate metric improved and the artifact got worse. **When a
+fix moves a gate number, measure the artifact on its own axis.**
+
+*Residual:* `AiFeaturePanel.tsx:44` hardcodes `/ai-features`. Template-owned, so the guard skips it
+and the restore would revert an edit anyway; `AppLink` requires `href`, so there is no safe removal.
+Dead in 1 of 9 runs and non-blocking there.
+
 #### The failure mode the contract exists to prevent, still live
 
 **Request 74 stored nothing at all** — no `preview_app`, no `roles`, an empty

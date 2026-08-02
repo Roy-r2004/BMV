@@ -1,260 +1,272 @@
-# Session handoff — preview latency and the degradation contract (2026-08-02, session 4)
+# Session handoff — the clock, the gate, and what is still broken (2026-08-02, session 5)
 
-Successor to session 3's handoff (preserved in git history at `6294583`; the still-binding parts are
-restated below). Process notes, not product docs.
+Successor to session 4's handoff (preserved in git history at `6e7c28d`; the still-binding parts are
+restated below, including the five nav fixes and why they must not be pinned by source grep).
+Process notes, not product docs.
 
-- The plan and its evidence: **[docs/PREVIEW_ROADMAP.md](docs/PREVIEW_ROADMAP.md)** — read its
-  **Status** table first, it is current as of this commit.
+- **The plan and its evidence: [docs/PREVIEW_ROADMAP.md](docs/PREVIEW_ROADMAP.md).** Read its
+  **Status** table and the **Phase 1 DoD** table first. Both are current as of `6e6309b`.
 - Why the pipeline shipped bad output: [docs/PREVIEW_QUALITY_FINDINGS.md](docs/PREVIEW_QUALITY_FINDINGS.md).
 
-**If you read one thing: [Where this stands](#where-this-stands).**
+**If you read one thing: [What is still broken](#what-is-still-broken) — that is this session's
+actual deliverable to you.**
 
-## TL;DR — session 5 supersedes session 4's headline
+> ## ⛔ Blocker before any live run: the OpenRouter account is out of credits
+>
+> From **19:29 (container clock) on 2026-08-02**, calls fail with
+> *"This request requires more credits, or fewer max_tokens. You requested up to 28000 tokens, but
+> can only afford 9612."* — 14 occurrences in trio 6, zero in trios 2–5.
+>
+> **Top up before running any generation, or every measurement you take will be wrong** — and wrong
+> in a way that mimics the deadline defects. Request 89 degraded `codegen` (a MANDATORY stage) and
+> stored nothing at all; that looks exactly like item 2 below and **is not** — it is an unfunded
+> account. Requests 89 and 90 stored `generated_pages = {}`; only 91 completed (565 s, `ready`).
+>
+> **Trio 6 (89-91) is void. Do not cite it.** Trios 2–5 are clean and are the evidence base.
 
-Session 4 reported Phase 1's 600 s guarantee as landed, evidenced on one run. **Session 5 ran it
-concurrently and it broke.** Three DoD rows marked *done* were false in production, and two of them
-were false in the test environment that was supposed to pin them.
+---
 
-| | session 4 claimed | session 5 measured |
-|---|---|---|
-| 600 s cap | met (request 73: 579 s) | **breached** — request 77 at **619.7 s** |
-| p50 | unmeasured, n=1 | **576.4 s** against a ≤ 500 s target |
-| `degraded:[stage]` marker | "published by `finalize`, seen on 73" | **never written** — 73, 75, 76 each degraded 3 stages and each stored `[]` |
-| zero consecutive same-model asks | done, pinned by test | **7 violations** — the test pins the *repair* chains; architect's was never deduped |
-| suite | 1,245 | **1,443 collected, 1,438 passed / 1 skipped / 8 xfailed** |
+## Work the roadmap's order, and do not re-litigate it
 
-The owner's contention hypothesis is **confirmed, smaller than feared, and in a place the plan did
-not look** — not inside the 540 s budget, inside the 60 s reserve after it.
+The roadmap is Phase 0 → 1 → 2 → 3 → 4 and **you work it in that order.** In this session I proposed
+reordering — pulling 2.9 forward, calling the clock done-enough — and the owner pushed back: *"why
+not work in order by the preview roadmap?"*. I withdrew it, and the withdrawal was right on three
+counts:
 
-**9 commits** on `chore/remove-preview-generator-v2` (`90f4d5f`…`a0ecff8`), working tree clean,
-`tsc` clean, `docs/KNOWN_TEST_FAILURES.md` empty.
+1. 2.9 lives in `codegen/generate.py:269-489`, exactly the range Phase 2's 2.4–2.5 deletes. Fixing it
+   now is throwaway work.
+2. "Declare the clock done-enough and move on" is this codebase's named recurring failure.
+3. The dependencies in the roadmap are reasoned and it has survived three adversarial reviews.
 
-| commit | what |
+**Phase 1 is not finished.** Do not start Phase 2 because Phase 1 is tiring.
+
+---
+
+## Binding owner constraints — these do not expire
+
+- **Fix the PIPELINE, never a generated preview.** Editing anything under `data/preview-apps/**` to
+  make a defect go away is always wrong. *Reading* those workspaces for evidence is fine and is how
+  most of this session's findings were made.
+- **Generation must not exceed 10 minutes.**
+- **If you find a defect, fix it in the pipeline and add a test that fails with the fix reverted.**
+- **Do NOT relax the deadline to make runs pass.** A degraded preview that ships is the designed
+  outcome; two of three audited runs used to ship nothing at all.
+
+### The rule that has caught the most defects
+
+**Mutation-test every guard.** A guard whose success looks like its failure is this repo's recurring
+defect. Revert the fix, confirm the new test goes red, restore. This session that found:
+
+- `publish_degradations` — the first test called the helper directly instead of the call site, and
+  passed with the fix reverted.
+- The nav normalizer — reverting it to declared routes passed the **entire 1,469-test suite**. My own
+  change, untested, caught only because I mutated all three changes rather than the interesting one.
+- 1.7's original test — pre-flight refusal and post-hoc rollback produce identical end states, so an
+  end-state assertion cannot tell them apart.
+
+Three DoD rows session 4 marked "done" were false in production **and** false in the test environment
+meant to pin them. Assume the same of any row you did not personally mutate.
+
+---
+
+## Operating notes — every one of these has cost real time
+
+| | |
 |---|---|
-| `90f4d5f` | nav: a link must land where its label points |
-| `614c086` | the roadmap, costed against the tree |
-| `ac10c9b` | three guards that reported success while the defect shipped |
-| `d8ef2e9` | gate: count occurrences, not findings |
-| `a4f8b55` | telemetry: measure what the pipeline spends, and on what |
-| `c534fdf` | **the request-scoped clock, and a contract for running out of it** |
-| `a919f86` | coverage: stop letting the cap decide which defects are findable |
-| `58b4956` | **deadline: zero means do not call, and a cap must fire when it says** |
-| `1b5e0d1` | repair: refuse a plan for its paths before writing any of them |
-| `a0ecff8` | 0.3 answered, and it reverses the branch 2.6 had chosen |
+| **`industry` is `Form(None)`** | Omitting it silently resolves to `generic` and produces convincing garbage. **Always set it.** Cost three runs and a wrong escalation. |
+| Host port | **8001**. Multipart, not JSON. |
+| Trailing slash | `POST /api/requests/` 307-redirects and **drops the body**. No trailing slash. |
+| `reviewing` | **Transient, not terminal.** Watch `is_generating`. |
+| Reload code | `docker compose restart api`. `exec api` does **not** reload. |
+| Industries | Use a **different** one per run in a trio. Three art galleries only prove the art-gallery path. |
+| pytest | **Read the SUMMARY LINE, never the exit code.** Piping to `tail` inside an `&&` chain has masked red suites twice. |
+| Working directory | **Drifts between tool calls. Use absolute paths.** It broke one `docker compose` call and two `docker run` calls this session. |
 
----
+**The test command** — both documented ones lie:
 
-# Where this stands
-
-## The nav defects the owner reported — all four fixed, verified on pixels
-
-Fixed **in the pipeline**, not in a generated app. That constraint was explicit and it holds: nothing
-under `data/preview-apps/**` was edited.
-
-| reported | cause | fix |
-|---|---|---|
-| navigation keeps the scroll position | no scroll reset existed | `ScrollToTop` inlined into `app_tsx.j2`, `behavior:'instant'` |
-| image and header into each other | hero clearance sat inside tailwind-merge range, so the caller's `className` won | clearance moved out of merge range + `min-h` |
-| detail page shows "why Jane art" before the painting | three of six recipes ordered the detail page arbitrarily | all six ordered hero → credentials → inquire |
-| "contact to purchase" lands mid-section | `index_css.j2` never carried a `scroll-margin-top` floor | it does now |
-| footer in a huge wordmark | footer inherited the band's type scale | footer paints its own plane, below merge range |
-
-**The header fix took three attempts and the third is the one to keep.** The template flipped
-`sticky`↔`fixed` past 24 px, which collapses the document by 114 px *mid-scroll*. Fix 1 measured the
-header and inserted a spacer — that just moved the jolt to first paint. Fix 3 is `sticky` for every
-non-immersive layout: the document reserves the space, and nothing is measured at runtime.
-
-**Do not pin these by source grep.** `docs/PREVIEW_ROADMAP.md` § *The nav guarantees* explains why —
-every one of these five fixes would pass a grep. `tests/preview_app/test_nav_contract.py` asserts
-rendered DOM through the Playwright path.
-
-## Session 5 — what six live runs showed
-
-Two trios of three, started 60 s apart, one with a `reference_url` and one with a `reference_file`.
-**Trio 1 (74/75/76) is timing-invalid** — a concurrent Cursor session ran a mutation sweep on the
-same host inside the window. Its *outcomes* stand. **Trio 2 (77/78/79) is the measurement.**
-
-| run | wall clock | blocked on `_SESSION_LOCK` | verdict on its degradations |
-|---|---|---|---|
-| 77 | **619.7 s** | 16.9 s | **CORRECT** — 62.8 s over without the block. The cap breach survives it too: 602.8 s |
-| 78 | 576.4 s | 35.9 s | **ARTIFACT** — subtract the block and it lands within 0.5 s of its deadline |
-| 79 | 573.0 s | 16.7 s | **CORRECT**, though contention doubled the overrun |
-
-`npm_install` was 0.0 s on all six (warm cache). Every wait was the browser session lock.
-
-**Three things you cannot see without the instrumentation added this session.** `blocked_seconds`
-and `contention` are published beside `degraded`; without them 78's degradation list is
-indistinguishable from a run that was simply slow, and the report would have concluded the contract
-works when it had merely mislabelled the cause.
-
-### Request 74 shipped nothing at all
-
-Empty `generated_pages` — no `preview_app`, no `roles`. At t=540.4 s `call_architect` started and
-raised 9 ms later with *"Architect agent failed to produce valid JSON"*. No model was asked
-anything: past the deadline every ask budget is zero. The orchestrator read that as transient, found
-no retry runway, and the `role_pages` fallback under `except Exception: pass` produced nothing
-either. `architect` is MANDATORY and **has no deterministic path** — that is 1.12, still open.
-
-### The sameness complaint now has a measured cause — 2.9
-
-A page the model wrote that is syntactically valid but violates the **catalogue contract** is
-discarded and replaced by the generic deterministic scaffold, **with no retry**.
-`_slot_fill_rejection` only rejects empty / truncated / missing-export / unparseable, so a contract
-violation is *accepted* by the retry loop. **26 pages across requests 74-79** went that way —
-HomePage, GalleryPage, ServicesPage, RoomsSuitesPage — with **zero** syntactic rejections in the
-same runs, so the retry never fired once.
-
-This puts a question against Phase 3's sizing: if a third of pages never reach the kit, the
-"~5 perceived designs" figure justifying 10-12 weeks of axis work may be partly measuring the
-scaffold. Re-measure after 2.9 before committing that staffing.
-
-## Phase 1 — what the clock actually buys
-
-`backend/app/application/services/request_deadline.py` is the whole mechanism. Three things about it
-that are not obvious from the code:
-
-1. **The scope is re-entrant for the same request, on purpose.** `orchestrator` calls
-   `generate_preview_app` twice on failure. A nested scope inheriting a fresh budget would let a
-   failing run spend 124 + 540 + 540.
-2. **It is a degradation contract, not a kill switch.** MANDATORY stages fall through to their
-   deterministic default and record `deterministic_fallback_past_deadline`; ELECTIVE stages skip and
-   record `skipped_past_deadline`. Both are published by `finalize`. Two of three audited runs
-   already shipped nothing — a deadline that just aborts trades a slow preview for no preview.
-3. **540 s, not the 480 s the plan proposed.** The census killed 480: at t=480 all six measured runs
-   were still inside build or codegen, and 124 + 480 + 60 > 600 does not close.
-
-## The two defects I shipped into the deadline itself
-
-Both found by **running** it. Written up at `58b4956`; repeated here because the shape recurs.
-
-- **`ask_budget()` had a 1 s floor**, on the reasoning that a socket timeout must never be zero — and
-  I pinned that reasoning in a test. Past the deadline every ask got 1 second, which does not mean
-  "hurry", it means "attempt something that cannot finish". Each failed with a transport error, which
-  is *retryable*, so it retried, then failed over. **AppSpec spent 29 minutes past an expired
-  deadline.** Zero now means *do not call*, and `call_with_retry` refuses before the first attempt.
-- **`_run_with_heartbeat` only checked its cap once per heartbeat.** A 1 s cap under a 20 s heartbeat
-  fired at 20 s. **This predates the deadline work** — any caller passing `hard_deadline < 20` has
-  always been silently rounded up. `test_a_short_ask_budget_is_honoured_within_it_not_a_heartbeat_later`
-  reproduces the production log line verbatim.
-
-## What is not done
-
-1. **1.10, the vitest runner.** `preview-template/package.json` has `dev`/`build`/`typecheck` only.
-   No `.github/`. Two Phase 2 DoDs depend on a runner that does not exist. **The only Phase 1 code
-   left.**
-2. **Phase 1's DoD is evidenced at n=1.** No 3-runs-60 s-apart set, no `reference_url` run, no
-   `reference_file` run. Concurrency is exactly where `_SESSION_LOCK` and `_install_lock` make the
-   deadline most likely to bind, so this is the highest-information thing left in Phase 1.
-3. **Request 73 was still withheld** — 4 gate issues, incl. a severe visual defect on `/about-artist`
-   and a dead link. Phase 1 bought the clock and the honesty. The ceiling is Phase 3.
-4. **`/gallery` + `/collection` duplicate browse pages.** The surface-priority fix orders correctly,
-   but 14 routes against a 6-page critic cap still leaves the storefront page unjudged on some runs.
-   The duplication is the bug; the cap is not.
-5. **5 of 88 repair ops changed nothing at all**, and were paid for. Worth a ticket.
-6. **0.1** (replay 60 days of `industry` strings through `pick_template_id`) and **0.4** (are the
-   critic's `revision_instructions` expressible as content-key edits) need production data.
-   0.1 sizes 1.8's token work; 0.4 gates 2.6.
-
-## The correction worth carrying forward
-
-**My first 0.3 measurement was wrong and would have sent Phase 2 the wrong way.** I pattern-matched
-the repair's *output* and reported 34 % layout. Artifact: almost any TSX blob contains `className`,
-so layout won every tie. Diffing what actually **changed** (`difflib` over `old`→`new`) drops layout
-to **4.5 %**. The plan said *"if mostly layout, demote `visual_defect_severe` to WARN in the same
-commit that deletes the repair"* — that branch is dead. Build the spec-level actor and keep the BLOCK.
-
-Same class as session 3's lesson: measure the delta, not the artifact.
-
----
-
-# Process notes — verify before trusting, but these cost real time
-
-## Branch and deploy constraints — unchanged, still binding
-
-- **Nothing has deployed.** `main` and `origin/main` are untouched; no PR opened.
-- **Pushing `main` auto-deploys to production** via Coolify (`DEPLOY.md`).
-- **Do not force-push. Do not amend `5fcae7c`.**
-- **`.env.prod` is gitignored and holds real production values.** Do not undo the `.gitignore` rules
-  denying `.env` / `.env.*` at any depth.
-
-## Use this test command — both documented ones lie
-
-```bash
-docker run --rm -v "$PWD:/repo" -w /repo/backend \
-  -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template \
-  --entrypoint sh bmv-local-api \
+```
+docker run --rm -v "/Users/maurice/Documents/Dev/BMV:/repo" -w /repo/backend \
+  -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template --entrypoint sh bmv-local-api \
   -c 'pip install -q pytest; python -m pytest tests/ -q'
 ```
 
-- Plain `docker run -v "$PWD:/repo"` fails template-dependent tests: the image sets
-  `PREVIEW_TEMPLATE_DIR=/app/backend/preview-template`, and that env var **wins over** `Settings`'
-  path discovery — so tests read the template *baked into the image* while your edits sit unread
-  under `/repo`. Hence the explicit `-e` override.
-- `docker compose exec api` fixes the template but fails
-  `test_admin_build_info.py::test_deploy_files_stamp_the_code_policy_revision`, which walks to
-  `parents[3]` for the repo root, finds `/app`, and cannot see the deploy files.
-
-**Read the summary line, not the exit code.** Session 3 committed `42f81b9` with 14 tests red because
-`pytest … | tail -5` inside an `&&` chain masked it. **I did the same thing again this session** —
-exit 0 with 11 failures. Always `grep -E '^(FAILED|ERROR)'` *and* read the counts line.
-
-## Running a generation
-
-```bash
-docker compose restart api                    # `exec api` does NOT reload code
-curl -s -X POST http://localhost:8001/api/requests \
-  -F 'business_name=…' -F 'business_description=…' -F 'email=…' -F 'industry=…'
-```
-
-**Set `industry`.** The endpoint declares `industry: str = Form(None)`. Omitting it resolves silently
-to `generic` — no warning, no derivation. I created requests 66/67/68 without it and then escalated
-the resulting garbage (SIGMA camera packaging in an art gallery) as the product's most urgent problem,
-across three runs. Request 70, same brief with the field set, produced 9 of 11 real paintings. **This
-is the single most expensive mistake available in this repo.**
-
-- Host port is **8001**, not 8000. Creation auto-starts the pipeline. **Multipart, not JSON.**
-- The **trailing slash** on `/api/requests/` 307-redirects and drops the body.
-- `reviewing` is a **transient** state, not terminal. A watcher that stops there reports a run
-  finished when it has not. Watch `is_generating`.
-- Container log timestamps run behind the host clock; compare log lines to each other, not to `date`.
-- A run is ~10 min now (was 15–20). Inspect with `scripts/preview-qa.sh <id> [tag]`, the stored
-  `preview_app` result, and
-  `docker compose exec api sh -c 'cd /app/data/preview-apps/<id> && ./node_modules/.bin/tsc --noEmit -p tsconfig.app.json'`.
-
-## Other environment facts that cost time
-
-- `awk` and `timeout` are absent from the host shell.
-- `psql` exists only inside the `db` container
-  (`docker compose exec -T db psql -U bmv -d buildmyversion`), where `sum(bool)` fails — use
-  `count(*) FILTER (WHERE …)`. The `requests.status` column reads `new` long after a preview
-  finishes; preview state is not there.
-- **The working directory drifts between tool calls.** A `cd` into `backend/preview-template` broke a
-  later `$PWD` docker mount for me this session. Use absolute paths.
-- `write_file` renames `src/pages/*.tsx` to canonical `*Page.tsx` and unlinks the original.
-- **Do not write a banned phrase into source, even in a comment.** I wrote one verbatim into a
-  comment in `AdminDashboardPage.tsx`, which made the leak check flag that file permanently.
-  `CTABand.tsx` carries a note explaining exactly why not to.
-
-## Team Maverick
-
-`.claude/agents/{maverick-pm,maverick-frontend,maverick-qa,maverick-logreader,maverick-master}.md`
-exist and load at session start. `maverick-qa` deliberately has **no write tools** — a measurer that
-can edit what it measures eventually does. They were created mid-session-3 and so were not
-dispatchable in the session that wrote them; they are available to you now.
+**Do not run a pytest container while a timed trio is in flight.** It contaminates the measurement —
+I did it to my own trio 2 after criticising another session for the same thing.
 
 ---
 
-# Standing rules, earned the hard way
+## What landed this session
 
-1. **Fix the pipeline, never the generated preview.** Editing `data/preview-apps/**` to make a defect
-   go away is the one thing that is always wrong here.
-2. **A guard that reports success while the defect ships is the recurring failure of this codebase.**
-   `docs/PREVIEW_ROADMAP.md` § *Do not do this* #16 is the worked example — three layers each wrong
-   in a different way, and the auditing agent nearly closed it as unreproducible.
-3. **Mutation-test any guard whose success looks like its failure.** Break the fix, confirm the test
-   goes red, restore. Session 4's 1.7 test passed with the fix reverted.
-4. **A measurement with no reader is indistinguishable from one never taken.** (Session 3.)
-5. **A repair must be better than the thing it replaces, and that must be checked.** (Session 3's
-   `seed.showcase` lesson — the guard was right about the absence and wrong about what to do with it.)
-6. **Never edit a generated preview app to make a defect go away.** Restating #1 because it is the
-   one that gets rationalised.
+9 commits on `chore/remove-preview-generator-v2` (`6e7c28d`…`6e6309b`). `main` and `origin/main` are
+both still at `66902f0` — **nothing pushed, no PR.** Working tree clean. Suite **1,472 passed / 1
+skipped / 8 xfailed**.
+
+| commit | what |
+|---|---|
+| `f9f41eb` | contention: charge a blocked run for the wait it did not choose |
+| `56f5c39` | three DoD rows that were marked done and were not true |
+| `115375f` | 0.9: 2,375 lines of assertions that had never run, and what they found |
+| `b7a9056` | roadmap: Phase 1 failed its DoD under concurrency, and why |
+| `533dff3` | bound the lock wait; the budget clip was wrong and is reverted |
+| `f36a5d0` | **five of eight elective stages were never actually elective** |
+| `44736dd` | **the 120 s ask ceiling was 135 s, by a constant** |
+| `6e6309b` | **repair dead links deterministically instead of withholding** |
+
+Six concurrent trios were run (requests 74–91): three runs each, started 60 s apart, one with a
+`reference_url`, one with a `reference_file`, a different industry per run.
+
+| trio | wall clock | ≤ 600 s | what it tested |
+|---|---|---|---|
+| 2 (77-79) | 619.7 / 576.4 / 573.0 | 2 of 3 | baseline + contention instrumentation |
+| 3 (80-82) | 590.2 / 600.2 / 602.7 | 1 of 3 | screenshot lock-wait bound |
+| 4 (83-85) | 591 / 583 / 590 | **3 of 3** | elective-stage guards |
+| 5 (86-88) | 569 / 562 / 570 | **3 of 3** | dead-link guard — **zero dead-link gate failures** |
+| 6 (89-91) | **VOID — out of credits** | — | would have confirmed the dead-link guard |
+
+**So the dead-link guard has one clean live trio (5), not two.** Re-run the confirming trio once the
+account is funded. Trio 5 is strong evidence — zero dead-link gate failures where trios 2–4 had 37
+dead links across 9 gate failures — but it is n=3, and this session has twice been wrong about a fix
+after a single trio.
+
+### Tooling in the scratchpad
+
+`/private/tmp/claude-501/-Users-maurice-Documents-Dev-BMV/6b80695f-52e9-41af-94b7-df5cba4e352f/scratchpad/`
+(session-scoped — copy anything you want to keep into the repo):
+
+| file | what |
+|---|---|
+| `analyse.py` | per-trio DoD evidence: wall clock, degradations, contention, logical asks inclusive of failovers. Knows trios 1–6 by launch epoch; add yours the same way |
+| `replay.py` | replays the dead-link guard over stored workspaces **read-only** — how "31 dead hrefs → 0" was measured |
+| `resolve_probe.py` | measures how much of the real dead-link population each resolver rule can retarget |
+| `tail.py` | decomposes post-deadline time into AI vs non-AI. This is what found the elective-stage defect |
+| `launch_trio*.sh` | the trio launchers — correct `industry`, port, multipart and 60 s spacing already baked in |
+| `api2..6.log` | the raw run logs behind every number in this handoff |
+
+---
+
+## What is still broken
+
+Ordered by what I would do first. Every item has evidence attached; none is speculative.
+
+### 1. p50 is 569–590 s against a ≤ 500 s DoD, and the lever is not the deadline
+
+`appspec` spans **264.5 s and 288.8 s** on requests 83 and 84 — roughly half the whole budget, before
+anything is built. No amount of deadline enforcement fixes a stage that is simply slow, and
+**bounding `appspec` is not in Phase 1's item list.**
+
+This is the same work as item 2. **Owner decision pending:** move the p50 row to Phase 2, or add a
+Phase 1 item for `appspec`. Do not quietly re-fit the number.
+
+### 2. 1.12 — a MANDATORY stage with no deterministic path
+
+Request 74 stored **literally nothing**: no `preview_app`, no `roles`, empty `generated_pages`. At
+t=540.4 s `call_architect` raised 9 ms later — past the deadline every ask budget is zero. `architect`
+is in `MANDATORY_STAGES`, whose contract is that such stages take their deterministic path. **It has
+none** outside the AppSpec branch, and 74's AppSpec had already burned 390 s of the 540 s budget and
+failed. The orchestrator read the message as transient, looked for the 180 s retry runway, found
+none, and the `role_pages` fallback under `except Exception: pass` produced nothing either.
+
+`require_model_time` now attributes the error to the deadline rather than to the model. That fixes
+the misdiagnosis and does **not** make the run ship.
+
+**My recommendation, reversing my earlier one:** do *not* build a deterministic architect. Past the
+deadline codegen is refused too, so it would ship an architecture with wholly generic pages — given
+item 4, precisely the artifact to avoid. Bound `appspec` instead. Owner has not ruled.
+
+### 3. Ship rate is still 1 of 3
+
+After the dead-link fix, the remaining blocking gate codes across trios 2–5:
+
+| code | count |
+|---|---|
+| `visual_defect_severe` | 5 |
+| `listing_not_schedule_rail` | 4 |
+| `placeholder_content_shipped` | 2 |
+| `confirm_not_stage` | 1 |
+
+These are genuine judgment calls, not link plumbing, and they now decide whether a preview ships.
+`placeholder_content_shipped` firing at all **inverts a DoD row** that wants zero fires — the gate
+works; the *writers* still emit placeholders.
+
+Note what does **not** decide it: typecheck. Request 83 shipped `ready` with 10 type errors; request
+78 failed with zero. Do not chase `tsc` counts expecting the ship rate to move.
+
+### 4. 2.9 — slot-fill falls back to the generic scaffold with no retry
+
+`_slot_fill_rejection` (`codegen/generate.py:95`) only returns a reason for empty / truncated /
+missing-export-default / unparseable-tsx output. A **contract-invalid** page is not a rejection, so
+`enforce_catalogue_page_contract` (`:394`) silently replaces it with the generic scaffold and
+`_MAX_SLOT_FILL_ATTEMPTS = 2` (`:77`) never fires. **26 pages across requests 74–79, and zero
+syntactic rejections in those same runs — the retry loop did not run once.** Of 25 distinct
+gate-blocked pages, 11 (44 %) had been scaffolded.
+
+This is the measured root of the "everything looks the same" complaint. ~4 extra asks per run to fix.
+**Owner decision pending**, and note it is in the range Phase 2's 2.4–2.5 deletes.
+
+### 5. 1.11 — the reserve is still unbounded as a whole
+
+`RESERVE_SECONDS = 60` was fitted to the post-deadline render-smoke and capture pass. Decomposed over
+nine runs, the 382 s of tail is **127 s AI (33 %) and 255 s non-AI (67 %)**. The elective guards took
+~10 s a run off it. Two attempts at the rest:
+
+- The screenshot **session-budget clip** was implemented, measured and **reverted** — it produced
+  2-of-3 over 600 s and **0 of 18 pages visually reviewed**. The measurement is written into
+  `screenshot.py` as a comment so nobody re-adds it.
+- The lock **wait** bound was kept (`533dff3`).
+
+If you attack this again, the axis that killed attempt one is *pages actually given a visual verdict*,
+not wall clock. Measure both, separately.
+
+### 6. Template components hardcoding routes they cannot guarantee
+
+`preview-template/src/ui/public/AiFeaturePanel.tsx:44` hardcodes `/ai-features`. The dead-link guard
+**skips template-owned files** (`restore_template_owned_files` would revert the edit) and `AppLink`
+requires `href`, so there is no safe removal. Dead in 1 of 9 runs; did not block that run.
+`MarketingHero`'s `DEFAULT_PRIMARY_CTA` was the same defect and is fixed at source — this one is not.
+
+### 7. 1.10 — no JS test runner
+
+`preview-template/package.json` has `dev`/`build`/`typecheck` only. No vitest, no `.github/`. **Two
+Phase 2 DoDs depend on a runner that does not exist**, and the standing rule is: *no test may leave
+pytest until that CI job is green on main.* Cheap, needs no decision, and it is the last unstarted
+Phase 1 item.
+
+### 8. Three other JSON extractor implementations, untouched
+
+1.6 fixed `shared/json_utils.py` (6 of 6 captured payloads now parse). Still carrying the original
+bugs: `appspec/sanitize/preparse_normalize.py:149` (**both** of them),
+`services/page_experience.py:133`, `pipelines/_shared.py:107`.
+
+### 9. Eight xfailed tests are recorded defects, not stale assertions
+
+Five are in `tests/preview_app/test_catalogue_contract.py` with detailed reasons, including the 2.9
+one. Roadmap 0.9 unmasked them by splitting a 266-assertion mega-test that had never been collected.
+Treat each as a filed defect that already has a reproduction written.
+
+### 10. Minor — telemetry vanishes when the visual critic is skipped
+
+Trios 4 and 5 store `visual_review_status: None` rather than `unmeasured` when the critic is skipped
+past the deadline. The degradation record covers it, so this is an observability nit rather than data
+loss. Listed so nobody reads it as the latter.
+
+---
+
+## Things I got wrong this session, so you don't repeat them
+
+- **I mutated a live-mounted source file while three generations were in flight.** Verified harmless
+  — the module was imported at startup, before the edit — but it should never have happened.
+- **`git checkout` discarded my own uncommitted work** while cleaning up a mutation. Back up before
+  reverting.
+- **A regex-based test falsely flagged three guarded stages.** They are guarded through a loop
+  variable, not a string literal. Rewritten against the AST. That is the grep-brittleness the roadmap
+  warns about, committed by the person quoting the warning.
+- **My first dead-link repair made the artifact worse.** Grounding every unresolvable href shipped
+  request 88 with 33 of 81 internal links pointing at `/` — a footer whose Activities, Contact and
+  Privacy Policy entries all landed on Home. Gate metric up, artifact down: the same shape as the
+  reverted screenshot clip. **When a fix improves a gate number, measure the artifact separately.**
+- **A silent edit collision** in that same guard would have shipped request 82 with a dead
+  `/plan-your-stay` repaired by nothing, because the collision resolver dropped one edit without a
+  word. Anything that skips work must say so out loud.
+- **I claimed the elective guards would remove ~250 s of tail. They removed ~10 s a run.** The
+  decomposition was right; attributing the bulk of it to two stages was not. State magnitudes only
+  after measuring them.
