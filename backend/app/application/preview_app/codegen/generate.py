@@ -13,8 +13,10 @@ from app.application.preview_app.design_brief import (
 )
 from app.application.preview_app.catalogue_contract import (
     blocking_contract_errors,
+    catalogue_route_for_file,
     enforce_catalogue_page_contract,
     minimal_catalogue_page_scaffold,
+    validate_catalogue_page_content,
 )
 from app.application.preview_app.catalogue_contract.repair import lock_recipe_section_order
 from app.application.preview_app.codegen.architect import (
@@ -91,9 +93,18 @@ _SLOT_FILL_RETRY_GUIDANCE = {
     ),
 }
 
+#: The reason code for a fill that compiles but loses its assigned face. Named
+#: because three call sites branch on it and a typo would silently disable the
+#: only retry that fires in practice.
+CONTRACT_REJECTION = "catalogue-contract"
+
 
 def _slot_fill_rejection(filled: str) -> tuple[str, str]:
-    """`(reason, detail)` for an unusable slot-fill answer; `("", "")` when acceptable."""
+    """`(reason, detail)` for a *syntactically* unusable answer; `("", "")` otherwise.
+
+    Syntax only. Contract validity is `_slot_fill_contract_rejection`, because
+    deciding it needs the route and the architect and this does not.
+    """
     if not (filled or "").strip():
         return "empty", ""
     if looks_truncated_source(filled):
@@ -104,6 +115,73 @@ def _slot_fill_rejection(filled: str) -> tuple[str, str]:
     if parse_error:
         return "unparseable-tsx", parse_error
     return "", ""
+
+
+def _slot_fill_contract_rejection(
+    file_path: str,
+    filled: str,
+    architect: dict,
+    *,
+    route: dict,
+    brand_name: str,
+) -> list[str] | None:
+    """The blocking contract errors when the fill would be discarded; `None` otherwise.
+
+    A page that compiles but violates the catalogue contract is thrown away by
+    `enforce_catalogue_page_contract` further down and replaced by the generic
+    deterministic scaffold. Measured across requests 74-79: 26 pages, and zero
+    syntactic rejections in the same runs — so the retry loop existed and never
+    once fired, and every discard took the no-retry path. That is a direct cause
+    of "every generation looks like the same template".
+
+    The predicate is **enforce's own verdict**, not the validator's, and the
+    difference matters. `enforce` repairs a broken `SkeletonComposer` invocation
+    and back-fills missing slots before giving up; re-asking for something it
+    would have fixed deterministically spends 50-plus seconds to arrive at the
+    same file. Reject exactly what it would throw away, and nothing else.
+
+    Returns the list so the retry prompt can name the errors. It can be empty —
+    enforce also replaces a listing face that regressed to a marketing clone,
+    which the validator has no error string for — so callers must test for
+    `None`, not for falsiness.
+    """
+    _, would_replace = enforce_catalogue_page_contract(
+        file_path, filled, architect, brand_name=brand_name
+    )
+    if not would_replace:
+        return None
+    return blocking_contract_errors(validate_catalogue_page_content(filled, route))
+
+
+def _has_contract_retry_runway() -> bool:
+    """Whether this request can still afford a discretionary re-ask.
+
+    The syntactic retries above are effectively free: they fire on answers that
+    are already broken, which almost never happens. A contract retry fires on
+    roughly four pages a run, so it is real new spend against a 540 s budget
+    that request 77 has already breached. One ask is bounded by the per-ask
+    ceiling and the post-deadline smoke pass needs the reserve, so below their
+    sum the re-ask cannot fit without taking the time from someone else.
+
+    Codegen pages run in parallel, so N of these overlap rather than sum; the
+    wall-clock cost of a run's worth of contract retries is closer to one ask
+    than to four. The gate is here for the tail, not the mean.
+
+    Skipping is recorded, never silent: a run that could not afford its retries
+    and a run that had none to make must not describe themselves the same way.
+    """
+    from app.application.services.request_deadline import (
+        DEFAULT_ASK_CEILING_SECONDS,
+        RESERVE_SECONDS,
+        record_degradation,
+        remaining_seconds,
+    )
+
+    left = remaining_seconds()
+    if left is None or left >= DEFAULT_ASK_CEILING_SECONDS + RESERVE_SECONDS:
+        return True
+    record_degradation("codegen", "slot_fill_contract_retry_skipped_low_runway")
+    return False
 
 
 def _slot_fill_retry_prompt(prompt: str, *, reason: str, detail: str) -> str:
@@ -347,6 +425,11 @@ def _generate_catalogue_scaffold_first_file(
     )
     content = scaffold
     attempt_prompt = prompt
+    # The route `enforce_catalogue_page_contract` will judge against, so the
+    # rejection test and the discard it predicts cannot disagree. `merged` is
+    # richer (it back-fills inferred slots) and judging against it would reject
+    # fills that enforce goes on to accept.
+    contract_route = catalogue_route_for_file(file_path, architect) or merged
     for attempt in range(1, _MAX_SLOT_FILL_ATTEMPTS + 1):
         # A fill the rejection check throws away cost exactly as much wall clock
         # as one that shipped, and the census has to be able to tell them apart.
@@ -371,11 +454,32 @@ def _generate_catalogue_scaffold_first_file(
                 break
             filled = _sanitize_emoji_icons(_strip_fences(raw))
             reason, detail = _slot_fill_rejection(filled)
+            contract_errors: list[str] = []
+            if not reason:
+                rejected = _slot_fill_contract_rejection(
+                    file_path,
+                    filled,
+                    architect,
+                    route=contract_route,
+                    brand_name=brand_name,
+                )
+                if rejected is not None:
+                    reason = CONTRACT_REJECTION
+                    contract_errors = rejected
+                    detail = ", ".join(contract_errors) or "assigned face not preserved"
+            # A fill rejected on contract grounds cost the same wall clock as one
+            # that shipped, and the census only knew about syntactic rejections.
             call.adjudicate(not reason, reason=UNUSABLE_REJECTED)
             if not reason:
                 content = filled
                 break
-            retrying = reason != "empty" and attempt < _MAX_SLOT_FILL_ATTEMPTS
+            retrying = (
+                reason != "empty"
+                and attempt < _MAX_SLOT_FILL_ATTEMPTS
+                # Only the contract retry is discretionary; a broken file is
+                # worth re-asking for whatever time is left.
+                and (reason != CONTRACT_REJECTION or _has_contract_retry_runway())
+            )
             cg_log.warning(
                 "slot_fill rejected %s attempt %s/%s (%s%s) — %s",
                 file_path,
@@ -389,7 +493,19 @@ def _generate_catalogue_scaffold_first_file(
                 # An empty answer is how an exhausted AI call budget reports itself;
                 # re-asking cannot add information and only burns the retry.
                 break
-            attempt_prompt = _slot_fill_retry_prompt(prompt, reason=reason, detail=detail)
+            if reason == CONTRACT_REJECTION:
+                # The freeform path's retry shape: exact validator errors, the
+                # assigned contract, and an excerpt of what was rejected. A
+                # generic "try again" produces the same violation twice.
+                attempt_prompt = f"{prompt}\n\n" + _catalogue_retry_context(
+                    errors=contract_errors or ["assigned face not preserved"],
+                    contract_json=skeleton_contract_json,
+                    rejected_source=filled,
+                )
+            else:
+                attempt_prompt = _slot_fill_retry_prompt(
+                    prompt, reason=reason, detail=detail
+                )
 
     content, replaced = enforce_catalogue_page_contract(
         file_path,

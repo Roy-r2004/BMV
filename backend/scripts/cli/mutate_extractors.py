@@ -18,9 +18,14 @@ extractor. Requires Docker and the `bmv-local-api` image.
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
+
+#: `"failed" in summary` is wrong: "1 xfailed" contains it, so the day this
+#: suite grows an xfail the sweep refuses to start on a green baseline. Count.
+_FAILED_RE = re.compile(r"\b(\d+) (?:failed|error|errors)\b")
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
@@ -85,7 +90,7 @@ def run_suite() -> tuple[bool, str]:
         if line.startswith("FAILED")
     ]
     # Read the SUMMARY LINE, never the exit code.
-    green = "failed" not in summary and "error" not in summary.lower() and "passed" in summary
+    green = "passed" in summary and not _FAILED_RE.search(summary)
     if failed:
         summary += f"  |  {len(set(failed))} distinct test(s)"
     return green, summary

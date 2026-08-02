@@ -44,6 +44,15 @@ Item 2 carries a known cost: it lives in `generate.py:269-489`, exactly the rang
 deletes, so it is throwaway work. Do the minimal version anyway — it is the measured root of the
 "everything looks the same" complaint and Phase 2 is 8-10 weeks out.
 
+**Item 1: 6 of 8 closed.** Five were tests that had stopped testing anything — two mutation decoys
+whose anchors had drifted, one assertion that was green because its `str.replace` was a no-op, one
+pinning prompt *prose*, one guessing at a number it never measured. The class fix is `_mutated()`,
+which refuses to return an unmutated string. The sixth was 2.9. Two remain and both are real: the
+skeleton-contract size bound (~5,241 chars of instructions on every generated file, ~18k tokens a
+run) and the `write_file` canonicalization marker.
+
+**Item 2: done.** See the 2.9 row in the defect table below.
+
 ### Day 2 — build Phase 2's scoreboard before Phase 2 starts
 
 Four Phase 2 DoDs need no generation at all. Doing them now means Phase 2 opens with its own
@@ -70,6 +79,13 @@ the instrument each one needs. Today a trio would confirm the dead-link guard an
 With this week's work it should also settle appspec writer attribution, the ask-ceiling row for
 appspec, whether the extractor fixes removed the re-asks, the slot-fill retry rate, and the
 ship-rate blockers.
+
+2.9 adds two specific questions to that list, and they are not the same question. **How often does
+the contract retry fire**, now readable straight off the call census (`writer=slot_fill`,
+`attempt=2`, `unusable_reason=rejected`) — and **does a re-asked page come back different**, which
+the census cannot answer. The second is the one that matters: the fix guarantees a second ask
+carrying the exact validator errors, not that the model does anything useful with them. A run where
+every retry fails still ships the same scaffolds, and it will look busy while doing it.
 
 ### What this window explicitly cannot do
 
@@ -98,14 +114,64 @@ Recording that here so the next session does not read a productive week as progr
 | **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it |
 | **1.12** a mandatory stage with no deterministic path | **open, new.** `architect` raises past the deadline and request 74 shipped nothing. See the DoD section |
 | **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
-| **2.9** contract-invalid pages are scaffolded, never re-asked | **open, new, and this is the sameness complaint.** A syntactically valid page that fails the catalogue contract is replaced wholesale by the generic deterministic scaffold with **no retry**. `_slot_fill_rejection` only rejects empty/truncated/no-export/unparseable, so the retry loop never sees a contract violation. **26 pages across requests 74-79** were replaced this way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so the retry never fired once. Pinned by `test_a_contract_invalid_page_is_re_asked_with_its_validation_errors` (xfail). Fixing it costs ~4 extra asks per run against a cap that request 77 already breached, so it trades directly against Phase 1 |
+| **2.9** contract-invalid pages are scaffolded, never re-asked | **done offline — fix landed, effect unmeasured (needs a funded trio).** A syntactically valid page that failed the catalogue contract was replaced wholesale by the generic deterministic scaffold with **no retry**: `_slot_fill_rejection` only knew empty/truncated/no-export/unparseable, so the retry loop never saw a contract violation. **26 pages across requests 74-79** went that way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so `_MAX_SLOT_FILL_ATTEMPTS = 2` had never fired once. The retry now fires on **enforce's own verdict**, not the validator's, and carries the exact `validate_catalogue_page_content` errors. Detail below |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
 | dead-link occurrence counting, DataTable, seed backfill | **done** — `d8ef2e9` |
 
-Suite 1,107 → **1,246 collected, 1,245 passed / 1 skipped / 0 failed**. Phase 0's
-remaining measurements — **0.1** (pack thesis) and **0.4** (are `revision_instructions`
-expressible as content-key edits) — are **not** done and still gate 1.8's token work
-and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
+Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
+`revision_instructions` expressible as content-key edits) — are **not** done and still gate 1.8's
+token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
+
+### Suite state, measured — and the harness that was lying about it
+
+**1,526 passed / 4 failed / 2 skipped / 2 xfailed**, `docker compose exec -T api sh -c 'cd
+/app/backend && python -m pytest -q'`, 2026-08-03.
+
+The four failures are **pre-existing and unrelated to this window** — the same four on the commit
+before it opened: two leak-check tests in `test_request_40_defects.py`, one full-page screenshot
+harness test, and `test_deploy_files_stamp_the_code_policy_revision`. They are not triaged yet.
+Earlier passes in this doc reported a clean suite; they were reading a subset.
+
+**Run it with `sh -c`, never `sh -lc`.** A login shell re-reads `/etc/profile`, which drops
+`/opt/node/bin` from PATH. `tsx_parse_error` shells out to node and **fails open** — no node means
+"this source parses fine" — so the login shell does not error, it turns *six unrelated tests red*
+with failure messages that point at application logic. Measured on one commit: `sh -lc` → 10
+failed / 1,509 passed; `sh -c` → 4 failed / 1,518 passed. This is the third harness-lies-about-the-
+verdict finding in two sessions, after `tail` swallowing a red `tsc` and the dead mutation decoys.
+
+### 2.9, in detail — the fix, and what bounds it
+
+The predicate is the part worth reviewing. The obvious implementation rejects on
+`validate_catalogue_page_content` errors; that is **wrong and expensive**, because
+`enforce_catalogue_page_contract` repairs a broken `SkeletonComposer` invocation and back-fills
+missing slots before it gives up. A page missing one slot is contract-invalid *and* free to fix, and
+re-asking for it spends ~50 s to arrive at the same file. So the rejection test is enforce's own
+verdict — reject exactly what would be thrown away, and nothing else — pinned by
+`test_a_fill_enforce_can_repair_is_not_re_asked`.
+
+Cost is bounded three ways, and only the third is new:
+
+1. `_MAX_SLOT_FILL_ATTEMPTS = 2` per page, which already existed and had never been reached.
+2. `PREVIEW_MAX_AI_CALLS` (96), which already covered these calls.
+3. `_has_contract_retry_runway()` — a contract retry is discretionary and will not start unless
+   `DEFAULT_ASK_CEILING_SECONDS + RESERVE_SECONDS` remain, so the worst-case ask still leaves the
+   post-deadline smoke pass its reserve. Syntactic retries stay ungated: they fire on already-broken
+   files and effectively never happen. A skipped retry records
+   `slot_fill_contract_retry_skipped_low_runway` — never silent.
+
+The ~4-extra-asks-per-run estimate in the original filing overstates the wall clock: codegen pages
+generate in parallel, so those asks overlap rather than sum. Contract rejections now also file as
+**unusable** in the call census, so the next trio can measure the retry's cost and its hit rate
+instead of estimating them.
+
+Seven mutations, zero survivors —
+[`backend/scripts/cli/mutate_slotfill_contract_retry.py`](../backend/scripts/cli/mutate_slotfill_contract_retry.py).
+The first pass had one survivor (the census adjudication), which is why
+`test_a_contract_rejected_fill_is_filed_as_an_unusable_call` exists.
+
+**What is still unmeasured:** whether re-asked pages actually come back *different*. The fix
+guarantees a second ask with the specific errors; it does not guarantee the model uses it. That
+needs a funded trio, and it is on the first-funded-trio pre-flight list.
 
 ### What request 73 verified, and what it did not
 

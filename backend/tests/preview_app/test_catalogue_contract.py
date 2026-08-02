@@ -2038,33 +2038,27 @@ def test_the_page_prompt_still_dictates_the_ui_import_and_skeleton_const() -> No
     assert "public-home" in page_prompt
 
 
-@pytest.mark.xfail(
-    reason=(
-        "*** REAL, LIVE DEFECT — not stale. Read this one. ***\n"
-        "A page the model wrote that is syntactically valid but violates the "
-        "CATALOGUE CONTRACT is thrown away and replaced with the generic "
-        "deterministic scaffold, with NO retry. This assertion pins the design "
-        "that used to exist: re-ask once, with the specific "
-        "`validate_catalogue_page_content` errors in the retry prompt.\n"
-        "Mechanism: `generate.py::_slot_fill_rejection` only rejects empty / "
-        "truncated / missing-export-default / unparseable-TSX, so a contract-invalid "
-        "page is ACCEPTED by the retry loop; `enforce_catalogue_page_contract` then "
-        "replaces it wholesale and logs one line, "
-        "'slot_fill fell back to scaffold for <path>'.\n"
-        "Live evidence: 26 pages across requests 74-79 were replaced this way — "
-        "HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage "
-        "among them — and ZERO syntactic rejections were logged in the same runs, "
-        "so the retry loop never fired once. Every discard took the no-retry path. "
-        "This is a direct, measured cause of 'most generations are the same "
-        "template', which is the complaint the roadmap opens with.\n"
-        "NOT fixed here, deliberately: re-asking ~4 pages per run adds ~4 asks of "
-        "wall clock to a pipeline that just breached its 600 s cap on request 77. "
-        "Cost and ceiling have to be traded against each other by the owner."
-    ),
-    strict=True,
-    raises=AssertionError,
-)
 def test_a_contract_invalid_page_is_re_asked_with_its_validation_errors() -> None:
+    """Fixed on 2026-08-03. This was the roadmap's 2.9, and it was live.
+
+    A page that compiled but violated the catalogue contract used to be thrown
+    away and replaced by the generic deterministic scaffold with **no retry**:
+    `_slot_fill_rejection` only knew about empty / truncated /
+    missing-export-default / unparseable-TSX, so a contract-invalid page was
+    *accepted* by the retry loop and discarded one call later by
+    `enforce_catalogue_page_contract`.
+
+    Measured: 26 pages across requests 74-79 replaced that way — HomePage,
+    GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage among them —
+    with zero syntactic rejections logged in the same runs. `_MAX_SLOT_FILL_
+    ATTEMPTS = 2` had never fired once. A direct, measured cause of "most
+    generations are the same template".
+
+    The retry now fires on enforce's own verdict and carries the validator
+    errors. Cost is bounded three ways and none of them is new: the existing
+    per-page cap of 2, the request AI-call budget, and `_has_contract_retry_
+    runway` (see `test_slotfill_retry.py`).
+    """
     plan, architect = _duplicate_plan_and_protected_architect()
     renderer = JinjaTemplateRenderer(REPO_ROOT / "backend" / "app" / "templates")
     route = architect["routes"][0]
