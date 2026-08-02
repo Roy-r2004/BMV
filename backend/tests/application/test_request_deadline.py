@@ -532,3 +532,101 @@ def test_a_crashing_generation_still_records_what_it_degraded(monkeypatch) -> No
         pipeline.run(db, 74)
 
     assert json.loads(req.generated_pages)["preview_app"]["degraded"] == ["codegen"]
+
+
+# --- 1.11: the reserve is a bound, not a hope ---------------------------------
+#
+# `RESERVE_SECONDS = 60` was sized from single-run capture (41-42 s). The pass
+# is serialised behind `_SESSION_LOCK`, so under three concurrent runs it does
+# work it was never measured doing: request 77 spent 79.7 s past its deadline
+# and finished at 619.7 s, breaching the 600 s the product promises.
+
+
+def test_seconds_to_hard_cap_spans_the_reserve_not_just_the_deadline() -> None:
+    with rd.request_deadline_scope(200, total_seconds=540, reserve_seconds=60):
+        assert rd.seconds_to_hard_cap() == pytest.approx(600, abs=2)
+
+    # Past the deadline the reserve is what is left, and it still shrinks.
+    with rd.request_deadline_scope(201, total_seconds=-30, reserve_seconds=60):
+        assert rd.seconds_to_hard_cap() == pytest.approx(30, abs=2)
+
+    # Past the cap entirely: zero, never negative — a negative timeout would
+    # read as "wait forever" to `Lock.acquire`.
+    with rd.request_deadline_scope(202, total_seconds=-120, reserve_seconds=60):
+        assert rd.seconds_to_hard_cap() == 0.0
+
+    assert rd.seconds_to_hard_cap() is None, "unarmed callers must be unbounded"
+
+
+def test_a_lock_wait_that_would_outlive_the_cap_is_abandoned() -> None:
+    """The wait is not work. Reverting the `timeout` makes this hang ~3 s."""
+    lock = threading.Lock()
+    release = threading.Event()
+    held = threading.Event()
+
+    def _hold() -> None:
+        with lock:
+            held.set()
+            release.wait(5.0)
+
+    holder = threading.Thread(target=_hold)
+    holder.start()
+    assert held.wait(2.0)
+    try:
+        # 1 s of budget left, and the lock is held for far longer.
+        with rd.request_deadline_scope(203, total_seconds=-59, reserve_seconds=60):
+            started = time.monotonic()
+            with rd.contended_lock(lock, "screenshot_session", timeout=1.0) as acquired:
+                waited = time.monotonic() - started
+                assert acquired is False, "took a lock it should have given up on"
+            assert waited < 3.0, f"waited {waited:.1f}s against a 1.0s bound"
+    finally:
+        release.set()
+        holder.join(5.0)
+
+    # And it must not have released a lock it never held.
+    assert lock.acquire(blocking=False)
+    lock.release()
+
+
+def test_an_abandoned_wait_is_still_charged_and_recorded() -> None:
+    """A run that gave up waiting must not look like one that never queued.
+
+    Driven on a worker thread with a join timeout on purpose. Remove the bound
+    in `contended_lock` and this becomes an unbounded wait on a lock the main
+    thread is holding — a deadlock. A hanging CI job is far harder to diagnose
+    than a red one, so the regression has to surface as a failure.
+    """
+    lock = threading.Lock()
+    outcome: dict[str, object] = {}
+
+    def _try_to_take_it() -> None:
+        with rd.request_deadline_scope(204, total_seconds=60) as deadline:
+            with rd.contended_lock(lock, "screenshot_session", timeout=0.5) as ok:
+                outcome["acquired"] = ok
+            outcome["waited"] = deadline.waits().get("screenshot_session", 0.0)
+
+    lock.acquire()
+    try:
+        worker = threading.Thread(target=_try_to_take_it, daemon=True)
+        worker.start()
+        worker.join(10.0)
+        assert not worker.is_alive(), (
+            "the waiter never gave up — the timeout is not being honoured"
+        )
+    finally:
+        lock.release()
+
+    assert outcome["acquired"] is False
+    assert float(outcome["waited"]) >= 0.4
+
+
+def test_an_uncontended_lock_is_still_taken_when_a_timeout_is_set() -> None:
+    """The bound must not cost anything on the normal path."""
+    lock = threading.Lock()
+    with rd.request_deadline_scope(205, total_seconds=540) as deadline:
+        with rd.contended_lock(lock, "screenshot_session", timeout=600.0) as ok:
+            assert ok is True
+        assert deadline.blocked_seconds() < 0.1
+    assert lock.acquire(blocking=False)
+    lock.release()

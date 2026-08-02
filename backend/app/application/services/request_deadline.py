@@ -464,8 +464,23 @@ def contention_waits() -> dict[str, float]:
     return {} if deadline is None else deadline.waits()
 
 
+def seconds_to_hard_cap() -> float | None:
+    """Wall clock left before `total + reserve` — the 600 s the product promises.
+
+    `remaining()` goes negative past the deadline and the reserve is what is
+    deliberately left for post-deadline work, so this is the only number that
+    answers "how long may this still take". None when no deadline is armed.
+    """
+    deadline = current_deadline()
+    if deadline is None:
+        return None
+    return max(0.0, deadline.remaining() + deadline.reserve_seconds)
+
+
 @contextmanager
-def contended_lock(lock: "threading.Lock", resource: str) -> Iterator[None]:
+def contended_lock(
+    lock: "threading.Lock", resource: str, *, timeout: float | None = None
+) -> Iterator[bool]:
     """Hold `lock`, charging the time spent waiting for it to this request.
 
     The wait is measured around `acquire()` and recorded before the body runs,
@@ -476,24 +491,31 @@ def contended_lock(lock: "threading.Lock", resource: str) -> Iterator[None]:
 
     Releasing is unconditional: an exception inside the body must not strand a
     process-wide lock and take every later generation down with it.
+
+    Yields True when the lock was taken. With `timeout` set it can yield **False**
+    without holding it — the caller must check. An unbounded wait is how request
+    77 reached 619.7 s: the wait itself is not work, and nothing was stopping it
+    from outlasting the cap.
     """
     started = time.monotonic()
-    lock.acquire()
+    acquired = lock.acquire() if timeout is None else lock.acquire(timeout=max(0.0, timeout))
     waited = time.monotonic() - started
     try:
         record_wait(resource, waited)
-        if waited >= CONTENTION_LOG_THRESHOLD_SECONDS:
+        if waited >= CONTENTION_LOG_THRESHOLD_SECONDS or not acquired:
             deadline = current_deadline()
             log.warning(
-                "request %s blocked %.1fs on %s (%.1fs of its deadline remaining)",
+                "request %s %s %.1fs on %s (%.1fs of its deadline remaining)",
                 None if deadline is None else deadline.request_id,
+                "blocked" if acquired else "GAVE UP after",
                 waited,
                 resource,
                 float("inf") if deadline is None else deadline.remaining(),
             )
-        yield
+        yield acquired
     finally:
-        lock.release()
+        if acquired:
+            lock.release()
 
 
 def has_retry_runway(seconds: float = MIN_RETRY_RUNWAY_SECONDS) -> bool:

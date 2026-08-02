@@ -9,16 +9,22 @@ restated below). Process notes, not product docs.
 
 **If you read one thing: [Where this stands](#where-this-stands).**
 
-## TL;DR
+## TL;DR — session 5 supersedes session 4's headline
 
-Session 3 fixed what live runs exposed. Session 4 did two things: closed the navigation defects the
-owner reported, then landed **Phase 1 of the roadmap — the 600 s guarantee** — minus 1.10.
+Session 4 reported Phase 1's 600 s guarantee as landed, evidenced on one run. **Session 5 ran it
+concurrently and it broke.** Three DoD rows marked *done* were false in production, and two of them
+were false in the test environment that was supposed to pin them.
 
-| | before | after |
+| | session 4 claimed | session 5 measured |
 |---|---|---|
-| same brief, deadline armed | request 72: **~37 min** | request 73: **579 s** |
-| overrun past the 540 s deadline | ~1,700 s | **38.7 s**, then three ELECTIVE stages skipped and recorded |
-| suite | 1,107 | **1,245 passed / 1 skipped / 0 failed** (1,246 collected) |
+| 600 s cap | met (request 73: 579 s) | **breached** — request 77 at **619.7 s** |
+| p50 | unmeasured, n=1 | **576.4 s** against a ≤ 500 s target |
+| `degraded:[stage]` marker | "published by `finalize`, seen on 73" | **never written** — 73, 75, 76 each degraded 3 stages and each stored `[]` |
+| zero consecutive same-model asks | done, pinned by test | **7 violations** — the test pins the *repair* chains; architect's was never deduped |
+| suite | 1,245 | **1,443 collected, 1,438 passed / 1 skipped / 8 xfailed** |
+
+The owner's contention hypothesis is **confirmed, smaller than feared, and in a place the plan did
+not look** — not inside the 540 s budget, inside the 60 s reserve after it.
 
 **9 commits** on `chore/remove-preview-generator-v2` (`90f4d5f`…`a0ecff8`), working tree clean,
 `tsc` clean, `docs/KNOWN_TEST_FAILURES.md` empty.
@@ -61,6 +67,46 @@ non-immersive layout: the document reserves the space, and nothing is measured a
 **Do not pin these by source grep.** `docs/PREVIEW_ROADMAP.md` § *The nav guarantees* explains why —
 every one of these five fixes would pass a grep. `tests/preview_app/test_nav_contract.py` asserts
 rendered DOM through the Playwright path.
+
+## Session 5 — what six live runs showed
+
+Two trios of three, started 60 s apart, one with a `reference_url` and one with a `reference_file`.
+**Trio 1 (74/75/76) is timing-invalid** — a concurrent Cursor session ran a mutation sweep on the
+same host inside the window. Its *outcomes* stand. **Trio 2 (77/78/79) is the measurement.**
+
+| run | wall clock | blocked on `_SESSION_LOCK` | verdict on its degradations |
+|---|---|---|---|
+| 77 | **619.7 s** | 16.9 s | **CORRECT** — 62.8 s over without the block. The cap breach survives it too: 602.8 s |
+| 78 | 576.4 s | 35.9 s | **ARTIFACT** — subtract the block and it lands within 0.5 s of its deadline |
+| 79 | 573.0 s | 16.7 s | **CORRECT**, though contention doubled the overrun |
+
+`npm_install` was 0.0 s on all six (warm cache). Every wait was the browser session lock.
+
+**Three things you cannot see without the instrumentation added this session.** `blocked_seconds`
+and `contention` are published beside `degraded`; without them 78's degradation list is
+indistinguishable from a run that was simply slow, and the report would have concluded the contract
+works when it had merely mislabelled the cause.
+
+### Request 74 shipped nothing at all
+
+Empty `generated_pages` — no `preview_app`, no `roles`. At t=540.4 s `call_architect` started and
+raised 9 ms later with *"Architect agent failed to produce valid JSON"*. No model was asked
+anything: past the deadline every ask budget is zero. The orchestrator read that as transient, found
+no retry runway, and the `role_pages` fallback under `except Exception: pass` produced nothing
+either. `architect` is MANDATORY and **has no deterministic path** — that is 1.12, still open.
+
+### The sameness complaint now has a measured cause — 2.9
+
+A page the model wrote that is syntactically valid but violates the **catalogue contract** is
+discarded and replaced by the generic deterministic scaffold, **with no retry**.
+`_slot_fill_rejection` only rejects empty / truncated / missing-export / unparseable, so a contract
+violation is *accepted* by the retry loop. **26 pages across requests 74-79** went that way —
+HomePage, GalleryPage, ServicesPage, RoomsSuitesPage — with **zero** syntactic rejections in the
+same runs, so the retry never fired once.
+
+This puts a question against Phase 3's sizing: if a third of pages never reach the kit, the
+"~5 perceived designs" figure justifying 10-12 weeks of axis work may be partly measuring the
+scaffold. Re-measure after 2.9 before committing that staffing.
 
 ## Phase 1 — what the clock actually buys
 

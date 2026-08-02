@@ -261,13 +261,52 @@ def capture_routes_visual(
         log.warning("screenshot skipped: playwright is not installed")
         return [RouteCapture(ok=False) for _ in routes]
 
-    from app.application.services.request_deadline import contended_lock
+    from app.application.services.request_deadline import (
+        contended_lock,
+        record_degradation,
+        seconds_to_hard_cap,
+    )
 
-    # The session budget below starts *after* the lock is held, so it bounds
-    # this session's own work and says nothing about the queue in front of it.
-    # Under three concurrent runs the wait can be two full sessions, which is a
-    # third of a 540 s request spent doing nothing — invisible until now.
-    with contended_lock(_SESSION_LOCK, "screenshot_session"):
+    # Roadmap 1.11, narrowed by what running it showed. The session budget below
+    # starts *after* the lock is held, so it bounds this session's own work and
+    # says nothing about the queue in front of it — requests 77/78/79 waited
+    # 16.9 / 35.9 / 16.7 s there, and 78's entire 36.4 s overrun was that wait.
+    #
+    # Only the WAIT is bounded, against the wall clock left before
+    # `total + reserve` — the 600 s the product promises. Waiting is not work,
+    # and a wait that would outlive the cap cannot be worth the page it is
+    # queuing for. See the note below the lock for why the session's own budget
+    # is left alone.
+    cap_left = seconds_to_hard_cap()
+    with contended_lock(
+        _SESSION_LOCK, "screenshot_session", timeout=cap_left
+    ) as acquired:
+        if not acquired:
+            log.error(
+                "screenshot session gave up waiting for the browser lock with "
+                "%.1fs left before the cap — %s route(s) unmeasured",
+                cap_left or 0.0,
+                len(routes),
+            )
+            record_degradation("screenshot", "lock_wait_would_breach_cap")
+            return [RouteCapture(ok=False) for _ in routes]
+        # The session budget is deliberately NOT clipped to the remaining cap.
+        #
+        # It was, for one revision, and requests 80/81/82 measured what that
+        # buys: **nothing on the cap and every visually-judged page**. Two of
+        # three still finished over 600 s (600.2 s, 602.7 s vs one of three
+        # before), while `visual_pages_reviewed` went 10-of-18 across 77/78/79
+        # to **0-of-18** across 80/81/82. Contention was 0.0 s on all three, so
+        # the clipping was not even responding to a queue — the runs were simply
+        # already past their deadline when they reached capture, and the clip
+        # then starved the critic on every one of them.
+        #
+        # The overrun that remains is not capture. The gate, the AI repair and
+        # finalize also run after the deadline and nothing bounds them, so
+        # capping one consumer of an unbounded reserve tightens the distribution
+        # without closing it. Bounding the reserve as a whole is 1.11's real
+        # scope and is still open; blinding the critic is not a down payment
+        # on it.
         try:
             with sync_playwright() as p:
                 browser = _launch_chromium(p)
