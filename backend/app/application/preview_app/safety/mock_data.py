@@ -1004,6 +1004,17 @@ def _nav_key(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", label.lower())
 
 
+def _norm_nav_path(path: str) -> str:
+    """Compare nav hrefs the way the route table is keyed, not byte-for-byte.
+
+    `live_paths` now comes from `served_route_paths`, which normalises; a nav
+    entry written `/contact/` would otherwise read as dead and be dropped.
+    """
+    from app.application.preview_app.capabilities.journey import _norm
+
+    return _norm(path)
+
+
 def _normalize_nav_section(
     items: list,
     *,
@@ -1024,7 +1035,7 @@ def _normalize_nav_section(
             continue
         if public_marketing and not _is_public_marketing_nav_path(path):
             continue
-        if live_paths and path not in live_paths:
+        if live_paths and _norm_nav_path(path) not in live_paths:
             continue
         label = _nav_label(item.get("label") or item.get("name") or "", path, brand_name)
         key = _nav_key(label)
@@ -1076,11 +1087,15 @@ def normalize_mock_navigation(workspace, architect: dict, brand_name: str) -> li
         return []
     if not isinstance(navigation, dict):
         return []
-    live_paths = {
-        str(route.get("path") or "")
-        for route in (architect or {}).get("routes") or []
-        if route.get("path")
-    }
+    # The route table a *visitor* meets, not the one the planner declared. These
+    # diverge, and judging the nav against the declared set is how requests 78
+    # and 81 shipped nav entries for `/contact` and `/gallery` that no `<Route>`
+    # served. `served_route_paths` reads `src/App.tsx` and falls back to the
+    # architect only when there is no router yet, so this is strictly better
+    # informed and still fail-open.
+    from app.application.preview_app.capabilities.journey import served_route_paths
+
+    live_paths = served_route_paths(workspace, architect or {})
     changed: list[str] = []
     normalized: dict[str, list] = {}
     for section, items in navigation.items():

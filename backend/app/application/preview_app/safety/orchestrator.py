@@ -16,6 +16,7 @@ from app.application.preview_app.safety.brand_contract import (
     ensure_brand_usage_paths,
 )
 from app.application.preview_app.safety.catalogue_guards import enforce_catalogue_workspace_contracts
+from app.application.preview_app.safety.dead_links import repair_dead_links
 from app.application.preview_app.safety.copy_hygiene import (
     decode_html_entities,
     decode_literal_unicode_escapes,
@@ -236,6 +237,14 @@ def apply_workspace_guards(
         actions.extend(normalize_mock_navigation(workspace, architect, brand_name))
     except Exception as e:
         guard_log.warning("navigation normalization skipped: %s", e)
+    try:
+        # After `write_app_tsx` and after the nav normalizer, because both change
+        # the answer: the first writes the route table this is judged against,
+        # the second removes the nav entries that would otherwise be repaired
+        # into links rather than deleted.
+        actions.extend(repair_dead_links(workspace, architect))
+    except Exception as e:
+        guard_log.warning("dead-link repair skipped: %s", e)
     try:
         actions.extend(ensure_runtime_correctness(
             workspace, architect, plan, primary, secondary, font, template_renderer,

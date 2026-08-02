@@ -59,7 +59,12 @@ export interface MarketingHeroProps {
   children?: React.ReactNode;
 }
 
-const DEFAULT_PRIMARY_CTA: MarketingCta = { label: 'Explore', href: '/gallery' };
+// `/` is the only route every generated app is guaranteed to serve. This
+// default used to be `/gallery`, so any app the architect built without a
+// gallery shipped a dead hero CTA on every page using the hero — requests 78,
+// 81 and 84, and the whole reason 84's only blocking gate issues were `/gallery`
+// and `/gallery/:_`. A template default cannot assume a route it did not create.
+const DEFAULT_PRIMARY_CTA: MarketingCta = { label: 'Explore', href: '/' };
 
 export function MarketingHero({ children, ...props }: MarketingHeroProps) {
   const hero = <MarketingHeroBody {...props} />;
