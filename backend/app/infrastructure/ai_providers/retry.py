@@ -23,7 +23,29 @@ _RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
 #: After the socket is closed under it, how long to let the worker surface its own
 #: error before we stop waiting on a thread that may never return.
-_CANCEL_GRACE_SECONDS = 15.0
+#:
+#: This is **reserved out of** the deadline, never added to it — see `_cancel_grace`.
+#: It used to be 15 s spent *after* the cap fired, which made a 120 s ask ceiling a
+#: 135 s one. Across twelve live runs (74-85) exactly four asks exceeded 120 s and
+#: all four were 135.0 s to the millisecond: 135012 / 135010 / 135007 / 135001 ms,
+#: same stage, same model, attempt 1, no failover. That is not a slow model, it is
+#: an off-by-a-constant in the ceiling.
+#:
+#: 2 s rather than 15 s because the grace only runs once the call is already known
+#: to have failed. Closing the socket makes a blocked `requests` read raise almost
+#: at once; if it does not (a stuck TLS handshake, a dead DNS wait) then 15 s would
+#: not have saved it either — it would just cost the request 13 s more before
+#: raising the same Timeout.
+_CANCEL_GRACE_SECONDS = 2.0
+
+
+def _cancel_grace(hard_deadline: float) -> float:
+    """How much of `hard_deadline` to hold back for cancelling the worker.
+
+    Never more than half the budget, so that a caller passing a small deadline
+    (a nearly-exhausted request, or a test) still gets most of it as call time.
+    """
+    return min(_CANCEL_GRACE_SECONDS, hard_deadline / 2.0)
 
 
 def _run_with_heartbeat(
@@ -42,6 +64,9 @@ def _run_with_heartbeat(
     minutes with `timeout=120` set. `hard_deadline` is the total wall-clock cap;
     when it passes, `on_deadline` (the provider's `cancel_inflight`) closes the
     socket under the worker and this raises `requests.Timeout`.
+
+    `hard_deadline` is **total**, cancellation included. The cancel is therefore
+    armed at `hard_deadline - _cancel_grace(...)`, not at `hard_deadline`.
     """
     box: dict = {}
 
@@ -58,6 +83,11 @@ def _run_with_heartbeat(
 
     thread = threading.Thread(target=propagated_context().run, args=(_target,), daemon=True)
     start = time.monotonic()
+    # The grace is spent inside the budget, so the cancel has to be armed early
+    # enough that the grace still fits. Arming it *at* the cap is what made the
+    # 120 s ceiling a 135 s one.
+    grace = 0.0 if hard_deadline is None else _cancel_grace(hard_deadline)
+    abort_at = None if hard_deadline is None else max(0.0, hard_deadline - grace)
     thread.start()
     aborted = False
     while thread.is_alive():
@@ -68,18 +98,20 @@ def _run_with_heartbeat(
         # 29 minutes that way: every ask past the request deadline got a tiny
         # budget, waited a full heartbeat regardless, failed, and failed over.
         wait = heartbeat_interval
-        if hard_deadline is not None and not aborted:
-            wait = min(wait, max(0.05, hard_deadline - (time.monotonic() - start)))
+        if abort_at is not None and not aborted:
+            wait = min(wait, max(0.05, abort_at - (time.monotonic() - start)))
         thread.join(timeout=wait)
         if not thread.is_alive():
             break
         elapsed = time.monotonic() - start
-        if hard_deadline is not None and elapsed >= hard_deadline and not aborted:
+        if abort_at is not None and elapsed >= abort_at and not aborted:
             aborted = True
             retry_log.warning(
-                "hard deadline hit after %.0fs (cap %.0fs) — cancelling the in-flight call",
+                "hard deadline hit after %.0fs (cap %.0fs, %.1fs of it held back to "
+                "cancel) — cancelling the in-flight call",
                 elapsed,
                 hard_deadline,
+                grace,
             )
             if on_deadline is not None:
                 try:
@@ -87,8 +119,9 @@ def _run_with_heartbeat(
                 except Exception:
                     pass
             # The socket is closed; give the worker a moment to surface its own
-            # error, then stop waiting on a thread that may never return.
-            thread.join(timeout=_CANCEL_GRACE_SECONDS)
+            # error, then stop waiting on a thread that may never return. This
+            # window ends at `hard_deadline`, it does not extend past it.
+            thread.join(timeout=grace)
             if thread.is_alive():
                 raise requests.exceptions.Timeout(
                     f"call exceeded its {hard_deadline:.0f}s wall-clock budget"

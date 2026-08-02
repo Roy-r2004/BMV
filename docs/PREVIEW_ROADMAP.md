@@ -378,7 +378,7 @@ only trio in which **every run finished under 600 s**.
 | | Status |
 |---|---|
 | Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **holds on trio 4, 3 of 3 — with 9-17 s of margin, on n=3.** It did not hold on trio 2 (619.7 s) or trio 3 (600.2 / 602.7 s). Call it met when a trio clears it twice; one clean trio is how the "met and real, on n=1" overstatement happened last time |
-| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **FAILED on both counts.** p50 wall clock **590 s** (want ≤ 500) — the guards below bought ~10 s, not 90. The 135.0 s ask is now **diagnosed and exact**: `_CANCEL_GRACE_SECONDS = 15.0` (`retry.py:26`) is spent *after* the 120 s cap fires, so the effective ceiling is 135 s. Every `hard deadline hit after 120s` line in the logs has a 135.0 s row beside it — 77, 81/82, 85. Ask p50 is healthy: 8.1 / 5.7 / 9.6 s |
+| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **p50 still FAILED at 590 s** (want ≤ 500) — the elective guards bought ~10 s, not 90. **The ask ceiling was off by a constant and is now fixed.** Exactly four asks exceeded 120 s across all twelve runs and all four were 135.0 s to the millisecond (135012 / 135010 / 135007 / 135001 ms; 77, 80, 82, 85; `fix_agent`, `z-ai/glm-5.2`, attempt 1, no failover): `_CANCEL_GRACE_SECONDS` was spent *after* the cap fired. Held back inside it now, and the grace cut 15 s → 2 s. Ask p50 is healthy at 8.1 / 5.7 / 9.6 s, so this was the only ask-side breach |
 | Zero consecutive asks to the same resolved model id | **was FALSE, now fixed.** `ac10c9b` deduped the *repair* chains and its test pins those; `call_architect`'s three-name chain was never deduped, and `ARCHITECT_MODEL` = `PREVIEW_APP_MODEL` = `TEXT_MODEL` = `google/gemini-2.5-flash` here **and in the test environment**, so the guard could not have caught it. 7 violations across trio 1; request 74's architect wrote 3 rows, one model, all unusable |
 | Every degraded run carries a machine-readable `degraded: [stage]` marker | **was FALSE, now fixed.** Requests **73, 75 and 76 each degraded three stages and each stored `degraded: []`** — the marker was only ever a log line at scope exit. `finalize` runs inside `generate_preview_app`; `tech`/`proposal`/`build_plans` are skipped *after* it returns, so it structurally could not see them. Published from `GenerationPipeline.run` now, and verified live on 77/78/79 |
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
@@ -456,6 +456,30 @@ it reviewed **0 of 6** pages (80, 81, 82 — its vision calls were all refused);
 every time it ran *before* it reviewed 4-6 of 6 (78 at t=497 s, 79 at t=450 s).
 The guard only fires past the deadline, so it removes captures that were already
 producing no verdicts and leaves the pre-deadline path untouched.
+
+#### 1.3's ceiling was 135 s, not 120 s
+
+Four asks over 120 s across twelve runs, and **all four the same number to the
+millisecond**. A slow model does not produce that. `_run_with_heartbeat` armed
+the cancel *at* `hard_deadline`, then joined the worker for a further
+`_CANCEL_GRACE_SECONDS = 15.0`, so the recorded latency of any ask that hit its
+cap was `cap + 15`. `latency_ms` is measured around the whole `call_with_retry`
+in `openrouter_provider.py:231`, so the telemetry was right and the ceiling was
+wrong.
+
+Fixed by arming the cancel at `hard_deadline - grace` and cutting the grace to
+2 s. The grace only runs once the call is already known to have failed: closing
+the socket makes a blocked read raise almost at once, and where it does not
+(stuck handshake, dead DNS) 15 s would not have rescued it either — it would
+just cost 13 s more before raising the same `Timeout`. The grace is capped at
+half the budget so a nearly-exhausted request still gets call time rather than a
+budget made entirely of cancellation.
+
+**Why no test caught it.** `test_a_worker_that_ignores_the_cancel_is_abandoned`
+monkeypatches the grace to 0.1 s and then asserts `elapsed < 5` against a 0.2 s
+deadline — 25× slack. A test that tolerates a 24× overshoot cannot see a 12.5 %
+one. The replacement pins the arithmetic directly (120 → 118) so the production
+number is checked without a test sitting through a 120 s budget.
 
 #### The failure mode the contract exists to prevent, still live
 
