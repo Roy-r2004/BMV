@@ -11,6 +11,38 @@ requests 68 and 70, same business, one field different.
 
 ---
 
+## Status — updated 2026-08-02
+
+| Item | State |
+|---|---|
+| **0.6** call census, `ai_usage_events` defects | **done** — `a4f8b55` |
+| **1.1** request-scoped deadline + degradation contract | **done** — `c534fdf`, `58b4956`. **540 s, not 480** |
+| **1.2** model-chain dedupe | **done** — `ac10c9b` |
+| **1.3** per-ask ceiling | **done** — `c534fdf`, `58b4956` |
+| **1.4** screenshot session budget | **done** — `a919f86` |
+| **1.5** documents off the critical path | **done** — `c534fdf` |
+| **1.6** JSON extractor | **done** — `ac10c9b`, and the diagnosis in this doc was wrong; see below |
+| **1.7** validate repair-plan paths before the first write | open |
+| **1.8** industry derivation + placeholder gate | **done** — `ac10c9b`, `a919f86`. Token-length work still gated on 0.1 |
+| **1.9** bound items to the image pool | **done** — `ac10c9b`. **Still unverified on a catalogue of ≥ 9 items** |
+| **1.10** JS test runner (vitest) | open — blocks two Phase 2 DoDs |
+| critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
+| dead-link occurrence counting, DataTable, seed backfill | **done** — `d8ef2e9` |
+
+Suite 1,107 → 1,244. Phase 0's remaining measurements (0.1 pack thesis, 0.3/0.4
+gate-issue classification, 0.11 test census) are **not** done and still gate Phase 2.
+
+**Two defects were found by running the pipeline, not by reading it**, and both
+were in the deadline work itself. They are written up at `58b4956`; the short
+version is that a 1 s ask floor past the deadline inverted the degradation
+contract into a fast-fail retry loop, and `_run_with_heartbeat` only checked
+its cap once per 20 s heartbeat, so a short cap could not fire. Request 72 ran
+**37 minutes with the deadline armed and expiring on schedule**. The second bug
+predates this work: any caller passing a `hard_deadline` under 20 s has always
+been silently rounded up to 20 s.
+
+---
+
 ## Diagnosis
 
 Three failures wearing one complaint.
