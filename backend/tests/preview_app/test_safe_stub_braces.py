@@ -2,14 +2,10 @@
 from __future__ import annotations
 
 import re
-import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO_ROOT / "backend"))
-
-from app.application.preview_app.fallback import (  # noqa: E402
+from app.application.preview_app.fallback import (
     find_double_brace_object_literals,
     repair_double_brace_object_literals_in_text,
     scan_and_repair_double_brace_literals,
@@ -24,19 +20,21 @@ _VALID_ROW = re.compile(
 
 def _assert_stub_ok(content: str, label: str) -> None:
     hits = find_double_brace_object_literals(content)
-    if hits:
-        raise AssertionError(f"{label}: found double-brace object literal(s): {hits[:3]!r}")
-    if _INVALID_OBJECT_START.search(content):
-        raise AssertionError(f"{label}: raw `{{ label:` still present")
-    if not _VALID_ROW.search(content):
-        raise AssertionError(f"{label}: expected at least one valid `{{ label: ... }}` row object")
+    assert not hits, f"{label}: found double-brace object literal(s): {hits[:3]!r}"
+    assert not _INVALID_OBJECT_START.search(content), (
+        f"{label}: raw `{{ label:` still present"
+    )
+    assert _VALID_ROW.search(content), (
+        f"{label}: expected at least one valid `{{ label: ... }}` row object"
+    )
     # Valid JSX attribute objects must still be allowed by the detector.
     jsx = 'const x = <div style={{ color: "red" }} />;'
-    if find_double_brace_object_literals(jsx):
-        raise AssertionError("detector must ignore JSX style={{ ... }} objects")
+    assert not find_double_brace_object_literals(jsx), (
+        "detector must ignore JSX style={{ ... }} objects"
+    )
 
 
-def main() -> None:
+def test_write_safe_stub_emits_single_brace_row_objects() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "src" / "pages").mkdir(parents=True)
@@ -63,44 +61,75 @@ def main() -> None:
         admin = admin_path.read_text(encoding="utf-8")
         _assert_stub_ok(admin, "write_safe_stub salon")
 
-        # Deterministic repair path for already-corrupted files.
+
+def test_double_brace_detector_ignores_jsx_style_and_object_props() -> None:
+    assert not find_double_brace_object_literals('const style = {{ color: "red" }};'), (
+        "detector falsely flagged style={{ color }}"
+    )
+
+    # Catalogue components legitimately pass object-valued JSX props with
+    # two braces: one JSX expression brace plus one object literal brace.
+    catalogue_jsx = (
+        '<MarketingHero\n'
+        '  primaryCta={{ label: "Get started", onClick: () => navigate("/start") }}\n'
+        '  secondaryCta={{ label: "Learn more", href: "#details" }}\n'
+        '/>\n'
+    )
+    assert not find_double_brace_object_literals(catalogue_jsx), (
+        "detector falsely flagged a JSX object-valued prop"
+    )
+    unchanged, jsx_repairs = repair_double_brace_object_literals_in_text(catalogue_jsx)
+    assert unchanged == catalogue_jsx and not jsx_repairs, (
+        "repair corrupted a valid JSX object-valued prop"
+    )
+
+
+def test_repair_collapses_double_brace_row_objects() -> None:
+    bad = (
+        'const rows = [\n'
+        '  {{ label: "9:15 · New patient", detail: "Room 2 · intake done", status: "Ready" }},\n'
+        '  {{ label: "10:00 · Follow-up", detail: "Dr. Chen", status: "Live" }},\n'
+        '];\n'
+        'const style = {{ color: "red" }};\n'  # not our pattern (no label/k key) — leave alone
+    )
+    fixed, n = repair_double_brace_object_literals_in_text(bad)
+    assert n == 2, f"expected 2 row repairs, got {n}"
+    assert not find_double_brace_object_literals(fixed), (
+        f"repair left double braces: {fixed!r}"
+    )
+    assert "{{ label:" not in fixed, "repair left `{{ label:`"
+    assert '{ label: "9:15 · New patient"' in fixed, (
+        "repair did not produce single-brace row objects"
+    )
+
+    # Non-row shapes the model emits (partial keys / expressions) must also
+    # collapse — this is what hard-failed PaintingDetailPage on req 17.
+    partial = (
+        'const meta = [\n'
+        '  {{ label: painting.title }},\n'
+        '  {{ label: "Size", detail: painting.size }},\n'
+        '];\n'
+        'const cta = {{ label: "Inquire", href: "/contact" }};\n'
+    )
+    partial_fixed, partial_n = repair_double_brace_object_literals_in_text(partial)
+    assert partial_n >= 1, f"expected partial double-brace repairs, got {partial_n}"
+    assert not find_double_brace_object_literals(partial_fixed), (
+        f"partial repair left double braces: {partial_fixed!r}"
+    )
+    assert "{{ label:" not in partial_fixed, "partial repair left `{{ label:`"
+
+
+def test_scan_and_repair_double_brace_literals_across_workspace() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "src" / "pages").mkdir(parents=True)
         bad = (
             'const rows = [\n'
             '  {{ label: "9:15 · New patient", detail: "Room 2 · intake done", status: "Ready" }},\n'
             '  {{ label: "10:00 · Follow-up", detail: "Dr. Chen", status: "Live" }},\n'
             '];\n'
-            'const style = {{ color: "red" }};\n'  # not our pattern (no label/k key) — leave alone
+            'const style = {{ color: "red" }};\n'
         )
-        # The style line uses `{{ color` — detector should NOT flag it.
-        if find_double_brace_object_literals('const style = {{ color: "red" }};'):
-            raise AssertionError("detector falsely flagged style={{ color }}")
-
-        # Catalogue components legitimately pass object-valued JSX props with
-        # two braces: one JSX expression brace plus one object literal brace.
-        catalogue_jsx = (
-            '<MarketingHero\n'
-            '  primaryCta={{ label: "Get started", onClick: () => navigate("/start") }}\n'
-            '  secondaryCta={{ label: "Learn more", href: "#details" }}\n'
-            '/>\n'
-        )
-        if find_double_brace_object_literals(catalogue_jsx):
-            raise AssertionError("detector falsely flagged a JSX object-valued prop")
-        unchanged, jsx_repairs = repair_double_brace_object_literals_in_text(catalogue_jsx)
-        if unchanged != catalogue_jsx or jsx_repairs:
-            raise AssertionError("repair corrupted a valid JSX object-valued prop")
-
-        fixed, n = repair_double_brace_object_literals_in_text(bad)
-        if n != 2:
-            raise AssertionError(f"expected 2 row repairs, got {n}")
-        if find_double_brace_object_literals(fixed):
-            raise AssertionError(f"repair left double braces: {fixed!r}")
-        if "{{ label:" in fixed:
-            raise AssertionError("repair left `{{ label:`")
-        if '{ label: "9:15 · New patient"' not in fixed:
-            raise AssertionError("repair did not produce single-brace row objects")
-
-        # Non-row shapes the model emits (partial keys / expressions) must also
-        # collapse — this is what hard-failed PaintingDetailPage on req 17.
         partial = (
             'const meta = [\n'
             '  {{ label: painting.title }},\n'
@@ -108,45 +137,37 @@ def main() -> None:
             '];\n'
             'const cta = {{ label: "Inquire", href: "/contact" }};\n'
         )
-        partial_fixed, partial_n = repair_double_brace_object_literals_in_text(partial)
-        if partial_n < 1:
-            raise AssertionError(f"expected partial double-brace repairs, got {partial_n}")
-        if find_double_brace_object_literals(partial_fixed):
-            raise AssertionError(f"partial repair left double braces: {partial_fixed!r}")
-        if "{{ label:" in partial_fixed:
-            raise AssertionError("partial repair left `{{ label:`")
-
         corrupt = root / "src" / "pages" / "BrokenPage.tsx"
         corrupt.write_text(bad + "\n" + partial, encoding="utf-8")
         repaired = scan_and_repair_double_brace_literals(root)
-        if "src/pages/BrokenPage.tsx" not in repaired:
-            raise AssertionError(f"scan_and_repair missed BrokenPage: {repaired}")
+        assert "src/pages/BrokenPage.tsx" in repaired, (
+            f"scan_and_repair missed BrokenPage: {repaired}"
+        )
         after = corrupt.read_text(encoding="utf-8")
-        if "{{ label:" in after:
-            raise AssertionError("workspace scan left `{{ label:`")
+        assert "{{ label:" not in after, "workspace scan left `{{ label:`"
 
+
+def test_icon_key_helper_and_import_regexes() -> None:
     # Named icon key helper + trailing-comment import stripping stay in safety.py;
     # smoke-check the helpers without a full workspace.
-    from app.application.preview_app.patterns import (  # noqa: E402
+    from app.application.preview_app.patterns import (
         _IMPORT_FROM_RE,
         _SIDE_EFFECT_IMPORT_RE,
     )
-    from app.application.preview_app.safety.ui_icons import _icon_export_to_key  # noqa: E402
+    from app.application.preview_app.safety.ui_icons import _icon_export_to_key
 
-    if _icon_export_to_key("CalendarIcon") != "calendar":
-        raise AssertionError("CalendarIcon key mapping broken")
-    if _icon_export_to_key("DollarSignIcon") != "dollar-sign":
-        raise AssertionError("DollarSignIcon key mapping broken")
+    assert _icon_export_to_key("CalendarIcon") == "calendar", (
+        "CalendarIcon key mapping broken"
+    )
+    assert _icon_export_to_key("DollarSignIcon") == "dollar-sign", (
+        "DollarSignIcon key mapping broken"
+    )
 
     commented = "import { Dialog } from '@headlessui/react'; // modal shell\n"
-    if not _IMPORT_FROM_RE.search(commented):
-        raise AssertionError("import regex must match trailing // comments")
+    assert _IMPORT_FROM_RE.search(commented), (
+        "import regex must match trailing // comments"
+    )
     side = "import 'react-datepicker/dist/react-datepicker.css';\n"
-    if not _SIDE_EFFECT_IMPORT_RE.search(side):
-        raise AssertionError("side-effect CSS import regex must match")
-
-    print("OK: safe stub braces + double-brace repair regression passed")
-
-
-if __name__ == "__main__":
-    main()
+    assert _SIDE_EFFECT_IMPORT_RE.search(side), (
+        "side-effect CSS import regex must match"
+    )

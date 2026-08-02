@@ -2,16 +2,10 @@
 from __future__ import annotations
 
 import json
-import sys
 from datetime import datetime
-from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from app.application.appspec.repository import AppSpecRepository, app_spec_provenance
 from app.application.appspec.source import capture_derived_context, capture_request_source, source_sha256
@@ -39,7 +33,29 @@ def _request() -> Request:
     )
 
 
-def run() -> None:
+def test_appspec_source_snapshot_excludes_secrets_and_tracks_digest() -> None:
+    req = _request()
+    snapshot = capture_request_source(req)
+    snapshot_again = capture_request_source(req)
+    assert source_sha256(snapshot) == source_sha256(snapshot_again)
+    original_source_digest = source_sha256(snapshot)
+    req.mvp_blueprint = "A newly regenerated derived blueprint"
+    assert source_sha256(capture_request_source(req)) == original_source_digest
+    req.desired_outcome = "Bookings, rescheduling, and automated reminders."
+    assert source_sha256(capture_request_source(req)) != original_source_digest
+    req.desired_outcome = "Self-service bookings and rescheduling."
+    serialized_source = json.dumps(snapshot)
+    assert "private@example.com" not in serialized_source
+    assert "+000000000" not in serialized_source
+    assert "private operator note" not in serialized_source
+    assert "Derived blueprint" not in serialized_source
+    assert (
+        capture_derived_context(req)["derived_context"]["mvp_blueprint"]
+        == "A newly regenerated derived blueprint"
+    )
+
+
+def test_appspec_repository_persists_revisions_and_gates_accepted_status() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     db = sessionmaker(bind=engine)()
@@ -49,24 +65,6 @@ def run() -> None:
         db.commit()
 
         snapshot = capture_request_source(req)
-        snapshot_again = capture_request_source(req)
-        assert source_sha256(snapshot) == source_sha256(snapshot_again)
-        original_source_digest = source_sha256(snapshot)
-        req.mvp_blueprint = "A newly regenerated derived blueprint"
-        assert source_sha256(capture_request_source(req)) == original_source_digest
-        req.desired_outcome = "Bookings, rescheduling, and automated reminders."
-        assert source_sha256(capture_request_source(req)) != original_source_digest
-        req.desired_outcome = "Self-service bookings and rescheduling."
-        serialized_source = json.dumps(snapshot)
-        assert "private@example.com" not in serialized_source
-        assert "+000000000" not in serialized_source
-        assert "private operator note" not in serialized_source
-        assert "Derived blueprint" not in serialized_source
-        assert (
-            capture_derived_context(req)["derived_context"]["mvp_blueprint"]
-            == "A newly regenerated derived blueprint"
-        )
-
         repo = AppSpecRepository(db)
         rejected = repo.save_attempt(
             request_id=req.id,
@@ -129,11 +127,5 @@ def run() -> None:
             pass
         else:
             raise AssertionError("Accepted status bypassed validation gate")
-
-        print("AppSpec persistence checks passed")
     finally:
         db.close()
-
-
-if __name__ == "__main__":
-    run()

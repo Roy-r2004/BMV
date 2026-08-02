@@ -1,19 +1,15 @@
 """Regression: usage-driven brand/mock contract (scalable, no field hardcoding)."""
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO_ROOT / "backend"))
-
-from app.application.preview_app.patterns import (  # noqa: E402
+from app.application.preview_app.patterns import (
     MAX_BRAND_ARRAY_LEN,
     strip_ts_comments_and_strings as _strip_ts_comments_and_strings,
     brand_object_span as _brand_object_span,
 )
-from app.application.preview_app.safety.brand_contract import (  # noqa: E402
+from app.application.preview_app.safety.brand_contract import (
     collect_brand_property_paths,
     ensure_brand_paths,
     ensure_brand_shape,
@@ -24,11 +20,10 @@ from app.application.preview_app.safety.brand_contract import (  # noqa: E402
     _count_array_items,
     _find_brand_prop_span,
 )
-from app.application.preview_app.workspace import write_file  # noqa: E402
+from app.application.preview_app.workspace import write_file
 
 
-def main() -> None:
-    # --- parsing / normalize ---
+def test_brand_path_parsing_and_normalize() -> None:
     assert _parse_brand_chain(".services[2].name") == ("services", 2, "name")
     assert _parse_brand_chain(".client_names[index]") == ("client_names", "*")
     assert _parse_brand_chain(".design_system.primary_color") == (
@@ -37,22 +32,24 @@ def main() -> None:
     )
     assert normalize_brand_path(("services", 2, "name")) == "brand.services[].name"
     assert normalize_brand_path(("client_names", "*")) == "brand.client_names[]"
+    assert _parse_brand_chain("") == ()
+    assert _parse_brand_chain(".ok") == ("ok",)
 
-    # --- ignore comments / strings ---
+
+def test_brand_usage_ignores_comments_and_strings() -> None:
     noisy = _strip_ts_comments_and_strings(
         'const x = "brand.hidden"; // brand.also_hidden\nbrand.visible[0].name;\n'
     )
     assert "brand.hidden" not in noisy or noisy.count("brand") == 1
     assert "visible" in noisy
 
-    # --- array cap ---
+
+def test_brand_array_length_is_capped() -> None:
     reqs = _infer_brand_requirements({("huge", 999, "name")})
     assert reqs["huge"]["min_len"] <= MAX_BRAND_ARRAY_LEN
 
-    # --- unsupported / malformed ---
-    assert _parse_brand_chain("") == ()
-    assert _parse_brand_chain(".ok") == ("ok",)
 
+def test_ensure_brand_paths_from_page_usage() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
 
@@ -132,6 +129,10 @@ export const client_names = ["Ada Lovelace", "Grace Hopper", "Alan Turing", "Kat
         )
         assert '"One"' in updated2 or "name: \"One\"" in updated2 or "One" in updated2
 
+
+def test_ensure_brand_usage_paths_fills_design_system_on_bare_brand() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
         # Workspace wrapper + hardcoded fallback still works on empty brand
         write_file(
             root,
@@ -145,13 +146,7 @@ export const client_names = ["Ada Lovelace", "Grace Hopper", "Alan Turing", "Kat
         )
         assert ensure_brand_shape(root, "Bare", "#111", "#222", "Inter") or True
         # usage paths for design_system
-        logs3 = ensure_brand_usage_paths(root, "Bare", "#111", "#222", "Inter")
+        ensure_brand_usage_paths(root, "Bare", "#111", "#222", "Inter")
         mock3 = (root / "src/data/mock.ts").read_text(encoding="utf-8")
         assert "design_system" in mock3
         assert "primary_color" in mock3
-
-    print("OK: usage-driven brand contract regression passed")
-
-
-if __name__ == "__main__":
-    main()
