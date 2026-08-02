@@ -859,6 +859,20 @@ def run_quality_gate_with_heal(
     if final.ok or not use_ai or attempts <= 0:
         return final
 
+    # Same contract, same gap as the visual critic: `quality_repair` is ELECTIVE
+    # and was never skipped, because `should_skip_elective` had one caller in the
+    # whole tree. Past the deadline this loop snapshots the source, asks for a
+    # repair plan that `ask_budget = 0` refuses, and rebuilds — all the disk and
+    # vite cost, no repair. Request 76 spent 15 s of its 35 s tail here.
+    from app.application.services.request_deadline import should_skip_elective
+
+    if should_skip_elective("quality_repair"):
+        log.warning(
+            "quality gate AI repair skipped — past the deadline, so the repair ask "
+            "would be refused and only the snapshot/rebuild cost would land"
+        )
+        return final
+
     from app.application.preview_app.quality_repair import run_ai_quality_repair
 
     for attempt in range(1, attempts + 1):

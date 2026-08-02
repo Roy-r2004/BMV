@@ -359,18 +359,26 @@ untouched by items.
 only — no vitest, jest, testing-library, playwright, and no `.github/`. Two Phase 2 DoDs depend on a
 runner that does not exist. **No test may leave pytest until that CI job is green on main.**
 
-### Phase 1 DoD — with what is evidenced after the concurrent trios (74-79)
+### Phase 1 DoD — with what is evidenced after four concurrent trios (74-85)
 
-Six live runs, two trios of three started 60 s apart. Trio 1 (74/75/76) is
-**timing-invalid** — another session ran a mutation sweep on the same host
-inside the window — but its *outcomes* stand. Trio 2 (77/78/79) is the
-measurement: 06:46:13 / 06:47:13 / 06:48:13, machine sampled every 10 s and
-idle but for one short pytest container of my own.
+Twelve live runs, four trios of three started 60 s apart, each trio a
+`reference_url` run, a `reference_file` run and a plain one, on three different
+industries. Trio 1 (74/75/76) is **timing-invalid** — another session ran a
+mutation sweep on the same host inside the window — but its *outcomes* stand.
+Trio 2 (77/78/79) added the contention instrumentation. Trio 3 (80/81/82) tested
+the screenshot lock-wait bound. Trio 4 (83/84/85) is the current code and the
+only trio in which **every run finished under 600 s**.
+
+| trio | wall clock | over the 540 s deadline | ≤ 600 s | pages given a visual verdict |
+|---|---|---|---|---|
+| 2 | 619.7 / 576.4 / 573.0 | 79.7 / 36.4 / 33.0 | 2 of 3 | 10 of 18 |
+| 3 | 590.2 / 600.2 / 602.7 | 50.2 / 60.2 / 62.7 | 1 of 3 | 0 of 18 |
+| **4** | **591 / 583 / 590** | **51.3 / 43.1 / 50.1** | **3 of 3** | 0 of 18 |
 
 | | Status |
 |---|---|
-| Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **FAILED** — the trio ran, and **request 77 took 619.7 s**. 78: 576.4 s, 79: 573.0 s. The trio, the `reference_url` run and the `reference_file` run are now done; the cap is what broke |
-| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **FAILED on two of three.** p50 wall clock **576.4 s** (want ≤ 500). One ask of **135.0 s** (77, `fix_agent`, `z-ai/glm-5.2`, a *single* row — no failover) against a 120 s ceiling, and that stage's span is the same 135.0 s. Ask p50 is healthy: 7.6 / 8.5 / 8.4 s |
+| Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **holds on trio 4, 3 of 3 — with 9-17 s of margin, on n=3.** It did not hold on trio 2 (619.7 s) or trio 3 (600.2 / 602.7 s). Call it met when a trio clears it twice; one clean trio is how the "met and real, on n=1" overstatement happened last time |
+| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **FAILED on both counts.** p50 wall clock **590 s** (want ≤ 500) — the guards below bought ~10 s, not 90. The 135.0 s ask is now **diagnosed and exact**: `_CANCEL_GRACE_SECONDS = 15.0` (`retry.py:26`) is spent *after* the 120 s cap fires, so the effective ceiling is 135 s. Every `hard deadline hit after 120s` line in the logs has a 135.0 s row beside it — 77, 81/82, 85. Ask p50 is healthy: 8.1 / 5.7 / 9.6 s |
 | Zero consecutive asks to the same resolved model id | **was FALSE, now fixed.** `ac10c9b` deduped the *repair* chains and its test pins those; `call_architect`'s three-name chain was never deduped, and `ARCHITECT_MODEL` = `PREVIEW_APP_MODEL` = `TEXT_MODEL` = `google/gemini-2.5-flash` here **and in the test environment**, so the guard could not have caught it. 7 violations across trio 1; request 74's architect wrote 3 rows, one model, all unusable |
 | Every degraded run carries a machine-readable `degraded: [stage]` marker | **was FALSE, now fixed.** Requests **73, 75 and 76 each degraded three stages and each stored `degraded: []`** — the marker was only ever a log line at scope exit. `finalize` runs inside `generate_preview_app`; `tech`/`proposal`/`build_plans` are skipped *after* it returns, so it structurally could not see them. Published from `GenerationPipeline.run` now, and verified live on 77/78/79 |
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
@@ -378,10 +386,15 @@ idle but for one short pytest container of my own.
 | Suite green at ≥ 1,107 | **1,288 passed / 1 skipped / 1 failed** — the red is another session's in-flight refactor of `test_phase5_ui_alias_imports.py` (at `f9f41eb` that file has zero test functions), not Phase 1 work |
 | Vitest CI job green on main | **not started** — 1.10 |
 
-**The honest summary:** the clock is **not** a guarantee, and the previous
-summary — "met and real, on n=1" — was three separate overstatements. Run it
-concurrently and the 600 s cap breaks; two DoD rows marked *done* were false in
-production and false in the test environment that was supposed to pin them.
+**The honest summary:** the clock was **not** a guarantee — run it concurrently
+and the 600 s cap broke on 3 of the first 9 runs, and two DoD rows marked *done*
+were false in production and false in the test environment that was supposed to
+pin them. After the elective guards, trio 4 cleared 600 s on 3 of 3 with 9-17 s
+to spare. That is the first trio to do it and it is still n=3: the margin is
+thinner than the run-to-run spread within a single trio (8 s here, 47 s in
+trio 2), so a slower model day puts it back over. **Not "met" — "no longer
+reproducibly broken."** p50 is 590 s against a 500 s target, and the 120 s ask
+ceiling is still exceeded by design (`_CANCEL_GRACE_SECONDS`, below).
 
 #### Where the 600 s went, on request 77
 
@@ -404,6 +417,45 @@ which is why one trio is not evidence about concurrency either way.
 place the plan did not look:** not in the 540 s budget, in the 60 s reserve
 after it. A deadline whose reserve is unbounded is a 540 s deadline with a
 600 s label.
+
+#### The elective contract had one caller (trios 3 and 4)
+
+Every one of the first nine runs finished 33-80 s past its deadline regardless
+of what changed between trios, which reads as structural rather than as tuning.
+Decomposed against `ai_usage_events`, the 382 s of tail across those nine runs
+is **127 s of AI (33 %) and 255 s of non-AI (67 %)** — so `RESERVE_SECONDS = 60`,
+which was fitted to the post-deadline render-smoke and capture pass, was fitted
+to a minority of what actually runs after the deadline.
+
+The cause: **`should_skip_elective` had exactly one caller in the whole tree** —
+the orchestrator's `tech`/`proposal`/`build_plans` loop at `orchestrator.py:315`.
+Five of the eight declared `ELECTIVE_STAGES` (`visual_critic`, `quality_repair`,
+`refine`, `demo`, `reference_analysis`) were elective in name only: they ran
+their expensive deterministic half past the deadline and only their *model calls*
+degraded. Request 82 shows it cleanly, in a window where the other two runs had
+already finished — the visual critique **starts 18 s past the deadline**,
+screenshots its pages, then takes six consecutive `ask budget of 0s exhausted`
+refusals. All of the browser cost, none of the verdicts.
+
+Guards added at the two that dominate the measured tail (`build_phase.py:487`,
+`quality_gate.py:862`), and `test_the_expensive_elective_stages_are_actually_skippable`
+pins the contract for all five by AST rather than by grep — an earlier regex
+version of that test falsely flagged the three document stages, which are
+guarded through a loop variable and not a string literal.
+
+**What it bought, measured, and the claim it does not support.** Trio 4's tail
+averages 48.2 s against trio 3's 57.7 s: **~10 s a run.** The 255 s of non-AI
+tail is real, but attributing the bulk of it to these two stages was wrong —
+most of it is the post-gate smoke-and-capture pass the reserve was sized for.
+What the guards did buy is the difference between 3 of 3 under 600 s and 1 of 3.
+
+**It costs nothing in judged pages, and that was the thing to check** — the
+reverted session-budget clip (1.11) failed on exactly this axis. Over six
+observations the split is clean: every time the critic ran *past* the deadline
+it reviewed **0 of 6** pages (80, 81, 82 — its vision calls were all refused);
+every time it ran *before* it reviewed 4-6 of 6 (78 at t=497 s, 79 at t=450 s).
+The guard only fires past the deadline, so it removes captures that were already
+producing no verdicts and leaves the pre-deadline path untouched.
 
 #### The failure mode the contract exists to prevent, still live
 

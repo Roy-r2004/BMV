@@ -484,7 +484,27 @@ def run_build_phase(ctx: PipelineContext) -> None:
     # try/except on top of the guards already inside it — a failure here must
     # degrade to "keep whatever was already built", never take down the
     # whole request.
-    if ok and not settings.PREVIEW_SKIP_VISUAL_CRITIC:
+    # `visual_critic` is ELECTIVE, and the degradation contract says an elective
+    # stage that would *start* past the deadline is skipped. It was not being
+    # skipped: `should_skip_elective` had exactly one caller in the tree — the
+    # orchestrator's three document stages — so five of the eight declared
+    # ELECTIVE_STAGES were never actually elective.
+    #
+    # What that cost, measured on request 82: the critique started 18 s past the
+    # deadline, captured its pages, and then every vision call was refused for
+    # zero budget — six `ask budget of 0s exhausted` in a row. All the browser
+    # work, none of the judgement. That is why 67 % of the 33-80 s tail across
+    # nine runs is non-AI: the electives run their expensive deterministic half
+    # past the deadline and only their model calls degrade.
+    from app.application.services.request_deadline import should_skip_elective
+
+    if ok and should_skip_elective("visual_critic"):
+        log.warning(
+            "    [7/7] visual critique SKIPPED — past the deadline, and its vision "
+            "calls would all be refused. Screenshotting for verdicts nobody can "
+            "pay for is the whole cost with none of the value."
+        )
+    elif ok and not settings.PREVIEW_SKIP_VISUAL_CRITIC:
         log.info("  [7/7] Visual critique — screenshotting + reviewing rendered pages...")
         _emit(db, request_id, "visual_critic", "AI visually reviewing the built app...", 90,
               detail="Screenshotting pages and checking rendering quality")

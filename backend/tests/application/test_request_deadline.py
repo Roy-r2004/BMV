@@ -630,3 +630,105 @@ def test_an_uncontended_lock_is_still_taken_when_a_timeout_is_set() -> None:
         assert deadline.blocked_seconds() < 0.1
     assert lock.acquire(blocking=False)
     lock.release()
+
+
+# --- The elective contract was declared in eight places and enforced in three -
+#
+# `ELECTIVE_STAGES` says an elective stage that would START past the deadline is
+# skipped. `should_skip_elective` had exactly ONE caller in the tree — the
+# orchestrator's tech/proposal/build_plans loop — so `visual_critic`,
+# `quality_repair`, `refine`, `demo` and `reference_analysis` were elective in
+# name only. They ran their expensive deterministic half past the deadline and
+# only their model calls degraded, which is why **67 % of the 33-80 s
+# post-deadline tail across nine live runs is non-AI work**.
+#
+# Measured on request 82: the visual critique started 18 s past the deadline,
+# screenshotted its pages, and then took six consecutive
+# `ask budget of 0s exhausted` refusals. All of the browser cost, none of the
+# verdicts — and `visual_review_status` came back `unmeasured` anyway.
+
+
+def _guarded_elective_stages() -> set[str]:
+    """Stage names some `should_skip_elective` call can actually receive.
+
+    AST, not a regex, because the guard is called both ways: with a literal
+    (`should_skip_elective("visual_critic")`) and with a loop variable over a
+    tuple of literals, which is how the orchestrator guards tech/proposal/
+    build_plans. A regex over literals reports the second form as unguarded —
+    it did, on the first version of this test, and the code was fine.
+
+    Rule: a literal argument counts, and so does any string literal inside a
+    function that calls the guard at all. Coarse on purpose. The failure this
+    has to catch is a stage **no code path anywhere can skip**, which is what
+    `visual_critic` and `quality_repair` were.
+    """
+    import ast
+    from pathlib import Path
+
+    app_root = Path(__file__).resolve().parents[2] / "app"
+    guarded: set[str] = set()
+
+    for path in app_root.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError:  # pragma: no cover - a broken file fails elsewhere
+            continue
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            calls = [
+                node
+                for node in ast.walk(func)
+                if isinstance(node, ast.Call)
+                and getattr(node.func, "id", getattr(node.func, "attr", None))
+                == "should_skip_elective"
+            ]
+            if not calls:
+                continue
+            for call in calls:
+                if call.args and isinstance(call.args[0], ast.Constant):
+                    guarded.add(str(call.args[0].value))
+            if any(not isinstance(c.args[0], ast.Constant) for c in calls if c.args):
+                guarded.update(
+                    node.value
+                    for node in ast.walk(func)
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                )
+    return guarded & set(rd.ELECTIVE_STAGES)
+
+
+def test_the_expensive_elective_stages_are_actually_skippable() -> None:
+    """A stage listed ELECTIVE that no guard names is elective in name only.
+
+    Not every elective stage needs a guard — `demo` and `reference_analysis`
+    run before the deadline can plausibly have expired, and `refine` sits
+    inside codegen. The three that dominate the measured tail do.
+    """
+    guarded = _guarded_elective_stages()
+    unguarded = [
+        stage
+        for stage in ("visual_critic", "quality_repair", "tech", "proposal", "build_plans")
+        if stage not in guarded
+    ]
+    assert not unguarded, (
+        f"{unguarded} are in ELECTIVE_STAGES but no `should_skip_elective` call "
+        "names them — past the deadline they will run their deterministic half "
+        "in full and degrade only their model calls"
+    )
+
+
+def test_a_skipped_elective_records_why_so_the_tail_is_attributable() -> None:
+    with rd.request_deadline_scope(300, total_seconds=-1) as deadline:
+        assert rd.should_skip_elective("visual_critic") is True
+        assert rd.should_skip_elective("quality_repair") is True
+        reasons = {(d["stage"], d["reason"]) for d in deadline.degradations()}
+        assert ("visual_critic", "skipped_past_deadline") in reasons
+        assert ("quality_repair", "skipped_past_deadline") in reasons
+
+
+def test_electives_still_run_while_the_request_has_time() -> None:
+    """The guard must not fire on the healthy path — that is most runs."""
+    with rd.request_deadline_scope(301, total_seconds=540) as deadline:
+        assert rd.should_skip_elective("visual_critic") is False
+        assert rd.should_skip_elective("quality_repair") is False
+        assert deadline.degradations() == []
