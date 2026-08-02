@@ -117,6 +117,65 @@ def _try_loads(candidate: str) -> tuple[Any | None, str | None]:
         return None, str(exc)
 
 
+def _try_repair(text: str) -> tuple[dict[str, Any], str, str] | None:
+    """Last non-destructive attempt: the shared extractor's repair pass.
+
+    Returns ``(payload, extracted_text, method)`` or None.
+
+    Two of the shapes the authoring model actually produces are *structurally
+    complete* — brace-balanced, fence closed, `finish_reason: stop` — and still
+    not valid JSON: it drifts out of escaping mid-string (bare `"` where `\\"`
+    was required), and it writes shell-style `\\`+newline line continuations
+    inside strings. Nothing above this line can read either one, so the parser
+    used to return `app_spec_authoring_json_syntax_invalid` and the caller
+    re-asked a 28k-token authoring call for output the model had already sent.
+
+    This runs only after every strict path has failed, so a well-formed
+    response can never reach it, and `json.loads` still adjudicates the result
+    — a bad repair fails closed rather than inventing a document.
+    """
+    try:
+        from app.shared.json_utils import extract_json_with_meta
+
+        value, meta = extract_json_with_meta(text)
+    except Exception:
+        return None
+    if not isinstance(value, dict):
+        return None
+    return value, json.dumps(value, ensure_ascii=False), str(meta.get("method") or "repaired")
+
+
+def _repaired_result(
+    text: str,
+    *,
+    finish_reason: str | None,
+    strict_error: str | None,
+) -> AppSpecAuthoringParseResult | None:
+    recovered = _try_repair(text)
+    if recovered is None:
+        return None
+    payload, extracted, method = recovered
+    return AppSpecAuthoringParseResult(
+        ok=True,
+        payload=payload,
+        extracted_text=extracted,
+        strategy="repaired",
+        diagnostics={
+            "raw_response_sha256": _sha256_text(text),
+            "raw_response_chars": len(text),
+            "extracted_object_sha256": _sha256_text(extracted),
+            "extracted_object_chars": len(extracted),
+            "finish_reason": finish_reason,
+            "truncated": False,
+            # Loud on purpose: the model sent unparseable JSON and we salvaged
+            # it. That is a prompt problem, not a transport one.
+            "repaired": True,
+            "repair_method": method,
+            "strict_parser_error": strict_error,
+        },
+    )
+
+
 def _fail(
     *,
     code: str,
@@ -162,6 +221,10 @@ def parse_appspec_authoring_output(
     2. Explicit JSON markdown fence extraction
     3. String-aware balanced-brace scan for the first complete top-level object
     4. Strict ``json.loads`` of the extracted object
+    5. Re-escaping repair via the shared extractor — only after 1-4 have all
+       failed, so a well-formed response is never touched by it. See
+       ``_try_repair``: without this step a structurally complete but
+       under-escaped response is reported as invalid and re-asked in full.
     """
 
     if not response_field_present:
@@ -259,6 +322,14 @@ def parse_appspec_authoring_output(
     start, end, status = span
     candidate = text[start:end]
     if status == "truncated":
+        # An unescaped `"` desynchronises the brace matcher above, so a complete
+        # document can present as unbalanced. Try the repair pass before
+        # declaring truncation; it fails closed, so a real cut still lands here.
+        recovered = _repaired_result(
+            text, finish_reason=finish_reason, strict_error="unbalanced_object"
+        )
+        if recovered is not None:
+            return recovered
         return _fail(
             code=AUTHORING_JSON_TRUNCATED,
             strategy="balanced_scan",
@@ -295,11 +366,18 @@ def parse_appspec_authoring_output(
             parser_error="extracted_top_level_not_object",
             extra={"finish_reason": finish_reason},
         )
+
+    strict_error = err or locals().get("fence_err") or "invalid_object"
+    # 4) Every strict path has failed. Re-escaping repair, then fail closed.
+    recovered = _repaired_result(text, finish_reason=finish_reason, strict_error=strict_error)
+    if recovered is not None:
+        return recovered
+
     return _fail(
         code=AUTHORING_JSON_SYNTAX_INVALID,
         strategy="balanced_scan",
         raw=text,
-        parser_error=err or locals().get("fence_err") or "invalid_object",
+        parser_error=strict_error,
         extra={"finish_reason": finish_reason, "truncated": False},
     )
 

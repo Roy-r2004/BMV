@@ -20,7 +20,16 @@ python scripts/cli/rebuild_preview_request.py <request_id>
 python scripts/cli/finish_preview_request.py <request_id>
 python scripts/cli/poll_progress.py <request_id>
 python scripts/cli/ai_call_census.py --requests 66,67,68,70,71 --overhead 40
+python scripts/cli/mutate_extractors.py
 ```
+
+### `mutate_extractors.py` — proving the JSON-extractor guards actually guard
+
+Reverts each extractor fix in turn and asserts `tests/test_json_extractor_parity.py`
+goes red, then restores the sources. Run it after touching any extractor. A
+mutation that leaves the suite green names a test that pins nothing — which is
+how three extractors carried the same bugs through several sessions of green
+suites.
 
 ### `ai_call_census.py` — sizing the request deadline (Phase 0.6)
 

@@ -104,11 +104,9 @@ def fallback_visual_demo(req: Request) -> dict:
     }
 
 
-def strip_fences(raw: str) -> str:
-    raw = raw.strip()
-    for fence in ("```html", "```"):
-        if raw.startswith(fence):
-            raw = raw[len(fence):]
-        if raw.endswith("```"):
-            raw = raw[:-3]
-    return raw.strip()
+# `strip_fences` used to live here: a fence stripper anchored at position 0, so
+# prose before the fence defeated it. It had no importer in `app/` or `tests/` —
+# the `_strip_fences` used throughout codegen, critic, fix_agent and safety is a
+# different function in `preview_app/text_utils.py`, and that one already routes
+# JSON through the shared extractor. Removed rather than fixed: a corrected
+# duplicate is still a duplicate, and this one had no caller to serve.

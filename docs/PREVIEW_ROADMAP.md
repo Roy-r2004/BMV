@@ -324,9 +324,40 @@ captured payloads in `/app/data/preview-apps/{67,68,69}/.bmv-debug/fix-agent/`, 
 
 Fixed in `shared/json_utils.py`: strict parse first, then every fenced block, then a skeleton-tracking
 re-escaping repair pass, then candidate spans — with the decoder's own error in the failure message.
-6 of 6 now parse. **Three other extractor implementations exist**
-(`appspec/sanitize/preparse_normalize.py:149` carries both original bugs;
-`services/page_experience.py:133`; `pipelines/_shared.py:107`) — untouched, flagged.
+6 of 6 now parse.
+
+**The other extractors — closed, and the count above was wrong.** Replaying the four captured
+payloads through every extractor in the repo scored `json_utils` 4/4, `preparse_normalize` **0/4**,
+`page_experience` **0/4** (one of them a *partial*), `authoring_parser` **1/4**.
+
+The two flagged as carrying "the original bugs" turned out to have **no production caller** —
+`preparse_normalize.extract_json_object_text` is imported only by a test, and nothing imports
+`pipelines/_shared.strip_fences` at all (the `_strip_fences` used across codegen, critic, fix_agent
+and safety is a different function in `preview_app/text_utils.py`, already routed through the shared
+extractor). Meanwhile a **fourth implementation that was never on the list**,
+`domain/appspec/authoring_parser.py:76`, sits on the AppSpec authoring path — the 264-288 s stage —
+and failed 3 of 4. Shapes 2 and 3 above are structurally complete, so it returned
+`json_syntax_invalid` and `build_app_spec_candidate` re-asked a 28k-token authoring call for output
+the model had already sent. **The 161 s re-ask waste was still live, on the most expensive stage in
+the pipeline**, for every session that read this section and believed the extractor question was
+closed.
+
+Worse than any of the outright failures was `page_experience`'s partial. On
+`request67_fix_agent_retry_unescaped_quotes` it returned a dict — three files, correct paths, first
+two byte-identical, third's 15,143 characters of content replaced by `""` — with no exception, no
+log and no `None`. Its truncation closer cannot distinguish an under-escaped complete document from
+a truncated one, so it trimmed a recoverable document back until something parsed. Four live call
+sites accept that as a plan.
+
+All four now recover 4/4. `tests/test_json_extractor_parity.py` pins parity **and wholeness** —
+equality against the shared extractor, because "returns a dict" is exactly the assertion the partial
+would have passed — plus strict-first ordering, so a well-formed response can never reach a repair
+path. `scripts/cli/mutate_extractors.py` reverts each fix and asserts the suite reddens: 5
+mutations, 5 caught, 0 survivors.
+
+**Two lessons, both cheap to repeat.** The extractor count came from the previous handoff rather
+than from the code, and the code had one more. And a duplicate that fails *silently* outranks one
+that fails loudly: measure recovered documents against a reference, never against `is not None`.
 
 **The strategic read matters more than the fix.** Asking a model for a 30 KB JSON document with
 escaped source code inside it is fragile by construction. That is an independent argument for

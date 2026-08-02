@@ -146,8 +146,15 @@ def repair_trailing_commas(text: str) -> tuple[str, bool]:
     return current, current != original
 
 
-def extract_json_object_text(raw: str) -> tuple[str | None, dict[str, Any]]:
-    """Extract one JSON object text from markdown/prose; return extraction meta."""
+def _extract_object_text_strict(raw: str) -> tuple[str | None, dict[str, Any]]:
+    """Non-destructive strict extraction: direct, anchored fence, first brace span.
+
+    Kept verbatim as the fast path so its `method` values stay stable. It has
+    two known blind spots, both covered by the fallback in
+    `extract_json_object_text`: the fence is only stripped when it sits at
+    position 0, and the brace scan tries the *first* `{` and gives up rather
+    than the next candidate.
+    """
 
     text = (raw or "").strip()
     meta: dict[str, Any] = {"method": None, "ok": False}
@@ -240,6 +247,45 @@ def extract_json_object_text(raw: str) -> tuple[str | None, dict[str, Any]]:
                     return None, meta
     meta["error"] = "unbalanced"
     return None, meta
+
+
+def extract_json_object_text(raw: str) -> tuple[str | None, dict[str, Any]]:
+    """Extract one JSON object text from markdown/prose; return extraction meta.
+
+    Strict extraction first (unchanged), then the shared extractor as a
+    fallback. Measured against the four verbatim payloads in
+    `tests/fixtures/model_json/`, the strict path alone recovered **0 of 4**:
+    prose before the fence defeats the anchored fence strip, and the first-brace
+    scan then latches onto a brace inside that prose. The shared extractor
+    recovers 4 of 4.
+
+    The returned text is a *canonical re-serialization* when the fallback fires,
+    not a verbatim slice of `raw` — a repaired document has no verbatim slice to
+    return. Callers that need the original bytes should hash `raw`.
+
+    Note this helper currently has no production caller; the fix is preventative
+    so the next caller does not inherit a parser that fails every real payload.
+    """
+
+    text, meta = _extract_object_text_strict(raw)
+    if meta.get("ok"):
+        return text, meta
+
+    try:
+        from app.shared.json_utils import extract_json_with_meta
+
+        value, shared_meta = extract_json_with_meta(raw or "")
+    except Exception:
+        return None, meta
+    if not isinstance(value, dict):
+        return None, meta
+
+    return json.dumps(value, ensure_ascii=False), {
+        "method": f"shared:{shared_meta.get('method')}",
+        "ok": True,
+        "repaired": bool(shared_meta.get("repaired")),
+        "strict_error": meta.get("error"),
+    }
 
 
 def _normalize_enum_value(field_name: str, value: Any) -> tuple[Any, bool]:

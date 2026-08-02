@@ -19,6 +19,7 @@ from app.application.services.preview_parser import parse_preview_features
 from app.application.appspec.projection import (
     merge_experience_plan_enrichment,
 )
+from app.shared.json_utils import extract_json_with_meta
 from app.infrastructure.logging import get_logger
 
 plan_log = get_logger("ExperiencePlanner")
@@ -131,24 +132,69 @@ def _close_truncated_json(fragment: str) -> str | None:
     return candidate + "".join(reversed(stack))
 
 def _parse_json_from_response(raw: str) -> dict | None:
+    """Recover the planner's JSON object. Non-destructive recovery comes first.
+
+    The order is the whole point:
+
+    1. `extract_json_with_meta` — strict `json.loads`, then fence bodies, then
+       re-escaping repair, then balanced spans. Every one of those preserves the
+       document. A well-formed response can never be altered by it.
+    2. Only when all of that fails, `_close_truncated_json` — the one recovery
+       the shared extractor deliberately refuses, because it *discards* the tail
+       a `max_tokens` cut left dangling.
+
+    Step 2 used to run first in effect, and it lost data in silence. Replaying
+    `tests/fixtures/model_json/request67_fix_agent_retry_unescaped_quotes.txt`:
+    the model had drifted out of escaping mid-string — structurally complete,
+    brace-balanced, *not* truncated — so the closer chopped the document back
+    until something parsed and returned all three files with the right paths,
+    the first two byte-identical, and the third's 15,143 characters of content
+    replaced by `""`. No exception, no log, no None. Callers test
+    `if plan and plan.get("roles")`, so the remains shipped.
+
+    A destructive recovery must therefore say so out loud, which is what the
+    warning below is for.
+    """
+    if not raw or not raw.strip():
+        return None
+
+    try:
+        value, meta = extract_json_with_meta(raw)
+    except Exception:
+        value, meta = None, {}
+    if isinstance(value, dict):
+        if meta.get("repaired"):
+            # Not truncation. The model under-escaped its own output and we
+            # salvaged it whole — re-asking would burn the budget for nothing.
+            plan_log.info(
+                "planner JSON recovered by %s (no re-ask needed, raw_len=%s)",
+                meta.get("method"),
+                len(raw),
+            )
+        return value
+
     start = raw.find("{")
-    end = raw.rfind("}") + 1
     if start < 0:
         return None
-    if end > start:
-        try:
-            return json.loads(raw[start:end])
-        except Exception:
-            pass
-    # Truncated output (max_tokens hit): trim back object-by-object until the
-    # remainder can be balanced and parsed. Losing the tail beats losing the plan.
+
+    # Genuinely unrecoverable above: treat it as a max_tokens cut and trim back
+    # object-by-object until the remainder balances. Losing the tail beats
+    # losing the plan — but it IS a loss, so it is logged as one.
     fragment = raw[start:]
-    for _ in range(60):
+    for attempt in range(60):
         repaired = _close_truncated_json(fragment)
         if repaired:
             try:
                 parsed = json.loads(repaired)
                 if isinstance(parsed, dict):
+                    plan_log.warning(
+                        "planner JSON was truncated — recovered a PARTIAL plan by "
+                        "discarding %s of %s chars (%s trim attempts). "
+                        "Content is missing; this is not a clean parse.",
+                        len(raw) - len(repaired),
+                        len(raw),
+                        attempt + 1,
+                    )
                     return parsed
             except Exception:
                 pass

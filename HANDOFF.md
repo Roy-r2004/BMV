@@ -239,11 +239,48 @@ The one design fact worth carrying: it is a **sibling package on purpose**, beca
 `preview-template/package.json` is the shared-npm cache key (see the operating note above). Do not
 "tidy" it back into the template.
 
-### 8. Three other JSON extractor implementations, untouched
+### 8. The other JSON extractors — DONE in session 6, and the accounting here was wrong
 
-1.6 fixed `shared/json_utils.py` (6 of 6 captured payloads now parse). Still carrying the original
-bugs: `appspec/sanitize/preparse_normalize.py:149` (**both** of them),
-`services/page_experience.py:133`, `pipelines/_shared.py:107`.
+Fixed. What follows is the correction, because two of the three named items did not matter and an
+unnamed fourth one did.
+
+Replaying the four verbatim payloads in `tests/fixtures/model_json/` through every extractor:
+
+```
+                                     req67-esc  req67-quo  req68      req69
+shared/json_utils (1.6, fixed)       ok         ok         ok         ok
+appspec/sanitize/preparse_normalize  FAIL       FAIL       FAIL       FAIL
+services/page_experience   [LIVE]    FAIL       PARTIAL    FAIL       FAIL
+appspec/authoring_parser   [LIVE]    FAIL       FAIL       ok         FAIL
+```
+
+- **`preparse_normalize.py` and `pipelines/_shared.py:107` had no production caller.** Only a test
+  imports the first; nothing at all imports the second (the `_strip_fences` used across codegen,
+  critic, fix_agent and safety is a *different* function in `preview_app/text_utils.py`, and it
+  already routes through the shared extractor). Hygiene, not repair.
+- **`authoring_parser.py:76` was not on the list and is on the AppSpec path** — the 264-288 s stage,
+  item 1 above. It failed 3 of 4. Shapes 2 and 3 are structurally complete, so it reported
+  `json_syntax_invalid` and `build_app_spec_candidate` **re-asked a 28k-token authoring call for
+  output the model had already sent.** That is the 161 s waste from requests 67/69, on the most
+  expensive stage in the pipeline.
+- **`PARTIAL` was the real defect.** `page_experience._parse_json_from_response` did not fail on
+  `request67_fix_agent_retry_unescaped_quotes` — it returned three files with the right paths, the
+  first two byte-identical, and the third's **15,143 characters of content replaced by `""`**. No
+  exception, no log, no `None`; callers test `if plan and plan.get("roles")` and shipped it. Its
+  truncation closer cannot tell an under-escaped complete document from a truncated one, so it
+  trimmed a recoverable document until something parsed. Success looked exactly like failure, on
+  four live call sites including the `role_pages` fallback that 1.12 leans on.
+
+All four extractors now recover 4 of 4. `tests/test_json_extractor_parity.py` pins parity **and**
+wholeness (equality against the shared extractor, not just "returns a dict"), plus strict-first
+ordering so a well-formed response can never reach a repair path.
+`scripts/cli/mutate_extractors.py` reverts each fix and asserts the suite reddens: **5 mutations, 5
+caught, 0 survivors.** One test has no mutation partner and is a forward guard rather than a pinned
+one: `test_a_genuinely_truncated_response_still_fails_closed`.
+
+**The generalisable bit:** "how many extractors are there" was answered from the previous handoff
+rather than from the code, and the code had one more, on the stage that costs the most. Grep for the
+behaviour, not the list.
 
 ### 9. Eight xfailed tests are recorded defects, not stale assertions
 
