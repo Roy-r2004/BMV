@@ -174,7 +174,7 @@ build ~5 s + deterministic ~20 s ≈ **414 s**. Ledger and census agree within 1
 |---|---|---|
 | 0.1 | **Re-test the pack thesis.** Replay 60 days of real `industry` strings through `pick_template_id`; report hit / miss / wrong-family | Request 70 showed the pack matched even with an empty industry. **Sizes or cancels 1.8** |
 | 0.2 | `P(refine fires)` per run; does a slot-filled page keep the scaffold marker? | Sets two ledger rows |
-| 0.3 | Fraction of gate blocking issues that are content-shaped vs layout-shaped | **Gates 2.6** — decides whether the repair can become a model-free re-render |
+| 0.3 | ~~Fraction of gate blocking issues that are content-shaped vs layout-shaped~~ **ANSWERED — see below** | Gated 2.6, and the answer **reverses** the branch the plan had provisionally chosen |
 | 0.4 | Are visual `revision_instructions` expressible as content-key edits? | **Gates 2.6** with 0.3 |
 | 0.5 | Real `product_kind` distribution (60 days) — `plan_phase.py:119-124` already logs it | Decides whether Phase 3 spends on the 6 public or 9 ops skeletons |
 | 0.6 | Per-call latency distribution + the call census | p95 must be **derived by convolution**, not by scaling a mean. Today p95/p50 = 2.4× |
@@ -186,6 +186,41 @@ build ~5 s + deterministic ~20 s ≈ **414 s**. Ledger and census agree within 1
 queries undercount by ~⅔); make `success` mean *usable output*, not HTTP 200; add duration logs at
 `typecheck.py:494-499` and around `build.py:83`; clean the leaked `mkdtemp(prefix="bmv-dist-")`
 backups (`build_phase.py:134`, cleaned only at `:289-291`, outside the try).
+
+### 0.3 answered — the repair edits content, not layout
+
+88 ops across 19 stored repair plans (`.bmv-debug/quality_repair_plan*.json`,
+requests 19-73), classified by **what each op actually changed** — a `difflib`
+delta between `old` and `new`, not a pattern match over the new blob:
+
+| what changed | ops | |
+|---|---:|---:|
+| string / identifier edits — `/gallery`→`/collection`, `item`→`artwork`, label and href renames | 41 | 46.6 % |
+| content strings ≥ 12 chars | 29 | 33.0 % |
+| routes and links | 5 | 5.7 % |
+| **layout / structure** | **4** | **4.5 %** |
+| changed nothing at all | 5 | 5.7 % |
+| whole-file writes | 4 | 4.5 % |
+
+**Method note, because it changed the answer.** A first pass pattern-matched the
+*new* text and reported 34 % layout. That was an artifact: almost any TSX blob
+contains `className` or `<Capitalised`, so layout won every tie. Diffing what
+changed drops layout to 4.5 %. Sampling the "string / identifier" bucket shows
+it is overwhelmingly copy and href renames, so the true content share is well
+above 33 %.
+
+**Consequence for 2.6.** The plan said: *if 0.3 shows "mostly layout, not
+content", demote `visual_defect_severe` to WARN in the same commit that deletes
+the repair.* That branch is **not supported** — layout is the smallest
+identified category. A spec-level actor (visual finding → content-key edit) is
+what the evidence supports, so 2.6 should build that and keep the BLOCK.
+
+Still open: 0.5, whether the critic's `revision_instructions` are *expressible*
+as content-key edits, which is a different question from whether the repair's
+output happens to be content-shaped.
+
+Worth a ticket on its own: **5 of 88 ops changed nothing**, and the model was
+paid for every one.
 
 **DoD:** all nine answered in writing with evidence; `(writer, calls, wall-clock, ops applied)` for
 3 fresh runs; a fitted p50/p95 per model.
