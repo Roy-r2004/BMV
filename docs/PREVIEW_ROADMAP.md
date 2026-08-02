@@ -11,7 +11,75 @@ requests 68 and 70, same business, one field different.
 
 ---
 
-## Status — updated 2026-08-02
+## The no-generation window (2026-08-03, two days) — scope and rationale
+
+The OpenRouter account is out of credits, so **no live generation can run.** This section is the
+plan for that window. It is deliberately in the roadmap rather than in a handoff: what a team does
+when its most expensive instrument is unavailable is a roadmap decision, not a process note.
+
+**The framing.** Credits are the scarce resource, so a no-generation window has exactly two jobs:
+
+1. **Land everything that never needed a generation.** Several open items have been waiting on
+   credits they do not require, including the largest block of known defects in the repo.
+2. **Make the first funded trio maximally informative.** As of today a trio answers roughly two open
+   questions. It should answer eight. Every instrument added this week is a question that trio
+   answers for free — and the marginal cost of asking more of a single run is nearly zero.
+
+**What makes this possible:** 58 generated workspaces (requests 11-91) and the trio 2-5 telemetry in
+`ai_usage_events`. Most Phase 2 questions are census questions over that corpus, and a census needs
+no model. Both are now archived in [`docs/evidence/`](evidence/) — they were living in a docker
+volume and a session scratchpad respectively, one cleanup away from taking several published numbers
+with them.
+
+### Day 1 — the offline defect backlog
+
+| # | Work | Why it needs no generation |
+|---|---|---|
+| 1 | **The 8 xfails** — 7 in `test_catalogue_contract.py`, 1 in `test_phase5_ui_alias_imports.py` | Each is a filed defect whose reproduction is already written. Fix what is fixable; for each one that is not, record *why*, so it stops being re-triaged every session |
+| 2 | **2.9 slot-fill retry** | `_slot_fill_rejection` does not treat a contract-invalid page as a rejection, so `_MAX_SLOT_FILL_ATTEMPTS` never fires — 26 pages across requests 74-79, zero retries. Pure unit-testable logic |
+| 3 | `AiFeaturePanel.tsx:44` hardcodes `/ai-features` | Template source, provable in the vitest harness 1.10 just stood up |
+| 4 | `visual_review_status: None` → `unmeasured` | Fixes the telemetry *before* the next trio is collected through it |
+
+Item 2 carries a known cost: it lives in `generate.py:269-489`, exactly the range Phase 2's 2.4-2.5
+deletes, so it is throwaway work. Do the minimal version anyway — it is the measured root of the
+"everything looks the same" complaint and Phase 2 is 8-10 weeks out.
+
+### Day 2 — build Phase 2's scoreboard before Phase 2 starts
+
+Four Phase 2 DoDs need no generation at all. Doing them now means Phase 2 opens with its own
+measurements already in place:
+
+- **DoD 8 — the write allowlist.** *No module outside a named allowlist may write `src/pages/**.tsx`
+  or `src/render/**`, enforced at runtime inside `workspace.write_file`, allowlist pinned by test.*
+  The seam exists (`workspace.py:120`). This is a hard guarantee rather than a measurement, which
+  makes it the highest-value offline item on the list.
+- **DoD 9 — test-count floor asserted in CI.** Trivial now that CI exists and is on `main`.
+- **DoD 7 — route bijection.** `len(_smoke_routes(architect))` against non-wildcard routes with a
+  page file, and `catalogue_route_for_file` injective. Pure functions over the archived corpus.
+- **DoD 2 and DoD 5 — the "before" numbers.** Inline prose per page TSX (claimed 13,540 chars) and
+  `SiteSpec` key-set commonality (claimed 1 key across 27 workspaces). Census work, and the *only*
+  window in which it can be taken cheaply.
+
+Plus: extend the vitest suite toward the nav guarantees this document already specifies —
+scroll-reset, anchor landing, header clearance. `SkeletonComposer` is pinned; those are not.
+
+### The deliverable that pays for the window
+
+A **first-funded-trio pre-flight**: one list of every question the next three runs must answer and
+the instrument each one needs. Today a trio would confirm the dead-link guard and the wall clock.
+With this week's work it should also settle appspec writer attribution, the ask-ceiling row for
+appspec, whether the extractor fixes removed the re-asks, the slot-fill retry rate, and the
+ship-rate blockers.
+
+### What this window explicitly cannot do
+
+**p50, ship rate, 1.11's reserve, and 1.12.** All four need live runs. No amount of offline work
+substitutes, and the DoD rows for them stay open and unevidenced until a funded trio says otherwise.
+Recording that here so the next session does not read a productive week as progress against them.
+
+---
+
+## Status — updated 2026-08-03
 
 | Item | State |
 |---|---|
