@@ -3,7 +3,9 @@
 Vitest suite for `backend/preview-template`. Roadmap item **1.10**.
 
 ```
-cd backend/preview-template-tests
+cd backend/preview-template               # required — see "Module resolution"
+npm ci
+cd ../preview-template-tests
 npm ci
 npm test
 ```
@@ -29,6 +31,25 @@ fingerprint is untouched and generation pays nothing.
 
 `vitest.config.ts` maps `@` to `../preview-template/src`, the same alias the template's own
 `vite.config.ts` and `tsconfig.app.json` define, so template-internal imports resolve unchanged.
+
+## Module resolution — why the template's own `npm ci` is required
+
+The unit under test lives outside this package, so **its** bare imports resolve from **its**
+directory: `preview-template/node_modules`, never this package's. That has two edges, and the first
+one shipped green on a developer machine and would have failed the first CI run:
+
+- **On a clean checkout that directory does not exist**, and both `tsc -b` and vite fail with
+  `Failed to resolve import "react" from ".../SkeletonComposer.tsx"`. It is invisible on any machine
+  that has already run the template's install — which is every machine that has built a preview.
+  Hence the `npm ci` in `preview-template` above, and the matching CI step.
+- **Once it does exist, React resolves twice** — once for the test file from here, once for the
+  template source from there. Two React copies break hooks at runtime with an error that names
+  neither cause. `resolve.dedupe: ['react', 'react-dom']` collapses them to this package's copy,
+  which is pinned to the template's major.
+
+The practical consequence for writing tests: a component that imports a package this test harness
+does not have installed still resolves, because the template's own install provides it. Only add a
+dependency here when the *test file itself* imports it.
 
 ## What belongs here
 

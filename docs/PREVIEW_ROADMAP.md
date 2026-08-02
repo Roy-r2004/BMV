@@ -413,6 +413,16 @@ the template already defines.
 it is legitimate, but it is never free, and the bill arrives on the next generation's clock rather
 than at edit time. Warm the cache out of band before timing anything.
 
+**The sibling arrangement has one cost, and it was nearly shipped as a broken CI job.** The unit
+under test lives outside the test package, so *its* bare imports resolve from
+`preview-template/node_modules` — never from the test package's. On a clean checkout that directory
+does not exist and both `tsc -b` and vite fail with `Failed to resolve import "react"`; on a machine
+that has ever built a preview it does exist, everything passes, and the defect is invisible. CI now
+runs the template's own `npm ci` first. The same fact has a second edge: with both installs present,
+React resolves twice — once for the test file, once for the template source — and two React copies
+break hooks at runtime, so `resolve.dedupe: ['react', 'react-dom']` is set. Both were found by
+running the job in a clean `node:22` container rather than trusting a local green.
+
 The nine tests pin `SkeletonComposer`: what it throws on, that `shell` is the layout and not a
 section, that an explicit recipe order **drops leftover optional slots** (the variety contract —
 without it every business collapses into the same long marketing stack) while still restoring a
@@ -446,7 +456,7 @@ only trio in which **every run finished under 600 s**.
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
 | 11 of 11 catalogue cards show the artifact type the business sells | **9 of 11 on request 70**; 73's binding is correct but its cards were not scored card-by-card |
 | Suite green at ≥ 1,107 | **1,288 passed / 1 skipped / 1 failed** — the red is another session's in-flight refactor of `test_phase5_ui_alias_imports.py` (at `f9f41eb` that file has zero test functions), not Phase 1 work |
-| Vitest CI job green on main | **runner and workflow exist, `main` has never run them.** 9 tests, 9/9 mutation-caught locally, `tsc -b` clean, pytest unchanged at 1,472 passed / 1 skipped / 8 xfailed. The row stays **unmet** until `.github/workflows/preview-template-tests.yml` is green on `main` — it cannot be closed from a branch |
+| Vitest CI job green on main | **runner and workflow exist; `main` has never run them.** 9 tests, 9/9 mutation-caught, `tsc -b` clean, and the whole job verified on a clean `node:22` linux container — which is what caught a resolution defect that a local green was hiding (the template's `node_modules` must exist for its source's bare imports; see 1.10). The row stays **unmet** until `.github/workflows/preview-template-tests.yml` is green on `main` — it cannot be closed from a branch |
 
 **The honest summary:** the clock was **not** a guarantee — run it concurrently
 and the 600 s cap broke on 3 of the first 9 runs, and two DoD rows marked *done*

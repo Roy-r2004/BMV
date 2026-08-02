@@ -267,6 +267,15 @@ tests over `SkeletonComposer`, 9/9 mutation-caught, plus
 *no test may leave pytest until that CI job is green on main* — is still unsatisfied, and it cannot
 be satisfied from a branch. Until then pytest remains the only suite anything may depend on.
 
+The job has, however, been run end-to-end on a clean `node:22` linux container — `npm ci` (template)
+→ `npm ci` (tests) → `tsc -b` → 9 passed. **That run is what caught the defect a local green was
+hiding:** the unit under test lives outside the test package, so its bare imports resolve from
+`preview-template/node_modules`, which does not exist on a fresh checkout. Both `tsc` and vite failed
+with `Failed to resolve import "react"`. It passed on this machine only because the template's
+install was already there. The same fact has a second edge — once that directory *does* exist, React
+resolves twice and hooks break — so `resolve.dedupe` is now set. **Verify a CI job on the CI
+platform, not on the machine that wrote it.**
+
 The one design fact worth carrying: it is a **sibling package on purpose**, because
 `preview-template/package.json` is the shared-npm cache key (see the operating note above). Do not
 "tidy" it back into the template.

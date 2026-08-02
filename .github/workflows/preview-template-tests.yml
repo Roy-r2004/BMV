@@ -23,7 +23,19 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: backend/preview-template-tests/package-lock.json
+          cache-dependency-path: |
+            backend/preview-template-tests/package-lock.json
+            backend/preview-template/package-lock.json
+
+      # The tests import the template's source across a directory boundary, so
+      # its bare imports (`react`, and whatever a future test's component pulls
+      # in) resolve from `preview-template/node_modules` — not from this
+      # package's. Without this step both `tsc -b` and vite fail to resolve
+      # `react` on a clean checkout, which is invisible on any machine that has
+      # already run the template's install.
+      - name: Install the template's dependencies (for module resolution)
+        working-directory: backend/preview-template
+        run: npm ci --no-audit --no-fund
 
       - run: npm ci
 
