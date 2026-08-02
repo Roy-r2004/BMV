@@ -1,0 +1,25 @@
+{
+  "name": "preview-template-tests",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Vitest suite for backend/preview-template. Deliberately a sibling package — see README.md.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^26.1.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript": "~5.8.3",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
+  }
+}

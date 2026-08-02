@@ -26,7 +26,7 @@ requests 68 and 70, same business, one field different.
 | **1.7** validate repair-plan paths before the first write | **done** — `1b5e0d1` |
 | **1.8** industry derivation + placeholder gate | **done** — `ac10c9b`, `a919f86`. Token-length work still gated on 0.1 |
 | **1.9** bound items to the image pool | **done** — `ac10c9b`, **verified live on request 73** (12 items, below) |
-| **1.10** JS test runner (vitest) | **open** — blocks two Phase 2 DoDs |
+| **1.10** JS test runner (vitest) | **runner done, CI green-on-main pending a merge.** `backend/preview-template-tests/` — vitest 4 + jsdom + testing-library, 9 tests over `SkeletonComposer`, all nine mutation-tested by `tools/mutate.py` with zero survivors. It is a **sibling package on purpose**: the template's `package.json` is the shared-npm cache key, so a devDependency there costs the next generation a cold `npm ci` inside the run (below) |
 | **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it |
 | **1.12** a mandatory stage with no deterministic path | **open, new.** `architect` raises past the deadline and request 74 shipped nothing. See the DoD section |
 | **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
@@ -355,9 +355,40 @@ today consumed only by `product_face.py:90`). **Size the `_MIN_DISTINCTIVE_TOKEN
 people-photo role images. Request 73's 12-item catalogue binds `item1…item8` only, `card1/2/3`
 untouched by items.
 
-**1.10 Stand up a JS test runner.** `preview-template/package.json` has `dev`/`build`/`typecheck`
-only — no vitest, jest, testing-library, playwright, and no `.github/`. Two Phase 2 DoDs depend on a
-runner that does not exist. **No test may leave pytest until that CI job is green on main.**
+**1.10 Stand up a JS test runner. — RUNNER DONE; the CI job has not yet run on `main`.**
+`preview-template/package.json` had `dev`/`build`/`typecheck` only — no vitest, jest,
+testing-library, playwright, and no `.github/` anywhere in the repo. Two Phase 2 DoDs depend on a
+runner that did not exist. **No test may leave pytest until that CI job is green on main** — that
+condition is still unmet, because nothing is pushed.
+
+What landed: `backend/preview-template-tests/` (vitest 4, jsdom, @testing-library/react, vite 8
+pinned to the template's major so there is one vite in the tree) and
+`.github/workflows/preview-template-tests.yml`, which runs `npm ci` → `typecheck` → `test` on every
+push to `main` and every PR. No `paths:` filter: a filtered job reports *skipped*, not *green*, and
+cannot serve as a required check.
+
+**Why it is a sibling package rather than devDependencies in the template.** `shared_npm_root()`
+keys the shared `node_modules` cache on a sha256 of the template's `package.json` **and**
+`package-lock.json` (`npm_shared.py:29-44`). Any byte added to either — a `devDependencies` line
+included — changes the fingerprint, so the next generation misses the cache and pays a full cold
+`npm ci` *inside the run*, holding `_install_lock` through `contended_lock` while every concurrent
+run waits it out. Trios 4 and 5 cleared the 600 s DoD with 9-17 s of margin; a cold install is
+minutes. Second reason: `workspace.py:_SKIP_COPY` skips only `node_modules`/`dist`/`.git`, so test
+files under `preview-template/src/` would ship inside every generated preview app and be typechecked
+by `tsc -b`. The tests import across the directory boundary instead, via the same `@` → `src` alias
+the template already defines.
+
+**This generalises: treat `preview-template/package.json` as a file with a runtime cost.** Editing
+it is legitimate, but it is never free, and the bill arrives on the next generation's clock rather
+than at edit time. Warm the cache out of band before timing anything.
+
+The nine tests pin `SkeletonComposer`: what it throws on, that `shell` is the layout and not a
+section, that an explicit recipe order **drops leftover optional slots** (the variety contract —
+without it every business collapses into the same long marketing stack) while still restoring a
+supplied required section, the `public-utility` content frame with its full-bleed footer, and the
+ops rail split. `tools/mutate.py` reverts each of those behaviours in turn and asserts the suite
+goes red: **9 mutations, 9 caught, 0 survivors**, source restored byte-identical. Re-run it after
+touching the composer.
 
 ### Phase 1 DoD — with what is evidenced after four concurrent trios (74-85)
 
@@ -384,7 +415,7 @@ only trio in which **every run finished under 600 s**.
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
 | 11 of 11 catalogue cards show the artifact type the business sells | **9 of 11 on request 70**; 73's binding is correct but its cards were not scored card-by-card |
 | Suite green at ≥ 1,107 | **1,288 passed / 1 skipped / 1 failed** — the red is another session's in-flight refactor of `test_phase5_ui_alias_imports.py` (at `f9f41eb` that file has zero test functions), not Phase 1 work |
-| Vitest CI job green on main | **not started** — 1.10 |
+| Vitest CI job green on main | **runner and workflow exist, `main` has never run them.** 9 tests, 9/9 mutation-caught locally, `tsc -b` clean, pytest unchanged at 1,472 passed / 1 skipped / 8 xfailed. The row stays **unmet** until `.github/workflows/preview-template-tests.yml` is green on `main` — it cannot be closed from a branch |
 
 **The honest summary:** the clock was **not** a guarantee — run it concurrently
 and the 600 s cap broke on 3 of the first 9 runs, and two DoD rows marked *done*

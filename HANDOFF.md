@@ -81,6 +81,7 @@ meant to pin them. Assume the same of any row you did not personally mutate.
 | Industries | Use a **different** one per run in a trio. Three art galleries only prove the art-gallery path. |
 | pytest | **Read the SUMMARY LINE, never the exit code.** Piping to `tail` inside an `&&` chain has masked red suites twice. |
 | Working directory | **Drifts between tool calls. Use absolute paths.** It broke one `docker compose` call and two `docker run` calls this session. |
+| **`preview-template/package.json` has a runtime cost** | It is the shared-npm cache key — `shared_npm_root()` sha256s it together with `package-lock.json` (`npm_shared.py:29-44`). **One added byte invalidates the cache, and the next generation pays a cold `npm ci` inside the run**, holding `_install_lock` through `contended_lock` while concurrent runs wait it out. Trios 4/5 cleared 600 s by 9-17 s. Editing it is fine; warm the cache out of band before you time anything. |
 
 **The test command** — both documented ones lie:
 
@@ -224,12 +225,19 @@ not wall clock. Measure both, separately.
 requires `href`, so there is no safe removal. Dead in 1 of 9 runs; did not block that run.
 `MarketingHero`'s `DEFAULT_PRIMARY_CTA` was the same defect and is fixed at source — this one is not.
 
-### 7. 1.10 — no JS test runner
+### 7. 1.10 — JS test runner: built, but not green on `main`
 
-`preview-template/package.json` has `dev`/`build`/`typecheck` only. No vitest, no `.github/`. **Two
-Phase 2 DoDs depend on a runner that does not exist**, and the standing rule is: *no test may leave
-pytest until that CI job is green on main.* Cheap, needs no decision, and it is the last unstarted
-Phase 1 item.
+**Done in session 6** (`backend/preview-template-tests/`, vitest 4 + jsdom + testing-library, 9
+tests over `SkeletonComposer`, 9/9 mutation-caught, plus
+`.github/workflows/preview-template-tests.yml` — the repo's first CI job of any kind).
+
+**What is left is not code: the workflow has never run.** Nothing is pushed, so the standing rule —
+*no test may leave pytest until that CI job is green on main* — is still unsatisfied, and it cannot
+be satisfied from a branch. Until then pytest remains the only suite anything may depend on.
+
+The one design fact worth carrying: it is a **sibling package on purpose**, because
+`preview-template/package.json` is the shared-npm cache key (see the operating note above). Do not
+"tidy" it back into the template.
 
 ### 8. Three other JSON extractor implementations, untouched
 
