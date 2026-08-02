@@ -26,7 +26,11 @@ requests 68 and 70, same business, one field different.
 | **1.7** validate repair-plan paths before the first write | **done** — `1b5e0d1` |
 | **1.8** industry derivation + placeholder gate | **done** — `ac10c9b`, `a919f86`. Token-length work still gated on 0.1 |
 | **1.9** bound items to the image pool | **done** — `ac10c9b`, **verified live on request 73** (12 items, below) |
-| **1.10** JS test runner (vitest) | **open** — blocks two Phase 2 DoDs. The only Phase 1 item left |
+| **1.10** JS test runner (vitest) | **open** — blocks two Phase 2 DoDs |
+| **1.11** bound the post-deadline reserve | **open, new.** `RESERVE_SECONDS = 60` is sized from single-run capture (41-42 s) but the pass queues on `_SESSION_LOCK`; request 77 spent 79.7 s there and breached 600 s. See the DoD section |
+| **1.12** a mandatory stage with no deterministic path | **open, new.** `architect` raises past the deadline and request 74 shipped nothing. See the DoD section |
+| **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
+| **2.9** contract-invalid pages are scaffolded, never re-asked | **open, new, and this is the sameness complaint.** A syntactically valid page that fails the catalogue contract is replaced wholesale by the generic deterministic scaffold with **no retry**. `_slot_fill_rejection` only rejects empty/truncated/no-export/unparseable, so the retry loop never sees a contract violation. **26 pages across requests 74-79** were replaced this way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so the retry never fired once. Pinned by `test_a_contract_invalid_page_is_re_asked_with_its_validation_errors` (xfail). Fixing it costs ~4 extra asks per run against a cap that request 77 already breached, so it trades directly against Phase 1 |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
 | dead-link occurrence counting, DataTable, seed backfill | **done** — `d8ef2e9` |
 
@@ -355,21 +359,75 @@ untouched by items.
 only — no vitest, jest, testing-library, playwright, and no `.github/`. Two Phase 2 DoDs depend on a
 runner that does not exist. **No test may leave pytest until that CI job is green on main.**
 
-### Phase 1 DoD — with what is evidenced as of `a0ecff8`
+### Phase 1 DoD — with what is evidenced after the concurrent trios (74-79)
+
+Six live runs, two trios of three started 60 s apart. Trio 1 (74/75/76) is
+**timing-invalid** — another session ran a mutation sweep on the same host
+inside the window — but its *outcomes* stand. Trio 2 (77/78/79) is the
+measurement: 06:46:13 / 06:47:13 / 06:48:13, machine sampled every 10 s and
+idle but for one short pytest container of my own.
 
 | | Status |
 |---|---|
-| Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **partial** — one run at 579 s. The concurrent trio, `reference_url` and `reference_file` runs are **not** done, and concurrency is where the serialising locks make the deadline most likely to bind |
-| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **unmeasured** — n=1. Needs the 3-run set above |
-| Zero consecutive asks to the same resolved model id | **done** — `ac10c9b`, pinned by test |
-| Every degraded run carries a machine-readable `degraded: [stage]` marker | **done** — published by `finalize`, seen on 73 |
+| Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **FAILED** — the trio ran, and **request 77 took 619.7 s**. 78: 576.4 s, 79: 573.0 s. The trio, the `reference_url` run and the `reference_file` run are now done; the cap is what broke |
+| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **FAILED on two of three.** p50 wall clock **576.4 s** (want ≤ 500). One ask of **135.0 s** (77, `fix_agent`, `z-ai/glm-5.2`, a *single* row — no failover) against a 120 s ceiling, and that stage's span is the same 135.0 s. Ask p50 is healthy: 7.6 / 8.5 / 8.4 s |
+| Zero consecutive asks to the same resolved model id | **was FALSE, now fixed.** `ac10c9b` deduped the *repair* chains and its test pins those; `call_architect`'s three-name chain was never deduped, and `ARCHITECT_MODEL` = `PREVIEW_APP_MODEL` = `TEXT_MODEL` = `google/gemini-2.5-flash` here **and in the test environment**, so the guard could not have caught it. 7 violations across trio 1; request 74's architect wrote 3 rows, one model, all unusable |
+| Every degraded run carries a machine-readable `degraded: [stage]` marker | **was FALSE, now fixed.** Requests **73, 75 and 76 each degraded three stages and each stored `degraded: []`** — the marker was only ever a log line at scope exit. `finalize` runs inside `generate_preview_app`; `tech`/`proposal`/`build_plans` are skipped *after* it returns, so it structurally could not see them. Published from `GenerationPipeline.run` now, and verified live on 77/78/79 |
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
 | 11 of 11 catalogue cards show the artifact type the business sells | **9 of 11 on request 70**; 73's binding is correct but its cards were not scored card-by-card |
-| Suite green at ≥ 1,107 | **done** — 1,245 passed / 1 skipped |
+| Suite green at ≥ 1,107 | **1,288 passed / 1 skipped / 1 failed** — the red is another session's in-flight refactor of `test_phase5_ui_alias_imports.py` (at `f9f41eb` that file has zero test functions), not Phase 1 work |
 | Vitest CI job green on main | **not started** — 1.10 |
 
-**The honest summary:** the clock is met and the contract is real, on n=1. The
-remaining Phase 1 work is *evidence*, not code — except 1.10, which is code.
+**The honest summary:** the clock is **not** a guarantee, and the previous
+summary — "met and real, on n=1" — was three separate overstatements. Run it
+concurrently and the 600 s cap breaks; two DoD rows marked *done* were false in
+production and false in the test environment that was supposed to pin them.
+
+#### Where the 600 s went, on request 77
+
+`RESERVE_SECONDS = 60` was sized from single-run measurements of the
+post-deadline render-smoke and capture pass (41-42 s on requests 66 and 67).
+That pass goes through `_SESSION_LOCK`. Under three concurrent runs the capture
+sessions queue, so the reserve does work it was never measured doing:
+
+| | blocked on `_SESSION_LOCK` | overran deadline by | verdict on its degradations |
+|---|---|---|---|
+| 77 | 16.9 s | 79.7 s | **CORRECT** — 62.8 s over even with the block removed. But the *cap breach* survives it too: 619.7 − 16.9 = 602.8 s |
+| 78 | 35.9 s | 36.4 s | **ARTIFACT** — subtract the block and it lands within 0.5 s of its deadline. It degraded three stages it had the time for |
+| 79 | 16.7 s | 33.0 s | **CORRECT** — 16.3 s over without the block, though contention doubled the overrun |
+
+Every wait was on `screenshot_session`; `npm_install` was 0.0 s on all six runs
+(warm cache). Trio 1 recorded **zero** contention — the runs never collided,
+which is why one trio is not evidence about concurrency either way.
+
+**This is the owner's hypothesis, confirmed but smaller than feared, and in a
+place the plan did not look:** not in the 540 s budget, in the 60 s reserve
+after it. A deadline whose reserve is unbounded is a 540 s deadline with a
+600 s label.
+
+#### The failure mode the contract exists to prevent, still live
+
+**Request 74 stored nothing at all** — no `preview_app`, no `roles`, an empty
+`generated_pages`. At t=540.4 s `call_architect` started and raised 9 ms later
+with *"Architect agent failed to produce valid JSON"*. No model was asked
+anything: past the deadline every ask budget is zero. The orchestrator read
+that message as transient, looked for the 180 s retry runway, found none, and
+the `role_pages` fallback under `except Exception: pass` produced nothing
+either.
+
+`architect` is in `MANDATORY_STAGES`, whose contract is that such stages *"take
+their deterministic path"*. **It has none** outside the AppSpec branch, and
+74's AppSpec had already crashed on truncated output after 390 s of the 540 s
+budget. The error now names the deadline (`require_model_time`), which fixes
+the misattribution — **it does not make the run ship.** Two open questions for
+the owner, both design decisions rather than defects:
+
+1. Should `architect` get a deterministic route builder from `plan` (the
+   machinery synthesises `roles` from plan already, but never `routes`)? Note
+   that past the deadline `codegen` would be refused too, so the run would ship
+   an architecture and no pages.
+2. Should a mandatory stage be *bounded* rather than only refused — `appspec`
+   spent 72 % of one request's budget and still failed.
 
 ### Phase 1 risk, stated plainly
 
