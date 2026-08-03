@@ -44,24 +44,61 @@ Item 2 carries a known cost: it lives in `generate.py:269-489`, exactly the rang
 deletes, so it is throwaway work. Do the minimal version anyway — it is the measured root of the
 "everything looks the same" complaint and Phase 2 is 8-10 weeks out.
 
-**Item 1: 6 of 8 closed.** Five were tests that had stopped testing anything — two mutation decoys
+**Item 1: 8 of 8 closed.** Five were tests that had stopped testing anything — two mutation decoys
 whose anchors had drifted, one assertion that was green because its `str.replace` was a no-op, one
 pinning prompt *prose*, one guessing at a number it never measured. The class fix is `_mutated()`,
-which refuses to return an unmutated string. The sixth was 2.9. Two remain and both are real: the
-skeleton-contract size bound (~5,241 chars of instructions on every generated file, ~18k tokens a
-run) and the `write_file` canonicalization marker.
+which refuses to return an unmutated string. The sixth was 2.9.
+
+The last two were real, and **both were hiding a live defect rather than being stale markers**:
+
+- **The skeleton-contract size bound** (`0082f5f`). The pinned 4,000 had no derivation. Retiring it
+  meant finding the real ceiling, which is the callers' `bounded_json(contract, 5000)` — and above
+  5,000 chars that function stops bounding and starts *mutating*, clipping every list to 12 items.
+  `public-catalog` (5,296 chars, 30 components) was shipping **12** to the model, silently missing
+  the `MarketingHero` and `ProductShowcase` its own `slot_components` assigned to that page's hero
+  and showcase slots. Fixed by splitting the complete validator view from a deliberately
+  budget-fitted prompt view; the validator still needs the full list or legitimate components become
+  `forbidden @/ui component` errors. **The token cost is essentially unchanged** — ~1.2k saved out
+  of ~18k a run. Stating the allow-list once per run is the fix for that and is a separate, larger
+  change.
+- **`write_file` canonicalization** (`614d772`). The rename is deliberate and stays: leaving the
+  pre-canonical file means the import guards "fix" a duplicate page and Vite bundles both. What was
+  wrong is that callers recorded the path they passed in, which no longer exists. `write_file` now
+  returns the path it wrote. Three assertions across two test files were pinning the defect.
 
 **Item 2: done.** See the 2.9 row in the defect table below.
+
+**Item 3 (`AiFeaturePanel`): done** (`430453a`). The archive revised the rate: **5 of the 41
+workspaces that render the panel have no `/ai-features` route** (32, 36, 45, 47, 77), not 1 in 9.
+The template's catch-all redirects unknown paths to `/` instead of 404ing, which is why a dead link
+behaved like a working one.
+
+**Item 4 (`visual_review_status`): done** (`2d69917`), and **deliberately not as specified.** The
+brief said `None` → `unmeasured`; `unmeasured` already means "the critic ran, had pages, judged
+none" and drives `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED`, so reusing it would have made every
+deadline skip read as a vision outage. The field now names which of four reasons applied.
 
 ### Day 2 — build Phase 2's scoreboard before Phase 2 starts
 
 Four Phase 2 DoDs need no generation at all. Doing them now means Phase 2 opens with its own
 measurements already in place:
 
-- **DoD 8 — the write allowlist.** *No module outside a named allowlist may write `src/pages/**.tsx`
-  or `src/render/**`, enforced at runtime inside `workspace.write_file`, allowlist pinned by test.*
-  The seam exists (`workspace.py:120`). This is a hard guarantee rather than a measurement, which
-  makes it the highest-value offline item on the list.
+- **DoD 8 — the write allowlist. DONE.** *No module outside a named allowlist may write
+  `src/pages/**.tsx` or `src/render/**`, enforced at runtime inside `workspace.write_file`,
+  allowlist pinned by test.* Enforced at the seam, raising `UnauthorizedPageWrite`.
+
+  **The number is the finding: 26 modules can write pages today.** That is Phase 2's baseline, and
+  2.4-2.5 is now measurable as how far it falls. The list is derived, not designed — `observed` (13)
+  is the census from running the suite under `BMV_AUDIT_PAGE_WRITES=1`; `static` (13) is modules
+  that call the seam with a *computed* path, which rewrite whatever `list_source_files` returns and
+  therefore include pages, but which the suite's fixtures never put a page in front of. **Enforcing
+  on the observed set alone would have raised in production on the first workspace that differs
+  from a test fixture** — every `static` entry is equally a test-coverage gap, and confirming or
+  removing each one is cheap Phase 2 work.
+
+  `src/render/**` is armed although it does not exist yet, deliberately: the point is that Phase 2
+  *opens* with the guarantee instead of establishing it after twenty modules have learned to write
+  there.
 - **DoD 9 — test-count floor asserted in CI.** Trivial now that CI exists and is on `main`.
 - **DoD 7 — route bijection.** `len(_smoke_routes(architect))` against non-wildcard routes with a
   page file, and `catalogue_route_for_file` injective. Pure functions over the archived corpus.
@@ -117,6 +154,11 @@ Recording that here so the next session does not read a productive week as progr
 | **2.9** contract-invalid pages are scaffolded, never re-asked | **done offline — fix landed, effect unmeasured (needs a funded trio).** A syntactically valid page that failed the catalogue contract was replaced wholesale by the generic deterministic scaffold with **no retry**: `_slot_fill_rejection` only knew empty/truncated/no-export/unparseable, so the retry loop never saw a contract violation. **26 pages across requests 74-79** went that way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so `_MAX_SLOT_FILL_ATTEMPTS = 2` had never fired once. The retry now fires on **enforce's own verdict**, not the validator's, and carries the exact `validate_catalogue_page_content` errors. Detail below |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
 | dead-link occurrence counting, DataTable, seed backfill | **done** — `d8ef2e9` |
+| **skeleton-contract prompt budget** | **done** — `0082f5f`. The stale 4,000-char xfail was hiding a live clip: `public-catalog` shipped 12 of 30 allowed components to the model, `MarketingHero` and `ProductShowcase` among the missing. Bound is now derived from the callers' 5,000, and pinned by a round-trip rather than a number |
+| **`AiFeaturePanel` hub link** | **done** — `430453a`. Dead in 5 of the 41 archived workspaces that render it. Reads the app's own `navigation` instead of hardcoding `/ai-features`. First defect proved in the vitest harness |
+| **`visual_review_status`** | **done** — `2d69917`. Always present, and names which of four reasons the critic did not run. **Not** folded into `unmeasured`, which means a vision outage and drives an operator switch |
+| **`write_file` canonicalization** | **done** — `614d772`. The seam returns the path it wrote; the rename stays. Last of the 8 xfails |
+| **2.8 / DoD 8** — write allowlist | **done, pulled forward** — see the Day 2 section. **26 modules can write `src/pages/**.tsx` today**; that is Phase 2's baseline and 2.4-2.5 is now measurable against it |
 
 Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
 `revision_instructions` expressible as content-key edits) — are **not** done and still gate 1.8's
@@ -124,8 +166,12 @@ token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
 ### Suite state — and the two ways the harness lied about it in one afternoon
 
-**1,531 passed / 1 skipped / 2 xfailed / 0 failed**, 2026-08-03, on the command documented in
-`HANDOFF.md`:
+**1,623 passed / 1 skipped / 0 xfailed / 0 failed**, 2026-08-03 (session 7), on the command
+documented in `HANDOFF.md`. Up from 1,531 / 1 / 2 at the start of the no-generation window;
+**all eight xfails are closed**, and the last two each turned out to be covering a live defect
+rather than a stale marker. Every fix in that window was mutation-tested: 8 + 17 (vitest) + 11 + 7
++ 11 mutations, and **six survived a first sweep** — every one of them because the test was written
+against the case that does not bind, or drove the consumer and not the producer.
 
 ```
 docker run --rm -v "$REPO:/repo" -w /repo/backend \

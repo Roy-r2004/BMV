@@ -1,7 +1,10 @@
 """Workspace management for generated preview apps."""
 from __future__ import annotations
 
+import os
+import re
 import shutil
+import sys
 from pathlib import Path
 from pathlib import PureWindowsPath
 
@@ -11,6 +14,117 @@ from app.infrastructure.logging import get_logger
 ws_log = get_logger("Workspace")
 
 _SKIP_COPY = {"node_modules", "dist", ".git"}
+
+
+class UnauthorizedPageWrite(RuntimeError):
+    """A module outside the allowlist tried to write a page or a render artifact."""
+
+
+#: Roadmap DoD 8. Paths only an allowlisted module may write.
+#:
+#: `src/render/**` does not exist yet — Phase 2 creates it — and the guard is
+#: armed for it deliberately. The point of DoD 8 is that Phase 2 *opens* with the
+#: guarantee rather than trying to establish it after twenty modules have already
+#: learned to write there.
+_GUARDED_WRITE_RE = re.compile(r"^src/(?:pages/.+\.(?:tsx|jsx)|render/.+)$")
+
+#: Every module that may write a guarded path. **Derived, not designed.**
+#:
+#: This is not a statement that 26 modules *should* be able to write pages. It is
+#: the measurement that they can, and Phase 2's whole thesis is that exactly one
+#: should. Pinning it now means the number can only go down on purpose: 2.4-2.5
+#: is measured by how much of this list disappears.
+#:
+#: Two sources, because one was not safe on its own:
+#:
+#: * `observed` — caught writing a guarded path by running the suite with
+#:   `BMV_AUDIT_PAGE_WRITES=1`. 13 modules.
+#: * `static` — calls the write seam with a *computed* path. These iterate
+#:   `list_source_files` and rewrite whatever they find, which includes pages;
+#:   the suite's fixtures just never put a page in front of them. Enforcing on
+#:   the observed set alone would have raised in production on the first
+#:   generation whose workspace differs from a test fixture.
+#:
+#: A `static` entry is therefore also a **test-coverage gap**: nothing proves
+#: whether it writes pages or not. Confirming or removing each one is cheap
+#: Phase 2 work and shrinks the list honestly.
+#:
+#: To change this: run the audit, do not hand-edit. A module added without a
+#: reason in the commit message is the failure the guard exists to prevent.
+_PAGE_WRITERS: frozenset[str] = frozenset(
+    {
+        "app.application.preview_app.workspace",
+        "app.application.appspec.hooks",  # static
+        "app.application.preview_app.ai_feature_surfaces",  # static
+        "app.application.preview_app.assemble",  # static
+        "app.application.preview_app.asset_integrity",  # observed
+        "app.application.preview_app.chrome_nav",  # static
+        "app.application.preview_app.codegen.critic",  # observed
+        "app.application.preview_app.codegen.fix_agent",  # observed
+        "app.application.preview_app.codegen.generate",  # observed
+        "app.application.preview_app.codegen.mock",  # static
+        "app.application.preview_app.fallback",  # observed
+        "app.application.preview_app.pipeline.build_phase",  # static
+        "app.application.preview_app.pipeline.visual_critic",  # observed
+        "app.application.preview_app.protected_paths",  # static
+        "app.application.preview_app.quality_gate",  # observed
+        "app.application.preview_app.quality_repair",  # observed
+        "app.application.preview_app.refinement.chat_rebuild",  # observed
+        "app.application.preview_app.refinement.workspace_patch",  # observed
+        "app.application.preview_app.safety.brand_contract",  # static
+        "app.application.preview_app.safety.catalogue_guards",  # observed
+        "app.application.preview_app.safety.copy_hygiene",  # static
+        "app.application.preview_app.safety.imports",  # observed
+        "app.application.preview_app.safety.mock_data",  # static
+        "app.application.preview_app.safety.pages",  # observed
+        "app.application.preview_app.safety.seed_keys",  # static
+        "app.application.preview_app.safety.source_sanitize",  # static
+        "app.application.preview_app.safety.ui_icons",  # static
+    }
+)
+
+#: Test modules write page fixtures directly. Allowed, and stated rather than
+#: left to look like an accident: production has no `tests.` module, so the
+#: guarantee this guard makes about the pipeline is unaffected. Without it the
+#: only alternative is routing fixture setup through a production writer, which
+#: would make the census lie.
+_TEST_MODULE_PREFIX = "tests."
+
+
+def _page_write_origin() -> str:
+    """The nearest calling module outside this one.
+
+    Frame-walking rather than `inspect.stack()`, which builds a full FrameInfo
+    (source lookup included) for every level and costs milliseconds. Guarded
+    writes number in the dozens per generation, so this has to be cheap enough
+    to leave on in production — a guard that only runs in tests guarantees
+    nothing about the pipeline.
+    """
+    frame = sys._getframe(1)
+    while frame is not None:
+        name = frame.f_globals.get("__name__", "")
+        if name and name != __name__:
+            return name
+        frame = frame.f_back
+    return "<unknown>"
+
+
+def _check_page_write_allowed(rel_path: str) -> None:
+    """Enforce DoD 8 at the seam every page write already passes through."""
+    if not _GUARDED_WRITE_RE.match(rel_path):
+        return
+    origin = _page_write_origin()
+    if os.getenv("BMV_AUDIT_PAGE_WRITES"):
+        # Census mode: record, never block. This is how `_PAGE_WRITERS` is built.
+        print(f"PAGE_WRITE_ORIGIN\t{origin}\t{rel_path}", flush=True)
+        return
+    if origin in _PAGE_WRITERS or origin.startswith(_TEST_MODULE_PREFIX):
+        return
+    raise UnauthorizedPageWrite(
+        f"{origin} may not write {rel_path}: not in the DoD 8 allowlist. "
+        "If this is a legitimate new writer, add it to `_PAGE_WRITERS` with a "
+        "reason — do not widen the pattern."
+    )
 
 
 def get_workspace(request_id: int) -> Path:
@@ -183,6 +297,9 @@ def write_trusted_contained_file(
                     except OSError:
                         pass
         rel_path = normalized
+
+    # After canonicalization, so the guard judges the path actually written.
+    _check_page_write_allowed(normalized)
 
     target = _safe_workspace_target(
         workspace,
