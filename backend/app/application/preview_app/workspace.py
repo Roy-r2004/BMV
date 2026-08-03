@@ -117,9 +117,16 @@ def _safe_workspace_target(
     return target
 
 
-def write_file(workspace: Path, rel_path: str, content: str) -> None:
-    """Write generated source only, rejecting absolute, traversal, and symlink escapes."""
-    write_trusted_contained_file(workspace, rel_path, content)
+def write_file(workspace: Path, rel_path: str, content: str) -> str:
+    """Write generated source only, rejecting absolute, traversal, and symlink escapes.
+
+    Returns the path actually written, which is **not always `rel_path`**: page
+    files under `src/pages/` are canonicalized (`Dashboard.tsx` ->
+    `DashboardPage.tsx`) and the pre-canonical file is deleted. A caller that
+    keeps `rel_path` afterwards is holding a path to a file that no longer
+    exists. Record the return value instead.
+    """
+    return write_trusted_contained_file(workspace, rel_path, content)
 
 
 def write_trusted_workspace_file(workspace: Path, rel_path: str, content: str) -> None:
@@ -144,8 +151,12 @@ def write_trusted_contained_file(
     workspace: Path,
     rel_path: str,
     content: str | bytes,
-) -> None:
-    """Write trusted source bytes/text while replacing only the final symlink entry."""
+) -> str:
+    """Write trusted source bytes/text while replacing only the final symlink entry.
+
+    Returns the canonical workspace-relative path that was written. See
+    `write_file` for why that is not always the path you passed in.
+    """
     from app.application.preview_app.protected_paths import (
         canonicalize_page_component_path,
         canonical_workspace_path,
@@ -201,6 +212,11 @@ def write_trusted_contained_file(
                 old_path.unlink()
         except OSError:
             pass
+    # `normalized`, not `rel_path`: for a non-page write `rel_path` is still
+    # whatever the caller passed (back-slashes, `./`), and callers compare this
+    # against `list_source_files`, which is forward-slashed and lexically
+    # normalized. Returning the raw form would trade one wrong path for another.
+    return normalized
 
 
 def read_file(workspace: Path, rel_path: str) -> str:

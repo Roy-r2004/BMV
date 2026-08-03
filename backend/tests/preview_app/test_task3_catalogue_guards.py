@@ -189,9 +189,13 @@ export default function Dashboard() { return <Button><Card>{brand.name}{helper()
 """,
         )
         touched = normalize_ui_kit_imports(workspace)
-        # write_file canonicalizes Dashboard.tsx → DashboardPage.tsx and drops the old file
+        # write_file canonicalizes Dashboard.tsx → DashboardPage.tsx and drops the
+        # old file, so the touched list names the canonical path. It used to name
+        # the one that had just been deleted — the `write_file canonicalization`
+        # xfail, resolved 2026-08-03.
         canonical = workspace / "src/pages/owner/DashboardPage.tsx"
-        assert touched == ["src/pages/owner/Dashboard.tsx"]
+        assert touched == ["src/pages/owner/DashboardPage.tsx"]
+        assert (workspace / touched[0]).is_file()
         assert canonical.is_file()
         assert not (workspace / "src/pages/owner/Dashboard.tsx").exists()
         content = canonical.read_text(encoding="utf-8")

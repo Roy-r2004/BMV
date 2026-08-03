@@ -466,8 +466,11 @@ def normalize_ui_kit_imports(workspace) -> list[str]:
             cursor = match.end()
         pieces.append(content[cursor:])
         updated = "".join(pieces)
-        write_file(workspace, norm, updated)
-        touched.append(norm)
+        # The written path, not the one we read: `write_file` canonicalizes page
+        # names (Dashboard.tsx -> DashboardPage.tsx) and deletes the original, so
+        # `norm` names a file that no longer exists. This list was the reproduction
+        # behind the `write_file canonicalization` xfail.
+        touched.append(write_file(workspace, norm, updated))
     return touched
 
 def strip_forbidden_npm_imports(workspace) -> list[str]:
@@ -562,9 +565,9 @@ def strip_forbidden_npm_imports(workspace) -> list[str]:
                 changed = True
 
         if changed and updated != content:
-            write_file(workspace, norm, updated)
-            guard_log.debug("npm imports rewritten/stripped in %s", norm)
-            touched.append(norm)
+            written = write_file(workspace, norm, updated)
+            guard_log.debug("npm imports rewritten/stripped in %s", written)
+            touched.append(written)
     return touched
 
 def ensure_headless_stub_imports(workspace) -> list[str]:
