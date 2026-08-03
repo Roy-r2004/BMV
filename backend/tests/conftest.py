@@ -26,7 +26,7 @@ DOD_9_FLOOR = 1_107
 #:
 #: Raise it when the suite grows. Lower it only with a reason in the commit
 #: message; "CI was red" is not one.
-COLLECTED_FLOOR = 1_637  # 1,636 passed + 1 skipped, 2026-08-03 (session 8)
+COLLECTED_FLOOR = 1_661  # 1,660 passed + 1 skipped, 2026-08-03 (session 8)
 
 
 def pytest_collection_modifyitems(
