@@ -670,9 +670,11 @@ def _finalize(
         finalize_module._emit = lambda *args, **kwargs: events.append(
             (args[2], args[3], kwargs.get("detail", ""))
         )
-        finalize_module.run_quality_gate_with_heal = lambda *a, **k: SimpleNamespace(
-            ok=True, healed=[], issues=[]
-        )
+        # The real report, not a `SimpleNamespace` shaped like one — see the same
+        # note in `test_fallback_accounting.py`.
+        from app.application.preview_app.quality_gate import GateReport
+
+        finalize_module.run_quality_gate_with_heal = lambda *a, **k: GateReport()
         finalize_module.ai_features_from_request = lambda *a, **k: []
         result = finalize_module.run_finalize(ctx)
     finally:

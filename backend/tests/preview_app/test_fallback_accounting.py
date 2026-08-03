@@ -13,6 +13,7 @@ from app.application.preview_app.catalogue_contract import minimal_catalogue_pag
 from app.application.preview_app.fallback import clear_stubbed_paths, consume_stubbed_paths
 from app.application.preview_app.pipeline import finalize as finalize_module
 from app.application.preview_app.pipeline.context import PipelineContext
+from app.application.preview_app.quality_gate import GateReport
 from app.application.preview_app.source_quality import (
     catalogue_page_is_thin,
     substantive_slot_count,
@@ -138,9 +139,10 @@ def _run(workspace: Path, routes: list[dict], *, enforce: bool) -> tuple[dict, l
     }
     try:
         finalize_module._emit = lambda *args, **kwargs: events.append(args[2:])
-        finalize_module.run_quality_gate_with_heal = lambda *args, **kwargs: SimpleNamespace(
-            ok=True, healed=[], issues=[]
-        )
+        # The real report, not a `SimpleNamespace` shaped like one. The stub used
+        # to omit `warnings`, so the first thing `finalize` grew that read them
+        # raised `AttributeError` here and nowhere in production.
+        finalize_module.run_quality_gate_with_heal = lambda *args, **kwargs: GateReport()
         finalize_module.ai_features_from_request = lambda *_args, **_kwargs: []
         result = finalize_module.run_finalize(ctx)
     finally:

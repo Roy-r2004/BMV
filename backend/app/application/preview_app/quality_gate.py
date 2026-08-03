@@ -54,6 +54,18 @@ class GateIssue:
     code: str
     message: str
     path: str = ""
+    #: The skeleton the failing page resolved to, when the issue names a page.
+    #:
+    #: Costs one lookup and answers a class of question that was otherwise
+    #: unanswerable off the log. `listing_not_schedule_rail` fired 4 times across
+    #: trios 2-5, all on `ServicesPage.tsx` and `TreatmentsPage.tsx` — and a page
+    #: with that title resolves to `public-catalog` or `public-service` depending
+    #: on its *purpose text*, not its name. Only `public-catalog` overflowed the
+    #: contract budget that `0082f5f` fixed, so whether that fix could have moved
+    #: this code turns entirely on which skeleton each fire was, and the archive
+    #: cannot say: `.bmv-debug/catalogue-contract/` only dumps pages that were
+    #: rejected, and these compiled fine. Pre-flight question 5.
+    skeleton_id: str = ""
 
 
 @dataclass
@@ -64,17 +76,39 @@ class GateReport:
     #: Journey walk summary, carried so "ready" is never read as "the funnel
     #: works" without the evidence. Read by finalize into the API result.
     journey: dict[str, Any] = field(default_factory=dict)
+    #: Set by `evaluate_quality_gate` so every issue can name its skeleton without
+    #: 40 call sites each having to remember to pass one. A report built without it
+    #: still works; its issues just carry an empty `skeleton_id`.
+    architect: dict[str, Any] | None = None
 
     @property
     def ok(self) -> bool:
         return not self.issues
 
+    def _skeleton_for(self, path: str) -> str:
+        # No `if not path or self.architect is None` guard in front of this.
+        # One was written and the mutation sweep proved both halves dead:
+        # `catalogue_route_for_file` already returns `{}` for a `None` architect
+        # and can never match an empty path, because it skips routes whose own
+        # `component_file` is falsy. Failing open on the skeleton is deliberate —
+        # a gate that raised because it could not name a skeleton would trade a
+        # reported defect for an unreported crash.
+        return str(catalogue_route_for_file(path, self.architect).get("skeleton_id") or "")
+
     def fail(self, code: str, message: str, path: str = "") -> None:
-        self.issues.append(GateIssue(code=code, message=message, path=path))
+        self.issues.append(
+            GateIssue(
+                code=code, message=message, path=path, skeleton_id=self._skeleton_for(path)
+            )
+        )
 
     def warn(self, code: str, message: str, path: str = "") -> None:
         """Record a defect that is worse to hide than to ship — never blocks ready."""
-        self.warnings.append(GateIssue(code=code, message=message, path=path))
+        self.warnings.append(
+            GateIssue(
+                code=code, message=message, path=path, skeleton_id=self._skeleton_for(path)
+            )
+        )
 
 
 def _pages(workspace: Path) -> list[str]:
@@ -96,8 +130,8 @@ def evaluate_quality_gate(
     require_ai_hub: bool = True,
 ) -> GateReport:
     """Pure evaluation — does not mutate the workspace."""
-    report = GateReport()
     architect = architect or {}
+    report = GateReport(architect=architect)
     dist = Path(workspace) / "dist" / "index.html"
     if not dist.is_file():
         report.fail("no_dist", "Preview dist/index.html missing — site cannot load")

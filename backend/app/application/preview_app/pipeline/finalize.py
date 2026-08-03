@@ -151,6 +151,36 @@ def _visual_review_summary(workspace, not_run_reason: str | None = None) -> dict
 _SMOKE_MAX_ROUTES = 12
 
 
+def gate_issue_summary(gate) -> dict:
+    """Every gate code this run blocked or warned on, with the failing skeleton.
+
+    `scripts/measure/analyse.py` has read `preview_app["gate_issues"]` since it was
+    written and **no run has ever stored that key** — every DoD evidence table it
+    produced reported `gate_issues: 0`, and the per-code counts in the roadmap were
+    grepped out of container logs instead. That is also why pre-flight question 5
+    could not be settled offline: a log line carries no `skeleton_id`, and neither
+    did this.
+
+    A named function rather than an inline dict so a test can drive the thing that
+    builds the record instead of building its own copy of it.
+    """
+    return {
+        "gate_issues": [
+            {
+                "code": i.code,
+                "path": i.path,
+                "skeleton_id": i.skeleton_id,
+                "message": i.message[:200],
+            }
+            for i in gate.issues
+        ],
+        "gate_warnings": [
+            {"code": i.code, "path": i.path, "skeleton_id": i.skeleton_id}
+            for i in gate.warnings
+        ],
+    }
+
+
 def smoke_eligible_routes(architect: dict) -> list[dict]:
     """Non-wildcard routes naming a page file — everything the smoke pass *should* load.
 
@@ -699,8 +729,12 @@ def run_finalize(ctx: PipelineContext) -> dict:
 
     if not gate.ok:
         ok = False
+        # The skeleton is in the line because it is the difference between two
+        # different defects wearing one gate code — see `GateIssue.skeleton_id`.
         detail = "; ".join(
-            f"{i.code}@{i.path or '-'}: {i.message}" for i in gate.issues[:8]
+            f"{i.code}@{i.path or '-'}"
+            f"{f'[{i.skeleton_id}]' if i.skeleton_id else ''}: {i.message}"
+            for i in gate.issues[:8]
         )
         log.error("    quality gate FAILED: %s", detail)
         _emit(
@@ -840,6 +874,7 @@ def run_finalize(ctx: PipelineContext) -> dict:
     preview_app_result["render_pages_eligible"] = int(render_report.get("eligible") or 0)
     preview_app_result["render_pages_skipped"] = int(render_report.get("skipped") or 0)
     preview_app_result["render_pages_crashed"] = len(render_report.get("crashed") or [])
+    preview_app_result.update(gate_issue_summary(gate))
     try:
         from app.application.preview_app.assemble import unrouted_page_files
 

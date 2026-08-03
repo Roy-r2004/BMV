@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 # Runs inside the api container (`/app/backend`) or from a repo checkout.
@@ -88,7 +89,29 @@ def main() -> None:
                 "deadline_exceeded": pa.get("deadline_exceeded"),
                 "blocked_seconds": pa.get("blocked_seconds"),
                 "contention": pa.get("contention"),
-                "gate_issues": len(pa.get("gate_issues") or []),
+                # This key was read here for four trios and **never written** —
+                # every table this tool produced said `gate_issues: 0`, including
+                # the ones the roadmap quotes, and the real per-code counts came
+                # from grepping container logs. Written by `finalize` as of session
+                # 8, with the failing page's `skeleton_id` beside each code, which
+                # is what pre-flight question 5 needs and could not get. A run
+                # before that stores nothing, so `None` here means "not recorded",
+                # never "no issues".
+                "gate_issues": (
+                    None if pa.get("gate_issues") is None else len(pa["gate_issues"])
+                ),
+                "gate_codes": sorted(
+                    Counter(
+                        str(i.get("code") or "")
+                        for i in (pa.get("gate_issues") or [])
+                    ).items()
+                ),
+                "gate_codes_by_skeleton": sorted(
+                    Counter(
+                        f"{i.get('code')}@{i.get('skeleton_id') or '-'}"
+                        for i in (pa.get("gate_issues") or [])
+                    ).items()
+                ),
                 # `None` here means the run predates 2026-08-03 — trios 4 and 5
                 # stored nothing when the critic was skipped. It does NOT mean
                 # "reason unknown". Runs after that report one of
