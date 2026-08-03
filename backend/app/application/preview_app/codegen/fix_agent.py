@@ -40,7 +40,7 @@ from app.application.preview_app.source_quality import (
 )
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 from app.application.services.ai_context import UNUSABLE_UNPARSEABLE, ai_call
-from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
+from app.application.ui_catalogue import infer_section_slots, skeleton_contract_for_prompt
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -374,7 +374,7 @@ def _run_fix_agent_inner(
         )
         if errors:
             contract_json = _bounded_json(
-                compact_skeleton_contract(
+                skeleton_contract_for_prompt(
                     str(route.get("skeleton_id") or ""),
                     infer_section_slots(route, str(route.get("skeleton_id") or "")),
                 ),

@@ -11,9 +11,9 @@ from app.application.preview_app.protected_paths import (
     safe_source_path,
 )
 from app.application.ui_catalogue import (
-    compact_skeleton_contract,
     infer_page_contract,
     infer_section_slots,
+    skeleton_contract_for_prompt,
 )
 from app.infrastructure.logging import get_logger
 
@@ -395,11 +395,15 @@ def _attach_plan_sections(files: list[dict], plan: dict, architect: dict | None 
                 },
                 4000,
             )
-            skeleton_contract = compact_skeleton_contract(skeleton_id, section_slots)
+            # Compact separators, like every other prompt site: the spaced
+            # form this used to emit cost ~350-420 chars a file that the
+            # budget in `skeleton_contract_for_prompt` never counted, and
+            # nothing bounded the result at all.
+            skeleton_contract = skeleton_contract_for_prompt(skeleton_id, section_slots)
             contract_text = json.dumps(
                 skeleton_contract,
                 ensure_ascii=False,
-                separators=(", ", ": "),
+                separators=(",", ":"),
             )
             app_spec_contract = page.get("app_spec_contract") or {}
             behavior_contract_text = (

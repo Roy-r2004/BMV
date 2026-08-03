@@ -53,7 +53,7 @@ from app.application.services.ai_context import (
     ai_call,
 )
 from app.application.services.page_experience import page_required_sections
-from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
+from app.application.ui_catalogue import infer_section_slots, skeleton_contract_for_prompt
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -398,7 +398,7 @@ def _generate_catalogue_scaffold_first_file(
 
     slots = infer_section_slots(merged, skeleton_id)
     skeleton_contract_json = _bounded_json(
-        compact_skeleton_contract(skeleton_id, slots),
+        skeleton_contract_for_prompt(skeleton_id, slots),
         5000,
     )
     shell_component = (
@@ -622,7 +622,7 @@ def generate_file(
     if catalogue_page:
         slots = infer_section_slots({**page_plan, **route}, skeleton_id)
         skeleton_contract_json = _bounded_json(
-            compact_skeleton_contract(skeleton_id, slots),
+            skeleton_contract_for_prompt(skeleton_id, slots),
             5000,
         )
         shell_component = "OpsShell" if (route.get("surface") or page_plan.get("surface")) == "ops" else "PublicShell"

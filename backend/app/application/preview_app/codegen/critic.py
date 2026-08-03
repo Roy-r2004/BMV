@@ -33,7 +33,7 @@ from app.application.services.ai_context import (
     UNUSABLE_UNPARSEABLE,
     ai_call,
 )
-from app.application.ui_catalogue import compact_skeleton_contract, infer_section_slots
+from app.application.ui_catalogue import infer_section_slots, skeleton_contract_for_prompt
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -76,7 +76,7 @@ def critique_file(
     skeleton_id = str(route.get("skeleton_id") or "")
     skeleton_contract_json = (
         _bounded_json(
-            compact_skeleton_contract(
+            skeleton_contract_for_prompt(
                 skeleton_id,
                 infer_section_slots(route, skeleton_id),
             ),
@@ -166,7 +166,7 @@ def critique_file_visual(
     skeleton_id = str(route.get("skeleton_id") or "")
     skeleton_contract_json = (
         _bounded_json(
-            compact_skeleton_contract(
+            skeleton_contract_for_prompt(
                 skeleton_id,
                 infer_section_slots(route, skeleton_id),
             ),
@@ -271,7 +271,7 @@ def refine_file(
     catalogue_page = bool(skeleton_id)
     catalogue_contract_json = (
         _bounded_json(
-            compact_skeleton_contract(
+            skeleton_contract_for_prompt(
                 skeleton_id,
                 infer_section_slots(route, skeleton_id),
             ),

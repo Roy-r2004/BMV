@@ -15,11 +15,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
 from app.application.ui_catalogue import (
+    _CONTRACT_PROMPT_BUDGET,
     compact_skeleton_contract,
     get_skeleton,
     infer_page_contract,
     infer_section_slots,
     load_catalogue,
+    skeleton_contract_for_prompt,
 )
 from app.application.preview_app.assemble import (
     architect_from_stored,
@@ -180,13 +182,27 @@ def test_catalogue_contract() -> None:
 
     contract = compact_skeleton_contract("ops-dashboard")
     assert contract["skeleton"]["id"] == "ops-dashboard"
-    # Shell first, then every skeleton-allowed component alphabetically —
-    # the contract exposes the full allow-list so validators/prompts accept
-    # Button, Badge, Input, etc., not only slot defaults.
+    # Shell, then nav, then the page's own slot components, then every
+    # remaining skeleton-allowed component alphabetically. The contract exposes
+    # the full allow-list so validators/prompts accept Button, Badge, Input,
+    # etc., not only slot defaults.
+    #
+    # This order is load-bearing, not cosmetic: `skeleton_contract_for_prompt`
+    # drops from the tail when the prompt budget binds. Slot components used to
+    # be appended *after* the alphabetical bulk, which is how public-catalog
+    # shipped a prompt whose allow-list omitted its own hero and showcase.
     contract_names = [component["name"] for component in contract["components"]]
+    head = [
+        contract["shell_component"],
+        *contract["navigation_components"],
+        *dict.fromkeys(contract["slot_components"].values()),
+    ]
+    assert contract_names[: len(head)] == head
     assert contract_names[0] == "OpsShell"
     assert {"PageHeader", "StatCard", "ChartCard", "FilterBar", "DataTable", "ActivityFeed"} <= set(contract_names)
-    assert contract_names[1:] == sorted(contract_names[1:])
+    tail = contract_names[len(head):]
+    assert tail == sorted(tail)
+    assert not set(tail) & set(head)
     assert contract["shell_component"] == "OpsShell"
     assert contract["navigation_components"] == []
     ops_shell = contract["components"][0]
@@ -260,7 +276,12 @@ def test_catalogue_contract() -> None:
     compact_names = [component["name"] for component in compact["components"]]
     assert compact_names[:2] == ["PublicShell", "PublicNav"]
     assert {"MarketingHero", "FeatureBento", "ProcessSection", "CTABand", "BrandFooter"} <= set(compact_names)
-    assert compact_names[2:] == sorted(compact_names[2:])
+    # Slot components lead, ahead of the alphabetical remainder — see the
+    # ops-dashboard block above for why that order is load-bearing.
+    slot_head = list(dict.fromkeys(compact["slot_components"].values()))
+    assert compact_names[2:2 + len(slot_head)] == slot_head
+    alphabetical_tail = compact_names[2 + len(slot_head):]
+    assert alphabetical_tail == sorted(alphabetical_tail)
     assert "allowedComponents" not in compact["skeleton"]
     assert len(json.dumps(compact)) < 6000
 
@@ -364,7 +385,10 @@ def test_catalogue_contract() -> None:
         if item["path"] == "src/pages/owner/SettingsPage.tsx"
     )
     assert "ops-settings" in page_file["instructions"]
-    assert '"section_slots": ["header"]' in page_file["instructions"]
+    # Compact separators since the attach site stopped emitting the spaced form
+    # it alone used; see
+    # `test_the_attached_skeleton_contract_fits_the_budget_its_callers_impose`.
+    assert '"section_slots":["header"]' in page_file["instructions"]
     assert '"MarketingHero"' not in page_file["instructions"]
 
     persisted = json.loads(
@@ -1969,32 +1993,188 @@ def _duplicate_plan_and_protected_architect():
     return plan, architect
 
 
-@pytest.mark.xfail(
-    reason=(
-        "STALE bound, but the number behind it is worth a ticket. The attached "
-        "skeleton/slot contract is now 5,241 chars against a pinned 4,000 — it grew "
-        "when the contract started carrying the full skeleton allow-list (see the "
-        "comment above the allow-list assertions) so validators and prompts accept "
-        "Button/Badge/Input, not only slot defaults. That was deliberate; re-checking "
-        "the bound was not. ~5.2 KB rides on EVERY generated file's instructions, "
-        "roughly 1,300 tokens x ~14 files = ~18k tokens per run of pure contract "
-        "boilerplate, which is live weight against the 600 s cap the roadmap is "
-        "fighting for. Retire this bound deliberately or re-fit it — do not just "
-        "raise the number until it passes."
-    ),
-    strict=True,
-    raises=AssertionError,
+def _catalog_plan_and_architect():
+    """A `public-catalog` page — the only skeleton whose contract overflows.
+
+    `_duplicate_plan_and_protected_architect` builds a `public-home` page at
+    4,893 chars, which fits the budget without any fitting at all. Asserting the
+    attach site over *that* page is why a 5,713-char unbounded payload sat there
+    unnoticed: the assertion could not fail. Anything about the budget has to be
+    checked on the skeleton that binds.
+    """
+    plan = _normalize_plan(
+        {
+            "roles": [
+                {
+                    "id": "customer",
+                    "pages": [
+                        {
+                            "id": "shop",
+                            "title": "Shop the Collection",
+                            "page_type": "catalog",
+                        }
+                    ],
+                },
+            ]
+        },
+        "#111111",
+        "#222222",
+    )
+    architect = _normalize_architect(
+        {
+            "routes": [
+                {
+                    "path": "/shop",
+                    "page_id": "shop",
+                    "role_id": "customer",
+                    "component_file": "src/pages/ShopPage.tsx",
+                }
+            ],
+            "files_to_generate": [],
+        },
+        plan,
+    )
+    assert architect["routes"][0]["skeleton_id"] == "public-catalog", (
+        "fixture no longer exercises the binding skeleton"
+    )
+    return plan, architect
+
+
+@pytest.mark.parametrize(
+    ("fixture", "page_path"),
+    [
+        (_duplicate_plan_and_protected_architect, "src/pages/HomePage.tsx"),
+        # The binding case. Unfitted this page serialized to 5,713 chars.
+        (_catalog_plan_and_architect, "src/pages/ShopPage.tsx"),
+    ],
 )
-def test_the_attached_skeleton_contract_stays_under_four_thousand_chars() -> None:
-    plan, architect = _duplicate_plan_and_protected_architect()
+def test_the_attached_skeleton_contract_fits_the_budget_its_callers_impose(
+    fixture, page_path: str
+) -> None:
+    """The bound is derived, not fitted.
+
+    Replaces a pinned 4,000 that had no derivation and had been xfailing at
+    5,241 since the contract started carrying the full skeleton allow-list. The
+    real ceiling was never 4,000: every prompt caller wraps the contract in
+    `bounded_json(contract, 5000)`, and `_CONTRACT_PROMPT_BUDGET` is that 5,000
+    less 100 chars of headroom. Assert *that* number, at the site that used to
+    have no bound at all.
+    """
+    plan, architect = fixture()
     attached = _attach_plan_sections(architect["files_to_generate"], plan, architect)
-    home_instructions = next(
-        item["instructions"]
-        for item in attached
-        if item["path"] == "src/pages/HomePage.tsx"
+    instructions = next(
+        item["instructions"] for item in attached if item["path"] == page_path
     )
     marker = "Skeleton/slot contract (use only these catalogue components and props):\n"
-    assert len(home_instructions.rsplit(marker, 1)[1]) < 4000
+    contract_text = instructions.rsplit(marker, 1)[1]
+    assert len(contract_text) <= _CONTRACT_PROMPT_BUDGET
+    # Compact separators, like every other prompt site. The spaced form this
+    # site used to emit cost ~350 chars a file that no budget counted.
+    parsed = json.loads(contract_text)
+    assert contract_text == json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+
+
+def test_a_binding_budget_sacrifices_vocabulary_before_required_components() -> None:
+    """Drive the drop past the point where it reaches the protected head.
+
+    At today's catalogue only `public-catalog` binds, and it binds by four
+    components — so the tail-drop never gets near the shell/nav/slot head and
+    the protection that keeps it there is never exercised. This test forces it:
+    a budget small enough that everything droppable is already gone.
+
+    Added because the mutation "nothing is protected" survived the first sweep
+    while every other mutation was caught.
+    """
+    slots = infer_section_slots({"section_slots": []}, "public-catalog")
+    required = set(compact_skeleton_contract("public-catalog", slots)["slot_components"].values())
+    assert required, "fixture no longer has slot components to protect"
+
+    starved = skeleton_contract_for_prompt("public-catalog", slots, max_chars=1200)
+    names = [component["name"] for component in starved["components"]]
+
+    # The budget is missed, deliberately: a page cannot render without these.
+    assert required <= set(names)
+    assert len(json.dumps(starved, ensure_ascii=False, separators=(",", ":"))) > 1200
+    # And it gave up everything it was allowed to give up first.
+    assert set(names) == required | {
+        starved["shell_component"],
+        *starved["navigation_components"],
+    }
+    assert "prop_shapes" not in starved
+
+
+@pytest.mark.parametrize(
+    "skeleton_id",
+    [skeleton["id"] for skeleton in load_catalogue()["skeletons"]],
+)
+def test_no_skeletons_prompt_contract_is_mutilated_by_the_callers_bound(
+    skeleton_id: str,
+) -> None:
+    """`bounded_json` is not a bound above its limit — it is a mutation.
+
+    Past 5,000 chars it clips *every* list to 12 items and truncates strings to
+    500 (`text_utils.bounded_json`). `public-catalog` serialized to 5,296 with
+    30 components, so 18 were silently discarded — among them the
+    `MarketingHero` and `ProductShowcase` that the same contract's
+    `slot_components` had just assigned to that page's hero and showcase slots.
+    The prompt said "use only these catalogue components" over a list missing
+    the ones it required, chosen by alphabetical position.
+
+    This is the assertion that actually pins the defect: a round-trip, not a
+    number. Raising `_CONTRACT_PROMPT_BUDGET` past 5,000 fails it.
+    """
+    slots = infer_section_slots({"section_slots": []}, skeleton_id)
+    contract = skeleton_contract_for_prompt(skeleton_id, slots)
+    raw = json.dumps(contract, ensure_ascii=False, separators=(",", ":"))
+
+    assert len(raw) <= _CONTRACT_PROMPT_BUDGET
+    assert _bounded_json(contract, 5000) == raw, (
+        f"{skeleton_id}: the 5,000-char caller bound rewrote the contract"
+    )
+
+    # A budget may shrink the vocabulary. It may never drop a component the
+    # same contract tells the page to render.
+    names = {component["name"] for component in contract["components"]}
+    required = {
+        component
+        for component in (
+            contract["shell_component"],
+            *contract["navigation_components"],
+            *contract["slot_components"].values(),
+        )
+        if component
+    }
+    assert required <= names, (
+        f"{skeleton_id}: prompt contract omits its own required components: "
+        f"{sorted(required - names)}"
+    )
+
+
+@pytest.mark.parametrize(
+    "skeleton_id",
+    [skeleton["id"] for skeleton in load_catalogue()["skeletons"]],
+)
+def test_the_validators_view_of_the_contract_is_never_trimmed(skeleton_id: str) -> None:
+    """The two views must not be reconciled by trimming the validator's.
+
+    `catalogue_contract.validate` builds `allowed_ui_names` from
+    `contract["components"]`. Fitting *that* list to a prompt budget converts a
+    legitimate component into a `forbidden @/ui component` error, which is the
+    tempting wrong fix for the test above.
+    """
+    slots = infer_section_slots({"section_slots": []}, skeleton_id)
+    complete = compact_skeleton_contract(skeleton_id, slots)
+    allowed = set(get_skeleton(skeleton_id).get("allowedComponents") or [])
+    catalogued = {component["name"] for component in load_catalogue()["components"]}
+
+    assert {component["name"] for component in complete["components"]} == (
+        allowed & catalogued
+    )
+    # And the prompt view is a subset of it, never a different set.
+    prompt = skeleton_contract_for_prompt(skeleton_id, slots)
+    assert {component["name"] for component in prompt["components"]} <= {
+        component["name"] for component in complete["components"]
+    }
 
 
 def test_the_page_prompt_still_dictates_the_ui_import_and_skeleton_const() -> None:

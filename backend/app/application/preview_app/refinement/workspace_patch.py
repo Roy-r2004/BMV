@@ -26,6 +26,7 @@ from app.application.ui_catalogue import (
     get_skeleton,
     infer_page_contract,
     infer_section_slots,
+    skeleton_contract_for_prompt,
 )
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -66,7 +67,7 @@ def _apply_chat_file_updates(
         errors = validate_catalogue_page_content(cleaned, route)
         if errors and ai_provider is not None:
             contract_json = json.dumps(
-                compact_skeleton_contract(
+                skeleton_contract_for_prompt(
                     str(route.get("skeleton_id") or ""),
                     infer_section_slots(route, str(route.get("skeleton_id") or "")),
                 ),

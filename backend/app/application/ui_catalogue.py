@@ -8,7 +8,10 @@ from functools import lru_cache
 from typing import Any
 
 from app.core.config import settings
+from app.infrastructure.logging import get_logger
 
+
+ui_log = get_logger("UiCatalogue")
 
 _SKELETON_FIELDS = (
     "id",
@@ -708,7 +711,15 @@ def compact_skeleton_contract(
     skeleton_id: str,
     section_slots: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Return only the chosen skeleton and metadata for its allowed components."""
+    """Return only the chosen skeleton and metadata for its allowed components.
+
+    This is the **complete** view and the one validators must use:
+    `catalogue_contract.validate` builds `allowed_ui_names` out of
+    `contract["components"]`, so dropping an entry here turns a legitimate
+    component into a `forbidden @/ui component` error. Prompts want the
+    opposite — something that fits a character budget — and get it from
+    `skeleton_contract_for_prompt`. Do not merge the two.
+    """
     catalogue = load_catalogue()
     skeleton = get_skeleton(skeleton_id)
     allowed = set(skeleton.get("allowedComponents") or [])
@@ -719,23 +730,28 @@ def compact_skeleton_contract(
         for name in _SHELL_NAVIGATION_COMPONENTS.get(shell_component, ())
         if name in allowed
     ]
-    selected_names: list[str] = [
-        name
-        for name in (shell_component, *navigation_components)
-        if name and name in allowed
-    ]
-    # Include every skeleton-allowed component so validators/prompts accept
-    # Button, Badge, Input, DataTable, etc. — not only shell/slot defaults.
-    for name in sorted(allowed):
-        if name and name not in selected_names:
-            selected_names.append(name)
     slot_components: dict[str, str] = {}
     for slot in slots:
         name = skeleton.get("shell") if slot == "shell" else _SLOT_COMPONENT_DEFAULTS.get(slot)
         if not name or name not in allowed:
             continue
         slot_components[slot] = name
-        if name not in selected_names:
+    # Priority order, and it is load-bearing: `skeleton_contract_for_prompt`
+    # drops from the tail, so the page's own shell/nav/slot components must
+    # lead. They used to be appended *after* the alphabetical bulk, which put
+    # MarketingHero and ProductShowcase at positions 15 and 22 of
+    # public-catalog's 30 — past the point anything downstream kept.
+    selected_names: list[str] = _dedupe(
+        tuple(
+            name
+            for name in (shell_component, *navigation_components, *slot_components.values())
+            if name and name in allowed
+        )
+    )
+    # Then every remaining skeleton-allowed component, so validators/prompts
+    # accept Button, Badge, Input, DataTable, etc. — not only shell/slot defaults.
+    for name in sorted(allowed):
+        if name and name not in selected_names:
             selected_names.append(name)
     components_by_name = {
         component["name"]: component for component in catalogue["components"]
@@ -772,6 +788,85 @@ def compact_skeleton_contract(
     if prop_shapes:
         contract["prop_shapes"] = prop_shapes
     return contract
+
+
+def skeleton_contract_for_prompt(
+    skeleton_id: str,
+    section_slots: list[str] | None = None,
+    max_chars: int = _CONTRACT_PROMPT_BUDGET,
+) -> dict[str, Any]:
+    """Return the contract fitted into a prompt's character budget, deliberately.
+
+    Every prompt caller wraps the contract in `bounded_json(contract, 5000)`.
+    Above that limit `bounded_json` stops being a bound and becomes a mutation:
+    it clips *every* list to 12 items and truncates strings to 500 chars
+    (`text_utils.bounded_json`). For `public-catalog` — 5,296 chars, 30
+    components — that silently discarded 18 of them, including the
+    `MarketingHero` and `ProductShowcase` that the contract's own
+    `slot_components` assigned to that page's hero and showcase slots. So the
+    prompt got "use only these catalogue components" over a list missing the
+    ones it had just required, chosen by alphabetical position.
+
+    Fitting happens here instead, cheapest sacrifice first:
+
+    1. `prop_shapes`, which `_budgeted_prop_shapes` already fits and which is
+       guidance rather than vocabulary — a partial map still reads as valid.
+    2. `components`, from the tail of the priority order established in
+       `compact_skeleton_contract`, so the shell, nav and slot components a
+       page cannot render without are the last things to go.
+
+    Anything dropped is logged. A silently smaller vocabulary looks exactly
+    like a model that chose not to use a component.
+    """
+    contract = compact_skeleton_contract(skeleton_id, section_slots)
+    if _serialized_len(contract) <= max_chars:
+        return contract
+
+    without_shapes = {key: value for key, value in contract.items() if key != "prop_shapes"}
+    if _serialized_len(without_shapes) <= max_chars:
+        ui_log.info(
+            "catalogue_contract_prop_shapes_dropped skeleton=%s dropped=%d",
+            skeleton_id,
+            len(contract.get("prop_shapes") or {}),
+        )
+        return without_shapes
+
+    protected = {
+        name
+        for name in (
+            without_shapes.get("shell_component"),
+            *(without_shapes.get("navigation_components") or []),
+            *(without_shapes.get("slot_components") or {}).values(),
+        )
+        if name
+    }
+    components = list(without_shapes.get("components") or [])
+    fitted = dict(without_shapes)
+    dropped: list[str] = []
+    while len(components) > len(protected) and _serialized_len(fitted) > max_chars:
+        for index in range(len(components) - 1, -1, -1):
+            if str(components[index].get("name") or "") not in protected:
+                dropped.append(str(components[index].get("name") or ""))
+                del components[index]
+                break
+        else:  # pragma: no cover - loop guard; every survivor is protected
+            break
+        fitted["components"] = components
+    fitted["components"] = components
+    ui_log.warning(
+        "catalogue_contract_components_dropped skeleton=%s kept=%d dropped=%s chars=%d budget=%d",
+        skeleton_id,
+        len(components),
+        ",".join(dropped) or "-",
+        _serialized_len(fitted),
+        max_chars,
+    )
+    return fitted
+
+
+def _serialized_len(contract: dict[str, Any]) -> int:
+    """Length as the prompt callers serialize it — `bounded_json`'s separators."""
+    return len(json.dumps(contract, ensure_ascii=False, separators=(",", ":")))
 
 
 def compact_catalogue_plan_contract() -> dict[str, Any]:
