@@ -122,22 +122,33 @@ Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
 `revision_instructions` expressible as content-key edits) — are **not** done and still gate 1.8's
 token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
-### Suite state, measured — and the harness that was lying about it
+### Suite state — and the two ways the harness lied about it in one afternoon
 
-**1,526 passed / 4 failed / 2 skipped / 2 xfailed**, `docker compose exec -T api sh -c 'cd
-/app/backend && python -m pytest -q'`, 2026-08-03.
+**1,531 passed / 1 skipped / 2 xfailed / 0 failed**, 2026-08-03, on the command documented in
+`HANDOFF.md`:
 
-The four failures are **pre-existing and unrelated to this window** — the same four on the commit
-before it opened: two leak-check tests in `test_request_40_defects.py`, one full-page screenshot
-harness test, and `test_deploy_files_stamp_the_code_policy_revision`. They are not triaged yet.
-Earlier passes in this doc reported a clean suite; they were reading a subset.
+```
+docker run --rm -v "$REPO:/repo" -w /repo/backend \
+  -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template --entrypoint sh bmv-local-api \
+  -c 'pip install -q pytest; python -m pytest tests/ -q'
+```
 
-**Run it with `sh -c`, never `sh -lc`.** A login shell re-reads `/etc/profile`, which drops
-`/opt/node/bin` from PATH. `tsx_parse_error` shells out to node and **fails open** — no node means
-"this source parses fine" — so the login shell does not error, it turns *six unrelated tests red*
-with failure messages that point at application logic. Measured on one commit: `sh -lc` → 10
-failed / 1,509 passed; `sh -c` → 4 failed / 1,518 passed. This is the third harness-lies-about-the-
-verdict finding in two sessions, after `tail` swallowing a red `tsc` and the dead mutation decoys.
+**Use that one.** `docker compose exec api` is convenient and wrong, for two independent reasons
+that each look like an application defect:
+
+1. **`sh -lc` drops node.** A login shell re-reads `/etc/profile`, which resets PATH and loses
+   `/opt/node/bin`. `tsx_parse_error` shells out to node and **fails open** — no node means "this
+   source parses fine" — so nothing errors; *six* unrelated tests go red with messages pointing at
+   application logic. Same commit: `sh -lc` → 10 failed / 1,509 passed. `sh -c` → 4 failed.
+2. **The `api` service mounts only `backend/`.** Four tests read repo-root files —
+   `scripts/preview-qa.sh`, `Dockerfile.app`, `docker-compose.coolify.yml` — and get
+   `FileNotFoundError`, which reads as "the QA harness lost its script". Those were the four
+   failures. They are not failures; the files were never mounted. All 140 pass under `docker run`.
+
+I reported both rounds as real before checking the harness — first as "4 pre-existing untriaged
+failures", which is why this paragraph exists rather than a ticket. Third and fourth entries in the
+running list of harness-lies-about-the-verdict findings, after `tail` swallowing a red `tsc` and the
+mutation decoys whose anchors had drifted. **The measurement instrument is part of the measurement.**
 
 ### 2.9, in detail — the fix, and what bounds it
 
