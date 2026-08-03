@@ -53,6 +53,36 @@ function isNavWorthy(href: string): boolean {
   return true;
 }
 
+/**
+ * The AI hub's route, but only when this app actually serves one.
+ *
+ * `/ai-features` is a conditional route: the pipeline builds the hub for some
+ * briefs and not others (`capabilities/journey._CONDITIONAL_ROUTES`), and
+ * `assemble._pin_ai_features_nav` adds the nav entry if and only if a hub route
+ * exists. So the shipped `navigation` is the app's own answer to "is there a
+ * hub", and the answer is available at runtime.
+ *
+ * `AiFeaturePanel` used to hardcode `href="/ai-features"`, which was dead in 5
+ * of the 41 archived workspaces that render the panel (requests 32, 36, 45, 47,
+ * 77) — the catch-all route silently redirected it to `/` rather than 404ing,
+ * which is why it survived so long. Same rule as `MarketingHero`'s CTA default:
+ * a template cannot assume a route it did not create.
+ *
+ * Returns the *declared* path rather than a literal, so the panel links only
+ * where the app's own navigation already points.
+ */
+export function aiHubHref(): string | undefined {
+  const nav = navigation as Record<string, RawNav[]> | undefined;
+  if (!nav) return undefined;
+  for (const section of Object.values(nav)) {
+    for (const item of section || []) {
+      const href = String(item?.href || item?.path || '').trim();
+      if (/^\/ai-features(\/|$)/i.test(href)) return href;
+    }
+  }
+  return undefined;
+}
+
 /** Storefront chrome only — never admin, owner login, or AI hub. */
 function isPublicMarketingHref(href: string): boolean {
   if (!isNavWorthy(href)) return false;

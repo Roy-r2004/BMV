@@ -25,11 +25,18 @@ export default defineConfig({
     //
     // `dedupe` collapses both to this package's copy, which is pinned to the
     // template's major.
-    dedupe: ['react', 'react-dom'],
+    //
+    // `react-router-dom` is on the list for the same reason and one more: a
+    // test that wraps a template component in `MemoryRouter` puts the Router
+    // *provider* in this package's copy and the component's `Link` *consumer*
+    // in the template's, so the consumer reads an empty context and throws
+    // "useContext(...) is null" — a failure that reads as a broken component.
+    dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
   },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['./src/test-setup.ts'],
     restoreMocks: true,
   },
 });

@@ -24,12 +24,15 @@ from pathlib import Path
 
 TESTS = Path(__file__).resolve().parent.parent
 TEMPLATE = TESTS.parent / "preview-template"
-SRC = TEMPLATE / "src/ui/compose/SkeletonComposer.tsx"
+COMPOSER = TEMPLATE / "src/ui/compose/SkeletonComposer.tsx"
+PANEL = TEMPLATE / "src/ui/public/AiFeaturePanel.tsx"
+APP_NAV = TEMPLATE / "src/lib/app-nav.ts"
 
-#: (label, exact source to replace, replacement)
-MUTATIONS: list[tuple[str, str, str]] = [
+#: (label, file, exact source to replace, replacement)
+MUTATIONS: list[tuple[str, Path, str, str]] = [
     (
         "throw removed from assertRequiredSections",
+        COMPOSER,
         """  if (missingRequired.length > 0) {
     throw new Error(`Skeleton "${skeletonId}" missing required sections: ${missingRequired.join(', ')}`);
   }""",
@@ -37,16 +40,19 @@ MUTATIONS: list[tuple[str, str, str]] = [
     ),
     (
         "shell no longer exempt from required check",
+        COMPOSER,
         "    if (section === 'shell') return false;\n",
         "",
     ),
     (
         "null slot treated as present",
+        COMPOSER,
         "    return slots[section] == null;",
         "    return !(section in slots);",
     ),
     (
         "explicit order no longer owns the page face (leftovers appended)",
+        COMPOSER,
         """  if (order && order.length > 0) {
     const requiredMissing = skeleton.requiredSections.filter(
       (section) =>
@@ -60,11 +66,13 @@ MUTATIONS: list[tuple[str, str, str]] = [
     ),
     (
         "required-but-unordered sections no longer restored",
+        COMPOSER,
         "    return [...sequence, ...requiredMissing];",
         "    return sequence;",
     ),
     (
         "unrecognised slots no longer appended",
+        COMPOSER,
         """  for (const section of Object.keys(slots)) {
     if (section !== 'shell' && slots[section] != null && !sequence.includes(section)) {
       sequence.push(section);
@@ -74,18 +82,71 @@ MUTATIONS: list[tuple[str, str, str]] = [
     ),
     (
         "public-utility frame removed",
+        COMPOSER,
         "  if (skeletonId === 'public-utility') {",
         "  if (false) {",
     ),
     (
         "ops rail split removed",
+        COMPOSER,
         "  if (railSkeletons.includes(skeletonId) && slots.activity != null) {",
         "  if (false) {",
     ),
     (
         "non-rail fallback drops the recipe order",
+        COMPOSER,
         "    main: <SkeletonComposer skeletonId={skeletonId} slots={slots} order={order} />,",
         "    main: <SkeletonComposer skeletonId={skeletonId} slots={slots} />,",
+    ),
+    # --- AiFeaturePanel's hub link (was a hardcoded /ai-features) -----------
+    (
+        "hub link hardcoded again (the original defect)",
+        PANEL,
+        "          {hubHref ? (\n            <AppLink\n              href={hubHref}",
+        "          {true ? (\n            <AppLink\n              href=\"/ai-features\"",
+    ),
+    (
+        "link rendered unconditionally, whatever the app declares",
+        PANEL,
+        "          {hubHref ? (",
+        "          {true ? (",
+    ),
+    (
+        "caller can no longer suppress the link with null",
+        PANEL,
+        "  const hubHref = indexHref === null ? undefined : indexHref || aiHubHref();",
+        "  const hubHref = indexHref || aiHubHref();",
+    ),
+    (
+        "caller override ignored in favour of the app's nav",
+        PANEL,
+        "  const hubHref = indexHref === null ? undefined : indexHref || aiHubHref();",
+        "  const hubHref = indexHref === null ? undefined : aiHubHref();",
+    ),
+    # --- aiHubHref -----------------------------------------------------------
+    (
+        "aiHubHref always claims a hub exists",
+        APP_NAV,
+        "      if (/^\\/ai-features(\\/|$)/i.test(href)) return href;",
+        "      return '/ai-features';",
+    ),
+    (
+        "aiHubHref matches any /ai- route, not just the hub",
+        APP_NAV,
+        "      if (/^\\/ai-features(\\/|$)/i.test(href)) return href;",
+        "      if (/^\\/ai-/i.test(href)) return href;",
+    ),
+    (
+        "aiHubHref returns a literal instead of the declared path",
+        APP_NAV,
+        "      if (/^\\/ai-features(\\/|$)/i.test(href)) return href;",
+        "      if (/^\\/ai-features(\\/|$)/i.test(href)) return '/ai-features';",
+    ),
+    (
+        "malformed navigation is no longer tolerated",
+        APP_NAV,
+        "      const href = String(item?.href || item?.path || '').trim();",
+        "      const href = String(item.href || item.path).trim();",
     ),
 ]
 
@@ -113,7 +174,7 @@ def run_suite(report: Path) -> tuple[int, list[str]]:
 
 
 def main() -> int:
-    original = SRC.read_text()
+    originals = {path: path.read_text() for path in {m[1] for m in MUTATIONS}}
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / "vitest.json"
 
@@ -125,15 +186,19 @@ def main() -> int:
 
         survivors: list[str] = []
         try:
-            for label, old, new in MUTATIONS:
+            for label, src, old, new in MUTATIONS:
+                original = originals[src]
                 found = original.count(old)
                 if found != 1:
                     # The source moved out from under the mutation. Silence here
                     # would report a passing sweep that tested nothing.
-                    print(f"!! {label}: anchor matched {found} times — NOT APPLIED")
+                    print(
+                        f"!! {label}: anchor matched {found} times in "
+                        f"{src.name} — NOT APPLIED"
+                    )
                     survivors.append(f"{label} (anchor drift)")
                     continue
-                SRC.write_text(original.replace(old, new, 1))
+                src.write_text(original.replace(old, new, 1))
                 code, failed = run_suite(report)
                 caught = code != 0
                 print(f"\n[{'RED' if caught else 'STILL GREEN <-- pins nothing'}] {label}")
@@ -141,13 +206,14 @@ def main() -> int:
                     print(f"    caught by: {name}")
                 if not caught:
                     survivors.append(label)
-                SRC.write_text(original)
+                src.write_text(original)
         finally:
-            SRC.write_text(original)
-            if SRC.read_text() != original:
-                print("RESTORE FAILED — check git diff before doing anything else")
-                return 2
-            print("\nsource restored and verified byte-identical")
+            for path, source in originals.items():
+                path.write_text(source)
+                if path.read_text() != source:
+                    print(f"RESTORE FAILED for {path} — check git diff now")
+                    return 2
+            print("\nsources restored and verified byte-identical")
 
     print(f"\nsurvivors (mutations no test caught): {survivors or 'none'}")
     return 1 if survivors else 0

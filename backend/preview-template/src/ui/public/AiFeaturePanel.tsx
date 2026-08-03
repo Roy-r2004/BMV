@@ -1,4 +1,5 @@
 import { MotionReveal } from '../motion';
+import { aiHubHref } from '../../lib/app-nav';
 import { AppLink } from '../lib/AppLink';
 import { cn } from '../lib/cn';
 import { AiFeatureStage, type AiFeatureItem } from './AiFeatureStage';
@@ -8,6 +9,13 @@ export type AiFeaturePanelProps = {
   brandName?: string;
   className?: string;
   compact?: boolean;
+  /**
+   * Hub route for the "All AI features" link. Defaults to whatever the app's
+   * own navigation declares, and the link is omitted when it declares nothing —
+   * `/ai-features` is a conditional route. Pass `null` to suppress the link on
+   * the hub page itself, where it would point at the current page.
+   */
+  indexHref?: string | null;
 };
 
 export function AiFeaturePanel({
@@ -15,7 +23,11 @@ export function AiFeaturePanel({
   brandName = 'Brand',
   className,
   compact = false,
+  indexHref,
 }: AiFeaturePanelProps) {
+  // `null` is the caller suppressing the link; `undefined` is no opinion, which
+  // asks the app's navigation. Same distinction MarketingHero draws for its CTA.
+  const hubHref = indexHref === null ? undefined : indexHref || aiHubHref();
   return (
     <MotionReveal>
       <section
@@ -40,12 +52,14 @@ export function AiFeaturePanel({
               {feature.description || feature.name}
             </p>
           </div>
-          <AppLink
-            href="/ai-features"
-            className="shrink-0 text-xs font-semibold text-neutral-600 underline-offset-4 transition hover:text-foreground hover:underline"
-          >
-            All AI features →
-          </AppLink>
+          {hubHref ? (
+            <AppLink
+              href={hubHref}
+              className="shrink-0 text-xs font-semibold text-neutral-600 underline-offset-4 transition hover:text-foreground hover:underline"
+            >
+              All AI features →
+            </AppLink>
+          ) : null}
         </div>
         <AiFeatureStage feature={feature} brandName={brandName} compact />
       </section>
