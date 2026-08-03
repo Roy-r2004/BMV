@@ -1,6 +1,6 @@
-# Session handoff — the no-generation window, day 1 (2026-08-03, session 6)
+# Session handoff — the no-generation window, day 2 (2026-08-03, session 7)
 
-Successor to session 5's handoff (in git history at `08a9abf`). Still-binding parts are restated
+Successor to session 6's handoff (in git history at `dfbfdd6`). Still-binding parts are restated
 below; do not go back for them. Process notes, not product docs.
 
 - **The plan and its evidence: [docs/PREVIEW_ROADMAP.md](docs/PREVIEW_ROADMAP.md).** Read **The
@@ -26,83 +26,110 @@ theme.
 
 ## State of the repo, in three lines
 
-- **`main` is at `475265e` and pushed.** Session 5's 9 commits plus session 6's are all merged;
-  `chore/remove-preview-generator-v2` is fully contained in `main`. No open PR, working tree clean.
-- **Suite: 1,531 passed / 1 skipped / 2 xfailed / 0 failed.** Run it the documented way — see the
-  operating notes, this bit up and it cost me two wrong reports today.
-- **CI exists now** (`.github/workflows/preview-template-tests.yml`) and has run on `main` at least
-  once. **I cannot read the result.** Check
-  [github.com/Roy-r2004/BMV/actions](https://github.com/Roy-r2004/BMV/actions) — 1.10 is not done
-  until that job is green there.
+- **`main` is at `7f8f91f`, 6 commits ahead of `dfbfdd6`, NOT pushed.** Working tree clean.
+- **Suite: 1,623 passed / 1 skipped / 0 xfailed / 0 failed.** All eight xfails are closed. Run it
+  the documented way — see the operating notes.
+- **CI still runs vitest only** (`.github/workflows/preview-template-tests.yml`). **I cannot read
+  the result.** Check [github.com/Roy-r2004/BMV/actions](https://github.com/Roy-r2004/BMV/actions) —
+  1.10 is not done until that job is green there, and **there is still no pytest job at all**.
 
 ---
 
 ## The next step
 
-Day 1 of the window is 2 of 4 done. Work these in order; each is offline and each has its
-reproduction already written.
+Day 1 is **done, all four**. Day 2 is **2 of 4 DoDs plus the pre-flight**. Work these in order.
 
-### 1. The skeleton-contract size bound — a live token cost, currently an xfail
+### 1. DoD 7 — route bijection *(not started)*
 
-`test_the_attached_skeleton_contract_stays_under_four_thousand_chars`
-(`tests/preview_app/test_catalogue_contract.py:1988`). The attached skeleton/slot contract is
-**5,241 chars against a pinned 4,000**. It grew when the contract started carrying the full skeleton
-allow-list so validators and prompts accept `Button`/`Badge`/`Input` and not only slot defaults.
-That growth was deliberate; re-checking the bound was not.
+`len(_smoke_routes(architect))` against the count of non-wildcard routes with a page file, and
+`catalogue_route_for_file` injective. Pure functions over the archived corpus, no credits.
 
-~5.2 KB rides on **every** generated file's instructions — roughly 1,300 tokens × ~14 files ≈ **18k
-tokens per run** of pure contract boilerplate, on a pipeline fighting for a 600 s cap.
+Something to look at first: **request 33 has an `AiFeaturesPage.tsx` and a nav entry for
+`/ai-features`, and no route declaring it.** Found while validating item 3 against the archive. That
+is an orphaned page and it is exactly what this DoD is meant to catch, so it makes a good first
+test case rather than a synthetic one.
 
-**Retire the bound deliberately or re-fit it. Do not raise the number until it passes** — that is
-the move the xfail exists to prevent. Real options, in the order I would try them: dedupe the
-allow-list against what the *assigned* skeleton can actually use (most of the 5.2 KB is components
-the page cannot legally render); or split it so the allow-list is stated once per run rather than
-once per file. Either way the new bound needs a stated derivation, not a fitted constant.
+### 2. DoD 2 and 5 — the "before" numbers *(not started)*
 
-### 2. `AiFeaturePanel.tsx:44` hardcodes `/ai-features`
+Inline prose per page TSX (claimed 13,540 chars) and `SiteSpec` key-set commonality (claimed 1 key
+across 27 workspaces). Census over `docs/evidence/preview-workspaces.tar.gz`. **This window is the
+only cheap time to take them** and neither has been taken.
 
-Template source, so the vitest harness that 1.10 stood up can prove it. The dead-link guard **skips
-template-owned files** (`restore_template_owned_files` reverts the edit) and `AppLink` requires
-`href`, so there is no safe removal — it needs a real fix, not a deletion. Dead in 1 of 9 runs; did
-not block that run. `MarketingHero`'s `DEFAULT_PRIMARY_CTA` was the same defect and is fixed at
-source; this one is not.
+### 3. The cheap instrument the pre-flight asks for
 
-### 3. `visual_review_status: None` → `unmeasured`
+Gate failures do not record `skeleton_id`. That is the only reason question 5 of the pre-flight
+could not be settled offline — `listing_not_schedule_rail` fires on pages that resolve to *either*
+`public-service` or `public-catalog` depending on their purpose text, and only `public-catalog` was
+ever affected by the contract clipping. Small, offline, and it makes every future
+skeleton-conditional gate question answerable off the log.
 
-Trios 4 and 5 store `None` when the critic is skipped past the deadline. Small, but do it **before**
-the next trio is collected through it, or the first funded trio inherits the ambiguity.
+### 4. Extend vitest toward the nav guarantees
 
-### 4. The last xfail — `test_phase5_ui_alias_imports.py:153`
+Scroll-reset, anchor landing, header clearance. `SkeletonComposer` is pinned; those are not. The
+harness now also has `src/test-setup.ts` (jsdom lacks `IntersectionObserver`, which every
+`MotionReveal`-wrapped component needs) and `react-router-dom` deduped, so a component that needs a
+Router renders. Both were missing and both read as broken components rather than as harness faults.
 
-`write_file` canonicalizes `Dashboard.tsx` → `DashboardPage.tsx`, so a caller holding the original
-`Path` finds nothing. The content contracts still hold on the canonical path (the sibling test
-proves it). Decide: either `write_file` stops renaming out from under callers, or the touched-list
-reports post-canonicalize paths and callers update. Then delete the xfail.
+### Do NOT do these
 
-### Then: Day 2 — Phase 2's scoreboard, built before Phase 2 starts
-
-Four Phase 2 DoDs need no generation. Details in the roadmap; the order I would take them:
-
-1. **DoD 8 — the write allowlist.** No module outside a named allowlist may write
-   `src/pages/**.tsx` or `src/render/**`, enforced at runtime inside `workspace.write_file`
-   (`workspace.py:120`), allowlist pinned by test. **Highest value on the list** — it is a hard
-   guarantee, not a measurement, and Phase 2's whole thesis is that one writer owns pages.
-2. **DoD 9 — test-count floor in CI.** Trivial now CI exists.
-3. **DoD 7 — route bijection.** `_smoke_routes` vs non-wildcard routes with a page file, and
-   `catalogue_route_for_file` injective. Pure functions over the archived corpus.
-4. **DoD 2 and 5 — the "before" numbers.** Inline prose per page TSX (claimed 13,540 chars) and
-   `SiteSpec` key-set commonality (claimed 1 key across 27 workspaces). Census over
-   `docs/evidence/preview-workspaces.tar.gz`. **This window is the only cheap time to take them.**
-
-Plus: extend vitest toward the nav guarantees the roadmap already specifies — scroll-reset, anchor
-landing, header clearance. `SkeletonComposer` is pinned; those are not.
-
-**The deliverable that pays for the window** is the *first-funded-trio pre-flight*: one document
-listing every question the next three runs must answer and the instrument each one needs. Do not
-skip it to do more code. It is what stops the next trio from being spent confirming things we
-already know.
+- **A pytest CI job written blind.** DoD 9's floor is enforced in `tests/conftest.py`; the "in CI"
+  half is open *because* I could not verify a job on the CI platform. 1.10's whole lesson is that
+  the job would have failed its first run and local green hid it.
+- **Bounding the contract by stating the allow-list once per run.** It is the right fix for the
+  ~18k tokens/run and for the architect's collapsed route context (pre-flight question 6), and it
+  changes what the model sees. Not verifiable without generations.
 
 ---
+
+## What landed in session 7
+
+7 commits, `0082f5f`…`7f8f91f`, on `main`, **not pushed**.
+
+| commit | what |
+|---|---|
+| `0082f5f` | **contract budget** — the 4,000-char bound was hiding a mutilated allow-list |
+| `430453a` | **AiFeaturePanel** — linked to a route it did not create |
+| `2d69917` | **telemetry** — `visual_review_status` said `None` for three different things |
+| `614d772` | **`write_file`** — returns the path it wrote; last of the 8 xfails |
+| `2f96cf6` | **the pre-flight** — [docs/FIRST_FUNDED_TRIO_PREFLIGHT.md](docs/FIRST_FUNDED_TRIO_PREFLIGHT.md) |
+| `3b2e72a` | **DoD 8** — page writes allowlisted; 26 modules are on the list |
+| `7f8f91f` | **DoD 9** — collection floor, and the CI half I did not fake |
+
+**The pre-flight is the deliverable.** Eleven questions, each with its instrument. Read it before
+spending the first funded trio; five pre-launch checks in it have each already cost a trio or a
+published number.
+
+### The three findings worth carrying, none of which was the filed defect
+
+1. **`bounded_json` is not a bound above its limit — it is a mutation.** Past 5,000 chars it clips
+   every list to 12 items. `public-catalog` was sending the model 12 of its 30 allowed components,
+   missing the `MarketingHero` and `ProductShowcase` its own contract assigned to that page's slots.
+   The stale 4,000-char xfail was sitting on top of it. **The same defect is live and larger at
+   `codegen/architect.py:138` and I did not fix it**: `_catalogue_routes_context` puts one full
+   contract per route into a 10,000-char bound, so at **3 routes it collapses to
+   `{"truncated": true, …}`** and real runs have 8-14. Offline reproduction only — pre-flight
+   question 6.
+2. **`AiFeaturePanel`'s dead link was 5 of 41, not 1 of 9.** The earlier figure only looked at trios
+   2-5. The template's catch-all redirects unknown paths to `/` rather than 404ing, which is why a
+   dead link behaved like a working one for 40 requests.
+3. **26 modules can write `src/pages/**.tsx`.** That is DoD 8's real output and Phase 2's baseline.
+   Half the list is `static` — modules that write computed paths the suite never exercises with a
+   page — so each of those is also a test-coverage gap.
+
+### Mutation results, and the pattern in the failures
+
+`8 + 17 (vitest) + 11 + 7 + 11` mutations, zero survivors at the end. **Six survived a first
+sweep**, and every one had the same cause, in two flavours:
+
+- **Asserted against the case that does not bind.** Every contract assertion used `public-home`,
+  the one skeleton comfortably under budget, so reverting the fix changed nothing it could see.
+  That is *why* the clipping went unnoticed for as long as it did — the tests could not fail.
+- **Drove the consumer, never the producer.** All the `visual_review_status` tests asked "given a
+  reason, does the field say so" and none asked "does anything set a reason", so `build_phase`
+  recording nothing at all was invisible. `test_visual_report_is_re_derived.py`'s own docstring
+  warns about exactly this shape, and I wrote the new tests the way it warned against.
+
+Both are worth checking for by default in the next sweep you write.
 
 ## Work the roadmap's order, and do not re-litigate it
 
@@ -114,6 +141,11 @@ One documented exception, already taken: **2.9 was pulled forward and is done** 
 authorised by the no-generation window — it is pure offline logic and the alternative was idling.
 It is throwaway work by design (it lives in the range 2.4-2.5 deletes) and that was the accepted
 price. **This is not a precedent for pulling more Phase 2 items forward.**
+
+**Phase 2 DoDs 8 and 9 are a different thing and not a second exception.** The roadmap's own
+no-generation-window plan schedules four Phase 2 *DoDs* for Day 2, on the grounds that none of them
+needs a generation and Phase 2 should open with its measurements already in place. Building a
+scoreboard is not starting the phase. DoD 7 and DoD 2/5 remain from that list.
 
 ---
 
@@ -195,60 +227,13 @@ file that touches no repo-root path; nothing else.
 
 ## What landed in session 6
 
-8 commits, `88ff2be`…`475265e`, all on `main` and pushed.
-
-| commit | what |
-|---|---|
-| `88ff2be` | **1.10** — a JS test runner, in a sibling package for a measurable reason |
-| `1839376` | **1.6 cont.** — the duplicate extractor that failed silently, and the one nobody listed |
-| `5eaa5b2` | rescue the Phase 1 evidence tooling out of a session scratchpad |
-| `56d8f08` | **telemetry** — appspec is the most expensive stage and was the only unscoped one |
-| `6f16ad9` | **CI** — the vitest job would have failed its first run, and local green hid it |
-| `67a4301` | roadmap: plan the no-generation window, and archive what it depends on |
-| `4e61c01` | **xfails** — five of eight were tests that had stopped testing anything |
-| `475265e` | **2.9** — the slot-fill retry loop had never fired once |
-
-### 2.9, since it is the one with a live effect
-
-A page that compiled but violated the catalogue contract was *accepted* by the retry loop and thrown
-away one call later by `enforce_catalogue_page_contract`, replaced with the generic scaffold.
-`_slot_fill_rejection` knew four reasons — empty, truncated, missing-export-default,
-unparseable-TSX — and **none of them is what actually goes wrong**. Across requests 74-79: 26 pages
-discarded that way, **zero** syntactic rejections in the same runs. The cap, the per-reason
-guidance and the log line had all been sitting there unreached.
-
-The part to review is the predicate. Rejecting on `validate_catalogue_page_content` errors is wrong
-and expensive: `enforce` repairs a broken composer invocation and back-fills missing slots before
-giving up, so a page missing one slot is contract-invalid **and** free to fix, and re-asking for it
-spends ~50 s to arrive at the same file. The test is **enforce's own verdict** — reject exactly what
-would be discarded. Pinned by `test_a_fill_enforce_can_repair_is_not_re_asked`.
-
-Cost is bounded three ways and only the third is new: the pre-existing per-page cap of 2 (never
-reached), the pre-existing `PREVIEW_MAX_AI_CALLS`, and `_has_contract_retry_runway()`, which will not
-start a discretionary ask unless the per-ask ceiling plus the reserve remain. Skipping records
-`slot_fill_contract_retry_skipped_low_runway`; it is never silent. Seven mutations, zero survivors
-(`scripts/cli/mutate_slotfill_contract_retry.py`).
-
-**What it does not do:** guarantee the re-asked page comes back *different*. It guarantees a second
-ask carrying the exact validator errors. Whether the model uses them is a funded-trio question and
-it is on the pre-flight list.
-
-### Tooling now in the repo
-
-- **[`backend/scripts/measure/`](backend/scripts/measure/)** — `analyse.py <trio>` (per-trio DoD
-  evidence), `replay.py` (dead-link guard, read-only over stored workspaces), `resolve_probe.py`,
-  `tail.py` (post-deadline AI vs non-AI — this is what found the elective-stage defect),
-  `appspec_cost.py`, and the trio launchers with `industry`/port/multipart/60 s spacing baked in.
-- **[`docs/evidence/`](docs/evidence/)** — `preview-trio-logs.tar.gz` (109 KB, trios 1-6;
-  `api6.log` is the **void** trio) and `preview-workspaces.tar.gz` (2.4 MB, 58 workspaces, requests
-  11-91: shipped `src/` plus `.bmv-debug/` raw model responses). Both were one `docker volume prune`
-  or one scratchpad cleanup from taking published numbers with them. **Every Day 2 census reads
-  these.** `src/ui` is excluded on purpose — 58 byte-identical copies of a tree already in the repo,
-  and including it took the archive to 10.8 MB.
-- **Mutation drivers** — `scripts/cli/mutate_extractors.py`,
-  `scripts/cli/mutate_slotfill_contract_retry.py`, `preview-template-tests/tools/mutate.py`.
-
----
+8 commits, `88ff2be`…`475265e`. Summarised in git and in the roadmap Status table; the two with a
+live effect are **1.10** (the vitest runner, a sibling package on purpose because
+`preview-template/package.json` is the shared-npm cache key — do not "tidy" it into the template)
+and **2.9** (the slot-fill retry loop, which had never fired once: `_slot_fill_rejection` knew four
+syntactic reasons and none of them is what actually goes wrong. 26 pages discarded across requests
+74-79, zero syntactic rejections in the same runs). 2.9 now rejects on **enforce's own verdict**.
+Whether a re-asked page comes back *different* is unmeasured and is pre-flight question 3.
 
 ## What is still broken
 
@@ -342,11 +327,20 @@ CI job on the CI platform, not on the machine that wrote it.**
 The design fact worth carrying: it is a **sibling package on purpose**, because
 `preview-template/package.json` is the shared-npm cache key. Do not "tidy" it into the template.
 
-### 7. Two xfails remain, both real
+### 7. The architect's route context collapses — new, unfixed
 
-The skeleton-contract size bound and the `write_file` canonicalization marker — items 1 and 4 of
-[The next step](#the-next-step). The other six are closed; five of them were tests that had stopped
-testing anything, which is a finding about the suite rather than about the code.
+`_catalogue_routes_context` (`codegen/architect.py:138`) serializes one **full** skeleton contract
+per catalogue route into a 10,000-char `bounded_json`. Measured offline: 1 route = 5,004 chars,
+2 routes = list-clipped to 12 components each, **3 routes = collapsed to
+`{"truncated": true, "preview": …}`**. Real runs have 8-14 routes.
+
+If that holds live, the architect has been receiving a truncated preview string for its entire
+route/contract block on every generation. **Offline reproduction only** — deliberately not fixed,
+because the fix is "state the allow-list once per run", which changes what the model sees and cannot
+be validated without generations. Pre-flight question 6.
+
+All eight xfails are closed. Five were tests that had stopped testing anything; the last two were
+each hiding a live defect.
 
 ### 8. Appspec telemetry is verified against fakes only
 
@@ -361,6 +355,21 @@ evaluated on data that structurally could not show an appspec failover.** Treat 
 this stage until a funded trio re-measures.
 
 ---
+
+## Things I got wrong in session 7, so you don't repeat them
+
+- **I wrote six tests that could not fail, and only the mutation sweeps found them.** Two flavours,
+  both described above: asserting against the skeleton that does not bind, and driving the consumer
+  instead of the producer. In one case the file's own docstring warned about the exact shape.
+- **A `cd backend` drifted between tool calls again** and a `python3 - <<PY` heredoc died on a
+  relative path. Third session running. Use absolute paths; the note has been in this file since
+  session 5.
+- **I nearly enforced DoD 8 on the runtime census alone.** It would have raised in production for
+  eleven modules that write computed paths the suite's fixtures never exercise with a page. The
+  static cross-check was not optional.
+- **I started a mutation sweep and then kept editing.** The sweep mutates live-mounted source, so a
+  concurrent edit can make its pytest run red for a reason that has nothing to do with the mutation.
+  Nothing was lost, but the verdict would have been noise. Wait for the sweep.
 
 ## Things I got wrong in session 6, so you don't repeat them
 
