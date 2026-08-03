@@ -645,7 +645,22 @@ def _forget_pages(report: VisualCritiqueReport, component_files) -> None:
     }
 
 
-def visual_review_summary(workspace) -> dict:
+#: Why no report exists. `skipped_past_deadline` is the exact token
+#: `should_skip_elective` already records as a degradation — same event, so the
+#: same name, rather than a second vocabulary for it.
+VISUAL_NOT_RUN_REASONS = frozenset(
+    {
+        "skipped_past_deadline",
+        "skipped_by_config",
+        "stage_failed",
+        "build_failed",
+        "report_unreadable",
+        "not_run",
+    }
+)
+
+
+def visual_review_summary(workspace, *, not_run_reason: str | None = None) -> dict:
     """Measurement facts for the API result — never a verdict, always a count.
 
     `ok` on this report means "nothing blocking was found", which is not the same
@@ -654,16 +669,36 @@ def visual_review_summary(workspace) -> dict:
     feed said `Visually reviewed 6/6`. Callers get the counts here so "ready" can
     never again be read on its own as "reviewed".
 
-    Returns `{}` when the critic never ran, which is not a measurement failure —
-    `PREVIEW_SKIP_VISUAL_CRITIC` is a legitimate configuration.
+    When the critic never ran there is no report, and this used to return `{}` —
+    so `visual_review_status` was *absent*, and every reader that reached for it
+    with `.get()` (including `scripts/measure/analyse.py`) recorded `None`. Trios
+    4 and 5 are stored that way.
+
+    `None` conflated three states that a measurement has to tell apart: skipped
+    past the deadline, skipped by configuration, and the stage raising. It is
+    also indistinguishable from "this field did not exist yet", which is the
+    reading that would quietly survive a schema change. So the field is always
+    present now, and `not_run_reason` names which one it was.
+
+    Deliberately NOT `unmeasured`. That value means the critic ran, had pages and
+    judged none of them — a vision outage — and it drives finalize's WARN plus
+    `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED`. Overloading it would make every
+    deadline skip look like an outage and corrupt the one signal that currently
+    means something precise.
     """
+    not_run = {
+        "visual_review_status": not_run_reason or "not_run",
+        "visual_pages_reviewed": 0,
+        "visual_pages_unmeasured": 0,
+        "visual_pages_selected": 0,
+    }
     path = report_path(workspace)
     try:
         if not path.is_file():
-            return {}
+            return not_run
     except OSError as e:
         log.warning("visual critique report unreadable: %s", e)
-        return {}
+        return {**not_run, "visual_review_status": "report_unreadable"}
     report = load_visual_critique_report(workspace)
     return {
         "visual_review_status": report.review_status,

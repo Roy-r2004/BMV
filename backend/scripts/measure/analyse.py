@@ -89,6 +89,12 @@ def main() -> None:
                 "blocked_seconds": pa.get("blocked_seconds"),
                 "contention": pa.get("contention"),
                 "gate_issues": len(pa.get("gate_issues") or []),
+                # `None` here means the run predates 2026-08-03 — trios 4 and 5
+                # stored nothing when the critic was skipped. It does NOT mean
+                # "reason unknown". Runs after that report one of
+                # `visual_critic.VISUAL_NOT_RUN_REASONS` instead. Those rows are
+                # left as they were stored; rewriting collected evidence to match
+                # a later schema is how a corpus stops being evidence.
                 "visual_review_status": pa.get("visual_review_status"),
                 "visual_pages_reviewed": len(
                     [

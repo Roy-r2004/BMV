@@ -117,7 +117,7 @@ def _typecheck_summary(workspace) -> dict:
     }
 
 
-def _visual_review_summary(workspace) -> dict:
+def _visual_review_summary(workspace, not_run_reason: str | None = None) -> dict:
     """Surface *how much was actually looked at*, next to the verdict.
 
     `gate.ok` and `status: "ready"` were both reportable with zero pages judged:
@@ -133,10 +133,17 @@ def _visual_review_summary(workspace) -> dict:
     from app.application.preview_app.pipeline.visual_critic import visual_review_summary
 
     try:
-        return visual_review_summary(workspace)
+        return visual_review_summary(workspace, not_run_reason=not_run_reason)
     except (OSError, ValueError) as e:
         log.warning("visual review summary unreadable: %s", e)
-        return {}
+        # Still say something. `{}` here is how a run ends up reporting `None`
+        # for a measurement it definitely did not take.
+        return {
+            "visual_review_status": "report_unreadable",
+            "visual_pages_reviewed": 0,
+            "visual_pages_unmeasured": 0,
+            "visual_pages_selected": 0,
+        }
 
 
 #: Routes worth loading for the smoke test. Every declared public route plus the
@@ -749,7 +756,9 @@ def run_finalize(ctx: PipelineContext) -> dict:
         "built_at": int(time.time()),
     }
     preview_app_result.update(_typecheck_summary(workspace))
-    preview_app_result.update(_visual_review_summary(workspace))
+    preview_app_result.update(
+        _visual_review_summary(workspace, getattr(ctx, "visual_not_run_reason", None))
+    )
     # Rendering is a measurement like any other, and it gets a reader beside
     # `status` for the same reason the visual counts do.
     preview_app_result["render_pages_checked"] = int(render_report.get("checked") or 0)

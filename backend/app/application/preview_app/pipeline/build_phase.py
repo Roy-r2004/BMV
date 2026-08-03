@@ -298,6 +298,29 @@ def _run_typecheck_repair(ctx: PipelineContext) -> TypecheckReport:
     return report
 
 
+def _visual_critic_not_run_reason(ok: bool) -> str | None:
+    """Why the visual critic will not run, or `None` when it will.
+
+    Every answer here becomes `visual_review_status` when there is no report to
+    read, so the four cases have to stay distinguishable — they used to collapse
+    into an absent field, which readers stored as `None`.
+
+    Order matters and so does short-circuiting: `should_skip_elective` records a
+    degradation as a side effect, so a failed build must never reach it. That is
+    the behaviour the original `ok and should_skip_elective(...)` had, kept here
+    rather than left implicit in a chain of `elif ok and ...`.
+    """
+    if not ok:
+        return "build_failed"
+    from app.application.services.request_deadline import should_skip_elective
+
+    if should_skip_elective("visual_critic"):
+        return "skipped_past_deadline"
+    if settings.PREVIEW_SKIP_VISUAL_CRITIC:
+        return "skipped_by_config"
+    return None
+
+
 def run_build_phase(ctx: PipelineContext) -> None:
     db = ctx.db
     request_id = ctx.request_id
@@ -496,15 +519,20 @@ def run_build_phase(ctx: PipelineContext) -> None:
     # work, none of the judgement. That is why 67 % of the 33-80 s tail across
     # nine runs is non-AI: the electives run their expensive deterministic half
     # past the deadline and only their model calls degrade.
-    from app.application.services.request_deadline import should_skip_elective
+    # One decision in one place, so the branch taken and the reason reported in
+    # `visual_review_status` cannot disagree. They used to be able to: the reason
+    # was simply absent, which is why trios 4 and 5 are stored with `None`.
+    ctx.visual_not_run_reason = _visual_critic_not_run_reason(ok)
 
-    if ok and should_skip_elective("visual_critic"):
+    if ctx.visual_not_run_reason == "skipped_past_deadline":
         log.warning(
             "    [7/7] visual critique SKIPPED — past the deadline, and its vision "
             "calls would all be refused. Screenshotting for verdicts nobody can "
             "pay for is the whole cost with none of the value."
         )
-    elif ok and not settings.PREVIEW_SKIP_VISUAL_CRITIC:
+    elif ctx.visual_not_run_reason == "skipped_by_config":
+        log.warning("    visual critique skipped (PREVIEW_SKIP_VISUAL_CRITIC=true)")
+    elif ctx.visual_not_run_reason is None:
         log.info("  [7/7] Visual critique — screenshotting + reviewing rendered pages...")
         _emit(db, request_id, "visual_critic", "AI visually reviewing the built app...", 90,
               detail="Screenshotting pages and checking rendering quality")
@@ -515,9 +543,8 @@ def run_build_phase(ctx: PipelineContext) -> None:
                 ctx.ai_provider, template_renderer,
             )
         except Exception as e:
+            ctx.visual_not_run_reason = "stage_failed"
             log.error(f"    visual critique stage failed entirely, keeping existing build: {e}")
-    elif ok:
-        log.warning("    visual critique skipped (PREVIEW_SKIP_VISUAL_CRITIC=true)")
 
     build_watch.stop()
 

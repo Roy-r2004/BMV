@@ -570,9 +570,49 @@ def test_visual_review_summary_is_what_reaches_the_api_result(tmp_path: Path) ->
     }
 
 
-def test_no_visual_run_contributes_no_fields(tmp_path: Path) -> None:
-    """`PREVIEW_SKIP_VISUAL_CRITIC` is a configuration, not a measurement failure."""
-    assert vc.visual_review_summary(tmp_path) == {}
+def test_no_visual_run_still_names_itself(tmp_path: Path) -> None:
+    """Inverted on 2026-08-03. It used to assert `== {}`.
+
+    Returning `{}` left `visual_review_status` absent, so every reader that
+    reached for it with `.get()` recorded `None` — which is how trios 4 and 5 are
+    stored, and which conflated three different states: skipped past the
+    deadline, skipped by configuration, and the stage raising. `None` is also
+    indistinguishable from "the field did not exist yet".
+
+    `PREVIEW_SKIP_VISUAL_CRITIC` is still a configuration rather than a
+    measurement failure. That is now something the value *says* instead of
+    something a reader has to already know.
+    """
+    assert vc.visual_review_summary(tmp_path) == {
+        "visual_review_status": "not_run",
+        "visual_pages_reviewed": 0,
+        "visual_pages_unmeasured": 0,
+        "visual_pages_selected": 0,
+    }
+
+
+@pytest.mark.parametrize(
+    "reason",
+    ["skipped_past_deadline", "skipped_by_config", "stage_failed"],
+)
+def test_no_visual_run_reports_the_reason_it_was_given(tmp_path: Path, reason: str) -> None:
+    summary = vc.visual_review_summary(tmp_path, not_run_reason=reason)
+    assert summary["visual_review_status"] == reason
+    assert reason in vc.VISUAL_NOT_RUN_REASONS
+
+
+def test_a_skipped_critic_never_reports_itself_as_a_vision_outage(tmp_path: Path) -> None:
+    """`unmeasured` means the critic ran, had pages, and judged none of them.
+
+    It drives finalize's WARN and `PREVIEW_VISUAL_CRITIC_BLOCK_ON_UNMEASURED`.
+    Reusing it for "never ran" was the tempting one-word fix and would have made
+    every deadline skip read as an outage, destroying the one signal here that
+    means something precise.
+    """
+    for reason in vc.VISUAL_NOT_RUN_REASONS:
+        assert vc.visual_review_summary(tmp_path, not_run_reason=reason)[
+            "visual_review_status"
+        ] != "unmeasured"
 
 
 def test_a_corrupt_report_summarises_instead_of_raising(tmp_path: Path) -> None:
@@ -580,7 +620,9 @@ def test_a_corrupt_report_summarises_instead_of_raising(tmp_path: Path) -> None:
     assert vc.visual_review_summary(tmp_path)["visual_review_status"] == "no_routes"
 
 
-def _finalize(tmp_path: Path) -> tuple[dict, list[tuple]]:
+def _finalize(
+    tmp_path: Path, *, visual_not_run_reason: str | None = None
+) -> tuple[dict, list[tuple]]:
     """Run the real `run_finalize` and return its `preview_app` result.
 
     A test that calls `_visual_review_summary` directly proves the helper works
@@ -610,6 +652,8 @@ def _finalize(tmp_path: Path) -> tuple[dict, list[tuple]]:
         ),
     )
     ctx.workspace = tmp_path
+    if visual_not_run_reason is not None:
+        ctx.visual_not_run_reason = visual_not_run_reason
     ctx.architect = {"routes": [], "roles": []}
     ctx.plan = {"roles": []}
     ctx.manifest = {}
@@ -668,9 +712,221 @@ def test_run_finalize_reports_a_real_review_without_the_warning(tmp_path: Path) 
     assert not any("not visually reviewed" in label for _s, label, _d in events)
 
 
-def test_run_finalize_adds_no_visual_fields_when_the_critic_was_skipped(
-    tmp_path: Path,
-) -> None:
+def test_run_finalize_names_why_the_critic_did_not_run(tmp_path: Path) -> None:
+    """Was `..._adds_no_visual_fields_when_the_critic_was_skipped`.
+
+    The absence it asserted is the ambiguity being removed: a reader could not
+    tell a deadline skip from a configured skip from a schema that predated the
+    field.
+    """
     preview_app, _events = _finalize(tmp_path)
-    assert "visual_review_status" not in preview_app
+    assert preview_app["visual_review_status"] == "not_run"
     assert preview_app["status"] == "ready"
+    # And the vision-outage WARN stays reserved for an actual outage.
+    assert not any("not visually reviewed" in label for _s, label, _d in _events)
+
+
+def test_run_finalize_carries_the_skip_reason_off_the_context(tmp_path: Path) -> None:
+    """The reason is known in `build_phase` and consumed in `finalize`.
+
+    A test on `visual_review_summary` alone proves the helper works and proves
+    nothing about whether the reason survives the trip — which is the same shape
+    of defect as the field being absent in the first place.
+    """
+    preview_app, _events = _finalize(tmp_path, visual_not_run_reason="skipped_past_deadline")
+    assert preview_app["visual_review_status"] == "skipped_past_deadline"
+    assert preview_app["visual_pages_reviewed"] == 0
+
+
+# --- the producer side ------------------------------------------------------
+#
+# Everything above tests the consumer: given a reason, does the field say so.
+# That is exactly the half that can pass while nothing sets the reason at all —
+# four mutations survived the first sweep on this fix and two of them were
+# `build_phase` no longer recording anything. So these drive the real
+# `run_build_phase` and read the reason off the context it produces.
+
+
+def _build_phase_ctx(tmp_path: Path):
+    from types import SimpleNamespace
+
+    from app.application.preview_app.pipeline.context import PipelineContext
+
+    (tmp_path / "dist").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "dist" / "index.html").write_text("<html></html>", encoding="utf-8")
+    ctx = PipelineContext(
+        db=SimpleNamespace(commit=lambda: None),
+        request_id=99,
+        ai_provider=None,
+        template_renderer=None,
+        app_spec_revision_id=None,
+        req=SimpleNamespace(generated_pages=None, business_name="B", concept_name="B"),
+    )
+    ctx.workspace = tmp_path
+    ctx.architect = {"routes": [], "roles": []}
+    ctx.plan = {"roles": []}
+    ctx.manifest = {}
+    ctx.images = {}
+    ctx.specs_by_path = {}
+    ctx.full_context = ""
+    ctx.brand_name = "B"
+    ctx.primary = "#111111"
+    ctx.secondary = "#222222"
+    ctx.font = ""
+    ctx.total_files = 0
+    ctx.max_fix_attempts = 0
+    return ctx
+
+
+def _run_build_phase(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    build_ok: bool = True,
+    past_deadline: bool = False,
+    skip_by_config: bool = False,
+    critique_raises: bool = False,
+):
+    """Drive the real `run_build_phase`, stubbing only what leaves the process."""
+    from app.application.preview_app.pipeline import build_phase as bp
+    from app.application.services import request_deadline as rd
+
+    monkeypatch.setattr(bp, "run_build", lambda *a, **k: (build_ok, ""))
+    monkeypatch.setattr(bp, "_emit", lambda *a, **k: None)
+    monkeypatch.setattr(bp.settings, "PREVIEW_TYPECHECK", False)
+    monkeypatch.setattr(bp.settings, "PREVIEW_SKIP_VISUAL_CRITIC", skip_by_config)
+    monkeypatch.setattr(rd, "should_skip_elective", lambda stage: past_deadline)
+
+    def _critique(*a, **k):
+        if critique_raises:
+            raise RuntimeError("vision provider exploded")
+
+    monkeypatch.setattr(bp, "_run_visual_critique", _critique)
+    if not build_ok:
+        # A failed build takes the fallback path; keep it from doing real work.
+        monkeypatch.setattr(bp, "stabilize_all_route_pages", lambda *a, **k: None)
+
+    ctx = _build_phase_ctx(tmp_path)
+    bp.run_build_phase(ctx)
+    return ctx
+
+
+def test_a_deadline_skip_is_recorded_on_the_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = _run_build_phase(tmp_path, monkeypatch, past_deadline=True)
+    assert ctx.visual_not_run_reason == "skipped_past_deadline"
+
+
+def test_a_configured_skip_is_not_recorded_as_a_deadline_skip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The two are different events and the roadmap reads them differently.
+
+    A deadline skip is evidence the deadline worked; a configured skip is
+    evidence of nothing at all.
+    """
+    ctx = _run_build_phase(tmp_path, monkeypatch, skip_by_config=True)
+    assert ctx.visual_not_run_reason == "skipped_by_config"
+
+
+def test_a_critic_that_raises_is_recorded_as_such(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = _run_build_phase(tmp_path, monkeypatch, critique_raises=True)
+    assert ctx.visual_not_run_reason == "stage_failed"
+
+
+def test_a_critic_that_ran_records_no_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = _run_build_phase(tmp_path, monkeypatch)
+    assert ctx.visual_not_run_reason is None
+
+
+def test_a_failed_build_never_consults_the_elective_deadline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`should_skip_elective` records a degradation as a side effect.
+
+    Calling it on a build that already failed would file a phantom
+    `visual_critic: skipped_past_deadline` against a request that was never
+    going to run it. The original `ok and should_skip_elective(...)`
+    short-circuit is load-bearing.
+    """
+    from app.application.preview_app.pipeline import build_phase as bp
+    from app.application.services import request_deadline as rd
+
+    consulted: list[str] = []
+    monkeypatch.setattr(
+        rd, "should_skip_elective", lambda stage: consulted.append(stage) or True
+    )
+    monkeypatch.setattr(bp, "run_build", lambda *a, **k: (False, "boom"))
+    monkeypatch.setattr(bp, "_emit", lambda *a, **k: None)
+    monkeypatch.setattr(bp, "stabilize_all_route_pages", lambda *a, **k: None)
+    monkeypatch.setattr(bp.settings, "PREVIEW_TYPECHECK", False)
+
+    ctx = _build_phase_ctx(tmp_path)
+    bp.run_build_phase(ctx)
+
+    assert ctx.visual_not_run_reason == "build_failed"
+    assert consulted == [], "a failed build filed a phantom elective degradation"
+
+
+def test_every_reason_build_phase_can_produce_is_a_declared_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No reason may reach the API result without being in the vocabulary."""
+    cases = [
+        {"past_deadline": True},
+        {"skip_by_config": True},
+        {"critique_raises": True},
+        {"build_ok": False},
+    ]
+    for case in cases:
+        ctx = _run_build_phase(tmp_path, monkeypatch, **case)
+        assert ctx.visual_not_run_reason in vc.VISUAL_NOT_RUN_REASONS, case
+
+
+# --- the unreadable paths ---------------------------------------------------
+
+
+def test_an_unreadable_report_says_so_rather_than_guessing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`is_file()` raising is a third thing, distinct from both skips."""
+    real_is_file = Path.is_file
+
+    def _explode(self):
+        if self.name == vc.VISUAL_CRITIQUE_REPORT_FILE:
+            raise OSError("stale NFS handle")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", _explode)
+    summary = vc.visual_review_summary(tmp_path, not_run_reason="skipped_by_config")
+
+    assert summary["visual_review_status"] == "report_unreadable"
+
+
+def test_finalize_reports_an_unreadable_summary_rather_than_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The `except (OSError, ValueError)` branch used to `return {}`.
+
+    Which is the same absent field, reached a different way — the run would
+    report `None` for a measurement it definitely did not take.
+    """
+    from app.application.preview_app.pipeline import visual_critic as critic_module
+
+    def _raise(*_a, **_k):
+        raise OSError("workspace vanished")
+
+    monkeypatch.setattr(critic_module, "visual_review_summary", _raise)
+    from app.application.preview_app.pipeline import finalize as finalize_module
+
+    assert finalize_module._visual_review_summary(tmp_path) == {
+        "visual_review_status": "report_unreadable",
+        "visual_pages_reviewed": 0,
+        "visual_pages_unmeasured": 0,
+        "visual_pages_selected": 0,
+    }
