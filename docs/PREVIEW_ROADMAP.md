@@ -99,17 +99,40 @@ measurements already in place:
   `src/render/**` is armed although it does not exist yet, deliberately: the point is that Phase 2
   *opens* with the guarantee instead of establishing it after twenty modules have learned to write
   there.
-- **DoD 9 — test-count floor asserted in CI.** Trivial now that CI exists and is on `main`.
-- **DoD 7 — route bijection.** `len(_smoke_routes(architect))` against non-wildcard routes with a
-  page file, and `catalogue_route_for_file` injective. Pure functions over the archived corpus.
-- **DoD 2 and DoD 5 — the "before" numbers.** Inline prose per page TSX (claimed 13,540 chars) and
-  `SiteSpec` key-set commonality (claimed 1 key across 27 workspaces). Census work, and the *only*
-  window in which it can be taken cheaply.
+- **DoD 9 — test-count floor. HALF DONE, and it was not trivial.** *"Trivial now that CI exists"*
+  was wrong: the CI that exists runs **vitest only**, and 1,107 is a pytest count. The floor itself
+  is enforced in `tests/conftest.py` via `pytest_collection_modifyitems` — not as a test, because a
+  test cannot see how many tests were collected beside it, and the thing being guarded against is
+  tests *disappearing* (0.9 found eight files that had never been collected at all, and nothing was
+  red). Two numbers: `DOD_9_FLOOR = 1107` is contractual, `COLLECTED_FLOOR = 1624` is the ratchet
+  that does the work, because a floor 500 below the real count would let a third of the suite vanish
+  quietly. Subset runs are exempt — every mutation driver runs two or three files.
+
+  **The "asserted in CI" half is open** and needs a pytest workflow. It was deliberately not written
+  blind: 1.10's lesson is that a CI job must be verified on the CI platform, and that job would have
+  failed its first run with local green hiding it.
+- **DoD 7 — route bijection. NOT STARTED.** `len(_smoke_routes(architect))` against non-wildcard
+  routes with a page file, and `catalogue_route_for_file` injective. Pure functions over the archived
+  corpus. **Start with request 33**, which has an `AiFeaturesPage.tsx` and a nav entry for
+  `/ai-features` and *no route declaring it* — a real orphaned page found while validating the
+  `AiFeaturePanel` fix, and a better first case than a synthetic one.
+- **DoD 2 and DoD 5 — the "before" numbers. NOT STARTED.** Inline prose per page TSX (claimed 13,540
+  chars) and `SiteSpec` key-set commonality (claimed 1 key across 27 workspaces). Census work, and
+  the *only* window in which it can be taken cheaply. **Neither has been taken.**
 
 Plus: extend the vitest suite toward the nav guarantees this document already specifies —
-scroll-reset, anchor landing, header clearance. `SkeletonComposer` is pinned; those are not.
+scroll-reset, anchor landing, header clearance. `SkeletonComposer` is pinned; those are not. The
+harness gained two pieces it was missing, both of which had presented as broken components rather
+than as harness faults: `src/test-setup.ts` stubs `IntersectionObserver` (jsdom has none, and the
+motion layer constructs one, so every `MotionReveal`-wrapped component died in a passive effect),
+and `react-router-dom` is deduped so a `MemoryRouter` in the test package and a `Link` resolved from
+the template's `node_modules` share one context.
 
 ### The deliverable that pays for the window
+
+**DELIVERED: [`docs/FIRST_FUNDED_TRIO_PREFLIGHT.md`](FIRST_FUNDED_TRIO_PREFLIGHT.md)** — eleven
+questions, each with the instrument it needs, plus five pre-launch checks that have each already cost
+a trio or a published number. Read it before spending the first funded trio.
 
 A **first-funded-trio pre-flight**: one list of every question the next three runs must answer and
 the instrument each one needs. Today a trio would confirm the dead-link guard and the wall clock.
@@ -900,8 +923,11 @@ right by accident (home hero a painting, `/artist` hero the artist at her easel)
 7. `len(_smoke_routes(architect))` equals the count of non-wildcard routes with a page file;
    `catalogue_route_for_file` is injective.
 8. **No module outside a named allowlist may write `src/pages/**.tsx` or `src/render/**`** —
-   enforced at runtime inside `workspace.write_file`, allowlist pinned by test.
-9. **Total collected test count never drops below 1,107**, asserted in CI.
+   enforced at runtime inside `workspace.write_file`, allowlist pinned by test. **DONE** (`3b2e72a`,
+   pulled forward under the no-generation window). Baseline: **26 modules can write pages today**;
+   this row's value from here is watching that number fall as 2.4-2.5 lands.
+9. **Total collected test count never drops below 1,107**, asserted in CI. **Floor done, CI half
+   open** (`7f8f91f`) — there is no pytest job in CI yet.
 
 ### The nav guarantees — how they are actually protected
 
