@@ -26,7 +26,7 @@ theme.
 
 ## State of the repo, in three lines
 
-- **`main` is at `7f8f91f`, 6 commits ahead of `dfbfdd6`, NOT pushed.** Working tree clean.
+- **`main` is at `c764f3a`, 9 commits ahead of `dfbfdd6`, NOT pushed.** Working tree clean.
 - **Suite: 1,623 passed / 1 skipped / 0 xfailed / 0 failed.** All eight xfails are closed. Run it
   the documented way — see the operating notes.
 - **CI still runs vitest only** (`.github/workflows/preview-template-tests.yml`). **I cannot read
@@ -83,7 +83,7 @@ Router renders. Both were missing and both read as broken components rather than
 
 ## What landed in session 7
 
-7 commits, `0082f5f`…`7f8f91f`, on `main`, **not pushed**.
+9 commits, `0082f5f`…`c764f3a`, on `main`, **not pushed**.
 
 | commit | what |
 |---|---|
@@ -94,6 +94,8 @@ Router renders. Both were missing and both read as broken components rather than
 | `2f96cf6` | **the pre-flight** — [docs/FIRST_FUNDED_TRIO_PREFLIGHT.md](docs/FIRST_FUNDED_TRIO_PREFLIGHT.md) |
 | `3b2e72a` | **DoD 8** — page writes allowlisted; 26 modules are on the list |
 | `7f8f91f` | **DoD 9** — collection floor, and the CI half I did not fake |
+| `98aa600` | this handoff |
+| `c764f3a` | roadmap: correct DoD 9's "trivial", mark what Day 2 landed |
 
 **The pre-flight is the deliverable.** Eleven questions, each with its instrument. Read it before
 spending the first funded trio; five pre-launch checks in it have each already cost a trio or a
