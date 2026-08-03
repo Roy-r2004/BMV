@@ -27,6 +27,7 @@ TEMPLATE = TESTS.parent / "preview-template"
 COMPOSER = TEMPLATE / "src/ui/compose/SkeletonComposer.tsx"
 PANEL = TEMPLATE / "src/ui/public/AiFeaturePanel.tsx"
 APP_NAV = TEMPLATE / "src/lib/app-nav.ts"
+SCROLL = TEMPLATE / "src/components/ScrollToTop.tsx"
 
 #: (label, file, exact source to replace, replacement)
 MUTATIONS: list[tuple[str, Path, str, str]] = [
@@ -147,6 +148,100 @@ MUTATIONS: list[tuple[str, Path, str, str]] = [
         APP_NAV,
         "      const href = String(item?.href || item?.path || '').trim();",
         "      const href = String(item.href || item.path).trim();",
+    ),
+    # --- ScrollToTop: scroll reset and anchor landing ------------------------
+    # jsdom cannot measure a pixel, so none of these mutate a rendered position.
+    # They mutate *which element is chosen and how the offset is computed*, which
+    # is where request 67's deep-link defect actually lived.
+    (
+        "route change no longer resets scroll",
+        SCROLL,
+        "    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });\n    return undefined;",
+        "    return undefined;",
+    ),
+    (
+        "scroll reset animates instead of jumping",
+        SCROLL,
+        "    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });\n    return undefined;",
+        "    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });\n    return undefined;",
+    ),
+    (
+        "the effect stops re-running on navigation",
+        SCROLL,
+        "  }, [pathname, hash]);",
+        "  }, []);",
+    ),
+    (
+        "a hash no longer re-runs the effect (only the path does)",
+        SCROLL,
+        "  }, [pathname, hash]);",
+        "  }, [pathname]);",
+    ),
+    (
+        "a hashed route lands at the top like any other",
+        SCROLL,
+        "      if (scrollToHash()) return;",
+        "      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });\n      return;",
+    ),
+    (
+        "header measured from the CSS variable fallback, not the DOM (request 67)",
+        SCROLL,
+        "        const offset = (header ? header.getBoundingClientRect().height : 112) + 24;",
+        "        const offset = 112 + 24;",
+    ),
+    (
+        "the 24px of air above the anchor is dropped",
+        SCROLL,
+        "        const offset = (header ? header.getBoundingClientRect().height : 112) + 24;",
+        "        const offset = header ? header.getBoundingClientRect().height : 112;",
+    ),
+    (
+        "no header fallback at all",
+        SCROLL,
+        "        const offset = (header ? header.getBoundingClientRect().height : 112) + 24;",
+        "        const offset = (header ? header.getBoundingClientRect().height : 0) + 24;",
+    ),
+    (
+        "current scroll position ignored (viewport-relative treated as absolute)",
+        SCROLL,
+        "        const top = el.getBoundingClientRect().top + window.scrollY - offset;",
+        "        const top = el.getBoundingClientRect().top - offset;",
+    ),
+    (
+        "an anchor near the top scrolls to a negative position",
+        SCROLL,
+        "        window.scrollTo({ top: Math.max(0, top), left: 0, behavior: 'instant' });",
+        "        window.scrollTo({ top, left: 0, behavior: 'instant' });",
+    ),
+    (
+        "hash aliases dropped (#contact stops finding the inquire panel)",
+        SCROLL,
+        "      const id = HASH_ALIASES[raw] || raw;",
+        "      const id = raw;",
+    ),
+    (
+        "every hash is forced through the alias map",
+        SCROLL,
+        "      const id = HASH_ALIASES[raw] || raw;",
+        "      const id = HASH_ALIASES[raw] || 'inquire';",
+    ),
+    (
+        "no retry for a target that has not mounted yet",
+        SCROLL,
+        "      const t = window.setTimeout(() => {",
+        "      return undefined;\n      const t = window.setTimeout(() => {",
+    ),
+    (
+        "the retry timer is never cleared (a stale landing after navigating away)",
+        SCROLL,
+        "      return () => window.clearTimeout(t);",
+        "      return undefined;",
+    ),
+    (
+        "a hash that never resolves leaves the page mid-document",
+        SCROLL,
+        "        if (!scrollToHash()) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });",
+        "        scrollToHash();",
     ),
 ]
 
