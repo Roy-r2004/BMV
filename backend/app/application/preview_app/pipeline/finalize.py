@@ -151,28 +151,71 @@ def _visual_review_summary(workspace, not_run_reason: str | None = None) -> dict
 _SMOKE_MAX_ROUTES = 12
 
 
+def smoke_eligible_routes(architect: dict) -> list[dict]:
+    """Non-wildcard routes naming a page file — everything the smoke pass *should* load.
+
+    Phase 2 DoD 7 is `len(_smoke_routes(architect)) == len(smoke_eligible_routes(...))`.
+    Measured over the 42 archived runs it holds on 11 of them; the other 31 leave
+    79 of 553 declared routes unloaded. Kept as a named function because the
+    denominator has to be published beside the count, not re-derived by a reader.
+    """
+    out: list[dict] = []
+    for route in architect.get("routes") or []:
+        if not isinstance(route, dict):
+            continue
+        path = str(route.get("path") or "")
+        component = str(route.get("component_file") or "").replace("\\", "/")
+        if not path or not component or "*" in path:
+            continue
+        out.append(route)
+    return out
+
+
 def _smoke_routes(architect: dict) -> list[tuple[str, str, str]]:
-    """(url path, component_file, surface) for each distinct page, public first."""
+    """(url path, component_file, surface) for each distinct URL, public first.
+
+    Distinct **URL**, not distinct component. One component under two paths is two
+    render conditions, not one: request 22 declared `ArtworkDetailPage.tsx` at both
+    `/artwork` and `/gallery/:id`, and the un-parameterized alias is precisely the
+    one that renders with no record to resolve. Deduping by component loaded
+    whichever the architect happened to declare first and left the other — a URL the
+    shipped router really serves and the nav really links — never loaded. 12 URLs
+    across 11 of the 42 archived runs went that way.
+
+    Aliases sort *after* every first sighting of a component so `_SMOKE_MAX_ROUTES`
+    can never displace an unchecked page with a second look at a checked one. On the
+    26 archived runs where the cap binds this costs nothing at all; on the rest it is
+    one extra page load.
+    """
+    import re as _re
+
     seen: set[str] = set()
-    public: list[tuple[str, str, str]] = []
-    ops: list[tuple[str, str, str]] = []
+    urls: set[str] = set()
+    tiers: dict[tuple[int, int], list[tuple[str, str, str]]] = {
+        (0, 0): [], (0, 1): [], (1, 0): [], (1, 1): []
+    }
     for route in architect.get("routes") or []:
         if not isinstance(route, dict):
             continue
         component = str(route.get("component_file") or "").replace("\\", "/")
         raw = str(route.get("path") or "")
-        if not component or not raw or "*" in raw or component in seen:
+        if not component or not raw or "*" in raw:
             continue
-        seen.add(component)
-        import re as _re
-
         url = _re.sub(r"/:[A-Za-z_][A-Za-z0-9_]*", "/1", raw) or "/"
+        if url in urls:
+            continue
+        urls.add(url)
         surface = str(route.get("surface") or "").strip().lower()
         is_ops = surface == "ops" or url.startswith(
             ("/admin", "/owner", "/ops", "/staff", "/member", "/desk")
         )
-        (ops if is_ops else public).append((url, component, "ops" if is_ops else "public"))
-    return (public + ops)[:_SMOKE_MAX_ROUTES]
+        is_alias = component in seen
+        seen.add(component)
+        tiers[(int(is_alias), int(is_ops))].append(
+            (url, component, "ops" if is_ops else "public")
+        )
+    ordered = tiers[(0, 0)] + tiers[(0, 1)] + tiers[(1, 0)] + tiers[(1, 1)]
+    return ordered[:_SMOKE_MAX_ROUTES]
 
 
 def _remeasure_repaired_pages(ctx: PipelineContext, architect: dict) -> list[str]:
@@ -309,7 +352,20 @@ def _render_smoke_check(ctx: PipelineContext, architect: dict, brand_name: str) 
     from app.core.config import settings
 
     workspace = Path(ctx.workspace)
-    summary: dict = {"checked": 0, "crashed": [], "stubbed": [], "unresolved": []}
+    eligible = len(smoke_eligible_routes(architect))
+    # `skipped` is the denominator `checked` has always been missing. "Load every
+    # page once" is what this docstring says and what `render_pages_checked = 12`
+    # reads as; on request 91 it meant 12 of 19, and nothing recorded the other 7.
+    # Same defect as `visual_review_status: None` — a measurement that does not
+    # say what it did not measure.
+    summary: dict = {
+        "checked": 0,
+        "eligible": eligible,
+        "skipped": eligible,
+        "crashed": [],
+        "stubbed": [],
+        "unresolved": [],
+    }
     if not (workspace / "dist" / "index.html").is_file():
         return summary
     routes = _smoke_routes(architect)
@@ -328,15 +384,27 @@ def _render_smoke_check(ctx: PipelineContext, architect: dict, brand_name: str) 
         for (url, component, _surface), capture in zip(targets, captures):
             message = str(getattr(capture, "render_error", "") or "")
             if message:
-                errors[component] = f"{url}: {message}"
+                # Keyed by component because the stub is written per file, and
+                # `setdefault` because one component can now appear under two URLs:
+                # the first URL that actually crashed is the one worth naming.
+                errors.setdefault(component, f"{url}: {message}")
         return errors
 
     try:
         crashed = _probe(routes)
         summary["checked"] = len(routes)
+        summary["skipped"] = max(0, eligible - len(routes))
     except Exception as e:  # noqa: BLE001 — a probe failure must not fail the run
         log.warning("    render smoke check skipped: %s", e)
         return summary
+
+    if summary["skipped"]:
+        log.warning(
+            "    render smoke: %s of %s declared route(s) not loaded (cap %s)",
+            summary["skipped"],
+            eligible,
+            _SMOKE_MAX_ROUTES,
+        )
 
     if not crashed:
         log.info("    render smoke: %s page(s) rendered", len(routes))
@@ -347,10 +415,15 @@ def _render_smoke_check(ctx: PipelineContext, architect: dict, brand_name: str) 
     for component, detail in sorted(crashed.items()):
         log.error("    render smoke FAILED %s — %s", component, detail[:200])
 
+    # One entry per crashed component, not per crashed URL: the repair writes a
+    # file, and stubbing the same file twice double-counts `stubbed`.
+    _stub_seen: set[str] = set()
     public_crashed = [
         (url, component, surface)
         for url, component, surface in routes
-        if surface == "public" and component in crashed
+        if surface == "public"
+        and component in crashed
+        and not (component in _stub_seen or _stub_seen.add(component))
     ]
     if not public_crashed:
         _cleanup_dir(shots)
@@ -762,7 +835,17 @@ def run_finalize(ctx: PipelineContext) -> dict:
     # Rendering is a measurement like any other, and it gets a reader beside
     # `status` for the same reason the visual counts do.
     preview_app_result["render_pages_checked"] = int(render_report.get("checked") or 0)
+    # Phase 2 DoD 7's live reading. `checked` alone reads as "every page rendered";
+    # over the 42 archived runs the smoke pass loaded 12 of 19 and said nothing.
+    preview_app_result["render_pages_eligible"] = int(render_report.get("eligible") or 0)
+    preview_app_result["render_pages_skipped"] = int(render_report.get("skipped") or 0)
     preview_app_result["render_pages_crashed"] = len(render_report.get("crashed") or [])
+    try:
+        from app.application.preview_app.assemble import unrouted_page_files
+
+        preview_app_result["pages_unrouted"] = len(unrouted_page_files(workspace, architect))
+    except OSError as e:  # noqa: BLE001 — a census must not fail the run
+        log.warning("    unrouted page census unreadable: %s", e)
     preview_app_result["render_pages_stubbed"] = len(render_report.get("stubbed") or [])
     preview_app_result["render_pages_unresolved"] = len(
         render_report.get("unresolved") or []

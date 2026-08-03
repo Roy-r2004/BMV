@@ -21,7 +21,10 @@ from app.application.preview_app.workspace import (
     write_trusted_workspace_file,
 )
 from app.application.preview_app.theme import sanitize_theme_inputs
-from app.application.preview_app.protected_paths import safe_generated_route_path
+from app.application.preview_app.protected_paths import (
+    canonical_workspace_path,
+    safe_generated_route_path,
+)
 
 
 def _ident(stem: str) -> str:
@@ -416,6 +419,34 @@ def find_unresolved_routes(workspace, architect: dict) -> list[dict]:
         else:
             used.add(rel)
     return unresolved
+
+
+def unrouted_page_files(workspace, architect: dict) -> list[str]:
+    """Page files no route declares — the converse of `find_unresolved_routes`.
+
+    An unrouted page is a file a writer produced, that vite bundles, that `tsc`
+    typechecks, and that no URL reaches. Request 33 is the case this was written
+    from: it shipped `src/pages/AiFeaturesPage.tsx` and a nav entry pointing at
+    `/ai-features`, and `App.tsx` declared no such route — so the panel's link fell
+    through `path="*"` to home and the page it named was never served.
+
+    Reported, never raised. The template seeds `src/pages/HomePage.tsx` and
+    `src/pages/admin/AdminDashboardPage.tsx` into every workspace and 35 of the 42
+    archived runs leave one of them unrouted, so a guard here would fire on almost
+    every generation. They are counted rather than excluded: a page the template
+    ships into a bundle and nothing serves is the same defect at a different
+    address.
+    """
+    declared = {
+        canonical_workspace_path(str(rt.get("component_file") or "")).lower()
+        for rt in architect.get("routes") or []
+        if rt.get("component_file")
+    }
+    return sorted(
+        rel
+        for rel in _pages_catalog(workspace)
+        if canonical_workspace_path(rel).lower() not in declared
+    )
 
 
 def _nav_label(route: dict) -> str:

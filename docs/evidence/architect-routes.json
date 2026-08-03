@@ -1,0 +1,7961 @@
+{
+ "1": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "role_id": "public",
+   "page_id": "marketing-home"
+  },
+  {
+   "path": "/features",
+   "component_file": "src/pages/FeaturesPage.tsx",
+   "role_id": "public",
+   "page_id": "marketing-features"
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "role_id": "public",
+   "page_id": "marketing-about"
+  },
+  {
+   "path": "/demo",
+   "component_file": "src/pages/DemoPage.tsx",
+   "role_id": "public",
+   "page_id": "marketing-demo"
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/owner/Dashboard.tsx",
+   "role_id": "owner",
+   "page_id": "owner-dashboard"
+  },
+  {
+   "path": "/admin/menu",
+   "component_file": "src/pages/owner/MenuManagement.tsx",
+   "role_id": "owner",
+   "page_id": "owner-menu-management"
+  },
+  {
+   "path": "/admin/menu/categories",
+   "component_file": "src/pages/owner/Categories.tsx",
+   "role_id": "owner",
+   "page_id": "owner-categories"
+  },
+  {
+   "path": "/admin/menu/items",
+   "component_file": "src/pages/owner/MenuItems.tsx",
+   "role_id": "owner",
+   "page_id": "owner-menu-items"
+  },
+  {
+   "path": "/admin/ai-assistant",
+   "component_file": "src/pages/owner/AiAssistant.tsx",
+   "role_id": "owner",
+   "page_id": "owner-ai-assistant"
+  },
+  {
+   "path": "/admin/reports",
+   "component_file": "src/pages/owner/Reports.tsx",
+   "role_id": "owner",
+   "page_id": "owner-reports"
+  },
+  {
+   "path": "/admin/settings",
+   "component_file": "src/pages/owner/Settings.tsx",
+   "role_id": "owner",
+   "page_id": "owner-settings"
+  }
+ ],
+ "17": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "PublicUser",
+   "page_id": "HomePage",
+   "app_spec_page_id": "HomePage",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "PublicUser",
+   "page_id": "GalleryPage",
+   "app_spec_page_id": "GalleryPage",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/painting/slug",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "PublicUser",
+   "page_id": "PaintingDetailPage",
+   "app_spec_page_id": "PaintingDetailPage",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "PublicUser",
+   "page_id": "ContactPage",
+   "app_spec_page_id": "ContactPage",
+   "section_slots": [
+    "header",
+    "workspace",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/admin/AdminLoginPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "Admin",
+   "page_id": "AdminLoginPage",
+   "app_spec_page_id": "AdminLoginPage",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin",
+   "component_file": "src/pages/admin/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "Admin",
+   "page_id": "AdminDashboardPage",
+   "app_spec_page_id": "AdminDashboardPage",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/paintings/add",
+   "component_file": "src/pages/admin/AddEditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "Admin",
+   "page_id": "AddEditPaintingPage",
+   "app_spec_page_id": "AddEditPaintingPage",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "PublicUser",
+   "page_id": "AboutPage",
+   "app_spec_page_id": "AboutPage",
+   "section_slots": [
+    "hero",
+    "features",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "19": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-HOMEPAGE",
+   "app_spec_page_id": "PAGE-HOMEPAGE",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artwork",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-ARTWORK-DETAIL",
+   "app_spec_page_id": "PAGE-ARTWORK-DETAIL",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/role-artist/AdminLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-LOGIN",
+   "app_spec_page_id": "PAGE-ADMIN-LOGIN",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/role-artist/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-DASHBOARD",
+   "app_spec_page_id": "PAGE-ADMIN-DASHBOARD",
+   "section_slots": [
+    "header",
+    "kpis",
+    "filters",
+    "table",
+    "chart",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/artwork/edit",
+   "component_file": "src/pages/role-artist/AdminArtworkEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-ARTWORK-EDIT",
+   "app_spec_page_id": "PAGE-ADMIN-ARTWORK-EDIT",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/about/edit",
+   "component_file": "src/pages/role-artist/AdminAboutEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-ABOUT-EDIT",
+   "app_spec_page_id": "PAGE-ADMIN-ABOUT-EDIT",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "ops",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-ABOUT",
+   "app_spec_page_id": "PAGE-ABOUT",
+   "section_slots": [
+    "hero",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/services",
+   "component_file": "src/pages/ServicesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "services",
+   "section_slots": [
+    "hero",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "book",
+   "section_slots": [
+    "hero",
+    "features",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "20": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "ROLE-VISITOR",
+   "page_id": "PAGE-HOME",
+   "app_spec_page_id": "PAGE-HOME",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "ROLE-VISITOR",
+   "page_id": "PAGE-GALLERY",
+   "app_spec_page_id": "PAGE-GALLERY",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/v2",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "ROLE-VISITOR",
+   "page_id": "PAGE-ARTWORK-DETAIL",
+   "app_spec_page_id": "PAGE-ARTWORK-DETAIL",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/role-artist/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-DASHBOARD",
+   "app_spec_page_id": "PAGE-ADMIN-DASHBOARD",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/artwork",
+   "component_file": "src/pages/role-artist/AdminArtworkEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-ARTWORK-EDIT",
+   "app_spec_page_id": "PAGE-ADMIN-ARTWORK-EDIT",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "ROLE-VISITOR",
+   "page_id": "PAGE-ABOUT",
+   "app_spec_page_id": "PAGE-ABOUT",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/about",
+   "component_file": "src/pages/role-artist/AdminAboutEditPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-ABOUT-EDIT",
+   "app_spec_page_id": "PAGE-ADMIN-ABOUT-EDIT",
+   "section_slots": [
+    "header",
+    "table"
+   ]
+  }
+ ],
+ "22": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-HOME",
+   "app_spec_page_id": "PAGE-HOME",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-GALLERY",
+   "app_spec_page_id": "PAGE-GALLERY",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artwork",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-ARTWORK-DETAIL",
+   "app_spec_page_id": "PAGE-ARTWORK-DETAIL",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/role-artist/AdminLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-LOGIN",
+   "app_spec_page_id": "PAGE-ADMIN-LOGIN",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/role-artist/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-DASHBOARD",
+   "app_spec_page_id": "PAGE-ADMIN-DASHBOARD",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/artworks",
+   "component_file": "src/pages/role-artist/AdminArtworkListPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-ARTWORK-LIST",
+   "app_spec_page_id": "PAGE-ADMIN-ARTWORK-LIST",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/artworks/add",
+   "component_file": "src/pages/role-artist/AdminArtworkAddPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "ROLE-ARTIST",
+   "page_id": "PAGE-ADMIN-ARTWORK-ADD",
+   "app_spec_page_id": "PAGE-ADMIN-ARTWORK-ADD",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "PAGE-ABOUT",
+   "app_spec_page_id": "PAGE-ABOUT",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "ROLE-COLLECTOR",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "36": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/works",
+   "component_file": "src/pages/WorksPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-gallery",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "footer"
+   ]
+  },
+  {
+   "path": "/works/:slug",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-about",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-contact",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/artworks",
+   "component_file": "src/pages/admin/ManageArtworksPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-manage-artworks",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/artworks/edit/:id",
+   "component_file": "src/pages/admin/EditArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-edit-artwork",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/about",
+   "component_file": "src/pages/admin/EditAboutPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-edit-about",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "37": [
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutArtistPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-artist",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/OwnerDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ManageArtworksPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artworks",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/artworks/new",
+   "component_file": "src/pages/owner/AddArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artwork-new",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/profile",
+   "component_file": "src/pages/owner/EditProfilePage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-profile",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artworks/:artworkSlug",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/artworks/:artworkId/edit",
+   "component_file": "src/pages/owner/EditArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artwork-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "ops",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "38": [
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collections",
+   "component_file": "src/pages/CollectionsListPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collections-list",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutJeannePage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-jeanne",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-page",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/AdminLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/paintings",
+   "component_file": "src/pages/admin/AdminPaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/collections",
+   "component_file": "src/pages/admin/AdminCollectionsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-collections",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/about",
+   "component_file": "src/pages/admin/AdminAboutPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-about",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection/:slug",
+   "component_file": "src/pages/CollectionDetailPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collection-detail",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/painting/:slug",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "39": [
+  {
+   "path": "/collection",
+   "component_file": "src/pages/CollectionPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collection",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about-us",
+   "component_file": "src/pages/AboutUsPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-us",
+   "section_slots": [
+    "hero",
+    "process",
+    "showcase",
+    "credentials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact-us",
+   "component_file": "src/pages/ContactUsPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-us",
+   "section_slots": [
+    "hero",
+    "process",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/admin/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/products",
+   "component_file": "src/pages/admin/ProductsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-products",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/products/add",
+   "component_file": "src/pages/admin/AddProductPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-add-product",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/inquiries",
+   "component_file": "src/pages/admin/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "process",
+    "showcase",
+    "credentials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection/:productId",
+   "component_file": "src/pages/ProductDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "product-detail",
+   "section_slots": [
+    "hero",
+    "process",
+    "showcase",
+    "credentials",
+    "inquire",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/products/:productId/edit",
+   "component_file": "src/pages/admin/EditProductPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-edit-product",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "process",
+    "showcase",
+    "credentials",
+    "inquire",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "40": [
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutJeannePage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-jeanne",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-page",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/AdminPaintingListPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-painting-list",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/paintings/add",
+   "component_file": "src/pages/owner/AdminAddPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-add-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/about",
+   "component_file": "src/pages/owner/AdminEditAboutPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-about",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artwork/:slug",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:id",
+   "component_file": "src/pages/owner/AdminEditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "41": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryOverviewPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-overview",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "jeanne",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ArtworkManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "jeanne",
+   "page_id": "admin-artwork-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/artworks/add",
+   "component_file": "src/pages/owner/ArtworkAddPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "jeanne",
+   "page_id": "admin-artwork-add",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/collections",
+   "component_file": "src/pages/owner/CollectionManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "jeanne",
+   "page_id": "admin-collections",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/settings",
+   "component_file": "src/pages/owner/SettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "jeanne",
+   "page_id": "admin-settings",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/artwork/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "43": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "collector",
+   "page_id": "homepage",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "collector",
+   "page_id": "about",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "collector",
+   "page_id": "contact-page",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/admin/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/paintings",
+   "component_file": "src/pages/admin/ManagePaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-manage-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "collector",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "collector",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "collector",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "44": [
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/artworks",
+   "component_file": "src/pages/admin/ArtworkListPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-artwork-list",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/artworks/new",
+   "component_file": "src/pages/admin/ArtworkCreatePage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-artwork-create",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/about/edit",
+   "component_file": "src/pages/admin/AboutEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-about-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/inquiries",
+   "component_file": "src/pages/admin/InquiryListPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/privacy",
+   "component_file": "src/pages/PrivacyPolicyPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "privacy-policy",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/terms",
+   "component_file": "src/pages/TermsOfServicePage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "terms-of-service",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artwork/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/artworks/:id/edit",
+   "component_file": "src/pages/admin/ArtworkEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-artwork-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "45": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "owner",
+   "page_id": "cms-login",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "cms-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ArtworkManagePage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "cms-artwork-manage",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/artworks/new",
+   "component_file": "src/pages/owner/ArtworkNewPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "cms-artwork-new",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "cms-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/profile",
+   "component_file": "src/pages/owner/ProfileEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "cms-profile-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/artwork/:artworkId",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artwork/:artworkId/inquire",
+   "component_file": "src/pages/InquireArtworkPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquire-artwork",
+   "section_slots": [
+    "header",
+    "workspace",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/artworks/:artworkId/edit",
+   "component_file": "src/pages/owner/ArtworkEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "cms-artwork-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "46": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artist",
+   "component_file": "src/pages/ArtistPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artist",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/privacy-policy",
+   "component_file": "src/pages/PrivacyPolicyPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "privacy-policy",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/terms-of-service",
+   "component_file": "src/pages/TermsOfServicePage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "terms-of-service",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "owner",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ArtworksPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artworks",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/settings",
+   "component_file": "src/pages/owner/SettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-settings",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "47": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/cart",
+   "component_file": "src/pages/CartPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "cart",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/checkout",
+   "component_file": "src/pages/CheckoutPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "checkout",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/order-confirmation",
+   "component_file": "src/pages/OrderConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "order-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin",
+   "component_file": "src/pages/admin/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "operator",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/paintings/new",
+   "component_file": "src/pages/admin/AddPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "operator",
+   "page_id": "admin-add-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/orders",
+   "component_file": "src/pages/admin/OrdersPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "operator",
+   "page_id": "admin-orders",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery/:paintingId",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/paintings/:paintingId/edit",
+   "component_file": "src/pages/admin/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "operator",
+   "page_id": "admin-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  }
+ ],
+ "48": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks/add",
+   "component_file": "src/pages/owner/AddArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-add-artwork",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ManageArtworksPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-manage-artworks",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/ManageInquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-manage-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/profile",
+   "component_file": "src/pages/owner/EditProfilePage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-edit-profile",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/artwork/:slug",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/artworks/:id/edit",
+   "component_file": "src/pages/owner/EditArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-edit-artwork",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "showcase",
+    "testimonials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "ops",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "62": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/ManagePaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "manage-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/about/edit",
+   "component_file": "src/pages/owner/EditAboutPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "edit-about",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/painting/:id",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:id",
+   "component_file": "src/pages/owner/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "64": [
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/painting/coastal-whispers",
+   "component_file": "src/pages/PaintingDetailOnePage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail-one",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutJeannePage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-jeanne",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-page",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/admin/AdminLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "artist-admin",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "artist-admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/paintings/add",
+   "component_file": "src/pages/admin/AdminAddPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "artist-admin",
+   "page_id": "admin-add-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/pages",
+   "component_file": "src/pages/admin/AdminManagePagesPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "artist-admin",
+   "page_id": "admin-manage-pages",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/paintings/edit/:id",
+   "component_file": "src/pages/admin/AdminEditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "artist-admin",
+   "page_id": "admin-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "65": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "artist",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ArtworkListPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-artwork-list",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/artworks/new",
+   "component_file": "src/pages/owner/AddArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-add-artwork",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/painting/:id",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/artworks/:id/edit",
+   "component_file": "src/pages/owner/EditArtworkPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "artist",
+   "page_id": "admin-edit-artwork",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "66": [
+  {
+   "path": "/collection",
+   "component_file": "src/pages/CollectionPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/inquiry-confirm",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquiry-confirm",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/OwnerLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/OwnerDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/ManagePaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "manage-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/paintings/add",
+   "component_file": "src/pages/owner/AddPaintingPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "add-painting",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiryInboxPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "inquiry-inbox",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/about-artist",
+   "component_file": "src/pages/AboutArtistPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-artist",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection/:id",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:id",
+   "component_file": "src/pages/owner/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "67": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection",
+   "component_file": "src/pages/CollectionPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collection",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/ManagePaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-manage-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/paintings/add",
+   "component_file": "src/pages/owner/AddPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-add-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/painting/:id",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:id",
+   "component_file": "src/pages/owner/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "68": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection",
+   "component_file": "src/pages/CollectionPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collection",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about-artist",
+   "component_file": "src/pages/AboutArtistPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-artist",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact-us",
+   "component_file": "src/pages/ContactUsPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-us",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/inquiry-confirmation",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquiry-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "owner",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/PaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/paintings/new",
+   "component_file": "src/pages/owner/AddPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-add-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/painting/:id",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:id",
+   "component_file": "src/pages/owner/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "69": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/ManagePaintingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-manage-paintings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/paintings/add",
+   "component_file": "src/pages/owner/AddPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-add-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/pages",
+   "component_file": "src/pages/owner/EditStaticPagesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-edit-static-pages",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery/:paintingId",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:paintingId",
+   "component_file": "src/pages/owner/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries/:inquiryId",
+   "component_file": "src/pages/owner/InquiryDetailPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-inquiry-detail",
+   "section_slots": [
+    "header",
+    "kpis",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/pages/:pageName",
+   "component_file": "src/pages/owner/EditPageContentPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-edit-page-content",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "ops",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "70": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection",
+   "component_file": "src/pages/CollectionPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collection",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/inquiry-confirmation",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquiry-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artist",
+   "component_file": "src/pages/ArtistPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artist",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/privacy",
+   "component_file": "src/pages/PrivacyPolicyPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "privacy",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/artworks",
+   "component_file": "src/pages/owner/ArtworksPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artworks",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/artworks/new",
+   "component_file": "src/pages/owner/ArtworkEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artwork-new",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/settings",
+   "component_file": "src/pages/owner/SettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-settings",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/artwork/:slug",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "artwork-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/artworks/:id/edit",
+   "component_file": "src/pages/owner/ArtworkEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-artwork-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "71": [
+  {
+   "path": "/",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryHomePage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery-home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/inquiry-confirm",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-confirm",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about-artist",
+   "component_file": "src/pages/AboutArtistPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-artist",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/OwnerLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/OwnerDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings",
+   "component_file": "src/pages/owner/OwnerPaintingsListPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-paintings-list",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/paintings/add",
+   "component_file": "src/pages/owner/OwnerPaintingAddPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-painting-add",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/OwnerInquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/painting/:slug",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/:id/edit",
+   "component_file": "src/pages/owner/OwnerPaintingEditPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-painting-edit",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "73": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection",
+   "component_file": "src/pages/CollectionPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "collection",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutArtistPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-artist",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/inquiry-confirm",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquiry-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/paintings/add",
+   "component_file": "src/pages/owner/AddPaintingPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-add-painting",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/collection/:id",
+   "component_file": "src/pages/PaintingDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "painting-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/paintings/edit/:id",
+   "component_file": "src/pages/owner/EditPaintingPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-edit-painting",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "75": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/treatments",
+   "component_file": "src/pages/TreatmentsPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "treatments-listing",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about-us",
+   "component_file": "src/pages/AboutUsPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-us",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient-connect",
+   "component_file": "src/pages/patient/PatientConnectLandingPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "patient-connect-landing",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/emergency",
+   "component_file": "src/pages/patient/EmergencyPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "emergency-page",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/dashboard",
+   "component_file": "src/pages/patient/PatientDashboardPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "patient-portal-dashboard",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/chat",
+   "component_file": "src/pages/patient/AIChatPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "ai-chat-interface",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/dashboard",
+   "component_file": "src/pages/staff/StaffDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "staff-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/staff/inbox",
+   "component_file": "src/pages/staff/StaffInboxPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "staff-inbox",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/staff/knowledge-base",
+   "component_file": "src/pages/staff/KnowledgeBaseManagementPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "knowledge-base-management",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/services",
+   "component_file": "src/pages/ServicesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "services",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "book",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "76": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "home-page",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms",
+   "component_file": "src/pages/RoomsSuitesPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "rooms-suites",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/experiences",
+   "component_file": "src/pages/ExperiencesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "experiences",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about-us",
+   "component_file": "src/pages/AboutUsPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "about-us",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactUsPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "contact-us",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookYourStayPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "book-your-stay",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/booking-confirmation",
+   "component_file": "src/pages/BookingConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "booking-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/manager/dashboard",
+   "component_file": "src/pages/manager/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "manager",
+   "page_id": "manager-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/manager/bookings",
+   "component_file": "src/pages/manager/BookingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "manager",
+   "page_id": "manage-bookings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/manager/rooms",
+   "component_file": "src/pages/manager/RoomInventoryPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "manager",
+   "page_id": "room-inventory",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/manager/guests",
+   "component_file": "src/pages/manager/GuestsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "manager",
+   "page_id": "guest-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/manager/settings",
+   "component_file": "src/pages/manager/SettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "manager",
+   "page_id": "settings-page",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "guest",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "77": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/menu",
+   "component_file": "src/pages/WeeklyMenuPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "weekly-menu",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/reservations",
+   "component_file": "src/pages/ReservationsPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "reservations",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/our-story",
+   "component_file": "src/pages/OurStoryPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "our-story",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/private-dining",
+   "component_file": "src/pages/PrivateDiningPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "private-dining",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactLocationPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-location",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/menu",
+   "component_file": "src/pages/owner/AdminMenuPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-menu",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/reservations",
+   "component_file": "src/pages/owner/AdminReservationsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-reservations",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/inquiries",
+   "component_file": "src/pages/owner/AdminInquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/settings",
+   "component_file": "src/pages/owner/AdminSettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-settings",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  }
+ ],
+ "78": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect-clarify",
+   "component_file": "src/pages/ConnectClarifyPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "connect-clarify",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect-clarify/quick-chat",
+   "component_file": "src/pages/QuickChatRedirectPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "quick-chat-redirect",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect-clarify/treatment-inquiry",
+   "component_file": "src/pages/TreatmentInquiryPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "treatment-inquiry",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect-clarify/emergency-request",
+   "component_file": "src/pages/EmergencyRequestPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "emergency-request",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect-clarify/confirmation",
+   "component_file": "src/pages/ConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "confirmation-general",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/services",
+   "component_file": "src/pages/ServicesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "services",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "book",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/inquiries/:id",
+   "component_file": "src/pages/admin/AdminInquiryDetailPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-inquiry-detail",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "79": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home-page",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms",
+   "component_file": "src/pages/RoomsOverviewPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "rooms-overview",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms/king-suite",
+   "component_file": "src/pages/KingSuiteDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "room-detail-king",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/amenities",
+   "component_file": "src/pages/AmenitiesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "amenities-page",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/activities",
+   "component_file": "src/pages/ActivitiesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "activities-page",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-page",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-page",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/availability",
+   "component_file": "src/pages/AvailabilityBookingPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "availability-booking",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/booking/checkout",
+   "component_file": "src/pages/BookingDetailsPaymentPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-details-payment",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/booking/confirmation",
+   "component_file": "src/pages/BookingConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/account",
+   "component_file": "src/pages/GuestAccountDashboardPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "guest-account-dashboard",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/dashboard",
+   "component_file": "src/pages/staff/StaffDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "lodge_staff",
+   "page_id": "staff-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/staff/bookings",
+   "component_file": "src/pages/staff/StaffBookingManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge_staff",
+   "page_id": "staff-booking-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/staff/rooms",
+   "component_file": "src/pages/staff/StaffRoomManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge_staff",
+   "page_id": "staff-room-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/staff/calendar",
+   "component_file": "src/pages/staff/StaffCalendarManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge_staff",
+   "page_id": "staff-calendar-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "80": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/menu",
+   "component_file": "src/pages/MenuPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "menu",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/reservations",
+   "component_file": "src/pages/ReservationsPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "reservations",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/private-dining",
+   "component_file": "src/pages/PrivateDiningPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "private-dining",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/menu-management",
+   "component_file": "src/pages/owner/MenuManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-menu-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/reservations",
+   "component_file": "src/pages/owner/ReservationsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-reservations",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/private-inquiries",
+   "component_file": "src/pages/owner/PrivateInquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-private-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/settings",
+   "component_file": "src/pages/owner/SettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "owner-settings",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "81": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "public-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/login",
+   "component_file": "src/pages/patient/LoginPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "patient-login",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/dashboard",
+   "component_file": "src/pages/patient/DashboardPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "patient-dashboard",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/ai-assistant",
+   "component_file": "src/pages/patient/AiAssistantPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "ai-chat",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/messages",
+   "component_file": "src/pages/patient/MessagesPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "patient-messages",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/library",
+   "component_file": "src/pages/patient/EducationalLibraryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "educational-library",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/patient/treatment-plan",
+   "component_file": "src/pages/patient/TreatmentPlanPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "patient-treatment-plan",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/login",
+   "component_file": "src/pages/staff/LoginPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "staff",
+   "page_id": "staff-login",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/dashboard",
+   "component_file": "src/pages/staff/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/staff/messages",
+   "component_file": "src/pages/staff/MessagesInboxPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "staff-inbox",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/staff/content-manager",
+   "component_file": "src/pages/staff/ContentManagerPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-content-manager",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/services",
+   "component_file": "src/pages/ServicesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "services",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "book",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/patient-detail/:patientId",
+   "component_file": "src/pages/staff/PatientDetailPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-patient-detail",
+   "section_slots": [
+    "header",
+    "kpis",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "patient",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "82": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "homepage",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms",
+   "component_file": "src/pages/RoomsOverviewPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "rooms-overview",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookingFormPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-form",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/confirmation",
+   "component_file": "src/pages/BookingConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/dining",
+   "component_file": "src/pages/RestaurantPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "restaurant-page",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/sauna",
+   "component_file": "src/pages/SaunaPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "sauna-page",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/canoe-trips",
+   "component_file": "src/pages/CanoeTripsPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "canoe-trips-page",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactUsPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-us",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "lodge-manager",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/rooms-rates",
+   "component_file": "src/pages/admin/AdminRoomRatesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge-manager",
+   "page_id": "admin-room-rates",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/bookings",
+   "component_file": "src/pages/admin/AdminBookingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge-manager",
+   "page_id": "admin-bookings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/add-ons",
+   "component_file": "src/pages/admin/AdminAddOnsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge-manager",
+   "page_id": "admin-add-ons",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms/:roomId",
+   "component_file": "src/pages/RoomDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "room-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "83": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/menu",
+   "component_file": "src/pages/MenuFoodPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "menu-food",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/menu/wine",
+   "component_file": "src/pages/MenuWinePage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "menu-wine",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/private-events",
+   "component_file": "src/pages/PrivateEventsPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "private-events",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/reservations",
+   "component_file": "src/pages/ReservationsPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "reservations",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/menu",
+   "component_file": "src/pages/owner/MenuEditorPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-menu-editor",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/events",
+   "component_file": "src/pages/owner/EventInquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "owner",
+   "page_id": "admin-event-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/private-events/confirmation",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquiry-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "84": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/treatments",
+   "component_file": "src/pages/TreatmentsPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "treatments",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/emergency",
+   "component_file": "src/pages/EmergencyFormPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "emergency-form",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/treatments/clear-aligners-inquiry",
+   "component_file": "src/pages/AlignersInquiryFormPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "aligners-form",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/inquiry-received",
+   "component_file": "src/pages/InquiryConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "inquiry-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/inbox",
+   "component_file": "src/pages/owner/InboxPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "inbox",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/settings",
+   "component_file": "src/pages/owner/SettingsPage.tsx",
+   "skeleton_id": "ops-settings",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "settings",
+   "section_slots": [
+    "header"
+   ]
+  },
+  {
+   "path": "/services",
+   "component_file": "src/pages/ServicesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "services",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "book",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/inquiry/:id",
+   "component_file": "src/pages/owner/InquiryDetailPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "inbox-detail",
+   "section_slots": [
+    "header",
+    "kpis",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "85": [
+  {
+   "path": "/home",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms-stays",
+   "component_file": "src/pages/RoomsStaysPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "rooms-stays",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/activities",
+   "component_file": "src/pages/ActivitiesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "activities",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book-your-stay",
+   "component_file": "src/pages/BookingFlowPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-flow",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/booking-confirmed",
+   "component_file": "src/pages/BookingConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/dashboard",
+   "component_file": "src/pages/admin/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "lodge_manager",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/bookings",
+   "component_file": "src/pages/admin/AdminBookingsPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge_manager",
+   "page_id": "admin-bookings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/rooms",
+   "component_file": "src/pages/admin/AdminRoomManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge_manager",
+   "page_id": "admin-room-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/packages",
+   "component_file": "src/pages/admin/AdminPackagesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "lodge_manager",
+   "page_id": "admin-packages",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms/:roomSlug",
+   "component_file": "src/pages/RoomDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "room-detail-lakeside-suite",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/bookings/:bookingId",
+   "component_file": "src/pages/admin/AdminBookingDetailsPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "lodge_manager",
+   "page_id": "admin-booking-details",
+   "section_slots": [
+    "header",
+    "kpis",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/guests/:guestId",
+   "component_file": "src/pages/admin/AdminGuestDetailsPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "lodge_manager",
+   "page_id": "admin-guest-details",
+   "section_slots": [
+    "header",
+    "kpis",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "86": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/menu",
+   "component_file": "src/pages/MenuPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "menu",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/reservations",
+   "component_file": "src/pages/ReservationsPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "reservations",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/private-dining",
+   "component_file": "src/pages/PrivateDiningPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "private-dining",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/admin/login",
+   "component_file": "src/pages/admin/LoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin",
+   "component_file": "src/pages/admin/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/admin/menu",
+   "component_file": "src/pages/admin/MenuManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-menu",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/inquiries",
+   "component_file": "src/pages/admin/InquiriesPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-inquiries",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/admin/content",
+   "component_file": "src/pages/admin/ContentManagementPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-content",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "87": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "public-home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect",
+   "component_file": "src/pages/ConnectPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "connect-page",
+   "section_slots": [
+    "header",
+    "workspace",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect/service-inquiry/confirm",
+   "component_file": "src/pages/ServiceInquiryConfirmPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "service-inquiry-confirm",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/connect/post-appointment/confirm",
+   "component_file": "src/pages/PostAppointmentConfirmPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "post-appt-confirm",
+   "section_slots": [
+    "header",
+    "workspace",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/dashboard",
+   "component_file": "src/pages/staff/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/staff/inbox",
+   "component_file": "src/pages/staff/InboxOverviewPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "inbox-overview",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/services",
+   "component_file": "src/pages/ServicesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "services",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "book",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/staff/inbox/:id",
+   "component_file": "src/pages/staff/InquiryDetailPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "inquiry-detail",
+   "section_slots": [
+    "header",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "88": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "features",
+    "showcase",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms",
+   "component_file": "src/pages/RoomsOverviewPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "rooms-overview",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/restaurant",
+   "component_file": "src/pages/RestaurantPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "restaurant",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/sauna",
+   "component_file": "src/pages/SaunaPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "sauna",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/canoe-trips",
+   "component_file": "src/pages/CanoeTripsPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "canoe-trips",
+   "section_slots": [
+    "hero",
+    "features",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/availability",
+   "component_file": "src/pages/AvailabilityPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "availability",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "booking",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/BookingDetailsPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-details",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/confirmation",
+   "component_file": "src/pages/ConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact-us",
+   "component_file": "src/pages/ContactUsPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-us",
+   "section_slots": [
+    "header",
+    "workspace",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/LoginPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/DashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/rooms",
+   "component_file": "src/pages/owner/RoomsManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-rooms",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/bookings",
+   "component_file": "src/pages/owner/BookingsManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-bookings",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/activities",
+   "component_file": "src/pages/owner/ActivitiesManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "staff",
+   "page_id": "admin-activities",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "trust",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms/:id",
+   "component_file": "src/pages/RoomDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "room-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ],
+ "91": [
+  {
+   "path": "/",
+   "component_file": "src/pages/HomePage.tsx",
+   "skeleton_id": "public-home",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "home",
+   "section_slots": [
+    "hero",
+    "trust",
+    "features",
+    "process",
+    "testimonials",
+    "booking",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms",
+   "component_file": "src/pages/RoomsSuitesPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "rooms-suites",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/book",
+   "component_file": "src/pages/AvailabilityBookingPage.tsx",
+   "skeleton_id": "public-booking",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "availability-booking",
+   "section_slots": [
+    "hero",
+    "process",
+    "booking",
+    "testimonials",
+    "footer"
+   ]
+  },
+  {
+   "path": "/amenities",
+   "component_file": "src/pages/AmenitiesPage.tsx",
+   "skeleton_id": "public-service",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "amenities",
+   "section_slots": [
+    "hero",
+    "features",
+    "process",
+    "testimonials",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/about",
+   "component_file": "src/pages/AboutUsPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "about-us",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/contact",
+   "component_file": "src/pages/ContactUsPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "contact-us",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "spotlight",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/booking-confirmed",
+   "component_file": "src/pages/BookingConfirmationPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "booking-confirmation",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "spotlight",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/account",
+   "component_file": "src/pages/GuestAccountPage.tsx",
+   "skeleton_id": "public-utility",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "guest-account",
+   "section_slots": [
+    "header",
+    "workspace",
+    "summary",
+    "spotlight",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/login",
+   "component_file": "src/pages/owner/AdminLoginPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-login",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/dashboard",
+   "component_file": "src/pages/owner/AdminDashboardPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-dashboard",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/rooms",
+   "component_file": "src/pages/owner/AdminRoomManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-room-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/bookings",
+   "component_file": "src/pages/owner/AdminBookingManagementPage.tsx",
+   "skeleton_id": "ops-list",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-booking-management",
+   "section_slots": [
+    "header",
+    "filters",
+    "table"
+   ]
+  },
+  {
+   "path": "/owner/calendar",
+   "component_file": "src/pages/owner/AdminAvailabilityCalendarPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-availability-calendar",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/owner/reports",
+   "component_file": "src/pages/owner/AdminReportsPage.tsx",
+   "skeleton_id": "ops-dashboard",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-reports",
+   "section_slots": [
+    "header",
+    "kpis",
+    "risk",
+    "chart",
+    "filters",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery",
+   "component_file": "src/pages/GalleryPage.tsx",
+   "skeleton_id": "public-catalog",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery",
+   "section_slots": [
+    "hero",
+    "filters",
+    "showcase",
+    "features",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/rooms/:roomId",
+   "component_file": "src/pages/RoomDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "room-detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/owner/bookings/:bookingId",
+   "component_file": "src/pages/owner/AdminBookingDetailPage.tsx",
+   "skeleton_id": "ops-detail",
+   "surface": "ops",
+   "role_id": "admin",
+   "page_id": "admin-booking-detail",
+   "section_slots": [
+    "header",
+    "kpis",
+    "table",
+    "activity"
+   ]
+  },
+  {
+   "path": "/gallery/:id",
+   "component_file": "src/pages/ArtworkDetailPage.tsx",
+   "skeleton_id": "public-detail",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "gallery_detail",
+   "section_slots": [
+    "hero",
+    "credentials",
+    "inquire",
+    "cta",
+    "footer"
+   ]
+  },
+  {
+   "path": "/ai-features",
+   "component_file": "src/pages/AiFeaturesPage.tsx",
+   "skeleton_id": "",
+   "surface": "public",
+   "role_id": "customer",
+   "page_id": "PAGE-AI-FEATURES",
+   "app_spec_page_id": "PAGE-AI-FEATURES"
+  }
+ ]
+}
