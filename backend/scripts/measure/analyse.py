@@ -46,6 +46,15 @@ _TRIOS = {
     "4": ([83, 84, 85], {83: 1785693563, 84: 1785693624, 85: 1785693684}),
     # Trio 5 is the proof run for the deterministic dead-link guard.
     "5": ([86, 87, 88], {86: 1785697222, 87: 1785697283, 88: 1785697343}),
+    # Trio 6 (89-91) is deliberately absent. The OpenRouter account ran out of
+    # credits mid-run, so `codegen` degraded for a reason that has nothing to do
+    # with the pipeline. It is void; giving it a key here would invite a citation.
+    #
+    # Trio 7 is the first funded trio, same three briefs as 5 and 6 so questions 8
+    # and 11 stay controlled comparisons. Credits confirmed before launch with a
+    # 28,000-max_tokens probe against both production models, and the api log has
+    # zero credit refusals across the window — this one is valid.
+    "7": ([92, 93, 94], {92: 1785778218, 93: 1785778280, 94: 1785778340}),
 }
 IDS, LAUNCH = _TRIOS[sys.argv[1] if len(sys.argv) > 1 else "1"]
 

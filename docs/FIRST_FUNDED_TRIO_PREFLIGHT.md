@@ -1,12 +1,22 @@
 # First funded trio — pre-flight
 
-**Status:** ready to run the moment OpenRouter credits are topped up. Written during the
-no-generation window of 2026-08-03, against `main`.
+**Status:** **worked. Trio 7 (92-94) ran on 2026-08-03 and answered 9 of the 11.** Results are in
+the roadmap's Status table and its *Trio 7, in detail* section — not here, and not in a new document.
+Open: **Q8** and **Q11's concurrency half**. Written during the no-generation window of 2026-08-03,
+against `main`.
 
 This is the list of every question the next three runs must answer and the instrument each one
-needs. It exists because a trio costs real money and the last few spent most of their value
-confirming things already known. Today an unplanned trio answers about two open questions; with the
-instruments landed this window it should answer **eleven**.
+needs. It exists because the last few trios spent most of their value confirming things already
+known. Today an unplanned trio answers about two open questions; with the instruments landed this
+window it should answer **eleven**.
+
+**Correction, 2026-08-04 — a trio does not cost real money, and this document's economics were
+wrong.** Measured from `ai_usage_events`: **~$1.00 a trio, ~$0.34 a generation**, consistent across
+all seven trios, which total **$7.88**. The whole project has recorded **$26.89** of the account's
+**$307.29** lifetime usage — 9 %. Trio 6 was not voided by what trios cost; it was voided by a
+balance something else exhausted, and that something spent **$17.62 on 2026-08-04**, a day this
+pipeline made zero AI calls. **Do not defer a measurement to save a dollar.** The scarce resource is
+attention, not credits. Details and the escalation in `HANDOFF.md`.
 
 Read [`docs/PREVIEW_ROADMAP.md`](PREVIEW_ROADMAP.md) first — *The no-generation window*, then
 *Status*, then *Phase 1 DoD*. This document does not restate them.

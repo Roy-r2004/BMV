@@ -111,14 +111,40 @@ measurements already in place:
   **The "asserted in CI" half is open** and needs a pytest workflow. It was deliberately not written
   blind: 1.10's lesson is that a CI job must be verified on the CI platform, and that job would have
   failed its first run with local green hiding it.
-- **DoD 7 — route bijection. NOT STARTED.** `len(_smoke_routes(architect))` against non-wildcard
-  routes with a page file, and `catalogue_route_for_file` injective. Pure functions over the archived
-  corpus. **Start with request 33**, which has an `AiFeaturesPage.tsx` and a nav entry for
-  `/ai-features` and *no route declaring it* — a real orphaned page found while validating the
-  `AiFeaturePanel` fix, and a better first case than a synthetic one.
-- **DoD 2 and DoD 5 — the "before" numbers. NOT STARTED.** Inline prose per page TSX (claimed 13,540
-  chars) and `SiteSpec` key-set commonality (claimed 1 key across 27 workspaces). Census work, and
-  the *only* window in which it can be taken cheaply. **Neither has been taken.**
+- **DoD 7 — route bijection. MEASURED, and the row is open on both halves.**
+  `scripts/measure/route_bijection.py`, over the 42 stored architect route lists now archived at
+  [`docs/evidence/architect-routes.json`](evidence/architect-routes.json) plus the workspace archive.
+  It calls the real functions rather than reimplementing them.
+
+  | | before | after |
+  |---|---|---|
+  | `len(_smoke_routes)` ≠ non-wildcard routes with a page file | **31 of 42 runs**, 79 of 553 routes never smoke-loaded | 26 of 42, 74 routes |
+  | of which the 12-route cap | 26 of 42 | 26 of 42 |
+  | one page file under two or more URLs | 11 of 42 runs, 12 alias URLs | same corpus fact; all now loaded |
+  | `catalogue_route_for_file` not injective | **11 of 42 runs** | unchanged — Phase 2's job |
+  | a *generated* page with no route | 4 of 42 runs | reported as `pages_unrouted` |
+  | a *template seed* page with no route | 35 of 42 runs | reported |
+  | a route naming a file that does not exist | 0 of 42 | 0 |
+
+  **The 5-run improvement is a defect fix, not a measurement change.** `_smoke_routes` deduped on
+  `component_file`, so a second URL on one page was never loaded — request 22 declared
+  `ArtworkDetailPage.tsx` at both `/artwork` and `/gallery/:id`, the shipped router serves both, and
+  only the first was ever render-checked. The un-parameterized alias is the render condition that
+  fails. It dedupes on URL now, with aliases sorted behind every first sighting so the cap cannot
+  displace an unchecked page with a second look at a checked one.
+
+  **The remaining 74 are the cap, and the cap stays.** This pass runs post-deadline inside the
+  reserve 1.11 is already fighting; the fix is the denominator, not a bigger number.
+  `render_pages_checked = 12` on a 19-route app read as "every page rendered" — the record carries
+  `render_pages_eligible` and `render_pages_skipped` now, and the log says so at WARN. Same defect
+  class as `visual_review_status: None`, one measurement over.
+
+  Request 33 was the first case, as planned: it shipped `src/pages/AiFeaturesPage.tsx` and a nav
+  entry for `/ai-features` with no route declaring it, so the link fell through `path="*"` to home
+  and the page was bundled, typechecked and unreachable. 14 mutations, zero survivors.
+- **DoD 2 and DoD 5 — the "before" numbers. TAKEN.** `scripts/measure/content_census.py` over the
+  58 archived workspaces. **DoD 5 reproduces; DoD 2's figure is in the wrong unit.** Details in the
+  Phase 2 DoD rows below.
 
 Plus: extend the vitest suite toward the nav guarantees this document already specifies —
 scroll-reset, anchor landing, header clearance. `SkeletonComposer` is pinned; those are not. The
@@ -171,8 +197,9 @@ Recording that here so the next session does not read a productive week as progr
 | **1.8** industry derivation + placeholder gate | **done** — `ac10c9b`, `a919f86`. Token-length work still gated on 0.1 |
 | **1.9** bound items to the image pool | **done** — `ac10c9b`, **verified live on request 73** (12 items, below) |
 | **1.10** JS test runner (vitest) | **runner done, CI green-on-main pending a merge.** `backend/preview-template-tests/` — vitest 4 + jsdom + testing-library, 9 tests over `SkeletonComposer`, all nine mutation-tested by `tools/mutate.py` with zero survivors. It is a **sibling package on purpose**: the template's `package.json` is the shared-npm cache key, so a devDependency there costs the next generation a cold `npm ci` inside the run (below) |
-| **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it |
-| **1.12** a mandatory stage with no deterministic path | **open, new.** `architect` raises past the deadline and request 74 shipped nothing. See the DoD section |
+| **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it. **Trio 7 adds one sample and it points the same way**: request 93's tail is 32.0 s of which **0.1 s is AI**, with 3 pages judged — see Q10 in the trio 7 section. The tail to attack is non-AI work, and `tail.py` cannot see it without being parameterized past its hardcoded run list |
+| **1.13** bound `appspec` per request | **new, and the first half is done.** Added by owner ruling on 2026-08-04 rather than moving the p50 row to Phase 2 — *"let's try B, if it works it works if not we try A."* **`APPSPEC_MAX_CALLS` was enforced per entry into the stage, and the stage is entered twice a generation**, so requests 92/93/94 made **7, 6 and 10** calls against a configured **6** and no budget-exhausted line was ever logged. The tally is the deadline's now, and a runway reservation refuses any appspec call that would leave the pipeline less than **280 s** — under all five shipped runs in the corpus, above what 92 and 94 left themselves (91 s and 136 s). 14 mutations / 0 survivors. **The p50 half is unproven until a trio measures it**; if it lands and p50 still misses 500 s, fall back to (A) and move the row to Phase 2 |
+| **1.12** a mandatory stage with no deterministic path | **open, and no longer a single incident.** `architect` raises past the deadline and request 74 shipped nothing. **Trio 7 reproduced it twice in three runs** (92 and 94 stored no `preview_app`), against a pre-flight that said three runs were unlikely to reproduce it once. Both had `appspec` at 353 s / 339 s — the same root as Q1. See the DoD section |
 | **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
 | **2.9** contract-invalid pages are scaffolded, never re-asked | **done offline — fix landed, effect unmeasured (needs a funded trio).** A syntactically valid page that failed the catalogue contract was replaced wholesale by the generic deterministic scaffold with **no retry**: `_slot_fill_rejection` only knew empty/truncated/no-export/unparseable, so the retry loop never saw a contract violation. **26 pages across requests 74-79** went that way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so `_MAX_SLOT_FILL_ATTEMPTS = 2` had never fired once. The retry now fires on **enforce's own verdict**, not the validator's, and carries the exact `validate_catalogue_page_content` errors. Detail below |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
@@ -182,6 +209,11 @@ Recording that here so the next session does not read a productive week as progr
 | **`visual_review_status`** | **done** — `2d69917`. Always present, and names which of four reasons the critic did not run. **Not** folded into `unmeasured`, which means a vision outage and drives an operator switch |
 | **`write_file` canonicalization** | **done** — `614d772`. The seam returns the path it wrote; the rename stays. Last of the 8 xfails |
 | **2.8 / DoD 8** — write allowlist | **done, pulled forward** — see the Day 2 section. **26 modules can write `src/pages/**.tsx` today**; that is Phase 2's baseline and 2.4-2.5 is now measurable against it |
+| **DoD 7** — route bijection | **measured, row open, one defect fixed** — `3fc04ca`. 26 of 42 runs smoke-load fewer routes than they declare (74 of 553), 11 of 42 have a non-injective file→route lookup. The fix: `_smoke_routes` deduped on `component_file` and silently dropped a served URL — 12 URLs across 11 runs. Also `render_pages_skipped`, so the cap stops reading as full coverage, and `pages_unrouted` for request 33's orphan class |
+| **DoD 2 / DoD 5** — the "before" numbers | **taken** — `fa41e0a`. DoD 5 reproduces exactly (1 `seed` key common to 47 workspaces). **DoD 2's 13,540 is per workspace, not per page TSX** — per page it is mean 859 / median 529, and 12 % of pages already meet the 200-char target. Row corrected rather than left standing |
+| **gate `skeleton_id`** | **done** — `c09b96d`. Pre-flight question 5's blocker: `listing_not_schedule_rail` fires on `public-catalog` *or* `public-service` and nothing recorded which. **And `analyse.py` has read `preview_app["gate_issues"]` since it was written while no run ever wrote it** — every DoD evidence table it produced said `gate_issues: 0`, which is why the roadmap's per-code counts came from log greps |
+| **Trio 7 (92-94)** — the first funded trio | **valid, and it answered 9 of the 11 pre-flight questions.** Open: **Q8** (the dead-link confirming trio — only one of the three runs produced a gate verdict at all) and **Q11's concurrency half** (contention was 0.0 s, so nothing collided). Wall clock **543.9 / 572.2 / 542.1 s — 3 of 3 under 600 s**, but **contention was 0.0 s**, so it is a second clean clock and *not* a second concurrency test. **Ship rate 0 of 3**, worse than 1 of 3: 93 failed its gate, and **92 and 94 stored no `preview_app` at all** — 1.12, twice in one trio, with `appspec` at 353 s and 339 s. Credits confirmed before launch and the api log has zero credit refusals across the window; the two empty runs are the pipeline, not the account. Detail below |
+| **1.10 nav guarantees in vitest** | **partly** — `30ed9b9`. 15 tests over `ScrollToTop`, vitest 17 → 32, 31 mutations / 0 survivors. **Scroll-reset and anchor landing only**: jsdom has no layout engine, so the [16, 48] px landing and the header-clearance measurement are not expressible there and stay on the Playwright path. What is pinned is the layer beneath — which element is chosen and the offset arithmetic, which is where request 67's defect was |
 
 Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
 `revision_instructions` expressible as content-key edits) — are **not** done and still gate 1.8's
@@ -189,12 +221,23 @@ token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
 ### Suite state — and the two ways the harness lied about it in one afternoon
 
-**1,623 passed / 1 skipped / 0 xfailed / 0 failed**, 2026-08-03 (session 7), on the command
-documented in `HANDOFF.md`. Up from 1,531 / 1 / 2 at the start of the no-generation window;
-**all eight xfails are closed**, and the last two each turned out to be covering a live defect
-rather than a stale marker. Every fix in that window was mutation-tested: 8 + 17 (vitest) + 11 + 7
-+ 11 mutations, and **six survived a first sweep** — every one of them because the test was written
-against the case that does not bind, or drove the consumer and not the producer.
+**1,675 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 32 passed**, 2026-08-04 (session
+9's 1.13 work added 6 of those: 5 tests plus one auto-parametrized case from
+`test_every_test_file_is_collected.py`, which is session 7's collection floor doing exactly its
+job). Previously **1,668 passed / 1 skipped**, 2026-08-03 (session
+8), on the command documented in `HANDOFF.md`. Up from 1,531 / 1 / 2 at the start of the
+no-generation window; **all eight xfails are closed**, and the last two each turned out to be
+covering a live defect rather than a stale marker. Every fix in the window was mutation-tested:
+8 + 17 (vitest) + 11 + 7 + 11 in session 7, then 14 + 11 + 9 + 14 (vitest) in session 8.
+
+**Six mutations survived a first sweep in each session, and the second session's were a different
+failure than the first's.** Session 7's were tests asserting against the case that does not bind, or
+driving the consumer and not the producer. Session 8's were mostly the opposite mistake: **four
+guard conditions that could not change an outcome** — `" " not in text` behind a two-word rule, a
+capitalization test behind a lowercase-only charset, `if not path` and `if architect is None` in
+front of a lookup that already handles both. Those were deleted, not tested around. The other two
+were a real detector defect (lowercase hyphenated prose read as Tailwind) and fixtures too small to
+reach the rule they were meant to pin. Both lists are worth reading before writing the next guard.
 
 ```
 docker run --rm -v "$REPO:/repo" -w /repo/backend \
@@ -218,6 +261,128 @@ I reported both rounds as real before checking the harness — first as "4 pre-e
 failures", which is why this paragraph exists rather than a ticket. Third and fourth entries in the
 running list of harness-lies-about-the-verdict findings, after `tail` swallowing a red `tsc` and the
 mutation decoys whose anchors had drifted. **The measurement instrument is part of the measurement.**
+
+### Trio 7 (92-94), in detail — the first funded trio
+
+Same three briefs as trios 5 and 6 (restaurant / dental clinic / hotel, three industries, 60 s
+apart, one `reference_url`, one `reference_file`, one plain), so questions 8 and 11 stay controlled
+comparisons. **Valid**: credits were confirmed with a 28,000-`max_tokens` probe against both
+production models before launch, and the api log carries **zero** credit refusals across the window.
+Nothing else ran on the host. `analyse.py 7`.
+
+| | 92 restaurant | 93 dental | 94 hotel |
+|---|---|---|---|
+| wall clock | **543.9 s** | **572.2 s** | **542.1 s** |
+| stored a `preview_app` | **no** | yes (`failed`) | **no** |
+| `appspec` span / AI / calls | 353.2 / 336.5 s / **7** | 143.9 / 120.9 s / 6 | 338.8 / 331.6 s / **10** |
+| logical asks / p50 / max | 17 / 25.3 / 80.6 s | 46 / 5.6 / 120.0 s | 34 / 9.7 / 68.4 s |
+| asks over 120 s | 0 | 0 | 0 |
+| contention | — | **0.0 s** | — |
+
+**Q1 — which loop spends appspec's calls: answered, and it is `repair`.** The scopes added in
+`56d8f08` produced labelled rows on their first live outing — **no `writer = NULL` in any appspec
+row**, so the telemetry is not the defect. Per run:
+
+| | repair | authoring | schema_repair | coverage_review |
+|---|---|---|---|---|
+| 92 (336.5 s) | **2 calls / 139.9 s** | 2 / 113.4 s | 2 / 68.3 s | 1 / 14.9 s |
+| 93 (120.9 s) | 3 / 47.3 s | 2 / 50.6 s | 1 / 22.9 s | — |
+| 94 (331.6 s) | **5 calls / 181.9 s** | 3 / 101.4 s | 1 / 32.8 s | 1 / 15.6 s |
+
+`repair` is 42 % of appspec's AI time on 92 and **55 % on 94**, and it is what separates the cheap
+run from the expensive ones. Note 94 made **10** appspec calls against a previously observed range
+of 2-7.
+
+**Corrected 2026-08-04 — the first reading of this table said "the fix is a repair-loop bound" and
+that is the symptom, not the mechanism.** `APPSPEC_MAX_CALLS` is **6**, and these runs made 7, 6 and
+10 calls without one budget-exhausted line, because the ceiling was held on the provider instance
+and **the stage is entered twice a generation**: `orchestrator.py:134` defines the contract,
+`preview_app/pipeline/appspec_gate.py:133` confirms it, and each entry minted a fresh budget.
+
+The confirming entry is *meant* to cost nothing — `ensure_approved_app_spec` returns
+`reused=True, calls_used=0` when a revision with the same source digest is already accepted. It
+re-authored from scratch on all three runs instead, because **all 18 revisions in this trio are
+`rejected` and nothing was ever accepted**. The source digest is identical within each request, so
+reuse was not blocked by the digest; it was blocked by there being nothing to reuse. Request 92
+authored from scratch **three** times — revisions 182, 192 and 194 all have a null
+`parent_revision_id` — discarding a repair chain each time. The duplicate pass is **53 %, 59 % and
+50 %** of each run's appspec AI time (178.7 s, 71.6 s, 164.5 s).
+
+That reframes the whole row, because it explains the bimodality `appspec_cost.py` found and could
+not account for — 2-3 calls costing 49-94 s against 5-7 costing 253-294 s. **Accepted → the second
+entry is a cache hit and appspec is cheap. Rejected → the second entry repeats the stage and appspec
+roughly doubles.** So the lever is the **acceptance rate**, and a call ceiling alone would only make
+a failing run fail faster with a worse contract — the "improved the gate metric, made the artifact
+worse" trap this document already records once.
+
+**Why nothing is ever accepted** is a schema mismatch, dominated by one field: `pages[].state_ids`
+arrives empty against a `min_length=1` tuple — **22 of the parse failures across pages 0-4** — then
+`actions[].kind` enum violations and missing `product_intent` / `roles` / `capabilities`. Historically
+46 revisions were accepted and requests 76-88 mostly accepted on the first attempt, so **0 of 18 is
+anomalous but not proof of a regression**: failures happened before (75, 80, 81, 84 all had none),
+and 0-for-3 against a ~60 % base rate has about a 6 % chance of being luck. Closing it is 1.13's
+second half.
+
+**Q2 — the ask ceiling holds, and for the first time it is evaluated on data that could break it.**
+Zero logical asks over 120 s on any run; 93's maximum is exactly 120.0 s, at the cap. With appspec
+rows finally carrying a writer, the `(request_id, stage, writer)` grouping has something to group on.
+
+**Q3 — the 2.9 contract retry fired for the first time in the project's history, and it works
+sometimes.** Request 93: `slot_fill attempt=1` × 3 (2 `rejected`), **`slot_fill attempt=2` × 2, of
+which 1 came back usable**. So a re-asked page does sometimes come back different — 1 of 2, n=2.
+2.9 is not pure cost. Request 94 recorded `slot_fill_contract_retry_skipped_low_runway` and has **no
+attempt-2 rows at all**: the runway gate refused every retry with no time left, exactly as designed.
+
+**Q4 — appspec's wasted AI time went from 13 % to zero.** No `usable=false` appspec row on any of
+the three runs, against 18.7 s a run across trios 2-5. Codegen still has plenty (2/6, 3/14, 13/21)
+but those are `transport` — post-deadline refusals — and `rejected`, which 2.9 files deliberately.
+
+**Q5 — answered by the instrument added the same day.** 93's single `listing_not_schedule_rail` fire
+is on `src/pages/ServicesPage.tsx` and resolves to **`public-service`** — the subset the contract
+clipping never touched, because `public-service` is 4,899 chars and was never over budget. So this
+fire is **writer judgment, not prompt vocabulary**, and the `0082f5f` fix cannot have moved it.
+One fire is not the population, but the question is now answerable off the record instead of guessed.
+
+**Q6 — confirmed live, and both this document and the pre-flight named the wrong consumer.**
+Request 93 declared **9 catalogue routes**; `_catalogue_routes_context` over its real route list
+returns 10,000 chars beginning `{"truncated":true,"preview":…}`. But that function is **never used to
+prompt the architect** — it lives in `architect.py` and its only callers are `fix_agent`
+(`:482`, `:530`) and `chat_rebuild` (`:245`). It takes the *completed* architect dict. So the
+collapsed context is what the **fix agent** receives, which is worse rather than better: the repair
+path is the one that most needs each page's contract, and on 93 it ran twice for 147.8 s of AI.
+Corrected wherever it was stated.
+
+**Q7 — `visual_review_status` names a reason where there is a record to name it on.** 93 reports
+`partial`, a real status. 92 and 94 report nothing, because they stored no `preview_app` at all —
+which is 1.12, not a regression in `2d69917`.
+
+**Q8 — one clean run, not three.** 93's gate carries no `dead_link` code. 92 and 94 produced no gate
+verdict. The confirming trio is still owed.
+
+**Q9 / Q11 — the clock held and the ship rate fell.** 3 of 3 under 600 s makes this the second trio
+to clear the cap, but **`blocked_seconds` was 0.0 and contention was zero on every lock**, so it
+tested three sequential-in-practice runs and says nothing about concurrency. The DoD row's own words
+are *"including 3 runs started 60 s apart"* — that half is still unproven. Meanwhile **0 of 3
+shipped**: 93 was withheld on 4 gate issues (`visual_defect_severe` ×2, `listing_not_schedule_rail`,
+`placeholder_content_shipped`), and 92 and 94 are **1.12 reproduced twice**, both with `appspec`
+consuming ~62 % of the budget before the preview pipeline had finished planning.
+
+**Q10 — n=1, and on that one run the tail is not AI at all.** Only 93 stored an `elapsed_seconds`,
+so the decomposition has one sample: **tail 32.0 s, of which 0.1 s is AI (a single `vision` call) and
+31.9 s is not** — against the nine-run baseline of 33 % AI / 67 % non-AI, and at the low end of that
+corpus's 33-80 s range. Judged pages, the axis that killed 1.11's first attempt: **`visual_pages_reviewed`
+= 3**, `visual_review_status` = `partial`. Both axes moved the right way and neither is a population.
+**`tail.py` hardcodes `RUNS = [74…82]`** and skips a run with no stored elapsed, which is why this
+question was not in the first write-up — the numbers above come from running its own query against
+92-94 by hand. Parameterize it before the next trio or the work repeats.
+
+That same record carries the **first live output of `3fc04ca`**: `render_pages_checked = 10`,
+`render_pages_eligible = 10`, `render_pages_skipped = 0`. The fields are populated in production, and
+93 declared few enough routes that the 12-route cap never bound — so this run confirms the
+instrument, not the cap.
+
+**The through-line: Q1 and Q9 are the same finding.** Bounding `appspec`'s repair loop is no longer
+a p50 optimisation — on this trio it is the difference between a preview and an empty record.
 
 ### 2.9, in detail — the fix, and what bounds it
 
@@ -863,8 +1028,13 @@ per-template cost from 240–460 h toward 60–110 h.
 
 **Two non-negotiable constraints**, all three failure modes verified in the tree:
 1. **Every route keeps a real file** — `GalleryPage.tsx = () => <SpecPage routeId="gallery" />`.
-   `_smoke_routes` (`finalize.py:147-168`) dedupes on `component_file`; 12 routes sharing one file
-   makes the render smoke check probe **one** page and log success. 167 references key on it.
+   167 references key on it. The version of this warning that said `_smoke_routes` "dedupes on
+   `component_file`, so 12 routes sharing one file makes the render smoke check probe **one** page
+   and log success" was correct and is now half-fixed: it dedupes on **URL** (`3fc04ca`), so twelve
+   routes on one file are twelve probes. The other half stands and is the sharper one —
+   `catalogue_route_for_file` still returns the *first* route for a file, so under a shared file
+   eleven of those twelve routes have no reachable contract. Measured today at 11 of 42 runs with
+   only two routes sharing; a renderer that puts twelve on one file makes it universal.
 2. **The terminal stub stays Python-emitted**, importing only `react` and `react-router-dom`. If the
    fallback and the failing writer share an implementation, one renderer bug crashes all 12 pages and
    the repair re-crashes them.
@@ -914,14 +1084,33 @@ right by accident (home hero a painting, `/artist` hero the artist at her easel)
 
 1. Data-bound content props ≥ 95 % **and** `placeholder_content_shipped` fires zero times over 20
    businesses. *(The first alone is satisfied by mad-libs.)*
-2. Inline prose in page TSX ≤ 200 chars (wrappers only; today 13,540).
+2. Inline prose in page TSX ≤ 200 chars (wrappers only). **Baseline re-taken 2026-08-03, and the
+   original 13,540 is per *workspace*, not per page TSX** — the row was comparing a per-page target
+   to a whole-app figure, which reads as a 68× reduction when the median page needs about 2.6×.
+   Measured per page over 753 page files in 58 workspaces (`scripts/measure/content_census.py`):
+   **mean 859, median 529, p90 2,090, max 6,534**, and **12 % of pages are already under 200**. Per
+   workspace: mean 11,149 over all 58, **13,095 over the 27 most recent** — the corpus size the
+   original claim names, which is how the unit was identified. The definition's one judgment call is
+   `className` exclusion, and the script prints its own sensitivity: 1,629 chars of 646,646, 0.25 %.
 3. Zero dead internal links by the spec-level cross-check.
 4. The typecheck record exists, its `source_fingerprint` matches shipped source, `error_count = 0`,
    on 5 consecutive runs.
-5. `SiteSpec` key-set identical across 5 runs of 5 industries (today: 1 key common to 27 workspaces).
+5. `SiteSpec` key-set identical across 5 runs of 5 industries. **Baseline re-taken and it
+   reproduces exactly.** There is no `SiteSpec` yet, so the measurement is `src/data/mock.ts`, and
+   the "1 key" is `seed`'s: **1 key — `credentials` — is common to all 47 archived workspaces that
+   have a `seed`**, out of **75 distinct keys**, 9 to 26 per workspace, with only 10 keys present in
+   90 % of runs. At the module's own export level, 2 of 22 keys (`brand`, `images`) are common to
+   all 58. The other 11 workspaces predate `seed` and export bespoke names —
+   `featuredPaintings`, `recentPaintings`, `publicCta` — which is the same finding one layer up.
 6. p50 ≤ 420 s; p95 ≤ 540 s, **derived by convolution over the 0.6 census, not asserted**.
 7. `len(_smoke_routes(architect))` equals the count of non-wildcard routes with a page file;
-   `catalogue_route_for_file` is injective.
+   `catalogue_route_for_file` is injective. **Measured, both halves open** (`3fc04ca`): the count
+   identity fails on **26 of 42** archived runs leaving **74 of 553** routes never smoke-loaded (all
+   of it the deliberate 12-route cap, now published as `render_pages_skipped` rather than hidden
+   inside `render_pages_checked`), and the lookup is non-injective on **11 of 42** — two routes
+   naming one page file, where the second route's contract is unreachable by any of the six callers
+   that resolve a file to a route. Closing the second half is 2.1-2.3's `<SpecPage routeId="…" />`,
+   one route per file by construction. Baseline table in the Day 2 section above.
 8. **No module outside a named allowlist may write `src/pages/**.tsx` or `src/render/**`** —
    enforced at runtime inside `workspace.write_file`, allowlist pinned by test. **DONE** (`3b2e72a`,
    pulled forward under the no-generation window). Baseline: **26 modules can write pages today**;
@@ -936,8 +1125,19 @@ the class of guard `90f4d5f` just spent a commit removing — `test_the_scroll_r
 behaviour_from_two_files` documents in its own comment that pinning the alias map "let the two drift
 anyway… for two rounds with this test green."
 
-`tests/preview_app/test_nav_contract.py` is a **rendered-DOM assertion** through the existing
-Playwright path, asserting the numbers request 70 verified:
+**Two layers, and only one of them can live in vitest.** jsdom has no layout engine — every
+`getBoundingClientRect()` is zeros — so a pixel guarantee cannot be asserted there at all. What
+vitest holds (`preview-template-tests/src/scroll-reset.test.tsx`, `30ed9b9`) is the logic beneath
+the pixels: which element a hash resolves to, that the header is measured from the DOM rather than
+from `--public-header-h` (request 67's defect exactly), the `+24` of air, `scrollY` added because a
+rect is viewport-relative, `Math.max(0, …)`, the six contact aliases, the 50 ms retry for an
+unmounted target and its cleanup. It tests the *template's* copy; the shipped app runs the inlined
+copy in `app_tsx.j2`, and the only thing connecting them is
+`test_the_scroll_reset_ships_one_behaviour_from_two_files`, which compares the two effect bodies
+normalized. **That test is load-bearing for the vitest ones.**
+
+The pixels stay here. `tests/preview_app/test_nav_contract.py` is a **rendered-DOM assertion**
+through the existing Playwright path, asserting the numbers request 70 verified:
 - `scrollHeight` delta between scroll-0 and scroll-past-24px is **0** on every route;
 - a cold load of `/<detail>/1#inquire` lands the target's `top` in **[16, 48]** (measured: 25 px);
 - hero content clears the measured header on every public route;

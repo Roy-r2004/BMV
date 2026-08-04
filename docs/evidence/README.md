@@ -8,8 +8,9 @@ volume that a `docker volume prune` removes without warning. Every offline analy
 
 | archive | what |
 |---|---|
-| `preview-trio-logs.tar.gz` (109 KB) | `api.log` … `api6.log` — container logs for trios 1-6. `api6.log` is the **void** trio: the OpenRouter account ran out of credits mid-run. Kept only so nobody re-derives numbers from it by accident |
+| `preview-trio-logs.tar.gz` (123 KB) | `api.log` … `api7.log` — container logs for trios 1-7. `api6.log` is the **void** trio: the OpenRouter account ran out of credits mid-run. Kept only so nobody re-derives numbers from it by accident. `api7.log` is the **first funded** trio (92-94), and is the record behind two claims that exist nowhere else: that no call in the window was refused for credit, and that request 93's `listing_not_schedule_rail` fire names `[public-service]` — the gate instrument's first live output. It is the container's own log from its 17:29:54 restart to the end of run 3, 914 lines |
 | `preview-workspaces.tar.gz` (2.4 MB) | 58 generated preview workspaces, requests 11-91 — the shipped `src/` of each, plus its `.bmv-debug/` (raw model responses, pipeline traces) |
+| `architect-routes.json` (160 KB) | The architect route list of all **42** stored runs — 553 routes — lifted out of `requests.generated_pages -> preview_app -> routes`, which `finalize` persists verbatim from `architect["routes"]`. Every DoD 7 number comes from it (`backend/scripts/measure/route_bijection.py`). Committed because the postgres volume is as removable as the workspace one, and the workspace archive alone cannot answer a route question: it holds `src/App.tsx`, which is the *shipped* router, and that diverges from the declared table — request 85's architect declared 18 routes and its `App.tsx` serves 24, the extra six being synthesised `:id`/`:slug` aliases |
 
 ## What the workspace archive contains, and what it deliberately does not
 
