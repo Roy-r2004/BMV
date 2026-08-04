@@ -250,7 +250,10 @@ token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
 ### Suite state — and the two ways the harness lied about it in one afternoon
 
-**1,675 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 32 passed**, 2026-08-04 (session
+**1,785 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 32 passed**, 2026-08-04 (session
+10). Session 10 added 95 of those across five files, every fix mutation-swept: 18 + 10 + 12 + 11 = 51
+mutations, **0 survivors at the end, 11 survived a first sweep**. Previously **1,690 passed / 1
+skipped** at `122ef79`. The earlier reading (session
 9's 1.13 work added 6 of those: 5 tests plus one auto-parametrized case from
 `test_every_test_file_is_collected.py`, which is session 7's collection floor doing exactly its
 job). Previously **1,668 passed / 1 skipped**, 2026-08-03 (session
@@ -608,6 +611,26 @@ has rooms; neither has a collection to explore.
 Related and visible in the same run: **route alias inflation.** 96 serves `/rooms/:roomId`,
 `/rooms/:id` **and** `/rooms/:slug` for one page, plus `/gallery/:id` and `/gallery/:slug` — the
 synthesised aliases the evidence README describes, now three deep on a single resource.
+
+**Measured 2026-08-04 (session 10), and it is not where DoD 7 is looking.** Request 96's architect
+declared **19 routes with no duplicate `component_file` at all**; the router in `App.tsx` serves
+**23 paths**. The surplus is minted by `assemble.py:1098`, which appends `{base}/:id` and
+`{base}/:slug` for every param-free listing with a detail component — and `registered` is keyed on
+the exact path string, so an architect-declared `/rooms/:roomId` does not block either of them.
+
+Two consequences:
+
+1. **DoD 7's corpus cannot see this defect.** `docs/evidence/architect-routes.json` is the
+   *architect's* table; measured over it, 11 of 42 runs have 12 surplus paths, **zero** three-deep
+   and **zero** differing only in the parameter name. The three-deep inflation lives strictly
+   between the architect and the router, so DoD 7's non-injective file→route number is real but is
+   counting something else.
+2. **Deleting the aliases would break the page.** `catalogue_contract/scaffold.py:466` reads
+   `params.id ?? params.slug` — it cannot read `roomId`. The aliases exist *because* the scaffold's
+   param reader is hardcoded to two names. So the fix is the other direction: have the scaffold read
+   the single declared param whatever it is called, after which one route suffices and both aliases
+   can go. That is a template-side change and wants a run to verify, so it is written down here and
+   **not landed**.
 
 **The fix must be general.** Not "suppress gallery for restaurants" — a rule that decides whether a
 business *has a collection* at all, applied the same way for every industry, with the CTA vocabulary

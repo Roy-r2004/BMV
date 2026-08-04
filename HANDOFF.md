@@ -1,7 +1,157 @@
-# Session handoff — the first funded trio, a bound that did not fire, and a duo (2026-08-04, session 9)
+# Session handoff — the census, and a stage whose output nothing enforces (2026-08-04, session 10)
 
-Successor to session 7's handoff (in git history at `01facbe`). Still-binding parts are restated
+Successor to session 9's handoff (in git history at `122ef79`). Still-binding parts are restated
 below; do not go back for them. Process notes, not product docs.
+
+---
+
+## Session 10, in one page
+
+**No generations were run.** Everything below is offline: a census over duo 1's stored telemetry, the
+archived corpus, and the container log. Five commits, 95 new tests, **51 mutations / 0 survivors**
+(11 survived a first sweep).
+
+### The finding that reframes several roadmap rows
+
+**`APPSPEC_MODE=shadow`** — `.env:12`, confirmed resolved in the running api container.
+`app_spec_is_required` returns True only for `on`, so on **every** run `enforce_app_spec` is `False`,
+`app_spec_scope` is never computed, `canonical_plan_seed` is `None`. Request 95's own record says so:
+`app_spec_ref.enforced: false` beside an **accepted** revision.
+
+Every consumer of the AppSpec is gated behind that flag (`plan_phase.py:86,296,299`;
+`finalize.py:533,616,994`). So the stage authors, validates, repairs, coverage-reviews and persists a
+spec, and the pipeline then plans as though it did not exist. Three things follow:
+
+- **`build_experience_plan` takes the legacy path on every run** — planner *plus*
+  `validate_and_expand_plan`, two more full asks. Most of the 41 % below.
+- **1.12 is explained.** `plan_phase.py:295-298` rescues an architect failure only when
+  `enforce_app_spec`, so in shadow mode `call_architect` raising always propagates — which is exactly
+  what 74, 92 and 94 did.
+- **1.13 bounded a stage whose output is not enforced.** The bound is still correct; what it buys is
+  cheaper *shadow* work.
+
+I am not saying the setting is wrong — it may be deliberate. I am saying the roadmap has been
+reasoning about an enforced AppSpec this environment has never run. **Setting `on` is the owner's
+call and I did not take it.**
+
+### The census — task 1, and the answer is not what "codegen" said
+
+`scripts/measure/codegen_cost.py` (importable, 8 tests). Over duo 1, reconciling exactly with the
+roadmap's 315.0 + 436.9 = 751.8 s:
+
+| writer | calls | sec | sec/run | discarded s |
+|---|---|---|---|---|
+| `slot_fill` | 40 | **410.7** | 205.3 | **295.4** |
+| `(unattributed) pre-architect` | 11 | **310.7** | 155.4 | 45.7 |
+| `utility_content` | 6 | 30.4 | 15.2 | 0.0 |
+
+**41 % of the `codegen` stage is not codegen.** `record_usage` falls back to the run *purpose* with
+no `ai_call` scope (`admin_ops.py:330`) and `generate_preview_app` runs the whole preview pipeline
+under `purpose="codegen"` (`pipeline/orchestrator.py:39`), so `page_experience.py`'s unscoped
+planner, validator and design manifest were billed to it. Placed by timestamp against the
+`architect` call — all eleven precede it.
+
+**The appspec lesson held for a third time: the obvious bucket was not the expensive one.** I would
+have bounded `slot_fill`'s retry loop. The retry loop is 125.4 s; the anonymous plan phase is 310.7.
+
+Two of those writers had **no log line either** — `validate_and_expand_plan` loops two models,
+swallows every exception silently, and spent **69.9 s on 95 and 94.0 s on 96**. Nothing anywhere
+recorded it.
+
+**`slot_fill` threw away 147.7 s per run**, 28 of 40 calls adjudicated `rejected`: 14 `truncated`,
+12 catalogue-contract, 2 missing export. The first 14 are **not truncation** — `finish_reason:
+error`, 0 completion tokens, ~1,165 chars of body, HTTP 200. `call_with_retry` never sees it because
+the HTTP call succeeded, so the *application* re-asks and pays the prompt again. Corpus-wide: 79
+`error` rows, 55 billed nothing (474.4 s), **15 of those recorded usable**.
+
+### p50 — the recommendation, for the owner
+
+**Take (A).** Per-run AI on duo 1 after re-attribution: `slot_fill` 205.3 (147.7 discarded),
+planning 155.4, `refine` 151.5, `design_critic` 138.4, **`appspec` 68.8**, everything else 144.3 —
+863.7 s of AI against 571/573 s wall clock. **Appspec is 8 %; deleting it outright does not reach a
+500 s p50.** The four largest terms are 75 % of a run's AI and are all per-page fan-out, which is
+what 2.1-2.5 removes by construction. Keep 1.13's bound on its own merits — it caps a tail trio 7
+proved real — without crediting it with p50 movement it has not produced. **The row is not moved;
+that is yours.**
+
+### What landed
+
+| commit | what |
+|---|---|
+| `46c28d2` | the census, four `planning` scopes, `finish_reason: error` as transport. 18 mutations |
+| `e0eeec5` | `withheld_reason` published, `viewable` derived, `analyse.run_row` extracted. 10 mutations |
+| `eb49f43` | fix agent's allow-list once per run + a four-rung degradation ladder. 12 mutations |
+| `b729d88` | the scaffold's hero CTA derived instead of hardcoded. 11 mutations |
+| this one | handoff + roadmap |
+
+### Findings that were NOT the filed defect
+
+1. **Both of duo 1's "unexplained" defects were the reader.** `viewable` has **never been a key** —
+   `finalize` keeps it as a local and publishes `status` and `url`. `typecheck` was never `None`; the
+   key is `typecheck_status`, and duo 1 stored `errors` with **4** and **8** type errors, so that DoD
+   row is **failing, not unmeasured**. Sixth entry in *the instrument was the defect*.
+2. **The menu's duplicate role keys are invisible.** Every reader of `navigation` was enumerated:
+   `customer`, `staff`, `features`, `manager` are **read by nothing**, and `navItemsAdmin` /
+   `adminNavItems` are **imported by nothing** — ops pages call `useAdminNavItems()` and name the
+   *local variable* `adminNavItems`, which is what makes a grep look like a consumer. What IS on
+   screen is different: `shortLabel` strips a leading `My `, so the header shows "Reservations"
+   pointing at `/my-reservations` while the declared public `/reservations` is absent from the nav
+   entirely. **Not landed** — see below.
+3. **The universal gallery is a hardcoded string, not an industry inference.**
+   `{ label: 'Explore the collection', href: '/gallery' }` was a literal in `safety/mock_data.py`,
+   verbatim in **7 of 64 archived workspaces**. The `cta` block carried `/contact#inquire` twice
+   more, a route no workspace declares. Fixed generally; **it does not stop a restaurant being given
+   a GalleryPage**, which is 2.1-2.3's.
+4. **Route alias inflation is not where DoD 7 is looking, and deleting the aliases would break the
+   page.** Request 96's architect declared 19 routes with **no duplicate `component_file`**; the
+   router serves 23. `assemble.py:1098` mints `{base}/:id` and `{base}/:slug` and `registered` is
+   keyed on the exact string, so a declared `/rooms/:roomId` blocks neither. But
+   `catalogue_contract/scaffold.py:466` reads `params.id ?? params.slug` and cannot read `roomId` —
+   **the aliases exist because the scaffold's param reader is hardcoded to two names.** The fix is
+   the other direction. Not landed.
+5. **The allow-list hoist alone was not enough, and I nearly published that it was.** 45k+ → 18,869
+   chars against a 10,000 budget on request 93's nine routes. Only the four-rung ladder actually
+   delivers a readable block.
+
+### Mutation results — 51, and eleven survived a first sweep
+
+Worst ratio yet, and every survivor was my *test's* fault rather than the fix's:
+
+| survivor | why |
+|---|---|
+| `plan_expansion` scope deleted | nothing drove that writer at all |
+| `plan_validation` never adjudicates | anchor matched twice (two writers share the line) |
+| `record_usage` stops forwarding tokens | three tests called `presumed_usable` **directly**; nothing drove the consumer |
+| architect boundary defaults to 0 | the mutation targeted code an earlier return makes unreachable |
+| unresolved render crash behind a passing gate | every fixture had `unresolved` empty |
+| `analyse` reads the dead key | `analyse.py` had no test until I extracted `run_row` |
+| library keyed per route | my test **trimmed until the full level fit**, so it shrank to one route — which cannot show a duplicate |
+| prop shapes restated per route | no absence assertion |
+| only the full rung emitted | anchor matched twice |
+| budget raised to 100,000 | my assertion **imported the constant the mutation was raising** |
+| `ensure_mock_exports` drops the architect | the helper and the emitter were both tested; the call site was not |
+
+Three patterns worth carrying: **a test that adapts until it passes cannot fail** (the trim loop);
+**never assert against the constant a mutation would change**; and *driving the consumer, never the
+producer* struck twice more, once each direction.
+
+### What I got wrong in session 10
+
+- **I ran two mutation sweeps concurrently** against live-mounted source and one reported a red
+  baseline that was the other sweep mid-restore. Session 7 wrote down "don't edit during a sweep";
+  running two is the same mistake with a second face.
+- **I wrote a blind reindent script that matched the wrong `return {`** and silently reformatted
+  `analyse.appspec_health`, a function I had no business touching. Caught by diffing against `HEAD`.
+  Do not run structural edits by pattern-match on a file you have not just read.
+- **I wrote a template fix that changed no outcome** (`shortLabel`'s collision guard) and had to
+  revert it — the collision only appears once the generator half lands. Session 9 caught the same
+  shape ("a rescue that changes no outcome is not a reason to keep a cost"); I shipped it into the
+  working tree before checking.
+- **My first `presumed_usable` test asserted a default the signature did not have** (`None` vs `0`).
+  The test was right about the intent and the code was wrong; I changed the code, but only after
+  writing a test that could not pass.
+
+---
 
 - **The plan and its evidence: [docs/PREVIEW_ROADMAP.md](docs/PREVIEW_ROADMAP.md).** Read **The
   no-generation window**, then **Status**, then **Phase 1 DoD**.
@@ -14,9 +164,10 @@ below; do not go back for them. Process notes, not product docs.
 
 ## State of the repo, in four lines
 
-- **`main` is PUSHED and level with `origin/main`** as of 2026-08-04 — the first push in several
-  sessions. A vitest CI run on `main` should now exist; nobody here can read it.
-- **Suite: 1,690 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 32 passed.** Run pytest the
+- **`main` has five unpushed commits** as of 2026-08-04 session 10 (`46c28d2`, `e0eeec5`, `eb49f43`,
+  `b729d88`, and this one). It was level with `origin/main` at `122ef79`. A vitest CI run on `main`
+  should exist for `122ef79`; nobody here can read it.
+- **Suite: 1,785 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 32 passed.** Run pytest the
   documented way — see the operating notes. Collection floor ratcheted to 1,669.
 - **Credits: ~$22 left of $330, and a generation costs $0.34.** Runs are not the constraint and never
   were — see *Credits* below, where the numbers overturn a premise four sessions rationed against.
@@ -115,51 +266,45 @@ the same shape as the `visual_review_status` defect session 7 fixed one measurem
 
 ## The next step
 
-**Duo 1 answered the (B) experiment and the answer is (A), for a reason nobody predicted: `codegen`,
-not `appspec`, is what decides p50.** 315 s and 437 s of AI against appspec's 43 s and 94 s. Both
-runs shipped `ready`, and **1.13's bounds never fired**, so the improvement is acceptance variance
-and the fix remains unproven in production.
+**Nothing landed this session has been seen by a generation.** Four fixes are mutation-proven and
+zero are production-proven — the same gap session 9 recorded for 1.13, now four times over. The next
+session should spend a duo or trio on them before adding more offline work.
 
-**The one decision only the owner can make** is whether the p50 row moves to Phase 2 under (A). The
-evidence is in; the ruling is not. **Everything below is workable without it.**
+**Two decisions only the owner can make:** whether the p50 row moves to Phase 2 under (A) — the
+arithmetic is above and in the roadmap — and whether `APPSPEC_MODE` goes to `on`.
 
-1. **`codegen` is the p50 term. Decompose it before touching it.** 24 and 33 calls a run, 315 s and
-   437 s of AI, dwarfing every other stage. Nobody has ever broken it down by writer the way
-   `appspec_cost.py` broke down appspec — and the `ai_call` scopes to do it already exist. Build the
-   census first and land nothing until it says which writer spends the calls. **The appspec lesson,
-   learned twice now: the obvious loop was not the expensive one.**
-2. **1.13's second half — acceptance.** Trio 7 failed on three different causes and 96 on a fourth
-   (`trace_evidence_mismatch`), so there is no single defect. `analyse.py`'s `appspec_health` now
-   reports `final_blocking` per run; **collect it over the next several runs before choosing a fix**,
-   because n=4 across four causes is not a distribution. Do not relax the schema to make specs
-   acceptable — that makes them pass without making them better, which is
-   `placeholder_content_shipped`'s lesson one layer up.
-3. **Land the allow-list-once-per-run bound.** Waiting on nothing since trio 7 (Q6: request 93's real
-   9-route list collapses to `{"truncated":true,…}`). The consumer is the **fix agent**, not the
-   architect. Land it with a run ready to measure repair quality.
-4. **`typecheck` is `None` on both duo runs.** A DoD row wants the record to exist with
-   `error_count = 0` on 5 consecutive runs; there is no record at all. Find out whether the stage is
-   skipped, failing silently, or never publishing — this is the fifth entry in the running list of
-   *the instrument was the defect*, if it turns out to be one.
-5. **`viewable` is `None` on both duo runs despite `status: ready`.** Unexplained. Same shape as the
-   `visual_review_status` defect from session 7. Cheap to chase, and it gates whether a shipped
-   preview is actually shown.
+1. **Run a duo on today's code and measure the four fixes.** `docker compose restart api` first.
+   What to read afterwards: `codegen_cost.py` should now show a `planning` stage instead of an
+   `(unattributed)` bucket; `withheld_reason` should be present on both runs; the fix agent's route
+   block should carry a `detail_level`; and no `mock.ts` should contain "Explore the collection".
+   All four are cheap to check and none has been checked.
+2. **`slot_fill` discards 147.7 s per run and that is the biggest recoverable number in the
+   pipeline.** 14 of its 28 rejections are `finish_reason: error` — a 200 that failed mid-stream,
+   which `call_with_retry` cannot see. **The obvious move is to make the transport layer retry it
+   instead of the application**, which re-sends only the tail rather than the whole prompt. Measure
+   the rate on a fresh run first: 79 rows corpus-wide is 3 % of calls, and it may be a bad day at the
+   provider rather than a standing cost.
+3. **The menu, both halves together.** (a) a declared public route missing from `navigation.public`
+   (95's `/reservations`), which is the generator's; (b) `shortLabel`'s `My ` strip colliding a
+   member page with its public counterpart, which is the template's. **(b) alone changes nothing** —
+   I wrote it, measured it against the duo's data, and reverted it. The rule for (b) must be about
+   the list (drop a prefix only while the shortened label stays unique among its siblings), never
+   about a route name.
+4. **1.13's second half — acceptance.** Trio 7 failed on three different causes and 96 on a fourth
+   (`trace_evidence_mismatch`). `analyse.py`'s `appspec_health` reports `final_blocking` per run;
+   **collect it over more runs before choosing a fix** — n=4 across four causes is not a
+   distribution. Do not relax the schema to make specs acceptable. **And note what shadow mode does
+   to this item's value**: an accepted spec currently changes nothing downstream except its own cost.
+5. **Route alias inflation, from the scaffold end.** `scaffold.py:466` reads
+   `params.id ?? params.slug`, which is *why* `assemble.py:1098` mints both aliases. Have the
+   scaffold read the single declared param whatever it is named, then one route suffices.
 6. **The render cap binds and 8 routes went unchecked.** 95 is 12 checked / 13 eligible / 1 skipped,
-   96 is 12 / 19 / 7. DoD 7 predicted this and the instrument now proves it live. The fix is the
-   denominator (2.1-2.3, one route per file), not a bigger cap — but the number is worth watching.
-7. **The redundant menu and the universal gallery — owner-reported, confirmed in duo 1.**
-   `navigation` publishes the same links under several role keys (95: `public` ≡ `customer`; 96:
-   `admin` ≡ `features`), there are two exports aliasing one array, and a **twelve-table trattoria
-   shipped `GalleryPage.tsx`, `ArtworkDetailPage.tsx` and a hero CTA reading "Explore the
-   collection"**. **Both fixes must be general** — anything keyed on an industry string is the
-   `generic`-industry defect wearing a new hat. **Screenshot the header before fixing the duplicate
-   half**: the template's selector reads one key, caps at 5 and dedupes, so the on-screen cause is
-   not yet established. Full write-up in the roadmap.
-8. **Q8 and Q11 still need a trio**, and only those two do. Q8 is the dead-link confirming run; Q11
+   96 is 12 / 19 / 7. The fix is the denominator (2.1-2.3, one route per file), not a bigger cap.
+7. **Q8 and Q11 still need a trio**, and only those two do. Q8 is the dead-link confirming run; Q11
    needs runs that actually collide, and **contention appeared on only 4 of 16 runs ever**, so a trio
-   is necessary and not sufficient. Batch them with item 3 so the trio earns its three runs.
-9. **Someone with a browser still has to look at CI once.** `main` is pushed as of 2026-08-04, so a
-   vitest run on `main` should now exist to look at.
+   is necessary and not sufficient. Batch them with item 1 so the runs earn their cost.
+8. **Someone with a browser still has to look at CI once.** `main` was pushed at `122ef79`, so a
+   vitest run should exist for it.
 
 ### Credits — a premise this document and the pre-flight both had wrong
 
@@ -284,10 +429,11 @@ single mutation is applied. Prefer `docker run` in every new driver.
 
 **Mutation-test every guard.** A guard whose success looks like its failure is this repo's recurring
 defect. Revert the fix, confirm the test goes red, restore — from an **in-memory backup**, never
-`git checkout` (it ate a session's uncommitted work once already). Five drivers to copy live in
-`backend/scripts/cli/mutate_*.py` and one in `preview-template-tests/tools/mutate.py`.
+`git checkout` (it ate a session's uncommitted work once already). **Fifteen** drivers to copy live
+in `backend/scripts/cli/mutate_*.py` and one in `preview-template-tests/tools/mutate.py`.
+**Run one at a time** — two sweeps against the same live-mounted source make both verdicts noise.
 
-Four blind spots, all four found the expensive way. Check for each by default:
+Six blind spots, all six found the expensive way. Check for each by default:
 
 1. **Asserting against the case that does not bind.** Every contract test used `public-home`, the one
    skeleton under budget, so reverting the fix changed nothing it could see.
@@ -297,6 +443,12 @@ Four blind spots, all four found the expensive way. Check for each by default:
 3. **Guards that cannot fail** — the four in the table above.
 4. **Fixtures too small to reach the rule.** Size the fixture to the boundary: the cap only binds
    above 12 routes, so a three-route app proves nothing about it.
+5. **A test that adapts until it passes cannot fail.** Mine trimmed a route list until the full
+   detail level fit — so a mutation that bloated the payload made it trim to *one* route, which
+   cannot show the duplicate it was checking for. Fix the fixture, then assert the level.
+6. **Never assert against the constant a mutation would change.** Mine imported
+   `_ROUTES_CONTEXT_BUDGET` and compared the output to it, so raising the budget to 100,000 passed.
+   Write the number the *consumer* imposes, in the test, by hand.
 
 Assume any DoD row you did not personally mutate is unproven. Three that session 4 marked "done" were
 false in production **and** in the test meant to pin them.
@@ -358,6 +510,19 @@ docker run --rm -v "$REPO:/repo" -v /tmp/ws:/ws:ro -w /repo/backend \
   -c 'python3 /repo/backend/scripts/measure/route_bijection.py --workspaces /ws'
 ```
 
+The two that read the **database** run in the api container instead, and take run ids:
+
+```bash
+docker compose exec api python /app/backend/scripts/measure/codegen_cost.py 95 96
+docker compose exec api python /app/backend/scripts/measure/appspec_cost.py 95 96
+```
+
+`codegen_cost.py` is new in session 10 and its `(unattributed)` buckets are the point of it: they
+are AI called outside any `ai_call` scope, which the stage fallback silently bills to whatever the
+run's `purpose` is. **If a bucket like that appears again, the writer is missing a scope — do not
+fold it into a neighbour.** Straight database queries also work and were how most of this session's
+numbers came out; the credentials are `-U bmv -d buildmyversion`, not `postgres`.
+
 `route_bijection.py` prefers the *repo* over `/app/backend` on `sys.path`, deliberately and unlike
 the other tools in that directory — the baked image copy silently shadowed the function under test
 on the first attempt and the import failed with a name that exists in the checkout.
@@ -368,7 +533,15 @@ on the first attempt and the import failed with a name that exists in the checko
 
 Ordered by what I would do first. Every item has evidence; none is speculative.
 
-### 1. p50 is 569-590 s against a ≤ 500 s DoD, and the lever is call *count*
+### 1. p50 is 571-573 s against a ≤ 500 s DoD, and appspec is 8 % of it
+
+**Session 10's census supersedes this section's premise.** Per-run AI on duo 1: `slot_fill` 205.3 s
+(147.7 discarded), planning 155.4 s, `refine` 151.5 s, `design_critic` 138.4 s, **`appspec` 68.8 s**,
+rest 144.3 s. Deleting appspec entirely does not reach 500 s. **Recommendation: (A).** The paragraphs
+below are kept because their appspec decomposition is still correct — as a description of a stage
+that is not the bottleneck.
+
+### 1b. The older reading — appspec's call *count* (still true, no longer the lever)
 
 `appspec` spans **264.5 s and 288.8 s** on requests 83 and 84 — roughly half the budget before
 anything is built. **Bounding `appspec` is not in Phase 1's item list.**
@@ -382,7 +555,13 @@ non-AI in the span, 13 % of AI time recorded `usable=false`. Not a per-call late
 an orchestration problem — the total is set by **how many** calls. Each extra call ≈ 50-75 s.
 *Which* loop spends them is instrumented (`56d8f08`) and answerable only from a funded trio.
 
-### 2. 1.12 — a MANDATORY stage with no deterministic path
+### 2. 1.12 — a MANDATORY stage with no deterministic path, and session 10 found the reason
+
+**`plan_phase.py:295-298` rescues an architect failure only `if ctx.enforce_app_spec and
+ctx.app_spec_result and ctx.app_spec_scope`, and `APPSPEC_MODE=shadow` makes `enforce_app_spec`
+`False` on every run.** So the deterministic path exists in code and is unreachable in this
+environment, which is exactly why 74, 92 and 94 stored nothing. The recommendation below stands; the
+mechanism is now named rather than inferred.
 
 Request 74 stored **nothing**: no `preview_app`, no `roles`, empty `generated_pages`. At t=540.4 s
 `call_architect` raised 9 ms later. `architect` is MANDATORY, whose contract is that such stages take
@@ -393,7 +572,7 @@ burned 390 s and failed.
 deadline codegen is refused too, so it would ship an architecture with wholly generic pages —
 precisely the artifact 2.9 exists to avoid. Bound `appspec` instead. **Owner has not ruled.**
 
-### 3. The **fix agent's** route context collapses — confirmed live, deliberately unfixed
+### 3. The **fix agent's** route context — LANDED in session 10 (`eb49f43`), effect unmeasured
 
 `_catalogue_routes_context` (`codegen/architect.py:139`) serializes one **full** skeleton contract per
 catalogue route into a 10,000-char `bounded_json`. Offline: 1 route = 5,004 chars, 2 routes =
@@ -406,10 +585,13 @@ dict, and its only callers are `fix_agent` (`:482`, `:530`) and `chat_rebuild` (
 truncated preview goes to the **repair path**, the consumer that most needs each page's contract. On
 93 the fix agent ran twice for 147.8 s of AI against a route block it could not read.
 
-The fix is "state the allow-list once per run rather than once per route", which also recovers most
-of the ~18k tokens/run. **It changes what the model sees.** Trio 7 supplied the confirmation it was
-waiting for; it did not supply a before/after on repair quality, so land it with a trio ready to
-measure that.
+**Landed, and the fix was bigger than the filed one.** "State the allow-list once per run" is done —
+and measured on 93's real nine routes it is 45k+ → **18,869 chars against a 10,000 budget**, a 2.4×
+cut that is *still* 1.9× over. So the hoist alone would have left every archived run with more than
+two catalogue routes still receiving `{"truncated": true}`. The block now also degrades by dropping
+rather than collapsing: four rungs, `detail_level` naming which was sent, route identity preserved at
+every one. Across all archived runs nothing receives a truncated preview and no route is omitted.
+**Repair quality is still unmeasured** — it changes what the model sees, and that wants a run.
 
 ### 4. DoD 7's second half — one page file, two routes, one reachable contract
 
@@ -462,6 +644,16 @@ Scopes added in `builder.py` (`authoring`, real attempt numbers; `repair`), `cov
 ask > 120 s inclusive of failovers"** groups logical asks by `(request_id, stage, writer)`, and for
 appspec that grouping had nothing to group on — **the row was evaluated on data that structurally
 could not show an appspec failover.** Unproven for this stage until a funded trio re-measures.
+**Trio 7 and duo 1 have since produced labelled appspec rows** (`writer` non-null on all of them), so
+the appspec half of this is answered; the same sentence now applies to the four `planning` scopes
+added in `46c28d2`, which no run has yet exercised.
+
+### 9. Four fixes are mutation-proven and none is production-proven
+
+`46c28d2`, `e0eeec5`, `eb49f43`, `b729d88`. Every one was measured against stored evidence — the duo's
+telemetry, the archived corpus, the container log — and none has been through a generation. Session 9
+wrote down exactly this gap for 1.13 and then watched neither of its bounds fire on a real run.
+**"Reachable" and "reached" are different claims**, and right now these four are only the first.
 
 ---
 
