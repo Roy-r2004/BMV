@@ -56,7 +56,103 @@ _TRIOS = {
     # zero credit refusals across the window — this one is valid.
     "7": ([92, 93, 94], {92: 1785778218, 93: 1785778280, 94: 1785778340}),
 }
-IDS, LAUNCH = _TRIOS[sys.argv[1] if len(sys.argv) > 1 else "1"]
+#: Void on credits, and present rather than absent on purpose — see `tail.py`.
+_TRIOS["6"] = None
+
+
+def select_trio(argv: list[str]) -> tuple[list[int], dict[int, int]]:
+    """Resolve the trio key. Called from `main`, never at import time.
+
+    Parsing `sys.argv` at module scope made this file unimportable — under
+    pytest `sys.argv[1]` is a test path, so the module raised `KeyError` before
+    a single function could be reached, and that is why the arithmetic in here
+    went four trios without a test while reporting a key nothing wrote.
+    """
+
+    key = argv[0] if argv else "1"
+    if key not in _TRIOS:
+        raise SystemExit(f"unknown trio {key!r}; known: {', '.join(sorted(_TRIOS))}")
+    selected = _TRIOS[key]
+    if selected is None:
+        raise SystemExit(
+            f"trio {key} is void — its numbers must not be cited. "
+            "Pass the run ids to a tool that takes them if you really mean those requests."
+        )
+    return selected
+
+
+def appspec_health(rows) -> dict:
+    """Summarize one request's AppSpec revisions.
+
+    Pure on purpose — `main` does the SQL, this does the arithmetic, and the
+    tests drive this. Both measurement tools in this directory have shipped a
+    defect that only a test would have caught: `analyse.py` read a
+    `gate_issues` key nothing ever wrote, and `tail.py` hardcodes a run list and
+    silently reports nothing for any other trio.
+
+    `rows` are `app_spec_revisions` for one request, oldest first, each with
+    `status`, `app_spec_sha256`, `parent_revision_id`, the deterministic
+    validation payload and the generation metadata.
+
+    Three of these numbers exist because reading the raw table by hand misled
+    me first:
+
+    * `revisions` **overcounts attempts.** A candidate is persisted before and
+      after the graph-repair pass, so a repair that changed nothing stores the
+      same `app_spec_sha256` twice — requests 92 and 94 show 8 and 4 revisions
+      for 6 and 3 distinct candidates. Compare `distinct_candidates`.
+    * `fresh_authoring_chains` is the defect 1.13 fixed, made visible. A null
+      `parent_revision_id` is an authoring call that started over rather than
+      repairing what came before. Request 92 did it **three** times. On a run
+      after `27b12bf` this should be 1, and 2 only if the stage was re-entered
+      with nothing accepted to reuse.
+    * `final_blocking` is the run's actual verdict. Counting issue codes across
+      *all* revisions says `state_ids` dominates; per final revision, requests
+      92, 93 and 94 failed on three different things. Superseded revisions are
+      history, not causes.
+    """
+
+    ordered = list(rows)
+    if not ordered:
+        return {"revisions": 0, "accepted": 0, "note": "no AppSpec revision stored"}
+
+    def _meta(row) -> dict:
+        try:
+            return json.loads(row.get("generation_metadata_json") or "{}")
+        except Exception:
+            return {}
+
+    final = ordered[-1]
+    try:
+        final_validation = json.loads(final.get("deterministic_validation_json") or "{}")
+    except Exception:
+        final_validation = {}
+
+    codes: Counter = Counter()
+    paths: Counter = Counter()
+    for issue in final_validation.get("issues") or []:
+        codes[str(issue.get("code") or "")] += 1
+        detail = issue.get("detail")
+        if isinstance(detail, list):
+            for entry in detail:
+                if isinstance(entry, dict) and entry.get("loc"):
+                    paths[".".join(str(part) for part in entry["loc"])] += 1
+
+    return {
+        "revisions": len(ordered),
+        "distinct_candidates": len({r.get("app_spec_sha256") for r in ordered}),
+        "accepted": sum(1 for r in ordered if r.get("status") == "accepted"),
+        "fresh_authoring_chains": sum(
+            1 for r in ordered if r.get("parent_revision_id") is None
+        ),
+        "terminal_reasons": sorted(
+            Counter(str(_meta(r).get("terminal_reason") or "-") for r in ordered).items()
+        ),
+        "final_revision_id": final.get("id"),
+        "final_is_valid": bool(final_validation.get("is_valid")),
+        "final_blocking": sorted(codes.items()),
+        "final_blocking_paths": sorted(paths.items(), key=lambda kv: (-kv[1], kv[0]))[:8],
+    }
 
 
 def _p(values, q):
@@ -69,6 +165,7 @@ def _p(values, q):
 
 
 def main() -> None:
+    IDS, LAUNCH = select_trio(sys.argv[1:])
     out: dict = {"runs": {}, "asks": {}}
     with engine.connect() as conn:
         for rid in IDS:
@@ -142,6 +239,26 @@ def main() -> None:
                 "db_updated_epoch": row["updated"],
                 "launch_epoch": LAUNCH.get(rid),
             }
+
+        # --- AppSpec acceptance --------------------------------------------
+        # The stage's own record lives in `app_spec_revisions`, which nothing in
+        # this tool ever read. Trio 7 was 0-accepted-of-18 and no report said so;
+        # the finding came out of querying the table by hand. It is the durable
+        # evidence for 1.13's second half, so it is read here rather than
+        # denormalized into `preview_app` the way `gate_issues` had to be — that
+        # key needed writing because gate issues were ephemeral. These are not.
+        for rid in IDS:
+            revisions = conn.execute(
+                text(
+                    "SELECT id, revision, status, app_spec_sha256, parent_revision_id, "
+                    "deterministic_validation_json, generation_metadata_json "
+                    "FROM app_spec_revisions WHERE request_id = :i ORDER BY id"
+                ),
+                {"i": rid},
+            ).mappings().all()
+            out.setdefault("appspec", {})[rid] = appspec_health(
+                [dict(r) for r in revisions]
+            )
 
         # --- logical asks -------------------------------------------------
         rows = conn.execute(
@@ -217,6 +334,17 @@ def main() -> None:
             }
             for stage, v in sorted(spans.items(), key=lambda kv: -kv[1]["ai_seconds"])
         }
+
+        # Calls per writer, for `appspec` specifically. 1.13 made the ceiling
+        # per request rather than per entry into the stage; the way to see
+        # whether it binds is this row against `APPSPEC_MAX_CALLS`. Trio 7 read
+        # 7, 6 and 10 against a configured 6.
+        appspec_rows = [r for r in rs if (r["stage"] or "") == "appspec"]
+        if appspec_rows:
+            out.setdefault("appspec", {}).setdefault(rid, {})["calls_by_writer"] = sorted(
+                Counter(str(r["writer"] or "(none)") for r in appspec_rows).items()
+            )
+            out["appspec"][rid]["calls_total"] = len(appspec_rows)
 
         durations = [a["seconds"] for a in asks]
         out["asks"][rid] = {

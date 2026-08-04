@@ -31,11 +31,52 @@ from sqlalchemy import text  # noqa: E402
 
 from app.infrastructure.db.session import engine  # noqa: E402
 
-RUNS = [74, 75, 76, 77, 78, 79, 80, 81, 82]
+#: Trio keys, mirroring `analyse.py`. This list used to be nine hardcoded run
+#: ids with no way to pass others, so it silently reported nothing for trio 7 —
+#: the runs it skips are exactly the ones that stored no `elapsed_seconds`, and
+#: it prints one line about that and moves on. Q10 went unanswered in the first
+#: write-up for no better reason than this. Trio 6 is absent deliberately: it is
+#: void on credits and giving it a key here would invite a citation.
+_TRIOS: dict[str, list[int] | None] = {
+    "1": [74, 75, 76],
+    "2": [77, 78, 79],
+    "3": [80, 81, 82],
+    "4": [83, 84, 85],
+    "5": [86, 87, 88],
+    #: Void on credits, and present rather than absent on purpose. Left out of
+    #: the table, `tail.py 6` would fall through to "explicit run ids" and
+    #: happily decompose request **6** — an unrelated run from another week,
+    #: reported without a word about the substitution.
+    "6": None,
+    "7": [92, 93, 94],
+    #: The nine-run corpus the 33 %-AI / 67 %-non-AI decomposition came from.
+    "baseline": [74, 75, 76, 77, 78, 79, 80, 81, 82],
+}
+
+
+def _runs(argv: list[str]) -> list[int]:
+    """Trio key, explicit run ids, or the historical default."""
+
+    if not argv:
+        runs = _TRIOS["baseline"]
+        assert runs is not None
+        return runs
+    if argv[0] in _TRIOS:
+        runs = _TRIOS[argv[0]]
+        if runs is None:
+            raise ValueError(
+                f"trio {argv[0]} is void — its numbers must not be cited. "
+                "Pass explicit run ids if you really mean those requests."
+            )
+        return runs
+    return [int(value) for value in argv]
+
+
 TOTAL = 540.0
 
 
 def main() -> None:
+    RUNS = _runs(sys.argv[1:])
     with engine.connect() as conn:
         meta = {
             r["id"]: r
@@ -74,6 +115,10 @@ def main() -> None:
         deadline_at = float(info["created"]) + TOTAL
         tail = float(info["elapsed"]) - TOTAL
         if tail <= 0:
+            # Said out loud. A run that finished inside its deadline and a run
+            # this tool could not read are different facts, and skipping both in
+            # silence is how the nine-run corpus read as "every run has a tail".
+            print(f"{rid:>4}  (finished {-tail:.1f}s inside the deadline — no tail)")
             continue
 
         by_stage: dict[str, float] = {}
