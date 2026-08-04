@@ -155,7 +155,20 @@ class _ResolvedGenerationPolicy:
     allow_fallback: bool
 
 class _StageLimitedAIProvider:
-    """Small per-stage ceiling layered over the request-wide provider budget."""
+    """AppSpec's AI ceiling, held per REQUEST and behind a runway reservation.
+
+    Two bounds, and they fail differently:
+
+    * `APPSPEC_MAX_CALLS` is spent against the deadline's tally, so entering the
+      stage a second time continues the budget instead of minting a new one.
+    * `APPSPEC_DOWNSTREAM_RESERVE_SECONDS` refuses a call that would leave the
+      rest of the pipeline less time than any shipped run has ever needed.
+
+    The second is the one that matters for the artifact. A call budget bounds
+    how *often* the stage asks; only a runway bound stops it consuming the time
+    `architect` and `codegen` still have to spend, which is how requests 92 and
+    94 reached their deadline with an approved contract and no preview at all.
+    """
 
     def __init__(self, provider: AIProvider, max_calls: int) -> None:
         # Direct preview generation enters the preview-wide budget decorator
@@ -174,11 +187,39 @@ class _StageLimitedAIProvider:
         self._lock = threading.Lock()
 
     def _acquire(self) -> None:
+        from app.application.services.request_deadline import current_deadline
+
+        deadline = current_deadline()
+        if deadline is None:
+            # No armed deadline (admin re-runs, tests). Nothing request-scoped
+            # exists to hold the tally, so the ceiling is per instance — the
+            # historical behaviour, and safe because there is no clock to blow.
+            with self._lock:
+                if self.calls_used >= self.max_calls:
+                    raise AppSpecCallBudgetExceeded(
+                        f"AppSpec AI call budget exhausted ({self.calls_used}/{self.max_calls})."
+                    )
+                self.calls_used += 1
+            return
+
+        left = deadline.remaining()
+        reserve = float(settings.APPSPEC_DOWNSTREAM_RESERVE_SECONDS)
+        if left < reserve:
+            # Recorded, never silent: a run whose contract stage ran out of
+            # runway and a run that simply needed fewer calls must not describe
+            # themselves the same way.
+            deadline.record_degradation("appspec", "stopped_low_downstream_runway")
+            raise AppSpecCallBudgetExceeded(
+                f"AppSpec stopped with {left:.1f}s of runway; every run that "
+                f"has ever shipped needed at least {reserve:.0f}s after this stage."
+            )
+        if not deadline.consume_stage_call("appspec", self.max_calls):
+            deadline.record_degradation("appspec", "call_budget_exhausted")
+            raise AppSpecCallBudgetExceeded(
+                "AppSpec AI call budget exhausted "
+                f"({deadline.stage_calls_used('appspec')}/{self.max_calls}) for the request."
+            )
         with self._lock:
-            if self.calls_used >= self.max_calls:
-                raise AppSpecCallBudgetExceeded(
-                    f"AppSpec AI call budget exhausted ({self.calls_used}/{self.max_calls})."
-                )
             self.calls_used += 1
 
     def ask_chat(self, model: str, messages: list[dict], **kwargs: Any) -> str:

@@ -169,6 +169,7 @@ class RequestDeadline:
     started_at: float = field(default_factory=time.monotonic)
     _degradations: list[Degradation] = field(default_factory=list, repr=False)
     _waits: dict[str, float] = field(default_factory=dict, repr=False)
+    _stage_calls: dict[str, int] = field(default_factory=dict, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
@@ -187,6 +188,32 @@ class RequestDeadline:
 
     def has_runway(self, seconds: float) -> bool:
         return self.remaining() >= seconds
+
+    def consume_stage_call(self, stage: str, limit: int) -> bool:
+        """Take one AI call from `stage`'s **request-wide** budget.
+
+        Returns False once the stage has spent `limit` calls on this request,
+        however many times the stage was entered.
+
+        A ceiling held on the stage object instead of here is a ceiling per
+        *invocation*, and a stage entered more than once per generation then has
+        no effective ceiling at all. `appspec` is entered twice — the
+        orchestrator defines the contract and the preview pipeline confirms it —
+        and was measured on requests 92-94 making 7, 6 and 10 calls against a
+        configured 6, because each entry minted a fresh budget. The tally lives
+        on the deadline because that is the object already scoped to exactly one
+        generation and already crossing threads with it.
+        """
+        with self._lock:
+            used = self._stage_calls.get(stage, 0)
+            if used >= max(1, int(limit)):
+                return False
+            self._stage_calls[stage] = used + 1
+            return True
+
+    def stage_calls_used(self, stage: str) -> int:
+        with self._lock:
+            return self._stage_calls.get(stage, 0)
 
     def record_degradation(self, stage: str, reason: str) -> None:
         entry = Degradation(stage=stage, reason=reason, elapsed_seconds=self.elapsed())

@@ -190,6 +190,7 @@ class Settings:
     APPSPEC_SCHEMA_VERSION: str
     APPSPEC_PROMPT_REVISION: str
     APPSPEC_MAX_CALLS: int
+    APPSPEC_DOWNSTREAM_RESERVE_SECONDS: float
     APPSPEC_MAX_REPAIR_ATTEMPTS: int
     APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS: int
     APPSPEC_MAX_DETERMINISTIC_HEALS: int
@@ -352,10 +353,33 @@ class Settings:
         self.APPSPEC_V2_COVERAGE_MODEL = _env_or(
             "APPSPEC_V2_COVERAGE_MODEL", self.APPSPEC_COVERAGE_MODEL
         )
+        # Per REQUEST, not per entry into the stage. `appspec` is entered twice
+        # a generation, so while this was enforced per entry the effective
+        # ceiling was double the configured one: requests 92, 93 and 94 made 7,
+        # 6 and 10 calls against a configured 6, and none of them logged a
+        # budget-exhausted line. 8 rather than 6 because the largest *accepted*
+        # AppSpec in the corpus took 7 calls (request 87), and a request-wide 6
+        # would have refused the call that produced it.
         try:
-            self.APPSPEC_MAX_CALLS = max(2, int(os.getenv("APPSPEC_MAX_CALLS", "6")))
+            self.APPSPEC_MAX_CALLS = max(2, int(os.getenv("APPSPEC_MAX_CALLS", "8")))
         except ValueError:
-            self.APPSPEC_MAX_CALLS = 6
+            self.APPSPEC_MAX_CALLS = 8
+        # `appspec` may not start an AI call that leaves the rest of the pipeline
+        # less than this. Sized to the corpus, not to a guess: across requests
+        # 77-94 the five runs that reached `ready` needed 284.6, 382.1, 457.5,
+        # 458.7 and 504.9 s after their last appspec call, so 280 s is under
+        # every one of them and no shipped run would have lost a call. The two
+        # runs that stored *nothing* — 92 and 94 — left 91 s and 136 s, and each
+        # would have had roughly 120 s returned to the stages that had to
+        # follow. Fitted to a minimum over n=5: when it is wrong the cost is a
+        # degraded AppSpec, which is the designed outcome, and the alternative
+        # it replaces is an empty record.
+        try:
+            self.APPSPEC_DOWNSTREAM_RESERVE_SECONDS = max(
+                0.0, float(os.getenv("APPSPEC_DOWNSTREAM_RESERVE_SECONDS", "280"))
+            )
+        except ValueError:
+            self.APPSPEC_DOWNSTREAM_RESERVE_SECONDS = 280.0
         try:
             self.APPSPEC_MAX_REPAIR_ATTEMPTS = max(
                 0, int(os.getenv("APPSPEC_MAX_REPAIR_ATTEMPTS", "3"))
