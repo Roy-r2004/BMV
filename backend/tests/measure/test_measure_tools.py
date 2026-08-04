@@ -278,6 +278,46 @@ def test_the_default_trio_is_unchanged_for_a_bare_invocation() -> None:
     assert set(launch) == {74, 75, 76}
 
 
+# --- analyse.run_row --------------------------------------------------------
+#
+# Every defect this tool has shipped has been one key in this dict read from a
+# record nothing writes. `gate_issues` went four trios that way; `viewable` went
+# every trio, and duo 1 filed `viewable: None` on two runs that shipped `ready`
+# as an unexplained pipeline defect. The row was unreachable by a test until it
+# was lifted out of the query loop.
+
+
+def test_viewable_is_derived_from_status_not_read_from_a_key_nobody_writes() -> None:
+    """`finalize` keeps `viewable` as a local and publishes `status` and `url`.
+
+    Reading `preview_app["viewable"]` therefore returns `None` for every run
+    that has ever existed — including the two that shipped.
+    """
+
+    ready = analyse.run_row({"preview_app": {"status": "ready", "url": "/x/95/"}})
+    failed = analyse.run_row({"preview_app": {"status": "failed", "url": None}})
+
+    assert ready["viewable"] is True
+    assert failed["viewable"] is False
+
+
+def test_a_run_that_stored_no_preview_app_reports_viewable_as_unknown() -> None:
+    """Requests 92 and 94 stored nothing at all. `False` would say the pipeline
+    decided not to serve; the truth is that it never got as far as deciding."""
+
+    assert analyse.run_row({})["viewable"] is None
+    assert analyse.run_row({"preview_app": {}})["viewable"] is None
+
+
+def test_the_withheld_reason_is_read_from_the_record() -> None:
+    row = analyse.run_row(
+        {"preview_app": {"status": "failed", "withheld_reason": "quality_gate_failed"}}
+    )
+
+    assert row["withheld_reason"] == "quality_gate_failed"
+    assert row["viewable"] is False
+
+
 # --- codegen_cost -----------------------------------------------------------
 #
 # The `codegen` stage total is the p50 term (315 s / 24 calls on 95, 436.9 s /

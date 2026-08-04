@@ -171,6 +171,90 @@ def _p(values, q):
     return ordered[lo] + (ordered[hi] - ordered[lo]) * (k - lo)
 
 
+def run_row(
+    gp: dict,
+    *,
+    request_status: str | None = None,
+    created: float | None = None,
+    updated: float | None = None,
+    launch_epoch: float | None = None,
+) -> dict:
+    """One run's row, from its stored `generated_pages` bundle.
+
+    Extracted from `main` so it can be called without a database. Every defect
+    this tool has shipped has been in exactly this dict — a key read that
+    nothing writes — and none of them was reachable by a test while the
+    arithmetic lived inside the query loop.
+    """
+
+    pa = gp.get("preview_app") or {}
+    return {
+        "request_status": request_status,
+        "preview_status": pa.get("status"),
+        # `viewable` was read here for every trio and **never written**:
+        # it is a local in `finalize`, and duo 1 reported `viewable:
+        # None` on two runs that both shipped `ready`. It is exactly
+        # `status == "ready"`, so it is derived rather than stored — a
+        # second key free to disagree with the first is the defect this
+        # is fixing, one layer down. `None` still means "no record".
+        "viewable": None if not pa else pa.get("status") == "ready",
+        # Written by `finalize` as of this session, always present and
+        # `None` when the preview is served. A run before that stores
+        # nothing, so `None` here is ambiguous for runs <= 96 only.
+        "withheld_reason": pa.get("withheld_reason"),
+        "degraded": pa.get("degraded"),
+        "degradations": pa.get("degradations"),
+        "deadline_seconds": pa.get("deadline_seconds"),
+        "elapsed_seconds": pa.get("elapsed_seconds"),
+        "deadline_exceeded": pa.get("deadline_exceeded"),
+        "blocked_seconds": pa.get("blocked_seconds"),
+        "contention": pa.get("contention"),
+        # This key was read here for four trios and **never written** —
+        # every table this tool produced said `gate_issues: 0`, including
+        # the ones the roadmap quotes, and the real per-code counts came
+        # from grepping container logs. Written by `finalize` as of session
+        # 8, with the failing page's `skeleton_id` beside each code, which
+        # is what pre-flight question 5 needs and could not get. A run
+        # before that stores nothing, so `None` here means "not recorded",
+        # never "no issues".
+        "gate_issues": (
+            None if pa.get("gate_issues") is None else len(pa["gate_issues"])
+        ),
+        "gate_codes": sorted(
+            Counter(
+                str(i.get("code") or "")
+                for i in (pa.get("gate_issues") or [])
+            ).items()
+        ),
+        "gate_codes_by_skeleton": sorted(
+            Counter(
+                f"{i.get('code')}@{i.get('skeleton_id') or '-'}"
+                for i in (pa.get("gate_issues") or [])
+            ).items()
+        ),
+        # `None` here means the run predates 2026-08-03 — trios 4 and 5
+        # stored nothing when the critic was skipped. It does NOT mean
+        # "reason unknown". Runs after that report one of
+        # `visual_critic.VISUAL_NOT_RUN_REASONS` instead. Those rows are
+        # left as they were stored; rewriting collected evidence to match
+        # a later schema is how a corpus stops being evidence.
+        "visual_review_status": pa.get("visual_review_status"),
+        "visual_pages_reviewed": len(
+            [
+                p
+                for p in (pa.get("visual_review") or {}).get("pages", [])
+                if (p or {}).get("verdict")
+            ]
+        )
+        if isinstance(pa.get("visual_review"), dict)
+        else None,
+        "pages": len(pa.get("pages") or gp.get("pages") or []),
+        "db_created_epoch": created,
+        "db_updated_epoch": updated,
+        "launch_epoch": launch_epoch,
+    }
+
+
 def main() -> None:
     IDS, LAUNCH = select_trio(sys.argv[1:])
     out: dict = {"runs": {}, "asks": {}}
@@ -188,64 +272,13 @@ def main() -> None:
             if row is None:
                 out["runs"][rid] = {"error": "no such request"}
                 continue
-            gp = json.loads(row["generated_pages"] or "{}")
-            pa = gp.get("preview_app") or {}
-            out["runs"][rid] = {
-                "request_status": row["status"],
-                "preview_status": pa.get("status"),
-                "viewable": pa.get("viewable"),
-                "withheld_reason": pa.get("withheld_reason"),
-                "degraded": pa.get("degraded"),
-                "degradations": pa.get("degradations"),
-                "deadline_seconds": pa.get("deadline_seconds"),
-                "elapsed_seconds": pa.get("elapsed_seconds"),
-                "deadline_exceeded": pa.get("deadline_exceeded"),
-                "blocked_seconds": pa.get("blocked_seconds"),
-                "contention": pa.get("contention"),
-                # This key was read here for four trios and **never written** —
-                # every table this tool produced said `gate_issues: 0`, including
-                # the ones the roadmap quotes, and the real per-code counts came
-                # from grepping container logs. Written by `finalize` as of session
-                # 8, with the failing page's `skeleton_id` beside each code, which
-                # is what pre-flight question 5 needs and could not get. A run
-                # before that stores nothing, so `None` here means "not recorded",
-                # never "no issues".
-                "gate_issues": (
-                    None if pa.get("gate_issues") is None else len(pa["gate_issues"])
-                ),
-                "gate_codes": sorted(
-                    Counter(
-                        str(i.get("code") or "")
-                        for i in (pa.get("gate_issues") or [])
-                    ).items()
-                ),
-                "gate_codes_by_skeleton": sorted(
-                    Counter(
-                        f"{i.get('code')}@{i.get('skeleton_id') or '-'}"
-                        for i in (pa.get("gate_issues") or [])
-                    ).items()
-                ),
-                # `None` here means the run predates 2026-08-03 — trios 4 and 5
-                # stored nothing when the critic was skipped. It does NOT mean
-                # "reason unknown". Runs after that report one of
-                # `visual_critic.VISUAL_NOT_RUN_REASONS` instead. Those rows are
-                # left as they were stored; rewriting collected evidence to match
-                # a later schema is how a corpus stops being evidence.
-                "visual_review_status": pa.get("visual_review_status"),
-                "visual_pages_reviewed": len(
-                    [
-                        p
-                        for p in (pa.get("visual_review") or {}).get("pages", [])
-                        if (p or {}).get("verdict")
-                    ]
-                )
-                if isinstance(pa.get("visual_review"), dict)
-                else None,
-                "pages": len(pa.get("pages") or gp.get("pages") or []),
-                "db_created_epoch": row["created"],
-                "db_updated_epoch": row["updated"],
-                "launch_epoch": LAUNCH.get(rid),
-            }
+            out["runs"][rid] = run_row(
+                json.loads(row["generated_pages"] or "{}"),
+                request_status=row["status"],
+                created=row["created"],
+                updated=row["updated"],
+                launch_epoch=LAUNCH.get(rid),
+            )
 
         # --- AppSpec acceptance --------------------------------------------
         # The stage's own record lives in `app_spec_revisions`, which nothing in

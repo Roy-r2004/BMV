@@ -151,6 +151,38 @@ def _visual_review_summary(workspace, not_run_reason: str | None = None) -> dict
 _SMOKE_MAX_ROUTES = 12
 
 
+def withheld_reason(*, dist_ok: bool, gate_ok: bool, crash_unresolved: bool) -> str | None:
+    """Why a built run is not being served, or `None` when it is.
+
+    `viewable` has always been a local in `finalize` — the record publishes its
+    *consequences* (`status`, `url`) and never the decision, so
+    `scripts/measure/analyse.py` has read `preview_app["viewable"]` and
+    `preview_app["withheld_reason"]` since it was written against keys **no run
+    has ever stored**. Duo 1 reported `viewable: None` on two runs that both
+    shipped `ready`. Sixth entry in the running list of *the instrument was the
+    defect*, after `gate_issues`, `tail.py`'s hardcoded runs, the stale
+    typecheck count, `visual_review_status` and the `writer = NULL` census.
+
+    `viewable` itself is not published: it is exactly `status == "ready"`, and a
+    second key that can disagree with the first is a defect waiting to happen.
+    The *reason* is not derivable from anything stored, and it is the half that
+    tells an operator whether to look at vite, at the gate, or at a page that
+    still renders a stack trace.
+
+    Order matters. A run that failed to build has no gate verdict worth
+    reporting, and a run that passed the gate with an unresolved crash is
+    withheld by the crash and not by the gate.
+    """
+
+    if not dist_ok:
+        return "build_failed"
+    if not gate_ok:
+        return "quality_gate_failed"
+    if crash_unresolved:
+        return "render_crash_unresolved"
+    return None
+
+
 def gate_issue_summary(gate) -> dict:
     """Every gate code this run blocked or warned on, with the failing skeleton.
 
@@ -775,7 +807,10 @@ def run_finalize(ctx: PipelineContext) -> dict:
     crash_unresolved = [
         c for c in (render_report.get("unresolved") or [])
     ]
-    viewable = bool(dist_ok and gate.ok and not crash_unresolved)
+    withheld = withheld_reason(
+        dist_ok=bool(dist_ok), gate_ok=bool(gate.ok), crash_unresolved=bool(crash_unresolved)
+    )
+    viewable = withheld is None
     if dist_ok and gate.ok and crash_unresolved:
         log.error(
             "  FAIL preview %s passed the gate but %s public page(s) render an error "
@@ -855,6 +890,9 @@ def run_finalize(ctx: PipelineContext) -> dict:
     preview_app_result = {
         "url": preview_url,
         "status": "ready" if viewable else "failed",
+        # Always present, `None` when the preview is served. Absent, "not
+        # withheld" and "nobody recorded why" are the same reading.
+        "withheld_reason": withheld,
         "roles": roles_out,
         "routes": route_list,
         "design_direction": architect.get("design_direction", ""),
