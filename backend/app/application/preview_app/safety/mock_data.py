@@ -489,7 +489,83 @@ def _strip_forbidden_mock_stubs(mock: str) -> str:
     )
     return updated
 
-def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
+#: Used when the app declares no public destination of its own. `/` is the one
+#: route every generated app serves, and the wording names no artifact type.
+_NEUTRAL_CTA = {"label": "See what we offer", "href": "/"}
+
+
+def scaffold_hero_ctas(architect: dict | None, brand_name: str = "Brand") -> tuple[dict, dict]:
+    """The scaffold hero's two CTAs, derived from what this app actually serves.
+
+    They used to be literals: ``{label: 'Explore the collection', href:
+    '/gallery'}`` and ``{label: 'Talk to us', href: '/contact#inquire'}``,
+    injected whenever the AI's mock synthesis dropped `hero`. A **twelve-table
+    Neapolitan trattoria** shipped "Explore the collection" that way, and it is
+    verbatim in **7 of 64 archived workspaces** (20, 66, 78, 81, 85, 93, 95)
+    across unrelated industries.
+
+    Two things were wrong with the literal and only one of them is vocabulary:
+
+    * *"the collection"* is one industry's word for its artifact, applied to
+      every business. A restaurant has a menu and a lodge has rooms.
+    * `/gallery` and `/contact#inquire` are **routes the app may not serve**.
+      Request 95's secondary CTA was repaired to `/` by the dead-link guard, so
+      the scaffold shipped a "Talk to us" button that reloads the home page.
+
+    So the rule is not "suppress gallery for restaurants" — nothing here reads
+    an industry, and nothing here may. It is the rule this repo already made
+    once for `AiFeaturePanel`'s hardcoded `/ai-features`, dead in 5 of 41
+    workspaces (`430453a`): **a scaffold cannot assume a route it did not
+    create.** The destination is whichever public route the app declares first
+    by `_nav_rank`, and the label is that page's own name — so a business with
+    a collection gets one and a business without gets whatever it does have,
+    decided identically for both.
+    """
+
+    ranked: list[tuple[int, str, str]] = []
+    for route in (architect or {}).get("routes") or []:
+        path = str(route.get("path") or "").strip()
+        if not path.startswith("/") or ":" in path:
+            continue
+        normalized = path.rstrip("/") or "/"
+        if normalized in _NAV_HOME_PATHS:
+            continue
+        if not _is_public_marketing_nav_path(normalized):
+            continue
+        label = _nav_label(str(route.get("title") or ""), normalized, brand_name)
+        ranked.append((_nav_rank(normalized), normalized, label))
+    ranked.sort(key=lambda entry: (entry[0], entry[1]))
+
+    if not ranked:
+        return dict(_NEUTRAL_CTA), dict(_NEUTRAL_CTA)
+    primary = {"label": ranked[0][2], "href": ranked[0][1]}
+    # A second CTA that repeats the first is worse than one that is simply the
+    # home page, which is where the dead-link guard sent request 95's anyway.
+    secondary = (
+        {"label": ranked[1][2], "href": ranked[1][1]} if len(ranked) > 1 else dict(_NEUTRAL_CTA)
+    )
+    return primary, secondary
+
+
+def _ts_label(cta: dict, key: str = "label") -> str:
+    """One CTA field, escaped for a single-quoted TS literal.
+
+    The labels are route titles now, so they carry whatever the model wrote —
+    `Nonna's Menu` would end the string and break the module.
+    """
+
+    return str(cta.get(key) or ("/" if key == "href" else "")).replace(
+        "\\", "\\\\"
+    ).replace("'", "\\'")
+
+
+def _ts_cta(cta: dict) -> str:
+    return f"{{ label: '{_ts_label(cta)}', href: '{_ts_label(cta, key='href')}' }}"
+
+
+def ensure_seed_scaffold_fields(
+    mock: str, brand_name: str = "Brand", architect: dict | None = None
+) -> str:
     """Guarantee the scaffold keys under `seed`, one key at a time.
 
     AI mock synthesis often replaces `seed` with domain-specific data and drops
@@ -513,14 +589,15 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
     existing = _top_level_keys(mock[body_start:close_at])
 
     brand = (brand_name or "Brand").replace("\\", "\\\\").replace("'", "\\'")
+    primary_cta, secondary_cta = scaffold_hero_ctas(architect, brand_name)
     blocks: dict[str, str] = {
         "hero": (
             "hero: {\n"
             f"    eyebrow: '{brand}',\n"
             f"    headline: '{brand}',\n"
             f"    subcopy: 'A clear next step from {brand} — warm, specific, and ready when you are.',\n"
-            "    primaryCta: { label: 'Explore the collection', href: '/gallery' },\n"
-            "    secondaryCta: { label: 'Talk to us', href: '/contact#inquire' },\n"
+            f"    primaryCta: {_ts_cta(primary_cta)},\n"
+            f"    secondaryCta: {_ts_cta(secondary_cta)},\n"
             "  }"
         ),
         "items": (
@@ -555,14 +632,16 @@ def ensure_seed_scaffold_fields(mock: str, brand_name: str = "Brand") -> str:
             f"    '{brand} quality', 'On schedule', 'Repeat guests', 'Local favorite',\n"
             "  ]"
         ),
+        # Both hrefs were `/contact#inquire`, a route no archived workspace
+        # declares — the same literal the hero used, and the same defect.
         "cta": (
             "cta: {\n"
             f"    heading: 'Ready for {brand}?',\n"
             f"    description: 'Tell {brand} what you need — clear options, real next steps.',\n"
-            "    primaryLabel: 'Get started',\n"
-            "    primaryHref: '/contact#inquire',\n"
-            "    secondaryLabel: 'Talk to us',\n"
-            "    secondaryHref: '/contact#inquire',\n"
+            f"    primaryLabel: '{_ts_label(primary_cta)}',\n"
+            f"    primaryHref: '{_ts_label(primary_cta, key='href')}',\n"
+            f"    secondaryLabel: '{_ts_label(secondary_cta)}',\n"
+            f"    secondaryHref: '{_ts_label(secondary_cta, key='href')}',\n"
             "  }"
         ),
         "footer": (
@@ -635,7 +714,7 @@ def ensure_mock_exports(
     build-correctness — prevents MISSING_EXPORT failures and fix-loop thrashing.
     """
     mock = read_file(workspace, "src/data/mock.ts")
-    seeded = ensure_seed_scaffold_fields(mock, brand_name=brand_name)
+    seeded = ensure_seed_scaffold_fields(mock, brand_name=brand_name, architect=architect)
     if seeded != mock:
         mock = seeded
         write_file(workspace, "src/data/mock.ts", mock)

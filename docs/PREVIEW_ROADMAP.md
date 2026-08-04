@@ -181,10 +181,38 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-03
+## Status — updated 2026-08-04 (session 10)
+
+> **Read this row first: `APPSPEC_MODE=shadow`.** `.env:12`, confirmed resolved in the running api
+> container. `app_spec_is_required` returns True only for `on`, so on **every** run in this
+> environment `enforce_app_spec` is `False`, `app_spec_scope` is never computed, and
+> `canonical_plan_seed` is `None`. Request 95's own stored record says so:
+> `app_spec_ref.enforced: false` beside an **accepted** revision. Consequences, all of which change
+> how sections below should be read:
+>
+> - **Every consumer of the AppSpec is gated behind `enforce_app_spec`** (`plan_phase.py:86`, `:296`,
+>   `:299`; `finalize.py:533`, `:616`, `:994`). The stage authors, validates, repairs,
+>   coverage-reviews and persists a spec, and then the pipeline plans as if it did not exist.
+> - **`build_experience_plan` therefore takes the legacy path on every run** — planner *plus*
+>   `validate_and_expand_plan`, which is two more full asks. That is most of the 41 % of "codegen"
+>   the census below re-attributes.
+> - **1.12's "a MANDATORY stage with no deterministic path" is explained.** `plan_phase.py:295-298`
+>   rescues an architect failure only `if ctx.enforce_app_spec and ctx.app_spec_result and
+>   ctx.app_spec_scope`. In shadow mode that is never true, so `call_architect` raising always
+>   propagates — which is exactly what requests 74, 92 and 94 did.
+> - **1.13 bounded a stage whose output is not enforced.** The bound is still correct and the tail it
+>   caps is still real; what it buys is cheaper *shadow* work.
+>
+> Nothing here says the setting is wrong — it may be deliberate. It says the roadmap has been
+> reasoning about an enforced AppSpec that this environment has never run. **Whether to set `on` is
+> an owner decision and is not taken here.**
 
 | Item | State |
 |---|---|
+| **codegen census** — which writer spends the calls | **done** — `46c28d2`, `scripts/measure/codegen_cost.py`. **41 % of the `codegen` stage total is not codegen.** `record_usage` falls back to the run *purpose* with no `ai_call` scope and `generate_preview_app` runs the whole preview pipeline under `purpose="codegen"`, so `page_experience.py`'s unscoped planner, validator and design manifest were billed to it: **310.7 s over 11 calls on duo 1** (143.7 s on 95, 167.0 s on 96). Four scopes added under a `planning` stage. Detail below |
+| **`withheld_reason` / `viewable` / `typecheck`** | **two filed defects, both the reader** — `e0eeec5`. `viewable` was **never a key**: `finalize` keeps it as a local and publishes `status` and `url`, so `analyse.py` has read a key no run ever stored. `withheld_reason` likewise, and it is now published (always present, `None` when served, naming which of build / gate / unresolved-crash refused). `viewable` stays *unstored* and derived — a second key free to disagree with `status` is the same defect one layer down. **`typecheck` was never `None`**: the key is `typecheck_status`, and duo 1 stored `errors` with **4** and **8** type errors |
+| **fix agent's route block** | **done** — `eb49f43`. Allow-list stated once per run, and the block degrades by dropping rather than collapsing. Measured on request 93's real nine routes: library 6,019 chars + prop shapes 2,206 + routes 10,597 = **18,869 against a 10,000 budget**, down from 45k+ — so **the hoist alone is a 2.4× cut and still not enough**, which is why the four-rung ladder exists. Across every archived run (10-19 routes) nothing now receives `{"truncated": true}` and no route is dropped. **Repair quality is unmeasured** |
+| **the scaffold's hero CTA** | **done** — `{ label: 'Explore the collection', href: '/gallery' }` was a **literal** in `safety/mock_data.py`, injected whenever the AI's mock dropped `hero`. Verbatim in **7 of 64 archived workspaces** (20, 66, 78, 81, 85, 93, 95) across unrelated industries; request 95's secondary CTA had already been rewritten to `/` by the dead-link guard, so it shipped a "Talk to us" button that reloads the home page. Now derived from the app's own declared public routes, reading no industry. **It does not stop a restaurant being given a gallery page** — that is the plan/architect layer and stays 2.1-2.3's |
 | **0.3** gate-issue classification (content vs layout) | **done** — `a0ecff8`. **Reverses the branch 2.6 had chosen** |
 | **0.6** call census, `ai_usage_events` defects | **done** — `a4f8b55` |
 | **1.1** request-scoped deadline + degradation contract | **done** — `c534fdf`, `58b4956`. **540 s, not 480** |
@@ -440,6 +468,73 @@ Caveats, none of them small: **n=2**, contention 0.0 s on both so nothing about 
 tested, and two concurrent runs put less pressure on `_SESSION_LOCK` than three, so the wall clock
 is **not** a like-for-like against the trio baselines.
 
+### The codegen census — 41 % of the p50 term is not codegen
+
+`scripts/measure/codegen_cost.py`, over duo 1. It reconciles exactly with the table above
+(315.0 + 436.9 = 751.8 s), and then splits it three ways:
+
+| writer | calls | sec | sec/run | re-asks | re-ask s | discarded s |
+|---|---|---|---|---|---|---|
+| `slot_fill` | 40 | **410.7** | 205.3 | 15 | 125.4 | **295.4** |
+| `(unattributed) pre-architect` | 11 | **310.7** | 155.4 | 0 | 0.0 | 45.7 |
+| `utility_content` | 6 | 30.4 | 15.2 | 0 | 0.0 | 0.0 |
+
+**The unattributed bucket is the plan phase.** `record_usage` derives a row's `stage` from the active
+`ai_call` scope and falls back to the run **purpose** when there is none (`admin_ops.py:330`), and
+`generate_preview_app` runs the *whole* preview pipeline under `ai_run_scope(purpose="codegen")`
+(`pipeline/orchestrator.py:39`). `services/page_experience.py` had no scopes, so its asks were
+recorded as `stage = codegen, writer = NULL`. Placed by timestamp against the `architect` call, all
+eleven precede it. Named as of `46c28d2`: `planner`, `plan_validation`, `plan_expansion`,
+`design_manifest`, under a `planning` stage.
+
+Two of those writers had **no log line either**. `validate_and_expand_plan` loops two models,
+swallows every exception, and logs nothing at all — it spent **69.9 s on request 95 and 94.0 s on
+96**, two asks apiece, and neither the container log nor the census carried one word about it. It is
+reached only when `canonical_seed` is `None`, which under `APPSPEC_MODE=shadow` is every run.
+
+**`slot_fill` discarded 295.4 s of 410.7 — 147.7 s per run — and the pipeline knew.** 28 of its 40
+calls were adjudicated `rejected`:
+
+| rejection | count | what it is |
+|---|---|---|
+| `truncated` | 14 | **not truncation.** `finish_reason: error`, 0 completion tokens, ~1,165 chars of partial body, HTTP 200 |
+| catalogue contract | 12 | the fill violated its own skeleton contract |
+| missing export | 2 | |
+
+The first row is a distinct defect: a 200 that failed mid-stream. `call_with_retry` never sees it —
+the HTTP call succeeded — so the *application* re-asks and pays the whole prompt again. Across the
+corpus since 2026-07-27: **79 calls carry `finish_reason: error`; 55 of them billed no output tokens,
+for 474.4 s**, and 15 of those were recorded **usable** because nothing read `finish_reason` past
+`length`. `presumed_usable` condemns that shape as of `46c28d2`, and *only* that shape — 24 other
+`error` rows carry real completion tokens and 514.3 s of work the pipeline used.
+
+### p50 — the recommendation is (A), and this is the arithmetic
+
+**Owner ruling pending; this row is not moved here.** Per-run AI seconds on duo 1, after the census
+re-attributes the plan phase:
+
+| term | s/run | |
+|---|---|---|
+| `slot_fill` | **205.3** | of which **147.7 discarded** |
+| planning (planner + validator + manifest) | **155.4** | |
+| `refine` | 151.5 | |
+| `design_critic` | 138.4 | |
+| `appspec` | **68.8** | the stage 1.13 bounds |
+| everything else | 144.3 | vision, architect, fix_agent, seed, blueprint, demo, utility_content, analyze |
+
+**Deleting `appspec` outright does not reach a 500 s p50.** It is 68.8 s of 863.7 s of AI per run —
+**8 %** — against runs measured at 571 s and 573 s wall clock. The (B) experiment was run, the bound
+landed, and it did not fire on either duo run; the answer the measurement gives is (A).
+
+The four largest terms — 650 s/run, **75 % of a run's AI** — are all per-page fan-out, which is
+exactly what 2.1-2.5 removes by construction. And the single largest recoverable number in the
+pipeline is **147.7 s per run of `slot_fill` output the pipeline itself threw away**, which no bound
+on appspec can touch.
+
+**Recommendation: take (A).** Move the p50 row to Phase 2 and keep 1.13's bound on its own merits —
+it caps a tail trio 7 proved is real (7, 6 and 10 calls against a configured 6) — without crediting
+it with p50 movement it has not produced.
+
 ### The menu is redundant by construction, and every business gets a collection
 
 **Owner-reported on 2026-08-04 and confirmed against duo 1 the same day.** Two defects, both
@@ -463,13 +558,40 @@ menu shows one "Reservations" and the app serves two. 96 carries "Login" and "Co
 **There is no single source of truth for a menu**, so which links a shell shows depends on which key
 it happens to read, and two shells reading different keys disagree about the same app.
 
-**What is confirmed and what is not.** The data-level redundancy above is confirmed by reading the
-duo's `mock.ts`. A menu rendering the *same item twice on screen* is **not** yet confirmed:
-`app-nav.ts:111-116` resolves exactly one key, `usePublicNavItems` caps at 5, `useMemberNavItems`
-dedupes on `href`, and `PublicShell` clones the passed nav rather than adding its own. So either a
-consumer outside that path concatenates, or the visible duplication is these near-identical keys
-disagreeing between header and footer. **Screenshot it before fixing it** — this is exactly the
-class of defect where the obvious cause was wrong twice.
+**Resolved 2026-08-04 (session 10), statically and decisively: the duplicate keys are invisible.**
+Every consumer of `navigation` in the shipped app was enumerated:
+
+| reader | key |
+|---|---|
+| `app-nav.ts:113` `sectionLinks('admin')` | `nav.admin` |
+| `app-nav.ts:114` `sectionLinks('member')` | `nav.member \|\| nav.public` |
+| `app-nav.ts:115` `sectionLinks('public')` | `nav.public` |
+| `PublicLayout.tsx:6` | `navigation?.public` |
+| `AdminLayout.tsx:5` | `navigation?.admin` |
+| `aiHubHref()` | every key, but only to find `/ai-features` |
+
+`customer`, `staff`, `features` and `manager` are **read by nothing**. `navItemsAdmin` and
+`adminNavItems` in `mock.ts` are **imported by nothing** — every ops page calls the
+`useAdminNavItems()` hook and names its *local variable* `adminNavItems`, which is what makes a grep
+look like a consumer. So the redundancy is real, it is dead data, and **no shell renders it twice**.
+Screenshotting was the right instruction and the static answer is stronger than one would have been.
+
+**What IS on screen is a different defect, and it is the one worth fixing.** Request 95's public nav
+is Home, Gallery, Our Menu, Profile, Reservations (capped at 5, `Private Events` dropped). That
+"Reservations" is **`/my-reservations`**: `shortLabel` strips a leading `My ` (`app-nav.ts:20-31`).
+Meanwhile `/reservations` — a declared public route serving `ReservationsPage.tsx` — is **absent from
+`navigation.public` entirely**. The header names the member page with the public page's name and
+never links the public page. Two halves, both general:
+
+1. **A declared public route missing from the public nav.** The generator's, not the template's.
+2. **`shortLabel`'s `My ` strip collides a member page with its public counterpart** — `/my-orders`
+   and `/orders`, `/my-bookings` and `/bookings` are the same shape. The rule has to be about the
+   list (drop a prefix only while the shortened label stays unique among its siblings), never about
+   a route name.
+
+**Neither is landed.** (2) alone changes nothing on screen, because the collision only appears once
+(1) puts both entries in the same list — a fix that changes no outcome is not a fix, so it was
+written, measured against the duo's data, and reverted rather than shipped. They land together.
 
 #### 2. Every business gets a gallery, whatever the business is
 
@@ -1203,7 +1325,12 @@ right by accident (home hero a painting, `/artist` hero the artist at her easel)
    `className` exclusion, and the script prints its own sensitivity: 1,629 chars of 646,646, 0.25 %.
 3. Zero dead internal links by the spec-level cross-check.
 4. The typecheck record exists, its `source_fingerprint` matches shipped source, `error_count = 0`,
-   on 5 consecutive runs.
+   on 5 consecutive runs. **The record exists and this row is FAILING, not unmeasured** — corrected
+   2026-08-04. Duo 1 stored `typecheck_status: "errors"` with `type_errors` of **4** (request 95) and
+   **8** (request 96). The handoff's *"there is no record at all"* came from reading a key named
+   `typecheck`; the writer's key is `typecheck_status` (`finalize._typecheck_summary`). Note the
+   row's own caveat still stands separately: request 83 shipped `ready` with 10 type errors and 78
+   failed with zero, so this number does not decide the ship rate.
 5. `SiteSpec` key-set identical across 5 runs of 5 industries. **Baseline re-taken and it
    reproduces exactly.** There is no `SiteSpec` yet, so the measurement is `src/data/mock.ts`, and
    the "1 key" is `seed`'s: **1 key — `credentials` — is common to all 47 archived workspaces that

@@ -48,8 +48,12 @@ export const seed = {
     eyebrow: 'Preview Brand',
     headline: '',
     subcopy: 'A clear next step from Preview Brand — warm, specific, and ready when you are.',
-    primaryCta: { label: 'Explore the collection', href: '/gallery' },
-    secondaryCta: { label: 'Talk to us', href: '/contact#inquire' },
+    // Both of these used to be `/gallery` and `/contact#inquire` — neither of
+    // which `navigation` above declares, so the template shipped two dead CTAs
+    // by construction, and "the collection" named an artifact type no generic
+    // preview has. A default may only point where the default routes go.
+    primaryCta: { label: 'Services', href: '/services' },
+    secondaryCta: { label: 'See what we offer', href: '/' },
   },
   items: [
     { title: 'Preview Brand signature', description: 'A dependable starting point at Preview Brand.' },
