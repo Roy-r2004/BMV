@@ -55,6 +55,13 @@ _TRIOS = {
     # 28,000-max_tokens probe against both production models, and the api log has
     # zero credit refusals across the window — this one is valid.
     "7": ([92, 93, 94], {92: 1785778218, 93: 1785778280, 94: 1785778340}),
+    # Duo 1 is the 1.13 proof run: TWO runs, and the briefs are requests 92 and
+    # 94 verbatim so the bound is the only variable. Two because the questions
+    # are binary — did the reservation fire, did appspec cap per request, did
+    # the duplicate authoring pass go away — not distributional. It is not a
+    # wall-clock comparison against the trios: two concurrent runs put less
+    # pressure on `_SESSION_LOCK` than three.
+    "duo1": ([95, 96], {95: 1785863897, 96: 1785863958}),
 }
 #: Void on credits, and present rather than absent on purpose — see `tail.py`.
 _TRIOS["6"] = None

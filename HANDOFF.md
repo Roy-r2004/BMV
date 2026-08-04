@@ -1,4 +1,4 @@
-# Session handoff — the no-generation window closed, and the first funded trio (2026-08-03, session 8)
+# Session handoff — the first funded trio, a bound that did not fire, and a duo (2026-08-04, session 9)
 
 Successor to session 7's handoff (in git history at `01facbe`). Still-binding parts are restated
 below; do not go back for them. Process notes, not product docs.
@@ -14,17 +14,18 @@ below; do not go back for them. Process notes, not product docs.
 
 ## State of the repo, in four lines
 
-- **`main` is at the head of this branch, 15 commits ahead of `origin/main` (`dfbfdd6`), NOT pushed.**
-  Working tree clean. Ask the owner before pushing.
-- **Suite: 1,675 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 32 passed.** Run pytest the
+- **`main` is PUSHED and level with `origin/main`** as of 2026-08-04 — the first push in several
+  sessions. A vitest CI run on `main` should now exist; nobody here can read it.
+- **Suite: 1,690 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 32 passed.** Run pytest the
   documented way — see the operating notes. Collection floor ratcheted to 1,669.
-- **Credits are available again.** $330 granted / $287.42 used = **$42.58**, and a 28,000-`max_tokens`
-  probe against both `google/gemini-2.5-flash` and `z-ai/glm-5.2` now returns instead of 402ing.
-  That probe is the pre-flight's check 1 and it costs $0.00014 — run it, do not assume.
+- **Credits: ~$22 left of $330, and a generation costs $0.34.** Runs are not the constraint and never
+  were — see *Credits* below, where the numbers overturn a premise four sessions rationed against.
+  Still run the pre-flight's 28,000-`max_tokens` probe before a batch: it costs $0.00014 and it is
+  the only check that catches the per-request 402 that voided trio 6.
 - **CI is still unreadable from here.** `gh` is not installed and
   [github.com/Roy-r2004/BMV/actions](https://github.com/Roy-r2004/BMV/actions) 404s unauthenticated.
-  **1.10 is not done until that vitest job is green on `main`, and no session so far has been able to
-  look.** Someone with a browser has to check it once.
+  **1.10 is not done until that vitest job is green on `main`.** `main` is now pushed, so a run
+  should exist. Someone with a browser has to look once.
 
 ---
 
@@ -72,44 +73,93 @@ left 284.6-504.9 s, and 92 and 94 left 91 s and 136 s. **14 mutations, 0 survivo
    Changing where a ceiling is enforced changes what the number means; carrying the old value over
    would have been a silent tightening.
 
-**And the check that actually mattered:** all 14 mutations were caught on the first sweep, which is
-not this repo's norm and was the reason to be suspicious rather than pleased. The fix is inert if
-`current_deadline()` is `None` when appspec runs, and every test would still pass. Traced it —
-`orchestrator.py:66` opens the scope around `_run_inner`, the appspec call at `:134` is inside it,
-same thread. **Verify a guard binds on the production path before believing a green sweep.**
+**And the check that actually mattered — which I did, and it was still not enough.** All 14
+mutations were caught on the first sweep, which is not this repo's norm, so I checked the fix was
+not inert: `orchestrator.py:66` opens the deadline scope around `_run_inner` and the appspec call at
+`:134` is inside it, same thread. The guard *can* fire. **Duo 1 then showed it does not fire on a
+healthy run** — 2 and 5 calls against a ceiling of 8, and appspec nowhere near the reservation's
+elapsed. "Reachable" and "reached" are different claims and I proved only the first. **A bound
+written against the worst run in the corpus is silent on every run that is not that bad**, which is
+correct behaviour and also means the trio that motivated it is the only evidence it was needed.
 
-**Still open, and it is the root cause:** nothing is ever accepted. The dominant rejection is
-`pages[].state_ids` empty against a `min_length=1` tuple, 22 occurrences. 1.13's second half.
+### Duo 1 (95-96) — the fix did not fire, and the runs improved anyway
+
+Two runs on the briefs of 92 and 94 verbatim, all five pre-flight checks verified first. **Both
+shipped `ready` with zero gate issues**, against 0 of 3 for the trio. appspec AI went 336.5 → 43.2 s
+and 331.6 → 94.3 s.
+
+**And 1.13 gets no credit for it.** No `stopped_low_downstream_runway`, no `call_budget_exhausted`:
+calls were 2 and 5 against a ceiling of 8, and appspec never reached the elapsed at which the
+reservation engages. **The code I shipped did not execute its new paths on either run.** What moved
+is acceptance — 95's spec was accepted on its first authoring call, 96's never accepted — which is
+the accepted-is-cheap / rejected-is-double mechanism the analysis already predicted.
+
+Two consequences I would rather have found before publishing:
+
+1. **Trio 7's 0-of-18 acceptance was probably an unlucky sample, not a regression**, and the same
+   goes for *"1.12 reproduced twice in one trio"*. I wrote that row as if it were systematic. Duo 1
+   re-ran those exact briefs and both shipped. Corrected in place.
+2. **p50 is not appspec's to fix.** 571 s and 573 s, and codegen is **315 s / 24 calls** and
+   **436.9 s / 33 calls** of AI against appspec's 43 and 94. The (B) experiment answered its
+   question: the answer is (A), for a reason neither of us predicted.
+
+**What else the duo showed, none of it the filed task:** DoD 7's instrument is live and the cap
+binds — 95 is 12 checked / 13 eligible / **1 skipped**, 96 is 12 / 19 / **7 skipped**, so 8 declared
+routes were never smoke-loaded and the record now says so. `typecheck` is **`None`** on both runs,
+which is a DoD row that wants a record with `error_count = 0` on 5 consecutive runs and currently
+has no record at all. And `viewable` is `None` on both despite `status: ready` — unexplained, and
+the same shape as the `visual_review_status` defect session 7 fixed one measurement over.
+
+**Still open, and it is the root cause of the cost:** acceptance. 96 failed on
+`trace_evidence_mismatch`; trio 7's three runs failed on three different things. 1.13's second half.
 
 ## The next step
 
-**Trio 7 ran and is valid. Its one finding that reorders everything below: `appspec`'s repair loop is
-not a p50 optimisation any more — it is why two of three runs stored nothing.** 92 and 94 spent 353 s
-and 339 s in `appspec` (62 % of a 540 s budget) and then reproduced 1.12, a defect the pre-flight
-expected three runs would not reproduce once. Ship rate went **1 of 3 → 0 of 3**.
+**Duo 1 answered the (B) experiment and the answer is (A), for a reason nobody predicted: `codegen`,
+not `appspec`, is what decides p50.** 315 s and 437 s of AI against appspec's 43 s and 94 s. Both
+runs shipped `ready`, and **1.13's bounds never fired**, so the improvement is acceptance variance
+and the fix remains unproven in production.
 
-1. **1.13's second half — make the AppSpec acceptable.** The bound landed; the root cause did not.
-   Nothing was accepted on any of the three runs, and the dominant rejection is one field:
-   `pages[].state_ids` empty against a `min_length=1` tuple, 22 of the parse failures. **Decide which
-   side of that mismatch is wrong** — the writer that omits `state_ids`, or a schema that forbids a
-   page with no states — and note the two are not equivalent: relaxing the schema makes specs
-   acceptable without making them better, which is `placeholder_content_shipped`'s lesson one layer
-   up. Start from `.bmv-debug/` on 92 and 94; the raw authoring responses are in the archive.
-2. **Land the allow-list-once-per-run bound. It is no longer waiting on anything.** It was filed
-   pending trio evidence; trio 7 supplied it (Q6, request 93's real 9-route list collapses to
-   `{"truncated":true,…}`), and the correction that matters is that the consumer is the **fix agent**,
-   not the architect. What the trio did *not* supply is a before/after on repair quality, so land it
-   with the next trio ready to measure that — not with another wait.
-3. **Parameterize `scripts/measure/tail.py`.** It hardcodes `RUNS = [74…82]`, which is why Q10 was
-   missing from the first write-up and had to be run by hand. `analyse.py`'s trio-key shape is the
-   one to copy. Five minutes, and it stops the next trio repeating this.
-4. **Then a trio, and it now has three jobs, not two.** Q8 (the dead-link confirming trio — 93 is one
-   clean run, not three), Q11's concurrency half (`blocked_seconds` was **0.0 s**; nothing collided,
-   so trio 7 is a second clean *clock* and says nothing about concurrency), **and 1.13's p50 half,
-   which is the only way to find out whether ruling (B) worked or whether the row moves to Phase 2
-   under (A).** Pair it with item 2 and one trio answers a fix and three questions. At ~$1 a trio,
-   the reason to batch is attention, not money.
-5. **Someone with a browser still has to look at CI once.** Unchanged and unchangeable from here.
+**The one decision only the owner can make** is whether the p50 row moves to Phase 2 under (A). The
+evidence is in; the ruling is not. **Everything below is workable without it.**
+
+1. **`codegen` is the p50 term. Decompose it before touching it.** 24 and 33 calls a run, 315 s and
+   437 s of AI, dwarfing every other stage. Nobody has ever broken it down by writer the way
+   `appspec_cost.py` broke down appspec — and the `ai_call` scopes to do it already exist. Build the
+   census first and land nothing until it says which writer spends the calls. **The appspec lesson,
+   learned twice now: the obvious loop was not the expensive one.**
+2. **1.13's second half — acceptance.** Trio 7 failed on three different causes and 96 on a fourth
+   (`trace_evidence_mismatch`), so there is no single defect. `analyse.py`'s `appspec_health` now
+   reports `final_blocking` per run; **collect it over the next several runs before choosing a fix**,
+   because n=4 across four causes is not a distribution. Do not relax the schema to make specs
+   acceptable — that makes them pass without making them better, which is
+   `placeholder_content_shipped`'s lesson one layer up.
+3. **Land the allow-list-once-per-run bound.** Waiting on nothing since trio 7 (Q6: request 93's real
+   9-route list collapses to `{"truncated":true,…}`). The consumer is the **fix agent**, not the
+   architect. Land it with a run ready to measure repair quality.
+4. **`typecheck` is `None` on both duo runs.** A DoD row wants the record to exist with
+   `error_count = 0` on 5 consecutive runs; there is no record at all. Find out whether the stage is
+   skipped, failing silently, or never publishing — this is the fifth entry in the running list of
+   *the instrument was the defect*, if it turns out to be one.
+5. **`viewable` is `None` on both duo runs despite `status: ready`.** Unexplained. Same shape as the
+   `visual_review_status` defect from session 7. Cheap to chase, and it gates whether a shipped
+   preview is actually shown.
+6. **The render cap binds and 8 routes went unchecked.** 95 is 12 checked / 13 eligible / 1 skipped,
+   96 is 12 / 19 / 7. DoD 7 predicted this and the instrument now proves it live. The fix is the
+   denominator (2.1-2.3, one route per file), not a bigger cap — but the number is worth watching.
+7. **The redundant menu and the universal gallery — owner-reported, confirmed in duo 1.**
+   `navigation` publishes the same links under several role keys (95: `public` ≡ `customer`; 96:
+   `admin` ≡ `features`), there are two exports aliasing one array, and a **twelve-table trattoria
+   shipped `GalleryPage.tsx`, `ArtworkDetailPage.tsx` and a hero CTA reading "Explore the
+   collection"**. **Both fixes must be general** — anything keyed on an industry string is the
+   `generic`-industry defect wearing a new hat. **Screenshot the header before fixing the duplicate
+   half**: the template's selector reads one key, caps at 5 and dedupes, so the on-screen cause is
+   not yet established. Full write-up in the roadmap.
+8. **Q8 and Q11 still need a trio**, and only those two do. Q8 is the dead-link confirming run; Q11
+   needs runs that actually collide, and **contention appeared on only 4 of 16 runs ever**, so a trio
+   is necessary and not sufficient. Batch them with item 3 so the trio earns its three runs.
+9. **Someone with a browser still has to look at CI once.** `main` is pushed as of 2026-08-04, so a
+   vitest run on `main` should now exist to look at.
 
 ### Credits — a premise this document and the pre-flight both had wrong
 

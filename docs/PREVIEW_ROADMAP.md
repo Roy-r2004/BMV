@@ -198,8 +198,9 @@ Recording that here so the next session does not read a productive week as progr
 | **1.9** bound items to the image pool | **done** — `ac10c9b`, **verified live on request 73** (12 items, below) |
 | **1.10** JS test runner (vitest) | **runner done, CI green-on-main pending a merge.** `backend/preview-template-tests/` — vitest 4 + jsdom + testing-library, 9 tests over `SkeletonComposer`, all nine mutation-tested by `tools/mutate.py` with zero survivors. It is a **sibling package on purpose**: the template's `package.json` is the shared-npm cache key, so a devDependency there costs the next generation a cold `npm ci` inside the run (below) |
 | **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it. **Trio 7 adds one sample and it points the same way**: request 93's tail is 32.0 s of which **0.1 s is AI**, with 3 pages judged — see Q10 in the trio 7 section. The tail to attack is non-AI work, and `tail.py` cannot see it without being parameterized past its hardcoded run list |
-| **1.13** bound `appspec` per request | **new, and the first half is done.** Added by owner ruling on 2026-08-04 rather than moving the p50 row to Phase 2 — *"let's try B, if it works it works if not we try A."* **`APPSPEC_MAX_CALLS` was enforced per entry into the stage, and the stage is entered twice a generation**, so requests 92/93/94 made **7, 6 and 10** calls against a configured **6** and no budget-exhausted line was ever logged. The tally is the deadline's now, and a runway reservation refuses any appspec call that would leave the pipeline less than **280 s** — under all five shipped runs in the corpus, above what 92 and 94 left themselves (91 s and 136 s). 14 mutations / 0 survivors. **The p50 half is unproven until a trio measures it**; if it lands and p50 still misses 500 s, fall back to (A) and move the row to Phase 2 |
-| **1.12** a mandatory stage with no deterministic path | **open, and no longer a single incident.** `architect` raises past the deadline and request 74 shipped nothing. **Trio 7 reproduced it twice in three runs** (92 and 94 stored no `preview_app`), against a pre-flight that said three runs were unlikely to reproduce it once. Both had `appspec` at 353 s / 339 s — the same root as Q1. See the DoD section |
+| **Duo 1 (95-96)** — the 1.13 proof run | **2 of 2 shipped `ready` with zero gate issues**, on the briefs of 92 and 94 verbatim, and **neither of 1.13's bounds fired** — so the improvement is acceptance variance, not the fix. appspec AI 336.5 → 43.2 s and 331.6 → 94.3 s. **p50 unmoved at 571/573 s**, and codegen is now the dominant term at 315-437 s of AI. Detail below |
+| **1.13** bound `appspec` per request | **landed, and UNPROVEN in production — it did not fire on either duo run.** Added by owner ruling on 2026-08-04 rather than moving the p50 row to Phase 2 — *"let's try B, if it works it works if not we try A."* **`APPSPEC_MAX_CALLS` was enforced per entry into the stage, and the stage is entered twice a generation**, so requests 92/93/94 made **7, 6 and 10** calls against a configured **6** and no budget-exhausted line was ever logged. The tally is the deadline's now, and a runway reservation refuses any appspec call that would leave the pipeline less than **280 s** — under all five shipped runs in the corpus, above what 92 and 94 left themselves (91 s and 136 s). 14 mutations / 0 survivors. **Duo 1 then measured it and neither bound engaged** — 2 and 5 calls against a ceiling of 8, and appspec never reached the elapsed at which the reservation fires. The code is correct and tested and caps a tail trio 7 proved is real; it is simply **not shown to do anything in production yet**, and the duo's improvement belongs to acceptance variance. p50 unmoved at 571/573 s. **The evidence now points at (A)** — not because the bound failed to land but because codegen, at 315-437 s of AI, is the term that decides p50. Owner ruling pending |
+| **1.12** a mandatory stage with no deterministic path | **open, and the "no longer a single incident" reading is withdrawn.** `architect` raises past the deadline and request 74 shipped nothing. Trio 7 reproduced it twice (92 and 94 stored no `preview_app`, both with `appspec` at 353 s / 339 s) and this row said that made it systematic. **Duo 1 re-ran those two briefs and both shipped `ready`**, with appspec at 43 s and 94 s — so what trio 7 showed is that *an appspec that does not accept* starves the stages after it, and acceptance is variable. The defect is real and unfixed (a MANDATORY stage still has no deterministic path) but its trigger is upstream and intermittent, not a property of these briefs. See the DoD section |
 | **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
 | **2.9** contract-invalid pages are scaffolded, never re-asked | **done offline — fix landed, effect unmeasured (needs a funded trio).** A syntactically valid page that failed the catalogue contract was replaced wholesale by the generic deterministic scaffold with **no retry**: `_slot_fill_rejection` only knew empty/truncated/no-export/unparseable, so the retry loop never saw a contract violation. **26 pages across requests 74-79** went that way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so `_MAX_SLOT_FILL_ATTEMPTS = 2` had never fired once. The retry now fires on **enforce's own verdict**, not the validator's, and carries the exact `validate_catalogue_page_content` errors. Detail below |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
@@ -383,6 +384,114 @@ instrument, not the cap.
 
 **The through-line: Q1 and Q9 are the same finding.** Bounding `appspec`'s repair loop is no longer
 a p50 optimisation — on this trio it is the difference between a preview and an empty record.
+
+### Duo 1 (95-96), in detail — the fix landed, did not fire, and the runs improved anyway
+
+**Two runs, not three, and deliberately.** The DoD row's *"3 runs started 60 s apart"* is the only
+thing three buys: `blocked_seconds` was recorded on just **4 of 16** runs across the whole corpus,
+and trios 3, 4 and 7 collided on none. The questions 1.13 had to answer are binary — did the
+reservation fire, did appspec cap per request, did the duplicate authoring pass go away — so a third
+run adds a sample to something that is not a rate. **The briefs are requests 92 and 94 verbatim**,
+the two runs that stored nothing, so the bound is the only intended variable. `analyse.py duo1`.
+
+| | 95 (was 92, restaurant) | 96 (was 94, hotel) |
+|---|---|---|
+| shipped | **`ready`, 0 gate issues** | **`ready`, 0 gate issues** |
+| wall clock | 571 s | 573 s |
+| appspec AI / calls | **43.2 s / 2** (was 336.5 / 7) | **94.3 s / 5** (was 331.6 / 10) |
+| accepted AppSpec | **yes, first authoring call** | no — `trace_evidence_mismatch` |
+| fresh authoring chains | **1** | 2 |
+| asks over 120 s | 0 | 0 |
+| contention | 0.0 s | 0.0 s |
+| render smoke | 12 checked / 13 eligible / **1 skipped** | 12 / 19 / **7 skipped** |
+
+**Ship rate 0 of 3 → 2 of 2 on the same briefs.** And **1.13 cannot claim it.**
+
+**Neither bound fired.** No `stopped_low_downstream_runway`, no `call_budget_exhausted` in
+`api_duo1.log`; the only such lines in the container's history are July runs. Calls were 2 and 5
+against a ceiling of 8, and appspec never approached the 260 s elapsed at which the reservation
+engages. **The new code did not execute its new paths on either run**, so what improved is not what
+was changed. Recorded here rather than quietly credited, because "a fix moved a metric" has been
+wrong in this project twice before.
+
+**What did change is acceptance, and it is the mechanism this document already predicted.** 95's
+spec was accepted on its first authoring call and appspec cost 43 s; 96's never accepted, so the
+stage was re-entered and cost 94 s. Accepted → cheap, rejected → roughly double: exactly the
+bimodality `appspec_cost.py` measured. **So trio 7's 0-of-18 acceptance now reads as an unlucky
+sample rather than a regression** — which is also the most parsimonious reading of *"1.12 reproduced
+twice in one trio"*, since both facts have the one cause. Softened wherever it was stated.
+
+**p50 did not move, and the bottleneck is not appspec.**
+
+| stage | 95 AI | 96 AI |
+|---|---|---|
+| **codegen** | **315.0 s / 24 calls** | **436.9 s / 33 calls** |
+| refine | 136.9 s / 13 | 166.0 s / 14 |
+| design_critic | 127.5 s / 12 | 149.2 s / 20 |
+| appspec | 43.2 s / 2 | 94.3 s / 5 |
+
+571 s and 573 s, both past the 540 s deadline and under the 600 s cap. **Bounding `appspec` cannot
+bring p50 under 500 s while codegen alone is 315-437 s of AI**, and 96 already degraded
+`slot_fill_contract_retry_skipped_low_runway` at 381 s, so codegen is hitting its own runway guard.
+**This is the evidence for taking (A) after all** — not because 1.13's bound failed to land, but
+because the measurement says appspec was never the dominant term. Owner ruling pending.
+
+Caveats, none of them small: **n=2**, contention 0.0 s on both so nothing about concurrency was
+tested, and two concurrent runs put less pressure on `_SESSION_LOCK` than three, so the wall clock
+is **not** a like-for-like against the trio baselines.
+
+### The menu is redundant by construction, and every business gets a collection
+
+**Owner-reported on 2026-08-04 and confirmed against duo 1 the same day.** Two defects, both
+*general* — they are not one industry's problem and must not be fixed with an industry special case.
+
+#### 1. `navigation` publishes the same links under several keys
+
+`src/data/mock.ts` exports one `navigation` object whose role keys overlap almost totally:
+
+| run | keys that carry the same links |
+|---|---|
+| 95 (restaurant) | `public` and `customer` are **identical** (Home, Gallery, Our Menu, Profile, Reservations, Private Events); `staff` is `admin` plus two role labels |
+| 96 (hotel) | `admin` and `features` are **identical** (AI features, Activities, Bookings, Dashboard, Login, Rooms); `customer` is `public` ± one item |
+
+It also emits two exports for one array — `navItemsAdmin = navigation.admin` and
+`adminNavItems = navigation.admin` — and duplicate destinations *inside* one menu: 95's public nav
+labels `/my-reservations` as **"Reservations"** while a separate `/reservations` route exists, so the
+menu shows one "Reservations" and the app serves two. 96 carries "Login" and "Contact" in both
+`public` and `manager`.
+
+**There is no single source of truth for a menu**, so which links a shell shows depends on which key
+it happens to read, and two shells reading different keys disagree about the same app.
+
+**What is confirmed and what is not.** The data-level redundancy above is confirmed by reading the
+duo's `mock.ts`. A menu rendering the *same item twice on screen* is **not** yet confirmed:
+`app-nav.ts:111-116` resolves exactly one key, `usePublicNavItems` caps at 5, `useMemberNavItems`
+dedupes on `href`, and `PublicShell` clones the passed nav rather than adding its own. So either a
+consumer outside that path concatenates, or the visible duplication is these near-identical keys
+disagreeing between header and footer. **Screenshot it before fixing it** — this is exactly the
+class of defect where the obvious cause was wrong twice.
+
+#### 2. Every business gets a gallery, whatever the business is
+
+A **twelve-table Neapolitan trattoria** shipped `src/pages/GalleryPage.tsx` **and**
+`src/pages/ArtworkDetailPage.tsx`, routes `/gallery` and `/gallery/:id`, a "Gallery" nav item, and a
+hero CTA reading **`{ label: 'Explore the collection', href: '/gallery' }`**. The lakeside lodge got
+`/gallery`, `/gallery/:id` and `/gallery/:slug`.
+
+"Explore the collection" and an `ArtworkDetailPage` are **art-gallery vocabulary reaching an
+industry that has no collection**, and it is the same bias the corpus already shows elsewhere
+(request 22's `ArtworkDetailPage` at `/artwork` and `/gallery/:id`). A restaurant has a menu, a lodge
+has rooms; neither has a collection to explore.
+
+Related and visible in the same run: **route alias inflation.** 96 serves `/rooms/:roomId`,
+`/rooms/:id` **and** `/rooms/:slug` for one page, plus `/gallery/:id` and `/gallery/:slug` — the
+synthesised aliases the evidence README describes, now three deep on a single resource.
+
+**The fix must be general.** Not "suppress gallery for restaurants" — a rule that decides whether a
+business *has a collection* at all, applied the same way for every industry, with the CTA vocabulary
+following from the entity rather than from a default. Anything keyed on an industry string is the
+`generic`-industry defect wearing a new hat. **2.1-2.3 owns this**: one route per file by
+construction, and page identity derived from the spec rather than appended by a template.
 
 ### 2.9, in detail — the fix, and what bounds it
 
