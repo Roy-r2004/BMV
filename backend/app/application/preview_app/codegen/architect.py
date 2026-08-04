@@ -136,21 +136,160 @@ def _route_for_file(file_path: str, architect: dict) -> dict:
             return route
     return {}
 
+#: Every catalogue component definition and prop shape is stated **once** per
+#: run under these keys; a route then names the components it may use.
+_LIBRARY_KEY = "component_library"
+_PROP_SHAPES_KEY = "prop_shapes"
+
+#: The fix agent's route block budget, unchanged. What changed is what happens
+#: when a run does not fit inside it.
+_ROUTES_CONTEXT_BUDGET = 10000
+
+#: Least to most degraded. Each level drops the cheapest thing whose loss the
+#: repair path can most afford, and `detail_level` says which one was sent.
+#:
+#: Measured on request 93's real 9 catalogue routes, with the library already
+#: hoisted: library 6,019 chars, prop shapes 2,206, routes 10,597 — 18,869
+#: against a 10,000 budget. So the hoist alone (45k+ before it) is a 2.4x
+#: reduction and still not enough, and the block has to be able to shed weight
+#: rather than vanish.
+_DETAIL_FULL = "full"
+_DETAIL_NO_PROP_SHAPES = "no_prop_shapes"
+_DETAIL_NAMES_ONLY = "allowed_names_only"
+_DETAIL_SKELETON_IDS_ONLY = "skeleton_ids_only"
+_DETAIL_LEVELS = (
+    _DETAIL_FULL,
+    _DETAIL_NO_PROP_SHAPES,
+    _DETAIL_NAMES_ONLY,
+    _DETAIL_SKELETON_IDS_ONLY,
+)
+
+
+def _routes_context_payload(
+    routes: list[dict],
+    library: dict[str, dict],
+    prop_shapes: dict[str, str],
+    level: str,
+) -> dict:
+    """One rung of the degradation ladder."""
+
+    if level == _DETAIL_SKELETON_IDS_ONLY:
+        trimmed = []
+        for route in routes:
+            contract = route["contract"]
+            trimmed.append({
+                **{k: v for k, v in route.items() if k != "contract"},
+                "section_slots": contract.get("section_slots") or [],
+                "shell_component": contract.get("shell_component"),
+            })
+        return {"detail_level": level, "routes": trimmed}
+
+    if level == _DETAIL_NAMES_ONLY:
+        trimmed = []
+        for route in routes:
+            contract = route["contract"]
+            trimmed.append({
+                **{k: v for k, v in route.items() if k != "contract"},
+                "section_slots": contract.get("section_slots") or [],
+                "shell_component": contract.get("shell_component"),
+                "slot_components": contract.get("slot_components") or {},
+                "allowed_components": contract.get("allowed_components") or [],
+            })
+        return {"detail_level": level, "routes": trimmed}
+
+    payload: dict = {
+        "detail_level": level,
+        _LIBRARY_KEY: [library[name] for name in sorted(library)],
+        "routes": routes,
+    }
+    if level == _DETAIL_FULL:
+        payload[_PROP_SHAPES_KEY] = prop_shapes
+    return payload
+
+
 def _catalogue_routes_context(architect: dict) -> str:
+    """The catalogue contract for every route, with the allow-list stated once.
+
+    This block goes to the **fix agent** and to `chat_rebuild` — not to the
+    architect, despite living in this file and despite four write-ups
+    (including two of mine) saying otherwise. `_route_for_file` above is the
+    architect's; this one takes the *completed* architect dict and its only
+    callers are `fix_agent` (`:482`, `:530`) and `chat_rebuild` (`:245`).
+
+    It used to serialize one **full** `compact_skeleton_contract` per route
+    into a 10,000-char budget. The component definitions and prop shapes are
+    the bulk of that and they repeat verbatim for every route sharing a
+    skeleton, so measured offline: 1 route = 5,004 chars, 2 routes = each
+    component list clipped to 12 entries, **3 routes = the whole block
+    collapsed to `{"truncated": true, "preview": …}`**. Confirmed live on
+    request 93's real 9-route list, where the fix agent then ran twice for
+    147.8 s of AI against a route block it could not read — the repair path,
+    which is the consumer that most needs each page's contract.
+
+    Hoisting the library changes what the model sees. It is the same
+    information, said once: each route keeps its skeleton, slots and shell,
+    and names its allowed components instead of restating their definitions.
+    """
+
+    library: dict[str, dict] = {}
+    prop_shapes: dict[str, str] = {}
     routes = []
     for route in architect.get("routes") or []:
         skeleton_id = route.get("skeleton_id")
         if not skeleton_id:
             continue
         slots = infer_section_slots(route, skeleton_id)
+        contract = dict(compact_skeleton_contract(skeleton_id, slots))
+        allowed: list[str] = []
+        for component in contract.pop("components", None) or []:
+            name = str(component.get("name") or "")
+            if not name:
+                continue
+            library.setdefault(name, component)
+            allowed.append(name)
+        for key, members in (contract.pop(_PROP_SHAPES_KEY, None) or {}).items():
+            prop_shapes.setdefault(str(key), members)
+        # Order is the catalogue's, not alphabetical: `compact_skeleton_contract`
+        # leads with this page's own shell, nav and slot components, and that
+        # ordering is what `skeleton_contract_for_prompt` drops from the tail of.
+        contract["allowed_components"] = allowed
         routes.append({
             "path": route.get("path"),
             "component_file": route.get("component_file"),
             "surface": route.get("surface"),
             "skeleton_id": skeleton_id,
-            "contract": compact_skeleton_contract(skeleton_id, slots),
+            "contract": contract,
         })
-    return _bounded_json(routes, 10000)
+    if not routes:
+        # `[]` and `{"routes": []}` read the same to a model, and the empty
+        # case is what a run with no catalogue routes has always sent.
+        return _bounded_json([], _ROUTES_CONTEXT_BUDGET)
+
+    # Degrade by dropping, never by collapsing. `_bounded_json` past its budget
+    # replaces the WHOLE block with `{"truncated": true, "preview": …}`, which
+    # is what the fix agent got on requests 86, 87, 88, 91 and 93 — every
+    # archived run with more than two catalogue routes. Knowing which page maps
+    # to which skeleton and slots, with no component definitions, beats knowing
+    # nothing; it is the same rule `_budgeted_prop_shapes` already follows one
+    # layer down ("a shape that does not fit is dropped, never truncated").
+    for level in _DETAIL_LEVELS:
+        payload = _routes_context_payload(routes, library, prop_shapes, level)
+        rendered = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        if len(rendered) <= _ROUTES_CONTEXT_BUDGET:
+            return rendered
+    # Past the last rung the route list itself is the overflow; clip it rather
+    # than send a preview of one, and say how many were dropped.
+    kept = list(routes)
+    while kept:
+        kept = kept[:-1]
+        payload = _routes_context_payload(
+            kept, library, prop_shapes, _DETAIL_SKELETON_IDS_ONLY
+        )
+        payload["routes_omitted"] = len(routes) - len(kept)
+        rendered = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        if len(rendered) <= _ROUTES_CONTEXT_BUDGET:
+            return rendered
+    return _bounded_json([], _ROUTES_CONTEXT_BUDGET)
 
 def _architect_prompt_context(architect: dict) -> str:
     """Serialize bounded architecture context without repeated file instructions."""
