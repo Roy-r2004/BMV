@@ -296,3 +296,108 @@ def test_truncation_beats_a_healthy_looking_transport() -> None:
 
     assert usable is False
     assert reason == UNUSABLE_TRUNCATED
+
+
+def test_a_mid_stream_error_that_billed_no_output_is_transport_not_the_readers_fault() -> None:
+    """A 200 with `finish_reason: error` and a partial body.
+
+    `call_with_retry` never sees it — the HTTP call succeeded — so the
+    application re-asks instead, and the caller records its own verdict
+    ("rejected", "unparseable") on top. That is 14 of `slot_fill`'s 28 rejected
+    calls on duo 1 filed as "the model wrote a truncated file"; 55 calls and
+    474.4 s across the corpus, 15 of them presumed **usable** because nothing
+    read `finish_reason` past `length`.
+    """
+
+    from app.application.services.admin_ops import presumed_usable
+
+    usable, reason = presumed_usable(
+        success=True, output_chars=1_165, finish_reason="error", completion_tokens=0
+    )
+
+    assert usable is False
+    assert reason == UNUSABLE_TRANSPORT
+
+
+def test_a_mid_stream_error_that_did_bill_output_is_left_to_the_caller() -> None:
+    """The guard is billed tokens, not the word "error".
+
+    24 rows in the corpus carry `finish_reason: error` **and** real completion
+    tokens, for 514.3 s of work the pipeline went on to use. Condemning those
+    trades one wrong number for another, which is the mistake the truncation /
+    transport ordering above already exists to avoid.
+    """
+
+    from app.application.services.admin_ops import presumed_usable
+
+    usable, reason = presumed_usable(
+        success=True, output_chars=3_717, finish_reason="error", completion_tokens=1_566
+    )
+
+    assert usable is True
+    assert reason is None
+
+
+def test_an_unrecorded_token_count_does_not_quietly_exonerate_a_mid_stream_error() -> None:
+    """`completion_tokens` defaults to 0 in `record_usage`, so a provider that
+    never reports one lands in the condemned branch on purpose. The alternative
+    — defaulting to "presume it billed something" — is how the 15 near-empty
+    bodies were presumed usable in the first place."""
+
+    from app.application.services.admin_ops import presumed_usable
+
+    usable, reason = presumed_usable(
+        success=True, output_chars=57, finish_reason="error"
+    )
+
+    assert usable is False
+    assert reason == UNUSABLE_TRANSPORT
+
+
+def test_record_usage_forwards_the_token_count_to_the_verdict(captured) -> None:
+    """The seam, not the rule.
+
+    `presumed_usable` can be perfectly right and still never see a token count:
+    the mid-stream-error branch only binds if `record_usage` passes
+    `completion_tokens` through. A sweep found this exact mutation surviving
+    three tests that all called `presumed_usable` directly — driving the
+    producer and never the consumer, for the third time in this repo.
+    """
+
+    from app.application.services.admin_ops import record_usage
+
+    with ai_call("planning", writer="planner", flush=_flush_into(captured)):
+        record_usage(
+            provider="openrouter",
+            model="google/gemini-2.5-flash",
+            request_id=95,
+            success=True,
+            finish_reason="error",
+            completion_tokens=0,
+            output_chars=1_165,
+            latency_ms=15_777,
+        )
+
+    (rows,) = captured
+    assert rows[0]["usable"] is False
+    assert rows[0]["unusable_reason"] == UNUSABLE_TRANSPORT
+
+
+def test_record_usage_leaves_a_billed_mid_stream_error_to_its_caller(captured) -> None:
+    from app.application.services.admin_ops import record_usage
+
+    with ai_call("codegen", writer="slot_fill", flush=_flush_into(captured)):
+        record_usage(
+            provider="openrouter",
+            model="google/gemini-2.5-flash",
+            request_id=96,
+            success=True,
+            finish_reason="error",
+            completion_tokens=1_566,
+            output_chars=3_717,
+            latency_ms=12_300,
+        )
+
+    (rows,) = captured
+    assert rows[0]["usable"] is True
+    assert rows[0]["unusable_reason"] is None

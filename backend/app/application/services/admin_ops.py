@@ -246,6 +246,7 @@ def presumed_usable(
     success: bool,
     output_chars: int | None,
     finish_reason: str | None,
+    completion_tokens: int | None = 0,
 ) -> tuple[bool, str | None]:
     """The provider-side half of the usable verdict.
 
@@ -259,6 +260,17 @@ def presumed_usable(
     `provider_truncated_output`: the socket was fine and the model simply ran
     out of tokens. Filing all of them under "transport" would point the next
     engineer at the network, which is not where the 2,105 s went.
+
+    **`finish_reason: error` is a 200 that failed mid-stream**, and only when it
+    billed no output tokens. The provider returns HTTP 200 with a partial body,
+    so `call_with_retry` never sees a failure and the application re-asks
+    instead — 14 of `slot_fill`'s 28 rejected calls on duo 1 are this, read by
+    the caller as "the model wrote a truncated file". Across the corpus: 55
+    calls and 474.4 s, of which 15 were presumed **usable** because nothing
+    looked at `finish_reason` beyond `length`. The billed-tokens condition is
+    the whole guard — 24 other `error` rows carry real completion tokens and
+    514.3 s of work the pipeline used, and condemning those would trade one
+    wrong number for another.
     """
 
     from app.application.services.ai_context import (
@@ -270,6 +282,8 @@ def presumed_usable(
     if finish_reason and str(finish_reason).lower() in ("length", "max_tokens"):
         return False, UNUSABLE_TRUNCATED
     if not success:
+        return False, UNUSABLE_TRANSPORT
+    if str(finish_reason or "").lower() == "error" and int(completion_tokens or 0) <= 0:
         return False, UNUSABLE_TRANSPORT
     if output_chars is not None and int(output_chars) <= 0:
         return False, UNUSABLE_EMPTY
@@ -311,7 +325,10 @@ def record_usage(
         cost_usd = _estimate_cost(model, prompt_tokens, completion_tokens)
 
     usable, unusable_reason = presumed_usable(
-        success=success, output_chars=output_chars, finish_reason=finish_reason
+        success=success,
+        output_chars=output_chars,
+        finish_reason=finish_reason,
+        completion_tokens=completion_tokens,
     )
 
     call = current_ai_call()

@@ -44,6 +44,7 @@ def _load(name: str) -> ModuleType:
 
 analyse = _load("analyse")
 tail = _load("tail")
+codegen_cost = _load("codegen_cost")
 
 
 def _revision(
@@ -275,3 +276,149 @@ def test_the_default_trio_is_unchanged_for_a_bare_invocation() -> None:
     ids, launch = analyse.select_trio([])
     assert ids == [74, 75, 76]
     assert set(launch) == {74, 75, 76}
+
+
+# --- codegen_cost -----------------------------------------------------------
+#
+# The `codegen` stage total is the p50 term (315 s / 24 calls on 95, 436.9 s /
+# 33 on 96) and had never been decomposed. Fixtures below are request 95's real
+# row shape and timings, because the trap here is the same one appspec had: the
+# obvious bucket is not the expensive one.
+
+
+def _usage(
+    request_id: int,
+    *,
+    stage: str,
+    writer: str | None,
+    ends_at: float,
+    latency_ms: int,
+    attempt: int = 1,
+    usable: bool | None = None,
+) -> dict:
+    return {
+        "request_id": request_id,
+        "stage": stage,
+        "writer": writer,
+        "model": "google/gemini-2.5-flash",
+        "attempt": attempt,
+        "latency_ms": latency_ms,
+        "success": True,
+        "usable": usable,
+        "output_chars": 0,
+        "ts": ends_at,
+    }
+
+
+def _request_95_shape() -> list[dict]:
+    """Request 95, to the second, from `ai_usage_events`.
+
+    t=0 is 17:19:49, when the plan phase started on the pipeline's second
+    attempt. The three unscoped calls that follow are `build_experience_plan`
+    and `validate_and_expand_plan`; the fourth is `build_design_manifest`. The
+    architect call lands at t=136 and every scoped codegen writer after it.
+    """
+
+    return [
+        _usage(95, stage="appspec", writer="authoring", ends_at=-36.0, latency_ms=29503),
+        _usage(95, stage="codegen", writer=None, ends_at=56.0, latency_ms=55983),
+        _usage(95, stage="codegen", writer=None, ends_at=91.7, latency_ms=35698),
+        _usage(95, stage="codegen", writer=None, ends_at=125.9, latency_ms=34158),
+        _usage(95, stage="codegen", writer=None, ends_at=136.3, latency_ms=5837),
+        _usage(
+            95,
+            stage="architect",
+            writer="architect:google/gemini-2.5-flash",
+            ends_at=159.5,
+            latency_ms=23095,
+        ),
+        _usage(95, stage="codegen", writer="slot_fill", ends_at=169.2, latency_ms=9861,
+               usable=False),
+        _usage(95, stage="codegen", writer="slot_fill", ends_at=180.0, latency_ms=6710,
+               attempt=2, usable=False),
+        _usage(95, stage="codegen", writer="utility_content", ends_at=171.2,
+               latency_ms=2241, usable=True),
+    ]
+
+
+def test_the_codegen_stage_total_is_not_all_codegen() -> None:
+    """41 % of `codegen`'s AI time on duo 1 is not a codegen writer.
+
+    `stage` falls back to the run *purpose* for a call made outside any
+    `ai_call` scope, and `generate_preview_app` runs the whole preview pipeline
+    under `purpose="codegen"`. The plan phase's planner, validator and design
+    manifest have no scope, so the stage total claims them. Folding them into a
+    writer would have reproduced exactly the appspec mistake — bounding the
+    loop that looked expensive rather than the one that was.
+    """
+
+    report = codegen_cost.summarize(_request_95_shape())
+
+    writers = report["per_writer"]
+    assert codegen_cost.UNATTRIBUTED_PRE in writers
+    assert writers[codegen_cost.UNATTRIBUTED_PRE]["calls"] == 4
+    # 55.983 + 35.698 + 34.158 + 5.837
+    assert writers[codegen_cost.UNATTRIBUTED_PRE]["seconds"] == pytest.approx(131.676)
+    assert report["unattributed_seconds"] == pytest.approx(131.676)
+    # …and it must not have been merged into a real writer.
+    assert writers["slot_fill"]["calls"] == 2
+
+
+def test_the_architect_call_is_the_boundary_and_it_is_the_calls_start() -> None:
+    """The split is `began < architect_start`, not `ended < architect_end`.
+
+    Request 95's design-manifest call ends 23.2 s *after* the architect call
+    ends, because they do not overlap in the way an end-timestamp comparison
+    implies. Comparing ends puts a plan-phase call on the codegen side.
+    """
+
+    rows = _request_95_shape()
+    starts = codegen_cost.architect_boundaries(rows)
+    assert starts[95] == pytest.approx(136.405)
+
+    manifest = rows[4]
+    assert manifest["ts"] == pytest.approx(136.3)
+    assert codegen_cost.writer_of(manifest, starts[95]) == codegen_cost.UNATTRIBUTED_PRE
+
+
+def test_a_run_with_no_architect_row_refuses_to_place_its_unscoped_calls() -> None:
+    """Requests 92 and 94 never reached the architect. A tool that defaults the
+    boundary to zero would report every unscoped call as post-architect and
+    invent a codegen cost for a run that never generated code."""
+
+    rows = [
+        _usage(94, stage="codegen", writer=None, ends_at=40.0, latency_ms=40000),
+    ]
+    report = codegen_cost.summarize(rows)
+
+    assert codegen_cost.UNATTRIBUTED_UNKNOWN in report["per_writer"]
+    assert codegen_cost.UNATTRIBUTED_POST not in report["per_writer"]
+    assert report["unattributed_seconds"] == pytest.approx(40.0)
+
+
+def test_discarded_slot_fill_spend_is_counted_separately_from_re_asks() -> None:
+    """`usable = false` is time bought and thrown away, and on duo 1 it is 28 of
+    `slot_fill`'s 40 calls. A re-ask and a discard are different facts: the
+    second attempt of a pair can itself be discarded, which is what request 96
+    did ten times."""
+
+    report = codegen_cost.summarize(_request_95_shape())
+    slot_fill = report["per_writer"]["slot_fill"]
+
+    assert slot_fill["unusable"] == 2
+    assert slot_fill["unusable_seconds"] == pytest.approx(16.571)
+    assert slot_fill["retries"] == 1
+    assert slot_fill["retry_seconds"] == pytest.approx(6.710)
+    assert report["per_writer"]["utility_content"]["unusable_seconds"] == 0.0
+
+
+def test_other_stages_do_not_leak_into_the_codegen_total() -> None:
+    """The appspec row in the fixture is 29.5 s and must not be billed here —
+    but it still has to be *read*, because the architect boundary comes from a
+    row this filter would otherwise drop."""
+
+    report = codegen_cost.summarize(_request_95_shape())
+
+    assert report["calls"] == 7
+    assert report["seconds"] == pytest.approx(150.488)
+    assert "authoring" not in report["per_writer"]

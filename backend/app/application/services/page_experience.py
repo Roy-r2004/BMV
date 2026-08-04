@@ -1,6 +1,15 @@
 """
 Plan-driven UI experience generation.
 All roles, pages, navigation, and design system come from AI agents reading the full business input.
+
+**Every ask here is scoped.** `generate_preview_app` runs the whole preview
+pipeline under `ai_run_scope(purpose="codegen")`, and `record_usage` falls back
+to the run purpose when a call is made outside any `ai_call` scope
+(`admin_ops.py:330`). This module had no scopes, so its asks were recorded as
+`stage = codegen, writer = NULL` — **310.7 s over duo 1, 41 % of what the
+roadmap called codegen's cost, none of it codegen**
+(`scripts/measure/codegen_cost.py`). The p50 term was being attributed to the
+wrong stage.
 """
 import json
 from typing import Any
@@ -15,6 +24,7 @@ from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.request import Request
+from app.application.services.ai_context import UNUSABLE_REJECTED, ai_call
 from app.application.services.preview_parser import parse_preview_features
 from app.application.appspec.projection import (
     merge_experience_plan_enrichment,
@@ -213,6 +223,7 @@ def _call_planner(
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
     canonical_seed: dict | None = None,
+    attempt: int = 1,
 ) -> dict | None:
     full_context = gather_full_context(req, demo)
     features = parse_preview_features(req.preview_features)
@@ -237,8 +248,10 @@ def _call_planner(
     )
     # Plans for multi-role businesses regularly overflow 14k tokens; the parser
     # also repairs truncation, but headroom avoids losing pages in the first place.
-    raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=28000)
-    plan = _parse_json_from_response(raw)
+    with ai_call("planning", writer="planner", attempt=attempt) as call:
+        raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=28000)
+        plan = _parse_json_from_response(raw)
+        call.adjudicate(bool(plan and plan.get("roles")), reason=UNUSABLE_REJECTED)
     if plan and plan.get("roles"):
         if canonical_seed:
             plan = merge_experience_plan_enrichment(canonical_seed, plan)
@@ -297,7 +310,7 @@ def build_experience_plan(
     plan: dict | None = None
     features = parse_preview_features(req.preview_features)
 
-    for model in (settings.TEXT_MODEL, settings.ARCHITECT_MODEL):
+    for attempt, model in enumerate((settings.TEXT_MODEL, settings.ARCHITECT_MODEL), start=1):
         try:
             plan = _call_planner(
                 req,
@@ -308,6 +321,7 @@ def build_experience_plan(
                 ai_provider,
                 template_renderer,
                 canonical_seed,
+                attempt=attempt,
             )
             if plan:
                 break
@@ -370,14 +384,25 @@ def _expand_plan(
             compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
         ),
     )
-    for model in (settings.ARCHITECT_MODEL, settings.TEXT_MODEL):
+    for attempt, model in enumerate((settings.ARCHITECT_MODEL, settings.TEXT_MODEL), start=1):
         try:
-            raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
-            result = _parse_json_from_response(raw)
+            with ai_call("planning", writer="plan_expansion", attempt=attempt) as call:
+                raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+                result = _parse_json_from_response(raw)
+                call.adjudicate(bool(result and result.get("roles")), reason=UNUSABLE_REJECTED)
             if result and result.get("roles"):
                 expanded = _normalize_plan(result, primary, secondary)
                 return validate_and_expand_plan(req, expanded, ai_provider, template_renderer, demo)
-        except Exception:
+            plan_log.debug(
+                "plan_expansion model=%s attempt=%s produced no roles", model, attempt
+            )
+        except Exception as exc:
+            # Silence here cost 34-48 s a call with no trace: duo 1 spent three
+            # of these and the log said nothing about any of them.
+            plan_log.warning(
+                "plan_expansion model=%s attempt=%s raised: %s: %s",
+                model, attempt, type(exc).__name__, exc,
+            )
             continue
     return plan
 
@@ -401,13 +426,24 @@ def validate_and_expand_plan(
             compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
         ),
     )
-    for model in (settings.ARCHITECT_MODEL, settings.TEXT_MODEL):
+    for attempt, model in enumerate((settings.ARCHITECT_MODEL, settings.TEXT_MODEL), start=1):
         try:
-            raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
-            result = _parse_json_from_response(raw)
+            with ai_call("planning", writer="plan_validation", attempt=attempt) as call:
+                raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+                result = _parse_json_from_response(raw)
+                call.adjudicate(bool(result and result.get("roles")), reason=UNUSABLE_REJECTED)
             if result and result.get("roles"):
                 return _normalize_plan(result, primary, "")
-        except Exception:
+            plan_log.debug(
+                "plan_validation model=%s attempt=%s produced no roles", model, attempt
+            )
+        except Exception as exc:
+            # Requests 95 and 96 each spent two of these — 69.9 s and 94.0 s —
+            # and neither the log nor the census carried one line about them.
+            plan_log.warning(
+                "plan_validation model=%s attempt=%s raised: %s: %s",
+                model, attempt, type(exc).__name__, exc,
+            )
             continue
     return plan
 
@@ -435,13 +471,15 @@ def build_design_manifest(
         features=", ".join(dict.fromkeys(features_from_plan))[:800] or "core features",
     )
     try:
-        raw = ai_provider.ask_chat(settings.ARCHITECT_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
-        manifest = _parse_json_from_response(raw)
+        with ai_call("planning", writer="design_manifest", attempt=1) as call:
+            raw = ai_provider.ask_chat(settings.ARCHITECT_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
+            manifest = _parse_json_from_response(raw)
+            call.adjudicate(bool(manifest), reason=UNUSABLE_REJECTED)
         if manifest:
             manifest["design_system"] = ds
             return manifest
-    except Exception:
-        pass
+    except Exception as exc:
+        plan_log.warning("design_manifest raised: %s: %s", type(exc).__name__, exc)
 
     return {
         "accent": accent,
