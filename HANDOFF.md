@@ -8,8 +8,9 @@ below; do not go back for them. Process notes, not product docs.
 ## Session 12, in one page
 
 **Zero generations run, and not by choice.** The OpenRouter account is exhausted. Four commits, 28
-new pytest cases, **21 new mutations, 22 applied across three sweeps, 0 survivors** (1 survived a
-first sweep). Suite **1,838 passed / 1 skipped / 0 failed**, vitest **39**, `tsc -b` clean.
+new pytest cases, **21 new mutations, 41 applied across four sweeps, 0 survivors at the end, 2
+survived a first sweep** and 1 more never applied at all. Suite **1,838 passed / 1 skipped / 0
+failed**, vitest **39**, `tsc -b` clean.
 
 ### Read this first: no live run is possible
 
@@ -181,16 +182,30 @@ before it could. All three stay production-unproven.
 
 ---
 
-## Mutation results — 21 new, 22 applied, one first-sweep survivor and one that never applied
+## Mutation results — 21 new, 41 applied over four sweeps, two first-sweep survivors
 
-| | |
-|---|---|
-| `mutate_blueprint_gap_fill.py` | 13 mutations, **0 survivors** at the end. One did not apply on the first run: the AI-hub anchor `if not isinstance(route, dict) or _is_ai_hub_route(route):` **matches twice** in `product_kind.py`, and the driver reported it as *not applied* rather than counting it caught. Widened to include the two following lines |
-| `mutate_detail_skeleton_assignment.py` | 8 mutations, **1 survived a first sweep** — moving the item-path regex from `…$` to unanchored changed nothing, because no fixture put a parameter in the *middle* of a path. Request 45's `/artwork/:artworkId/inquire` is exactly that shape and is now a fixture |
+| driver | sweeps | result |
+|---|---|---|
+| `mutate_blueprint_gap_fill.py` | 2 | 13 mutations. First sweep: **1 survivor**, 1 not applied, 11 caught. Second: **13 applied, 0 survivors** |
+| `mutate_detail_skeleton_assignment.py` | 2 | 8 mutations. First sweep: **1 survivor**, 7 caught. Second: **8 applied, 0 survivors** |
 
-**The survivor is blind spot #4 again — a fixture too small to reach the rule** — and the near-miss
-is a new one worth adding to the list: **an anchor that matches twice tests nothing, and only the
-driver's own count catches it.** Both drivers report anchor drift as a survivor for that reason.
+**The survivor in the gap-fill sweep** was the plan-merge order: reversing `{**page, **route}` to
+`{**route, **page}` changed nothing, because every fixture's plan page carried only `id` and
+`purpose` and so could not collide with the route. A fixture where the plan page and the route
+*disagree* about `skeleton_id` binds it — and pins the direction, which must match
+`_normalize_architect`: the route wins.
+
+**The survivor in the detail sweep** was the `$` anchor on the item-path regex: unanchoring it
+changed nothing, because no fixture put a parameter in the *middle* of a path. Request 45's
+`/artwork/:artworkId/inquire` is exactly that shape and is now a fixture.
+
+**The one that never applied** is a new failure worth adding to the list. The AI-hub anchor
+`if not isinstance(route, dict) or _is_ai_hub_route(route):` **matches twice** in
+`product_kind.py`, so the driver refused it and reported it as a survivor rather than counting it
+caught. **An anchor that matches twice tests nothing, and only the driver's own count catches it** —
+both drivers treat anchor drift as a survivor for that reason, and both are worth copying for it.
+
+Both real survivors are blind spot #4 — fixtures too small to reach the rule.
 
 ---
 
@@ -226,7 +241,7 @@ driver's own count catches it.** Both drivers report anchor drift as a survivor 
 
 ## State of the repo, in four lines
 
-- **`main` has thirteen unpushed commits** as of 2026-08-05 session 12 — session 10's five, session
+- **`main` has fourteen unpushed commits** as of 2026-08-05 session 12 — session 10's five, session
   11's four, plus `bbe6359`, `0e678fa`, `28712b3`, `cbb5b1e` and this one. It was level with
   `origin/main` at `122ef79`.
 - **Suite: 1,838 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 39 passed**, `tsc -b` clean. Run

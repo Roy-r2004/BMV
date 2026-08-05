@@ -320,11 +320,11 @@ token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
 **1,838 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
 2026-08-05 (session 12). Session 12 added 28 pytest cases across two files, both fixes
-mutation-swept: **21 new mutations, 22 applied across three sweeps, 0 survivors at the end, 1
-survived a first sweep** (no fixture put a route parameter mid-path, so the `$` anchor on the
-item-path regex was decoration until one did). One mutation was also *not applied* on its first
-run — the anchor matched twice — which the driver reports rather than counting as caught.
-Previously **1,808 / vitest 39** at `283f60c`.
+mutation-swept: **21 new mutations, 41 applied across four sweeps, 0 survivors at the end, 2
+survived a first sweep**, and one more *never applied* because its anchor matched twice — which the
+driver reports as a survivor rather than counting as caught. Both real survivors are fixtures too
+small to reach the rule: a plan page that could not disagree with its route, and a path with no
+parameter in the middle of it. Previously **1,808 / vitest 39** at `283f60c`.
 
 **1,808 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
 2026-08-05 (session 11). Session 11 added 23 pytest cases and 7 vitest cases across five files, every
