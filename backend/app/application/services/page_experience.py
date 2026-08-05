@@ -305,8 +305,16 @@ def build_experience_plan(
     template_renderer: TemplateRenderer,
     *,
     canonical_seed: dict | None = None,
+    fallback_contract: object | None = None,
 ) -> dict:
-    """Planner + validator + expansion when plan is empty or missing feature coverage."""
+    """Planner + validator + expansion when plan is empty or missing feature coverage.
+
+    `fallback_contract` is the resolved `ProductKindContract` the caller already
+    holds. It is the deterministic path for 1.12's fourth piece: with it, a total
+    planner outage degrades to the kind's blueprint inventory instead of raising.
+    Without it — the CLI and chat-refinement callers — the raise is unchanged,
+    which is the explicit bound rather than a silent empty plan.
+    """
     plan: dict | None = None
     features = parse_preview_features(req.preview_features)
 
@@ -337,6 +345,29 @@ def build_experience_plan(
             merge_experience_plan_enrichment(canonical_seed, None),
             primary,
             secondary,
+        )
+    if not plan and fallback_contract is not None:
+        # 1.12. Requests 101 and 102 took a provider HTTP 408 across this whole
+        # chain and this `raise` ended both of them — no workspace, no record,
+        # nothing. `planning` is MANDATORY and had no deterministic path.
+        #
+        # The blueprint is one: `_normalize_plan({})` supplies the design system
+        # and the seeds, and the caller's own contract supplies the inventory.
+        # Measured over every kind, the result satisfies `_plan_meets_minimums` —
+        # one role, 3 pages for a storefront, 6 for accounting, nav links that
+        # resolve. The validator and the expander are deliberately skipped: they
+        # are three more asks to the model that just failed twice.
+        from app.application.preview_app.product_kind import apply_product_kind_to_plan
+        from app.application.services.request_deadline import record_degradation
+
+        record_degradation("planning", "planner_failed_deterministic_blueprint")
+        plan_log.warning(
+            "planner produced nothing on either model — falling back to the %s "
+            "blueprint inventory",
+            getattr(fallback_contract, "kind", "?"),
+        )
+        return apply_product_kind_to_plan(
+            _normalize_plan({}, primary, secondary), fallback_contract
         )
     if not plan:
         raise ValueError("Experience planner failed — could not generate a valid plan.")

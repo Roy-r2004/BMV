@@ -8,8 +8,15 @@ orchestrator logged the JSON message, decided the failure was transient, and
 went looking for retry runway it did not have. The run stored no `preview_app`
 at all.
 
-`architect` is MANDATORY and has no deterministic path, so the run still ends
-here. What it must not do is end blaming a model that was never called.
+What it must not do is end blaming a model that was never called.
+
+**Updated 2026-08-05 (session 13).** When this file was written `architect` was
+MANDATORY *and had no deterministic path*, so the sentence here read "the run
+still ends here". It no longer does: `plan_phase` now falls back to the resolved
+kind's blueprint in shadow mode (1.12, piece a), pinned by
+`test_mandatory_stage_deterministic_paths.py`. `call_architect` itself is
+unchanged and still raises — which is what these tests cover, and why they still
+pass unaltered.
 """
 from __future__ import annotations
 

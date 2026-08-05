@@ -18,7 +18,7 @@ from app.application.preview_app.pipeline.build_phase import run_build_phase
 from app.application.preview_app.pipeline.codegen_phase import run_codegen_phase
 from app.application.preview_app.pipeline.context import PipelineContext
 from app.application.preview_app.pipeline.errors import PreviewAppContractError
-from app.application.preview_app.pipeline.finalize import run_finalize
+from app.application.preview_app.pipeline.finalize import run_finalize, store_crash_record
 from app.application.preview_app.pipeline.plan_phase import run_plan_phase
 from app.application.preview_app.pipeline.polish_phase import run_polish_phase
 from app.application.preview_app.pipeline.versioning import GENERATOR_V1
@@ -109,7 +109,14 @@ def _run_v1_pipeline(
         run_build_phase(ctx)
         result = run_finalize(ctx)
         return result
-    except Exception:
+    except Exception as exc:
+        # 1.12. `finalize` is the only writer of `preview_app`, and a phase that
+        # raises never reaches it — so requests 74, 92, 94, 101 and 102 stored
+        # nothing at all, two of them having built a full workspace first. The
+        # exception is still re-raised: the caller's retry-once path and the
+        # `require_app_spec` rules are unchanged, and this only makes sure the
+        # attempt leaves a record behind it.
+        store_crash_record(ctx, exc)
         raise
 
 

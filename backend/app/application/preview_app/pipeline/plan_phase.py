@@ -99,6 +99,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         ai_provider,
         template_renderer,
         canonical_seed=canonical_plan_seed,
+        fallback_contract=kind_contract,
     )
     from app.application.preview_app.design_recipes import (
         apply_recipe_to_architect,
@@ -292,10 +293,34 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             ai_provider,
             template_renderer,
         )
-    except Exception:
-        if not (ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope):
-            raise
-        architect = {}
+    except Exception as exc:
+        if ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope:
+            # Enforced mode rescues from the AppSpec projection below. Unchanged.
+            architect = {}
+        else:
+            # 1.12. `architect` is MANDATORY, and a mandatory stage's contract is
+            # that it *takes its deterministic path*. Outside the AppSpec branch
+            # it had none, so this `raise` was the whole of requests 74, 92 and
+            # 94: five runs have shipped NULL rather than a degraded preview,
+            # which is the opposite of the designed outcome.
+            #
+            # The deterministic builder already exists — `{}` is not substantive,
+            # so `apply_product_kind_to_architect` eleven lines down injects the
+            # kind's whole blueprint (3 routes for a storefront, 6 for accounting)
+            # and `_normalize_architect` accepts the result for every kind. Past
+            # the deadline codegen is refused too, so what ships is blueprint
+            # routes with deterministic scaffolds. That is a degraded preview,
+            # and it is worth more than nothing at all.
+            from app.application.services.request_deadline import record_degradation
+
+            record_degradation("architect", "call_failed_deterministic_blueprint")
+            log.warning(
+                "    architect failed (%s: %s) — falling back to the %s blueprint",
+                type(exc).__name__,
+                exc,
+                kind_contract.kind,
+            )
+            architect = {}
     if ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope:
         arch_seed = lock_chrome_on_architecture_seed(
             to_architecture_seed(ctx.app_spec_result.spec, ctx.app_spec_scope),

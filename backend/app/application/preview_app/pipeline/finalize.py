@@ -183,6 +183,103 @@ def withheld_reason(*, dist_ok: bool, gate_ok: bool, crash_unresolved: bool) -> 
     return None
 
 
+def crash_record(*, exc: BaseException, architect: dict | None) -> dict:
+    """The `preview_app` a run leaves when a phase raised after it built a workspace.
+
+    1.12's third piece. Requests 101 and 102 took a provider outage through
+    `build_experience_plan` and `synthesize_mock_data`, having already prepared a
+    workspace and written a complete plumbing `mock.ts` — and stored **nothing**.
+    The only record that either run happened at all lived in a docker volume one
+    prune away from gone, which is how *"read the volume before concluding a run
+    proved nothing"* became a standing trap.
+
+    Deliberately not a fake `ready`:
+
+    - `status` keeps its three-value vocabulary (`ready` / `failed` /
+      `rebuilding`) because four production readers and the frontend poller
+      branch on it. A crashed run is `failed`, exactly as a gate failure is.
+    - `withheld_reason` keeps its meaning — *why this run is not being served* —
+      and gains the one case it could not express. Its three existing values all
+      presuppose a run that reached `finalize`; this one did not.
+    - `url` is `None`. There is nothing to serve.
+
+    The routes are the architect's own, which is the same object and the same
+    shape `run_finalize` publishes (`architect.get("routes")`), so a reader does
+    not need to know which of the two wrote the record to parse it.
+    """
+    return {
+        "url": None,
+        "status": "failed",
+        "withheld_reason": "pipeline_crashed",
+        "crash_error": f"{type(exc).__name__}: {exc}"[:500],
+        "roles": [],
+        "routes": (architect or {}).get("routes") or [],
+        "design_direction": (architect or {}).get("design_direction", ""),
+        "built_at": int(time.time()),
+    }
+
+
+def store_crash_record(ctx: PipelineContext, exc: BaseException) -> bool:
+    """Persist `crash_record` onto the request. True when it was written.
+
+    Never raises: it runs inside an `except` block whose exception is about to be
+    re-raised, and a bookkeeping failure must not replace the real one. It also
+    never overwrites a `ready` record — a chat rebuild that crashes leaves the
+    served preview alone rather than marking the user's working site failed.
+    """
+    try:
+        if ctx.workspace is None:
+            return False
+        # The exception may itself have come from the database, leaving the
+        # session unusable. Roll back before reading, not after.
+        ctx.db.rollback()
+        req = ctx.req
+        existing: dict = {}
+        if req.generated_pages:
+            try:
+                existing = json.loads(req.generated_pages)
+            except Exception:
+                existing = {}
+        if not isinstance(existing, dict):
+            existing = {}
+        previous = existing.get("preview_app")
+        if isinstance(previous, dict) and previous.get("status") == "ready":
+            log.warning(
+                "  preview %s crashed; keeping the previously served record",
+                ctx.request_id,
+            )
+            return False
+
+        record = crash_record(exc=exc, architect=ctx.architect)
+        from app.application.services.request_deadline import (
+            current_deadline,
+            degradations as _degradations,
+        )
+
+        _degraded = _degradations()
+        record["degraded"] = [entry["stage"] for entry in _degraded]
+        record["degradations"] = _degraded
+        _deadline = current_deadline()
+        if _deadline is not None:
+            record["deadline_seconds"] = int(_deadline.total_seconds)
+            record["elapsed_seconds"] = int(_deadline.elapsed())
+            record["deadline_exceeded"] = _deadline.expired()
+        existing["preview_app"] = record
+        req.generated_pages = json.dumps(existing)
+        req.updated_at = datetime.utcnow()
+        ctx.db.commit()
+        log.error(
+            "  FAIL preview %s crashed after building a workspace — stored a "
+            "failed record (%s) rather than nothing",
+            ctx.request_id,
+            record["crash_error"],
+        )
+        return True
+    except Exception as bookkeeping:  # noqa: BLE001 — must never mask `exc`
+        log.warning("    could not store the crash record: %s", bookkeeping)
+        return False
+
+
 def gate_issue_summary(gate) -> dict:
     """Every gate code this run blocked or warned on, with the failing skeleton.
 

@@ -210,13 +210,35 @@ def synthesize_mock_data(
         import_context=import_context,
         current_content=read_file(workspace, mock_path)[:4000],
     )
-    with ai_call("seed", writer="mock_synthesize", attempt=1) as call:
-        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
-        content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
-        valid = _valid_synthesized_mock_source(content, needed)
-        call.adjudicate(valid, reason=UNUSABLE_REJECTED)
-        if not valid:
-            return False
+    # 1.12. A provider failure here used to leave the function by raising, out of
+    # `run_codegen_phase` and out of `generate_preview_app` — requests 101 and 102
+    # died exactly this way and stored nothing, having already built a complete
+    # workspace. `write_plumbing_mock` wrote a full `mock.ts` back in the plan
+    # phase (both of those workspaces have one; the derived palette was proven
+    # *from* it), so the deterministic path is simply to keep that file.
+    #
+    # The scope is settled in `ai_call`'s `finally`, so the usage row is written
+    # either way and the catch belongs outside the `with`, not inside it. The
+    # function's own contract already says False means "mock.ts was not
+    # rewritten" — this is that answer, with a record beside it.
+    try:
+        with ai_call("seed", writer="mock_synthesize", attempt=1) as call:
+            raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
+            content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
+            valid = _valid_synthesized_mock_source(content, needed)
+            call.adjudicate(valid, reason=UNUSABLE_REJECTED)
+            if not valid:
+                return False
+    except Exception as exc:
+        from app.application.services.request_deadline import record_degradation
+
+        record_degradation("codegen", "mock_synthesis_failed_plumbing_mock_kept")
+        cg_log.warning(
+            "    mock synthesis failed (%s: %s) — keeping the plumbing mock",
+            type(exc).__name__,
+            exc,
+        )
+        return False
     # The model is handed the whole slot map and tends to restate part of it
     # alongside its own named keys. Request 66 emitted `item4`…`item8` twice and
     # `tsc` reported five TS1117s. Rejecting the file over it would cost the
