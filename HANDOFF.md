@@ -1,4 +1,4 @@
-# Session handoff — the offline remainder is spent, and the account is still empty (2026-08-05, session 15)
+# Session handoff — the ruling arrived mid-session: the classifier is prefix-anchored, and CI is finally observed (2026-08-05, session 15)
 
 Successor to session 14's handoff (in git history at `369d5a7`). Still-binding parts are restated
 below; do not go back for them. Process notes, not product docs.
@@ -12,13 +12,42 @@ anything was restarted: `total_credits 330, total_usage 330.229`, byte-identical
 12, 13 and 14. Items 1–4 of the session prompt (the duo, 1.12's reachability, `slot_fill`'s
 distribution, the colour-fix run) were offline again, said so plainly, not attempted.
 
-**The classifier ruling was NOT given.** The prompt carried the unfilled template
-`[prefix-anchored / word-boundary / leave it]` — a menu, not a choice. The classifier is
-untouched and the ruling is still open, with its numbers ready in the roadmap's classifier row.
+**The classifier ruling was NOT given at session start** — the prompt carried the unfilled
+template `[prefix-anchored / word-boundary / leave it]`, a menu, not a choice, so the first half
+of the session treated it as pending. **Mid-session the owner ruled "yes, fix it" on the prefix
+recommendation, and uploaded a CI screenshot** — two items unblocked in one message.
 
-The session did the one sanctioned offline item and the housekeeping:
+The session landed three things:
 
-### The `design_direction` dedupe guard — landed (`38d66f5`)
+### 1. The classifier is prefix-anchored — ruled, adopted, wrap-measured (`9c5b383`)
+
+- `_blob` returns `_HintBlob`, a str subclass whose `in` requires the hint to start at a word
+  edge (`(?<!\w)`, applied only when the hint's first char is alphanumeric — `"hr "` keeps its
+  own delimiter); the right side stays free for the deliberate stems (`reconcil`, `bookkeep`).
+- **Wrap-measured before/after: exactly one verdict changes anywhere — SB-07 to its intended
+  `storefront/storefront` (16/20); 0 of the 47 stored kind_contexts move.** Before/after JSON
+  archived in `docs/evidence/boundary-adoption-session15.json`. This is byte-for-byte the
+  variant session 14 measured — the fix reuses the census's exact regex semantics.
+- The forcers (`internal_desk.py`/`saas_accounting.py`) build their own plain blobs, were never
+  patched by the census, and are deliberately untouched — the change covers exactly what was
+  measured.
+- `boundary_variant_census.py` is re-anchored to the adopted baseline: its self-check asserts
+  the SHIPPED blob refuses mid-word hints and keeps stems, and `main()` now **red-exits on any
+  per-row drift** between the shipped classifier and the measured prefix variant. Proven red
+  under an in-memory substring revert, for the filed reason.
+- 4 tests, 4 mutations, 0 survivors (`mutate_classifier_boundary.py`) — including the overshoot
+  to a both-sides word boundary, which stays rejected.
+- **Per the same ruling, still open and untouched: `internal_ops` reachability (the three
+  staff-only desks) and the driving-school default.** Boundaries never touched them; the
+  synthetic census's four remaining misses are exactly those.
+
+### 2. 1.10 is CLOSED — CI observed green by a human
+
+The owner opened run #11 of `preview-template-tests.yml` (push of `f019d39`) in a browser:
+**Success, vitest 39/39 across 4 files, 27 s, 1 warning annotation.** First human observation
+of this repo's CI; the row demanded exactly that and is done.
+
+### 3. The `design_direction` dedupe guard — landed (`38d66f5`, earlier in the session)
 
 - Both append sites (`apply_product_kind_to_plan` at `product_kind.py:877`,
   `apply_product_kind_to_architect` at `:1157` pre-change) now append the kind clause **once per
@@ -37,12 +66,13 @@ The session did the one sanctioned offline item and the housekeeping:
   kind**, was 263–591 per run. No production run needed and none spent — the seal already
   discarded the duplicates; nothing observable changes, exactly as session 14's demotion said.
 
-**Suite: 1,870 passed / 1 skipped / 0 failed** (the +3 over session 14 are exactly the three new
-tests). Vitest and `tsc -b` not re-run — no JS/TS touched.
+**Suite: 1,873 passed / 1 skipped / 0 failed** (+6 over session 14: three dedupe tests, three
+classifier tests). Vitest/`tsc -b` not re-run from here — no JS/TS touched; CI's own vitest run
+is the 1.10 observation above.
 
-**Pushed.** `main` was four commits ahead on one disk (`bd58502..38d66f5` plus docs); the
-session-15 prompt said push was this session's call, and four sessions of unpushed work on one
-disk is the risk the session-13 push existed to close.
+**Pushed, twice.** The first push (`f019d39`) was this session's call — four sessions of
+unpushed work on one disk was the risk the session-13 push existed to close — and it is the push
+whose CI run the owner then observed. The classifier commits are pushed on the same standing.
 
 ---
 
@@ -51,12 +81,23 @@ disk is the risk the session-13 push existed to close.
 - **First test run omitted the `pip install -q pytest` half of the documented command** — "No
   module named pytest" from the image, not a broken suite. The documented command's pip install
   is load-bearing; the failure is loud, but read it as the harness, not the code.
+- **My first guest-house fixture did not bind (blind spot 1), and the mutation sweep caught me.**
+  I gave it `gallery` + `menus`, so `storefront >= 2` short-circuited before the strong-signal
+  branch the defect lives in — three of four mutations SURVIVED against it. The fix was SB-07's
+  brief verbatim, which has a single storefront hit and genuinely reaches the branch. A sweep
+  with survivors is the system working: read the survivor list before blaming the mutations.
+- **A `git add` failed on pathspec because the working directory had drifted into `backend/`** —
+  the operating note exists; use absolute paths or `cd` at the start of the compound command.
 
 ## Mutation results
 
-`mutate_design_direction_dedupe.py`: **6 mutations, 0 survivors, one sweep.** Baseline green
-(18 passed across `test_product_kind.py` + `test_design_brief.py`), every mutation restored from
-the in-memory backup. No other sweep run — no other pipeline code changed.
+- `mutate_design_direction_dedupe.py`: **6 mutations, 0 survivors, one sweep.**
+- `mutate_classifier_boundary.py`: **4 mutations, 0 survivors** — after the fixture fix above;
+  the first run had 3 survivors and each one was the fixture's fault, not the tests' subject.
+- `boundary_variant_census.py`'s adoption guard: **proven red under an in-memory substring
+  revert**, failing with "shipped _blob regressed to bare substring matching" — red for the
+  filed reason, file restored from the in-memory backup.
+Run one at a time, every file restored from in-memory backups.
 
 ---
 
@@ -72,13 +113,13 @@ the in-memory backup. No other sweep run — no other pipeline code changed.
 
 ## State of the repo, in four lines
 
-- **`main` is `38d66f5` plus the session-15 docs commit, pushed** (this session's call, delegated
-  in the prompt).
-- **Suite: 1,870 passed / 1 skipped / 0 failed** (documented command). Vitest/`tsc -b` not re-run.
+- **`main` is `9c5b383` (the classifier adoption) plus the session-15 docs commits, pushed.**
+- **Suite: 1,873 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
+  observed.
 - **Credits: $0. `total_usage 330.229` of `total_credits 330`** — FOURTH identical reading. The
   ~$40 mystery spend is still unexplained and is the owner's call.
-- **CI still unobserved.** Private repo, no `gh`, 404 unauthenticated. This push queued another
-  run nobody has seen.
+- **CI OBSERVED GREEN for the first time** — run #11 on `f019d39`, by the owner, in a browser.
+  1.10 is closed.
 
 ---
 
@@ -115,16 +156,15 @@ If credits returned, the funded backlog is unchanged from session 14 and in this
 
 Rulings that unblock work without credits:
 
-5. **The classifier ruling** — the numbers are in (Status row); the session-15 bracket was left
-   unfilled. If adopting boundaries, prefix-anchored is the minimal-collateral shape;
-   word-boundary needs a plural/stem story. Re-run `boundary_variant_census.py` and
-   `synthetic_kind_census.py` after any change. `internal_ops` reachability and the
-   driving-school default are SEPARATE and stay unfixed absent their own ruling.
+5. **`internal_ops` reachability and the driving-school default** — the classifier's two
+   REMAINING gaps (the boundary ruling is adopted and closed). Both need their own owner
+   ruling: the hint pair `"internal desk"` + `"warehouse floor"` is measured to reach
+   `internal_ops/ops`, and a keyword table is not repaired by adding keywords — so the shape of
+   any fix is the decision, not the mechanics.
 6. **Dead nav data** (`navigation.customer/.staff/.features/.manager`,
    `navItemsAdmin`/`adminNavItems` — read by nothing) is the only code item left that needs no
    run, and it is pure deletion; three sessions listed, zero touched. Small enough to pair with
    any funded session rather than spend one on.
-7. **Someone with a browser still has to look at CI once** — two unobserved pushes now.
 
 **Owner decisions, unchanged and still yours:** p50 → Phase 2 under (A); APPSPEC_MODE stays
 shadow; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; the
@@ -143,7 +183,7 @@ classifier ruling above; key rotation and the mystery spend.
 
 ### The rule that has caught the most defects
 
-**Mutation-test every guard.** Twenty-two drivers in `backend/scripts/cli/mutate_*.py`, one in
+**Mutation-test every guard.** Twenty-three drivers in `backend/scripts/cli/mutate_*.py`, one in
 `preview-template-tests/tools/mutate.py`. **Run one sweep at a time.**
 
 Ten blind spots, all found the expensive way (restated in full in session 14's handoff at
@@ -210,14 +250,16 @@ Ordered by what I would do first. Every item has evidence; none is speculative.
 ### 1. The account is empty and ~$40 over two days is unaccounted for
 FOURTH session blocked on it. Nothing on this list moves until it does.
 
-### 2. Eight fixes are mutation-proven and production-unproven
-Sessions 11–15's (the dedupe guard joins the seven, though it is the one that genuinely needs
-no run). 1.12's matters most — it is a fallback and a healthy run never exercises it.
+### 2. Nine fixes are mutation-proven and production-unproven
+Sessions 11–15's (the dedupe guard and the classifier adoption join the seven; the dedupe needs
+no run, and the classifier is corpus-proven over all 47 stored contexts + 20 briefs — a funded
+run adds one live data point, not the proof). 1.12's matters most — it is a fallback and a
+healthy run never exercises it.
 
-### 3. The classifier decides a product kind on bare substrings — MEASURED, awaiting ruling
-0 of 47 stored runs move under either boundary variant; only the guest house changes, to its
-intended kind. The session-15 ruling bracket came back unfilled. `internal_ops` reachability
-and the driving-school default are separate gaps boundaries do not touch.
+### 3. The classifier's two REMAINING gaps — reachability, not substrings
+The boundary ruling is adopted and closed (`9c5b383`). Still open, each needing its own ruling:
+`internal_ops` is near-unreachable in plain English (three staff-only desks resolve
+`saas_workspace`), and a zero-hint brief (the driving school) takes the storefront default.
 
 ### 4. Page identity is fixed in shadow and not under enforcement
 Unchanged (`capability_ids` unread by `_search_text`).
@@ -234,10 +276,9 @@ Structural and certain; wants a run beside the fix.
 ### 8. 1.11 — the reserve is unbounded as a whole
 Unchanged. Measure pages-judged and wall clock separately.
 
-### 9. 1.10 — green on `main` is unverified
-Two pushes now, zero observations. Needs a browser or a token.
+~~1.10 — green on `main` is unverified~~ — **closed**, observed green by the owner (run #11).
 
-### 10. Dead nav data
+### 9. Dead nav data
 Read by nothing; pure deletion; three sessions listed, zero touched. Pair with a funded session.
 
 ~~design_direction pile-on~~ — **closed**, `38d66f5`, this session.
@@ -248,25 +289,26 @@ Read by nothing; pure deletion; three sessions listed, zero touched. Pair with a
 
 ```
 Read HANDOFF.md first — "Session 15, in one page" and "The next step". Then the roadmap's
-session-15 callout. Don't re-derive them.
+session-15 callout and the classifier row's session-15 UPDATE. Don't re-derive them.
 
-main is at the session-15 docs commit, PUSHED. Suite 1,870 / 1 / 0. Credits were $0 at last
-check, FOURTH session running.
+main is PUSHED through the session-15 close. Suite 1,873 / 1 / 0. Credits were $0 at last
+check, FOURTH session running. The classifier boundary ruling is ADOPTED (9c5b383) — do not
+reopen it. CI was observed green once (run #11); 1.10 is closed.
 
 BEFORE ANYTHING ELSE: probe credits — HANDOFF "The next step" item 0. No restarts first.
-IF STILL EMPTY: there is NO offline work left worth a session. State the reading, update
+IF STILL EMPTY: there is NO offline code work left worth a session. State the reading, update
 nothing, and stop — unless I have filled in a ruling below.
 
-1. IF CREDITS RETURNED: launch_duo3.sh and the SEVEN fixes' read-list (HANDOFF item 1).
+1. IF CREDITS RETURNED: launch_duo3.sh and the fixes' read-list (HANDOFF item 1) — the seven
+   plus the classifier's live data point (the kind each run resolves, from the log).
    Dump the api log the moment each run finishes; grep `slot_fill rejected`.
 2. 1.12's reachability — the three unroutable-model runs (HANDOFF item 2). Recreate, never
    restart; log dumped first; .env restored and verified from the running process.
 3. slot_fill's rejection distribution from item 1's logs — filed questions 2 and 3.
 4. _design_system_dict's four discarded colours — land the fix WITH item 1's run beside it.
-5. MY RULING on the classifier: [prefix-anchored / word-boundary / leave it]. If I rule to
-   move: wrap-measured before/after with boundary_variant_census.py and
-   synthetic_kind_census.py re-run after; internal_ops reachability and the driving-school
-   default are SEPARATE and stay unfixed unless I say otherwise.
+5. MY RULING on the classifier's two REMAINING gaps, if I give one:
+   internal_ops reachability [fix / leave]: ______   driving-school default [fix / leave]: ______
+   No ruling written here means both stay as they are.
 6. Dead nav data — pure deletion, pair it with item 1's session, don't spend one on it.
 
 DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE stays shadow;
@@ -276,7 +318,8 @@ rotation and the mystery spend.
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
 one sweep at a time; suite via docker run WITH its pip install half; roadmap in order;
 10-minute cap; config from the running process; archive what you measure. TEN blind spots —
-read the list in HANDOFF.
+read the list in HANDOFF; a fixture that short-circuits before the branch under test is
+blind spot 1 wearing a new coat.
 
 BEFORE YOU FINISH: next prompt written out; roadmap corrected in place; HANDOFF updated with
 what landed, what was NOT the filed defect, mutation results, and what you got wrong.
