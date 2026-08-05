@@ -1780,10 +1780,19 @@ def test_catalogue_contract() -> None:
         }
         assert sync_mock_roles_navigation(workspace, role_architect)
         synced = mock_path.read_text(encoding="utf-8")
-        assert '"owner": [' in synced
-        assert '"staff": [' in synced
+        # The routes still reach the sidebar — through the admin list the
+        # template actually reads, not through per-role keys.
         assert '"path": "/owner"' in synced
         assert '"path": "/staff"' in synced
+        assert '"admin": [' in synced
+        # Dead nav data stays dead: per-role navigation keys and the mock
+        # aliases were written for 65 straight workspaces and read by none
+        # (template reads navigation.public/.admin/.member; every generated
+        # page takes adminNavItems from the useAdminNavItems hook).
+        assert '"owner": [' not in synced
+        assert '"staff": [' not in synced
+        assert "navItemsAdmin" not in synced
+        assert "adminNavItems" not in synced
 
     with tempfile.TemporaryDirectory() as tmp:
         workspace = Path(tmp)

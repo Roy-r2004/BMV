@@ -630,23 +630,10 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
     )
     # AI hub stays on ops chrome only — investors must not leave the storefront
     # via a public-nav "AI features" link (request 48).
+    # Only the keys the template reads: app-nav.ts consumes public/admin (and
+    # member as a fallback alias for public). Per-role keys were written for
+    # 65 straight workspaces and read by none of them.
     navigation_data = {"public": public_nav, "admin": admin_nav}
-    for role in roles_src:
-        role_id = role.get("id")
-        if not role_id:
-            continue
-        role_nav = _pin_ai_features_nav(
-            _nav_items_for(
-                routes,
-                lambda rt, rid=role_id: rt.get("role_id") == rid,
-            ),
-            routes,
-        )
-        # Ops products often stamp one role_id on every route. Role switchers
-        # still need a full sidebar — fall back to admin chrome so pages open.
-        if len(role_nav) < 2 and admin_nav:
-            role_nav = list(admin_nav)
-        navigation_data[role_id] = role_nav
 
     roles_json = json.dumps(roles_data, indent=2, ensure_ascii=False)
     nav_json = json.dumps(navigation_data, indent=2, ensure_ascii=False)
@@ -666,29 +653,6 @@ def sync_mock_roles_navigation(workspace, architect: dict) -> bool:
             updated,
             count=1,
         )
-    # Keep common aliases pointed at the same admin chrome list.
-    alias = (
-        "\nexport const navItemsAdmin = navigation.admin;\n"
-        "export const adminNavItems = navigation.admin;\n"
-    )
-    if "export const navItemsAdmin" not in updated:
-        updated = updated.rstrip() + alias
-    else:
-        updated = re.sub(
-            r"export const navItemsAdmin\s*=\s*[^;]+;",
-            "export const navItemsAdmin = navigation.admin;",
-            updated,
-            count=1,
-        )
-        if "export const adminNavItems" in updated:
-            updated = re.sub(
-                r"export const adminNavItems\s*=\s*[^;]+;",
-                "export const adminNavItems = navigation.admin;",
-                updated,
-                count=1,
-            )
-        else:
-            updated = updated.rstrip() + "\nexport const adminNavItems = navigation.admin;\n"
     if updated != mock:
         write_file(workspace, mock_path, updated)
         return True
