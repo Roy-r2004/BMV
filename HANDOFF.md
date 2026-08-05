@@ -1,122 +1,68 @@
-# Session handoff — the blast radius is measured, and the doubled clause dies at the seal (2026-08-05, session 14)
+# Session handoff — the offline remainder is spent, and the account is still empty (2026-08-05, session 15)
 
-Successor to session 13's handoff (in git history at `1aa3489`). Still-binding parts are restated
+Successor to session 14's handoff (in git history at `369d5a7`). Still-binding parts are restated
 below; do not go back for them. Process notes, not product docs.
 
 ---
 
-## Session 14, in one page
+## Session 15, in one page
 
-**Zero generations, and not by choice — the account is empty for the third session running.**
-Probed first, before anything was restarted: `total_credits 330, total_usage 330.229`,
-byte-identical to sessions 12 and 13. Two measurement commits plus docs. **No pipeline code
-changed this session** — everything landed in `scripts/measure/` and the docs. Suite re-run the
-documented way afterwards: **1,867 passed / 1 skipped / 0 failed, unchanged.** Vitest and
-`tsc -b` were **not** re-run — no template or frontend file was touched.
+**Zero generations — the account is empty for the FOURTH session running.** Probed first, before
+anything was restarted: `total_credits 330, total_usage 330.229`, byte-identical to sessions
+12, 13 and 14. Items 1–4 of the session prompt (the duo, 1.12's reachability, `slot_fill`'s
+distribution, the colour-fix run) were offline again, said so plainly, not attempted.
 
-With the account empty, items 1 (the duo), 2 (1.12's reachability — the unroutable-model trick
-only isolates a branch if every *other* stage can complete a real call), 3 (`slot_fill`'s
-distribution) and the colour-fix verification run were all offline. The session did the two
-things that run without credits, and both changed what the backlog says:
+**The classifier ruling was NOT given.** The prompt carried the unfilled template
+`[prefix-anchored / word-boundary / leave it]` — a menu, not a choice. The classifier is
+untouched and the ruling is still open, with its numbers ready in the roadmap's classifier row.
 
-### 1. The classifier's blast radius — measured, and the owner can now rule (filed item 4)
+The session did the one sanctioned offline item and the housekeeping:
 
-`scripts/measure/boundary_variant_census.py` (`86c6c1d`) runs the CURRENT resolver and two
-boundary variants over the 20 synthetic briefs AND the 47 stored kind_contexts — which are
-archived in `docs/evidence/preview-routes.json`, so no database is needed. The variant **wraps
-the real function**: `_blob` is patched to return a str subclass whose `__contains__` matches on
-boundaries, so `classify_product_kind` and `resolve_product_kind_contract` run untouched, and a
-self-check proves the patch reaches the classifier before any number prints.
+### The `design_direction` dedupe guard — landed (`38d66f5`)
 
-Two variants, because the hint table holds deliberate prefix stems (`reconcil`, `bookkeep`) that
-a boundary on both sides silently kills: **word** (both sides) and **prefix** (left only).
+- Both append sites (`apply_product_kind_to_plan` at `product_kind.py:877`,
+  `apply_product_kind_to_architect` at `:1157` pre-change) now append the kind clause **once per
+  dict**. Re-application — which `plan_phase`'s forcer path does 2-3× per run — is a no-op.
+- **The guard keys on the full `PRODUCT_KIND={kind}/{subtype}` marker, not the bare
+  `PRODUCT_KIND=` idiom** from the instructions site at `:1152`. Deliberate: if a forcer ever
+  flips the kind (session 14 finding 1 — today it only re-confirms), the flipped kind still
+  appends its own note, so the feedback loop keeps today's information content in all cases.
+  A bare-prefix guard would silently swallow a flipped kind's note — that exact mutation is in
+  the sweep and is caught.
+- 3 tests in `tests/preview_app/test_product_kind.py`, 6 mutations in
+  `scripts/cli/mutate_design_direction_dedupe.py`, **0 survivors** — including the inverted
+  guard, both bare-prefix variants, and the skip branch's normalising assignment (pinned by a
+  whitespace fixture so it is not a guard that cannot fail).
+- `design_direction_census.py` re-run after the fix: **`transient_duplicate_chars` 0 on every
+  kind**, was 263–591 per run. No production run needed and none spent — the seal already
+  discarded the duplicates; nothing observable changes, exactly as session 14's demotion said.
 
-| | |
-|---|---|
-| **the 47 stored kind_contexts** | **0 change kind or subtype, under either variant** |
-| the 20 synthetic briefs | **the only change anywhere is SB-07 itself** — the guest house drops `internal_ops/trading` for its intended `storefront`; 15/20 → 16/20 |
-| the other four misses | **do not move.** Driving school still takes the storefront default; the three staff-only desks still resolve `saas_workspace`. Reachability gaps in the hint table, not substring accidents |
-| the word variant's cost | **it deadens plurals** — `collector`@collectors, `painting`@paintings, `appointment`@appointments, `reservation`@reservations, `menu`@menus, `trader`@traders, `cafe`@cafes. 48 of 67 rows lose ≥ 1 hit and no verdict changes **only because every affected row has redundant hits**; a one-signal brief falls to the default |
-| the prefix variant's cost | almost exactly the defect class — `spa` mid-word ×16 (including "white**spa**ce"), `oms`@Rooms — plus **two genuine suffix matches**: `shop`@bookshop, `therapy`@physiotherapy |
+**Suite: 1,870 passed / 1 skipped / 0 failed** (the +3 over session 14 are exactly the three new
+tests). Vitest and `tsc -b` not re-run — no JS/TS touched.
 
-Not fixed, per the brief. If the ruling is to move: prefix-anchored kills the filed class with
-minimal collateral; a full word boundary needs a plural/stem story first.
-
-### 2. Session 13's finding 2 is WRONG as filed — the doubled clause never reaches a prompt (filed item 5)
-
-The filed claim was *"prompt pollution on every run … it changes a prompt on the HEALTHY path,
-so it wants a run beside it."* Measured instead of assumed:
-
-- **All 47 stored `preview_app.design_direction` values contain zero `PRODUCT_KIND=`
-  occurrences.** Counted from the database, all 47 runs with a stored preview_app.
-- The append is real — twice per dict, and **three times on ops/accounting kinds**, because the
-  `internal_desk`/`saas_accounting` forcers (`plan_phase.py:204/:208`) read the polluted
-  direction back **through `classify_product_kind`** and re-apply the contract. A genuine
-  feedback loop; self-reinforcing only, on the current design notes.
-- But `seal_design_brief` returns `sealed: True` **unconditionally**, and the sealed brief
-  REPLACES the direction at `plan_phase.py:265` — **before `call_architect` at `:288`** — and at
-  `:349`, before codegen and before `finalize` persists it. The pollution is transient and its
-  only readers are those two forcer keyword checks. No model prompt ever sees it; the sealed
-  direction carries the kind note once, by composition.
-- Per-kind sizes are in `scripts/measure/design_direction_census.py` (`8786e87`): plan clause
-  145–205 chars, architect 112–172, transient duplicate total 263–591 chars per run.
-
-**Demoted**: the fix is a belt-and-braces dedupe guard (the idiom already exists ten lines up at
-`product_kind.py:1152`), not a run-blocked prompt fix. The filed "wants a run beside it" is
-withdrawn — a run would show nothing, because nothing observable changes.
-
-### 3. A session-13 census claim corrected in place — internal_ops was never driven
-
-`deterministic_paths_census.py`'s internal_ops context ("internal ops back office desk for
-warehouse staff") resolves `storefront/storefront` — neither `"internal desk"` nor
-`"warehouse floor"` is a substring of it. That is the classifier's own unreachability finding,
-biting the census built to be immune to it: session 13's "measured over all seven reachable
-kinds" actually drove **five** distinct contracts and measured storefront on three of seven rows.
-Fixed (`8786e87`): the context now uses the measured hint pair, an `EXPECTED` label→kind map
-turns any silent mislabel into a red summary line — **proven red on the old context** (exit 1,
-`MISLABELLED ROW` naming the row) — and all **six** distinct contracts pass every check,
-`internal_ops/ops` for the first time.
+**Pushed.** `main` was four commits ahead on one disk (`bd58502..38d66f5` plus docs); the
+session-15 prompt said push was this session's call, and four sessions of unpushed work on one
+disk is the risk the session-13 push existed to close.
 
 ---
 
-## Findings that were NOT the filed defect
+## What I got wrong in session 15
 
-1. **The forcer feedback loop.** `is_internal_desk_brief`/`is_saas_accounting_brief` feed
-   `design_direction` — including the PRODUCT_KIND clause the kind lock just appended — back into
-   `classify_product_kind`. Today the loop only re-confirms the kind that wrote the clause
-   (measured: the third clause appears only on kinds whose own note re-triggers their own
-   forcer). Any future design-note wording change can flip a kind through it. Listed, not fixed.
-2. **The word-boundary plural trap.** The hint table is singular nouns matched against plural
-   text. A both-sides boundary variant looks safe on this corpus only because of hit redundancy —
-   the census makes that visible by counting hint losses, not just verdict changes.
-3. **The 47 kind_contexts are archived** in `docs/evidence/preview-routes.json` under
-   `kind_context` — no database needed. Session 13 wrote them there; nothing said so.
-
-## What I got wrong in session 14
-
-- **My first revert-proof proved nothing, twice.** First run piped through `tail` and echoed
-  *tail's* exit code with stderr discarded — "exit=0" while python had crashed. Second run put
-  the temp copy at the wrong directory depth and went red on its own `parents[2]` path math — red
-  for the WRONG reason. Only the third run was red because of the mislabel it claimed to test.
-  A revert-proof is only a proof if it fails for the filed reason, and the exit code you read is
-  the exit code of the process you meant.
-- **I nearly measured item 5 as "clause size × 2 × 47 runs of prompt pollution."** The stored
-  artifacts said zero before the multiplication happened. Check the shipped artifact before
-  publishing a mechanism's cost — same rule that caught the route census in session 13.
+- **First test run omitted the `pip install -q pytest` half of the documented command** — "No
+  module named pytest" from the image, not a broken suite. The documented command's pip install
+  is load-bearing; the failure is loud, but read it as the harness, not the code.
 
 ## Mutation results
 
-**None to report in pytest — no pipeline code changed, no tests added.** The suite is untouched
-at 1,867/1/0. The measurement layer got its own revert-proofs: the census label assertion
-(red on the old context, green on the new) and `boundary_variant_census.py`'s hard self-checks
-(the patch must demonstrably reach the classifier, and the fixture must still hit the
-strong-signal branch, or it exits before printing a number).
+`mutate_design_direction_dedupe.py`: **6 mutations, 0 survivors, one sweep.** Baseline green
+(18 passed across `test_product_kind.py` + `test_design_brief.py`), every mutation restored from
+the in-memory backup. No other sweep run — no other pipeline code changed.
 
 ---
 
 - **The plan and its evidence: [docs/PREVIEW_ROADMAP.md](docs/PREVIEW_ROADMAP.md).** Read the
-  **session 14 callout** at the top of **Status**, the **UPDATE in the classifier row**, and the
-  **correction block** under the 1.12 update in Phase 1.
+  **session 15 callout** at the top of **Status**; session 14's callout and the classifier row
+  UPDATE below it are still the live measurement record.
 - **Before spending a trio: [docs/FIRST_FUNDED_TRIO_PREFLIGHT.md](docs/FIRST_FUNDED_TRIO_PREFLIGHT.md).**
 - Why the pipeline shipped bad output: [docs/PREVIEW_QUALITY_FINDINGS.md](docs/PREVIEW_QUALITY_FINDINGS.md).
 
@@ -126,21 +72,23 @@ strong-signal branch, or it exits before printing a number).
 
 ## State of the repo, in four lines
 
-- **`main` is `1aa3489` (pushed) plus session 14's commits, which are unpushed.** Push
-  authorization was session-13-specific; not assumed here.
-- **Suite: 1,867 passed / 1 skipped / 0 failed** (re-run this session, documented command).
-  Vitest and `tsc -b` not re-run — no JS/TS touched.
-- **Credits: $0. `total_usage 330.229` of `total_credits 330`** — third identical reading across
-  three sessions. The ~$40 mystery spend is still unexplained and is the owner's call.
-- **CI still unobserved.** Private repo, no `gh`, 404 unauthenticated. Unchanged.
+- **`main` is `38d66f5` plus the session-15 docs commit, pushed** (this session's call, delegated
+  in the prompt).
+- **Suite: 1,870 passed / 1 skipped / 0 failed** (documented command). Vitest/`tsc -b` not re-run.
+- **Credits: $0. `total_usage 330.229` of `total_credits 330`** — FOURTH identical reading. The
+  ~$40 mystery spend is still unexplained and is the owner's call.
+- **CI still unobserved.** Private repo, no `gh`, 404 unauthenticated. This push queued another
+  run nobody has seen.
 
 ---
 
 ## The next step
 
-**Ordered. Item 0 gates every item that needs a run.**
+**There is no meaningful offline work left.** The next session should not start unless at least
+one of these is true, or it will burn a session confirming this paragraph:
 
-0. **Top up or rotate the OpenRouter key, then probe before anything else.**
+0. **Credits are topped up or the key is rotated** — probe FIRST, the one-liner below, before
+   anything is restarted:
 
    ```bash
    docker compose exec -T api python -c "
@@ -150,32 +98,37 @@ strong-signal branch, or it exits before printing a number).
        headers={'Authorization': f'Bearer {settings.OPENROUTER_API_KEY}'}, timeout=20).json())"
    ```
 
+If credits returned, the funded backlog is unchanged from session 14 and in this order:
+
 1. **Prove the SEVEN unproven fixes on a run that reaches a build.** `launch_duo3.sh` is ready.
-   The read-list is unchanged from session 13's handoff (`1aa3489`, "The next step" item 1):
-   gallery gone; both reservations routes with different labels; no hero subcopy literal; real
-   font name; `grep -c ':slug' src/App.tsx` = 0; second card's slug renders the second item;
-   **dump the api log the moment each run finishes** and grep `slot_fill rejected`.
+   Read-list unchanged (session 13's handoff at `1aa3489`, "The next step" item 1): gallery gone;
+   both reservations routes with different labels; no hero subcopy literal; real font name;
+   `grep -c ':slug' src/App.tsx` = 0; second card's slug renders the second item; **dump the api
+   log the moment each run finishes** and grep `slot_fill rejected`.
 2. **1.12's reachability** — unroutable `ARCHITECT_MODEL`, then `PREVIEW_APP_MODEL`, then
    `TEXT_MODEL`+`ARCHITECT_MODEL` for `build_experience_plan`; one generation each; degraded ship
    INSIDE the cap with the right `degraded` key and a stored `preview_app`. Recreate, never
    restart; dump the log first; put `.env` back and verify from the running process.
-3. **`slot_fill`'s rejection distribution** from item 1's logs.
+3. **`slot_fill`'s rejection distribution** from item 1's logs (filed questions 2 and 3).
 4. **`_design_system_dict` discards four derived colours** — thread the palette through
    `mock_data.py:313/:323/:375`, `brand_contract.py:255/:638`; pair with item 1's run.
-5. **The classifier ruling — the numbers are in** (Status row). If adopting boundaries,
-   prefix-anchored is the minimal-collateral shape; word-boundary needs a plural/stem story.
-   Re-run `boundary_variant_census.py` and `synthetic_kind_census.py` after any change. Also
-   still open behind it: `internal_ops` reachability and the driving-school default, which
-   boundaries do not touch.
-6. **`design_direction` dedupe guard** — demoted tidy-up; nothing observable changes (the seal
-   wipes it), so it needs a test but not a run. The forcer feedback loop (finding 1) is the part
-   worth a thought before touching.
-7. **Dead nav data** — untouched again this session; the measurement corrections took the time.
-8. **Someone with a browser still has to look at CI once.**
 
-**Owner decisions, unchanged and still yours:** p50 → Phase 2 under (A); SiteSpec vs AppSpec;
-the `state_ids` backfill; relaxing the AppSpec schema; the classifier ruling above; key rotation
-and the mystery spend.
+Rulings that unblock work without credits:
+
+5. **The classifier ruling** — the numbers are in (Status row); the session-15 bracket was left
+   unfilled. If adopting boundaries, prefix-anchored is the minimal-collateral shape;
+   word-boundary needs a plural/stem story. Re-run `boundary_variant_census.py` and
+   `synthetic_kind_census.py` after any change. `internal_ops` reachability and the
+   driving-school default are SEPARATE and stay unfixed absent their own ruling.
+6. **Dead nav data** (`navigation.customer/.staff/.features/.manager`,
+   `navItemsAdmin`/`adminNavItems` — read by nothing) is the only code item left that needs no
+   run, and it is pure deletion; three sessions listed, zero touched. Small enough to pair with
+   any funded session rather than spend one on.
+7. **Someone with a browser still has to look at CI once** — two unobserved pushes now.
+
+**Owner decisions, unchanged and still yours:** p50 → Phase 2 under (A); APPSPEC_MODE stays
+shadow; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; the
+classifier ruling above; key rotation and the mystery spend.
 
 ---
 
@@ -190,11 +143,11 @@ and the mystery spend.
 
 ### The rule that has caught the most defects
 
-**Mutation-test every guard.** Twenty-one drivers in `backend/scripts/cli/mutate_*.py`, one in
+**Mutation-test every guard.** Twenty-two drivers in `backend/scripts/cli/mutate_*.py`, one in
 `preview-template-tests/tools/mutate.py`. **Run one sweep at a time.**
 
-Ten blind spots, all found the expensive way (1–9 restated from session 13 at `1aa3489`; check
-for each by default):
+Ten blind spots, all found the expensive way (restated in full in session 14's handoff at
+`369d5a7`; check for each by default):
 
 1. Asserting against the case that does not bind.
 2. Driving the consumer, never the producer — or the reverse.
@@ -208,10 +161,9 @@ for each by default):
    execute old code from `git show`, never re-derive it.
 9. A mutation can apply cleanly and still be a no-op — anchor on the last statement whose effect
    you mean to destroy.
-10. **NEW — a labelled measurement row measures its label, not its content.** The census's
-    "internal_ops" row was a storefront for a full session. Assert `resolved == labelled`
-    inside the tool, and make the mismatch a red exit — and when you build a revert-proof,
-    make sure it is red for the filed reason and you are reading the right process's exit code.
+10. A labelled measurement row measures its label, not its content — assert `resolved ==
+    labelled` inside the tool, red exit on mismatch; a revert-proof must be red for the filed
+    reason, from the right process's exit code.
 
 Assume any DoD row you did not personally mutate is unproven.
 
@@ -219,16 +171,16 @@ Assume any DoD row you did not personally mutate is unproven.
 
 ## Operating notes — every one has cost real time
 
-All of session 13's notes stand (`1aa3489`); the load-bearing ones, plus this session's:
+All of session 14's notes stand (`369d5a7`); the load-bearing ones:
 
 | | |
 |---|---|
-| **Probe credits BEFORE anything else** | Item 0's one-liner. Third session where this was the first act and the right one |
+| **Probe credits BEFORE anything else** | Item 0's one-liner. Fourth session where this was the first act and the right one |
 | **Resolve config from the RUNNING PROCESS** | Never from a previous session's note; `backend/.env` is not tracked |
 | **`restart` reloads code; it does NOT reload `env_file`** | `up -d --force-recreate` — and dump the log first, recreate destroys it |
-| **The test command** | `docker run`, never `docker compose exec` — three independent lies |
+| **The test command** | `docker run`, never `docker compose exec` — and its `pip install -q pytest` half is load-bearing, the image does not ship pytest |
 | **The 47 kind_contexts are archived** | `docs/evidence/preview-routes.json`, key `kind_context` — classifier measurements need no DB |
-| **`preview_app.design_direction` is the SEALED direction** | Anything appended between the kind locks and the seal is invisible downstream — check the seal before pricing a "pollution" |
+| **`preview_app.design_direction` is the SEALED direction** | Anything appended between the kind locks and the seal is invisible downstream — and as of `38d66f5` it is one clause per dict anyway |
 | **No `git` in the test image** | Extract old files on the host (`git show ref:path > file`) |
 | **`industry` is `Form(None)`** | Always set it. Host port **8001**, multipart, no trailing slash |
 | pytest | **Read the SUMMARY LINE, never the exit code** |
@@ -241,8 +193,8 @@ All of session 13's notes stand (`1aa3489`); the load-bearing ones, plus this se
 docker run --rm -v "$REPO:/repo" -w /repo/backend \
   -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template --entrypoint sh bmv-local-api \
   -c 'python3 scripts/measure/boundary_variant_census.py'          # classifier variants, both corpora
-  -c 'python3 scripts/measure/design_direction_census.py'          # kind-clause pile-on sizes
-  -c 'python3 scripts/measure/deterministic_paths_census.py'       # 1.12 per kind — now label-asserted
+  -c 'python3 scripts/measure/design_direction_census.py'          # kind-clause sizes — duplicates now 0
+  -c 'python3 scripts/measure/deterministic_paths_census.py'       # 1.12 per kind — label-asserted
   -c 'python3 scripts/measure/synthetic_kind_census.py --explain'  # the 20 briefs
 ```
 
@@ -256,15 +208,16 @@ Postgres credentials are `-U bmv -d buildmyversion`.
 Ordered by what I would do first. Every item has evidence; none is speculative.
 
 ### 1. The account is empty and ~$40 over two days is unaccounted for
-Third session blocked on it. Unchanged.
+FOURTH session blocked on it. Nothing on this list moves until it does.
 
-### 2. Seven fixes are mutation-proven and production-unproven
-Sessions 11–13's. 1.12's matters most — it is a fallback and a healthy run never exercises it.
+### 2. Eight fixes are mutation-proven and production-unproven
+Sessions 11–15's (the dedupe guard joins the seven, though it is the one that genuinely needs
+no run). 1.12's matters most — it is a fallback and a healthy run never exercises it.
 
 ### 3. The classifier decides a product kind on bare substrings — MEASURED, awaiting ruling
 0 of 47 stored runs move under either boundary variant; only the guest house changes, to its
-intended kind. `internal_ops` reachability and the driving-school default are separate gaps
-boundaries do not touch.
+intended kind. The session-15 ruling bracket came back unfilled. `internal_ops` reachability
+and the driving-school default are separate gaps boundaries do not touch.
 
 ### 4. Page identity is fixed in shadow and not under enforcement
 Unchanged (`capability_ids` unread by `_search_text`).
@@ -278,16 +231,53 @@ Needs item 1's log dump.
 ### 7. `_design_system_dict` discards four of six derived colours
 Structural and certain; wants a run beside the fix.
 
-### 8. `design_direction` pile-on — DEMOTED from "prompt pollution" to tidy-up
-Transient only; the seal discards it before any reader that matters. The real residue is the
-forcer feedback loop (finding 1). Dedupe guard + a test; no run needed.
-
-### 9. 1.11 — the reserve is unbounded as a whole
+### 8. 1.11 — the reserve is unbounded as a whole
 Unchanged. Measure pages-judged and wall clock separately.
 
-### 10. 1.10 — green on `main` is unverified
-Push happened, observation did not. Needs a browser or a token.
+### 9. 1.10 — green on `main` is unverified
+Two pushes now, zero observations. Needs a browser or a token.
 
-### 11. Dead nav data
-`navigation.customer/.staff/.features/.manager`, `navItemsAdmin`/`adminNavItems` — read by
-nothing. Two sessions listed, zero sessions touched.
+### 10. Dead nav data
+Read by nothing; pure deletion; three sessions listed, zero touched. Pair with a funded session.
+
+~~design_direction pile-on~~ — **closed**, `38d66f5`, this session.
+
+---
+
+## Next session's prompt, ready to paste
+
+```
+Read HANDOFF.md first — "Session 15, in one page" and "The next step". Then the roadmap's
+session-15 callout. Don't re-derive them.
+
+main is at the session-15 docs commit, PUSHED. Suite 1,870 / 1 / 0. Credits were $0 at last
+check, FOURTH session running.
+
+BEFORE ANYTHING ELSE: probe credits — HANDOFF "The next step" item 0. No restarts first.
+IF STILL EMPTY: there is NO offline work left worth a session. State the reading, update
+nothing, and stop — unless I have filled in a ruling below.
+
+1. IF CREDITS RETURNED: launch_duo3.sh and the SEVEN fixes' read-list (HANDOFF item 1).
+   Dump the api log the moment each run finishes; grep `slot_fill rejected`.
+2. 1.12's reachability — the three unroutable-model runs (HANDOFF item 2). Recreate, never
+   restart; log dumped first; .env restored and verified from the running process.
+3. slot_fill's rejection distribution from item 1's logs — filed questions 2 and 3.
+4. _design_system_dict's four discarded colours — land the fix WITH item 1's run beside it.
+5. MY RULING on the classifier: [prefix-anchored / word-boundary / leave it]. If I rule to
+   move: wrap-measured before/after with boundary_variant_census.py and
+   synthetic_kind_census.py re-run after; internal_ops reachability and the driving-school
+   default are SEPARATE and stay unfixed unless I say otherwise.
+6. Dead nav data — pure deletion, pair it with item 1's session, don't spend one on it.
+
+DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE stays shadow;
+SiteSpec vs AppSpec pending; state_ids backfill pending; AppSpec schema untouched; key
+rotation and the mystery spend.
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
+one sweep at a time; suite via docker run WITH its pip install half; roadmap in order;
+10-minute cap; config from the running process; archive what you measure. TEN blind spots —
+read the list in HANDOFF.
+
+BEFORE YOU FINISH: next prompt written out; roadmap corrected in place; HANDOFF updated with
+what landed, what was NOT the filed defect, mutation results, and what you got wrong.
+```

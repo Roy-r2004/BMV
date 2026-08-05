@@ -181,7 +181,29 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-05 (session 14)
+## Status — updated 2026-08-05 (session 15)
+
+> ### Session 15 — the account is STILL empty (FOURTH identical reading), and the offline remainder is now spent
+>
+> `total_credits 330, total_usage 330.229`, probed first, byte-identical for the fourth session.
+> The duo, 1.12's reachability, the `slot_fill` distribution and the colour-fix run stay blocked;
+> **there is no meaningful offline work left after this session** — the next session needs either
+> credits or an owner ruling, or it should not run.
+>
+> - **The `design_direction` dedupe guard is LANDED** — `38d66f5`, the one sanctioned offline item.
+>   The kind clause is appended once per dict at both sites (`apply_product_kind_to_plan`,
+>   `apply_product_kind_to_architect`); the guard keys on the full `PRODUCT_KIND={kind}/{subtype}`
+>   marker so a kind flipped through the forcer feedback loop still appends its own note —
+>   today's loop behaviour is preserved by construction, not by luck. 3 tests, 6 mutations,
+>   0 survivors (`mutate_design_direction_dedupe.py`). Suite **1,870 / 1 / 0**.
+>   `design_direction_census.py` re-run: `transient_duplicate_chars` **0 on every kind**, was
+>   263–591 per run. No run needed and none spent — the seal already discarded the duplicates;
+>   nothing observable changes, exactly as the demotion said.
+> - **The classifier ruling was NOT given.** The session-15 prompt carried the unfilled template
+>   `[prefix-anchored / word-boundary / leave it]` — that is the menu, not a choice. The
+>   classifier is untouched; the boundary-variant numbers in the row below still await the ruling.
+> - Nothing else changed. No generation, no other pipeline code, vitest/`tsc -b` not run
+>   (no JS/TS touched).
 
 > ### Session 14 — the account is STILL empty (third reading), and the session was measurement-only
 >
