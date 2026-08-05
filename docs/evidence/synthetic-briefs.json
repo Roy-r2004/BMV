@@ -1,0 +1,169 @@
+{
+  "purpose": "Phase 3's missing denominator. The archived corpus is 84 request rows but only 18 distinct briefs, 15 of which classify `storefront` — so five skeletons and nine catalogue components have never been reachable, and no measurement over that corpus can say whether they work or whether the classifier can even find them.",
+  "authored": "2026-08-05 (session 13)",
+  "what_it_can_prove_offline": "CLASSIFICATION ONLY. `resolve_product_kind_contract` is deterministic and needs no model, no database and no network, so `scripts/measure/synthetic_kind_census.py` can run every brief through the production classifier and compare the resolved kind against the kind the brief intends. It proves nothing about generation quality, page content, wall clock or ship rate — those need funded runs and there is no substitute.",
+  "how_intended_kind_was_set": "By what the business IS, before reading the classifier — a warehouse back-office tool is `internal_ops` whatever words the resolver happens to key on. The briefs are written the way an owner describes their own business. A brief that lands somewhere else is a FINDING about the classifier, not a brief to be rewritten until it agrees.",
+  "briefs": [
+    {
+      "id": "SB-01",
+      "business_name": "Harbour & Vine Gallery",
+      "industry": "Art & Culture",
+      "business_description": "We are a contemporary art gallery on the waterfront representing fourteen painters and two sculptors. We want visitors to browse the current collection online, open a piece to see its dimensions, medium and price, and send us an enquiry about buying it.",
+      "intended_kind": "storefront",
+      "intended_subtype": "storefront"
+    },
+    {
+      "id": "SB-02",
+      "business_name": "Osteria Della Rocca",
+      "industry": "Restaurants",
+      "business_description": "A twenty-two seat trattoria serving regional Italian food. People should be able to read the food and wine menus, see photographs of the room, and book a table for the evening.",
+      "intended_kind": "storefront",
+      "intended_subtype": "storefront"
+    },
+    {
+      "id": "SB-03",
+      "business_name": "Copperleaf Bakery",
+      "industry": "Food & Drink",
+      "business_description": "A neighbourhood sourdough bakery. We sell bread, pastries and celebration cakes. Customers should see what we bake each day, read about the starter we have kept for nine years, and order a cake for collection.",
+      "intended_kind": "storefront",
+      "intended_subtype": "storefront"
+    },
+    {
+      "id": "SB-04",
+      "business_name": "Thistle & Fern Florist",
+      "industry": "Retail",
+      "business_description": "We arrange flowers for weddings and weekly office deliveries. We want a shop window online: the seasonal arrangements we make, prices, and a way to ask about a wedding.",
+      "intended_kind": "storefront",
+      "intended_subtype": "storefront"
+    },
+    {
+      "id": "SB-05",
+      "business_name": "Marginalia Books",
+      "industry": "Retail",
+      "business_description": "An independent bookshop with a strong second-hand section. Readers should be able to browse what is on the shelves this week, open a title to see the edition and condition, and reserve it for collection.",
+      "intended_kind": "storefront",
+      "intended_subtype": "storefront"
+    },
+    {
+      "id": "SB-06",
+      "business_name": "Northgate Dental Studio",
+      "industry": "Healthcare",
+      "business_description": "A two-surgery dental practice. Patients need to see which treatments we offer, what each one involves, and book an appointment with a specific dentist at a time that suits them.",
+      "intended_kind": "booking_service",
+      "intended_subtype": "booking"
+    },
+    {
+      "id": "SB-07",
+      "business_name": "The Wilder Rooms",
+      "industry": "Hospitality",
+      "business_description": "A nine-bedroom guest house on the coast. Guests should be able to look at each room, check which nights are free, and reserve a stay.",
+      "intended_kind": "storefront",
+      "intended_subtype": "storefront",
+      "note": "Authored as `booking_service` and corrected to `storefront` before publishing any number, because the product's own tables put `hotel` and `hospitality` in the storefront hints and every archived hotel brief resolves that way. Whether a guest house should be a booking service is an open PRODUCT question and not a defect. What is a defect is the verdict it actually gets — see the census."
+    },
+    {
+      "id": "SB-08",
+      "business_name": "Cadence Physiotherapy",
+      "industry": "Healthcare",
+      "business_description": "A physiotherapy clinic treating sports injuries. We want people to understand our treatment programmes and book an initial assessment without telephoning us.",
+      "intended_kind": "booking_service",
+      "intended_subtype": "booking"
+    },
+    {
+      "id": "SB-09",
+      "business_name": "Salon Ferro",
+      "industry": "Beauty & Wellness",
+      "business_description": "A hair salon with four stylists. Clients pick a service, pick their stylist, and book a slot. We also want them to see a price list before they commit.",
+      "intended_kind": "booking_service",
+      "intended_subtype": "booking"
+    },
+    {
+      "id": "SB-10",
+      "business_name": "Keystone Driving School",
+      "industry": "Education",
+      "business_description": "We teach people to drive. Learners should see the lesson packages we sell, choose an instructor near them, and book their first two-hour lesson.",
+      "intended_kind": "booking_service",
+      "intended_subtype": "booking"
+    },
+    {
+      "id": "SB-11",
+      "business_name": "Tandem Studio Planner",
+      "industry": "Software",
+      "business_description": "An internal tool our design studio uses to run client projects. The team signs in and works from a queue of tasks, opens a project record to update status and notes, and looks at a weekly report of what shipped.",
+      "intended_kind": "saas_workspace",
+      "intended_subtype": "generic"
+    },
+    {
+      "id": "SB-12",
+      "business_name": "Relay Support Desk",
+      "industry": "Software",
+      "business_description": "A helpdesk product for small support teams. Agents work a queue of incoming tickets, open a ticket to read the history and reply, and managers watch response times on a dashboard.",
+      "intended_kind": "saas_workspace",
+      "intended_subtype": "generic"
+    },
+    {
+      "id": "SB-13",
+      "business_name": "Fieldmark CRM",
+      "industry": "Software",
+      "business_description": "A customer relationship workspace for a field sales team. Reps sign in, work their list of accounts, open a company record to log a call, and the sales manager reviews the pipeline each Monday.",
+      "intended_kind": "saas_workspace",
+      "intended_subtype": "generic"
+    },
+    {
+      "id": "SB-14",
+      "business_name": "Ledgerwell Practice",
+      "industry": "Accounting",
+      "business_description": "Software our bookkeeping practice uses for client accounts. We raise and send invoices, record expenses against each client, reconcile the bank feed every month, and produce the reports the partners sign off.",
+      "intended_kind": "saas_workspace",
+      "intended_subtype": "accounting"
+    },
+    {
+      "id": "SB-15",
+      "business_name": "Tallowmere Books",
+      "industry": "Accounting",
+      "business_description": "An invoicing and expenses platform for freelancers. You issue an invoice, chase the ones that are late, log expenses with receipts, reconcile against the bank statement, and export a profit and loss report for your accountant.",
+      "intended_kind": "saas_workspace",
+      "intended_subtype": "accounting"
+    },
+    {
+      "id": "SB-16",
+      "business_name": "Dockside Warehouse Desk",
+      "industry": "Logistics",
+      "business_description": "A back office tool for the staff on our warehouse floor. Nobody outside the company uses it. Pickers work through the day's queue of orders, open a record to correct a quantity, and the shift supervisor prints a report at the end of the day.",
+      "intended_kind": "internal_ops",
+      "intended_subtype": "ops"
+    },
+    {
+      "id": "SB-17",
+      "business_name": "Ironmark Facilities Desk",
+      "industry": "Facilities Management",
+      "business_description": "An internal maintenance desk. Building staff raise a job, the coordinator assigns it from a work queue, engineers update the record when they attend, and management reviews outstanding jobs weekly. It is a staff tool, not a public website.",
+      "intended_kind": "internal_ops",
+      "intended_subtype": "ops"
+    },
+    {
+      "id": "SB-18",
+      "business_name": "Vessel Ops Console",
+      "industry": "Shipping",
+      "business_description": "An operations console used by our own dispatch team. They work a queue of vessel movements, open a movement to amend the berth and times, and the duty manager reads a shift report. No customer ever sees this.",
+      "intended_kind": "internal_ops",
+      "intended_subtype": "ops"
+    },
+    {
+      "id": "SB-19",
+      "business_name": "Meridian Equities Desk",
+      "industry": "Finance",
+      "business_description": "A trading desk tool for our equities team. Traders raise a ticket for an order, watch the blotter of fills as they come in, check positions through the day, and the risk officer reviews exposure limits before the close.",
+      "intended_kind": "internal_ops",
+      "intended_subtype": "trading"
+    },
+    {
+      "id": "SB-20",
+      "business_name": "Anvil Commodities Blotter",
+      "industry": "Finance",
+      "business_description": "An internal blotter for our commodities trading desk. Every fill lands on the blotter, traders open a ticket to amend an order, and the head of desk watches positions and risk against the day's limits.",
+      "intended_kind": "internal_ops",
+      "intended_subtype": "trading"
+    }
+  ]
+}
