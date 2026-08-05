@@ -38,6 +38,18 @@ mode and the p50 row are both owner-parked, and any change here needs a funded r
 `canonical_seed` is None under shadow** — seeding it from the shadow spec would be
 enforcement-lite, also the owner's call.
 
+### The ruling that followed finding 1: `APPSPEC_MODE` is now `off` (owner, 2026-08-06)
+
+The owner flipped it after seeing the evidence — including the verification that the historical
+runs really did record `mode=shadow` in their own generation logs (95/97/101/102), so the
+~100-125 s cost was real and local. `.env:12` changed, container **recreated** (restart does not
+re-read env), `off` confirmed from the running process (`app_spec_should_run_for_request() ==
+False`), prior api log archived first at `docs/evidence/api-log-before-appspec-off-recreate.txt`.
+Every future run skips the stage entirely. **The keep-or-delete question is a FILED EXPERIMENT
+in the roadmap's session-16 callout**: after the funded duo proves the landed fixes on current
+settings, run the same brief `on` vs `off` and judge ship-rate, route-table fit, and wall clock.
+Do not run the head-to-head and the fix-proving duo as the same runs — one variable at a time.
+
 ### Filed finding 2 — slot_fill's "truncated" rejections are provider errors adjudicated as answers
 
 Already measured in duo 1 (roadmap codegen census): 14 of 28 rejections carry
@@ -245,11 +257,11 @@ Rulings that unblock work without credits:
 6. ~~Dead nav data~~ — **DONE this session** (`1df35e3`), see the one-pager. There is now no
    code item left that runs without credits.
 
-**Owner decisions, unchanged and still yours:** p50 → Phase 2 under (A); APPSPEC_MODE stays
-shadow; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; key
-rotation and the mystery spend (the owner said 2026-08-05 they would fix the top-up "in a
-couple of days"). The classifier rulings are all given and landed — nothing classifier-shaped
-is pending.
+**Owner decisions:** p50 → Phase 2 under (A); **APPSPEC_MODE is `off` as of 2026-08-06 (owner
+ruling; was shadow) — keep-or-delete is the filed head-to-head experiment, AFTER the fix-proving
+duo**; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; key rotation
+and the mystery spend (the owner said 2026-08-05 they would fix the top-up "in a couple of
+days"). The classifier rulings are all given and landed — nothing classifier-shaped is pending.
 
 ---
 
@@ -394,8 +406,9 @@ IF STILL EMPTY: there is NO offline code work left. State the reading, update no
 4. _design_system_dict's four discarded colours — land the fix WITH item 1's run beside it.
 5. Also read FIRST_FUNDED_TRIO_PREFLIGHT.md before spending anything.
 
-DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE stays shadow;
-SiteSpec vs AppSpec pending; state_ids backfill pending; AppSpec schema untouched; key
+DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE is OFF (my ruling,
+2026-08-06 — the on-vs-off head-to-head is filed for AFTER the fix-proving duo, never the same
+runs); SiteSpec vs AppSpec pending; state_ids backfill pending; AppSpec schema untouched; key
 rotation and the mystery spend.
 
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,

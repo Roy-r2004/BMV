@@ -181,7 +181,36 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-05 (session 15)
+## Status — updated 2026-08-06 (session 16)
+
+> ### Session 16 — an offline architecture review, and AppSpec is switched OFF by owner ruling
+>
+> - **`APPSPEC_MODE` is now `off`** (was `shadow` since it was introduced — confirmed from the
+>   historical generation logs, which stamp `mode=shadow` on requests 95/97/101/102, and from the
+>   running process before and after the flip). Owner ruling, 2026-08-06. The shadow pass cost
+>   **~100-125 s of serial critical path per run** (request 102's timeline: three appspec calls,
+>   10 s → 102 s, before planning starts) and its functional consumers are ALL behind
+>   `enforce_app_spec` — shadow produced provenance and nothing else. `.env` changed, container
+>   recreated (not restarted), `off` verified from the running process, prior log archived at
+>   `docs/evidence/api-log-before-appspec-off-recreate.txt`.
+> - **FILED EXPERIMENT — does AppSpec earn its place?** After the first funded duo proves the
+>   landed fixes on the current settings (one variable at a time), run the head-to-head:
+>   the same brief with `APPSPEC_MODE=on` vs `off`. Judge on (a) does the enforced run ship at
+>   all — enforcement's known failure mode is a rejected spec starving the run (trio 7: 0 of 3) —
+>   (b) route table fit (enforced replay measured 6 and 9 routes vs 13 and 18 declared free-form)
+>   and page identity, (c) wall clock. If enforcement wins, turn it on for real; if it loses,
+>   delete the appspec stage and fold route budget + page identity into the architect contract.
+>   Note: this experiment tests STRUCTURE fit, not visual variety — silhouettes are the
+>   recipe/template axis and appspec cannot move them.
+> - **The mock-synthesis prompt's CATALOGUE ITEM SHAPES section had never reached a model**
+>   (`d28df68`) — the producer, template section and render-tests all landed while the one kwarg
+>   at the production call site did not; the `is defined` guard hid it. Found by the new standing
+>   audit `scripts/measure/prompt_variable_audit.py` (red exit on any missing variable at any
+>   render site — it gates clean now). Wired; the catching test drives `synthesize_mock_data`
+>   itself. 2 mutations, 0 survivors. Suite **1,881 / 1 / 0**.
+> - Also filed (HANDOFF one-pager): `slot_fill`'s "truncated" rejections are provider errors
+>   adjudicated as model answers (14 of 28 in duo 1) — reclassify WITH the funded distribution
+>   measurement, not before it.
 
 > ### Session 15 — the account is STILL empty (FOURTH identical reading), and the offline remainder is now spent
 >
