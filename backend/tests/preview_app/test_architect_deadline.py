@@ -88,10 +88,17 @@ def test_the_architect_chain_asks_each_resolved_model_once(monkeypatch) -> None:
     """Phase 1 DoD: *zero consecutive asks to the same resolved model id.*
 
     Marked done and pinned by `test_fix_model_chain.py` — but that test pins the
-    repair chains. The architect's was never deduped, and in this environment
-    all three of its setting names resolve to `google/gemini-2.5-flash`.
-    Requests 74, 75 and 76 each wrote consecutive same-model rows; request 74's
-    architect wrote three, one model, all unusable, for one logical failure.
+    repair chains. The architect's was never deduped, and at the time requests
+    74, 75 and 76 ran, all three of its setting names resolved to
+    `google/gemini-2.5-flash`: each of those runs wrote consecutive same-model
+    rows, and request 74's architect wrote three, one model, all unusable, for
+    one logical failure.
+
+    **They no longer resolve alike.** Read from the running api container on
+    2026-08-05 (session 13), `TEXT_MODEL` is `google/gemini-2.5-flash` and
+    `ARCHITECT_MODEL` is `anthropic/claude-haiku-4.5`. The dedupe is what makes
+    this test independent of that: it monkeypatches the settings, so it pins the
+    rule rather than today's `.env`.
     """
     from app.core.config import settings
 

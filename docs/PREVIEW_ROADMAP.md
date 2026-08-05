@@ -181,7 +181,21 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-05 (session 12)
+## Status — updated 2026-08-05 (session 13)
+
+> ### The account is still empty — re-probed at the top of session 13
+>
+> `total_credits 330, total_usage 330.229`, unchanged from session 12's reading. **Session 13 ran
+> zero generations and everything it landed is mutation-proven and production-UNPROVEN.** The
+> duo (`launch_duo3.sh`) and the `slot_fill` distribution are still blocked on this and on nothing
+> else.
+>
+> **`main` is pushed.** `122ef79..80a3d71`, sixteen commits, on the owner's authorisation — the
+> five-sessions-on-one-disk risk is closed. **CI is still unobserved**: the repository returns 404
+> unauthenticated on both `api.github.com` and the HTML page, so it is private, and `gh` is not
+> installed. The workflow triggers `on: push: branches: [main]`, so a run was certainly queued.
+> **1.10's blocker has changed from "never pushed" to "needs a browser or a token"** and the row
+> stays open.
 
 > ### The OpenRouter account is exhausted, and the mystery spend recurred — larger
 >
@@ -267,6 +281,10 @@ Recording that here so the next session does not read a productive week as progr
 
 | Item | State |
 |---|---|
+| **1.12 — the deterministic paths for MANDATORY stages** | **done, mutation-proven, production-UNPROVEN** — `dc750a3`. All four pieces of the ruling. Five runs shipped NULL because three MANDATORY stages had no deterministic path; the designed outcome — *a degraded preview that ships* — was unreachable. 19 tests, 23 mutations, 0 survivors. Detail in the 1.12 update block in Phase 1, including the seven-kind census and the census defect that had to be fixed first |
+| **route alias inflation — from the scaffold end** | **done, mutation-proven, production-UNPROVEN** — `bd58502`, and it was **more than bundle weight**. `assemble.py` minted `base/:id` *and* `base/:slug` for every listing because the scaffolded detail page read `params.id ?? params.slug`. Request 69 shipped **three** routes to one page — `/gallery/:paintingId`, `/gallery/:id`, `/gallery/:slug` — all matching `/gallery/x`; React Router binds one, and the page read `params.id`, so the detail page resolved **no item** and rendered the generic "This piece" against a default image for every id. Request 82 shipped the same shape for `/rooms/:roomId`. **16 routes across 10 of the 47 stored runs declare a param named neither `id` nor `slug`.** The scaffold now reads `Object.values(params)[0]` — whichever param the route declared — and both alias sites mint one alias, and none at all when the app declares its own param child. Measured by `scripts/measure/route_alias_census.py` over all 47 stored tables, driving the *previous* `assemble.py` out of git rather than paraphrasing it: **36 runs change, 800 → 727 routes, 73 removed, and no declared route is lost on any run.** 8 tests, 11 mutations, 0 survivors after two first-sweep survivors. **Two earlier versions of that census were wrong and both were caught before publication** — see the traps section |
+| **the 20-brief synthetic corpus — Phase 3's denominator** | **built and measured, classification only** — `980ca63`. `docs/evidence/synthetic-briefs.json` + `scripts/measure/synthetic_kind_census.py`. The archived corpus is 84 rows but **18 distinct briefs, 15 of them `storefront`**, so five skeletons were unreachable by construction and no measurement over it could say whether the classifier can find them. **15 of 20 land their intended kind and subtype; 5 distinct contracts are reached against 3 in the whole archived corpus.** The five misses are findings and are deliberately **not** tuned away — see the row below |
+| **the classifier decides a product kind on bare substrings** | **NEW, open, not fixed.** Same class as session 12's bare `"detail"`, found by the corpus above. **A nine-bedroom guest house resolves `internal_ops/trading`** and would be built `/ticket`, `/blotter`, `/positions`, `/risk` — because the hint `"oms"` matches inside **"Rooms"**, in the *business name*. Renaming it "The Wilder House" flips it to `storefront`; that one substring both clears `internal >= 1` and satisfies the strong-signal test at `product_kind.py:258`. Also `"spa"` matching inside "work**spa**ce" and "di**spa**tch" — harmless to those two verdicts, same defect. **And `internal_ops` is close to unreachable in plain English**: a warehouse desk, a facilities desk and a dispatch console each stating they are staff-only all resolve `saas_workspace`, because the kind needs two hint phrases or one of `blotter/oms/hedge/trading desk` and otherwise falls to the ambiguous branch on "queue". Measured: `"internal desk"` + `"warehouse floor"` together do reach `internal_ops/ops`; either alone does not. **A driving school matches zero hints in any table** and takes the final `return "storefront"` default — an art-gallery blueprint for a business that sells lesson packages. Not fixed: the brief was to measure, and a keyword table is not repaired by adding keywords |
 | **the blueprint gap-fill — the trattoria's art gallery** | **done, mutation-proven, production-UNPROVEN** — `bbe6359`. The `elif contract.kind in PUBLIC_KINDS` branch gap-filled `_storefront_pages()` into every public app *whose routes were already substantive*, testing "already served" by exact **path string**, so an app declaring `/menu` or `/rooms` was told it had no catalogue. It now adds a page only when nothing already serves it — same path, or same resolved page contract, asked of the plan page merged under the route exactly as `_normalize_architect` will twelve lines later. A detail page is added only when its listing is served and has no detail child. Two exemptions stated rather than implied: `/` is keyed on path alone (`assemble.py:1123` routes the catch-all to it, so an app without one redirects to nothing), and a **thin** inventory still gets the whole blueprint, where the blueprint is the product face rather than a gap-fill. Measured over the 47 stored route tables (`scripts/measure/gallery_gapfill_census.py`, archive at `docs/evidence/preview-routes.json`): **23 of 47 runs change; 0 briefs and 0 runs lose their last catalogue page; 1 run loses its last detail page — request 95, the trattoria, which keeps `/menu` and loses `ArtworkDetailPage.tsx`.** Requests 77, 83, 95 and 97 lose the gallery outright; 47 and 69 stop being given a second detail route beside their own `/gallery/:paintingId`. **The boundary, stated: 4 runs still get a gap-filled catalogue because they declared none** — 19 and 43 are art galleries and should; 80 and 86 are the trattoria, whose `/menu` does not resolve to `public-catalog` on those runs. 15 tests, 13 mutations, 0 survivors |
 | **`slot_fill`'s `public-detail` rejections — the upstream half** | **done, mutation-proven, production-UNPROVEN** — `0e678fa`. Answers the first of the three questions filed below: *why is an About page assigned `public-detail` at all*. `_infer_skeleton_id` matched the bare substring `"detail"` anywhere in a page's id, title, page_type, purpose, layout, path or role labels, so ordinary English decided a page kind — "lodge contact details." (76), "Page detailing the story" (79), "a detailed plan" (81), "detailed room information" (96). **Measured over the 399 stored public routes: 95 reach the detail branch, 94 of them on the bare word alone, and 35 of those name no item in their path** — including `/book`, `/booking/checkout` and `/booking/confirmation`, booking steps judged against a painting contract. A detail page shows ONE item, which is a fact about the route: the rule is now a path that selects an item, anchored at the end so `/artwork/:artworkId/inquire` stays a form *about* an item; plus the unambiguous multi-word phrases; plus the existing `/services/<name>` rule. **22 of the 399 change and 21 of the 22 are corrections**; the one loss is `/painting/coastal-whispers`, a literal item path with no parameter, which becomes `public-service`. That is the deliberate trade — over-assignment discards a page's work, under-assignment only gives it a more permissive contract. 13 tests, 8 mutations, 0 survivors. **The contract itself is untouched and questions 2 and 3 below stay open** |
 | **the palette's second half — appropriateness** | **checked and stopped, as instructed.** `reference_metadata` carries **no colour of any kind**. `fetch_reference_metadata` (`reference_scraper.py`) returns exactly six keys — `title`, `description`, `h1`, `visible_text_snippet`, `og_image`, `fetch_success` — and never reads CSS, an inline style or an image. 40 of the stored requests carry a `reference_url`, 39 stored metadata, all 39 fetched successfully, and the 12 whose JSON contains a `#` are matching **street addresses** ("757 S Alameda St #180") and phone numbers. **The only latent signal is `og_image`, present on 13 of 39** — the reference site's own hero image, which would need a real extractor (fetch, decode, quantise) on the critical path. That is a new capability with a per-run network cost, not a check, so it is written down and **not built**. Derived palettes stay distinct-and-not-appropriate; Northgate Dental is still magenta |
@@ -292,11 +310,11 @@ Recording that here so the next session does not read a productive week as progr
 | **1.7** validate repair-plan paths before the first write | **done** — `1b5e0d1` |
 | **1.8** industry derivation + placeholder gate | **done** — `ac10c9b`, `a919f86`. Token-length work still gated on 0.1 |
 | **1.9** bound items to the image pool | **done** — `ac10c9b`, **verified live on request 73** (12 items, below) |
-| **1.10** JS test runner (vitest) | **runner done, CI green-on-main pending a merge.** `backend/preview-template-tests/` — vitest 4 + jsdom + testing-library, 9 tests over `SkeletonComposer`, all nine mutation-tested by `tools/mutate.py` with zero survivors. It is a **sibling package on purpose**: the template's `package.json` is the shared-npm cache key, so a devDependency there costs the next generation a cold `npm ci` inside the run (below) |
+| **1.10** JS test runner (vitest) | **runner done; `main` is now pushed (session 13, `122ef79..80a3d71`) and the job is still UNOBSERVED.** The repo 404s unauthenticated on both the REST API and the HTML page — it is private — and `gh` is not installed, so the verdict needs a browser or a token. The workflow triggers `on: push: branches: [main]`, so a run was queued. **The row does not close on "a run was certainly triggered".** Previously: **runner done, CI green-on-main pending a merge.** `backend/preview-template-tests/` — vitest 4 + jsdom + testing-library, 9 tests over `SkeletonComposer`, all nine mutation-tested by `tools/mutate.py` with zero survivors. It is a **sibling package on purpose**: the template's `package.json` is the shared-npm cache key, so a devDependency there costs the next generation a cold `npm ci` inside the run (below) |
 | **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it. **Trio 7 adds one sample and it points the same way**: request 93's tail is 32.0 s of which **0.1 s is AI**, with 3 pages judged — see Q10 in the trio 7 section. The tail to attack is non-AI work, and `tail.py` cannot see it without being parameterized past its hardcoded run list |
 | **Duo 1 (95-96)** — the 1.13 proof run | **2 of 2 shipped `ready` with zero gate issues**, on the briefs of 92 and 94 verbatim, and **neither of 1.13's bounds fired** — so the improvement is acceptance variance, not the fix. appspec AI 336.5 → 43.2 s and 331.6 → 94.3 s. **p50 unmoved at 571/573 s**, and codegen is now the dominant term at 315-437 s of AI. Detail below |
 | **1.13** bound `appspec` per request | **landed, and UNPROVEN in production — it did not fire on either duo run.** Added by owner ruling on 2026-08-04 rather than moving the p50 row to Phase 2 — *"let's try B, if it works it works if not we try A."* **`APPSPEC_MAX_CALLS` was enforced per entry into the stage, and the stage is entered twice a generation**, so requests 92/93/94 made **7, 6 and 10** calls against a configured **6** and no budget-exhausted line was ever logged. The tally is the deadline's now, and a runway reservation refuses any appspec call that would leave the pipeline less than **280 s** — under all five shipped runs in the corpus, above what 92 and 94 left themselves (91 s and 136 s). 14 mutations / 0 survivors. **Duo 1 then measured it and neither bound engaged** — 2 and 5 calls against a ceiling of 8, and appspec never reached the elapsed at which the reservation fires. The code is correct and tested and caps a tail trio 7 proved is real; it is simply **not shown to do anything in production yet**, and the duo's improvement belongs to acceptance variance. p50 unmoved at 571/573 s. **The evidence now points at (A)** — not because the bound failed to land but because codegen, at 315-437 s of AI, is the term that decides p50. Owner ruling pending |
-| **1.12** a mandatory stage with no deterministic path | **open, and the "no longer a single incident" reading is withdrawn.** `architect` raises past the deadline and request 74 shipped nothing. Trio 7 reproduced it twice (92 and 94 stored no `preview_app`, both with `appspec` at 353 s / 339 s) and this row said that made it systematic. **Duo 1 re-ran those two briefs and both shipped `ready`**, with appspec at 43 s and 94 s — so what trio 7 showed is that *an appspec that does not accept* starves the stages after it, and acceptance is variable. The defect is real and unfixed (a MANDATORY stage still has no deterministic path) but its trigger is upstream and intermittent, not a property of these briefs. See the DoD section |
+| **1.12** a mandatory stage with no deterministic path | **CLOSED offline as of session 13 (`dc750a3`) — the deterministic paths exist and are mutation-proven; reachability on a live outage is unproven and needs a funded run.** The history below stands as written. **open, and the "no longer a single incident" reading is withdrawn.** `architect` raises past the deadline and request 74 shipped nothing. Trio 7 reproduced it twice (92 and 94 stored no `preview_app`, both with `appspec` at 353 s / 339 s) and this row said that made it systematic. **Duo 1 re-ran those two briefs and both shipped `ready`**, with appspec at 43 s and 94 s — so what trio 7 showed is that *an appspec that does not accept* starves the stages after it, and acceptance is variable. The defect is real and unfixed (a MANDATORY stage still has no deterministic path) but its trigger is upstream and intermittent, not a property of these briefs. See the DoD section |
 | **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
 | **2.9** contract-invalid pages are scaffolded, never re-asked | **done offline — fix landed, effect unmeasured (needs a funded trio).** A syntactically valid page that failed the catalogue contract was replaced wholesale by the generic deterministic scaffold with **no retry**: `_slot_fill_rejection` only knew empty/truncated/no-export/unparseable, so the retry loop never saw a contract violation. **26 pages across requests 74-79** went that way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so `_MAX_SLOT_FILL_ATTEMPTS = 2` had never fired once. The retry now fires on **enforce's own verdict**, not the validator's, and carries the exact `validate_catalogue_page_content` errors. Detail below |
 | critic coverage: surface priority + placeholder gate | **done** — `a919f86` |
@@ -316,7 +334,39 @@ Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
 `revision_instructions` expressible as content-key edits) — are **not** done and still gate 1.8's
 token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
+### `page_experience.py`'s "double ask" — WITHDRAWN, the premise is false
+
+Session 12's handoff filed *"`TEXT_MODEL == ARCHITECT_MODEL == google/gemini-2.5-flash` at runtime,
+so `build_experience_plan`'s and `validate_and_expand_plan`'s loops are the same model asked twice
+— 34-48 s a run."* **Resolved from the running api container on 2026-08-05 (session 13):
+`TEXT_MODEL` is `google/gemini-2.5-flash` and `ARCHITECT_MODEL` is `anthropic/claude-haiku-4.5`.**
+All three planning chains — planner, validator, expander — are genuine two-model failover chains,
+and each second ask goes to a *different* provider, which is what a failover chain is for. **There
+is no duplicate to dedupe**, and the owner's constraint (*"explicit retry, or nothing"*) resolves
+to nothing, for a better reason than expected.
+
+The second ask also fires **only when the first fails or returns no roles** — all three loops break
+or return on success — so the 34-48 s is a failure-path cost, not a per-run tax. On request 95 the
+second ask returned the usable plan: that was a failover working.
+
+`backend/.env` is **not tracked in git**, so when `ARCHITECT_MODEL` changed is not recoverable, and
+this note does not claim the earlier reading was wrong when it was taken. It claims the standing
+rule earned its keep: **resolve config from the running process, never from a file** — and, this
+time, never from a previous session's note either. Any other row resting on "these two settings
+resolve alike" should be re-read with that in mind.
+
 ### Suite state — and the two ways the harness lied about it in one afternoon
+
+**1,867 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
+2026-08-05 (session 13). Session 13 added 27 pytest cases across two new files, both fixes
+mutation-swept one sweep at a time: **34 new mutations, 68 applied across three sweeps, 0 survivors
+at the end, 3 survived a first sweep.** Two of the three are fixtures too small to reach the rule —
+nothing asserted the detail page's `.trim()`, and the listing alias site does not run at all unless
+a detail component sits *outside* the listing prefix. **The third is a new failure mode worth
+naming: a mutation that applied cleanly and was semantically a no-op**, because it inserted a route
+table one line above the `architect = {}` that overwrote it. The driver reported it as a survivor,
+which is the correct conservative call — `mutated == original` cannot see a no-op that the
+*interpreter* undoes. Previously **1,838 / vitest 39** at `80a3d71`.
 
 **1,838 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
 2026-08-05 (session 12). Session 12 added 28 pytest cases across two files, both fixes
@@ -1525,11 +1575,58 @@ the owner, both design decisions rather than defects:
 2. Should a mandatory stage be *bounded* rather than only refused — `appspec`
    spent 72 % of one request's budget and still failed.
 
-**Update, 2026-08-05 (session 12): n=1 became n=5, and question 1's ruling is taken — build the
-deterministic paths.** Five runs have shipped nothing on this class: 74, 92, 94 (`architect`
-raising after an expensive appspec) and 101, 102 (`build_experience_plan` took provider HTTP 408
-across its whole chain, then `synthesize_mock_data` raised the same way). Four pieces, in scope
-order; the first three are offline-provable by mutation, and a funded run only proves reachability:
+**Update, 2026-08-05 (session 13): all four pieces are LANDED — `dc750a3` — mutation-proven and
+production-UNPROVEN.** 19 tests, 23 mutations, 0 survivors. Half the mutations push each fallback
+onto the *healthy* path rather than removing it, because that is how a widened `except` fails; the
+healthy-run fixtures are what catch those. What a funded run still has to prove is **reachability**
+— that a real outage lands in these branches — and that the degraded artifact is worth shipping.
+
+Measured over all seven reachable kinds by `scripts/measure/deterministic_paths_census.py`
+(no database, no network, no model — it drives the production functions):
+
+| | |
+|---|---|
+| kinds whose empty-architect fallback ships routes | **7 of 7** — 3 for a storefront, 3 booking, 5 workspace, 5 trading, 6 accounting |
+| kinds whose fallback `_normalize_architect` accepts | **7 of 7** |
+| kinds whose deterministic plan passes `_plan_meets_minimums` | **7 of 7** — the pipeline's own gate, not an opinion |
+| stable under the second application `plan_phase` already performs | **7 of 7** |
+
+**The census had the defect first, and it is worth recording.** Its first version compared the
+architect before and after a second application *after* calling `_normalize_architect`, which
+mutates the dict it is handed — so it reported every kind as unstable and was measuring its own
+side effect. Take the comparison before the normalize call.
+
+The four pieces as landed, against the spec as written:
+
+1. **A shadow-mode architect fallback — done.** The enforced branch already rescued
+   (`plan_phase.py:295-298`); shadow re-raised. `{}` is not a substantive route table, so
+   `apply_product_kind_to_architect` injects the resolved kind's whole blueprint eleven lines
+   later. **The spec said the builder "exists in all but name" and that is confirmed by driving
+   it.** The enforced path is byte-identical and pinned by a test that fails if the shadow branch
+   reaches it — including one asserting the enforced rescue records no degradation it did not
+   record before. A booking brief is rescued with `/services` and `/book`, never a gallery.
+2. **`synthesize_mock_data` degrades — done.** The catch sits *outside* the `ai_call` scope, which
+   settles in a `finally`, so the usage row is written exactly as before. An **unusable answer**
+   stays a rejection and is deliberately not recorded as an outage: the model was reached and the
+   ask was adjudicated, and collapsing the two would make a provider failure and a bad answer
+   indistinguishable in the record.
+3. **A run that built a workspace stores a `preview_app` — done, and `finalize`'s contract was
+   read first.** `status` keeps its three-value vocabulary (`ready`/`failed`/`rebuilding`) because
+   four production readers and the frontend poller branch on it; a crashed run is `failed`, exactly
+   as a gate failure is. `withheld_reason` keeps its meaning and gains the one case it could not
+   express, `pipeline_crashed` — its three existing values all presuppose a run that reached
+   `finalize`. Three refusals, each mutation-bound on its own: no workspace, an existing `ready`
+   record (a chat rebuild that crashes must not mark the user's working site failed), and its own
+   bookkeeping, which may never mask the exception it is describing.
+4. **`build_experience_plan`'s deterministic path — done, and an honest minimal plan does exist.**
+   The spec said this was unmeasured and to read the consumers first. The consumer is `plan_phase`,
+   which applies `apply_product_kind_to_plan` itself: `_normalize_plan({})` supplies the design
+   system and the seeds, the caller's resolved contract supplies the inventory, and the result
+   satisfies `_plan_meets_minimums` for every kind. The validator and expander are skipped on that
+   path — they are three more asks to the model that just failed twice. **With no contract the
+   raise stands**, which is the explicit bound for `role_pages` and the chat rebuild; and an
+   accepted AppSpec still outranks the blueprint, which is why the fallback sits *after* the
+   canonical-seed rescue and has a test saying so.
 
 1. **A shadow-mode architect fallback.** The enforced branch already rescues
    (`plan_phase.py:295-298`); shadow re-raises. The deterministic builder exists in all but name —

@@ -1,237 +1,198 @@
-# Session handoff — the gallery is gone in shadow, and the account is empty (2026-08-05, session 12)
+# Session handoff — three mandatory stages can now ship degraded, and a guest house is a trading desk (2026-08-05, session 13)
 
-Successor to session 11's handoff (in git history at `283f60c`). Still-binding parts are restated
+Successor to session 12's handoff (in git history at `c8f839f`). Still-binding parts are restated
 below; do not go back for them. Process notes, not product docs.
 
 ---
 
-## Session 12, in one page
+## Session 13, in one page
 
-**Zero generations run, and not by choice.** The OpenRouter account is exhausted. Four commits, 28
-new pytest cases, **21 new mutations, 41 applied across four sweeps, 0 survivors at the end, 2
-survived a first sweep** and 1 more never applied at all. Suite **1,838 passed / 1 skipped / 0
-failed**, vitest **39**, `tsc -b` clean.
+**Zero generations run, and not by choice — the account is still empty.** Three commits, 27 new
+pytest cases across two files, **34 new mutations, 68 applied across three sweeps, 0 survivors at
+the end, 3 survived a first sweep.** Suite **1,867 passed / 1 skipped / 0 failed**, vitest **39**,
+`tsc -b` clean.
 
-### Read this first: no live run is possible
+### Read this first: credits, and CI
 
-`https://openrouter.ai/api/v1/credits` returns `total_credits 330, total_usage 330.229`. A
-28,000-`max_tokens` probe against `google/gemini-2.5-flash`, `deepseek/deepseek-v4-pro` and
-`z-ai/glm-5.2` returns **"Insufficient credits"** on all three in under a second. That probe is the
-only reason a duo was not launched into a wall — run it before anything else next session.
+`https://openrouter.ai/api/v1/credits` returns `total_credits 330, total_usage 330.229` —
+**unchanged from session 12**. Probed first, before anything was restarted or warmed, which is item
+0 of the previous list and cost nothing this time. **Everything below is mutation-proven and
+production-UNPROVEN.**
 
-**The pipeline did not spend it.** `usage_daily` is **$22.25**; `ai_usage_events` records **$1.94**
-for 2026-08-05 across 217 calls, which is session 11's six runs at 06:00-07:00 plus three zero-cost
-probes at 15:00. **~$20.3 of today's spend is not this pipeline**, on a day this session ran zero
-generations. **This is the second measured occurrence** — 2026-08-04 was $17.62 by the same
-arithmetic, and session 11 wrote it down as "one data point, not an all-clear." It is now two, and
-the second one emptied the account. Escalating or rotating the key is the owner's call.
-
-**Consequence for everything below: session 12 landed two fixes and neither is production-proven.
-Session 11's three unproven fixes are still unproven.** Nothing here has been through a generation.
+**`main` is pushed** — `122ef79..80a3d71`, sixteen commits, on the owner's authorisation. Five
+sessions are no longer on one disk. **CI is still unobserved and 1.10 stays open**: the repository
+returns 404 unauthenticated on `api.github.com` *and* on the HTML page, so it is private, and `gh`
+is not installed. `.github/workflows/preview-template-tests.yml` triggers `on: push: branches:
+[main]`, so a run was certainly queued — but "a run was queued" is not "the job is green", and the
+row does not close on it. **1.10's blocker has changed from "never pushed" to "needs a browser or a
+token."**
 
 ### What landed
 
 | commit | what |
 |---|---|
-| `bbe6359` | a blueprint page is added only when nothing already serves it — **the gallery** |
-| `0e678fa` | a page is a detail page because of its route, not its prose — **the `public-detail` assignment** |
-| `28712b3` | the three unproven fixes, replayed against stored production inputs |
-| `cbb5b1e` | the gap-fill census measured a corpus it had forced to `storefront` — corrected |
+| `dc750a3` | **1.12** — three MANDATORY stages take a deterministic path instead of shipping NULL |
+| `980ca63` | the 20-brief synthetic corpus, and what the classifier does with it |
+| `bd58502` | the detail page reads the param the route declared, and the twin alias goes |
 | this one | handoff + roadmap |
 
-### 1. The gallery gap-fill — done in shadow, still there under enforcement
+### 1. 1.12 — the session's thesis, and all four pieces are in
 
-`product_kind.py`'s `elif contract.kind in PUBLIC_KINDS` branch gap-filled `_storefront_pages()`
-into every public app whose routes were **already substantive**, and its only test for "already
-served" was an exact **path string**. So an app declaring `/menu` or `/rooms` was told it had no
-catalogue and was given `/gallery` + `/gallery/:id → ArtworkDetailPage.tsx`.
+Five runs shipped nothing on this class: 74, 92, 94 (`architect` raising after an expensive
+`appspec`) and 101, 102 (a provider outage across `build_experience_plan`, then
+`synthesize_mock_data` raising the same way). `MANDATORY_STAGES`' contract is that such a stage
+*takes its deterministic path*; outside the AppSpec branch there was none, so **the designed
+outcome — a degraded preview that ships — was unreachable and the pipeline shipped NULL.**
 
-It now adds a page only when nothing in the app already serves it: the same path, or **the same
-resolved page contract** — asked of the plan page merged under the route, which is the same
-question and the same document `_normalize_architect` answers twelve lines later. A **detail** page
-is added only when the listing it belongs to is served and has no detail child of its own.
+- **(a) the architect.** `plan_phase` rescued only under `enforce_app_spec`, never true in shadow.
+  `{}` is not a substantive route table, so `apply_product_kind_to_architect` injects the resolved
+  kind's whole blueprint eleven lines later. **The enforced path is byte-identical**, pinned by a
+  test that fails if the shadow branch reaches it — including one asserting the enforced rescue
+  records no degradation it did not record before.
+- **(b) `synthesize_mock_data`.** Degrades to the plumbing `mock.ts` the plan phase already wrote.
+  The catch sits **outside** the `ai_call` scope, which settles in a `finally`, so the usage row is
+  written exactly as before. An **unusable answer stays a rejection** and is deliberately not
+  recorded as an outage — the model was reached and the ask was adjudicated.
+- **(c) a run that built a workspace stores a `preview_app`.** `finalize`'s contract was read
+  first. `status` keeps its three-value vocabulary because four production readers and the frontend
+  poller branch on it; `withheld_reason` keeps its meaning and gains `pipeline_crashed`, the one
+  case it could not express. Three refusals, each mutation-bound alone: no workspace, an existing
+  `ready` record, and its own bookkeeping — which may never mask the exception it describes.
+- **(d) `build_experience_plan`.** The spec said this was unmeasured. **An honest minimal plan does
+  exist**: `_normalize_plan({})` plus the caller's resolved contract satisfies
+  `_plan_meets_minimums` — the pipeline's own gate — for every kind. The validator and expander are
+  skipped there; they are three more asks to the model that just failed twice. With no contract the
+  raise stands, and an accepted AppSpec still outranks the blueprint.
 
-Two exemptions, stated rather than implied. `/` is keyed on its path alone, because
-`assemble.py:1123` is `<Route path="*" element={<Navigate to="/" replace />} />` and an app with no
-root route redirects to nothing. And a **thin** inventory still receives the whole blueprint — there
-the blueprint is the product face, not a gap-fill.
+Measured over all **seven** reachable kinds by `scripts/measure/deterministic_paths_census.py`:
+every kind ships 3-6 routes, `_normalize_architect` accepts all seven, every deterministic plan
+meets minimums, and both are stable under the second application `plan_phase` already performs.
 
-**Measured before shipping**, over the 47 stored route tables:
+19 tests, 23 mutations, 0 survivors.
+
+### 2. The 20-brief corpus — and the classifier decides a kind on bare substrings
+
+The archived corpus is 84 rows but **18 distinct briefs, 15 of them `storefront`**, so five
+skeletons were unreachable by construction. `docs/evidence/synthetic-briefs.json` is 20 briefs with
+distinct names across every kind, labelled with the kind they intend **before** the classifier was
+read. **15 of 20 land it. 5 distinct contracts are reached, against 3 in the whole archived
+corpus.** The five misses are findings, not tuning targets, and are not fixed:
 
 | | |
 |---|---|
-| runs that change | **23 of 47** (21 of the 42 that round-trip) |
-| briefs / runs that lose their last **catalogue** page | **0 and 0** |
-| briefs / runs that lose their last **detail** page | **1 and 1** — request 95, the trattoria, which keeps `/menu` and loses `ArtworkDetailPage.tsx` |
-| the trattoria | 77, 83, 95, 97 lose `/gallery` and `/gallery/:id` outright |
-| free win | 47 and 69 stop being given a second detail route beside their own `/gallery/:paintingId` |
-| **the boundary** | **4 runs still get a gap-filled catalogue because they declared none** — 19 and 43 are art galleries and should; **80 and 86 are the trattoria**, whose `/menu` does not resolve to `public-catalog` on those runs |
+| **a nine-bedroom guest house resolves `internal_ops/trading`** | and would be built `/ticket`, `/blotter`, `/positions`, `/risk`. The hint `"oms"` matches inside **"Rooms"** — in the **business name**. Renaming it "The Wilder House" flips it to `storefront` |
+| the same substring does both jobs | it clears `internal >= 1` *and* satisfies the strong-signal test at `product_kind.py:258`, so one accident of English decides a product kind. Same class as session 12's bare `"detail"` |
+| `"spa"` inside "work**spa**ce" and "di**spa**tch" | harmless to those two verdicts; same defect |
+| **`internal_ops` is close to unreachable in plain English** | a warehouse desk, a facilities desk and a dispatch console, each saying it is staff-only, all resolve `saas_workspace`: the kind needs two hint phrases or one of `blotter/oms/hedge/trading desk`, and otherwise falls to the ambiguous branch on "queue". Measured — `"internal desk"` + `"warehouse floor"` together *do* reach `internal_ops/ops`; either alone does not |
+| **a driving school matches zero hints in any table** | and takes the final `return "storefront"` default — an art-gallery blueprint for a business selling lesson packages |
 
-**It does not close the enforced case, and I checked.** The replay still shows 4 → 6 on request 95:
-the AppSpec page for `/menu` reads *"To display the current food and wine menus."*, and nothing in
-that resolves it to a catalogue. The capability id `CAP-BROWSE-MENU` would, and `_search_text` does
-not read capability ids. `APPSPEC_MODE` is `shadow`, so this is a note for whenever it is turned on.
+**Two corrections to my own corpus before publishing its numbers**: the non-trading `internal_ops`
+subtype is `ops`, not `generic`; and SB-07's intended kind was authored `booking_service` and
+corrected to `storefront`, because the product's own tables put hospitality there and whether a
+guest house is a booking service is a **product question**, not a defect.
 
-15 tests, 13 mutations, 0 survivors.
+### 3. Route alias inflation — and it was never only bundle weight
 
-### 2. Why an About page is assigned `public-detail` — answered, and it is one substring
+`assemble.py` minted `base/:id` **and** `base/:slug` for every listing because the scaffolded detail
+page read `params.id ?? params.slug`. The router's shape was decided by one line of generated TSX.
 
-This is item 3's upstream question, and the answer is smaller and worse than expected.
-`_infer_skeleton_id` matched the **bare substring `"detail"`** anywhere in the blob built from a
-page's id, title, page_type, purpose, layout, path and role labels. Ordinary English decided a page
-kind. Shown on stored production routes with **no plan merged**: request 76's `/contact` ("lodge
-contact **details**.") and request 79's `/about` ("Page **detailing** the story") both land on
-`public-detail`, whose contract then demands a painting-first hero, an `itemSpecs` binding and an
-`#inquire` CTA.
+Request 69 shipped **three** routes to one page — `/gallery/:paintingId`, `/gallery/:id`,
+`/gallery/:slug`. All three match `/gallery/x`, React Router binds one, and the page read
+`params.id` — so **the detail page resolved no item** and rendered the generic "This piece" against
+a default image for every id. Request 82 shipped the same shape for `/rooms/:roomId`. **16 routes
+across 10 of the 47 stored runs declare a param named neither `id` nor `slug`.**
 
-**Over the 399 stored public routes: 95 reach the detail branch, 94 of them on the bare word alone,
-and 35 of those name no item in their path.** It is not only About pages — `/book`,
-`/booking/checkout`, `/booking/confirmation` and `/patient/treatment-plan` were all being judged
-against a painting contract.
-
-A detail page shows ONE item, which is a fact about the route. The rule is now a path that selects
-an item, **anchored at the end** so `/artwork/:artworkId/inquire` stays a form *about* an item;
-plus the unambiguous multi-word phrases; plus the existing `/services/<name>` rule. **22 of the 399
-change and 21 are corrections.** The one loss is `/painting/coastal-whispers` — a literal item path
-with no parameter — which becomes `public-service`. That is the deliberate trade: over-assignment
-throws a page's work away, under-assignment only gives it a more permissive contract.
-
-13 tests, 8 mutations, 0 survivors.
-
-### 3. The palette's second half — checked, and there is nothing to extract
-
-`reference_metadata` carries **no colour of any kind**. `fetch_reference_metadata` returns exactly
-six keys — `title`, `description`, `h1`, `visible_text_snippet`, `og_image`, `fetch_success` — and
-never reads CSS, an inline style or an image. 40 requests carry a `reference_url`, 39 stored
-metadata, 39 fetched successfully. The 12 blobs containing a `#` are matching **street addresses**
-("757 S Alameda St #180") and phone numbers.
-
-The only latent signal is **`og_image`, present on 13 of 39** — the reference site's own hero image.
-Turning that into a palette needs a fetch, a decode and a quantiser on the critical path. That is a
-new capability, not a check, so it is written down and not built. As instructed: checked, and
-stopped.
-
-### 4. The three unproven fixes — replayed, not proven
-
-A duo was the plan. `scripts/measure/session11_fix_replay.py` is the sanctioned substitute and it
-drives the real functions with the workspaces and route tables production produced:
-
-| fix | replayed verdict |
-|---|---|
-| **the menu label collision** | request 95's table declares `/reservations` and `/my-reservations`; rebuilt through `_nav_from_architect` and normalized, `navigation.public` carries **both**, "Book Your Table" and "Reservations". **n=1** — it is the only archived workspace with a colliding pair |
-| **the hero subcopy** | the **12** workspaces that shipped *"warm, specific, and ready when you are"* have their `hero` stripped (the condition the scaffold fires under) and rebuilt: **12 of 12** come back without it. Better than a run would have given — the subcopy fires in ~11 % of runs |
-| **the font spelling** | `Source Sans 3` stays `Source Sans 3`; the `+` slug stays in the Google Fonts URL |
-
-**None of this is a production proof.** What a replay cannot show is that the pipeline *reaches*
-these functions with this data on a live run, and both of session 11's proof runs died in `codegen`
-before it could. All three stay production-unproven.
+The scaffold now reads `Object.values(params)[0]`, and both alias sites mint one alias — none at all
+when the app declares its own param child. Measured over all 47 stored tables by
+`scripts/measure/route_alias_census.py`: **36 runs change, 800 → 727 routes, 73 removed, and no
+declared route is lost on any run.** 8 tests, 11 mutations, 0 survivors.
 
 ---
 
 ## Findings that were NOT the filed defect
 
-1. **My own census forced the whole corpus to `storefront`, and it took an archive mode to notice.**
-   It called `resolve_product_kind_contract(*context_from_request(req))`. `context_from_request`
-   returns a **string**; the splat passed it one character per argument, `_blob` rejoined them as
-   "r e s t a u r a n t", no keyword matched, and every run fell through to the `storefront`
-   default. `appspec_enforcement_replay.py:98` has the same call written correctly, which is how the
-   shapes were compared. **Two published numbers were wrong because of it and are corrected in the
-   roadmap in place**: the corpus is **15 of 17 briefs storefront**, not 16 of 18; and a
-   `booking_service` brief is gap-filled `_booking_pages()` — home, `/services`, `/book` — and
-   **has never been given a gallery at all.** The dental brief is a `booking_service`. Every
-   sentence of the form "every brief classified storefront *or booking_service* gets the gallery"
-   was wrong.
+1. **`page_experience.py`'s "double ask" does not exist, and the premise was a stale config read.**
+   Session 12 filed *"`TEXT_MODEL == ARCHITECT_MODEL == google/gemini-2.5-flash` at runtime … the
+   same model asked twice, 34-48 s a run."* **Resolved from the running api container:
+   `TEXT_MODEL` is `google/gemini-2.5-flash`, `ARCHITECT_MODEL` is `anthropic/claude-haiku-4.5`.**
+   All three planning chains are genuine two-model failover. The second ask also fires **only when
+   the first fails or returns no roles** — every loop breaks or returns on success — so it is a
+   failure-path cost, not a per-run tax. `backend/.env` is **not tracked in git**, so when it
+   changed is not recoverable. The owner's constraint (*explicit retry, or nothing*) resolves to
+   **nothing**, for a better reason than expected. Item withdrawn.
 
-2. **The same census re-implemented the rule instead of calling it**, and diverged on ops kinds,
-   where *neither* branch of `apply_product_kind_to_architect` fires and nothing is gap-filled.
-   Both columns now drive the production function; the "before" column wraps
-   `_inject_blueprint_routes` to force the old behaviour. **A census that paraphrases the code is
-   measuring the paraphrase.**
+2. **`apply_product_kind_to_plan` is applied twice on every healthy run** — `plan_phase.py:119` and
+   `:190` ("re-apply kind lock after packs") — and it **concatenates its `PRODUCT_KIND=…` clause
+   into `design_direction` each time**. `apply_product_kind_to_architect` is likewise applied twice
+   (`:305`, `:315`). The page inventory and route table are provably stable under the second
+   application; the *direction string* is not. This is prompt pollution on every run, it predates
+   this session, and I did **not** fix it — adding a dedupe guard would change the healthy path,
+   which is exactly what this session's fixes were forbidden to do.
 
-3. **Replaying `normalize_mock_navigation` over a shipped `mock.ts` proves nothing**, and the first
-   version of the replay reported a failure because of it. The normalizer only ever *narrows* a
-   list. Request 95's `/reservations` was deleted by the old rule **before** that file was written,
-   so the fixed code running over the damaged output still cannot produce it. The nav has to be
-   rebuilt from the architect first, which is what a live build does. **When a fix is upstream of an
-   artifact, replaying it over the artifact is a null experiment.**
+3. **Session 12's "neither branch of `apply_product_kind_to_architect` fires on ops kinds" is
+   true only for *substantive* route tables.** On an empty one the `not substantive` branch fires
+   for **every** kind, which is the whole reason piece (a) works for `internal_ops` and
+   `saas_workspace` and not just the public kinds. Not a correction — a scope clarification, and
+   the one that had to hold for the fix to be worth landing.
 
-4. **Plans are not observable either.** The "prompts are not observable" note needs a second half:
-   `preview_app.roles` stores role ids and **no pages**, so the plan a route was normalized against
-   is gone. For most of the 16 stored About/OurStory/Contact routes carrying `public-detail`, the
-   route text alone resolves to `public-service` — meaning the plan page supplied it, and which of
-   the two mechanisms fired on a given run is **not recoverable**.
+4. **`_normalize_architect` mutates the dict it is handed.** My first deterministic-paths census
+   compared before/after a second application *after* calling it, and so reported every kind as
+   unstable — measuring its own side effect. The comparison has to be taken first.
 
-5. **Session 11's "8 of 62 workspaces show the brand-repair signature" could not be reproduced, and
-   the signature does not mean what it looks like.** 31 of 66 archived workspaces carry
-   `_design_system_dict`'s `#0f172a` / `#475569` / `#fafafa` triple — but that triple is
-   **indistinguishable from the pre-derivation default**, and none of the 31 post-dates `3b63a07`.
-   Requests 101 and 102 ship the **full** six-colour derived palette, so the repair did not fire on
-   either. **The firing rate is not measurable from the corpus.** What is certain is structural, and
-   it is still unfixed: `_design_system_dict(primary, secondary, font)` takes three arguments and
-   hardcodes the other four colours, so *any* call to it discards derived text / muted / background
-   / surface. The fix is a parameter thread through `mock_data.py:313`, `:323`, `:375` and
-   `brand_contract.py:255`, `:638`, none of which currently carries the palette. **Not done blind
-   with no run available.**
-
-6. **`architect-routes.json` cannot answer a page-identity question** and I nearly used it. It holds
-   42 runs and drops `purpose` — which is the single field that identifies a gap-filled route,
-   because `_inject_blueprint_routes` copies `bp.purpose` verbatim and "Catalogue grid of products
-   or artworks." is a repository literal no model wrote. `docs/evidence/preview-routes.json` is new
-   and holds all 47 with full route dicts **and each run's `kind_context`**, so the census cannot
-   drift on classification.
+5. **A React Router app can declare three routes matching one URL and still be "correct" by every
+   check we run.** The smoke pass counts them as three, the dead-link guard sees three live
+   targets, and the page behind all three resolves nothing. No existing gate looks at whether the
+   *bound param name* is the one the page reads.
 
 ---
 
-## Mutation results — 21 new, 41 applied over four sweeps, two first-sweep survivors
+## Mutation results — 34 new, 68 applied over three sweeps, three first-sweep survivors
 
 | driver | sweeps | result |
 |---|---|---|
-| `mutate_blueprint_gap_fill.py` | 2 | 13 mutations. First sweep: **1 survivor**, 1 not applied, 11 caught. Second: **13 applied, 0 survivors** |
-| `mutate_detail_skeleton_assignment.py` | 2 | 8 mutations. First sweep: **1 survivor**, 7 caught. Second: **8 applied, 0 survivors** |
+| `mutate_mandatory_deterministic_paths.py` | 2 | 23 mutations. First sweep: **1 survivor**, 22 caught. Second: **23 applied, 0 survivors** |
+| `mutate_route_alias_inflation.py` | 2 | 11 mutations. First sweep: **2 survivors**, 9 caught. Second: **11 applied, 0 survivors** |
 
-**The survivor in the gap-fill sweep** was the plan-merge order: reversing `{**page, **route}` to
-`{**route, **page}` changed nothing, because every fixture's plan page carried only `id` and
-`purpose` and so could not collide with the route. A fixture where the plan page and the route
-*disagree* about `skeleton_id` binds it — and pins the direction, which must match
-`_normalize_architect`: the route wins.
+**A new failure mode, and it belongs on the standing list.** The survivor in the 1.12 sweep applied
+cleanly and was **semantically a no-op**: it inserted a substantive route table one line above the
+`architect = {}` that immediately overwrote it. The driver's `mutated == original` check cannot see
+a no-op the *interpreter* undoes — only the fact that no test went red revealed it, and the driver
+reporting it as a survivor is the correct conservative call. Re-anchoring it on the branch's **last**
+statement made it bite. Note the bare `architect = {}` could not be the anchor: it appears in both
+branches, and an anchor that matches twice tests nothing.
 
-**The survivor in the detail sweep** was the `$` anchor on the item-path regex: unanchoring it
-changed nothing, because no fixture put a parameter in the *middle* of a path. Request 45's
-`/artwork/:artworkId/inquire` is exactly that shape and is now a fixture.
-
-**The one that never applied** is a new failure worth adding to the list. The AI-hub anchor
-`if not isinstance(route, dict) or _is_ai_hub_route(route):` **matches twice** in
-`product_kind.py`, so the driver refused it and reported it as a survivor rather than counting it
-caught. **An anchor that matches twice tests nothing, and only the driver's own count catches it** —
-both drivers treat anchor drift as a survivor for that reason, and both are worth copying for it.
-
-Both real survivors are blind spot #4 — fixtures too small to reach the rule.
+The two survivors in the alias sweep are blind spot 4 in both its forms: nothing asserted the
+detail page's `.trim()`, and **the listing alias site does not run at all unless a detail component
+sits outside the listing prefix** — with only `/gallery` and `/gallery/:paintingId`, the site whose
+suppression was mutated never executes.
 
 ---
 
-## What I got wrong in session 12
+## What I got wrong in session 13
 
-- **I shipped a census with two defects and cited its numbers in a commit message.** `bbe6359` says
-  "22 runs change" and "no brief ends without a catalogue page or without a detail page" — both
-  computed on a corpus every run of which had been forced to `storefront`. The corrected figures are
-  in `cbb5b1e` and in the roadmap. The commit message stands as written; the roadmap is the
-  authority.
-- **I guessed the cause of the About/`public-detail` defect before measuring it** — I expected a
-  purpose containing "detail" and went looking for it. That turned out to be *one* of two
-  mechanisms and accounts for a minority of the stored cases; the other is the plan page, and it is
-  unrecoverable. The measurement was right, the first hypothesis was half right, and only the
-  measurement said which half.
-- **My first replay of the nav fix reported a failure that was the replay's fault, not the fix's.**
-  See finding 3. I nearly recorded "the menu fix is NOT landed."
-- **I planned a duo and had to check credits to find out I could not run one.** The pre-flight
-  document already lists that check as first; I ran it third, after restarting the api and warming
-  the npm cache. Run the probe first.
+- **I published a route-alias number that was a paraphrase, twice, and caught it both times only by
+  checking against the shipped artifacts.** The first census reconstructed "before" by appending a
+  `:slug` twin to every path ending in `/:id` — but the old code skipped paths already ending in
+  `/:id` (`assemble.py:1017`), so it invented 9 routes across 7 runs that no run ever shipped
+  (14 runs / 18 routes, wrong). The second drove the real previous `assemble.py` out of git but
+  **flattened `src/pages/owner/*` into `src/pages/`**, so `_resolve_page` silently dropped 9 of
+  request 69's 15 routes and it under-reported instead (5 runs / 9 routes, also wrong). The honest
+  figure is **36 runs / 73 routes**, and the tell was that request 69 — the run whose shipped
+  `App.tsx` I had already read — was missing from the changed list.
+- **My first healthy-path fixture was not healthy, and it took two failures to notice.** The fake
+  `req` was a `SimpleNamespace` missing `concept_name`, then `needs_ai`; each raised *inside* the
+  planner loop, which the new fallback then caught, so the test asserting "a healthy planner is not
+  replaced" was exercising the degraded path. Using the real `Request` model unpersisted is what
+  fixed it — a hand-rolled fake of a model with 30 columns is a fixture that drifts by design.
+- **I nearly wrote up "internal_ops/generic" as the corpus's intended subtype.** The contract calls
+  it `ops`. Driving the resolver rather than reading the dataclass would have caught it a step
+  earlier; instead a probe did, before the number was published.
 
 ---
 
 - **The plan and its evidence: [docs/PREVIEW_ROADMAP.md](docs/PREVIEW_ROADMAP.md).** Read the
-  **credit callout** and the **enforcement spike** at the top of **Status**, then the two new
-  Status rows, then **`slot_fill`'s contract rejections**.
+  **session 13 callout** at the top of **Status**, then the four new Status rows, then the **1.12
+  update block** in Phase 1 and the **withdrawn double-ask** section.
 - **Before spending a trio: [docs/FIRST_FUNDED_TRIO_PREFLIGHT.md](docs/FIRST_FUNDED_TRIO_PREFLIGHT.md).**
 - Why the pipeline shipped bad output: [docs/PREVIEW_QUALITY_FINDINGS.md](docs/PREVIEW_QUALITY_FINDINGS.md).
 
@@ -241,22 +202,19 @@ Both real survivors are blind spot #4 — fixtures too small to reach the rule.
 
 ## State of the repo, in four lines
 
-- **`main` has sixteen unpushed commits** as of 2026-08-05 session 12 — session 10's five, session
-  11's four, and session 12's seven (`bbe6359`, `0e678fa`, `28712b3`, `cbb5b1e`, the handoff, the
-  tally fix, the roadmap-review fold-in). It was level with `origin/main` at `122ef79`. **Sixteen
-  unpushed commits is itself a risk: one laptop failure loses five sessions.**
-- **Suite: 1,838 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 39 passed**, `tsc -b` clean. Run
-  pytest the documented way — see the operating notes.
-- **Credits: $0. `total_usage 330.229` of `total_credits 330`.** No generation can run.
-  `usage_daily` $22.25 against $1.94 this pipeline recorded. Second occurrence of the mystery spend.
-- **CI is still unreadable from here.** `gh` is not installed and the Actions page 404s
-  unauthenticated. **1.10 is not done until that vitest job is green on `main`.**
+- **`main` is level with `origin/main` at `80a3d71` plus session 13's four commits**, which are
+  unpushed. The sixteen-commit backlog is gone.
+- **Suite: 1,867 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 39 passed**, `tsc -b` clean.
+  Run pytest the documented way — see the operating notes.
+- **Credits: $0. `total_usage 330.229` of `total_credits 330`**, unchanged in 24 hours. No
+  generation can run. The ~$40 over two days is still unexplained and is the owner's call.
+- **CI has been triggered on `main` and never observed.** Private repo, no `gh`, 404 unauthenticated.
 
 ---
 
 ## The next step
 
-**Ordered. Item 0 gates every other item that needs a run.**
+**Ordered. Item 0 gates every item that needs a run.**
 
 0. **Top up or rotate the OpenRouter key, then probe before anything else.**
 
@@ -268,60 +226,48 @@ Both real survivors are blind spot #4 — fixtures too small to reach the rule.
        headers={'Authorization': f'Bearer {settings.OPENROUTER_API_KEY}'}, timeout=20).json())"
    ```
 
-   Two days now carry ~$20 of spend this pipeline did not make. Whether that is a leaked key, a
-   second consumer or a billing artifact is not answerable from here.
-
-1. **Prove the four unproven fixes on a run that reaches a build.** `scripts/measure/launch_duo3.sh`
-   is written and ready — the briefs of 95/97 (restaurant) and 96/98 (hotel) verbatim, which is the
-   pair the census says loses the gallery on every stored run. What to read afterwards:
-   - **no route at `/gallery` and no `src/pages/ArtworkDetailPage.tsx`** on either run. The
-     restaurant is the sharper test; the hotel loses it on all 8 stored runs and the restaurant on
-     4 of 6, so a restaurant that still ships one means `/menu` did not resolve to a catalogue and
-     the boundary is wider than measured.
-   - `navigation.public` carries **both** `/reservations` and `/my-reservations` with **different**
-     labels when the architect declares both.
-   - no `mock.ts` contains *"warm, specific, and ready when you are"* — ~11 % of runs, so one run
-     probably will not exercise it; the replay covers 12 of 12 offline.
+1. **Prove the SEVEN unproven fixes on a run that reaches a build.**
+   `scripts/measure/launch_duo3.sh` is written and ready — the briefs of 95/97 (restaurant) and
+   96/98 (hotel) verbatim. What to read afterwards, in order:
+   - **no route at `/gallery`, no `src/pages/ArtworkDetailPage.tsx`** on either run.
+   - `navigation.public` carries **both** `/reservations` and `/my-reservations`, different labels.
+   - no `mock.ts` contains *"warm, specific, and ready when you are"*.
    - `design_system.font_family` is not a squashed slug.
-   - **`docker compose logs api --no-color > file` the moment each run finishes**, and grep
-     `slot_fill rejected`. If `AboutPage.tsx` or `ContactPage.tsx` still appear, the remaining cause
-     is the plan page and `0e678fa` is only half the fix.
-2. **`slot_fill`'s rejection distribution.** Questions 2 and 3 of the three filed are still open:
-   how much of duo 2's 59.5 % was the `public-detail` contract, and whether that contract is right
-   even for a gallery. Both need the log from item 1. n=4 is still a lead, not a distribution.
-3. **`_design_system_dict` discards four derived colours.** Structural and certain; the rate is
-   not measurable (finding 5). It takes `(primary, secondary, font)` and hardcodes `text_color`,
-   `muted_text_color`, `background_color` and omits `surface_color`, so any call to it overwrites
-   most of the derived palette. The fix threads the palette through `mock_data.py:313`, `:323`,
-   `:375` and `brand_contract.py:255`, `:638`. **Wants a run to verify** — that is why it is here
-   and not landed.
-4. **Route alias inflation, from the scaffold end.** Unchanged from sessions 10 and 11 and still
-   not landed: `catalogue_contract/scaffold.py:466` reads `params.id ?? params.slug`, which is *why*
-   `assemble.py:1098` mints both aliases. Have the scaffold read the single declared param whatever
-   it is named, then one route suffices and both aliases go. **`0e678fa` makes this cheaper**: a
-   parameterized path now resolves to `public-detail` on its own, so the scaffold no longer needs
-   the alias to be recognised as a detail page.
-5. **`page_experience.py`'s double ask.** `TEXT_MODEL == ARCHITECT_MODEL == google/gemini-2.5-flash`
-   at runtime, so `build_experience_plan`'s `(TEXT_MODEL, ARCHITECT_MODEL)` loop and
-   `validate_and_expand_plan`'s `(ARCHITECT_MODEL, TEXT_MODEL)` loop are the same model asked twice
-   — 34-48 s a run. **Still not looked at.** Careful: on request 95 the *second* ask returned the
-   usable plan, so a naive dedupe loses it. Explicit retry, or nothing.
-6. **1.12 — five fires, and both edges of the same knife.** 74, 92, 94, 101, 102 stored nothing. 101
-   and 102 were a provider outage across `build_experience_plan`'s whole chain, so `architect` is
-   not the only MANDATORY stage with no deterministic path. In shadow a planner failure ships
-   nothing; in enforced mode a rejected spec ships nothing. **RULED after this handoff was written
-   (session 12 roadmap review): build the deterministic paths — promoted to the top of session 13's
-   list. The four-piece spec is the 1.12 update block in the roadmap's Phase 1 section; this list's
-   ordering is superseded on this one item.**
+   - **NEW — no `App.tsx` contains a `:slug` route**, and no listing has two param children.
+     `grep -c ':slug' src/App.tsx` should be 0 on both runs.
+   - **NEW — every detail page reads `Object.values(params)[0]`**, and opening
+     `/<listing>/<second card's slug>` shows the *second* item, not the first.
+   - **`docker compose logs api --no-color > file` the moment each run finishes**, then grep
+     `slot_fill rejected`. If `AboutPage.tsx` or `ContactPage.tsx` still appear, the remaining
+     cause is the plan page and `0e678fa` is only half the fix.
+2. **1.12's reachability.** Everything landed this session is proven by mutation and **not** by a
+   run reaching the branch. The cheapest honest proof does not need a provider outage: point
+   `ARCHITECT_MODEL` at an unroutable model id, run one generation, and confirm it **ships a
+   3-6 page blueprint preview inside the 10-minute cap** with `degraded` carrying
+   `architect/call_failed_deterministic_blueprint` and a stored `preview_app`. Then do the same
+   with `PREVIEW_APP_MODEL` for piece (b). **Recreate, do not restart** — and dump the log first.
+3. **`slot_fill`'s rejection distribution.** Questions 2 and 3 are still open and still need the
+   log from item 1. n=4 is a lead, not a distribution.
+4. **`_design_system_dict` discards four derived colours.** Structural and certain, rate not
+   measurable. `(primary, secondary, font)` hardcodes `text_color`, `muted_text_color`,
+   `background_color` and omits `surface_color`. The fix threads the palette through
+   `mock_data.py:313`, `:323`, `:375` and `brand_contract.py:255`, `:638`. **Wants a run.**
+5. **The classifier's substring hits.** A guest house is a trading desk because its *name* contains
+   "Rooms". The corpus and the census exist and re-run offline; the fix does not, and it is not
+   "add more keywords". The shape that would hold: match on **word boundaries** rather than bare
+   substrings, and require an ops/trading verdict to rest on something other than a business name.
+   Owner call, because it changes what every brief resolves to — re-run
+   `synthetic_kind_census.py` and `gallery_gapfill_census.py` before and after.
+6. **`design_direction` is concatenated twice per run.** Finding 2. Cheap, but it changes a prompt
+   on the healthy path, so it wants a run beside it rather than a blind edit.
 7. **Dead nav data** — `navigation.customer/.staff/.features/.manager` and `navItemsAdmin` /
-   `adminNavItems` are read by nothing. Bundle weight, zero visible effect. Listed so it stops being
-   rediscovered as a rendering defect.
+   `adminNavItems` are read by nothing. Listed so it stops being rediscovered as a rendering defect.
 8. **Someone with a browser still has to look at CI once.**
 
-**Owner decisions, unchanged and still yours:** whether the p50 row moves to Phase 2 under (A) — the
-arithmetic is in the roadmap and sessions 11 and 12 did not touch it; whether a four-to-six page
-preview is the product you want; whether to relax the AppSpec schema; and whether a hash-derived
-palette is the right trade now that the reference site has been checked and holds no colour.
+**Owner decisions, unchanged and still yours:** whether the p50 row moves to Phase 2 under (A);
+whether `SiteSpec` or `AppSpec` is Phase 2's spec (nothing in Phase 2 has been started); the
+`state_ids` backfill; whether to relax the AppSpec schema; whether a four-to-six page preview is the
+product you want; key rotation and the mystery spend.
 
 ---
 
@@ -329,38 +275,47 @@ palette is the right trade now that the reference site has been checked and hold
 
 - **Fix the PIPELINE, never a generated preview.** Editing anything under `data/preview-apps/**` to
   make a defect go away is always wrong. *Reading* those workspaces for evidence is fine and is how
-  most findings get made.
+  most findings get made — including three of this session's.
 - **Generation must not exceed 10 minutes.** Do **not** relax the deadline to make runs pass. A
-  degraded preview that ships is the designed outcome.
+  degraded preview that ships is the designed outcome, and as of `dc750a3` three more stages can
+  actually produce one. **The degraded ship happens inside the cap or not at all** — none of this
+  session's fallbacks buys time; each replaces a raise with a deterministic path that costs no
+  model call.
 - **If you find a defect, fix it in the pipeline and add a test that fails with the fix reverted.**
-- **Work the roadmap in order.** Phase 0 → 1 → 2 → 3 → 4. **Phase 1 is not finished.** There is no
-  remaining licence to pull Phase 2 work forward.
+- **Work the roadmap in order.** Phase 0 → 1 → 2 → 3 → 4. **Phase 1 is not finished** — 1.10 and
+  1.11 are open. There is no remaining licence to pull Phase 2 work forward.
 
 ### The rule that has caught the most defects
 
 **Mutation-test every guard.** Revert the fix, confirm the test goes red, restore — from an
-**in-memory backup**, never `git checkout`. **Nineteen** drivers now live in
+**in-memory** backup, never `git checkout`. **Twenty-one** drivers now live in
 `backend/scripts/cli/mutate_*.py` and one in `preview-template-tests/tools/mutate.py`.
 **Run one at a time** — two sweeps against the same live-mounted source make both verdicts noise.
 
-Eight blind spots, all found the expensive way. Check for each by default:
+Nine blind spots, all found the expensive way. Check for each by default:
 
 1. **Asserting against the case that does not bind.**
 2. **Driving the consumer, never the producer** — or the reverse.
-3. **Guards that cannot fail.** Session 12 deleted one before writing it: there is no
-   `served_kinds.add` beside the gap-fill's `existing_paths.add`, because no contract declares two
-   blueprint pages of the same kind and it could not have changed an outcome.
-4. **Fixtures too small to reach the rule.** Session 11's five survivors and session 12's one were
-   all this. When a fix has two conditions, write a fixture that binds each one *alone*.
-5. **A test that adapts until it passes cannot fail.**
+3. **Guards that cannot fail.**
+4. **Fixtures too small to reach the rule.** Two of session 13's three survivors, and it now has a
+   second form worth naming: **a fixture too small to reach the CODE PATH at all.** The listing
+   alias site never executes unless a detail component sits outside the listing prefix, so
+   disabling its guard changed nothing.
+5. **A test that adapts until it passes cannot fail** — and it can arrive through the **fixture**
+   rather than the assertion. Session 13's "healthy planner" fake was missing two columns, each of
+   which raised inside the planner loop, so the new fallback caught it and the healthy-path test
+   was silently exercising the degraded path. **Fake a model with the model.**
 6. **Never assert against the constant a mutation would change.**
 7. **A fix that changes no outcome is not a fix.** Measure it against the corpus *before*
    committing.
-8. **A measurement that paraphrases the code measures the paraphrase.** New in session 12, and it
-   cost two published numbers. Drive the real function; if you need the old behaviour for a
-   before/after, wrap the real function rather than rewriting it. And check the *shape* of every
-   call you copy — `f(*context_from_request(req))` splats a string into characters and every
-   downstream number was silently wrong.
+8. **A measurement that paraphrases the code measures the paraphrase.** Session 13 paid this twice
+   in one census. Drive the real function; when you need the old behaviour, **execute the old
+   file** (`git show <ref>:path` into a temp module) rather than re-deriving it. And check the
+   *shape* of every call you copy.
+9. **A mutation can apply cleanly and still be a no-op.** New in session 13. `mutated == original`
+   catches a textual no-op; nothing catches a statement the next line overwrites. Anchor a mutation
+   on the **last** statement whose effect you mean to destroy, and treat an unexplained survivor as
+   a possible dead mutation before concluding the test is weak.
 
 Assume any DoD row you did not personally mutate is unproven.
 
@@ -370,18 +325,20 @@ Assume any DoD row you did not personally mutate is unproven.
 
 | | |
 |---|---|
-| **Probe credits BEFORE anything else** | **New, session 12.** The api restart and the npm-cache warm-up are wasted if the account is empty, and the failure looks exactly like defect 1.12. The one-liner is in *The next step*, item 0 |
-| **`restart` reloads code; it does NOT reload `env_file`** | `docker compose restart api` re-execs with the environment baked in at *container-create* time, so an edit to `backend/.env` is invisible. `docker compose up -d --force-recreate api` is required — and **that destroys the container log**, so dump it first |
-| **Dump the log before any recreate** | `docker compose logs api --no-color > file`. Session 11 lost duo 2's `slot_fill rejected` lines — the entire input to a filed task — to a recreate run one command too early |
+| **Probe credits BEFORE anything else** | The api restart and the npm-cache warm-up are wasted if the account is empty, and the failure looks exactly like defect 1.12. One-liner in *The next step*, item 0 |
+| **Resolve config from the RUNNING PROCESS — and never from a previous session's note** | **Sharpened, session 13.** A filed defect ("the same model asked twice") rested on a config reading that is no longer true: `ARCHITECT_MODEL` is `anthropic/claude-haiku-4.5`, not gemini. `backend/.env` is **not tracked in git**, so a stale note about it cannot be dated or diffed |
+| **`restart` reloads code; it does NOT reload `env_file`** | `docker compose restart api` re-execs with the environment baked in at *container-create* time. `docker compose up -d --force-recreate api` is required — and **that destroys the container log**, so dump it first |
+| **Dump the log before any recreate** | `docker compose logs api --no-color > file` |
 | **The test command** | **`docker run`, not `docker compose exec`.** Three independent ways it lies, all three looking like application defects |
+| **There is no `git` inside the test image** | Session 13. A census that wanted the previous version of a file had to be handed it with `--before-file`, extracted on the host |
 | **`industry` is `Form(None)`** | Omitting it silently resolves to `generic` and produces convincing garbage. **Always set it** |
 | Host port | **8001**. Multipart, not JSON |
 | Trailing slash | `POST /api/requests/` 307-redirects and **drops the body**. No trailing slash |
-| Reload code | `docker compose restart api`. `exec api` does **not** reload. **Restart before any run meant to measure today's code** |
+| Reload code | `docker compose restart api`. **Restart before any run meant to measure today's code** |
 | Industries | A **different** one per run in a batch |
 | pytest | **Read the SUMMARY LINE, never the exit code** |
-| Working directory | **Drifts between tool calls. Use absolute paths.** Sixth session running |
-| **Prompts are not observable — and neither are plans** | Nothing stores a prompt, and `preview_app.roles` stores role ids with **no pages**, so the plan a route was normalized against is gone too. Any claim about what a model was *shown*, or about which of route-text and plan-text decided a skeleton, can only be settled by replaying offline |
+| Working directory | **Drifts between tool calls. Use absolute paths.** Seventh session running, and it bit twice today |
+| **Prompts are not observable — and neither are plans** | `preview_app.roles` stores role ids with **no pages**. Any claim about what a model was *shown* can only be settled by replaying offline |
 | Archive what you measure | A number from the database or the docker volume is unverifiable next session |
 
 ### The test command, and the three traps in the convenient alternative
@@ -401,12 +358,23 @@ kit-reading tests fail on the same mount.
 
 ### Running the offline census tools
 
-The two that need **no database** run anywhere:
+The ones that need **no database** run anywhere — and there are three new ones:
 
 ```bash
 docker run --rm -v "$REPO:/repo" -w /repo/backend \
   -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template --entrypoint sh bmv-local-api \
+  -c 'python3 scripts/measure/deterministic_paths_census.py'                       # 1.12, per kind
+  -c 'python3 scripts/measure/synthetic_kind_census.py --explain'                  # the 20 briefs
   -c 'python3 scripts/measure/gallery_gapfill_census.py --routes ../docs/evidence/preview-routes.json'
+```
+
+`route_alias_census.py` needs the previous `assemble.py`, and the image has no `git`:
+
+```bash
+git show <ref>:backend/app/application/preview_app/assemble.py \
+  > backend/scripts/measure/.assemble_before.py
+docker run ... -c 'python3 scripts/measure/route_alias_census.py \
+  --routes ../docs/evidence/preview-routes.json --before-file scripts/measure/.assemble_before.py'
 ```
 
 The ones that read the **database** run in the api container and take run ids:
@@ -415,7 +383,6 @@ The ones that read the **database** run in the api container and take run ids:
 docker compose exec api python /app/backend/scripts/measure/codegen_cost.py 97 98
 docker compose exec api python /app/backend/scripts/measure/appspec_cost.py 97 98
 docker compose exec api python /app/backend/scripts/measure/appspec_enforcement_replay.py 97 95
-docker compose exec api python /app/backend/scripts/measure/gallery_gapfill_census.py
 ```
 
 `session11_fix_replay.py` needs both the database and the workspace archive, and the archive is not
@@ -437,45 +404,51 @@ Ordered by what I would do first. Every item has evidence; none is speculative.
 
 ### 1. The account is empty and ~$40 over two days is unaccounted for
 
-Blocks every remaining production proof. See the top of this document.
+Blocks every remaining production proof. Unchanged, and now 24 hours older.
 
-### 2. Four fixes are mutation-proven and production-unproven
+### 2. Seven fixes are mutation-proven and production-unproven
 
-Session 11's menu / subcopy / font, and session 12's gap-fill and detail-assignment. The replay
-harness covers what a replay can cover and says so.
+Session 11's menu / subcopy / font, session 12's gap-fill and detail-assignment, session 13's 1.12
+and route aliases. **1.12's is the one whose unprovenness matters most**: it is a fallback, so a
+run that never fails never exercises it. See *The next step* item 2 for a proof that does not
+require waiting for a real outage.
 
-### 3. Page identity is fixed in shadow and not under enforcement
+### 3. The classifier decides a product kind on bare substrings
 
-`bbe6359` removes the gallery from a substantive shadow-mode app whose own catalogue resolves as
-one. Under an enforced AppSpec the canonical page for `/menu` carries prose that resolves to
-`public-service`, so the gap-fill still adds a catalogue. The unused signal is `capability_ids`
-(`CAP-BROWSE-MENU`), which `_search_text` does not read.
+New and measured. A guest house is a trading desk because its **name** contains "Rooms";
+`internal_ops` is close to unreachable in plain English; a driving school takes the storefront
+default. `docs/evidence/synthetic-briefs.json` + `synthetic_kind_census.py --explain`.
 
-### 4. p50 is 563-570 s against a ≤ 500 s DoD
+### 4. Page identity is fixed in shadow and not under enforcement
 
-Untouched by sessions 11 and 12. The census stands: `slot_fill` and the plan phase decide it,
+`bbe6359` removes the gallery from a substantive shadow-mode app. Under an enforced AppSpec the
+canonical page for `/menu` carries prose that resolves to `public-service`, so the gap-fill still
+adds a catalogue. The unused signal is `capability_ids` (`CAP-BROWSE-MENU`), which `_search_text`
+does not read.
+
+### 5. p50 is 563-570 s against a ≤ 500 s DoD
+
+Untouched by sessions 11, 12 and 13. The census stands: `slot_fill` and the plan phase decide it,
 `appspec` is 8 %, the recommendation is **(A)**. Owner ruling pending; **the row is not moved.**
 
-### 5. `slot_fill` rejects 25 of 42 fills and the distribution is still unmeasured
+### 6. `slot_fill` rejects 25 of 42 fills and the distribution is still unmeasured
 
 `0e678fa` removes one demonstrated cause of one rejection class. How much of the 59.5 % it was is
 unknown and needs a run plus a log dump.
 
-### 6. 1.12 — a MANDATORY stage with no deterministic path
-
-Five fires: 74, 92, 94, 101, 102. `plan_phase.py:295-298` rescues an architect failure only when
-`enforce_app_spec`, which is never true in shadow; `appspec_gate.py:182` makes a rejected spec fatal
-when it is. `build_experience_plan` has no deterministic path either.
-
 ### 7. `_design_system_dict` discards four of the derived palette's six colours
 
-Structural and certain, rate unmeasurable. See finding 5 and *The next step* item 3.
+Structural and certain, rate unmeasurable. See *The next step* item 4.
 
-### 8. 1.11 — the reserve is unbounded as a whole
+### 8. `design_direction` accumulates its kind clause twice a run
+
+Finding 2. Prompt pollution on the healthy path, predates this session, not fixed blind.
+
+### 9. 1.11 — the reserve is unbounded as a whole
 
 Unchanged. If you attack this again the axis that killed attempt one is *pages actually given a
 visual verdict*, not wall clock. **Measure both, separately.**
 
-### 9. 1.10 — green on `main` is unverified
+### 10. 1.10 — green on `main` is unverified
 
-Runner and CI job are done and merged; `main` has never been observed running them.
+The push happened; the observation did not. Private repo, no `gh`, 404 unauthenticated.
