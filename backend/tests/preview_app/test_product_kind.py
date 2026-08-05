@@ -250,6 +250,54 @@ def test_llm_inventory_wins_over_kind_blueprint() -> None:
     assert any(r.get("id") == "desk" for r in out["roles"])
 
 
+def test_plan_kind_clause_appended_once_and_reapplication_is_idempotent() -> None:
+    contract = resolve_product_kind_contract(
+        "saas accounting invoices expenses bank reconciliation"
+    )
+    once = apply_product_kind_to_plan({"design_direction": "Warm, editorial."}, contract)
+    direction = once["design_direction"]
+    assert direction.count("PRODUCT_KIND=") == 1
+    assert contract.design_note in direction
+    assert direction.startswith("Warm, editorial.")
+    twice = apply_product_kind_to_plan(once, contract)
+    assert twice["design_direction"] == direction
+    once["design_direction"] = f"  {direction}  "
+    assert apply_product_kind_to_plan(once, contract)["design_direction"] == direction
+
+
+def test_architect_apply_does_not_stack_a_second_same_kind_clause() -> None:
+    contract = resolve_product_kind_contract(
+        "saas accounting invoices expenses bank reconciliation"
+    )
+    plan = apply_product_kind_to_plan({"design_direction": "Warm, editorial."}, contract)
+    architect = apply_product_kind_to_architect(
+        {"design_direction": plan["design_direction"]}, contract, plan=plan
+    )
+    assert architect["design_direction"].count("PRODUCT_KIND=") == 1
+    reapplied = apply_product_kind_to_architect(architect, contract, plan=plan)
+    assert reapplied["design_direction"] == architect["design_direction"]
+
+
+def test_a_flipped_kind_still_appends_its_own_clause() -> None:
+    storefront = resolve_product_kind_contract(
+        "Restaurant / cafe", "menu ordering dine-in takeout storefront"
+    )
+    ops = resolve_product_kind_contract(
+        "Hedge fund trading", "internal blotter oms portfolio desk not a saas"
+    )
+    assert storefront.kind != ops.kind
+    first = apply_product_kind_to_plan({"design_direction": "Calm."}, storefront)
+    flipped = apply_product_kind_to_plan(first, ops)
+    direction = flipped["design_direction"]
+    assert direction.count("PRODUCT_KIND=") == 2
+    assert f"PRODUCT_KIND={ops.kind}/{ops.subtype}" in direction
+    assert ops.design_note in direction
+    arch = apply_product_kind_to_architect(
+        {"design_direction": first["design_direction"]}, ops
+    )
+    assert f"PRODUCT_KIND={ops.kind}/{ops.subtype}" in arch["design_direction"]
+
+
 def test_architect_keeps_hybrid_public_and_ops_routes() -> None:
     contract = resolve_product_kind_contract(
         "clinic booking appointment dental"

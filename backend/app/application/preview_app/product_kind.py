@@ -875,10 +875,16 @@ def apply_product_kind_to_plan(
         _ensure_role_pages(role, contract)
 
     direction = str(updated.get("design_direction") or "").strip()
-    updated["design_direction"] = (
-        f"{direction} | PRODUCT_KIND={contract.kind}/{contract.subtype} (chrome default; "
-        f"LLM owns roles/pages from the brief): {contract.design_note}"
-    ).strip(" |")
+    kind_marker = f"PRODUCT_KIND={contract.kind}/{contract.subtype}"
+    if kind_marker in direction:
+        # Forcer re-application (plan_phase) lands here 2-3x per run; a kind
+        # flip must still append its own note, so key on the full marker.
+        updated["design_direction"] = direction
+    else:
+        updated["design_direction"] = (
+            f"{direction} | {kind_marker} (chrome default; "
+            f"LLM owns roles/pages from the brief): {contract.design_note}"
+        ).strip(" |")
     if contract.kind in OPS_KINDS:
         updated.setdefault("ops_direction", contract.design_note)
         updated.setdefault(
@@ -1155,10 +1161,16 @@ def apply_product_kind_to_architect(
     updated["routes"] = routes
     updated["files_to_generate"] = files
     direction = str(updated.get("design_direction") or "").strip()
-    updated["design_direction"] = (
-        f"{direction} | PRODUCT_KIND={contract.kind}/{contract.subtype}: "
-        f"LLM-first inventory; {contract.design_note}"
-    ).strip(" |")
+    kind_marker = f"PRODUCT_KIND={contract.kind}/{contract.subtype}"
+    if kind_marker in direction:
+        # Same guard as apply_product_kind_to_plan: dedupe same-kind
+        # re-application, never a flipped kind's note.
+        updated["design_direction"] = direction
+    else:
+        updated["design_direction"] = (
+            f"{direction} | {kind_marker}: "
+            f"LLM-first inventory; {contract.design_note}"
+        ).strip(" |")
     return updated
 
 
