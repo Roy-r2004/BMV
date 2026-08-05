@@ -1,4 +1,4 @@
-# Session handoff — an offline architecture review: one dead prompt section wired, two timing findings filed (2026-08-06, session 16)
+# Session handoff — review, research, and three prompt-layer fixes, all offline (2026-08-06, session 16)
 
 Successor to session 15's handoff (below in this file — session 15 closed at `c791c12`; sessions
 14 and earlier are in git history). Process notes, not product docs.
@@ -49,6 +49,27 @@ Every future run skips the stage entirely. **The keep-or-delete question is a FI
 in the roadmap's session-16 callout**: after the funded duo proves the landed fixes on current
 settings, run the same brief `on` vs `off` and judge ship-rate, route-table fit, and wall clock.
 Do not run the head-to-head and the fix-proving duo as the same runs — one variable at a time.
+
+### Overnight (owner asleep, both tasks owner-requested): model research + prompt review
+
+- **[docs/MODEL_RESEARCH_2026-08.md](docs/MODEL_RESEARCH_2026-08.md)** (`7f8e057`) — every model
+  slot, its job from code, its measured local behavior, and Aug-2026 candidates with prices.
+  Headlines: the fixer (glm-5.2) fails 52% at 107 s while benchmarking 189 t/s globally — a
+  provider-routing problem, testable with one `:nitro` suffix; the page writer (deepseek-v4-pro,
+  77 s / 33% unusable) has a same-family flash variant 2× faster and 5× cheaper; the workhorse
+  (gemini-2.5-flash) carries 80% of all spend and an October retirement date; gpt-4o serves a
+  legacy path at the config's highest price. **Four experiments staged for the funded session,
+  one slot per run-pair, never mixed with the appspec head-to-head. No model changed.**
+- **[docs/PROMPT_REVIEW_2026-08.md](docs/PROMPT_REVIEW_2026-08.md)** (`304e360`) — honest
+  verdict: above-average prompts (incident-grounded bans, taught consequences, mirrored
+  enforcement), grown by accretion. **One offline-provable fix landed**: the "For App.tsx:"
+  block and the index.css CRITICAL rendered into every one of ~1,170 page calls despite both
+  files being assembler-owned and absent from all 42 archived worklists — now gated on
+  `file_path` (conditional, not deletion), 1 test, 4 mutations, 0 survivors
+  (`mutate_prompt_file_gates.py`). **Five filed** (each needs a run or judgment): duplicate
+  "For page components" headers, 4× density repetition, cache-friendly static-first ordering,
+  schema-enforced architect JSON, and the raw `scaffold_source[:16000]` slice (5 of 883
+  archived pages exceed it — silent truncation while demanding a complete file back).
 
 ### Filed finding 2 — slot_fill's "truncated" rejections are provider errors adjudicated as answers
 
@@ -209,8 +230,9 @@ Run one at a time, every file restored from in-memory backups.
 
 ## State of the repo, in four lines
 
-- **`main` is `d28df68` (the prompt wiring) after session 15 closed at `c791c12`, pushed.**
-- **Suite: 1,881 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
+- **`main` is `304e360` (prompt gates) after `7f8e057` (model research) and `d28df68` (the
+  prop-shape wiring), pushed.**
+- **Suite: 1,882 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
   observed.
 - **Credits: $0. `total_usage 330.229` of `total_credits 330`** — FOURTH identical reading. The
   ~$40 mystery spend is still unexplained and is the owner's call.
@@ -404,7 +426,12 @@ IF STILL EMPTY: there is NO offline code work left. State the reading, update no
    restart; log dumped first; .env restored and verified from the running process.
 3. slot_fill's rejection distribution from item 1's logs — filed questions 2 and 3.
 4. _design_system_dict's four discarded colours — land the fix WITH item 1's run beside it.
-5. Also read FIRST_FUNDED_TRIO_PREFLIGHT.md before spending anything.
+5. THEN, each as its own run-pair, never mixed with each other or with items 1-4:
+   the appspec on-vs-off head-to-head; the model experiments from
+   docs/MODEL_RESEARCH_2026-08.md in payoff order (glm-5.2:nitro on the fixer, then
+   deepseek-v4-flash as the page writer); the prompt-review filed items that want runs
+   (docs/PROMPT_REVIEW_2026-08.md).
+6. Also read FIRST_FUNDED_TRIO_PREFLIGHT.md before spending anything.
 
 DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE is OFF (my ruling,
 2026-08-06 — the on-vs-off head-to-head is filed for AFTER the fix-proving duo, never the same
