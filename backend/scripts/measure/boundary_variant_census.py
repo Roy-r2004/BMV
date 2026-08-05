@@ -26,6 +26,11 @@ kills silently ("reconcil" no longer matches "reconciliation"):
 
 Hints carrying their own delimiter ("hr ") keep it: a boundary lookaround is
 applied only where the hint's own edge is a word character.
+
+**The prefix variant was ADOPTED (owner ruling, session 15)** — `_blob` now
+returns a str subclass with exactly these semantics. The census's job since:
+prove the shipped classifier still equals the measured prefix variant (any
+per-row drift is a red exit) and keep the word variant measurable against it.
 """
 from __future__ import annotations
 
@@ -113,8 +118,7 @@ def _self_check() -> None:
     A census whose wrap silently fails re-measures the current behaviour and
     reports zero changes — the most dangerous possible output.
     """
-    # Containment semantics.
-    assert "oms" in "nine rooms", "current semantics changed under this census"
+    # Containment semantics of the variant matcher.
     assert not _boundary_search("nine rooms", "oms", "word")
     assert not _boundary_search("nine rooms", "oms", "prefix")
     assert not _boundary_search("our workspace and dispatch", "spa", "word")
@@ -123,17 +127,25 @@ def _self_check() -> None:
     assert _boundary_search("bank reconciliation", "reconcil", "prefix")
     assert not _boundary_search("bank reconciliation", "reconcil", "word")
     assert _boundary_search("our hr team", "hr ", "word"), "hint-borne delimiter lost"
-    # The patch actually reaches classify_product_kind: "oms" beside one
-    # internal hint is internal_ops today and must stop being one under both
-    # variants (the strong-signal test at product_kind.py:258).
-    probe = "institutional nine rooms available"
-    assert _resolve(probe, "current")[0] == "internal_ops", (
-        "self-check fixture no longer reaches the strong-signal branch; "
+    # The SHIPPED classifier carries the prefix variant since the session-15
+    # ruling: the blob itself must refuse a mid-word hint and keep a stem.
+    assert "oms" not in pk._blob("institutional nine rooms available"), (
+        "shipped _blob regressed to bare substring matching"
+    )
+    assert "reconcil" in pk._blob("bank reconciliation"), (
+        "shipped _blob kills prefix stems — that is the word variant, not the ruling"
+    )
+    assert "hr " in pk._blob("our hr team"), "hint-borne delimiter lost in shipped _blob"
+    # The word patch actually reaches the classifier: a stem-carried verdict
+    # must flip when both sides are bounded (the old fixture rode "oms"@rooms,
+    # which the adopted baseline no longer matches).
+    probe = "bank reconciliation bookkeeping"
+    assert _resolve(probe, "current")[0] == "saas_workspace", (
+        "self-check fixture no longer reaches the stem-carried branch; "
         "re-anchor it before trusting any number below"
     )
-    for mode in ("word", "prefix"):
-        got = _resolve(probe, mode)[0]
-        assert got != "internal_ops", f"patch did not reach the classifier ({mode}: {got})"
+    got = _resolve(probe, "word")[0]
+    assert got != "saas_workspace", f"patch did not reach the classifier (word: {got})"
 
 
 def main() -> int:
@@ -182,6 +194,23 @@ def main() -> int:
             row[mode] = "/".join(_resolve(blob, mode))
         row["blob"] = blob
         stored_rows.append(row)
+
+    # Since the session-15 adoption the prefix column IS the shipped behaviour;
+    # any per-row drift means the classifier diverged from what was measured.
+    drift = [
+        (label, r)
+        for label, rows in (("synthetic", synth_rows), ("stored", stored_rows))
+        for r in rows
+        if r["prefix"] != r["current"]
+    ]
+    if drift:
+        for label, r in drift:
+            print(
+                f"PREFIX DRIFT [{label}] {r['id']} {r['business_name']}: "
+                f"current {r['current']} != prefix {r['prefix']}"
+            )
+        print("the shipped classifier no longer implements the measured prefix variant")
+        return 1
 
     if args.json:
         strip = lambda rows: [{k: v for k, v in r.items() if k != "blob"} for r in rows]

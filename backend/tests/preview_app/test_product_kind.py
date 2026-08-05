@@ -250,6 +250,46 @@ def test_llm_inventory_wins_over_kind_blueprint() -> None:
     assert any(r.get("id") == "desk" for r in out["roles"])
 
 
+def test_a_hint_matches_only_at_a_word_start() -> None:
+    """The filed defect: "oms" inside "Rooms" — a business NAME — picked internal_ops.
+
+    SB-07 from docs/evidence/synthetic-briefs.json, verbatim. The brief has a
+    single storefront hit, so it reaches the strong-signal branch where the
+    bare substring both cleared `internal >= 1` and passed the "oms" test —
+    a fixture with two storefront hits short-circuits earlier and never binds.
+    """
+    kind = classify_product_kind(
+        "Hospitality",
+        "The Wilder Rooms",
+        "A nine-bedroom guest house on the coast. Guests should be able to look at "
+        "each room, check which nights are free, and reserve a stay.",
+    )
+    assert kind == "storefront"
+
+
+def test_prefix_stems_still_match_their_inflections() -> None:
+    """Left-anchored only: "reconcil"/"bookkeep" are deliberate stems — a full
+    word boundary kills them and a one-signal brief falls to the default."""
+    assert (
+        classify_product_kind("Fintech", "bank reconciliation and bookkeeping for smb")
+        == "saas_workspace"
+    )
+
+
+def test_spa_inside_workspace_is_not_a_booking_signal() -> None:
+    assert (
+        classify_product_kind(
+            "Operations", "team workspace with a dispatch queue and admin dashboard"
+        )
+        != "booking_service"
+    )
+    # The word itself must keep booking — the boundary is the fix, not a ban.
+    assert (
+        classify_product_kind("Wellness", "day spa retreat, book appointments and classes")
+        == "booking_service"
+    )
+
+
 def test_plan_kind_clause_appended_once_and_reapplication_is_idempotent() -> None:
     contract = resolve_product_kind_contract(
         "saas accounting invoices expenses bank reconciliation"

@@ -227,9 +227,30 @@ def scrub_negated_product_clauses(text: str) -> str:
     return _NEGATED_PRODUCT_CLAUSE.sub(" ", str(text or ""))
 
 
-def _blob(*parts: str) -> str:
-    return scrub_negated_product_clauses(
-        " ".join(str(p or "") for p in parts).lower()
+class _HintBlob(str):
+    """Classifier text whose `in` only matches a hint starting at a word edge.
+
+    Left-anchored only: the hint tables hold deliberate stems ("reconcil",
+    "bookkeep") whose inflections a right-side boundary would kill, and genuine
+    suffix hosts (bookshop, physiotherapy) are the accepted cost. This is the
+    prefix variant boundary_variant_census.py measured: it removes the bare
+    substring class ("oms"@Rooms, "spa"@work**spa**ce) that let spelling
+    accidents pick a product kind, and changes 0 of the 47 stored runs.
+    """
+
+    __slots__ = ()
+
+    def __contains__(self, hint: object) -> bool:  # type: ignore[override]
+        needle = str(hint)
+        if not needle:
+            return super().__contains__(needle)
+        lead = r"(?<!\w)" if needle[0].isalnum() else ""
+        return re.search(f"{lead}{re.escape(needle)}", self) is not None
+
+
+def _blob(*parts: str) -> _HintBlob:
+    return _HintBlob(
+        scrub_negated_product_clauses(" ".join(str(p or "") for p in parts).lower())
     )
 
 

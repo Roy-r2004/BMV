@@ -1,0 +1,994 @@
+{
+  "what": "boundary_variant_census current-mode verdicts, before and after the session-15 prefix adoption",
+  "before_commit": "f019d39",
+  "before": {
+    "synthetic": [
+      {
+        "id": "SB-01",
+        "business_name": "Harbour & Vine Gallery",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-02",
+        "business_name": "Osteria Della Rocca",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-03",
+        "business_name": "Copperleaf Bakery",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-04",
+        "business_name": "Thistle & Fern Florist",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-05",
+        "business_name": "Marginalia Books",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-06",
+        "business_name": "Northgate Dental Studio",
+        "intended": "booking_service/booking",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": "SB-07",
+        "business_name": "The Wilder Rooms",
+        "intended": "storefront/storefront",
+        "current": "internal_ops/trading",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-08",
+        "business_name": "Cadence Physiotherapy",
+        "intended": "booking_service/booking",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": "SB-09",
+        "business_name": "Salon Ferro",
+        "intended": "booking_service/booking",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": "SB-10",
+        "business_name": "Keystone Driving School",
+        "intended": "booking_service/booking",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-11",
+        "business_name": "Tandem Studio Planner",
+        "intended": "saas_workspace/generic",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-12",
+        "business_name": "Relay Support Desk",
+        "intended": "saas_workspace/generic",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-13",
+        "business_name": "Fieldmark CRM",
+        "intended": "saas_workspace/generic",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-14",
+        "business_name": "Ledgerwell Practice",
+        "intended": "saas_workspace/accounting",
+        "current": "saas_workspace/accounting",
+        "word": "saas_workspace/accounting",
+        "prefix": "saas_workspace/accounting"
+      },
+      {
+        "id": "SB-15",
+        "business_name": "Tallowmere Books",
+        "intended": "saas_workspace/accounting",
+        "current": "saas_workspace/accounting",
+        "word": "saas_workspace/accounting",
+        "prefix": "saas_workspace/accounting"
+      },
+      {
+        "id": "SB-16",
+        "business_name": "Dockside Warehouse Desk",
+        "intended": "internal_ops/ops",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-17",
+        "business_name": "Ironmark Facilities Desk",
+        "intended": "internal_ops/ops",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-18",
+        "business_name": "Vessel Ops Console",
+        "intended": "internal_ops/ops",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-19",
+        "business_name": "Meridian Equities Desk",
+        "intended": "internal_ops/trading",
+        "current": "internal_ops/trading",
+        "word": "internal_ops/trading",
+        "prefix": "internal_ops/trading"
+      },
+      {
+        "id": "SB-20",
+        "business_name": "Anvil Commodities Blotter",
+        "intended": "internal_ops/trading",
+        "current": "internal_ops/trading",
+        "word": "internal_ops/trading",
+        "prefix": "internal_ops/trading"
+      }
+    ],
+    "stored": [
+      {
+        "id": 1,
+        "business_name": "PlateSync ERP",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": 17,
+        "business_name": "Jane Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 19,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 20,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 22,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 36,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 37,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 38,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 39,
+        "business_name": "Alder & Ash Ceramics",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 40,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 41,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 43,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 44,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 45,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 46,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 47,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 48,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 62,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 64,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 65,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 66,
+        "business_name": "Maison Vaillant",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 67,
+        "business_name": "Atelier Rousseau",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 68,
+        "business_name": "Galerie Aubert",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 69,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 70,
+        "business_name": "Galerie Aubert",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 71,
+        "business_name": "Atelier Vaugirard",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 73,
+        "business_name": "Atelier Sorel",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 75,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 76,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 77,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 78,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 79,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 80,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 81,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 82,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 83,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 84,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 85,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 86,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 87,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 88,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 91,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 93,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 95,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 96,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 97,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 98,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      }
+    ]
+  },
+  "after": {
+    "synthetic": [
+      {
+        "id": "SB-01",
+        "business_name": "Harbour & Vine Gallery",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-02",
+        "business_name": "Osteria Della Rocca",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-03",
+        "business_name": "Copperleaf Bakery",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-04",
+        "business_name": "Thistle & Fern Florist",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-05",
+        "business_name": "Marginalia Books",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-06",
+        "business_name": "Northgate Dental Studio",
+        "intended": "booking_service/booking",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": "SB-07",
+        "business_name": "The Wilder Rooms",
+        "intended": "storefront/storefront",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-08",
+        "business_name": "Cadence Physiotherapy",
+        "intended": "booking_service/booking",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": "SB-09",
+        "business_name": "Salon Ferro",
+        "intended": "booking_service/booking",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": "SB-10",
+        "business_name": "Keystone Driving School",
+        "intended": "booking_service/booking",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": "SB-11",
+        "business_name": "Tandem Studio Planner",
+        "intended": "saas_workspace/generic",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-12",
+        "business_name": "Relay Support Desk",
+        "intended": "saas_workspace/generic",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-13",
+        "business_name": "Fieldmark CRM",
+        "intended": "saas_workspace/generic",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-14",
+        "business_name": "Ledgerwell Practice",
+        "intended": "saas_workspace/accounting",
+        "current": "saas_workspace/accounting",
+        "word": "saas_workspace/accounting",
+        "prefix": "saas_workspace/accounting"
+      },
+      {
+        "id": "SB-15",
+        "business_name": "Tallowmere Books",
+        "intended": "saas_workspace/accounting",
+        "current": "saas_workspace/accounting",
+        "word": "saas_workspace/accounting",
+        "prefix": "saas_workspace/accounting"
+      },
+      {
+        "id": "SB-16",
+        "business_name": "Dockside Warehouse Desk",
+        "intended": "internal_ops/ops",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-17",
+        "business_name": "Ironmark Facilities Desk",
+        "intended": "internal_ops/ops",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-18",
+        "business_name": "Vessel Ops Console",
+        "intended": "internal_ops/ops",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": "SB-19",
+        "business_name": "Meridian Equities Desk",
+        "intended": "internal_ops/trading",
+        "current": "internal_ops/trading",
+        "word": "internal_ops/trading",
+        "prefix": "internal_ops/trading"
+      },
+      {
+        "id": "SB-20",
+        "business_name": "Anvil Commodities Blotter",
+        "intended": "internal_ops/trading",
+        "current": "internal_ops/trading",
+        "word": "internal_ops/trading",
+        "prefix": "internal_ops/trading"
+      }
+    ],
+    "stored": [
+      {
+        "id": 1,
+        "business_name": "PlateSync ERP",
+        "current": "saas_workspace/generic",
+        "word": "saas_workspace/generic",
+        "prefix": "saas_workspace/generic"
+      },
+      {
+        "id": 17,
+        "business_name": "Jane Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 19,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 20,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 22,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 36,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 37,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 38,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 39,
+        "business_name": "Alder & Ash Ceramics",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 40,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 41,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 43,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 44,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 45,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 46,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 47,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 48,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 62,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 64,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 65,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 66,
+        "business_name": "Maison Vaillant",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 67,
+        "business_name": "Atelier Rousseau",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 68,
+        "business_name": "Galerie Aubert",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 69,
+        "business_name": "Jeanne Kassab Art",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 70,
+        "business_name": "Galerie Aubert",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 71,
+        "business_name": "Atelier Vaugirard",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 73,
+        "business_name": "Atelier Sorel",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 75,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 76,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 77,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 78,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 79,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 80,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 81,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 82,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 83,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 84,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 85,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 86,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 87,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 88,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 91,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 93,
+        "business_name": "Northgate Dental Studio",
+        "current": "booking_service/booking",
+        "word": "booking_service/booking",
+        "prefix": "booking_service/booking"
+      },
+      {
+        "id": 95,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 96,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 97,
+        "business_name": "Osteria Vinci",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      },
+      {
+        "id": 98,
+        "business_name": "Cedar Point Lodge",
+        "current": "storefront/storefront",
+        "word": "storefront/storefront",
+        "prefix": "storefront/storefront"
+      }
+    ]
+  }
+}
