@@ -302,7 +302,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
             kind_contract,
         )
         architect = merge_architecture_enrichment(arch_seed, architect)
-    architect = apply_product_kind_to_architect(architect, kind_contract)
+    architect = apply_product_kind_to_architect(architect, kind_contract, plan)
     architect = ensure_internal_desk_architect(
         architect,
         context=industry_context,
@@ -312,7 +312,7 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         context=industry_context,
     )
     # Final kind lock wins over forcer drift on AI hub / extra pages.
-    architect = apply_product_kind_to_architect(architect, kind_contract)
+    architect = apply_product_kind_to_architect(architect, kind_contract, plan)
     try:
         architect = _normalize_architect(architect, plan)
     except Exception:

@@ -889,19 +889,126 @@ def apply_product_kind_to_plan(
     return updated
 
 
+def _detail_parent_path(path: str) -> str:
+    """`/gallery/:id` -> `/gallery`. Empty when the path is not a detail child."""
+    head, sep, tail = str(path or "").rpartition("/")
+    if not sep or not tail.startswith(":"):
+        return ""
+    return head or "/"
+
+
+def _plan_pages_index(
+    plan: Mapping[str, Any] | None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Plan pages keyed the way `_normalize_architect` keys them.
+
+    A route's page contract is inferred from the plan page merged under the route
+    (`architect_normalize.py:519-523`), and the plan page is where the prose that
+    decides it lives — request 98's `/rooms` resolves to `public-catalog` with the
+    plan merged and to `public-service` without it. The gap-fill asks the same
+    question twelve lines earlier, so it has to ask it of the same document.
+    """
+    by_role_page: dict[tuple[str, str], dict[str, Any]] = {}
+    counts: dict[str, int] = {}
+    for role in (plan or {}).get("roles") or []:
+        if not isinstance(role, dict):
+            continue
+        role_id = str(role.get("id") or "")
+        for page in role.get("pages") or []:
+            if not isinstance(page, dict) or not page.get("id"):
+                continue
+            page_id = str(page["id"])
+            by_role_page[(role_id, page_id)] = page
+            counts[page_id] = counts.get(page_id, 0) + 1
+            by_role_page.setdefault(("", page_id), page)
+    # The normalizer only falls back to a page id when it names exactly one page.
+    for page_id, count in counts.items():
+        if count > 1:
+            by_role_page.pop(("", page_id), None)
+    return by_role_page
+
+
+def _route_page_kind(
+    route: Mapping[str, Any],
+    plan_pages: Mapping[tuple[str, str], dict[str, Any]],
+) -> str:
+    """The skeleton this route will resolve to, as the normalizer resolves it.
+
+    Skeleton ids are surface-prefixed (`public-catalog`, `ops-list`) and
+    `_infer_skeleton_id` only emits a surface's own, so the skeleton alone
+    already carries the surface and there is nothing to compare it against.
+    """
+    from app.application.ui_catalogue import infer_page_contract
+
+    role_id = str(route.get("role_id") or "")
+    page_id = str(route.get("page_id") or "")
+    page = plan_pages.get((role_id, page_id)) or plan_pages.get(("", page_id))
+    source = {**(page or {}), **route}
+    try:
+        return str(infer_page_contract(source).get("skeleton_id") or "")
+    except Exception:
+        return ""
+
+
+def _served_page_kinds(
+    routes: list[dict[str, Any]],
+    plan_pages: Mapping[tuple[str, str], dict[str, Any]],
+) -> set[str]:
+    served: set[str] = set()
+    for route in routes:
+        if not isinstance(route, dict) or _is_ai_hub_route(route):
+            continue
+        skeleton = _route_page_kind(route, plan_pages)
+        if skeleton:
+            served.add(skeleton)
+    return served
+
+
 def _inject_blueprint_routes(
     routes: list[dict[str, Any]],
     files: list[dict[str, Any]],
     contract: ProductKindContract,
     role_id: str,
+    *,
+    only_when_unserved: bool = False,
+    plan: Mapping[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
-    """Fallback: add missing blueprint routes when the architect inventory is thin."""
+    """Add missing blueprint routes.
+
+    When the architect inventory is thin the blueprint *is* the app and every page
+    is added. When it is already substantive this is a gap-fill, and
+    ``only_when_unserved`` holds it to what a gap-fill may honestly do: add a page
+    only when nothing in the app already serves it. Two routes serve the same
+    purpose when they land on the same path or resolve to the same page contract —
+    so a restaurant that declares `/menu` is not missing a catalogue, and the
+    `/gallery` + `/gallery/:id -> ArtworkDetailPage.tsx` literals stop reaching it.
+
+    `/` is exempt from the contract test and keyed on its path alone: the router's
+    catch-all is `<Route path="*" element={<Navigate to="/" replace />} />`
+    (`assemble.py:1123`), so an app with no route at `/` redirects to nothing.
+    """
     existing_paths = {str(rt.get("path") or "") for rt in routes}
     existing_files = {str(f.get("path") or "").replace("\\", "/") for f in files}
+    plan_pages = _plan_pages_index(plan) if only_when_unserved else {}
+    served_kinds: set[str] = (
+        _served_page_kinds(routes, plan_pages) if only_when_unserved else set()
+    )
     touched = False
     for bp in contract.pages:
         path = bp.path
         component = bp.component_file
+        if only_when_unserved and path not in existing_paths:
+            parent = _detail_parent_path(path)
+            if parent:
+                # A detail page is not free-standing: it is reached from one
+                # listing, so its equivalent is that listing's own detail child
+                # and never an unrelated detail page elsewhere in the app.
+                if parent not in existing_paths or any(
+                    _detail_parent_path(other) == parent for other in existing_paths
+                ):
+                    continue
+            elif path != "/" and bp.skeleton_id in served_kinds:
+                continue
         if path in existing_paths:
             for rt in routes:
                 if str(rt.get("path") or "") != path or _is_ai_hub_route(rt):
@@ -931,6 +1038,12 @@ def _inject_blueprint_routes(
             }
         )
         touched = True
+        # A page added here is served from here on: `/gallery/:id` is only
+        # reachable because `/gallery` was just added one iteration earlier.
+        # (There is deliberately no `served_kinds.add` beside this: no contract
+        # declares two blueprint pages of the same kind, so it could not change
+        # an outcome, and a guard that cannot fail is decoration.)
+        existing_paths.add(path)
         if component not in existing_files:
             files.append(
                 {
@@ -951,8 +1064,15 @@ def _inject_blueprint_routes(
 def apply_product_kind_to_architect(
     architect: dict[str, Any] | None,
     contract: ProductKindContract,
+    plan: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Stamp kind metadata; preserve LLM routes; seed blueprint only when thin."""
+    """Stamp kind metadata; preserve LLM routes; seed blueprint only when thin.
+
+    `plan` is the page inventory the architect was built from. It is optional and
+    only sharpens the gap-fill's "does the app already serve this page" test —
+    without it the test reads the route alone, which resolves fewer routes to a
+    catalogue than the normalizer will.
+    """
     updated = copy.deepcopy(dict(architect or {}))
     updated["product_kind"] = contract.kind
     updated["product_kind_subtype"] = contract.subtype
@@ -1006,8 +1126,15 @@ def apply_product_kind_to_architect(
     if not substantive:
         routes, files, _ = _inject_blueprint_routes(routes, files, contract, role_id)
     elif contract.kind in PUBLIC_KINDS:
-        # Public kinds: only gap-fill blueprint pages still missing (e.g. /book).
-        routes, files, _ = _inject_blueprint_routes(routes, files, contract, role_id)
+        # Public kinds: gap-fill only a blueprint page nothing already serves.
+        routes, files, _ = _inject_blueprint_routes(
+            routes,
+            files,
+            contract,
+            role_id,
+            only_when_unserved=True,
+            plan=plan,
+        )
 
     for item in files:
         path = str(item.get("path") or "").replace("\\", "/").lower()
