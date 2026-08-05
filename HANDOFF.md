@@ -1,7 +1,56 @@
-# Session handoff — the ruling arrived mid-session: the classifier is prefix-anchored, and CI is finally observed (2026-08-05, session 15)
+# Session handoff — an offline architecture review: one dead prompt section wired, two timing findings filed (2026-08-06, session 16)
 
-Successor to session 14's handoff (in git history at `369d5a7`). Still-binding parts are restated
-below; do not go back for them. Process notes, not product docs.
+Successor to session 15's handoff (below in this file — session 15 closed at `c791c12`; sessions
+14 and earlier are in git history). Process notes, not product docs.
+
+---
+
+## Session 16, in one page
+
+**Still $0 — no probe run this session because no generation was attempted.** The owner asked for
+an offline architecture/logic review ("something to optimize, maybe prompts"). One fix landed,
+one audit became a standing tool, two timing findings are FILED (not fixed — each needs a run or
+an owner call).
+
+### The fix: the mock-synthesis prompt's prop-shape section had never reached a model (`d28df68`)
+
+A new template/call-site variable audit (`scripts/measure/prompt_variable_audit.py`, red exit on
+any missing variable) found `preview_app_mock_synthesize.j2`'s **CATALOGUE ITEM SHAPES section
+guarded by `is defined` and passed by NO production call site** — the producer
+`catalogue_prop_shape_block()` was authored for that exact call (its docstring says so), the
+render-level tests passed it, and the test file even said "codegen/mock.py does not pass the
+block yet". Wired at `codegen/mock.py`; the catching test drives `synthesize_mock_data` itself
+and captures the prompt off a fake provider. 2 mutations, 0 survivors
+(`mutate_mock_prop_shapes.py`). The audit's only other flag (fix_agent's build-error render) was
+benign — the typecheck block is guarded — and that site now passes explicit falsy values with a
+byte-equality test, so the audit gates clean at exit 0. **Suite: 1,881 / 1 / 0.**
+
+### Filed finding 1 — shadow appspec is ~100-125 s of serial critical path with no functional reader
+
+Request 102's telemetry timeline: blueprint ends at 10 s, then **three serial appspec calls until
+102 s**, then demo to 125 s — all before planning starts. Every functional consumer of
+`ctx.app_spec_result`/`app_spec_scope` (plan seed at `plan_phase.py:86`, architecture seed at
+`:326`, hooks in finalize) is behind `enforce_app_spec`; under `APPSPEC_MODE=shadow` only
+provenance is recorded. Moving the shadow pass off the critical path (concurrent with
+plan_phase, or per-run skip) would cut p50 by roughly the gap to the 500 s DoD — but APPSPEC
+mode and the p50 row are both owner-parked, and any change here needs a funded run beside it.
+**Related: `validate_and_expand_plan` costs 70-94 s/run and is reached only because
+`canonical_seed` is None under shadow** — seeding it from the shadow spec would be
+enforcement-lite, also the owner's call.
+
+### Filed finding 2 — slot_fill's "truncated" rejections are provider errors adjudicated as answers
+
+Already measured in duo 1 (roadmap codegen census): 14 of 28 rejections carry
+`finish_reason: error`, 0 completion tokens, ~1,165 chars of partial body over HTTP 200 — a
+transport failure recorded as a judged model answer, burning a full contract retry. The
+reclassification fix should land WITH the funded slot_fill distribution measurement (backlog
+item 3), not before it.
+
+### What I got wrong in session 16
+
+- **I ran the suite without `PREVIEW_TEMPLATE_DIR` once** (merged the audit and pytest into one
+  container run and dropped the env) and read 14 template-dependent failures as a regression.
+  The documented command has THREE load-bearing parts: the image, the pip install, and the env.
 
 ---
 
@@ -148,8 +197,8 @@ Run one at a time, every file restored from in-memory backups.
 
 ## State of the repo, in four lines
 
-- **`main` is `87cd085` (the reachability rulings) plus the session-15 docs commits, pushed.**
-- **Suite: 1,879 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
+- **`main` is `d28df68` (the prompt wiring) after session 15 closed at `c791c12`, pushed.**
+- **Suite: 1,881 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
   observed.
 - **Credits: $0. `total_usage 330.229` of `total_credits 330`** — FOURTH identical reading. The
   ~$40 mystery spend is still unexplained and is the owner's call.
@@ -215,7 +264,7 @@ is pending.
 
 ### The rule that has caught the most defects
 
-**Mutation-test every guard.** Twenty-five drivers in `backend/scripts/cli/mutate_*.py`, one in
+**Mutation-test every guard.** Twenty-six drivers in `backend/scripts/cli/mutate_*.py`, one in
 `preview-template-tests/tools/mutate.py`. **Run one sweep at a time.**
 
 Ten blind spots, all found the expensive way (restated in full in session 14's handoff at
@@ -325,12 +374,13 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 Read HANDOFF.md first — "Session 15, in one page" and "The next step". Then the roadmap's
 session-15 callout and the classifier row's session-15 UPDATE. Don't re-derive them.
 
-main is PUSHED through the session-15 close. Suite 1,879 / 1 / 0. Credits were $0 at last
-check (fourth reading); I said I would fix the top-up within a couple of days of 2026-08-05 —
-so this session may be the funded one. The classifier is FULLY CLOSED (9c5b383 boundaries,
-87cd085 both reachability rulings) — do not reopen any of it. My product goal, recorded: the
-demo must match the business — workflow tool, menu site, portfolio, company site — storefront
-is not the universal answer. CI was observed green once (run #11); 1.10 is closed.
+main is PUSHED through the session-16 close. Suite 1,881 / 1 / 0. Credits were $0 at last
+check; I said I would fix the top-up within a couple of days of 2026-08-05 — so this session
+may be the funded one. The classifier is FULLY CLOSED — do not reopen it. My product goal,
+recorded: the demo must match the business — storefront is not the universal answer. CI was
+observed green once; 1.10 is closed. Session 16 filed two timing findings (HANDOFF one-pager):
+shadow appspec's ~100-125 s serial cost and slot_fill's provider-errors-as-answers class —
+BOTH need a funded run or my ruling before anyone touches them.
 
 BEFORE ANYTHING ELSE: probe credits — HANDOFF "The next step" item 0. No restarts first.
 IF STILL EMPTY: there is NO offline code work left. State the reading, update nothing, stop.
