@@ -51,14 +51,33 @@ from app.application.services.page_experience import (  # noqa: E402
 
 #: One brief-shaped context per kind the resolver can reach, including the five
 #: skeletons the archived corpus never exercised.
+#:
+#: Session 14 correction: the original internal_ops context ("internal ops back
+#: office desk for warehouse staff") resolved storefront/storefront — "internal
+#: desk" and "warehouse floor" are the measured hint pair and neither is a
+#: substring of it — so the internal_ops/ops contract was never actually driven
+#: and three of the seven rows measured storefront. EXPECTED below turns that
+#: class of silent mislabel into a red summary line.
 CONTEXTS = {
     "storefront": "boutique art gallery selling original paintings online",
     "booking_service": "dental clinic taking patient appointments and bookings",
     "saas_workspace": "saas workspace dashboard for managing team projects",
-    "internal_ops": "internal ops back office desk for warehouse staff",
+    "internal_ops": "internal desk for staff on the warehouse floor",
     "trading": "trading desk blotter for equities order flow and positions",
     "accounting": "accounting practice ledger, invoices and reconciliation software",
     "(empty context)": "",
+}
+
+#: What each labelled context must resolve to for its row to measure what the
+#: label claims. "(empty context)" deliberately documents the default.
+EXPECTED = {
+    "storefront": "storefront/storefront",
+    "booking_service": "booking_service/booking",
+    "saas_workspace": "saas_workspace/generic",
+    "internal_ops": "internal_ops/ops",
+    "trading": "internal_ops/trading",
+    "accounting": "saas_workspace/accounting",
+    "(empty context)": "storefront/storefront",
 }
 
 PRIMARY = "#0f766e"
@@ -114,6 +133,11 @@ def main() -> int:
 
     print(json.dumps(rows, indent=2))
 
+    mislabelled = {
+        label: row["resolved_kind"]
+        for label, row in rows.items()
+        if row["resolved_kind"] != EXPECTED[label]
+    }
     ok = all(
         row["architect_normalize"] == "ok"
         and row["architect_routes"]
@@ -123,9 +147,12 @@ def main() -> int:
         for row in rows.values()
     )
     print()
-    print(f"kinds measured: {len(rows)}")
+    distinct = sorted({row["resolved_kind"] for row in rows.values()})
+    print(f"distinct contracts measured: {len(distinct)} — {', '.join(distinct)}")
+    for label, got in mislabelled.items():
+        print(f"MISLABELLED ROW: {label!r} resolved {got}, expected {EXPECTED[label]}")
     print(f"every kind ships routes, normalizes, meets minimums and is stable: {ok}")
-    return 0 if ok else 1
+    return 0 if ok and not mislabelled else 1
 
 
 if __name__ == "__main__":
