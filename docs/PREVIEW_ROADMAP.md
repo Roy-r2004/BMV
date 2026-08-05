@@ -181,9 +181,47 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-04 (session 10)
+## Status — updated 2026-08-05 (session 11)
 
-> **Read this row first: `APPSPEC_MODE=shadow`.** `.env:12`, confirmed resolved in the running api
+> ### The enforcement spike — run 2026-08-05, and it is the session's answer
+>
+> `APPSPEC_MODE=on` was set (recreate, not restart — `docker compose restart` does **not** re-read
+> `env_file`), verified from the running process, and the brief of 95/97 was run twice. **Both runs
+> shipped nothing.** Requests 99 and 100 are `status: failed` with an empty `generated_pages`:
+> the authored spec failed deterministic validation (`must_requirement_cannot_be_deferred:
+> REQ-ABOUT-001` on 99, `requirement_traced_and_deferred: REQ-RESPONSIVE-001` on 100) and
+> `appspec_gate.py:182` turns that into a `raise` when `enforce_app_spec`.
+>
+> **That is not enforcement authoring a worse spec.** `ensure_approved_app_spec` takes neither a mode
+> nor a policy and `APPSPEC_FALLBACK_ENABLED` is `False` in both modes, so the authoring and
+> validation path is byte-identical; the rejections are model variance and what enforcement changes
+> is the *consequence*. On this one brief the spec is now **accepted on 95 and 97 and rejected on 99
+> and 100 — 2 of 4**. `.env` is back to `shadow`, verified from the running process.
+>
+> **What enforcement would ship, replayed deterministically** from the stored accepted specs
+> (`scripts/measure/appspec_enforcement_replay.py`, re-derivable offline):
+>
+> | | shipped in shadow | under enforcement | removed | survives |
+> |---|---|---|---|---|
+> | request 95 | 13 routes | **6** | owner console (5), `/my-profile`, `/my-reservations`, `/private-events` | `/gallery`, `/gallery/:id` |
+> | request 97 | 18 routes | **9** | owner console (5), `/menu/food`, `/menu/wine`, `/privacy-policy`, `/terms-of-service` | `/gallery`, `/gallery/:id` |
+>
+> **Exactly one line puts the gallery back, on both runs.**
+> `apply_product_kind_to_architect` (`plan_phase.py:305`) reaches `product_kind.py:1008-1010`, which
+> gap-fills the storefront blueprint into every `PUBLIC_KINDS` app **even when the routes are already
+> substantive** — and `_storefront_pages()` (`product_kind.py:475-496`) declares `/gallery` and
+> `/gallery/:id → ArtworkDetailPage.tsx` as literals. **The twelve-table trattoria's art gallery is a
+> hardcoded blueprint page**, not an industry inference and not a writer's guess. The
+> `internal_desk` and `saas_accounting` forcers (`:306`, `:310`), the second kind lock (`:315`) and
+> `ensure_ai_feature_route` (`:370`) add **nothing** on this brief.
+>
+> Two consequences for the plan: an enforced AppSpec **does** collapse the route table roughly in
+> half and would bring the render-check denominator under the cap of 12 by itself (DoD 7 / item 8
+> below) — and it **cannot** fix page identity while a blueprint gap-fill outranks the contract.
+> Turning the mode on today would also make every rejected spec a run that ships nothing, at a
+> measured acceptance of 2 of 4 on the one brief with four samples.
+
+> **`APPSPEC_MODE=shadow` (the standing state).** `.env:12`, confirmed resolved in the running api
 > container. `app_spec_is_required` returns True only for `on`, so on **every** run in this
 > environment `enforce_app_spec` is `False`, `app_spec_scope` is never computed, and
 > `canonical_plan_seed` is `None`. Request 95's own stored record says so:
@@ -209,6 +247,13 @@ Recording that here so the next session does not read a productive week as progr
 
 | Item | State |
 |---|---|
+| **Duo 2 (97-98)** — the first generation to see session 10's four fixes | **2 of 2 shipped `ready`**, 563 s and 570 s, on the briefs of 95/96 verbatim. **All four fixes are production-proven**, which is the gap session 10's handoff named: `planning/planner`, `planning/plan_validation` and `planning/design_manifest` rows exist on 97 with **no `codegen` row carrying a NULL writer** (the `(unattributed)` bucket is gone); `withheld_reason` is a key on 97 and absent on 95/96; `viewable` is correctly still not a key; and `mock.ts` contains "Explore the collection" **once on 95 and zero times on 97**. The one scope still unexercised is `plan_expansion` — `validate_and_expand_plan` made a single ask on 97 |
+| **the palette monoculture — and what it costs** | **done** — `3b63a07`. **The trade is stated up front: derived palettes are distinct and legible, and none of them is *appropriate*.** Northgate Dental Studio resolves to `#b62bb6` (magenta), Osteria Vinci to a green, Cedar Point Lodge to a slate blue. Every palette's lightness is solved by bisection against the surface it is used on, so WCAG AA holds for all 48 identities by construction — but nothing picks a colour *because* it suits a dentist. Appropriateness was never on offer from a five-bucket keyword table that put 28 of 62 businesses in `wellness`; getting it back needs a signal that is not an industry string, and **the reference site's own colours are the obvious unused candidate** — `reference_url` runs currently contribute no colour at all. Detail below |
+| **the palette monoculture** | **done** — `3b63a07`. **58 of 62 archived workspaces ship `#0f766e`; three distinct primary colours in the whole corpus.** Two industry→palette tables existed and the coarser ran first. **Candidate (a) was simulated before being rejected: letting `brand_brief._industry_bucket` decide alone gives three distinct colours — the identical count** — and buckets 28 of 62 as `wellness` because the gallery briefs say *"not a booking SaaS or **clinic** front desk"*. Replaced by a palette derived from the business name, contrast-solved per hue. **3 → 10 distinct over the same 62 workspaces, against a ceiling of 12** — the corpus has only 12 distinct business names, which is a fact worth carrying: a "62-site corpus" is 18 distinct briefs. 13 mutations / 0 survivors |
+| **the menu, both halves** | **done** — `8fe8955`, and **the roadmap's attribution below was wrong**. The shipped `mock.ts` already labels `/my-reservations` "Reservations", so the visible defect is the *generator's*: `_normalize_nav_section` deduped on the label key and **deleted** the declared public `/reservations`. Both halves land together with one rule, about the list and never a route name. 9 + 5 mutations / 0 survivors |
+| **the scaffold's hero subcopy** | **done** — `8fe8955`. *"A clear next step from {brand} — warm, specific, and ready when you are."* verbatim in 7 of 64 workspaces. **The gate is right not to fire on it** and was not widened: `placeholder_content_shipped` looks for *unfilled* tokens like `[Artist Name]` and this is a filled one, so matching it would make a DoD row measure whether we updated our own regex. The scaffold states the app's declared public destinations instead. Also `_design_system_dict` wrote `sourcesans3` for `"Source Sans 3"` — the second spelling behind "5 fonts" where there are 3 |
+| **`finish_reason: error`** | **measured, and the answer is do nothing** — duo 1 carried **52 `error` rows of 149 calls (34.9 %)**, 50 with zero completion tokens; duo 2 carries **2 of 152 (1.3 %)** and **both have real tokens**. So the 200-that-failed-mid-stream shape is **0 of 152** on a healthy day. Session 10 flagged it as possibly "a bad day at the provider"; it was. **Do not touch the transport layer for this** |
+| **the dead skeletons and components** | **answered, nothing changed** — 9 of 46 catalogue components have never been imported by any page in 62 workspaces (Tooltip, AccentBeam, ResultRail, EmptyState, InvoiceBoard, ReconSplit, BlotterTape, DeskTicker, ExpenseQueue) and 5 of 15 skeletons never selected. The selector is `classify_product_kind` → `resolve_product_kind_contract`. Over the **18 distinct briefs** in the corpus: 16 `storefront`, 1 `booking_service`, 1 `saas_workspace/generic`, and **zero** `internal_ops` or trading/accounting subtypes — which are the only paths that emit those five skeletons. **They are correctly unreachable for this corpus, not unreachable code.** Detail and the chrome-vs-layout split below |
 | **codegen census** — which writer spends the calls | **done** — `46c28d2`, `scripts/measure/codegen_cost.py`. **41 % of the `codegen` stage total is not codegen.** `record_usage` falls back to the run *purpose* with no `ai_call` scope and `generate_preview_app` runs the whole preview pipeline under `purpose="codegen"`, so `page_experience.py`'s unscoped planner, validator and design manifest were billed to it: **310.7 s over 11 calls on duo 1** (143.7 s on 95, 167.0 s on 96). Four scopes added under a `planning` stage. Detail below |
 | **`withheld_reason` / `viewable` / `typecheck`** | **two filed defects, both the reader** — `e0eeec5`. `viewable` was **never a key**: `finalize` keeps it as a local and publishes `status` and `url`, so `analyse.py` has read a key no run ever stored. `withheld_reason` likewise, and it is now published (always present, `None` when served, naming which of build / gate / unresolved-crash refused). `viewable` stays *unstored* and derived — a second key free to disagree with `status` is the same defect one layer down. **`typecheck` was never `None`**: the key is `typecheck_status`, and duo 1 stored `errors` with **4** and **8** type errors |
 | **fix agent's route block** | **done** — `eb49f43`. Allow-list stated once per run, and the block degrades by dropping rather than collapsing. Measured on request 93's real nine routes: library 6,019 chars + prop shapes 2,206 + routes 10,597 = **18,869 against a 10,000 budget**, down from 45k+ — so **the hoist alone is a 2.4× cut and still not enough**, which is why the four-rung ladder exists. Across every archived run (10-19 routes) nothing now receives `{"truncated": true}` and no route is dropped. **Repair quality is unmeasured** |
@@ -238,7 +283,7 @@ Recording that here so the next session does not read a productive week as progr
 | **`visual_review_status`** | **done** — `2d69917`. Always present, and names which of four reasons the critic did not run. **Not** folded into `unmeasured`, which means a vision outage and drives an operator switch |
 | **`write_file` canonicalization** | **done** — `614d772`. The seam returns the path it wrote; the rename stays. Last of the 8 xfails |
 | **2.8 / DoD 8** — write allowlist | **done, pulled forward** — see the Day 2 section. **26 modules can write `src/pages/**.tsx` today**; that is Phase 2's baseline and 2.4-2.5 is now measurable against it |
-| **DoD 7** — route bijection | **measured, row open, one defect fixed** — `3fc04ca`. 26 of 42 runs smoke-load fewer routes than they declare (74 of 553), 11 of 42 have a non-injective file→route lookup. The fix: `_smoke_routes` deduped on `component_file` and silently dropped a served URL — 12 URLs across 11 runs. Also `render_pages_skipped`, so the cap stops reading as full coverage, and `pages_unrouted` for request 33's orphan class |
+| **DoD 7** — route bijection | **measured, row open, one defect fixed** — `3fc04ca`. 26 of 42 runs smoke-load fewer routes than they declare (74 of 553), 11 of 42 have a non-injective file→route lookup. The fix: `_smoke_routes` deduped on `component_file` and silently dropped a served URL — 12 URLs across 11 runs. Also `render_pages_skipped`, so the cap stops reading as full coverage, and `pages_unrouted` for request 33's orphan class. **The unchecked-routes half is answered as of 2026-08-05, and the answer is the denominator, exactly as this row said:** duo 2 is 12 checked / 18 eligible / **6 skipped** on 97 and the shipped table has grown, not shrunk (95 declared 13, 97 declared 18 on the same brief). Replayed under an enforced AppSpec the same two runs declare **6 and 9** routes — **both under the cap of 12, so enforcement closes this row by itself and no bigger cap is needed.** Do not raise the cap |
 | **DoD 2 / DoD 5** — the "before" numbers | **taken** — `fa41e0a`. DoD 5 reproduces exactly (1 `seed` key common to 47 workspaces). **DoD 2's 13,540 is per workspace, not per page TSX** — per page it is mean 859 / median 529, and 12 % of pages already meet the 200-char target. Row corrected rather than left standing |
 | **gate `skeleton_id`** | **done** — `c09b96d`. Pre-flight question 5's blocker: `listing_not_schedule_rail` fires on `public-catalog` *or* `public-service` and nothing recorded which. **And `analyse.py` has read `preview_app["gate_issues"]` since it was written while no run ever wrote it** — every DoD evidence table it produced said `gate_issues: 0`, which is why the roadmap's per-code counts came from log greps |
 | **Trio 7 (92-94)** — the first funded trio | **valid, and it answered 9 of the 11 pre-flight questions.** Open: **Q8** (the dead-link confirming trio — only one of the three runs produced a gate verdict at all) and **Q11's concurrency half** (contention was 0.0 s, so nothing collided). Wall clock **543.9 / 572.2 / 542.1 s — 3 of 3 under 600 s**, but **contention was 0.0 s**, so it is a second clean clock and *not* a second concurrency test. **Ship rate 0 of 3**, worse than 1 of 3: 93 failed its gate, and **92 and 94 stored no `preview_app` at all** — 1.12, twice in one trio, with `appspec` at 353 s and 339 s. Credits confirmed before launch and the api log has zero credit refusals across the window; the two empty runs are the pipeline, not the account. Detail below |
@@ -249,6 +294,13 @@ Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
 token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
 ### Suite state — and the two ways the harness lied about it in one afternoon
+
+**1,808 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
+2026-08-05 (session 11). Session 11 added 23 pytest cases and 7 vitest cases across five files, every
+fix mutation-swept: **33 new mutations, 44 applied across four sweeps (13 + 9 + 17 + 5), 0 survivors
+at the end, 5 survived a first sweep** — and all five were fixtures too small to reach a guard, four
+of them the same shape (two guards that overlap on the obvious fixture). Previously **1,785 passed /
+vitest 32** at `ad0cc6f`.
 
 **1,785 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 32 passed**, 2026-08-04 (session
 10). Session 10 added 95 of those across five files, every fix mutation-swept: 18 + 10 + 12 + 11 = 51
@@ -511,6 +563,63 @@ for 474.4 s**, and 15 of those were recorded **usable** because nothing read `fi
 `length`. `presumed_usable` condemns that shape as of `46c28d2`, and *only* that shape — 24 other
 `error` rows carry real completion tokens and 514.3 s of work the pipeline used.
 
+**Measured on duo 2 (2026-08-05), and it was a bad day at the provider — not a standing cost.**
+Session 10 asked for the rate to be checked on a fresh run before anything in the transport layer was
+touched. It was:
+
+| | `error` rows | of calls | with 0 completion tokens |
+|---|---|---|---|
+| duo 1 (95, 96), 2026-08-04 | **52** | 149 — **34.9 %** | 50 |
+| duo 2 (97, 98), 2026-08-05 | **2** | 152 — **1.3 %** | **0** |
+
+Both of duo 2's `error` rows carry real completion tokens, so the failed-mid-stream shape occurred
+**zero times in 152 calls**. `slot_fill`'s discarded time fell with it — 147.7 s/run on duo 1 to
+**83.4 s/run** on duo 2 (25 of 42 calls rejected, all `finish_reason: stop`). **Do not rewrite the
+transport layer for this**; the remaining rejections are contract violations, which is a writer
+problem and a different fix. What `46c28d2` added still stands: the shape is condemned when it
+happens, and now there is a second measurement showing how variable "how often" is.
+
+### `slot_fill`'s contract rejections — the transport half is closed, the contract half has a lead
+
+**Duo 2, 2026-08-05:** 42 `slot_fill` calls, **25 rejected (59.5 %)**, 83.4 s/run discarded — and
+**every rejected row carries `finish_reason: stop`**. So on a healthy provider day the rejections are
+*entirely* the writer violating its own contract; the 14 "truncated" rows of duo 1 were the outage
+above and are not a standing class.
+
+**What the per-rejection errors say. n=4, so read it as a lead, not a distribution.** The validator
+errors are logged at `codegen/generate.py:483-491` and stored nowhere, and duo 2's container log was
+destroyed by a recreate before it was dumped (see the handoff). Four rejections were captured live
+across requests 101 (restaurant) and 102 (dental practice), 25 `slot_fill` calls:
+
+| page | errors |
+|---|---|
+| `AboutPage.tsx` (restaurant) | `detail painting-first hero (variant=item)`, `detail itemSpecs binding`, `detail inquire CTA (#inquire)` |
+| `AboutPage.tsx` (dental) | `detail painting-first hero (variant=item)`, `detail itemSpecs binding`, `detail seed.credentials instead of itemSpecs` |
+| `ServicesPage.tsx` | `SkeletonComposer invocation`, `assigned skeleton literal`, `slot:hero`, `slot:features`, `slot:testimonials`, `slot:cta`, … |
+| `TreatmentsPage.tsx` | `missing directory face component:PageHeader`, `missing BRAND_MANIFEST services binding` |
+
+**Two of four are the same defect in two unrelated industries**, and it is the art gallery again. An
+About page is being assigned the `public-detail` skeleton, whose contract
+(`catalogue_contract/validate.py:227-244`) *requires* a **painting-first hero**, an `itemSpecs`
+binding and an `#inquire` CTA. The comment above that block names its origin: it was written against
+**request 50, a fine-art gallery**, to stop the model swapping a painting for a marketing billboard.
+The corpus is 25 art galleries, so the contract was fitted to them — and now the model, writing a
+perfectly reasonable About page for a dentist, fails three assertions about paintings and has its
+work thrown away for a deterministic scaffold.
+
+Three questions follow and none is answered:
+
+1. **Why is `AboutPage.tsx` assigned `public-detail` at all?** An About page is not an item detail
+   page. That is a skeleton-assignment defect *upstream* of the contract, and fixing the contract
+   without fixing the assignment would only move the failure.
+2. **How much of duo 2's 59.5 % is this?** Unmeasured — the only record was the destroyed log.
+3. **Is the `public-detail` contract right even for a gallery?** It hard-codes one page's design
+   decisions as a validity condition, which is the shape of defect this document keeps finding.
+
+**Dump `docker compose logs api` the moment a run finishes.** If one error dominates, that is the
+fix; if they are scattered, the contract or the prompt is wrong and that is a bigger decision than a
+retry.
+
 ### p50 — the recommendation is (A), and this is the arithmetic
 
 **Owner ruling pending; this row is not moved here.** Per-run AI seconds on duo 1, after the census
@@ -581,20 +690,31 @@ Screenshotting was the right instruction and the static answer is stronger than 
 
 **What IS on screen is a different defect, and it is the one worth fixing.** Request 95's public nav
 is Home, Gallery, Our Menu, Profile, Reservations (capped at 5, `Private Events` dropped). That
-"Reservations" is **`/my-reservations`**: `shortLabel` strips a leading `My ` (`app-nav.ts:20-31`).
-Meanwhile `/reservations` — a declared public route serving `ReservationsPage.tsx` — is **absent from
-`navigation.public` entirely**. The header names the member page with the public page's name and
-never links the public page. Two halves, both general:
+"Reservations" is **`/my-reservations`**, and `/reservations` — a declared public route serving
+`ReservationsPage.tsx` — is **absent from `navigation.public` entirely**. The header names the member
+page with the public page's name and never links the public page.
 
-1. **A declared public route missing from the public nav.** The generator's, not the template's.
-2. **`shortLabel`'s `My ` strip collides a member page with its public counterpart** — `/my-orders`
-   and `/orders`, `/my-bookings` and `/bookings` are the same shape. The rule has to be about the
-   list (drop a prefix only while the shortened label stays unique among its siblings), never about
-   a route name.
+**Corrected 2026-08-05 (session 11), and the attribution above was wrong.** The sentence that stood
+here said `shortLabel` strips the leading `My ` at `app-nav.ts:20-31`. Read out of the shipped
+workspace, **`mock.ts` already carries the label "Reservations" on `/my-reservations`** — the strip
+happened in the *generator*, at `safety/mock_data._NAV_LABEL_NOISE_RE` (`mock_data.py:1016`, the same
+`^(welcome|manage|my|the)\s+` rule). And the reason `/reservations` is missing is one line further
+on: `_normalize_nav_section` deduped on the **label key** as well as the path, so a route whose
+shortened label was already taken was **dropped from the menu entirely**. Request 95's route table
+declares 13 routes including `/reservations` at `layout: public`; the nav has six entries.
 
-**Neither is landed.** (2) alone changes nothing on screen, because the collision only appears once
-(1) puts both entries in the same list — a fix that changes no outcome is not a fix, so it was
-written, measured against the duo's data, and reverted rather than shipped. They land together.
+So the two halves are the same rule at two layers, and both are landed (`8fe8955`):
+
+1. **The generator (`_nav_labels_for_section`).** A duplicate *destination* is redundancy and still
+   collapses. A duplicate *label* is a naming clash: it renames, it never deletes.
+2. **The template (`app-nav.shortLabels`).** Same rule for the labels the shell renders.
+
+Both are about the **list** — shorten only while the shortened form stays unique among its siblings,
+then fall back through the full label to a path-derived one — and never about a route name;
+`/my-orders` and `/orders`, `/my-bookings` and `/bookings` are the same shape. Deciding entry by
+entry is not enough and is mutation-tested as such: whichever entry came first would take the short
+label and the other would still collide. Session 10 wrote (2) alone, measured that it changes nothing
+without (1), and reverted it — which was right, and is why they landed together.
 
 #### 2. Every business gets a gallery, whatever the business is
 
@@ -637,6 +757,76 @@ business *has a collection* at all, applied the same way for every industry, wit
 following from the entity rather than from a default. Anything keyed on an industry string is the
 `generic`-industry defect wearing a new hat. **2.1-2.3 owns this**: one route per file by
 construction, and page identity derived from the spec rather than appended by a template.
+
+**Located exactly, 2026-08-05 (session 11). It is not an inference at all — it is a literal.**
+
+```
+product_kind.py:475-496   _storefront_pages()
+    PageBlueprint("gallery",        "Gallery",  "/gallery",     ... "GalleryPage.tsx")
+    PageBlueprint("gallery_detail", "Artwork",  "/gallery/:id", ... "ArtworkDetailPage.tsx")
+product_kind.py:1008-1010
+    elif contract.kind in PUBLIC_KINDS:
+        routes, files, _ = _inject_blueprint_routes(routes, files, contract, role_id)
+```
+
+Every brief that classifies `storefront` or `booking_service` is gap-filled with those two pages,
+**even when `_routes_are_substantive(routes)` is already True** — the `elif` exists precisely to
+gap-fill a substantive inventory. So `ArtworkDetailPage.tsx` on a trattoria is one hardcoded
+blueprint page reaching 16 of the corpus's 18 distinct briefs, and the string "Artwork" is a
+`PageBlueprint` title, not a model's word.
+
+**It survives an enforced AppSpec.** Replayed from request 95's accepted 4-page contract, the
+canonical route list holds through `merge_architecture_enrichment` and then
+`apply_product_kind_to_architect` (`plan_phase.py:305`) adds `/gallery` and `/gallery/:id` — 4 → 6.
+Same on 97, 7 → 9. **Nothing else added a route on either run.** So the enforcement work and this
+defect are independent: a contract that names four pages does not stop the sixth being appended.
+
+### The catalogue census — a third of it is dead, and that is one fact, not two
+
+Measured 2026-08-05 over the 62 archived workspaces that shipped pages, by parsing `import { … }`
+statements in `src/pages/**.tsx` (a substring census is not sound here: `OpsShell` appears as a bare
+word in 60 workspaces and is *imported* by 60 — but `ProductShowcase` appears in 62 and is imported
+by 56, and `Table` appears in 10 and is imported by 1).
+
+**9 of 46 catalogue components have never been imported by any page ever:** `Tooltip`, `AccentBeam`,
+`ResultRail`, `EmptyState`, `InvoiceBoard`, `ReconSplit`, `BlotterTape`, `DeskTicker`,
+`ExpenseQueue`. **5 of 15 skeletons have never been selected:** `ops-ledger-home`,
+`ops-invoice-board`, `ops-recon-split`, `ops-blotter-desk`, `ops-expense-queue`.
+
+**The selector, and why it is right.** `classify_product_kind` (`product_kind.py:240`) →
+`resolve_product_kind_contract` (`:538`). Run over the **18 distinct briefs** in the corpus:
+
+| kind / subtype | briefs |
+|---|---|
+| `storefront` / `storefront` | 16 |
+| `booking_service` / `booking` | 1 |
+| `saas_workspace` / `generic` | 1 |
+| `internal_ops` (any) | **0** |
+| `saas_workspace` / `trading` or `accounting` | **0** |
+
+The trading subtype (`:545`) and the accounting subtype (`:579`) are the *only* paths that emit those
+five skeletons, and no archived brief reaches either. So the five dead skeletons and the five dead
+ops components (`InvoiceBoard`, `ReconSplit`, `BlotterTape`, `DeskTicker`, `ExpenseQueue`) are **one
+fact: nobody has ever asked this pipeline for a trading desk or a bookkeeping workspace.** That is
+correct behaviour, not unreachable code, and **rotating skeletons for variety would put a ledger desk
+on a restaurant — the art gallery again**. The remaining four (`Tooltip`, `AccentBeam`, `ResultRail`,
+`EmptyState`) are a *different* and much smaller question: they have no skeleton slot that names them
+except `results`/`empty`, which no skeleton in `catalogue.json` declares.
+
+**And the corpus itself is the caveat.** 62 workspaces, **18 distinct briefs, 12 distinct business
+names**, 25 of them one art gallery. Any statement of the form "N of 62 runs" in this document is
+closer to "N of 18 briefs" than it sounds.
+
+**The chrome / layout split, which is what makes this actionable.** Of the 15 components imported by
+≥ 90 % of runs:
+
+| | components | verdict |
+|---|---|---|
+| **Chrome** — the app frame, legitimately universal | `PublicShell` 100 %, `PublicNav` 100 %, `BrandFooter` 100 %, `PageHeader` 100 %, `OpsShell` 97 % | correct at 100 %. A page needs a shell, a nav and a footer |
+| **Ops-page primitives, universal *because the console is universal*** | `StatCard` 90 %, `DataTable` 97 %, `FilterBar` 97 %, `ActivityFeed` 95 %, `ChartCard` 89 % | these are the owner console's slot defaults. They are at 90 %+ because **a five-page ops console is appended to storefronts that never asked for one** — the same routes enforcement removes |
+| **Layout choices that should vary and do not** | `MarketingHero` 100 %, `CTABand` 100 %, `FeatureBento` 98 %, `TestimonialRail` 98 %, `ProductShowcase` 90 % | **this is the visual monoculture on screen.** Every public home page in the corpus is hero → features → showcase → testimonials → CTA → footer, in that order |
+
+The third row is the one to attack, and it is Phase 3's (`within-recipe axes`), not a bug to patch.
 
 ### 2.9, in detail — the fix, and what bounds it
 
@@ -1086,7 +1276,7 @@ only trio in which **every run finished under 600 s**.
 | p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **p50 still FAILED at 590 s** (want ≤ 500) — the elective guards bought ~10 s, not 90. **The ask-ceiling half of this row is unproven for `appspec`:** that stage had no `ai_call` scope, so all 49 of its rows carry `writer = NULL, attempt = 1`, and the logical-ask grouping (`request_id`, `stage`, `writer`, attempt not resetting) had nothing to group on. Scopes added in session 6; re-measure on the next funded trio. `appspec` is **147 s of AI per run** and its cost tracks **call count**, not per-call latency — 2-3 calls is 49-94 s, 5-7 calls is 253-294 s, no single call over 120 s, and only 0-27 s of the span is non-AI (`scripts/measure/appspec_cost.py`). **The ask ceiling was off by a constant and is now fixed.** Exactly four asks exceeded 120 s across all twelve runs and all four were 135.0 s to the millisecond (135012 / 135010 / 135007 / 135001 ms; 77, 80, 82, 85; `fix_agent`, `z-ai/glm-5.2`, attempt 1, no failover): `_CANCEL_GRACE_SECONDS` was spent *after* the cap fired. Held back inside it now, and the grace cut 15 s → 2 s. Ask p50 is healthy at 8.1 / 5.7 / 9.6 s, so this was the only ask-side breach |
 | Zero consecutive asks to the same resolved model id | **was FALSE, now fixed.** `ac10c9b` deduped the *repair* chains and its test pins those; `call_architect`'s three-name chain was never deduped, and `ARCHITECT_MODEL` = `PREVIEW_APP_MODEL` = `TEXT_MODEL` = `google/gemini-2.5-flash` here **and in the test environment**, so the guard could not have caught it. 7 violations across trio 1; request 74's architect wrote 3 rows, one model, all unusable |
 | Every degraded run carries a machine-readable `degraded: [stage]` marker | **was FALSE, now fixed.** Requests **73, 75 and 76 each degraded three stages and each stored `degraded: []`** — the marker was only ever a log line at scope exit. `finalize` runs inside `generate_preview_app`; `tech`/`proposal`/`build_plans` are skipped *after* it returns, so it structurally could not see them. Published from `GenerationPipeline.run` now, and verified live on 77/78/79 |
-| `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders |
+| `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders. **Session 11 ruled on the adjacent question and did not widen the gate:** the scaffold's *"A clear next step from {brand} — warm, specific, and ready when you are."* (7 of 64 workspaces) is a **filled** token, and this gate detects *unfilled* ones like `[Artist Name]`. Matching a sentence this repo writes itself would make this row measure whether we updated our own regex, so the scaffold was fixed instead (`8fe8955`). **The row's number is unchanged by that** — it was never counting these |
 | 11 of 11 catalogue cards show the artifact type the business sells | **9 of 11 on request 70**; 73's binding is correct but its cards were not scored card-by-card |
 | Suite green at ≥ 1,107 | **1,288 passed / 1 skipped / 1 failed** — the red is another session's in-flight refactor of `test_phase5_ui_alias_imports.py` (at `f9f41eb` that file has zero test functions), not Phase 1 work |
 | Vitest CI job green on main | **runner and workflow exist; `main` has never run them.** 9 tests, 9/9 mutation-caught, `tsc -b` clean, and the whole job verified on a clean `node:22` linux container — which is what caught a resolution defect that a local green was hiding (the template's `node_modules` must exist for its source's bare imports; see 1.10). The row stays **unmet** until `.github/workflows/preview-template-tests.yml` is green on `main` — it cannot be closed from a branch |
