@@ -290,6 +290,72 @@ def test_spa_inside_workspace_is_not_a_booking_signal() -> None:
     )
 
 
+def test_a_staff_only_desk_is_internal_ops() -> None:
+    """SB-17 verbatim: an internal-facing assertion plus ops language is a desk."""
+    contract = resolve_product_kind_contract(
+        "Facilities Management",
+        "Ironmark Facilities Desk",
+        "An internal maintenance desk. Building staff raise a job, the coordinator "
+        "assigns it from a work queue, engineers update the record when they attend, "
+        "and management reviews outstanding jobs weekly. It is a staff tool, not a "
+        "public website.",
+    )
+    assert contract.kind == "internal_ops"
+    assert contract.subtype == "ops"
+
+
+def test_a_back_office_on_the_warehouse_floor_is_internal_ops() -> None:
+    """Two plain ops nouns must reach the kind without any assertion phrasing."""
+    assert (
+        classify_product_kind(
+            "Logistics", "The back office desk that runs our warehouse floor"
+        )
+        == "internal_ops"
+    )
+
+
+def test_an_internal_tool_that_reads_as_software_stays_a_workspace() -> None:
+    """SB-11 verbatim: 'internal' names the audience; the product is a workspace."""
+    assert (
+        classify_product_kind(
+            "Software",
+            "Tandem Studio Planner",
+            "An internal tool our design studio uses to run client projects. The team "
+            "signs in and works from a queue of tasks, opens a project record to "
+            "update status and notes, and looks at a weekly report of what shipped.",
+        )
+        == "saas_workspace"
+    )
+
+
+def test_the_internal_assertion_alone_flips_nothing() -> None:
+    assert (
+        classify_product_kind("General", "A staff tool for taking notes")
+        != "internal_ops"
+    )
+
+
+def test_transactional_language_without_the_assertion_stays_a_workspace() -> None:
+    assert (
+        classify_product_kind(
+            "Support", "A queue of support tickets and an admin dashboard"
+        )
+        == "saas_workspace"
+    )
+
+
+def test_a_driving_school_is_a_booking_service() -> None:
+    """SB-10 verbatim: lessons and instructors are booking language, not a gallery."""
+    contract = resolve_product_kind_contract(
+        "Education",
+        "Keystone Driving School",
+        "We teach people to drive. Learners should see the lesson packages we sell, "
+        "choose an instructor near them, and book their first two-hour lesson.",
+    )
+    assert contract.kind == "booking_service"
+    assert contract.subtype == "booking"
+
+
 def test_plan_kind_clause_appended_once_and_reapplication_is_idempotent() -> None:
     contract = resolve_product_kind_contract(
         "saas accounting invoices expenses bank reconciliation"

@@ -136,9 +136,39 @@ _INTERNAL_OPS_HINTS = (
     "internal trading",
     "warehouse floor",
     "floor control",
+    "back office",
+    "back-office",
     "not a saas",
     "not a retail",
     "not a client",
+)
+
+# Plain-English assertions that the tool is internal-facing. On their own they
+# name an audience, not a product — they only flip the verdict when the brief
+# also carries transactional/ops language (the rule in classify_product_kind).
+_INTERNAL_FACING_HINTS = (
+    "staff-only",
+    "staff only",
+    "internal only",
+    "internal-only",
+    "internal tool",
+    "staff tool",
+    "nobody outside",
+    "no customer ever",
+    "not a public",
+    "never public",
+)
+
+# Transactional words that alone mean "workspace, not marketing landing" —
+# and, beside an internal-facing assertion, "internal desk".
+_TRANSACTIONAL_WORDS = (
+    "dashboard",
+    "reconcile",
+    "invoice",
+    "queue",
+    "admin",
+    "ops console",
+    "workspace",
 )
 
 _SAAS_HINTS = (
@@ -184,6 +214,8 @@ _BOOKING_HINTS = (
     "class schedule",
     "tutoring",
     "therapy",
+    "lesson",
+    "instructor",
 )
 
 _STOREFRONT_HINTS = (
@@ -283,19 +315,20 @@ def classify_product_kind(*parts: str) -> ProductKind:
     ):
         return "saas_workspace"
 
-    # Ambiguous transactional language → workspace, not marketing landing
-    if any(
-        w in text
-        for w in (
-            "dashboard",
-            "reconcile",
-            "invoice",
-            "queue",
-            "admin",
-            "ops console",
-            "workspace",
-        )
+    # A brief that ASSERTS it is internal-facing and carries ops/transactional
+    # language is an internal desk, not a SaaS product page. The assertion
+    # alone names an audience, not a product — it never flips on its own, and
+    # a brief that also reads as software stays a workspace (an internal
+    # project tool is still a workspace; a staff desk names no software).
+    if (
+        saas == 0
+        and _hits(text, _INTERNAL_FACING_HINTS) >= 1
+        and (internal >= 1 or any(w in text for w in _TRANSACTIONAL_WORDS))
     ):
+        return "internal_ops"
+
+    # Ambiguous transactional language → workspace, not marketing landing
+    if any(w in text for w in _TRANSACTIONAL_WORDS):
         return "saas_workspace"
 
     if booking >= 1:
