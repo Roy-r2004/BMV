@@ -229,8 +229,9 @@ def test_rendered_prompts_expose_item_member_names():
         "import_context": "",
         "current_content": "",
     }
-    # codegen/mock.py does not pass the block yet: rendering must not raise on
-    # the undefined variable (the environment uses StrictUndefined).
+    # The template stays renderable without the block (StrictUndefined must not
+    # raise through the `is defined` guard) — production passes it, see
+    # test_synthesize_mock_data_sends_the_prop_shapes_to_the_model.
     without_shapes = renderer.render(PromptTemplate.PREVIEW_APP_MOCK_SYNTHESIZE, **mock_context)
     assert "CATALOGUE ITEM SHAPES" not in without_shapes
 
@@ -281,3 +282,46 @@ def test_prop_shape_block_is_a_small_prompt_addition():
         for skeleton in load_catalogue()["skeletons"]
     ]
     assert max(added) < 1400
+
+
+def test_synthesize_mock_data_sends_the_prop_shapes_to_the_model(tmp_path) -> None:
+    """Drive the PRODUCTION call, not the template: the block must reach the ask.
+
+    The template section, its producer and its render-level tests all landed
+    while the one kwarg at the call site did not — so the CATALOGUE ITEM SHAPES
+    guidance never reached a model in production. Capturing the prompt from
+    `synthesize_mock_data` itself is the assertion that cannot drift from the
+    wiring again.
+    """
+    from app.application.preview_app.codegen import mock as mock_mod
+    from app.application.services import request_deadline as rd
+
+    src = tmp_path / "src"
+    (src / "pages").mkdir(parents=True)
+    (src / "data").mkdir(parents=True)
+    (src / "pages" / "HomePage.tsx").write_text(
+        "import { seed } from '../data/mock';\n"
+        "export default function HomePage() { return null }\n",
+        encoding="utf-8",
+    )
+    (src / "data" / "mock.ts").write_text(
+        "export const seed = { hero: { title: 'Osteria Vinci' } };\n", encoding="utf-8"
+    )
+
+    captured: list[str] = []
+
+    class _CapturingProvider:
+        def ask_chat(self, _model, messages, **_kwargs) -> str:
+            captured.append(messages[0]["content"])
+            return "export const seed = { hero: { title: 'Osteria Vinci' } };"
+
+    renderer = JinjaTemplateRenderer(str(TEMPLATES_DIR))
+    with rd.request_deadline_scope(9901, total_seconds=600):
+        mock_mod.synthesize_mock_data(
+            tmp_path, "context", {}, {}, {}, {}, _CapturingProvider(), renderer
+        )
+
+    assert captured, "synthesize_mock_data never reached the model"
+    prompt = captured[0]
+    assert "CATALOGUE ITEM SHAPES" in prompt
+    assert "CredentialStrip.items[] = { title, detail }" in prompt

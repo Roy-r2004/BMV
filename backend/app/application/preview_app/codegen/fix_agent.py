@@ -480,6 +480,14 @@ def fix_build_errors(
         files_content=files_content[:40000],
         catalogue_mode=has_catalogue_routes(architect),
         catalogue_routes_json=_catalogue_routes_context(architect),
+        # Build-error mode: the typecheck block must not render. Passing the
+        # falsy values explicitly (instead of leaning on `is defined`) keeps
+        # every template variable accounted for at every render site —
+        # prompt_variable_audit.py gates on exactly that.
+        typecheck_mode="",
+        type_errors="",
+        type_declarations="",
+        prior_rejections=(),
     )
     return _run_fix_agent(
         workspace,

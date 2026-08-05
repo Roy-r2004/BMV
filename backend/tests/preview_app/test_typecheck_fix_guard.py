@@ -202,3 +202,29 @@ def test_build_fix_prompt_still_renders_without_typecheck_inputs() -> None:
     assert "=== BUILD ERRORS ===" in prompt
     assert "make `vite build` succeed" in prompt
     assert "TYPE ERRORS" not in prompt
+
+
+def test_explicit_falsy_typecheck_kwargs_render_byte_identically() -> None:
+    """fix_agent's build-error site passes every template variable explicitly
+    (prompt_variable_audit.py gates on it); the falsy values must render the
+    exact prompt the bare call did — anything else means the typecheck block
+    leaked into build-error mode."""
+    renderer = JinjaTemplateRenderer(str(TEMPLATES_DIR))
+    common = dict(
+        build_errors="Adjacent JSX elements must be wrapped in an enclosing tag.",
+        file_tree="src/pages/HomePage.tsx",
+        architect_json="{}",
+        files_content="export default function Page() { return null }",
+        catalogue_mode=False,
+        catalogue_routes_json="{}",
+    )
+    bare = renderer.render(PromptTemplate.PREVIEW_APP_FIX, **common)
+    explicit = renderer.render(
+        PromptTemplate.PREVIEW_APP_FIX,
+        typecheck_mode="",
+        type_errors="",
+        type_declarations="",
+        prior_rejections=(),
+        **common,
+    )
+    assert explicit == bare

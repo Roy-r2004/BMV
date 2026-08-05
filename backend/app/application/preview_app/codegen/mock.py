@@ -9,6 +9,7 @@ from pathlib import Path
 
 from app.application.prompts import PromptTemplate
 from app.application.preview_app.catalogue_contract import _source_tokens
+from app.application.ui_catalogue import catalogue_prop_shape_block
 from app.application.preview_app.mock_imports import _collect_mock_imports
 from app.application.preview_app.source_quality import (
     fix_unescaped_apostrophes,
@@ -208,6 +209,10 @@ def synthesize_mock_data(
         images_json=json.dumps(images, ensure_ascii=False, indent=2),
         required_exports=", ".join(needed),
         import_context=import_context,
+        # The template's CATALOGUE ITEM SHAPES section was authored for this
+        # call and guarded with `is defined` — without this kwarg it never
+        # renders and the model invents member names the components don't read.
+        catalogue_prop_shapes=catalogue_prop_shape_block(),
         current_content=read_file(workspace, mock_path)[:4000],
     )
     # 1.12. A provider failure here used to leave the function by raising, out of
