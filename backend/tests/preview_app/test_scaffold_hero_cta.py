@@ -30,6 +30,7 @@ from __future__ import annotations
 from app.application.preview_app.safety.mock_data import (
     ensure_seed_scaffold_fields,
     scaffold_hero_ctas,
+    scaffold_hero_subcopy,
 )
 
 #: Request 95's real route table, which is what produced the trattoria's
@@ -218,3 +219,68 @@ def test_a_quote_in_a_page_title_cannot_break_the_generated_module() -> None:
 
     assert "\\'" in out
     assert "label: 'Nonna\\'s Menu'" in out
+
+
+# --- the hero's supporting line: facts, not invented warmth -------------------
+#
+# `A clear next step from {brand} — warm, specific, and ready when you are.` was
+# a literal beside the CTA literals, verbatim in 7 of 64 archived workspaces.
+# `placeholder_content_shipped` never fired on it and is *right* not to: that
+# gate looks for unfilled authoring tokens like `[Artist Name]`, and this is a
+# filled one. Widening the gate to match a sentence this repo writes itself
+# would turn a DoD row into a test of whether we updated our own regex.
+
+
+def test_the_hero_subcopy_states_what_the_app_serves() -> None:
+    subcopy = scaffold_hero_subcopy(_RESTAURANT_WITHOUT_GALLERY, "Osteria Vinci")
+    assert "Menu" in subcopy
+    assert "warm, specific" not in subcopy
+    assert "next step" not in subcopy
+
+
+def test_no_industry_string_decides_the_subcopy() -> None:
+    """Same rule as the CTA: two businesses, disjoint routes, no shared noun."""
+
+    restaurant = scaffold_hero_subcopy(_RESTAURANT_WITHOUT_GALLERY, "Osteria Vinci")
+    lodge = scaffold_hero_subcopy(_LODGE, "Cedar Point Lodge")
+    assert restaurant != lodge
+    assert "Rooms" in lodge and "Rooms" not in restaurant
+
+
+def test_an_app_with_no_public_route_promises_nothing() -> None:
+    ops_only = {"routes": [{"path": "/", "title": "Desk"},
+                           {"path": "/admin/queue", "title": "Queue"}]}
+    subcopy = scaffold_hero_subcopy(ops_only, "Northwind Ops")
+    assert subcopy == "Northwind Ops."
+
+
+def test_the_scaffold_writes_the_derived_subcopy_into_the_mock() -> None:
+    """Drive the emitter, not the helper. A right helper the emitter ignores is
+    exactly how the CTA literal survived four sessions of being written up."""
+
+    mock = "export const seed = {\n  items: [],\n};\n"
+    out = ensure_seed_scaffold_fields(
+        mock, brand_name="Osteria Vinci", architect=_RESTAURANT_WITHOUT_GALLERY
+    )
+    assert "warm, specific, and ready when you are" not in out
+    assert "subcopy: 'Our Menu" in out or "subcopy: 'Menu" in out, out
+
+
+def test_a_quote_in_a_title_cannot_break_the_module_through_the_subcopy() -> None:
+    architect = {"routes": [{"path": "/menu", "title": "Nonna's Menu"}]}
+    mock = "export const seed = {\n  items: [],\n};\n"
+    out = ensure_seed_scaffold_fields(mock, brand_name="Brand", architect=architect)
+    assert "subcopy: 'Nonna\\'s Menu'" in out
+
+
+def test_the_design_system_repair_keeps_the_fonts_real_name() -> None:
+    """`sourcesans3` is a second spelling of `Source Sans 3`, and it is also not
+    a font any browser can resolve — `assemble.py:876` can carry it into a CSS
+    font-family. A corpus census reads 5 fonts where there are 3 because of it."""
+
+    from app.application.preview_app.safety.mock_data import _design_system_dict
+
+    ds = _design_system_dict("#227591", "#1d7b4c", '"Source Sans 3", sans-serif')
+    assert ds["font_family"] == "Source Sans 3"
+    # The Google Fonts query still wants the squashed form.
+    assert "family=source+sans+3" in ds["font_import_url"]

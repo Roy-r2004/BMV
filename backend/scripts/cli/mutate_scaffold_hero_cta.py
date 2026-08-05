@@ -111,6 +111,47 @@ MUTATIONS = [
         "    seeded = ensure_seed_scaffold_fields(mock, brand_name=brand_name, architect=architect)",
         "    seeded = ensure_seed_scaffold_fields(mock, brand_name=brand_name)",
     ),
+    # --- the hero's supporting line -------------------------------------------
+    # The gate is right not to fire on this: `placeholder_content_shipped` looks
+    # for unfilled tokens like `[Artist Name]` and the prose was a *filled* one.
+    (
+        MOCK_DATA,
+        "the invented warmth comes back as the hero subcopy",
+        "            f\"    subcopy: '{subcopy}',\\n\"",
+        '            f"    subcopy: \'A clear next step from {brand} — warm, specific, '
+        'and ready when you are.\',\\n"',
+    ),
+    (
+        MOCK_DATA,
+        "the subcopy names destinations the app does not serve",
+        "    for _, _, label in _ranked_public_destinations(architect, brand_name):",
+        '    for _, _, label in [(0, "/gallery", "Collection"), (1, "/x", "Studio")]:',
+    ),
+    (
+        MOCK_DATA,
+        "the subcopy is unescaped, so a quoted page title breaks the module",
+        '    subcopy = _ts_label({"label": scaffold_hero_subcopy(architect, brand_name)})',
+        "    subcopy = scaffold_hero_subcopy(architect, brand_name)",
+    ),
+    (
+        MOCK_DATA,
+        "an app with no public destination gets a promise anyway",
+        "    if not labels:\n        return f\"{brand_name or 'Brand'}.\"",
+        "    if not labels:\n        return f\"A clear next step from {brand_name}.\"",
+    ),
+    (
+        MOCK_DATA,
+        "the buttons and the supporting line stop reading one list",
+        "    ranked = _ranked_public_destinations(architect, brand_name)\n\n    if not ranked:",
+        "    ranked = sorted(_ranked_public_destinations(architect, brand_name), reverse=True)\n\n    if not ranked:",
+    ),
+    # --- the font's second spelling -------------------------------------------
+    (
+        MOCK_DATA,
+        "the design-system repair squashes the font name again (`sourcesans3`)",
+        '        "font_family": font_token,',
+        '        "font_family": re.sub(r"[^a-z0-9]+", "", font_token.lower()) or "sans",',
+    ),
 ]
 
 REPO = BACKEND.parent

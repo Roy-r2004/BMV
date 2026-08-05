@@ -220,7 +220,13 @@ def _design_system_dict(primary: str, secondary: str, font: str) -> dict:
     primary = primary or "#6366f1"
     secondary = secondary or primary
     font_token = (font or "Inter").split(",")[0].strip().strip('"').strip("'") or "Inter"
-    font_class = re.sub(r"[^a-z0-9]+", "", font_token.lower()) or "sans"
+    # The font's *name*, not a squashed slug. This repair path wrote
+    # `"sourcesans3"` / `"nunitosans"` into `design_system.font_family`, which is
+    # a second spelling of a font the brand brief had already named
+    # `"Source Sans 3"` — so a corpus census reads 5 fonts where there are 3, and
+    # `assemble.py:876` can carry the squashed form into a CSS font-family that
+    # names no installed face. The `+` slug below is the Google Fonts query and
+    # stays squashed, because that is what the URL wants.
     slug = re.sub(r"[^a-z0-9]+", "+", font_token.lower())
     return {
         "primary_color": primary,
@@ -229,7 +235,7 @@ def _design_system_dict(primary: str, secondary: str, font: str) -> dict:
         "text_color": "#0f172a",
         "muted_text_color": "#475569",
         "background_color": "#fafafa",
-        "font_family": font_class,
+        "font_family": font_token,
         "font_import_url": f"https://fonts.googleapis.com/css2?family={slug}:wght@400;500;600;700&display=swap",
         "section_spacing": "4rem",
         "border_radius": "1rem",
@@ -494,6 +500,31 @@ def _strip_forbidden_mock_stubs(mock: str) -> str:
 _NEUTRAL_CTA = {"label": "See what we offer", "href": "/"}
 
 
+def _ranked_public_destinations(
+    architect: dict | None, brand_name: str = "Brand"
+) -> list[tuple[int, str, str]]:
+    """Public, non-home, non-parameterized routes this app declares, in nav order.
+
+    One list, so the hero's buttons and its supporting line cannot disagree
+    about what the app offers.
+    """
+
+    ranked: list[tuple[int, str, str]] = []
+    for route in (architect or {}).get("routes") or []:
+        path = str(route.get("path") or "").strip()
+        if not path.startswith("/") or ":" in path:
+            continue
+        normalized = path.rstrip("/") or "/"
+        if normalized in _NAV_HOME_PATHS:
+            continue
+        if not _is_public_marketing_nav_path(normalized):
+            continue
+        label = _nav_label(str(route.get("title") or ""), normalized, brand_name)
+        ranked.append((_nav_rank(normalized), normalized, label))
+    ranked.sort(key=lambda entry: (entry[0], entry[1]))
+    return ranked
+
+
 def scaffold_hero_ctas(architect: dict | None, brand_name: str = "Brand") -> tuple[dict, dict]:
     """The scaffold hero's two CTAs, derived from what this app actually serves.
 
@@ -522,19 +553,7 @@ def scaffold_hero_ctas(architect: dict | None, brand_name: str = "Brand") -> tup
     decided identically for both.
     """
 
-    ranked: list[tuple[int, str, str]] = []
-    for route in (architect or {}).get("routes") or []:
-        path = str(route.get("path") or "").strip()
-        if not path.startswith("/") or ":" in path:
-            continue
-        normalized = path.rstrip("/") or "/"
-        if normalized in _NAV_HOME_PATHS:
-            continue
-        if not _is_public_marketing_nav_path(normalized):
-            continue
-        label = _nav_label(str(route.get("title") or ""), normalized, brand_name)
-        ranked.append((_nav_rank(normalized), normalized, label))
-    ranked.sort(key=lambda entry: (entry[0], entry[1]))
+    ranked = _ranked_public_destinations(architect, brand_name)
 
     if not ranked:
         return dict(_NEUTRAL_CTA), dict(_NEUTRAL_CTA)
@@ -545,6 +564,37 @@ def scaffold_hero_ctas(architect: dict | None, brand_name: str = "Brand") -> tup
         {"label": ranked[1][2], "href": ranked[1][1]} if len(ranked) > 1 else dict(_NEUTRAL_CTA)
     )
     return primary, secondary
+
+
+def scaffold_hero_subcopy(architect: dict | None, brand_name: str = "Brand") -> str:
+    """The scaffold hero's supporting line — what this app serves, not warmth.
+
+    It used to be the literal *"A clear next step from {brand} — warm, specific,
+    and ready when you are."*, injected whenever the AI's mock synthesis dropped
+    `hero`, and verbatim in **7 of 64 archived workspaces**. It is grammatical
+    and it names the business, which is exactly why the gate never caught it:
+    `placeholder_content_shipped` looks for *unfilled authoring tokens* like
+    `[Artist Name]`, and this is a filled one.
+
+    **The gate is right and the scaffold was wrong.** Widening
+    `placeholder_content_shipped` to match this sentence would make it match a
+    string this repo writes itself — a DoD row that reads "fires zero times"
+    would then be measuring whether we remembered to update a regex after
+    editing our own fallback copy, which is a tautology, not a measurement.
+
+    So the fallback states facts instead: the public destinations this app
+    actually declares, in nav order, exactly as `scaffold_hero_ctas` picks them.
+    A restaurant gets "Menu · Reservations · Private Dining"; a business with
+    nothing public declared gets a line that promises nothing.
+    """
+
+    labels: list[str] = []
+    for _, _, label in _ranked_public_destinations(architect, brand_name):
+        if label and label not in labels:
+            labels.append(label)
+    if not labels:
+        return f"{brand_name or 'Brand'}."
+    return " · ".join(labels[:4])
 
 
 def _ts_label(cta: dict, key: str = "label") -> str:
@@ -590,12 +640,13 @@ def ensure_seed_scaffold_fields(
 
     brand = (brand_name or "Brand").replace("\\", "\\\\").replace("'", "\\'")
     primary_cta, secondary_cta = scaffold_hero_ctas(architect, brand_name)
+    subcopy = _ts_label({"label": scaffold_hero_subcopy(architect, brand_name)})
     blocks: dict[str, str] = {
         "hero": (
             "hero: {\n"
             f"    eyebrow: '{brand}',\n"
             f"    headline: '{brand}',\n"
-            f"    subcopy: 'A clear next step from {brand} — warm, specific, and ready when you are.',\n"
+            f"    subcopy: '{subcopy}',\n"
             f"    primaryCta: {_ts_cta(primary_cta)},\n"
             f"    secondaryCta: {_ts_cta(secondary_cta)},\n"
             "  }"
@@ -1083,6 +1134,75 @@ def _nav_key(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", label.lower())
 
 
+def _nav_label_unshortened(raw_label: str, path: str, brand_name: str) -> str:
+    """The label a route carries with the brand removed and nothing shortened."""
+
+    text = re.sub(r"\s+", " ", str(raw_label or "")).strip()
+    for variant in _brand_label_variants(brand_name):
+        stripped = re.sub(
+            rf"\s*\b{re.escape(variant)}\b\s*", " ", text, flags=re.I
+        ).strip(" -–—·|,")
+        if stripped and stripped != text:
+            text = re.sub(r"\s+", " ", stripped)
+            break
+    if text:
+        return text
+    segments = [s for s in path.strip("/").split("/") if s]
+    return " ".join(s.replace("-", " ").replace("_", " ").title() for s in segments) or "Home"
+
+
+def _nav_labels_for_section(
+    entries: list[tuple[str, str]], brand_name: str
+) -> list[str]:
+    """Label every entry in one section at once — shortened only while unique.
+
+    ``_NAV_LABEL_NOISE_RE`` strips a leading ``My ``, so ``/my-reservations``
+    and ``/reservations`` both reduce to "Reservations". Request 95 shipped a
+    public nav whose "Reservations" entry pointed at ``/my-reservations`` while
+    the declared public ``/reservations`` was **absent from the menu entirely**:
+    the section deduped on the label key and dropped whichever route came second.
+
+    A shortened label is a nicety; a route in the menu is the product. Two rules
+    follow, and both have to be about the **list**, never about a route name —
+    ``/my-orders`` and ``/orders``, ``/my-bookings`` and ``/bookings`` are the
+    same shape:
+
+    * shorten only while the shortened form stays unique among its siblings;
+    * a label clash never removes an entry, it only makes the label longer.
+
+    Deciding per entry in order cannot do this: it would shorten whichever entry
+    came first and leave the other with nowhere to go. Paths are already unique
+    here, so the path-derived fallback terminates.
+    """
+
+    short = [_nav_label(label, path, brand_name) for label, path in entries]
+    full = [_nav_label_unshortened(label, path, brand_name) for label, path in entries]
+
+    short_counts: dict[str, int] = {}
+    for text in short:
+        short_counts[_nav_key(text)] = short_counts.get(_nav_key(text), 0) + 1
+    full_keys = [_nav_key(text) for text in full]
+
+    resolved: list[str] = []
+    used: set[str] = set()
+    for index, (_, path) in enumerate(entries):
+        candidates = [short[index], full[index]]
+        if short_counts.get(_nav_key(short[index]), 0) > 1 or any(
+            key == _nav_key(short[index]) for j, key in enumerate(full_keys) if j != index
+        ):
+            candidates = [full[index], short[index]]
+        segments = [s for s in path.strip("/").split("/") if s]
+        candidates.append(
+            " ".join(s.replace("-", " ").replace("_", " ").title() for s in segments) or "Home"
+        )
+        chosen = next(
+            (c for c in candidates if c and _nav_key(c) not in used), candidates[-1]
+        )
+        used.add(_nav_key(chosen))
+        resolved.append(chosen)
+    return resolved
+
+
 def _norm_nav_path(path: str) -> str:
     """Compare nav hrefs the way the route table is keyed, not byte-for-byte.
 
@@ -1103,9 +1223,12 @@ def _normalize_nav_section(
     clutter_cap: bool,
     public_marketing: bool = False,
 ) -> list[dict]:
-    cleaned: list[dict] = []
+    # A duplicate *destination* is redundancy and still collapses here. A
+    # duplicate *label* is only a naming clash, and dropping the route for it is
+    # how request 95 shipped a menu with no link to its own /reservations page —
+    # so labelling happens after the section is known, in one pass over it.
+    kept: list[tuple[str, str, str]] = []  # (id, path, raw label)
     seen_paths: set[str] = set()
-    seen_labels: set[str] = set()
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -1116,20 +1239,22 @@ def _normalize_nav_section(
             continue
         if live_paths and _norm_nav_path(path) not in live_paths:
             continue
-        label = _nav_label(item.get("label") or item.get("name") or "", path, brand_name)
-        key = _nav_key(label)
-        if path in seen_paths or (key and key in seen_labels):
+        if path in seen_paths:
             continue
         seen_paths.add(path)
-        seen_labels.add(key)
-        cleaned.append(
-            {
-                "id": str(item.get("id") or path.strip("/").replace("/", "-") or "home"),
-                "path": path,
-                "href": path,
-                "label": label,
-            }
+        kept.append(
+            (
+                str(item.get("id") or path.strip("/").replace("/", "-") or "home"),
+                path,
+                str(item.get("label") or item.get("name") or ""),
+            )
         )
+
+    labels = _nav_labels_for_section([(raw, path) for _, path, raw in kept], brand_name)
+    cleaned: list[dict] = [
+        {"id": entry_id, "path": path, "href": path, "label": labels[index]}
+        for index, (entry_id, path, _) in enumerate(kept)
+    ]
     if reorder:
         cleaned.sort(key=lambda entry: _nav_rank(entry["path"]))
     if not clutter_cap:

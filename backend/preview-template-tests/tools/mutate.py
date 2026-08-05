@@ -243,6 +243,42 @@ MUTATIONS: list[tuple[str, Path, str, str]] = [
         "        if (!scrollToHash()) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });",
         "        scrollToHash();",
     ),
+    # --- nav labels: shorten only while the shortened form stays unique -------
+    # The template half of request 95's menu defect. Session 10 wrote this fix,
+    # measured that it changes nothing without the generator half, and reverted
+    # it; it is testable here because the fixture supplies both entries directly.
+    (
+        "the `My ` strip is unconditional again (a member page takes the public name)",
+        APP_NAV,
+        "    if ((shortCount.get(labelKey(s)) ?? 0) > 1) return f;\n"
+        "    if (full.some((other, j) => j !== index && labelKey(other) === labelKey(s))) return f;\n"
+        "    return s;",
+        "    return s;",
+    ),
+    (
+        "collisions against a sibling's FULL label stop counting",
+        APP_NAV,
+        "    if (full.some((other, j) => j !== index && labelKey(other) === labelKey(s))) return f;",
+        "",
+    ),
+    (
+        "collisions between two shortened labels stop counting",
+        APP_NAV,
+        "    if ((shortCount.get(labelKey(s)) ?? 0) > 1) return f;",
+        "",
+    ),
+    (
+        "labels are decided one entry at a time instead of across the section",
+        APP_NAV,
+        "  const labels = shortLabels(kept);",
+        "  const labels = kept.map((item) => shortLabels([item])[0]);",
+    ),
+    (
+        "the label key stops normalising, so 'My Orders' never matches 'my orders'",
+        APP_NAV,
+        "const labelKey = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '');",
+        "const labelKey = (text: string) => text;",
+    ),
 ]
 
 

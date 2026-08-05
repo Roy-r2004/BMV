@@ -290,6 +290,176 @@ def test_navigation_keeps_the_all_deep_admin_sidebar(tmp_path: Path):
     ]
 
 
+def test_a_label_collision_does_not_delete_a_declared_public_route(tmp_path: Path):
+    """Request 95's menu named the member page and never linked the public one.
+
+    ``_NAV_LABEL_NOISE_RE`` strips a leading ``My ``, so ``/my-reservations``
+    reduces to "Reservations" — the label ``/reservations`` also carries. The
+    section then deduped on the label key and dropped whichever came second, so
+    a **declared, served, public** route was absent from the menu entirely.
+
+    The fixture puts the member route first on purpose: that is the order the
+    real run had, and the order in which the naive fix (dedupe as you go) still
+    loses the public page.
+    """
+
+    mock = _write_mock(
+        tmp_path,
+        {
+            "public": [
+                {"id": "home", "path": "/", "href": "/", "label": "Home"},
+                {"id": "my-reservations", "path": "/my-reservations",
+                 "href": "/my-reservations", "label": "My Reservations"},
+                {"id": "reservations", "path": "/reservations",
+                 "href": "/reservations", "label": "Reservations"},
+            ],
+            "admin": [],
+        },
+    )
+    architect = {
+        "routes": [{"path": "/"}, {"path": "/my-reservations"}, {"path": "/reservations"}]
+    }
+    normalize_mock_navigation(tmp_path, architect, "Osteria Vinci")
+    public = _nav_public(mock)
+    hrefs = [item["href"] for item in public]
+    assert "/reservations" in hrefs, hrefs
+    assert "/my-reservations" in hrefs, hrefs
+    # And the two entries must be tellable apart, which is the point of keeping
+    # both. Written as a set-size check so it fails on any duplicate pair.
+    labels = [item["label"] for item in public]
+    assert len(set(labels)) == 3, labels
+
+
+def test_two_prefixes_reducing_to_one_word_both_keep_their_full_label(tmp_path: Path):
+    """Both shortened forms collide while neither full label does.
+
+    The first sweep's fixture could not reach this — there, the two *full*
+    labels collided too, so one guard explained every failure and the other
+    could be deleted with the suite still green.
+    """
+
+    mock = _write_mock(
+        tmp_path,
+        {
+            "public": [
+                {"id": "mine", "path": "/my-orders", "href": "/my-orders",
+                 "label": "My Orders"},
+                {"id": "manage", "path": "/orders", "href": "/orders",
+                 "label": "Manage Orders"},
+            ],
+            "admin": [],
+        },
+    )
+    normalize_mock_navigation(
+        tmp_path, {"routes": [{"path": "/my-orders"}, {"path": "/orders"}]}, "Brand"
+    )
+    public = _nav_public(mock)
+    assert [item["href"] for item in public] == ["/my-orders", "/orders"]
+    assert [item["label"] for item in public] == ["My Orders", "Manage Orders"]
+
+
+def test_a_shortened_label_never_takes_a_siblings_full_label(tmp_path: Path):
+    """One entry's shortened form equals another's *full* label.
+
+    The shortened-label counter cannot see this — the two shortened forms
+    differ — so without its own fixture the second guard could be deleted with
+    the suite still green. It was, on the first sweep.
+    """
+
+    mock = _write_mock(
+        tmp_path,
+        {
+            "public": [
+                {"id": "manage-mine", "path": "/manage-my-orders",
+                 "href": "/manage-my-orders", "label": "Manage My Orders"},
+                {"id": "mine", "path": "/my-orders", "href": "/my-orders",
+                 "label": "My Orders"},
+            ],
+            "admin": [],
+        },
+    )
+    normalize_mock_navigation(
+        tmp_path,
+        {"routes": [{"path": "/manage-my-orders"}, {"path": "/my-orders"}]},
+        "Brand",
+    )
+    public = _nav_public(mock)
+    assert len({item["label"] for item in public}) == 2, public
+    by_href = {item["href"]: item["label"] for item in public}
+    assert by_href["/my-orders"] == "Orders"
+    assert by_href["/manage-my-orders"] == "Manage My Orders"
+
+
+def test_three_routes_sharing_a_label_all_survive_with_distinct_names(tmp_path: Path):
+    """Two routes carrying the *same literal label* exhaust both candidates.
+
+    That is the only way to reach the path-derived fallback, and without this
+    fixture deleting the fallback leaves the suite green.
+    """
+
+    mock = _write_mock(
+        tmp_path,
+        {
+            "public": [
+                {"id": "o", "path": "/orders", "href": "/orders", "label": "Orders"},
+                {"id": "m", "path": "/my-orders", "href": "/my-orders",
+                 "label": "My Orders"},
+                {"id": "g", "path": "/manage-orders", "href": "/manage-orders",
+                 "label": "My Orders"},
+            ],
+            "admin": [],
+        },
+    )
+    normalize_mock_navigation(
+        tmp_path,
+        {"routes": [{"path": "/orders"}, {"path": "/my-orders"}, {"path": "/manage-orders"}]},
+        "Brand",
+    )
+    public = _nav_public(mock)
+    assert len(public) == 3, public
+    assert len({item["label"] for item in public}) == 3, public
+
+
+def test_labels_are_compared_case_and_punctuation_insensitively(tmp_path: Path):
+    mock = _write_mock(
+        tmp_path,
+        {
+            "public": [
+                {"id": "mine", "path": "/my-reservations", "href": "/my-reservations",
+                 "label": "My Reservations"},
+                {"id": "public", "path": "/reservations", "href": "/reservations",
+                 "label": "reservations"},
+            ],
+            "admin": [],
+        },
+    )
+    normalize_mock_navigation(
+        tmp_path,
+        {"routes": [{"path": "/my-reservations"}, {"path": "/reservations"}]},
+        "Brand",
+    )
+    public = _nav_public(mock)
+    assert len({item["label"].lower() for item in public}) == 2
+    assert len(public) == 2
+
+
+def test_a_genuinely_duplicate_destination_is_still_collapsed(tmp_path: Path):
+    """The boundary: keeping label collisions must not stop path deduping."""
+
+    mock = _write_mock(
+        tmp_path,
+        {
+            "public": [
+                {"id": "a", "path": "/about", "href": "/about", "label": "About Us"},
+                {"id": "b", "path": "/about", "href": "/about", "label": "About"},
+            ],
+            "admin": [],
+        },
+    )
+    normalize_mock_navigation(tmp_path, {"routes": [{"path": "/about"}]}, "Brand")
+    assert [item["href"] for item in _nav_public(mock)] == ["/about"]
+
+
 def test_navigation_normalization_never_empties_chrome(tmp_path: Path):
     mock = _write_mock(
         tmp_path,

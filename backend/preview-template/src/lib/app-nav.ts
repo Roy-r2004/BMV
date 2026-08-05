@@ -17,10 +17,8 @@ type RawNav = {
   href?: string;
 };
 
-function shortLabel(label: string, href: string): string {
-  let text = String(label ?? '').trim();
-  text = text
-    .replace(/^(Welcome(\s+to)?|Manage|My)\s+/i, '')
+function tidy(label: string, href: string): string {
+  const text = String(label ?? '')
     .replace(/\s+/g, ' ')
     .trim();
   if (text && text.length <= 22) return text;
@@ -28,6 +26,38 @@ function shortLabel(label: string, href: string): string {
   return seg
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const labelKey = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+/**
+ * Shortened labels for one nav section — shortened only while they stay unique.
+ *
+ * Stripping a leading `My ` turns "My Reservations" into "Reservations", which
+ * is the label a sibling `/reservations` entry already carries, so the header
+ * named a member page with the public page's name. `/my-orders` and `/orders`,
+ * `/my-bookings` and `/bookings` are the same shape — which is why the rule is
+ * about the **list** and never about a route name.
+ *
+ * It has to see the whole section at once: deciding per item in order would
+ * shorten whichever entry happened to come first and collide anyway.
+ */
+function shortLabels(raw: { label: string; href: string }[]): string[] {
+  const full = raw.map((item) => tidy(item.label, item.href));
+  const short = raw.map((item) =>
+    tidy(String(item.label ?? '').replace(/^(Welcome(\s+to)?|Manage|My)\s+/i, ''), item.href)
+  );
+  const shortCount = new Map<string, number>();
+  for (const text of short) shortCount.set(labelKey(text), (shortCount.get(labelKey(text)) ?? 0) + 1);
+
+  return raw.map((_, index) => {
+    const s = short[index];
+    const f = full[index];
+    if (!s || labelKey(s) === labelKey(f)) return f;
+    if ((shortCount.get(labelKey(s)) ?? 0) > 1) return f;
+    if (full.some((other, j) => j !== index && labelKey(other) === labelKey(s))) return f;
+    return s;
+  });
 }
 
 /**
@@ -93,19 +123,26 @@ function isPublicMarketingHref(href: string): boolean {
 
 function normalizeList(raw: RawNav[] | undefined, pathname: string): AppNavLink[] {
   const seen = new Set<string>();
-  const out: AppNavLink[] = [];
+  const kept: { id: string; href: string; label: string }[] = [];
   for (const [index, item] of (raw || []).entries()) {
     const href = String(item.href || item.path || '').trim();
     if (!isNavWorthy(href) || seen.has(href)) continue;
     seen.add(href);
-    out.push({
+    kept.push({
       id: String(item.id || href || index),
-      label: shortLabel(String(item.label || item.name || href), href),
       href,
-      active: pathname === href || (href !== '/' && pathname.startsWith(`${href}/`)),
+      label: String(item.label || item.name || href),
     });
   }
-  return out;
+  // Labels are decided across the whole section, never one entry at a time.
+  const labels = shortLabels(kept);
+  return kept.map((item, index) => ({
+    id: item.id,
+    label: labels[index],
+    href: item.href,
+    active:
+      pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`)),
+  }));
 }
 
 function sectionLinks(section: 'admin' | 'public' | 'member'): RawNav[] {
