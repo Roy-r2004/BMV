@@ -206,6 +206,11 @@ Recording that here so the next session does not read a productive week as progr
 >   Suite **1,873 / 1 / 0** after adoption.
 > - **1.10 is CLOSED**: the owner opened the Actions run in a browser — run #11 on `f019d39`,
 >   Success, vitest 39/39. The first human observation of this repo's CI.
+> - **Dead nav data is deleted** (`1df35e3`) — measured first over the 67 archived workspaces:
+>   per-role navigation keys (customer ×48, owner ×18, staff ×8, never `member`) read by
+>   nothing, `navItemsAdmin`/`adminNavItems` aliases imported by nothing. Both writers removed
+>   from `sync_mock_roles_navigation`; 2 mutations, 0 survivors. Behaviour-identical on every
+>   archived app. The last no-credit code item is gone.
 > - No generation (credits still $0), vitest/`tsc -b` not run from here (no JS/TS touched;
 >   CI's vitest run is the observation above).
 

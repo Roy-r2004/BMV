@@ -17,7 +17,7 @@ template `[prefix-anchored / word-boundary / leave it]`, a menu, not a choice, s
 of the session treated it as pending. **Mid-session the owner ruled "yes, fix it" on the prefix
 recommendation, and uploaded a CI screenshot** — two items unblocked in one message.
 
-The session landed three things:
+The session landed four things:
 
 ### 1. The classifier is prefix-anchored — ruled, adopted, wrap-measured (`9c5b383`)
 
@@ -47,7 +47,20 @@ The owner opened run #11 of `preview-template-tests.yml` (push of `f019d39`) in 
 **Success, vitest 39/39 across 4 files, 27 s, 1 warning annotation.** First human observation
 of this repo's CI; the row demanded exactly that and is done.
 
-### 3. The `design_direction` dedupe guard — landed (`38d66f5`, earlier in the session)
+### 3. Dead nav data — measured, then deleted (`1df35e3`)
+
+Three sessions listed, zero touched — closed by measuring first: extracted all 67 archived
+workspaces (`docs/evidence/preview-workspaces.tar.gz`) and counted. 65 navigation objects,
+every one with `public`+`admin`; the extra keys are per-role ids (`customer` ×48, `owner` ×18,
+`staff` ×8, …) and **never `member`**, the only other key `app-nav.ts` reads; **zero imports**
+of the `navItemsAdmin`/`adminNavItems` aliases — every page's `adminNavItems` is the
+`useAdminNavItems()` hook local. Both writers deleted from `sync_mock_roles_navigation`
+(`assemble.py`): the per-role loop and the alias block. Behaviour-identical on every archived
+app. The existing test pinned the dead keys being WRITTEN — it now pins them staying dead, and
+that the role routes still reach the sidebar through the admin list. 2 mutations (each writer
+re-added), 0 survivors. No template file touched, so vitest is untouched.
+
+### 4. The `design_direction` dedupe guard — landed (`38d66f5`, earlier in the session)
 
 - Both append sites (`apply_product_kind_to_plan` at `product_kind.py:877`,
   `apply_product_kind_to_architect` at `:1157` pre-change) now append the kind clause **once per
@@ -94,6 +107,7 @@ whose CI run the owner then observed. The classifier commits are pushed on the s
 - `mutate_design_direction_dedupe.py`: **6 mutations, 0 survivors, one sweep.**
 - `mutate_classifier_boundary.py`: **4 mutations, 0 survivors** — after the fixture fix above;
   the first run had 3 survivors and each one was the fixture's fault, not the tests' subject.
+- `mutate_dead_nav_data.py`: **2 mutations, 0 survivors** — each re-adds a deleted dead writer.
 - `boundary_variant_census.py`'s adoption guard: **proven red under an in-memory substring
   revert**, failing with "shipped _blob regressed to bare substring matching" — red for the
   filed reason, file restored from the in-memory backup.
@@ -161,10 +175,8 @@ Rulings that unblock work without credits:
    ruling: the hint pair `"internal desk"` + `"warehouse floor"` is measured to reach
    `internal_ops/ops`, and a keyword table is not repaired by adding keywords — so the shape of
    any fix is the decision, not the mechanics.
-6. **Dead nav data** (`navigation.customer/.staff/.features/.manager`,
-   `navItemsAdmin`/`adminNavItems` — read by nothing) is the only code item left that needs no
-   run, and it is pure deletion; three sessions listed, zero touched. Small enough to pair with
-   any funded session rather than spend one on.
+6. ~~Dead nav data~~ — **DONE this session** (`1df35e3`), see the one-pager. There is now no
+   code item left that runs without credits.
 
 **Owner decisions, unchanged and still yours:** p50 → Phase 2 under (A); APPSPEC_MODE stays
 shadow; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; the
@@ -183,7 +195,7 @@ classifier ruling above; key rotation and the mystery spend.
 
 ### The rule that has caught the most defects
 
-**Mutation-test every guard.** Twenty-three drivers in `backend/scripts/cli/mutate_*.py`, one in
+**Mutation-test every guard.** Twenty-four drivers in `backend/scripts/cli/mutate_*.py`, one in
 `preview-template-tests/tools/mutate.py`. **Run one sweep at a time.**
 
 Ten blind spots, all found the expensive way (restated in full in session 14's handoff at
@@ -278,8 +290,10 @@ Unchanged. Measure pages-judged and wall clock separately.
 
 ~~1.10 — green on `main` is unverified~~ — **closed**, observed green by the owner (run #11).
 
-### 9. Dead nav data
-Read by nothing; pure deletion; three sessions listed, zero touched. Pair with a funded session.
+### ~~9. Dead nav data~~ — closed this session (`1df35e3`)
+Measured over the 67 archived workspaces before deleting: per-role navigation keys read by
+nothing (never `member`, the one other key the template reads), aliases imported by nothing.
+Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors.
 
 ~~design_direction pile-on~~ — **closed**, `38d66f5`, this session.
 
@@ -309,7 +323,7 @@ nothing, and stop — unless I have filled in a ruling below.
 5. MY RULING on the classifier's two REMAINING gaps, if I give one:
    internal_ops reachability [fix / leave]: ______   driving-school default [fix / leave]: ______
    No ruling written here means both stay as they are.
-6. Dead nav data — pure deletion, pair it with item 1's session, don't spend one on it.
+6. Dead nav data is DONE (1df35e3) — do not redo it; there is no offline code work left.
 
 DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE stays shadow;
 SiteSpec vs AppSpec pending; state_ids backfill pending; AppSpec schema untouched; key
