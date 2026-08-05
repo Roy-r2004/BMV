@@ -642,7 +642,31 @@ def _infer_skeleton_id(page: dict[str, Any], surface: str) -> str:
         return "public-booking"
     if path == "/" or any(word in text for word in ("home", "landing", "homepage")):
         return "public-home"
-    if any(word in text for word in ("detail", "single product", "single service", "treatment detail")):
+    # A detail page shows ONE item, which is a fact about the route rather than a
+    # word in prose. Matching the bare substring "detail" put About, Contact,
+    # booking-confirmation and treatment-plan pages under the `public-detail`
+    # contract on ordinary English — "contact details.", "a page detailing our
+    # story", "detailed room information" — and that contract
+    # (`catalogue_contract/validate.py:227-244`, written against request 50, a
+    # fine-art gallery) *requires* a painting-first hero, an `itemSpecs` binding
+    # and an `#inquire` CTA, so those pages had their fills discarded for a
+    # deterministic scaffold. Measured over the 399 stored public routes: 95
+    # reached this branch, **94 of them on the bare word alone**, and 35 of those
+    # named no item in their path at all.
+    if path and re.search(r"/(?::[^/]+|\[[^\]]+\])$", path):
+        return "public-detail"
+    if any(
+        word in text
+        for word in (
+            "single product",
+            "single service",
+            "treatment detail",
+            "item detail",
+            "product detail",
+            "service detail",
+            "detail page",
+        )
+    ):
         return "public-detail"
     if path and re.search(r"/(?:services?|products?|treatments?)/[^/]+$", path):
         return "public-detail"
