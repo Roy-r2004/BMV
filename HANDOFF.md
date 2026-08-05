@@ -241,9 +241,10 @@ Both real survivors are blind spot #4 — fixtures too small to reach the rule.
 
 ## State of the repo, in four lines
 
-- **`main` has fourteen unpushed commits** as of 2026-08-05 session 12 — session 10's five, session
-  11's four, plus `bbe6359`, `0e678fa`, `28712b3`, `cbb5b1e` and this one. It was level with
-  `origin/main` at `122ef79`.
+- **`main` has sixteen unpushed commits** as of 2026-08-05 session 12 — session 10's five, session
+  11's four, and session 12's seven (`bbe6359`, `0e678fa`, `28712b3`, `cbb5b1e`, the handoff, the
+  tally fix, the roadmap-review fold-in). It was level with `origin/main` at `122ef79`. **Sixteen
+  unpushed commits is itself a risk: one laptop failure loses five sessions.**
 - **Suite: 1,838 passed / 1 skipped / 0 xfailed / 0 failed. Vitest: 39 passed**, `tsc -b` clean. Run
   pytest the documented way — see the operating notes.
 - **Credits: $0. `total_usage 330.229` of `total_credits 330`.** No generation can run.
@@ -308,7 +309,10 @@ Both real survivors are blind spot #4 — fixtures too small to reach the rule.
 6. **1.12 — five fires, and both edges of the same knife.** 74, 92, 94, 101, 102 stored nothing. 101
    and 102 were a provider outage across `build_experience_plan`'s whole chain, so `architect` is
    not the only MANDATORY stage with no deterministic path. In shadow a planner failure ships
-   nothing; in enforced mode a rejected spec ships nothing.
+   nothing; in enforced mode a rejected spec ships nothing. **RULED after this handoff was written
+   (session 12 roadmap review): build the deterministic paths — promoted to the top of session 13's
+   list. The four-piece spec is the 1.12 update block in the roadmap's Phase 1 section; this list's
+   ordering is superseded on this one item.**
 7. **Dead nav data** — `navigation.customer/.staff/.features/.manager` and `navItemsAdmin` /
    `adminNavItems` are read by nothing. Bundle weight, zero visible effect. Listed so it stops being
    rediscovered as a rendering defect.

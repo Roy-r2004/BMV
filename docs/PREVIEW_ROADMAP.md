@@ -1112,6 +1112,15 @@ Every "after" figure has a named mechanism or it is not claimed.
 ~23 s/call for non-vision calls: 13 serial × 23 = 299 s + one vision wave ~30 s + capture ~60 s +
 build ~5 s + deterministic ~20 s ≈ **414 s**. Ledger and census agree within 1 %.
 
+**This ledger is historical as of 2026-08-05 (session 12).** It models the run-67 shape; keep it
+for the mechanism column and do not quote its totals. Measured on requests 95-98: p50 is
+**563-590 s**, not the ~495 the P1 column predicts; `typecheck + fix agent` did not fall to ~45 s
+(`fix_agent` alone ran 147-150 s on 97); and the dominant term the ledger has no row for is
+**`slot_fill` at 205.3 s/run, of which 83-148 s is rejected output the pipeline paid for and threw
+away**, beside the plan phase at 155.4 s/run that the codegen census re-attributed out of
+"codegen". The P2 column's mechanism — batch by surface — stands, and is *strengthened*: the
+discard rate is a second, independent argument for it (see 2.4-2.5).
+
 ---
 
 ## Phase 0 — Measure first (1 week, no behaviour change)
@@ -1516,6 +1525,32 @@ the owner, both design decisions rather than defects:
 2. Should a mandatory stage be *bounded* rather than only refused — `appspec`
    spent 72 % of one request's budget and still failed.
 
+**Update, 2026-08-05 (session 12): n=1 became n=5, and question 1's ruling is taken — build the
+deterministic paths.** Five runs have shipped nothing on this class: 74, 92, 94 (`architect`
+raising after an expensive appspec) and 101, 102 (`build_experience_plan` took provider HTTP 408
+across its whole chain, then `synthesize_mock_data` raised the same way). Four pieces, in scope
+order; the first three are offline-provable by mutation, and a funded run only proves reachability:
+
+1. **A shadow-mode architect fallback.** The enforced branch already rescues
+   (`plan_phase.py:295-298`); shadow re-raises. The deterministic builder exists in all but name —
+   `apply_product_kind_to_architect({}, kind_contract, plan)` over an empty route table injects the
+   full blueprint (`_routes_are_substantive` is False there), and `_normalize_architect` runs on
+   the result either way. Past the deadline codegen is refused too, so the shipped artifact is
+   blueprint routes with deterministic scaffolds — which is the owner's stated designed outcome
+   (*"a degraded preview that ships is the designed outcome"*), against runs that today ship NULL.
+   The enforced-mode path must stay byte-identical; pin it.
+2. **`synthesize_mock_data` degrades instead of raising.** `write_plumbing_mock` has already
+   written a complete `mock.ts` by the time it runs — 101 and 102 both have one; the palette was
+   production-proven *from* it. A provider failure there should record a degradation and keep the
+   plumbing mock, not kill the run.
+3. **A run that built a workspace stores a `preview_app`.** 101 and 102 built workspaces and stored
+   nothing, so the record of what happened lives only in a docker volume one prune from gone —
+   that is how "read the volume before concluding a run proved nothing" became a trap in the first
+   place. Store the record with a status naming the degradation instead of storing nothing.
+4. **`build_experience_plan`'s own deterministic path.** Unmeasured — read what consumes its plan
+   and derive the minimal shape those consumers accept before inventing one. If no honest minimal
+   plan exists, an explicit bound (fail fast, degrade, record) still beats a raise that ships NULL.
+
 ### Phase 1 risk, stated plainly
 
 **1.1 and 1.3 deliberately ship worse previews on bad runs** — a degraded preview instead of a
@@ -1528,6 +1563,24 @@ throughput improvement and a temporary ceiling regression. Phase 2 recovers the 
 
 Budgeted at 8–10 rather than 5–7 because **0.7 measured 388 tests on TSX-source machinery**.
 Schedule pressure on test surgery is how a 40-defect regression ledger gets deleted as "obsolete".
+
+> **Decide which spec before 2.0 writes a line — an owner decision, filed 2026-08-05 (session 12)
+> and not yet taken.** The pipeline already authors, validates, repairs and persists an **AppSpec**
+> (68.8 s/run) and then, in shadow, plans as if it did not exist; the architect dict is a second
+> de-facto spec. 2.0 as written mints a **third**. The options:
+>
+> - **(a) `SiteSpec` is a projection of the *accepted AppSpec* plus the design axes.** This makes
+>   AppSpec acceptance the critical path for the whole phase — measured at **2 of 4** on the one
+>   brief with four samples, with the dominant rejection being `pages[].state_ids` empty against
+>   `min_length=1` (118 of 1,356 stored pages carry none). A deterministic authoring-side backfill
+>   is a **repair-path option, not the schema relaxation the owner has reserved** — but it changes
+>   acceptance semantics, so it needs a ruling either way.
+> - **(b) `SiteSpec` is independent and the AppSpec leaves the preview path** — stop spending
+>   68.8 s/run authoring a document nothing downstream reads.
+>
+> What is not viable is shipping both and a third. The enforcement replay bears on the choice:
+> an enforced AppSpec halves the route table and closes DoD 7's denominator by itself, which is
+> the largest single prize on the board — and it is only reachable under (a).
 
 **2.0 Derive the schema, freeze it in two parts (1 week).** Run `load_ui_type_declarations`
 (`ui_catalogue.py:295-317`) over `src/ui`, cross with `catalogue.json`'s 265 props and 30 slot ids,
@@ -1567,6 +1620,12 @@ per-template cost from 240–460 h toward 60–110 h.
 (`:491-684`) collapse into **content asks batched by surface — 3, not 12**. This is the only lever
 that removes double-digit call count. Parallelise the codegen retry loop (`codegen_phase.py:122` is
 a serial `for`, triggered by exactly the failure mode that dominates on a bad provider day).
+
+**Measured since (duos 1-2, 2026-08-04/05), and it strengthens this item: the case is now the
+discard rate as much as the call count.** `slot_fill` paid for and threw away **83-148 s per run**
+— 28 of 40 calls rejected on duo 1, 25 of 42 on duo 2, every duo-2 rejection `finish_reason: stop`,
+i.e. the TSX violating its own skeleton contract. A writer that emits data against a schema makes
+that rejection class unrepresentable, and the retry/scaffold machinery it feeds goes with it.
 
 **2.6 Delete, in dependency order (3 days) — gated on 0.3 and 0.4.**
 
@@ -1751,6 +1810,16 @@ identity, and two recipes hard-code their palette back in CSS. One resolution, i
    it once now, on HEAD, to establish the baseline.** Blocking at three milestones only: 3.0 sign-off,
    3.4 exit, 3.7 exit.
 
+**Prerequisite, named 2026-08-05 (session 12): the 20-business synthetic brief set does not
+exist.** Every corpus number in this document rides on **17 distinct briefs, 12 business names, and
+25 of 62 workspaces being one art gallery** — a denominator that cannot certify variety. Building
+the set is free offline work: 20 briefs across the kinds' real spread, including the
+never-requested `internal_ops` / trading shapes (which would make the five dead skeletons reachable
+for the first time), committed under `docs/evidence/` so funded runs stop re-running the same three
+briefs. It gates 3.7's silhouette measurement, and until a generation can run, its offline value is
+the classification spread — `resolve_product_kind_contract` over all 20, checked against the kinds
+each brief intends.
+
 ### Phase 3 DoD
 
 - Silhouette gate passes on home **and** catalogue over 20 businesses (today ~5 / ~1).
@@ -1821,6 +1890,15 @@ runs ship nothing) and makes kits cheap later. A small team should run:
 Keep every new variant **inside the kit, selected by Python from the recipe** — never a new thing
 the AI must author. That is what makes deferring Phase 2 safe.
 
+**Annotation, 2026-08-05 (session 12): this section is the operating reality, not the fallback.**
+The project is one owner plus agent sessions at ~$0.42 a generation, and by this section's own
+clock it is in week ~5 of "weeks 1-3" — Phase 1 is still open on 1.10 (blocked on a push), 1.11,
+1.12 and the p50 ruling. The 4.5-people/16-weeks plan above prices a team that does not exist;
+treat it as the full-staffing variant. One gap in this lane is a decision rather than work:
+**weeks 4-16 assume a designer, and 3.0's deliverable is literally "what a named designer will
+actually sign."** No such person is attached. Surfacing that hire — or explicitly deciding the
+owner plays the role — belongs on the owner's queue beside the p50 ruling.
+
 ---
 
 ## Do not do this
@@ -1884,6 +1962,16 @@ the AI must author. That is what makes deferring Phase 2 safe.
 | Cards showing the right artifact | 0–9 of 11 | **11 of 11** | — | — | — |
 | Distinct silhouettes / 20 | ~5 | — | — | **20** | — |
 | Templates | 1 | 1 | 1 | 1 | **3 (not 100)** |
+
+**Correction, 2026-08-05 (session 12) — read two rows against what is now measured.** *Wall clock
+at P1*: measured p50 is 563-590 s, not ~495 — see the ledger note above. *Runs that ship at P1*:
+the measured swing is **0 of 3 (trio 7, all 18 AppSpec revisions rejected) → 2 of 2 and 2 of 2
+(duos 1-2)**, and the variable is **AppSpec acceptance, not the deadline** — an accepted spec is a
+cheap appspec stage and a run that ships; a rejected one starves everything after it. "3 of 3 (some
+degraded)" additionally assumes a degraded path that **does not exist for three MANDATORY stages**
+(1.12, five fires: 74, 92, 94, 101, 102). The ruling of 2026-08-05 is to build those deterministic
+paths — see the 1.12 update in Phase 1; until they land, this row's promise is conditional on
+provider health.
 
 **The bet, in one paragraph.** Four TSX writers are the wrong architecture and Phase 2 removes them —
 but with the renderer moved into the template behind per-route wrapper files, and the validators
