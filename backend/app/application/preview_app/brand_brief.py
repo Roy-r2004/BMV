@@ -5,75 +5,25 @@ import json
 import re
 from typing import Any
 
+from app.application.preview_app.brand_palette import derive_palette
 from app.application.preview_app.design_recipes import get_recipe, pick_recipe_id
-
-# AI-default clusters we refuse to ship as "brand".
-_BANNED_PRIMARY = {
-    "#6366f1",
-    "#4f46e5",
-    "#7c3aed",
-    "#8b5cf6",
-    "#9333ea",
-    "#a855f7",
-    "#2563eb",
-    "#3b82f6",
-}
-_BANNED_BG = {"#f4f1ea", "#faf7f2", "#fffdf8"}
-
-_INDUSTRY_PALETTES: dict[str, dict[str, str]] = {
-    "wellness": {
-        "primary": "#0f766e",
-        "secondary": "#134e4a",
-        "background": "#f0fdfa",
-        "surface": "#ffffff",
-        "text": "#042f2e",
-        "muted": "#5f7a78",
-    },
-    "fitness": {
-        "primary": "#c2410c",
-        "secondary": "#431407",
-        "background": "#fff7ed",
-        "surface": "#ffffff",
-        "text": "#1c1917",
-        "muted": "#78716c",
-    },
-    "food": {
-        "primary": "#b45309",
-        "secondary": "#44403c",
-        "background": "#fffbeb",
-        "surface": "#ffffff",
-        "text": "#1c1917",
-        "muted": "#78716c",
-    },
-    "professional": {
-        "primary": "#0f172a",
-        "secondary": "#334155",
-        "background": "#f8fafc",
-        "surface": "#ffffff",
-        "text": "#0f172a",
-        "muted": "#64748b",
-    },
-    "creative": {
-        "primary": "#9f1239",
-        "secondary": "#1e1b4b",
-        "background": "#fff1f2",
-        "surface": "#ffffff",
-        "text": "#1c1917",
-        "muted": "#78716c",
-    },
-}
-
-
-def _norm_hex(value: Any, fallback: str) -> str:
-    text = str(value or "").strip()
-    if re.fullmatch(r"#[0-9A-Fa-f]{6}", text):
-        return text.lower()
-    if re.fullmatch(r"[0-9A-Fa-f]{6}", text):
-        return f"#{text.lower()}"
-    return fallback.lower()
 
 
 def _industry_bucket(industry: str | None, description: str | None = None) -> str:
+    """Which *voice* a brief is written in. It no longer decides any colour.
+
+    It is still keyword-matched and still wrong in the way keyword tables are:
+    the art-gallery briefs say *"not a booking SaaS or clinic front desk"* and
+    this table matches ``clinic`` inside that negation, which is how 28 of the
+    62 archived workspaces are bucketed ``wellness``.
+    ``product_kind.scrub_negated_product_clauses`` does not reach it — its
+    pattern lists product nouns and ``clinic`` is not one — and measured over
+    all 84 stored requests, applying that scrub here changes **zero** buckets.
+    So the scrub is not applied: it would be an inert edit. What removed the
+    consequence was taking colour away from this function entirely; what is
+    left is voice and signature prose.
+    """
+
     blob = f"{industry or ''} {description or ''}".lower()
     if re.search(r"yoga|pilates|spa|wellness|salon|beauty|massage|clinic|dental", blob):
         return "wellness"
@@ -117,21 +67,29 @@ def build_brand_brief(
     business_description: str | None = None,
     seed: int | None = None,
 ) -> dict[str, Any]:
-    """Build a locked brand brief from visual theme + industry (deterministic)."""
+    """Build a locked brand brief from the business itself (deterministic).
+
+    The palette is **derived, and authoritative**. It used to be
+    ``_norm_hex(theme.get("primary_color"), industry_seed)`` — the upstream
+    demo's colour first, the industry table only as a fallback — and the demo
+    stage stamped one teal over almost every run before this function ever saw
+    it. Measured across the corpus, the model supplied a brand colour that
+    survived to the shipped site exactly **once in 62 runs**, so what that
+    precedence bought was not brand fidelity, it was the monoculture.
+
+    ``brand_locked`` already declares this brief the single source of truth and
+    ``ensure_brand_brief`` already writes the brief's palette back over
+    ``visual_theme``; making the derivation authoritative is that contract
+    stated once instead of half-applied.
+    """
 
     demo = demo or {}
     theme = dict(demo.get("visual_theme") or {})
     bucket = _industry_bucket(industry, business_description)
-    palette_seed = _INDUSTRY_PALETTES[bucket]
-    primary = _norm_hex(theme.get("primary_color"), palette_seed["primary"])
-    secondary = _norm_hex(theme.get("secondary_color"), palette_seed["secondary"])
-    background = _norm_hex(theme.get("background_color"), palette_seed["background"])
-    if primary in _BANNED_PRIMARY:
-        primary = palette_seed["primary"]
-    if secondary in _BANNED_PRIMARY:
-        secondary = palette_seed["secondary"]
-    if background in _BANNED_BG:
-        background = palette_seed["background"]
+    palette = derive_palette(
+        (business_name or demo.get("product_name") or "").strip(),
+        business_description,
+    )
 
     recipe_id = pick_recipe_id(
         industry=industry,
@@ -160,14 +118,7 @@ def build_brand_brief(
         "mood": mood,
         "voice": _voice_for(bucket),
         "signature": _signature_for(bucket, name),
-        "palette": {
-            "primary": primary,
-            "secondary": secondary,
-            "background": background,
-            "surface": palette_seed["surface"],
-            "text": palette_seed["text"],
-            "muted": palette_seed["muted"],
-        },
+        "palette": dict(palette),
         "typography": {
             "font_family": sans.split(",")[0].strip().strip('"'),
             "display_font_family": display.split(",")[0].strip().strip('"'),

@@ -5,18 +5,20 @@ from app.domain.models.request import Request
 from app.application.services.app_config_builder import enrich_app_config
 from app.application.services.preview_parser import parse_preview_features
 
-THEME_PALETTES = {
-    "fitness": {"primary_color": "#ea580c", "secondary_color": "#16a34a", "background_color": "#fffbeb"},
-    "wellness": {"primary_color": "#0f766e", "secondary_color": "#134e4a", "background_color": "#f0fdfa"},
-    "saas": {"primary_color": "#0f172a", "secondary_color": "#0369a1", "background_color": "#f8fafc"},
-    "generic": {"primary_color": "#0f766e", "secondary_color": "#0369a1", "background_color": "#f8fafc"},
-}
+#: There is no palette table here any more, and that is the fix.
+#:
+#: ``THEME_PALETTES`` had four industry buckets whose ``generic`` and
+#: ``wellness`` entries were the *same colour*, and this stage runs before
+#: ``brand_brief``, so its ``#0f766e`` was already in ``visual_theme`` by the
+#: time the business-aware brief looked — and the brief took the existing value
+#: in preference to its own. **58 of the 62 archived workspaces ship
+#: ``#0f766e``.** The palette is now derived once, from the business, in
+#: ``preview_app.brand_palette``. This stage still infers an *image* theme,
+#: which is a photography choice and not a brand colour.
 
 GENERIC_FEATURE_TITLES = frozenset(
     {"Smart Lead Capture", "AI Assistant", "Admin Dashboard", "Automated Follow-up"}
 )
-
-GENERIC_COLORS = frozenset({"#2563eb", "#4f46e5", "#0d9488", "#06b6d4"})
 
 GENERIC_HEADLINE = re.compile(r"welcome to your custom|turn inquiries into booked", re.IGNORECASE)
 
@@ -46,10 +48,7 @@ def enrich_visual_demo(demo: dict, req: Request) -> dict:
     theme = _infer_image_theme(industry, features)
     product = demo.get("product_name") or req.concept_name or f"{req.business_name} Platform"
 
-    vt = demo.setdefault("visual_theme", {})
-    palette = THEME_PALETTES.get(theme, THEME_PALETTES["generic"])
-    if (vt.get("primary_color") or "").lower() in GENERIC_COLORS or not vt.get("primary_color"):
-        vt.update(palette)
+    demo.setdefault("visual_theme", {})
 
     if _is_generic_demo(demo) and features:
         icons = ["users", "sparkles", "chart", "bell", "calendar", "heart"]
