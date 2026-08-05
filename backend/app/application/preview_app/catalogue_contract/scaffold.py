@@ -463,7 +463,16 @@ def _detail_param_block(brand: str, detail_base: str) -> str:
     return (
         "  const params = useParams();\n"
         "  const catalogItems = (seed.items ?? []) as any[];\n"
-        "  const itemKey = String(params.id ?? params.slug ?? '').trim();\n"
+        # Read whatever param the route declared, rather than the two names the
+        # router was made to mint *because* this line named them. An architect
+        # that declares `/gallery/:paintingId` — requests 47 and 69 both do —
+        # gave this page `params.id === undefined` and `params.slug ===
+        # undefined`, so it resolved no item at all and rendered the generic
+        # "This piece" against a default image on every id. Reading the first
+        # declared param makes `:id`, `:slug`, `:paintingId` and `:artworkId`
+        # all work, which is what lets `assemble.py` stop minting a second
+        # alias whose only difference is the param's name.
+        "  const itemKey = String(Object.values(params)[0] ?? '').trim();\n"
         # A listing that numbered its cards 1..n linked every one of them to a
         # page that resolved nothing, because seed ids are slugs. Match on any of
         # the four things a link in this app can carry — id, slug, slugified

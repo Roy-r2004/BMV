@@ -55,6 +55,25 @@ def _is_record_component(leaf: str, comp: str) -> bool:
     return bool(re.search(r"(detail|edit|update|record|profile|view)", f"{leaf} {comp}", re.I))
 
 
+def _has_param_child(base: str, all_paths: set[str]) -> bool:
+    """True when the app already declares `base/:something`.
+
+    Route alias inflation, from the end that causes it. `assemble` minted
+    `base/:id` *and* `base/:slug` because the scaffolded detail page read
+    `params.id ?? params.slug` — so an app that had declared its own
+    `/gallery/:paintingId` was given three routes matching `/gallery/x`, of
+    which React Router uses one and the render-smoke denominator counts all
+    three. The scaffold now reads whichever param the route declares, so a
+    declared param child needs no alias and one alias suffices where there is
+    none.
+    """
+    prefix = (base.rstrip("/") or "") + "/"
+    return any(
+        p.startswith(prefix) and p[len(prefix) :].startswith(":") and "/" not in p[len(prefix) :]
+        for p in all_paths
+    )
+
+
 _OPS_PATH_PREFIXES = ("/admin", "/owner", "/ops", "/staff", "/member", "/desk", "/account")
 
 
@@ -1047,14 +1066,24 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
                 # itself, which is already declared.
                 if ":" in parent_key:
                     detailish = False
+                # An app that already declares a param child of this listing needs
+                # no alias at all: `/gallery/:paintingId` matches every URL
+                # `/gallery/:id` would, and two routes of the same shape are two
+                # entries in the smoke denominator for one page.
+                if _has_param_child(parent_key, all_paths):
+                    detailish = False
                 if detailish and parent_key not in ("", "/"):
-                    for alias in (f"{parent}/:id", f"{parent}/:slug"):
-                        priority = 2 if _is_record_component(leaf, comp) else 1
-                        current = alias_candidates.get(alias)
-                        if alias not in registered and (
-                            current is None or current[0] < priority
-                        ):
-                            alias_candidates[alias] = (priority, comp)
+                    # One alias, not two. The pair existed because the scaffold
+                    # read `params.id ?? params.slug`; it now reads whichever
+                    # param the route declares, so the second is a duplicate
+                    # route matching the same URLs under a different name.
+                    alias = f"{parent}/:id"
+                    priority = 2 if _is_record_component(leaf, comp) else 1
+                    current = alias_candidates.get(alias)
+                    if alias not in registered and (
+                        current is None or current[0] < priority
+                    ):
+                        alias_candidates[alias] = (priority, comp)
             # Booking aliases — scaffolds historically emitted /book-appointment.
             if leaf in {"book", "booking"} and path.rstrip("/") in {"/book", "/booking"}:  # noqa: E501
                 for alias in ("/book-appointment", "/book-appointments"):
@@ -1095,12 +1124,17 @@ def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRendere
                 # Only a param-free listing gets detail aliases.
                 if ":" in base:
                     continue
-                for alias in (f"{base}/:id", f"{base}/:slug"):
-                    if alias not in registered:
-                        lines.append(
-                            f'          <Route path="{alias}" element={{<{detail_comp} />}} />'
-                        )
-                        registered.add(alias)
+                # Same two rules as the sibling-alias site above: nothing to add
+                # when the app declares its own param child, and one alias
+                # rather than a `:id`/`:slug` pair.
+                if _has_param_child(base, all_paths):
+                    continue
+                alias = f"{base}/:id"
+                if alias not in registered:
+                    lines.append(
+                        f'          <Route path="{alias}" element={{<{detail_comp} />}} />'
+                    )
+                    registered.add(alias)
         return "\n".join(lines)
 
     blocks: list[str] = []

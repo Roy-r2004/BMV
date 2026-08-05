@@ -145,7 +145,13 @@ def test_listing_alias_prefers_public_detail_over_add_artwork(tmp_path) -> None:
     write_app_tsx(workspace, architect, get_template_renderer())
     app = (workspace / "src" / "App.tsx").read_text(encoding="utf-8")
     assert 'path="/gallery/:id" element={<ArtworkDetailPage />}' in app, app
-    assert 'path="/gallery/:slug" element={<ArtworkDetailPage />}' in app, app
+    # `/gallery/:slug` used to be asserted here beside `:id`. The pair existed
+    # only because the scaffolded detail page read `params.id ?? params.slug`;
+    # it now reads whichever param the route declares, so the twin is a second
+    # route matching the same URLs under a name nothing reads. What this test
+    # is *about* — that the alias picks the public detail page over the owner
+    # create form — is unchanged and still asserted below.
+    assert 'path="/gallery/:slug"' not in app, app
     assert "AddArtworkPage" in app
     assert not re.search(
         r'path="/gallery/:(?:id|slug)" element=\{<AddArtworkPage />\}',
