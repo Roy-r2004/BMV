@@ -18,15 +18,33 @@ blueprint path is an injection with no ambiguity. Routes the blueprint merely *s
 (a path match runs ``setdefault``) keep the architect's own ``page_id`` and are counted as
 declared, which is what they are.
 
-**What stands in for the plan merge.** The rule under test asks what page contract a route
-resolves to. ``_normalize_architect`` answers exactly that question twelve lines later via
-``infer_page_contract({**plan_page, **route})`` and the answer is persisted as the route's
-``skeleton_id``. The plan is not stored; the resolved ``skeleton_id`` is, so the census
-reads it rather than re-inferring from the route alone — re-inferring from the route alone
+**What stands in for the plan merge.** The rule asks what page contract a route resolves
+to. ``_normalize_architect`` answers that question twelve lines later via
+``infer_page_contract({**plan_page, **route})`` and persists the answer as the route's
+``skeleton_id``. The plan is **not stored**; the resolved ``skeleton_id`` is, and a stored
+route carries it, so replaying the gap-fill over a stored table reaches the same verdict
+the plan would have produced. On a live run the plan is what supplies it — the route alone
 is measurably different (request 98's ``/rooms`` resolves to ``public-catalog`` with the
-plan merged and ``public-service`` without it).
+plan merged and ``public-service`` without it), which is why
+``apply_product_kind_to_architect`` takes the plan.
+
+**Two defects in this script's own first version, both worth knowing about.** It called
+``resolve_product_kind_contract(*context_from_request(req))`` — and ``context_from_request``
+returns a *string*, so the splat passed it one character per argument and every run
+classified ``storefront``. And it re-implemented the rule instead of calling it, which
+diverged on ops kinds, where neither branch of ``apply_product_kind_to_architect`` fires at
+all. Both columns are now the production function; the "before" column wraps it to force
+the old behaviour.
 
     docker compose exec api python /app/backend/scripts/measure/gallery_gapfill_census.py
+
+Without a database, `--routes docs/evidence/preview-routes.json` reads the same
+47 route tables from the archive, which is what makes every number here
+re-derivable next session:
+
+    docker run --rm -v "$REPO:/repo" -w /repo/backend \\
+      -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template --entrypoint sh bmv-local-api \\
+      -c 'python3 scripts/measure/gallery_gapfill_census.py --routes ../docs/evidence/preview-routes.json'
 """
 from __future__ import annotations
 
@@ -69,96 +87,116 @@ def _is_injected(route: dict, blueprints) -> bool:
     return False
 
 
-def _parent_path(path: str) -> str:
-    """`/gallery/:id` -> `/gallery`; "" when the path is not a parameterized child."""
-    head, sep, tail = path.rpartition("/")
-    if not sep or not tail.startswith(":"):
-        return ""
-    return head or "/"
+def _added(declared: list[dict], contract, *, needs_based: bool) -> list[str]:
+    """Run the real gap-fill and report what it appended.
+
+    Simulating the rule here was wrong twice over: an earlier version of this
+    script re-implemented it and diverged from the code on non-public kinds,
+    where neither branch of `apply_product_kind_to_architect` fires at all. The
+    "before" column forces the old behaviour by wrapping the same function, so
+    both columns are the production code and neither is a paraphrase of it.
+    """
+    from app.application.preview_app import product_kind
+
+    original = product_kind._inject_blueprint_routes
+    if not needs_based:
+
+        def _forced(*args, **kwargs):
+            kwargs["only_when_unserved"] = False
+            return original(*args, **kwargs)
+
+        product_kind._inject_blueprint_routes = _forced
+    try:
+        before = {str(r.get("path") or "") for r in declared}
+        architect = product_kind.apply_product_kind_to_architect(
+            {"routes": [dict(r) for r in declared], "files_to_generate": []},
+            contract,
+        )
+    finally:
+        product_kind._inject_blueprint_routes = original
+    return [
+        str(r.get("path") or "")
+        for r in architect["routes"]
+        if str(r.get("path") or "") not in before
+    ]
 
 
-def _added_under_current_rule(declared: list[dict], blueprints) -> list[str]:
-    served = {str(r.get("path") or "") for r in declared}
-    added = []
-    for bp in blueprints:
-        if bp.path in served:
-            continue
-        served.add(bp.path)
-        added.append(bp.path)
-    return added
+class _ArchivedRequest:
+    """The four fields this census reads, from `docs/evidence/preview-routes.json`."""
+
+    def __init__(self, request_id: str, row: dict) -> None:
+        self.id = int(request_id)
+        self.business_name = row.get("business_name") or ""
+        self.industry = row.get("industry") or ""
+        self.kind_context = row.get("kind_context") or ""
+        self.generated_pages = {"preview_app": {"routes": row.get("routes") or []}}
 
 
-def _added_under_needs_rule(declared: list[dict], blueprints) -> tuple[list[str], dict]:
-    """The rule under test. Returns (added paths, why each blueprint was skipped)."""
-    served_paths = {str(r.get("path") or "") for r in declared}
-    served_kinds = {
-        (str(r.get("surface") or ""), str(r.get("skeleton_id") or ""))
-        for r in declared
-        if r.get("skeleton_id")
-    }
-    reasons: dict[str, str] = {}
-    added = []
-    for bp in blueprints:
-        if bp.path in served_paths:
-            reasons[bp.path] = "path already declared"
-            continue
-        parent = _parent_path(bp.path)
-        if parent:
-            # A detail page is not free-standing: it is reached from one listing.
-            # Its equivalent is that listing's own detail child and nothing else,
-            # so an unrelated detail page elsewhere does not make it redundant.
-            if parent not in served_paths:
-                reasons[bp.path] = f"parent {parent} is not served"
-                continue
-            if any(_parent_path(p) == parent for p in served_paths):
-                reasons[bp.path] = f"{parent} already has a detail child"
-                continue
-        elif bp.path != "/" and (bp.surface, bp.skeleton_id) in served_kinds:
-            reasons[bp.path] = f"{bp.skeleton_id} already served"
-            continue
-        served_paths.add(bp.path)
-        served_kinds.add((bp.surface, bp.skeleton_id))
-        added.append(bp.path)
-    return added, reasons
+def _requests(routes_file: str | None):
+    if routes_file:
+        archive = json.loads(Path(routes_file).read_text())
+        return [
+            _ArchivedRequest(rid, row)
+            for rid, row in sorted(archive.items(), key=lambda kv: int(kv[0]))
+        ]
+    from app.domain.models.request import Request
+    from app.infrastructure.db.session import SessionLocal
+
+    return SessionLocal().query(Request).order_by(Request.id).all()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", action="store_true", help="emit machine-readable rows")
+    parser.add_argument(
+        "--routes",
+        default=None,
+        help="docs/evidence/preview-routes.json — read the archive instead of the database",
+    )
     args = parser.parse_args()
 
     from app.application.preview_app.product_kind import (
         context_from_request,
         resolve_product_kind_contract,
     )
-    from app.domain.models.request import Request
-    from app.infrastructure.db.session import SessionLocal
 
-    db = SessionLocal()
     rows = []
     try:
-        for req in db.query(Request).order_by(Request.id).all():
+        for req in _requests(args.routes):
             routes = _routes_of(req)
             if not routes:
                 continue
-            contract = resolve_product_kind_contract(*context_from_request(req))
+            # The archive stores the blob the live classifier saw, so an offline
+            # replay cannot drift from the database one on classification.
+            context = getattr(req, "kind_context", "") or context_from_request(req)
+            contract = resolve_product_kind_contract(context)
             blueprints = contract.pages
             declared = [r for r in routes if not _is_injected(r, blueprints)]
             injected = [
                 str(r.get("path") or "") for r in routes if _is_injected(r, blueprints)
             ]
-            now = _added_under_current_rule(declared, blueprints)
-            new, reasons = _added_under_needs_rule(declared, blueprints)
-            catalogue_after = [
-                str(r.get("path") or "")
-                for r in declared
-                if str(r.get("skeleton_id") or "") == "public-catalog"
-            ] + [p for p in new if p == "/gallery"]
-            detail_after = [
-                str(r.get("path") or "")
-                for r in declared
-                if str(r.get("skeleton_id") or "") == "public-detail"
-            ] + [p for p in new if p.endswith("/:id")]
+            now = _added(declared, contract, needs_based=False)
+            new = _added(declared, contract, needs_based=True)
+            by_path = {str(r.get("path") or ""): r for r in routes}
+
+            def _pages(added: list[str], skeleton: str) -> list[str]:
+                out = [
+                    str(r.get("path") or "")
+                    for r in declared
+                    if str(r.get("skeleton_id") or "") == skeleton
+                ]
+                out += [
+                    p
+                    for p in added
+                    if str((by_path.get(p) or {}).get("skeleton_id") or "") == skeleton
+                    or any(bp.path == p and bp.skeleton_id == skeleton for bp in blueprints)
+                ]
+                return sorted(set(out))
+
+            catalogue_now = _pages(now, "public-catalog")
+            catalogue_after = _pages(new, "public-catalog")
+            detail_now = _pages(now, "public-detail")
+            detail_after = _pages(new, "public-detail")
             rows.append(
                 {
                     "id": req.id,
@@ -176,13 +214,18 @@ def main() -> int:
                     "added_now": now,
                     "added_new": new,
                     "stops_adding": [p for p in now if p not in new],
-                    "reasons": reasons,
+                    "catalogue_now": catalogue_now,
                     "catalogue_after": catalogue_after,
+                    "detail_now": detail_now,
                     "detail_after": detail_after,
+                    # The only losses that matter: a page the app HAD before the
+                    # rule changed and does not have after it.
+                    "loses_last_catalogue": bool(catalogue_now) and not catalogue_after,
+                    "loses_last_detail": bool(detail_now) and not detail_after,
                 }
             )
     finally:
-        db.close()
+        pass
 
     if args.json:
         print(json.dumps(rows, indent=1))
@@ -223,9 +266,9 @@ def main() -> int:
         stops = sorted({p for row in group for p in row["stops_adding"]})
         cat = sorted({p for row in group for p in row["catalogue_after"]})
         det = sorted({p for row in group for p in row["detail_after"]})
-        if not cat:
+        if any(row["loses_last_catalogue"] for row in group):
             lost_catalogue += 1
-        if not det:
+        if any(row["loses_last_detail"] for row in group):
             lost_detail += 1
         print(
             "  %-38s %-5s %-23s %-17s %s"
@@ -241,8 +284,8 @@ def main() -> int:
     changed = [r for r in rows if r["stops_adding"]]
     drift = [r for r in rows if not r["round_trips"]]
     clean = [r for r in rows if r["round_trips"]]
-    no_cat = [r for r in rows if not r["catalogue_after"]]
-    no_det = [r for r in rows if not r["detail_after"]]
+    no_cat = [r for r in rows if r["loses_last_catalogue"]]
+    no_det = [r for r in rows if r["loses_last_detail"]]
     still = [r for r in rows if "/gallery" in r["added_new"]]
     print(
         f"\n{len(changed)} of {len(rows)} runs change "
@@ -253,9 +296,9 @@ def main() -> int:
     )
     print(
         f"{lost_catalogue} of {len(by_brief)} briefs and {len(no_cat)} of {len(rows)} "
-        f"runs end with no public-catalog page; "
+        f"runs LOSE their last public-catalog page{': ' + str(sorted(r['id'] for r in no_cat)) if no_cat else ''}; "
         f"{lost_detail} of {len(by_brief)} briefs and {len(no_det)} of {len(rows)} "
-        f"runs end with no public-detail page."
+        f"LOSE their last public-detail page{': ' + str(sorted(r['id'] for r in no_det)) if no_det else ''}."
     )
     print(
         f"{len(still)} of {len(rows)} runs are still gap-filled a catalogue because "
