@@ -17,7 +17,6 @@ from app.application.pipelines import (
     build_plans,
     proposal,
     reference_analysis,
-    role_pages,
     technical_plan,
     visual_demo,
 )
@@ -213,7 +212,8 @@ class GenerationPipeline:
             # The pipeline already self-heals build failures internally (safe-stub
             # fallback). If it still raised, the failure was likely transient
             # (flaky AI call, workspace race) — retry the whole generation once
-            # from a fresh workspace before falling back to the lesser role-pages mode.
+            # from a fresh workspace. There is no lesser mode below this: a second
+            # failure fails honestly, and the customer has the retry endpoint.
             self.log.warning("preview app generation failed (%s) — retrying once...", e)
             try:
                 from app.application.preview_app.workspace import get_workspace
@@ -241,51 +241,34 @@ class GenerationPipeline:
                     remaining_seconds(0.0) or 0.0,
                     MIN_RETRY_RUNWAY_SECONDS,
                 )
-                if require_app_spec:
-                    # A required contract must never degrade into independently
-                    # generated role-pages that are not traceable to it.
-                    raise
+                raise
+            _emit(db, request_id, "build", "Retrying preview generation...", 86,
+                  detail="First attempt hit an error — trying again")
+            try:
+                generate_preview_app(
+                    db,
+                    request_id,
+                    self.ai_provider,
+                    self.template_renderer,
+                    app_spec_revision_id=(
+                        approved_app_spec.revision_record.id
+                        if approved_app_spec
+                        else None
+                    ),
+                )
+            except Exception as retry_exc:
                 try:
-                    role_pages.generate_role_pages(
-                        db, request_id, self.ai_provider, self.template_renderer
-                    )
+                    from app.application.preview_app.workspace import get_workspace
+
+                    ws = get_workspace(request_id)
+                    if ws.exists():
+                        dump_exception(ws, "pipeline", f"preview-gen-attempt-2-{request_id}", retry_exc)
+                        report = summarize_workspace_debug(ws)
+                        for issue in report.get("top_issues", [])[:10]:
+                            self.log.error("request %s debug: %s", request_id, issue)
                 except Exception:
                     pass
-            else:
-                _emit(db, request_id, "build", "Retrying preview generation...", 86,
-                      detail="First attempt hit an error — trying again")
-                try:
-                    generate_preview_app(
-                        db,
-                        request_id,
-                        self.ai_provider,
-                        self.template_renderer,
-                        app_spec_revision_id=(
-                            approved_app_spec.revision_record.id
-                            if approved_app_spec
-                            else None
-                        ),
-                    )
-                except Exception as retry_exc:
-                    try:
-                        from app.application.preview_app.workspace import get_workspace
-
-                        ws = get_workspace(request_id)
-                        if ws.exists():
-                            dump_exception(ws, "pipeline", f"preview-gen-attempt-2-{request_id}", retry_exc)
-                            report = summarize_workspace_debug(ws)
-                            for issue in report.get("top_issues", [])[:10]:
-                                self.log.error("request %s debug: %s", request_id, issue)
-                    except Exception:
-                        pass
-                    if require_app_spec:
-                        # A required contract must never degrade into independently
-                        # generated role-pages that are not traceable to it.
-                        raise
-                    try:
-                        role_pages.generate_role_pages(db, request_id, self.ai_provider, self.template_renderer)
-                    except Exception:
-                        pass
+                raise
 
         # The preview is the thing the user is waiting for. These three documents
         # are internal artifacts they never see on this screen, and they cost

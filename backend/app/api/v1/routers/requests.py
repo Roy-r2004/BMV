@@ -11,7 +11,6 @@ from app.application.pipelines.build_plans import (
     generate_build_plans,
 )
 from app.application.pipelines.orchestrator import GenerationPipeline
-from app.application.pipelines.role_pages import generate_role_pages
 from app.application.preview_app import generate_preview_app
 from app.application.services.progress import emit as _emit
 from app.application.services.customer_preview import (
@@ -19,10 +18,6 @@ from app.application.services.customer_preview import (
     customer_progress_response,
 )
 from app.application.services.preview_refinement import get_chat_history, refine_preview
-from app.application.appspec import (
-    app_spec_is_required,
-    app_spec_mode,
-)
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.models.expanded_preview import ExpandedPreviewRequestRecord
@@ -326,15 +321,6 @@ def _run_preview_app_in_background(request_id: int) -> None:
         bg_db.close()
         lock.release()
 
-def _run_role_pages_in_background(request_id: int) -> None:
-    bg_db = SessionLocal()
-    try:
-        generate_role_pages(bg_db, request_id, get_ai_provider(), get_template_renderer())
-    except Exception:
-        pipeline_log.exception("role pages generation failed for request %s", request_id)
-    finally:
-        bg_db.close()
-
 @router.post("/{request_id}/generate-preview-app")
 def trigger_generate_preview_app(request_id: int, db: Session = Depends(get_db)):
     """Generate a unique React + Tailwind mini-app for this request (runs in background)."""
@@ -346,41 +332,6 @@ def trigger_generate_preview_app(request_id: int, db: Session = Depends(get_db))
 
     threading.Thread(
         target=_run_preview_app_in_background, args=(request_id,), daemon=True,
-    ).start()
-    return {"ok": True, "status": "started"}
-
-@router.post("/{request_id}/generate-pages")
-def trigger_generate_pages(request_id: int, db: Session = Depends(get_db)):
-    """Re-run the role pages generation for an existing request (runs in background)."""
-    req = db.query(Request).filter(Request.id == request_id).first()
-    if not req:
-        raise HTTPException(status_code=404, detail="Request not found")
-    if not req.mvp_blueprint:
-        raise HTTPException(status_code=400, detail="Blueprint not generated yet")
-
-    bundle: dict = {}
-    if req.generated_pages:
-        try:
-            bundle = json.loads(req.generated_pages)
-        except Exception:
-            bundle = {}
-    app_spec_ref = bundle.get("app_spec_ref") or {}
-    if app_spec_is_required(
-        mode=app_spec_mode(),
-        is_new_request=(
-            not bool(req.generated_pages) or bool(app_spec_ref.get("enforced"))
-        ),
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Legacy role-page generation is disabled for AppSpec previews. "
-                "Use generate-preview-app so routes and interactions remain traceable."
-            ),
-        )
-
-    threading.Thread(
-        target=_run_role_pages_in_background, args=(request_id,), daemon=True,
     ).start()
     return {"ok": True, "status": "started"}
 

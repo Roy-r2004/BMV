@@ -1,7 +1,49 @@
-# Session handoff — review, research, and three prompt-layer fixes, all offline (2026-08-06, session 16)
+# Session handoff — the v1 role-pages path is removed by owner ruling (2026-08-06, session 17)
 
-Successor to session 15's handoff (below in this file — session 15 closed at `c791c12`; sessions
-14 and earlier are in git history). Process notes, not product docs.
+Successor to session 16's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 17, in one page
+
+**Still $0.** The owner read the morning summary and asked three things: (1) is there really no
+way to test models without funded runs, (2) what is the gpt-4o "legacy path" — and if it is
+unused, remove it, (3) does finding the best models take ~100 runs?
+
+### The removal: the entire v1 role-pages pipeline is gone
+
+The evidence that settled it: **all 8 recorded gpt-4o calls were one firing of the
+orchestrator's double-failure fallback — request 59 (Jeanne Kassab Art), 2026-07-31 — four
+page-generate + page-QA pairs that spent the money and still left the request `failed` with
+`generated_pages` NULL.** The parachute did not open the only time it was pulled. The modern
+pipeline already has its own internal safe-stub fallback, a single full retry, and a
+customer-facing retry endpoint; a degraded generic-HTML demo also contradicts the owner's
+"demo the customer loves" rule.
+
+Removed: `pipelines/role_pages.py`, `services/page_qa.py`, `services/page_bundle.py`,
+`services/page_inject.py` (the last two were role_pages-only), templates `html_page.j2` /
+`page_qa.j2` / `page_fix.j2` + their `PromptTemplate` entries, the `/generate-pages` endpoint
+and its background runner, both orchestrator fallback branches (a double failure now raises —
+the pre-existing strict AppSpec behavior made universal — so the runner marks the request
+`failed` instead of emitting `done` over nothing), the `HTML_MODEL` config slot
+(`PREVIEW_APP_MODEL` gets its own default matching what .env pins today), the `.env.example`
+line, and the dead llama VISION_MODEL comment in `.env`. `generated_pages` the COLUMN stays —
+the modern finalize writes provenance there. `page_experience.py` and `industry_images.py`
+stay — the modern pipeline imports them.
+
+Pinned: `tests/application/test_v1_fallback_removed.py` (route/module/prompt absence + two
+tests driving the real `run()` proving a once- and twice-failed generation raises) +
+`scripts/cli/mutate_v1_removal.py` — **4 mutations / 0 survivors. Suite: 1,886 / 1 / 0.**
+Note the live api container still runs the pre-removal code until the next
+`up -d --force-recreate`; nothing urgent, the removed path was unreachable in practice.
+
+### Answers given to the owner's other two questions
+
+- Free-variant runs (OpenRouter `:free` models, no balance needed, ~50 req/day cap) can
+  smoke-test pipeline MECHANICS but not answer which paid model wins a slot; the fixer
+  `:nitro` test still needs credits.
+- The plan is 8-12 runs total (4 experiments × 2-3 runs, one variable each), not ~100 — the
+  3,200-call telemetry already did the narrowing.
 
 ---
 

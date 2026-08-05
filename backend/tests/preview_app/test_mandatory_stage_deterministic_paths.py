@@ -659,7 +659,7 @@ def test_an_accepted_appspec_still_outranks_the_blueprint() -> None:
 
 
 def test_a_caller_with_no_contract_still_gets_the_explicit_bound() -> None:
-    """`role_pages` and the chat rebuild pass no contract; nothing changes there.
+    """The chat rebuild passes no contract; nothing changes there.
 
     The alternative — inventing a kind for a caller that never resolved one —
     would ship a gallery to whoever asked last.

@@ -176,7 +176,6 @@ class Settings:
     TEXT_MODEL: str
     VISION_MODEL: str
     CODER_MODEL: str
-    HTML_MODEL: str
     PREVIEW_APP_MODEL: str
     ARCHITECT_MODEL: str
     CRITIC_MODEL: str
@@ -297,8 +296,7 @@ class Settings:
         self.TEXT_MODEL = _env_or("TEXT_MODEL", defaults["text"])
         self.VISION_MODEL = _env_or("VISION_MODEL", defaults["vision"])
         self.CODER_MODEL = _env_or("CODER_MODEL", defaults["coder"])
-        self.HTML_MODEL = _env_or("HTML_MODEL", defaults["html"])
-        self.PREVIEW_APP_MODEL = _env_or("PREVIEW_APP_MODEL", self.HTML_MODEL)
+        self.PREVIEW_APP_MODEL = _env_or("PREVIEW_APP_MODEL", defaults["preview_app"])
 
         # Architecture and design-critique are where model "taste" actually shows
         # up (layout, hierarchy, visual judgment) — bulk file codegen can stay on
@@ -846,7 +844,7 @@ _DEFAULT_MODELS: dict[str, dict[str, str]] = {
         "text": "llama3.1:8b",
         "vision": "llama3.2-vision",
         "coder": "qwen2.5-coder:7b",
-        "html": "qwen2.5-coder:7b",
+        "preview_app": "qwen2.5-coder:7b",
     },
     "openrouter": {
         "text": "meta-llama/llama-3.1-8b-instruct",
@@ -855,7 +853,9 @@ _DEFAULT_MODELS: dict[str, dict[str, str]] = {
         # is the multimodal model the pipeline already uses for codegen.
         "vision": "google/gemini-2.5-flash",
         "coder": "qwen/qwen-2.5-coder-32b-instruct",
-        "html": "openai/gpt-4o",
+        # Matches the value backend/.env pins today, so deleting the env line
+        # does not silently change the page-writer model.
+        "preview_app": "deepseek/deepseek-v4-pro",
     },
 }
 

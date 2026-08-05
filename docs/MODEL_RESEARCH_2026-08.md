@@ -117,14 +117,17 @@ noise excluded), candidates (Aug-2026 prices per 1M in/out), and the recommendat
 - **Recommendation: fold into whatever wins the PREVIEW_APP A/B** when convenient. Not worth
   its own experiment; one less model in the config is its own win.
 
-### HTML_MODEL — the legacy HTML pipeline
-- **Job:** v1 role-pages HTML + page QA (`pipelines/role_pages.py`, `page_qa.py`). Still
-  wired into the orchestrator and an API endpoint; 8 calls since July.
-- **Measured:** `openai/gpt-4o` — **the most expensive model in the config** ($2.50/$10) on
-  the least-used legacy path.
-- **Recommendation: re-point to TEXT_MODEL.** No quality argument survives 8 calls/month on a
-  legacy path; this is config hygiene. (Offline-safe in principle, but changing any .env model
-  is a production-behavior change — bundled with the funded session's config batch.)
+### HTML_MODEL — REMOVED (2026-08-06, session 17, owner ruling)
+- Was: v1 role-pages HTML + page QA (`pipelines/role_pages.py`, `page_qa.py`) on
+  `openai/gpt-4o` — the most expensive model in the config on the least-used path.
+- The telemetry closed the case: its 8 recorded calls were a single firing of the
+  orchestrator's double-failure fallback (request 59, 2026-07-31), which spent the money and
+  still left the request `failed` with no pages stored. The parachute did not open.
+- Removed entirely: the modules, three prompt templates, the `/generate-pages` endpoint, the
+  orchestrator fallback branches, and the config slot. `PREVIEW_APP_MODEL` now has its own
+  default instead of inheriting HTML_MODEL's. A double-failed generation raises honestly;
+  the customer keeps the retry endpoint. Pinned by `tests/application/
+  test_v1_fallback_removed.py` + `mutate_v1_removal.py` (4 mutations / 0 survivors).
 
 ### SITE_CHAT_MODEL — the marketing site chat
 - **Job:** the chat widget on the marketing site (`site_chat.py`).
@@ -147,7 +150,8 @@ so acceptance rate is worth paying for there.
    the worst measured slot. If still failing: `deepseek/deepseek-v4-flash`.
 2. **PREVIEW_APP_MODEL: `deepseek/deepseek-v4-flash` vs current** — the p50 lever. Judge
    slot_fill acceptance, typecheck errors, wall clock.
-3. **HTML_MODEL → TEXT_MODEL, delete the dead llama comment** — hygiene batch.
+3. ~~HTML_MODEL → TEXT_MODEL, delete the dead llama comment~~ — DONE offline in session 17:
+   the whole v1 path was removed instead (see HTML_MODEL section), llama comment deleted.
 4. **TEXT_MODEL succession plan** — one duo on `gemini-3-flash-preview` before October;
    consider splitting pure-JSON planning calls to the cheap coding model.
 
