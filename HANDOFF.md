@@ -17,7 +17,9 @@ template `[prefix-anchored / word-boundary / leave it]`, a menu, not a choice, s
 of the session treated it as pending. **Mid-session the owner ruled "yes, fix it" on the prefix
 recommendation, and uploaded a CI screenshot** — two items unblocked in one message.
 
-The session landed four things:
+The session landed five things (the owner also stated the product goal, which is now the
+recorded yardstick for kind decisions: **the demo must match the business — a workflow tool, a
+menu site, a portfolio, a company site — storefront is not the universal answer**):
 
 ### 1. The classifier is prefix-anchored — ruled, adopted, wrap-measured (`9c5b383`)
 
@@ -60,7 +62,24 @@ app. The existing test pinned the dead keys being WRITTEN — it now pins them s
 that the role routes still reach the sidebar through the admin list. 2 mutations (each writer
 re-added), 0 survivors. No template file touched, so vitest is untouched.
 
-### 4. The `design_direction` dedupe guard — landed (`38d66f5`, earlier in the session)
+### 4. The classifier's two remaining gaps — ruled "fix" on both, closed (`87cd085`)
+
+- **Fix A (internal_ops reachability):** an internal-facing ASSERTION (`staff-only`,
+  `not a public website`, `no customer ever`, `nobody outside`, `staff tool`, `internal tool`)
+  beside ops/transactional language resolves `internal_ops` — guarded by `saas == 0`, because
+  "an internal tool our design studio uses to run client projects" (SB-11) names an audience,
+  not a product, and must stay a workspace. **The first cut flipped SB-11; the guard is what
+  put it back, and it is mutation-pinned.** `back office` joins the ops hints.
+- **Fix B (the zero-hint default):** `lesson` and `instructor` join the booking hints; the
+  driving school books lessons instead of taking the art-gallery default.
+- Wrap-measured (`docs/evidence/reachability-session15.json`): exactly the four intended
+  synthetic briefs change; **20/20 on kind AND subtype for the first time; 0 of the 47 stored
+  kind_contexts move.** All census tools re-run green — the synthetic corpus now drives
+  `internal_ops/ops` from plain English.
+- 6 tests, 5 mutations, 0 survivors (`mutate_internal_reachability.py`) — each of the rule's
+  three guards has its own distinct catching fixture.
+
+### 5. The `design_direction` dedupe guard — landed (`38d66f5`, earlier in the session)
 
 - Both append sites (`apply_product_kind_to_plan` at `product_kind.py:877`,
   `apply_product_kind_to_architect` at `:1157` pre-change) now append the kind clause **once per
@@ -108,6 +127,8 @@ whose CI run the owner then observed. The classifier commits are pushed on the s
 - `mutate_classifier_boundary.py`: **4 mutations, 0 survivors** — after the fixture fix above;
   the first run had 3 survivors and each one was the fixture's fault, not the tests' subject.
 - `mutate_dead_nav_data.py`: **2 mutations, 0 survivors** — each re-adds a deleted dead writer.
+- `mutate_internal_reachability.py`: **5 mutations, 0 survivors** — the internal-facing rule's
+  three guards each die to a different fixture, plus both new hint classes.
 - `boundary_variant_census.py`'s adoption guard: **proven red under an in-memory substring
   revert**, failing with "shipped _blob regressed to bare substring matching" — red for the
   filed reason, file restored from the in-memory backup.
@@ -127,8 +148,8 @@ Run one at a time, every file restored from in-memory backups.
 
 ## State of the repo, in four lines
 
-- **`main` is `9c5b383` (the classifier adoption) plus the session-15 docs commits, pushed.**
-- **Suite: 1,873 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
+- **`main` is `87cd085` (the reachability rulings) plus the session-15 docs commits, pushed.**
+- **Suite: 1,879 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
   observed.
 - **Credits: $0. `total_usage 330.229` of `total_credits 330`** — FOURTH identical reading. The
   ~$40 mystery spend is still unexplained and is the owner's call.
@@ -170,17 +191,16 @@ If credits returned, the funded backlog is unchanged from session 14 and in this
 
 Rulings that unblock work without credits:
 
-5. **`internal_ops` reachability and the driving-school default** — the classifier's two
-   REMAINING gaps (the boundary ruling is adopted and closed). Both need their own owner
-   ruling: the hint pair `"internal desk"` + `"warehouse floor"` is measured to reach
-   `internal_ops/ops`, and a keyword table is not repaired by adding keywords — so the shape of
-   any fix is the decision, not the mechanics.
+5. ~~`internal_ops` reachability and the driving-school default~~ — **RULED "FIX" ON BOTH AND
+   DONE** (`87cd085`), see the one-pager. The classifier item is fully closed.
 6. ~~Dead nav data~~ — **DONE this session** (`1df35e3`), see the one-pager. There is now no
    code item left that runs without credits.
 
 **Owner decisions, unchanged and still yours:** p50 → Phase 2 under (A); APPSPEC_MODE stays
-shadow; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; the
-classifier ruling above; key rotation and the mystery spend.
+shadow; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; key
+rotation and the mystery spend (the owner said 2026-08-05 they would fix the top-up "in a
+couple of days"). The classifier rulings are all given and landed — nothing classifier-shaped
+is pending.
 
 ---
 
@@ -195,7 +215,7 @@ classifier ruling above; key rotation and the mystery spend.
 
 ### The rule that has caught the most defects
 
-**Mutation-test every guard.** Twenty-four drivers in `backend/scripts/cli/mutate_*.py`, one in
+**Mutation-test every guard.** Twenty-five drivers in `backend/scripts/cli/mutate_*.py`, one in
 `preview-template-tests/tools/mutate.py`. **Run one sweep at a time.**
 
 Ten blind spots, all found the expensive way (restated in full in session 14's handoff at
@@ -268,10 +288,10 @@ no run, and the classifier is corpus-proven over all 47 stored contexts + 20 bri
 run adds one live data point, not the proof). 1.12's matters most — it is a fallback and a
 healthy run never exercises it.
 
-### 3. The classifier's two REMAINING gaps — reachability, not substrings
-The boundary ruling is adopted and closed (`9c5b383`). Still open, each needing its own ruling:
-`internal_ops` is near-unreachable in plain English (three staff-only desks resolve
-`saas_workspace`), and a zero-hint brief (the driving school) takes the storefront default.
+### ~~3. The classifier~~ — fully closed this session
+Boundary matching adopted (`9c5b383`), both reachability gaps ruled "fix" and landed
+(`87cd085`). 20/20 exact on the synthetic corpus, 0 of 47 stored runs moved, all sweeps clean.
+What remains classifier-adjacent is only the live data point a funded run adds.
 
 ### 4. Page identity is fixed in shadow and not under enforcement
 Unchanged (`capability_ids` unread by `_search_text`).
@@ -305,25 +325,24 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 Read HANDOFF.md first — "Session 15, in one page" and "The next step". Then the roadmap's
 session-15 callout and the classifier row's session-15 UPDATE. Don't re-derive them.
 
-main is PUSHED through the session-15 close. Suite 1,873 / 1 / 0. Credits were $0 at last
-check, FOURTH session running. The classifier boundary ruling is ADOPTED (9c5b383) — do not
-reopen it. CI was observed green once (run #11); 1.10 is closed.
+main is PUSHED through the session-15 close. Suite 1,879 / 1 / 0. Credits were $0 at last
+check (fourth reading); I said I would fix the top-up within a couple of days of 2026-08-05 —
+so this session may be the funded one. The classifier is FULLY CLOSED (9c5b383 boundaries,
+87cd085 both reachability rulings) — do not reopen any of it. My product goal, recorded: the
+demo must match the business — workflow tool, menu site, portfolio, company site — storefront
+is not the universal answer. CI was observed green once (run #11); 1.10 is closed.
 
 BEFORE ANYTHING ELSE: probe credits — HANDOFF "The next step" item 0. No restarts first.
-IF STILL EMPTY: there is NO offline code work left worth a session. State the reading, update
-nothing, and stop — unless I have filled in a ruling below.
+IF STILL EMPTY: there is NO offline code work left. State the reading, update nothing, stop.
 
 1. IF CREDITS RETURNED: launch_duo3.sh and the fixes' read-list (HANDOFF item 1) — the seven
-   plus the classifier's live data point (the kind each run resolves, from the log).
+   plus the classifier's live data points (the kind each run resolves, from the log).
    Dump the api log the moment each run finishes; grep `slot_fill rejected`.
 2. 1.12's reachability — the three unroutable-model runs (HANDOFF item 2). Recreate, never
    restart; log dumped first; .env restored and verified from the running process.
 3. slot_fill's rejection distribution from item 1's logs — filed questions 2 and 3.
 4. _design_system_dict's four discarded colours — land the fix WITH item 1's run beside it.
-5. MY RULING on the classifier's two REMAINING gaps, if I give one:
-   internal_ops reachability [fix / leave]: ______   driving-school default [fix / leave]: ______
-   No ruling written here means both stay as they are.
-6. Dead nav data is DONE (1df35e3) — do not redo it; there is no offline code work left.
+5. Also read FIRST_FUNDED_TRIO_PREFLIGHT.md before spending anything.
 
 DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE stays shadow;
 SiteSpec vs AppSpec pending; state_ids backfill pending; AppSpec schema untouched; key
