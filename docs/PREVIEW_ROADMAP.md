@@ -181,7 +181,27 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-05 (session 11)
+## Status — updated 2026-08-05 (session 12)
+
+> ### The OpenRouter account is exhausted, and the mystery spend recurred — larger
+>
+> **No live generation can run.** Checked before launching a duo, which is the only reason the
+> duo was not wasted: `https://openrouter.ai/api/v1/credits` returns
+> `total_credits 330, total_usage 330.229`, and a 28,000-`max_tokens` probe against
+> `google/gemini-2.5-flash`, `deepseek/deepseek-v4-pro` and `z-ai/glm-5.2` returns
+> **"Insufficient credits"** on all three in under a second.
+>
+> **The pipeline did not spend it.** `usage_daily` is **$22.25**; `ai_usage_events` records
+> **$1.94** for 2026-08-05 across 217 calls — session 11's six runs at 06:00-07:00 plus three
+> zero-cost probes at 15:00. **~$20.3 of today's spend is not this pipeline**, on a day this
+> session ran zero generations. That is the **second measured occurrence**: 2026-08-04 was $17.62
+> by the same arithmetic, and session 11 recorded it as "one data point, not an all-clear". It is
+> now two, and the second one emptied the account. **Escalating or rotating the key is the owner's
+> call and nothing here can proceed past it.**
+>
+> Everything session 12 landed is therefore **mutation-proven and production-unproven**, and the
+> three fixes session 11 could not prove are still unproven. `session11_fix_replay.py` is the
+> substitute and its own docstring says what it cannot show.
 
 > ### The enforcement spike — run 2026-08-05, and it is the session's answer
 >
@@ -247,8 +267,11 @@ Recording that here so the next session does not read a productive week as progr
 
 | Item | State |
 |---|---|
+| **the blueprint gap-fill — the trattoria's art gallery** | **done, mutation-proven, production-UNPROVEN** — `bbe6359`. The `elif contract.kind in PUBLIC_KINDS` branch gap-filled `_storefront_pages()` into every public app *whose routes were already substantive*, testing "already served" by exact **path string**, so an app declaring `/menu` or `/rooms` was told it had no catalogue. It now adds a page only when nothing already serves it — same path, or same resolved page contract, asked of the plan page merged under the route exactly as `_normalize_architect` will twelve lines later. A detail page is added only when its listing is served and has no detail child. Two exemptions stated rather than implied: `/` is keyed on path alone (`assemble.py:1123` routes the catch-all to it, so an app without one redirects to nothing), and a **thin** inventory still gets the whole blueprint, where the blueprint is the product face rather than a gap-fill. Measured over the 47 stored route tables (`scripts/measure/gallery_gapfill_census.py`, archive at `docs/evidence/preview-routes.json`): **23 of 47 runs change; 0 briefs and 0 runs lose their last catalogue page; 1 run loses its last detail page — request 95, the trattoria, which keeps `/menu` and loses `ArtworkDetailPage.tsx`.** Requests 77, 83, 95 and 97 lose the gallery outright; 47 and 69 stop being given a second detail route beside their own `/gallery/:paintingId`. **The boundary, stated: 4 runs still get a gap-filled catalogue because they declared none** — 19 and 43 are art galleries and should; 80 and 86 are the trattoria, whose `/menu` does not resolve to `public-catalog` on those runs. 15 tests, 13 mutations, 0 survivors |
+| **`slot_fill`'s `public-detail` rejections — the upstream half** | **done, mutation-proven, production-UNPROVEN** — `0e678fa`. Answers the first of the three questions filed below: *why is an About page assigned `public-detail` at all*. `_infer_skeleton_id` matched the bare substring `"detail"` anywhere in a page's id, title, page_type, purpose, layout, path or role labels, so ordinary English decided a page kind — "lodge contact details." (76), "Page detailing the story" (79), "a detailed plan" (81), "detailed room information" (96). **Measured over the 399 stored public routes: 95 reach the detail branch, 94 of them on the bare word alone, and 35 of those name no item in their path** — including `/book`, `/booking/checkout` and `/booking/confirmation`, booking steps judged against a painting contract. A detail page shows ONE item, which is a fact about the route: the rule is now a path that selects an item, anchored at the end so `/artwork/:artworkId/inquire` stays a form *about* an item; plus the unambiguous multi-word phrases; plus the existing `/services/<name>` rule. **22 of the 399 change and 21 of the 22 are corrections**; the one loss is `/painting/coastal-whispers`, a literal item path with no parameter, which becomes `public-service`. That is the deliberate trade — over-assignment discards a page's work, under-assignment only gives it a more permissive contract. 13 tests, 8 mutations, 0 survivors. **The contract itself is untouched and questions 2 and 3 below stay open** |
+| **the palette's second half — appropriateness** | **checked and stopped, as instructed.** `reference_metadata` carries **no colour of any kind**. `fetch_reference_metadata` (`reference_scraper.py`) returns exactly six keys — `title`, `description`, `h1`, `visible_text_snippet`, `og_image`, `fetch_success` — and never reads CSS, an inline style or an image. 40 of the stored requests carry a `reference_url`, 39 stored metadata, all 39 fetched successfully, and the 12 whose JSON contains a `#` are matching **street addresses** ("757 S Alameda St #180") and phone numbers. **The only latent signal is `og_image`, present on 13 of 39** — the reference site's own hero image, which would need a real extractor (fetch, decode, quantise) on the critical path. That is a new capability with a per-run network cost, not a check, so it is written down and **not built**. Derived palettes stay distinct-and-not-appropriate; Northgate Dental is still magenta |
 | **Duo 2 (97-98)** — the first generation to see session 10's four fixes | **2 of 2 shipped `ready`**, 563 s and 570 s, on the briefs of 95/96 verbatim. **All four fixes are production-proven**, which is the gap session 10's handoff named: `planning/planner`, `planning/plan_validation` and `planning/design_manifest` rows exist on 97 with **no `codegen` row carrying a NULL writer** (the `(unattributed)` bucket is gone); `withheld_reason` is a key on 97 and absent on 95/96; `viewable` is correctly still not a key; and `mock.ts` contains "Explore the collection" **once on 95 and zero times on 97**. The one scope still unexercised is `plan_expansion` — `validate_and_expand_plan` made a single ask on 97 |
-| **the palette monoculture — and what it costs** | **done** — `3b63a07`. **The trade is stated up front: derived palettes are distinct and legible, and none of them is *appropriate*.** Northgate Dental Studio resolves to `#b62bb6` (magenta), Osteria Vinci to a green, Cedar Point Lodge to a slate blue. Every palette's lightness is solved by bisection against the surface it is used on, so WCAG AA holds for all 48 identities by construction — but nothing picks a colour *because* it suits a dentist. Appropriateness was never on offer from a five-bucket keyword table that put 28 of 62 businesses in `wellness`; getting it back needs a signal that is not an industry string, and **the reference site's own colours are the obvious unused candidate** — `reference_url` runs currently contribute no colour at all. Detail below |
+| **the palette monoculture — and what it costs** | **done** — `3b63a07`. **The trade is stated up front: derived palettes are distinct and legible, and none of them is *appropriate*.** Northgate Dental Studio resolves to `#b62bb6` (magenta), Osteria Vinci to a green, Cedar Point Lodge to a slate blue. Every palette's lightness is solved by bisection against the surface it is used on, so WCAG AA holds for all 48 identities by construction — but nothing picks a colour *because* it suits a dentist. Appropriateness was never on offer from a five-bucket keyword table that put 28 of 62 businesses in `wellness`; getting it back needs a signal that is not an industry string, and **the reference site's own colours were the obvious unused candidate** — **checked 2026-08-05 (session 12) and the pipeline holds none of them.** `fetch_reference_metadata` returns six keys and not one is a colour; the 12 stored metadata blobs containing a `#` are matching street addresses. The only latent signal is `og_image` on 13 of 39, which needs a real extractor rather than a read. See the palette row above. Detail below |
 | **the palette monoculture** | **done** — `3b63a07`. **58 of 62 archived workspaces ship `#0f766e`; three distinct primary colours in the whole corpus.** Two industry→palette tables existed and the coarser ran first. **Candidate (a) was simulated before being rejected: letting `brand_brief._industry_bucket` decide alone gives three distinct colours — the identical count** — and buckets 28 of 62 as `wellness` because the gallery briefs say *"not a booking SaaS or **clinic** front desk"*. Replaced by a palette derived from the business name, contrast-solved per hue. **3 → 10 distinct over the same 62 workspaces, against a ceiling of 12** — the corpus has only 12 distinct business names, which is a fact worth carrying: a "62-site corpus" is 18 distinct briefs. 13 mutations / 0 survivors |
 | **the menu, both halves** | **done** — `8fe8955`, and **the roadmap's attribution below was wrong**. The shipped `mock.ts` already labels `/my-reservations` "Reservations", so the visible defect is the *generator's*: `_normalize_nav_section` deduped on the label key and **deleted** the declared public `/reservations`. Both halves land together with one rule, about the list and never a route name. 9 + 5 mutations / 0 survivors |
 | **the scaffold's hero subcopy** | **done** — `8fe8955`. *"A clear next step from {brand} — warm, specific, and ready when you are."* verbatim in 7 of 64 workspaces. **The gate is right not to fire on it** and was not widened: `placeholder_content_shipped` looks for *unfilled* tokens like `[Artist Name]` and this is a filled one, so matching it would make a DoD row measure whether we updated our own regex. The scaffold states the app's declared public destinations instead. Also `_design_system_dict` wrote `sourcesans3` for `"Source Sans 3"` — the second spelling behind "5 fonts" where there are 3 |
@@ -294,6 +317,14 @@ Phase 0's remaining measurements — **0.1** (pack thesis) and **0.4** (are
 token work and 2.6 respectively. 0.7 was answered by the audit (388 of 1,012).
 
 ### Suite state — and the two ways the harness lied about it in one afternoon
+
+**1,838 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
+2026-08-05 (session 12). Session 12 added 28 pytest cases across two files, both fixes
+mutation-swept: **21 new mutations, 22 applied across three sweeps, 0 survivors at the end, 1
+survived a first sweep** (no fixture put a route parameter mid-path, so the `$` anchor on the
+item-path regex was decoration until one did). One mutation was also *not applied* on its first
+run — the anchor matched twice — which the driver reports rather than counting as caught.
+Previously **1,808 / vitest 39** at `283f60c`.
 
 **1,808 passed / 1 skipped / 0 xfailed / 0 failed** and **vitest 39 passed**, `tsc -b` clean,
 2026-08-05 (session 11). Session 11 added 23 pytest cases and 7 vitest cases across five files, every
@@ -607,18 +638,45 @@ The corpus is 25 art galleries, so the contract was fitted to them — and now t
 perfectly reasonable About page for a dentist, fails three assertions about paintings and has its
 work thrown away for a deterministic scaffold.
 
-Three questions follow and none is answered:
+Three questions follow. **The first is answered as of 2026-08-05 (session 12); the other two are
+not.**
 
-1. **Why is `AboutPage.tsx` assigned `public-detail` at all?** An About page is not an item detail
-   page. That is a skeleton-assignment defect *upstream* of the contract, and fixing the contract
-   without fixing the assignment would only move the failure.
-2. **How much of duo 2's 59.5 % is this?** Unmeasured — the only record was the destroyed log.
-3. **Is the `public-detail` contract right even for a gallery?** It hard-codes one page's design
-   decisions as a validity condition, which is the shape of defect this document keeps finding.
+1. **Why is `AboutPage.tsx` assigned `public-detail` at all? — ANSWERED, and fixed (`0e678fa`).**
+   `_infer_skeleton_id` (`ui_catalogue.py:645`) matched the **bare substring `"detail"`** anywhere
+   in the blob `_search_text` builds from a page's id, title, page_type, purpose, layout, path and
+   role labels. Ordinary English therefore decided a page kind. Demonstrated on stored production
+   routes, with the route text alone and no plan merged: request 76's `/contact` ("guest inquiries
+   and lodge contact **details**.") and request 79's `/about` ("Page **detailing** the story and
+   ethos") both resolve to `public-detail`.
+
+   **The rate, over the 399 stored public routes:** 95 reach the detail branch, **94 of them on the
+   bare word alone**, and **35 of those name no item in their path at all**. It is not only About
+   pages — `/book`, `/booking/checkout`, `/booking/confirmation` and `/patient/treatment-plan` were
+   all being judged against a painting contract. 16 of the 76 stored About/OurStory/Contact routes
+   ship `skeleton_id: public-detail`.
+
+   The rule is now structural: a path that selects one item. **Not proven in production** — no run
+   was possible.
+
+   One thing this could *not* establish offline, and it is worth knowing before the next attempt:
+   for most of those 16 the route text alone resolves to `public-service`, so the stored
+   `public-detail` came from the **plan page** merged under the route. **Plans are not stored** —
+   `preview_app.roles` keeps role ids and no pages — so which of the two mechanisms fired on any
+   given run is not recoverable. Add it to the "prompts are not observable" note: *plans are not
+   observable either.*
+2. **How much of duo 2's 59.5 % is this?** Still unmeasured — the only record was the destroyed
+   log, and no run has been possible since.
+3. **Is the `public-detail` contract right even for a gallery?** Untouched. It hard-codes one
+   page's design decisions as a validity condition, which is the shape of defect this document
+   keeps finding.
 
 **Dump `docker compose logs api` the moment a run finishes.** If one error dominates, that is the
 fix; if they are scattered, the contract or the prompt is wrong and that is a bigger decision than a
 retry.
+
+**What the next run should read, now that the assignment is fixed:** whether `AboutPage.tsx` and
+`ContactPage.tsx` still appear in the rejection log at all. If they do, the remaining cause is the
+plan page rather than the route text, and question 1 is only half answered.
 
 ### p50 — the recommendation is (A), and this is the arithmetic
 
@@ -769,17 +827,39 @@ product_kind.py:1008-1010
         routes, files, _ = _inject_blueprint_routes(routes, files, contract, role_id)
 ```
 
-Every brief that classifies `storefront` or `booking_service` is gap-filled with those two pages,
-**even when `_routes_are_substantive(routes)` is already True** — the `elif` exists precisely to
-gap-fill a substantive inventory. So `ArtworkDetailPage.tsx` on a trattoria is one hardcoded
-blueprint page reaching 16 of the corpus's 18 distinct briefs, and the string "Artwork" is a
-`PageBlueprint` title, not a model's word.
+Every brief that classifies `storefront` is gap-filled with those two pages, **even when
+`_routes_are_substantive(routes)` is already True** — the `elif` exists precisely to gap-fill a
+substantive inventory. So `ArtworkDetailPage.tsx` on a trattoria is one hardcoded blueprint page,
+and the string "Artwork" is a `PageBlueprint` title, not a model's word.
+
+**Two corrections, 2026-08-05 session 12, both from re-deriving the classification properly.**
+This paragraph said *"`storefront` **or `booking_service`**"* and that is wrong: a
+`booking_service` contract carries `_booking_pages()` — home, `/services`, `/book` — and has no
+gallery in it at all. The dental brief is a `booking_service` and has never been given a gallery;
+requests 75-93 were gap-filled `/services` and `/book`. And the corpus figure was **15 of 17
+distinct briefs**, not 16 of 18: 17 distinct (name, industry, description) briefs across the 88
+stored requests, of which 15 `storefront`, 1 `booking_service` (Northgate Dental) and 1
+`saas_workspace/generic` (PlateSync ERP). Both errors came from the same place — a census that
+called `resolve_product_kind_contract(*context_from_request(req))`, splatting a *string* into one
+character per argument so that every brief fell through to the `storefront` default. See the
+gap-fill row in Status.
 
 **It survives an enforced AppSpec.** Replayed from request 95's accepted 4-page contract, the
 canonical route list holds through `merge_architecture_enrichment` and then
 `apply_product_kind_to_architect` (`plan_phase.py:305`) adds `/gallery` and `/gallery/:id` — 4 → 6.
 Same on 97, 7 → 9. **Nothing else added a route on either run.** So the enforcement work and this
 defect are independent: a contract that names four pages does not stop the sixth being appended.
+
+**Fixed 2026-08-05 (session 12), `bbe6359` — and it does not close the enforced case.** The
+gap-fill now adds a blueprint page only when nothing in the app already serves it: the same path,
+or the same resolved page contract, asked of the plan page merged under the route. A detail page is
+added only when the listing it belongs to is served and has no detail child of its own. **In shadow
+mode the trattoria loses both pages** (requests 77, 83, 95, 97). **Under enforcement it does not**:
+the replay above still shows 4 → 6, because the AppSpec page for `/menu` reads *"To display the
+current food and wine menus."* and nothing in that resolves it to a catalogue — the capability id
+`CAP-BROWSE-MENU` would, and `_search_text` does not read capability ids. Recorded rather than
+patched, because `APPSPEC_MODE` is `shadow` and turning it on is an owner decision. Detail and the
+measured boundary are in the Status row.
 
 ### The catalogue census — a third of it is dead, and that is one fact, not two
 
