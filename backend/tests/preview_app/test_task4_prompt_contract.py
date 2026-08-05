@@ -764,3 +764,52 @@ def test_every_prompt_template_constant_resolves_to_a_file():
         if not (TEMPLATES_DIR / value).is_file()
     )
     assert not missing, "PromptTemplate constants point at missing files: " + "; ".join(missing)
+
+
+def test_assembler_owned_file_instructions_never_reach_a_page_prompt():
+    """App.tsx and index.css are written deterministically (write_app_tsx,
+    write_index_css) and appear in 0 of 42 archived architect worklists — yet
+    their instruction blocks rendered into every one of the ~1,170 page calls.
+    Gated on file_path in session 16: a PAGE render must not carry either
+    block, and a render addressed to the file itself still must (the gate is
+    a conditional, not a deletion)."""
+    from app.infrastructure.templating.renderer import JinjaTemplateRenderer
+    from app.application.prompts import PromptTemplate
+    from pathlib import Path
+
+    templates_dir = Path(__file__).resolve().parents[2] / "app" / "templates"
+    renderer = JinjaTemplateRenderer(str(templates_dir))
+    common = dict(
+        full_context="ctx",
+        architect_json="{}",
+        design_system_json="{}",
+        manifest_json="{}",
+        images_json="{}",
+        file_kind="page",
+        file_instructions="",
+        page_plan_json="{}",
+        app_spec_contract_json="{}",
+        catalogue_page=False,
+        skeleton_id="",
+        skeleton_contract_json="{}",
+        shell_component="PublicShell",
+        existing_files_summary="",
+    )
+
+    page_prompt = renderer.render(
+        PromptTemplate.PREVIEW_APP_FILE, file_path="src/pages/HomePage.tsx", **common
+    )
+    assert "For App.tsx:" not in page_prompt
+    assert "RouteBridge" not in page_prompt
+    assert "CRITICAL for src/index.css" not in page_prompt
+
+    app_prompt = renderer.render(
+        PromptTemplate.PREVIEW_APP_FILE, file_path="src/App.tsx", **common
+    )
+    assert "For App.tsx:" in app_prompt
+    assert "registerPreviewNavigate" in app_prompt
+
+    css_prompt = renderer.render(
+        PromptTemplate.PREVIEW_APP_FILE, file_path="src/index.css", **common
+    )
+    assert "CRITICAL for src/index.css" in css_prompt

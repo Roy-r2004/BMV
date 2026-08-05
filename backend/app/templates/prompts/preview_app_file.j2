@@ -138,7 +138,9 @@ The file MUST be complete and Vite-buildable on the first try:
 
 TECH RULES:
 - React 19 functional components, TypeScript, Tailwind utility classes only
+{% if file_path == "src/index.css" %}
 - CRITICAL for src/index.css: it MUST start with the line `@import "tailwindcss";` then a `@theme { ... }` block defining --color-brand, --color-brand-dark, --font-sans from the design system. NEVER remove the tailwindcss import and NEVER replace Tailwind with plain custom CSS classes (no .container/.table/.button rules). Styling comes from Tailwind utilities in the components (bg-brand, text-brand, rounded-2xl, grid, etc.).
+{% endif %}
 - Import mock data from ../data/mock or @/data/mock
 - Text over photos: dark gradient overlay + white text — NEVER gray boxes on images
 - Cards: use brand tokens — `rounded-[calc(var(--radius-ui)+0.25rem)] border border-border-subtle bg-card shadow-[var(--shadow-ui)]` (never slate/white-only cards)
@@ -162,6 +164,7 @@ TECH RULES:
 - Charts/graphs: build with styled divs or inline <svg> (e.g. bar heights via Tailwind h-*) — never a chart library.
 {% endif %}
 
+{% if file_path == "src/App.tsx" %}
 For App.tsx:
 - MUST import RouteBridge and RoleBridge pattern from template's App (BrowserRouter, RouteBridge, RoleBridge)
 - Import roles from ./data/mock for RoleBridge defaultPath lookup
@@ -172,6 +175,7 @@ For App.tsx:
 - CRITICAL: include an index route that redirects the root to the first real page, and a catch-all
 - Wire every route from architect plan; wrap routes in the correct layout per route.layout
 
+{% endif %}
 For page components (kind=page):
 - Import from `../data/mock` ONLY the symbols this page needs (e.g. `inventory`, `leads`, `stats`). Choose names that match the business — mock.ts is generated later to match your imports.
 - You may inline tiny static UI copy, but tables/lists/charts should pull from mock imports
