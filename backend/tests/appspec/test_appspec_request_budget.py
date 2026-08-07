@@ -169,3 +169,61 @@ def test_without_an_armed_deadline_the_ceiling_stays_per_instance() -> None:
     assert rd.current_deadline() is None
     assert _spend(_StageLimitedAIProvider(ai, 2), 5) == 2
     assert _spend(_StageLimitedAIProvider(ai, 2), 5) == 2
+
+
+class _RaisingAI:
+    """Errors N times, then answers — request 143's error-cut authoring shape."""
+
+    def __init__(self, failures: int) -> None:
+        self.failures = failures
+        self.calls = 0
+
+    def ask_chat(self, *_args, **_kwargs) -> str:
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise RuntimeError("provider stream cut")
+        return "{}"
+
+
+def test_an_errored_call_is_refunded_not_spent() -> None:
+    """R6: an errored $0 call must not consume the budget an ANSWER needs.
+
+    143's authoring attempt 1 was error-cut and still spent a unit of
+    `APPSPEC_MAX_CALLS`; with a budget of 2, two cuts would have left the
+    stage unable to hear a single answer."""
+
+    ai = _RaisingAI(failures=2)
+    with rd.request_deadline_scope(143, total_seconds=10_000) as deadline:
+        provider = _StageLimitedAIProvider(ai, 2)
+        for _ in range(2):
+            with pytest.raises(RuntimeError):
+                provider.ask_chat("model", [])
+        # Both errored asks refunded — the full budget is still there.
+        assert deadline.stage_calls_used("appspec") == 0
+        assert provider.calls_used == 0
+        # The answered asks then spend it for real, and the ceiling holds.
+        assert _spend(provider, 5) == 2
+        assert deadline.stage_calls_used("appspec") == 2
+
+
+def test_answered_asks_are_never_refunded() -> None:
+    """The refund pairs ONLY with a raise — a returned answer spends for good,
+    or the ceiling stops bounding anything."""
+
+    ai = _CountingAI()
+    with rd.request_deadline_scope(146, total_seconds=10_000) as deadline:
+        provider = _StageLimitedAIProvider(ai, 3)
+        assert _spend(provider, 10) == 3
+        assert deadline.stage_calls_used("appspec") == 3
+
+    ai2 = _CountingAI()
+    assert rd.current_deadline() is None
+    provider2 = _StageLimitedAIProvider(ai2, 2)
+    assert _spend(provider2, 6) == 2
+    assert provider2.calls_used == 2
+
+
+def test_the_refund_never_goes_below_zero() -> None:
+    with rd.request_deadline_scope(147, total_seconds=10_000) as deadline:
+        deadline.refund_stage_call("appspec")
+        assert deadline.stage_calls_used("appspec") == 0

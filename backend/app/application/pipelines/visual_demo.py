@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import fallback_visual_demo, get_request
+from app.application.services.ai_context import ai_call
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -49,7 +50,10 @@ def generate_visual_demo(
     )
 
     try:
-        response = ai_provider.ask_chat(settings.CODER_MODEL, [{"role": "user", "content": prompt}])
+        with ai_call(stage="demo", writer="visual_demo"):
+            response = ai_provider.ask_chat(
+                settings.CODER_MODEL, [{"role": "user", "content": prompt}]
+            )
         demo = extract_json_from_text(response)
     except Exception:
         demo = fallback_visual_demo(req)

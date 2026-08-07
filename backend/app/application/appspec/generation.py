@@ -223,13 +223,39 @@ class _StageLimitedAIProvider:
         with self._lock:
             self.calls_used += 1
 
+    def _refund(self) -> None:
+        """Give back the unit `_acquire` spent on an ask that raised.
+
+        An errored $0 call (transport cut, provider raise) bought no answer;
+        request 143's error-cut authoring attempt spent budget for nothing.
+        The transport re-ask ladders bound retry COUNT on their own — the call
+        budget's job is to bound answered asks.
+        """
+
+        from app.application.services.request_deadline import current_deadline
+
+        deadline = current_deadline()
+        if deadline is not None:
+            deadline.refund_stage_call("appspec")
+        with self._lock:
+            if self.calls_used > 0:
+                self.calls_used -= 1
+
     def ask_chat(self, model: str, messages: list[dict], **kwargs: Any) -> str:
         self._acquire()
-        return self.provider.ask_chat(model, messages, **kwargs)
+        try:
+            return self.provider.ask_chat(model, messages, **kwargs)
+        except Exception:
+            self._refund()
+            raise
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         self._acquire()
-        return self.provider.ask_vision(model, prompt, image_path)
+        try:
+            return self.provider.ask_vision(model, prompt, image_path)
+        except Exception:
+            self._refund()
+            raise
 
     def is_available(self) -> bool:
         checker = getattr(self.provider, "is_available", None)

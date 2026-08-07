@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import get_request
+from app.application.services.ai_context import ai_call
 from app.application.services.ai_features import extract_ai_features_from_blueprint
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -39,7 +40,10 @@ def generate_mvp_blueprint(
         screenshot_analysis=req.screenshot_analysis or "No screenshot analysis available.",
     )
 
-    result = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+    with ai_call(stage="blueprint", writer="mvp_blueprint"):
+        result = ai_provider.ask_chat(
+            settings.TEXT_MODEL, [{"role": "user", "content": prompt}]
+        )
     req.mvp_blueprint = result
 
     preview = extract_preview_from_blueprint(result, ai_provider, template_renderer)

@@ -62,8 +62,11 @@ def extract_preview_from_blueprint(
 
     if not preview["business_fit_score"] or not preview["concept_name"]:
         try:
+            from app.application.services.ai_context import ai_call
+
             prompt = template_renderer.render(PromptTemplate.PREVIEW_EXTRACTION, mvp_blueprint=blueprint)
-            response = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+            with ai_call(stage="blueprint", writer="preview_extraction"):
+                response = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
             extracted = extract_json_from_text(response)
             if extracted.get("business_fit_score"):
                 preview["business_fit_score"] = extracted["business_fit_score"]
