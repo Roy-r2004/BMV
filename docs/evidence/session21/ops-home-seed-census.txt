@@ -1,0 +1,6 @@
+part A: 47 stored contexts replayed, kinds={'saas_workspace': 1, 'storefront': 40, 'booking_service': 6}
+part A: 0 route paths changed anywhere — no regression
+part B: pre-lock paths ['/ai-features', '/records', '/queue'] -> post-lock ['/ai-features', '/records', '/']
+part B: chrome gate issues on the locked seed: ['ops_kind_too_few_pages']
+part B: run 135's accepted spec now seeds its ops home (page PAGE-DISPATCH-QUEUE) before codegen
+census green: 47-corpus untouched, run 135's defect fixed at the seed

@@ -1370,6 +1370,47 @@ def lock_chrome_on_experience_seed(
     return updated
 
 
+def _ensure_ops_home_route(seed: dict[str, Any]) -> None:
+    """Run 135: an enforced-appspec ops seed's route table can lack its home.
+
+    The dispatch-desk spec was accepted with every page on its own spec route
+    (`/queue`, `/records`, `/ai-features`) and nothing at `/` — the appspec
+    canonical worklist is substantive, so the blueprint injection that gives a
+    thin architect its home never fires, and `validate_product_kind_chrome`
+    honestly refused the ship (`ops_kind_missing_home`) after codegen had
+    spent the run. The staff home must exist BEFORE codegen: re-path the
+    seed's own ops home — the route the projection marked `ops-dashboard`
+    (the spec's primary ops page), else the first ops route — to `/`, and
+    keep any role defaultPath that pointed at it in step. The chrome loop
+    below then dresses `/` with the contract's home skeleton exactly like any
+    other seeded home. Never invents a page: with no ops-surface route (a
+    mislabeled-surface spec) the gate's refusal stands.
+    """
+    routes = [rt for rt in seed.get("routes") or [] if isinstance(rt, dict)]
+    if any(str(rt.get("path") or "") in {"/", "/home"} for rt in routes):
+        return
+    candidates = [
+        rt
+        for rt in routes
+        if not _is_ai_hub_route(rt) and str(rt.get("surface") or "") == "ops"
+    ]
+    if not candidates:
+        return
+    home = next(
+        (
+            rt
+            for rt in candidates
+            if str(rt.get("skeleton_id") or "") == "ops-dashboard"
+        ),
+        candidates[0],
+    )
+    old_path = str(home.get("path") or "")
+    home["path"] = "/"
+    for role in seed.get("roles") or []:
+        if isinstance(role, dict) and str(role.get("defaultPath") or "") == old_path:
+            role["defaultPath"] = "/"
+
+
 def lock_chrome_on_architecture_seed(
     seed: dict[str, Any] | None,
     contract: ProductKindContract,
@@ -1378,6 +1419,7 @@ def lock_chrome_on_architecture_seed(
     updated["product_kind"] = contract.kind
     if contract.kind not in OPS_KINDS:
         return updated
+    _ensure_ops_home_route(updated)
     for route in updated.get("routes") or []:
         if not isinstance(route, dict) or _is_ai_hub_route(route):
             continue

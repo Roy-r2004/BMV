@@ -1,0 +1,6 @@
+kind: internal_ops / ops
+final routes:
+   ('/', 'ops', 'ops-dashboard')
+   ('/ai-features', 'ops', 'ops-list')
+   ('/records', 'ops', 'ops-list')
+final gate issues: ['ops_kind_too_few_pages']
