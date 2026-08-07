@@ -1,0 +1,56 @@
+Census 0.1 — stored industry strings replayed through the REAL pick_template_id
+corpus: 116 requests with non-empty industry, 12 distinct values
+        (a SMALL corpus — 4 of 12 values are fine-art variants of one business; read rates accordingly)
+packs loaded: 27
+rows where demo text reaches context[:800] (replay fidelity check, expect 0): 0
+
+HAND-AUDITED MAPPING (industry -> acceptable pack families):
+  'Art' -> ['art-gallery-portfolio-home']
+  'Fine art gallery · original oil paintings · artist portfolio' -> ['art-gallery-portfolio-home']
+  'Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)' -> ['art-gallery-portfolio-home']
+  'Handmade ceramics studio and online shop' -> ['pottery-craft-studio', 'retail-store-home']
+  'Restaurants & Food Service — ERP SaaS' -> ['inventory-catalog-ops', 'restaurant-cafe-home', 'saas-accounting', 'staff-floor-ops']
+  'dental clinic' -> ['clinic-dental-home', 'clinic-front-desk-ops']
+  'fine art gallery' -> ['art-gallery-portfolio-home']
+  'fitness' -> ['fitness-studio-home']
+  'florist' -> ['retail-store-home']
+  'hotel' -> ['hotel-hospitality-home']
+  'logistics' -> ['inventory-catalog-ops']
+  'restaurant' -> ['restaurant-cafe-home', 'staff-floor-ops']
+
+  n  HIT  MISS  WRONG  industry / picks
+---------------------------------------
+ 35   35     0      0  'Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)'
+                       picks: art-gallery-portfolio-home:35  surfaces: {'public': 35}
+ 32   32     0      0  'restaurant'
+                       picks: restaurant-cafe-home:32  surfaces: {'public': 32}
+ 25    6    19      0  'hotel'
+                       picks: None:19, hotel-hospitality-home:6  surfaces: {'public': 25}
+  8    8     0      0  'dental clinic'
+                       picks: clinic-dental-home:8  surfaces: {'public': 8}
+  3    3     0      0  'Fine art gallery · original oil paintings · artist portfolio'
+                       picks: art-gallery-portfolio-home:3  surfaces: {'public': 3}
+  3    0     0      3  'logistics'
+                       picks: owner-kpi-dashboard:3  surfaces: {'ops': 3}
+  2    2     0      0  'Art'
+                       picks: art-gallery-portfolio-home:2  surfaces: {'public': 2}
+  2    2     0      0  'fine art gallery'
+                       picks: art-gallery-portfolio-home:2  surfaces: {'public': 2}
+  2    2     0      0  'fitness'
+                       picks: fitness-studio-home:2  surfaces: {'public': 2}
+  2    2     0      0  'florist'
+                       picks: retail-store-home:2  surfaces: {'public': 2}
+  1    1     0      0  'Handmade ceramics studio and online shop'
+                       picks: pottery-craft-studio:1  surfaces: {'public': 1}
+  1    0     0      1  'Restaurants & Food Service — ERP SaaS'
+                       picks: owner-kpi-dashboard:1  surfaces: {'ops': 1}
+---------------------------------------
+TOTALS: 116 requests — HIT 93 (80%), MISS 19 (16%), WRONG-FAMILY 4 (3%)
+of the WRONG-FAMILY picks, 4 are industry-NEUTRAL product-shape ops packs (soft wrong: industry-silent voice); 0 carry a DIFFERENT industry's identity (hard wrong)
+secondary ops gap-fill picks (public-kind rows, informational): {'owner-kpi-dashboard': 31, 'leads-crm-list': 3, 'None': 38, 'staff-floor-ops': 32, 'clinic-front-desk-ops': 8}
+
+MISS DIAGNOSIS (loader's own constants; overlap = non-weak declared-token hits):
+  'hotel' (surface=public): industry-only pick = None
+      shares tags with hotel-hospitality-home: ['hotel']  <-- every hit shorter than _MIN_DISTINCTIVE_TOKEN_LEN=6; lone-hit gate (loader.py:125-129) suppresses this pack
+
+JSON written: /app/backend/scripts/measure/.out/industry-replay-census.json

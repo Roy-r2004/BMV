@@ -1,0 +1,83 @@
+R2 RETRY-SITE AUDIT — session25 — mechanical sweep (2026-08-07)
+QUESTION: for every loop/sequence in backend/app that re-asks a model after a failure, what changes between attempt N and N+1?
+METHOD: (1) AST sweep for ask_chat/ask_vision/ask_chat_purposed/complete calls lexically inside for/while loops; (2) grep census of ALL ask call sites; (3) call-graph tracing for loops that ask via helpers; (4) live model config read from the running bmv-api container (settings, not .env).
+
+== (1) AST sweep: ask calls lexically inside loops ==
+python files scanned: 329
+backend/app/application/pipelines/blueprint.py: loop@46 ask@55 (ask_chat)
+backend/app/application/preview_app/codegen/architect.py: loop@61 ask@67 (ask_chat)
+backend/app/application/preview_app/codegen/critic.py: loop@304 ask@328 (ask_chat)
+backend/app/application/preview_app/codegen/fix_agent.py: loop@185 ask@192 (ask_chat)
+backend/app/application/preview_app/codegen/generate.py: loop@517 ask@529 (ask_chat)
+backend/app/application/preview_app/codegen/generate.py: loop@877 ask@921 (ask_chat)
+backend/app/application/preview_app/quality_repair.py: loop@388 ask@393 (ask_chat)
+backend/app/application/preview_app/refinement/workspace_patch.py: loop@77 ask@90 (ask_chat)
+backend/app/application/preview_app/refinement/workspace_patch.py: loop@253 ask@254 (ask_chat)
+backend/app/application/services/page_experience.py: loop@418 ask@421 (ask_chat)
+backend/app/application/services/page_experience.py: loop@464 ask@467 (ask_chat)
+lexical loop+ask sites: 11
+
+== (2) full ask-site census (grep) ==
+backend/app/application/appspec/generation.py:248:            return self.provider.ask_chat(model, messages, **kwargs)
+backend/app/application/appspec/generation.py:256:            return self.provider.ask_vision(model, prompt, image_path)
+backend/app/application/appspec/builder.py:165:        raw = ai_provider.ask_chat(model, messages, **ask_kwargs)
+backend/app/application/appspec/builder.py:175:            raw = ai_provider.ask_chat(model, messages, **ask_kwargs)
+backend/app/application/pipelines/reference_analysis.py:55:        result = ai_provider.ask_chat(
+backend/app/application/pipelines/reference_analysis.py:76:        result = ai_provider.ask_vision(
+backend/app/application/pipelines/blueprint.py:55:                result = ai_provider.ask_chat(model, messages)
+backend/app/application/pipelines/technical_plan.py:24:        result = ai_provider.ask_chat(settings.CODER_MODEL, [{"role": "user", "content": prompt}])
+backend/app/application/pipelines/technical_plan.py:26:        result = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+backend/app/application/pipelines/build_plans.py:282:        raw_text = ai_provider.ask_chat(
+backend/app/application/pipelines/proposal.py:35:    result = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+backend/app/application/pipelines/visual_demo.py:54:            response = ai_provider.ask_chat(
+backend/app/application/rollout/canary_service.py:244:        resp = provider.complete(prompt=f"canary:{request_id}", max_tokens=128)
+backend/app/application/preview_app/ai_budget.py:93:        return self.provider.ask_chat(model, messages, **kwargs)
+backend/app/application/preview_app/ai_budget.py:98:        return self.provider.ask_vision(model, prompt, image_path)
+backend/app/application/preview_app/quality_repair.py:393:                raw = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/fix_agent.py:192:            raw = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/generate.py:344:            raw = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/generate.py:529:                raw = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/generate.py:620:                    raw = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/generate.py:871:        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=16000)
+backend/app/application/preview_app/codegen/generate.py:921:            raw2 = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/architect.py:67:                raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+backend/app/application/preview_app/codegen/critic.py:103:        raw = ai_provider.ask_chat(settings.CRITIC_MODEL, [{"role": "user", "content": prompt}], max_tokens=2000)
+backend/app/application/preview_app/codegen/critic.py:120:            raw_retry = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/critic.py:191:        raw = ai_provider.ask_vision(_vision_model(), prompt, screenshot_path)
+backend/app/application/preview_app/codegen/critic.py:208:            raw_retry = ai_provider.ask_vision(
+backend/app/application/preview_app/codegen/critic.py:298:        raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
+backend/app/application/preview_app/codegen/critic.py:328:            raw2 = ai_provider.ask_chat(
+backend/app/application/preview_app/codegen/mock.py:231:            raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
+backend/app/application/preview_app/refinement/workspace_patch.py:90:                retry_raw = ai_provider.ask_chat(
+backend/app/application/preview_app/refinement/workspace_patch.py:254:        raw = ai_provider.ask_chat(
+backend/app/application/services/site_chat.py:188:            raw = ai.ask_chat(
+backend/app/application/services/preview_parser.py:69:                response = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+backend/app/application/services/solution_edit.py:307:    raw = ai.ask_chat(
+backend/app/application/services/page_experience.py:252:        raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=28000)
+backend/app/application/services/page_experience.py:421:                raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+backend/app/application/services/page_experience.py:467:                raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
+backend/app/application/services/page_experience.py:513:            raw = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
+backend/app/application/services/preview_refinement.py:260:        response = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+
+== (3) live model config (docker exec bmv-api, resolved settings — NOT .env) ==
+TEXT_MODEL = google/gemini-3-flash-preview
+ARCHITECT_MODEL = anthropic/claude-haiku-4.5
+CRITIC_MODEL = anthropic/claude-haiku-4.5
+PREVIEW_APP_MODEL = deepseek/deepseek-v4-pro
+FIX_MODEL = z-ai/glm-5.2:nitro
+QUALITY_FIX_MODEL = z-ai/glm-5.2:nitro
+CODER_MODEL = qwen/qwen-2.5-coder-32b-instruct
+VISION_MODEL = google/gemini-2.5-flash
+APPSPEC_MODEL = google/gemini-2.5-flash
+APPSPEC_REPAIR_MODEL = google/gemini-2.5-flash
+APPSPEC_COVERAGE_MODEL = google/gemini-2.5-flash
+APPSPEC_TRANSPORT_FALLBACK_MODEL = anthropic/claude-haiku-4.5
+PREVIEW_APP_TRANSPORT_FALLBACK_MODEL = anthropic/claude-haiku-4.5
+BLUEPRINT_TRANSPORT_FALLBACK_MODEL = anthropic/claude-haiku-4.5
+SITE_CHAT_MODEL = openrouter/free
+AI_PROVIDER = openrouter
+APPSPEC_MODE = on
+PREVIEW_SCAFFOLD_FIRST = True
+PREVIEW_SCAFFOLD_SLOT_FILL = True
+APPSPEC_MAX_REPAIR_ATTEMPTS = 3
+APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS = 1

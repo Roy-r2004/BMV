@@ -1,0 +1,746 @@
+{
+  "meta": {
+    "script": "latency_convolution.py",
+    "session": 25,
+    "generated_at": "2026-08-07T20:57:30.946798+00:00",
+    "window_start_request": 129,
+    "seed": 20260807,
+    "draws": 200000,
+    "table_rows_total": 3933,
+    "complete_runs": [
+      129,
+      132,
+      135,
+      140,
+      141,
+      142,
+      144,
+      145
+    ],
+    "n_complete_runs": 8,
+    "ask_rows_in_window": 234
+  },
+  "per_call": {
+    "p50_s": 16.5,
+    "p95_s": 117.0,
+    "p95_over_p50": 7.08,
+    "nonzero_p50_s": 26.7,
+    "nonzero_p95_s": 120.0,
+    "nonzero_p95_over_p50": 4.49,
+    "zero_ms_refusal_rows": 64
+  },
+  "wall_span_convolution": {
+    "stages": {
+      "analyze": {
+        "runs_present": 2,
+        "n_runs": 8,
+        "calls_min": 0,
+        "calls_max": 1,
+        "p50_s": 0.0,
+        "p95_s": 9.1,
+        "mean_s": 2.2,
+        "share_of_mean": 0.004
+      },
+      "blueprint": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 2,
+        "p50_s": 13.0,
+        "p95_s": 15.0,
+        "mean_s": 13.0,
+        "share_of_mean": 0.0232
+      },
+      "appspec": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 2,
+        "calls_max": 5,
+        "p50_s": 100.2,
+        "p95_s": 119.0,
+        "mean_s": 89.6,
+        "share_of_mean": 0.1602
+      },
+      "demo": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 1,
+        "p50_s": 24.4,
+        "p95_s": 25.8,
+        "mean_s": 21.8,
+        "share_of_mean": 0.039
+      },
+      "planning": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 2,
+        "calls_max": 2,
+        "p50_s": 31.9,
+        "p95_s": 38.6,
+        "mean_s": 33.0,
+        "share_of_mean": 0.059
+      },
+      "architect": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 2,
+        "p50_s": 66.4,
+        "p95_s": 172.2,
+        "mean_s": 80.3,
+        "share_of_mean": 0.1436
+      },
+      "codegen": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 4,
+        "calls_max": 9,
+        "p50_s": 141.5,
+        "p95_s": 241.5,
+        "mean_s": 160.6,
+        "share_of_mean": 0.2872
+      },
+      "seed": {
+        "runs_present": 7,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 1,
+        "p50_s": 97.3,
+        "p95_s": 120.0,
+        "mean_s": 78.8,
+        "share_of_mean": 0.141
+      },
+      "refine": {
+        "runs_present": 5,
+        "n_runs": 8,
+        "calls_min": 0,
+        "calls_max": 5,
+        "p50_s": 10.5,
+        "p95_s": 81.5,
+        "mean_s": 28.7,
+        "share_of_mean": 0.0514
+      },
+      "design_critic": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 2,
+        "calls_max": 8,
+        "p50_s": 29.6,
+        "p95_s": 115.4,
+        "mean_s": 45.9,
+        "share_of_mean": 0.0821
+      },
+      "fix_agent": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 6,
+        "calls_max": 7,
+        "p50_s": 0.0,
+        "p95_s": 45.2,
+        "mean_s": 10.1,
+        "share_of_mean": 0.018
+      },
+      "(remainder)": {
+        "runs_present": 5,
+        "n_runs": 8,
+        "calls_min": null,
+        "calls_max": null,
+        "p50_s": 8.7,
+        "p95_s": 31.6,
+        "mean_s": -5.1,
+        "share_of_mean": -0.0092
+      }
+    },
+    "mc_p50_s": 554.3,
+    "mc_p95_s": 760.4,
+    "mc_mean_s": 559.2
+  },
+  "ai_total_convolution": {
+    "stages": {
+      "analyze": {
+        "runs_present": 2,
+        "n_runs": 8,
+        "calls_min": 0,
+        "calls_max": 1,
+        "p50_s": 0.0,
+        "p95_s": 9.1,
+        "mean_s": 2.2,
+        "share_of_mean": 0.0025
+      },
+      "blueprint": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 2,
+        "p50_s": 13.0,
+        "p95_s": 15.0,
+        "mean_s": 13.0,
+        "share_of_mean": 0.0147
+      },
+      "appspec": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 2,
+        "calls_max": 5,
+        "p50_s": 100.1,
+        "p95_s": 118.9,
+        "mean_s": 89.5,
+        "share_of_mean": 0.1013
+      },
+      "demo": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 1,
+        "p50_s": 24.4,
+        "p95_s": 25.8,
+        "mean_s": 21.8,
+        "share_of_mean": 0.0247
+      },
+      "planning": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 2,
+        "calls_max": 2,
+        "p50_s": 30.1,
+        "p95_s": 36.6,
+        "mean_s": 29.8,
+        "share_of_mean": 0.0337
+      },
+      "architect": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 2,
+        "p50_s": 66.4,
+        "p95_s": 172.2,
+        "mean_s": 80.3,
+        "share_of_mean": 0.0909
+      },
+      "codegen": {
+        "runs_present": 8,
+        "n_runs": 8,
+        "calls_min": 4,
+        "calls_max": 9,
+        "p50_s": 443.9,
+        "p95_s": 625.2,
+        "mean_s": 449.1,
+        "share_of_mean": 0.5082
+      },
+      "seed": {
+        "runs_present": 7,
+        "n_runs": 8,
+        "calls_min": 1,
+        "calls_max": 1,
+        "p50_s": 97.3,
+        "p95_s": 120.0,
+        "mean_s": 78.8,
+        "share_of_mean": 0.0892
+      },
+      "refine": {
+        "runs_present": 5,
+        "n_runs": 8,
+        "calls_min": 0,
+        "calls_max": 5,
+        "p50_s": 21.0,
+        "p95_s": 190.5,
+        "mean_s": 67.1,
+        "share_of_mean": 0.076
+      },
+      "design_critic": {
+        "runs_present": 5,
+        "n_runs": 8,
+        "calls_min": 2,
+        "calls_max": 8,
+        "p50_s": 44.9,
+        "p95_s": 98.7,
+        "mean_s": 41.6,
+        "share_of_mean": 0.0471
+      },
+      "fix_agent": {
+        "runs_present": 2,
+        "n_runs": 8,
+        "calls_min": 6,
+        "calls_max": 7,
+        "p50_s": 0.0,
+        "p95_s": 44.2,
+        "mean_s": 9.7,
+        "share_of_mean": 0.011
+      }
+    },
+    "mc_p50_s": 881.1,
+    "mc_p95_s": 1177.0,
+    "mc_mean_s": 883.7
+  },
+  "anchors": {
+    "measured_wall_p50_s": 558.7,
+    "measured_wall_p95_s": 568.5,
+    "measured_wall_min_s": 552.0,
+    "measured_wall_max_s": 570.5,
+    "real_ai_total_p50_s": 873.8,
+    "gap_convolved_minus_measured_p50_s": -4.4,
+    "gap_convolved_minus_measured_p95_s": 191.9
+  },
+  "per_run": {
+    "129": {
+      "wall_s": 560.5,
+      "sum_stage_spans_s": 538.6,
+      "remainder_s": 22.0,
+      "ai_total_s": 897.5,
+      "stages": {
+        "analyze": {
+          "calls": 1,
+          "ai_total_s": 9.3,
+          "wall_span_s": 9.3
+        },
+        "blueprint": {
+          "calls": 1,
+          "ai_total_s": 11.5,
+          "wall_span_s": 11.5
+        },
+        "appspec": {
+          "calls": 5,
+          "ai_total_s": 105.3,
+          "wall_span_s": 105.4
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 24.0,
+          "wall_span_s": 24.0
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 37.7,
+          "wall_span_s": 38.4
+        },
+        "architect": {
+          "calls": 2,
+          "ai_total_s": 221.0,
+          "wall_span_s": 221.0
+        },
+        "codegen": {
+          "calls": 5,
+          "ai_total_s": 488.8,
+          "wall_span_s": 129.0
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        },
+        "design_critic": {
+          "calls": 2,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        }
+      }
+    },
+    "132": {
+      "wall_s": 559.7,
+      "sum_stage_spans_s": 535.6,
+      "remainder_s": 24.0,
+      "ai_total_s": 904.0,
+      "stages": {
+        "blueprint": {
+          "calls": 1,
+          "ai_total_s": 12.7,
+          "wall_span_s": 12.7
+        },
+        "appspec": {
+          "calls": 3,
+          "ai_total_s": 124.0,
+          "wall_span_s": 124.1
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 24.9,
+          "wall_span_s": 24.9
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 34.6,
+          "wall_span_s": 38.6
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 73.2,
+          "wall_span_s": 73.2
+        },
+        "codegen": {
+          "calls": 8,
+          "ai_total_s": 614.7,
+          "wall_span_s": 242.2
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 20.0,
+          "wall_span_s": 20.0
+        },
+        "design_critic": {
+          "calls": 5,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        }
+      }
+    },
+    "135": {
+      "wall_s": 553.4,
+      "sum_stage_spans_s": 536.2,
+      "remainder_s": 17.2,
+      "ai_total_s": 714.0,
+      "stages": {
+        "blueprint": {
+          "calls": 2,
+          "ai_total_s": 14.5,
+          "wall_span_s": 14.6
+        },
+        "appspec": {
+          "calls": 4,
+          "ai_total_s": 78.9,
+          "wall_span_s": 78.9
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 25.2,
+          "wall_span_s": 25.2
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 20.9,
+          "wall_span_s": 24.7
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 38.5,
+          "wall_span_s": 38.5
+        },
+        "codegen": {
+          "calls": 4,
+          "ai_total_s": 399.0,
+          "wall_span_s": 240.0
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 96.4,
+          "wall_span_s": 96.4
+        },
+        "design_critic": {
+          "calls": 5,
+          "ai_total_s": 39.0,
+          "wall_span_s": 17.0
+        },
+        "refine": {
+          "calls": 2,
+          "ai_total_s": 1.5,
+          "wall_span_s": 0.8
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        }
+      }
+    },
+    "140": {
+      "wall_s": 553.0,
+      "sum_stage_spans_s": 602.4,
+      "remainder_s": -49.4,
+      "ai_total_s": 850.2,
+      "stages": {
+        "blueprint": {
+          "calls": 2,
+          "ai_total_s": 14.3,
+          "wall_span_s": 14.3
+        },
+        "appspec": {
+          "calls": 4,
+          "ai_total_s": 102.4,
+          "wall_span_s": 102.5
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 23.9,
+          "wall_span_s": 23.9
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 32.4,
+          "wall_span_s": 36.4
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 59.5,
+          "wall_span_s": 59.5
+        },
+        "codegen": {
+          "calls": 6,
+          "ai_total_s": 309.7,
+          "wall_span_s": 113.7
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 56.1,
+          "wall_span_s": 56.1
+        },
+        "design_critic": {
+          "calls": 5,
+          "ai_total_s": 71.0,
+          "wall_span_s": 103.8
+        },
+        "refine": {
+          "calls": 3,
+          "ai_total_s": 159.8,
+          "wall_span_s": 68.4
+        },
+        "fix_agent": {
+          "calls": 7,
+          "ai_total_s": 21.2,
+          "wall_span_s": 23.9
+        }
+      }
+    },
+    "141": {
+      "wall_s": 564.7,
+      "sum_stage_spans_s": 587.3,
+      "remainder_s": -22.6,
+      "ai_total_s": 1136.0,
+      "stages": {
+        "blueprint": {
+          "calls": 1,
+          "ai_total_s": 11.4,
+          "wall_span_s": 11.4
+        },
+        "appspec": {
+          "calls": 2,
+          "ai_total_s": 55.8,
+          "wall_span_s": 55.8
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 25.3,
+          "wall_span_s": 25.3
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 28.7,
+          "wall_span_s": 31.1
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 59.5,
+          "wall_span_s": 59.5
+        },
+        "codegen": {
+          "calls": 9,
+          "ai_total_s": 514.6,
+          "wall_span_s": 149.8
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 120.0,
+          "wall_span_s": 120.0
+        },
+        "design_critic": {
+          "calls": 8,
+          "ai_total_s": 113.5,
+          "wall_span_s": 82.5
+        },
+        "refine": {
+          "calls": 5,
+          "ai_total_s": 207.0,
+          "wall_span_s": 51.8
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        }
+      }
+    },
+    "142": {
+      "wall_s": 557.8,
+      "sum_stage_spans_s": 557.6,
+      "remainder_s": 0.2,
+      "ai_total_s": 823.4,
+      "stages": {
+        "blueprint": {
+          "calls": 2,
+          "ai_total_s": 15.3,
+          "wall_span_s": 15.3
+        },
+        "appspec": {
+          "calls": 3,
+          "ai_total_s": 97.8,
+          "wall_span_s": 97.9
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 21.7,
+          "wall_span_s": 21.7
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 31.5,
+          "wall_span_s": 32.3
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 74.6,
+          "wall_span_s": 74.6
+        },
+        "codegen": {
+          "calls": 6,
+          "ai_total_s": 371.1,
+          "wall_span_s": 133.2
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 120.0,
+          "wall_span_s": 120.0
+        },
+        "design_critic": {
+          "calls": 5,
+          "ai_total_s": 50.8,
+          "wall_span_s": 42.2
+        },
+        "refine": {
+          "calls": 2,
+          "ai_total_s": 40.5,
+          "wall_span_s": 20.3
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        }
+      }
+    },
+    "144": {
+      "wall_s": 552.0,
+      "sum_stage_spans_s": 620.0,
+      "remainder_s": -68.0,
+      "ai_total_s": 769.4,
+      "stages": {
+        "blueprint": {
+          "calls": 2,
+          "ai_total_s": 13.3,
+          "wall_span_s": 13.3
+        },
+        "appspec": {
+          "calls": 3,
+          "ai_total_s": 42.3,
+          "wall_span_s": 42.4
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 26.1,
+          "wall_span_s": 26.1
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 25.5,
+          "wall_span_s": 30.8
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 34.5,
+          "wall_span_s": 34.5
+        },
+        "codegen": {
+          "calls": 4,
+          "ai_total_s": 264.4,
+          "wall_span_s": 86.1
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 120.0,
+          "wall_span_s": 120.0
+        },
+        "design_critic": {
+          "calls": 4,
+          "ai_total_s": 58.4,
+          "wall_span_s": 121.6
+        },
+        "refine": {
+          "calls": 2,
+          "ai_total_s": 128.3,
+          "wall_span_s": 88.6
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 56.6,
+          "wall_span_s": 56.6
+        }
+      }
+    },
+    "145": {
+      "wall_s": 570.5,
+      "sum_stage_spans_s": 534.9,
+      "remainder_s": 35.7,
+      "ai_total_s": 970.7,
+      "stages": {
+        "analyze": {
+          "calls": 1,
+          "ai_total_s": 8.7,
+          "wall_span_s": 8.7
+        },
+        "blueprint": {
+          "calls": 1,
+          "ai_total_s": 11.0,
+          "wall_span_s": 11.0
+        },
+        "appspec": {
+          "calls": 4,
+          "ai_total_s": 109.5,
+          "wall_span_s": 109.6
+        },
+        "demo": {
+          "calls": 1,
+          "ai_total_s": 3.4,
+          "wall_span_s": 3.4
+        },
+        "planning": {
+          "calls": 2,
+          "ai_total_s": 27.2,
+          "wall_span_s": 31.4
+        },
+        "architect": {
+          "calls": 1,
+          "ai_total_s": 81.7,
+          "wall_span_s": 81.7
+        },
+        "codegen": {
+          "calls": 7,
+          "ai_total_s": 630.9,
+          "wall_span_s": 190.7
+        },
+        "seed": {
+          "calls": 1,
+          "ai_total_s": 98.2,
+          "wall_span_s": 98.2
+        },
+        "design_critic": {
+          "calls": 5,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        },
+        "fix_agent": {
+          "calls": 6,
+          "ai_total_s": 0.0,
+          "wall_span_s": 0.0
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+corpus: 27 packs, 8 recipes, map total over both — OK
+ids: every mapped recipe id is a real RECIPES key, no empties/dupes — OK
+reachability: 16 public / 8 ops / 3 unreachable (account-tracking, checkout-cart, member-hub) — OK
+hub variants: app=['dense-ops', 'dense-ops-floor', 'dense-ops-ledger'] marketing=['bold-retail', 'craft', 'editorial', 'nocturne', 'warm-service'] — OK
+contracts: ops emit exactly ['dense-ops', 'dense-ops-floor', 'dense-ops-ledger']; public emit ['warm-service'] (marketing) — OK
+selection replay: 24 reachable packs each self-select and hint into the map; 3 unreachable stay unselectable — OK
+exactness: every map entry equals its derived compatible set — OK
+fallback rotation: seeds 0..7 cover all 8 recipes — OK
+fail-closed pairing: mismatched hint keeps recipe face ['hero', 'process', 'showcase', 'credentials', 'cta', 'footer']; matched hint applies template order ['hero', 'showcase', 'process', 'cta', 'footer'] — OK
+json: /repo/docs/evidence/session25/compatible-recipes-census.json
+
+VERDICT: PASS — map covers HEAD exactly (16x5 public + 8x3 ops + 3x1 unreachable pairings).

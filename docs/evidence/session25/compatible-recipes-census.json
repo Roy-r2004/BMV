@@ -1,0 +1,408 @@
+{
+  "question": "every HEAD-producible pack->recipe pairing is in the map",
+  "packs": 27,
+  "recipes": 8,
+  "public_packs": [
+    "agency-portfolio-home",
+    "art-gallery-portfolio-home",
+    "auto-dealership-home",
+    "barber-grooming-home",
+    "clinic-dental-home",
+    "education-tutoring-home",
+    "fashion-retail-storefront",
+    "fitness-studio-home",
+    "home-services-trades",
+    "hotel-hospitality-home",
+    "law-professional-home",
+    "pottery-craft-studio",
+    "real-estate-showcase",
+    "restaurant-cafe-home",
+    "retail-store-home",
+    "spa-wellness-home"
+  ],
+  "ops_packs": [
+    "booking-calendar-ops",
+    "clinic-front-desk-ops",
+    "hedge-fund-trading-desk",
+    "inventory-catalog-ops",
+    "leads-crm-list",
+    "owner-kpi-dashboard",
+    "saas-accounting",
+    "staff-floor-ops"
+  ],
+  "unreachable_packs": [
+    "account-tracking",
+    "checkout-cart",
+    "member-hub"
+  ],
+  "marketing_recipes": [
+    "editorial",
+    "warm-service",
+    "bold-retail",
+    "nocturne",
+    "craft"
+  ],
+  "ops_contract_recipes": [
+    "dense-ops",
+    "dense-ops-ledger",
+    "dense-ops-floor"
+  ],
+  "contract_probes": [
+    {
+      "probe": "internal_ops/trading",
+      "kind": "internal_ops",
+      "subtype": "trading",
+      "recipe_id": "dense-ops-floor"
+    },
+    {
+      "probe": "internal_ops/ops",
+      "kind": "internal_ops",
+      "subtype": "ops",
+      "recipe_id": "dense-ops"
+    },
+    {
+      "probe": "saas_workspace/accounting",
+      "kind": "saas_workspace",
+      "subtype": "accounting",
+      "recipe_id": "dense-ops-ledger"
+    },
+    {
+      "probe": "saas_workspace/generic",
+      "kind": "saas_workspace",
+      "subtype": "generic",
+      "recipe_id": "dense-ops"
+    },
+    {
+      "probe": "booking_service",
+      "kind": "booking_service",
+      "subtype": "booking",
+      "recipe_id": "warm-service"
+    },
+    {
+      "probe": "storefront",
+      "kind": "storefront",
+      "subtype": "storefront",
+      "recipe_id": "warm-service"
+    }
+  ],
+  "deterministic_pairings": [
+    {
+      "pack": "agency-portfolio-home",
+      "surface": "public",
+      "picked": "agency-portfolio-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "art-gallery-portfolio-home",
+      "surface": "public",
+      "picked": "art-gallery-portfolio-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "auto-dealership-home",
+      "surface": "public",
+      "picked": "auto-dealership-home",
+      "hint": "bold-retail"
+    },
+    {
+      "pack": "barber-grooming-home",
+      "surface": "public",
+      "picked": "barber-grooming-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "clinic-dental-home",
+      "surface": "public",
+      "picked": "clinic-dental-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "education-tutoring-home",
+      "surface": "public",
+      "picked": "education-tutoring-home",
+      "hint": "warm-service"
+    },
+    {
+      "pack": "fashion-retail-storefront",
+      "surface": "public",
+      "picked": "fashion-retail-storefront",
+      "hint": "bold-retail"
+    },
+    {
+      "pack": "fitness-studio-home",
+      "surface": "public",
+      "picked": "fitness-studio-home",
+      "hint": "warm-service"
+    },
+    {
+      "pack": "home-services-trades",
+      "surface": "public",
+      "picked": "home-services-trades",
+      "hint": "warm-service"
+    },
+    {
+      "pack": "hotel-hospitality-home",
+      "surface": "public",
+      "picked": "hotel-hospitality-home",
+      "hint": "nocturne"
+    },
+    {
+      "pack": "law-professional-home",
+      "surface": "public",
+      "picked": "law-professional-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "pottery-craft-studio",
+      "surface": "public",
+      "picked": "pottery-craft-studio",
+      "hint": "craft"
+    },
+    {
+      "pack": "real-estate-showcase",
+      "surface": "public",
+      "picked": "real-estate-showcase",
+      "hint": "bold-retail"
+    },
+    {
+      "pack": "restaurant-cafe-home",
+      "surface": "public",
+      "picked": "restaurant-cafe-home",
+      "hint": "warm-service"
+    },
+    {
+      "pack": "retail-store-home",
+      "surface": "public",
+      "picked": "retail-store-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "spa-wellness-home",
+      "surface": "public",
+      "picked": "spa-wellness-home",
+      "hint": "editorial"
+    },
+    {
+      "pack": "booking-calendar-ops",
+      "surface": "ops",
+      "picked": "booking-calendar-ops",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "clinic-front-desk-ops",
+      "surface": "ops",
+      "picked": "clinic-front-desk-ops",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "hedge-fund-trading-desk",
+      "surface": "ops",
+      "picked": "hedge-fund-trading-desk",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "inventory-catalog-ops",
+      "surface": "ops",
+      "picked": "inventory-catalog-ops",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "leads-crm-list",
+      "surface": "ops",
+      "picked": "leads-crm-list",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "owner-kpi-dashboard",
+      "surface": "ops",
+      "picked": "owner-kpi-dashboard",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "saas-accounting",
+      "surface": "ops",
+      "picked": "saas-accounting",
+      "hint": "dense-ops"
+    },
+    {
+      "pack": "staff-floor-ops",
+      "surface": "ops",
+      "picked": "staff-floor-ops",
+      "hint": "dense-ops"
+    }
+  ],
+  "fallback_rotation": [
+    "editorial",
+    "dense-ops",
+    "dense-ops-ledger",
+    "dense-ops-floor",
+    "warm-service",
+    "bold-retail",
+    "nocturne",
+    "craft"
+  ],
+  "map": {
+    "account-tracking": [
+      "dense-ops"
+    ],
+    "agency-portfolio-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "art-gallery-portfolio-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "auto-dealership-home": [
+      "bold-retail",
+      "editorial",
+      "warm-service",
+      "nocturne",
+      "craft"
+    ],
+    "barber-grooming-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "booking-calendar-ops": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "checkout-cart": [
+      "bold-retail"
+    ],
+    "clinic-dental-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "clinic-front-desk-ops": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "education-tutoring-home": [
+      "warm-service",
+      "editorial",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "fashion-retail-storefront": [
+      "bold-retail",
+      "editorial",
+      "warm-service",
+      "nocturne",
+      "craft"
+    ],
+    "fitness-studio-home": [
+      "warm-service",
+      "editorial",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "hedge-fund-trading-desk": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "home-services-trades": [
+      "warm-service",
+      "editorial",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "hotel-hospitality-home": [
+      "nocturne",
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "craft"
+    ],
+    "inventory-catalog-ops": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "law-professional-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "leads-crm-list": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "member-hub": [
+      "warm-service"
+    ],
+    "owner-kpi-dashboard": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "pottery-craft-studio": [
+      "craft",
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne"
+    ],
+    "real-estate-showcase": [
+      "bold-retail",
+      "editorial",
+      "warm-service",
+      "nocturne",
+      "craft"
+    ],
+    "restaurant-cafe-home": [
+      "warm-service",
+      "editorial",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "retail-store-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "saas-accounting": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ],
+    "spa-wellness-home": [
+      "editorial",
+      "warm-service",
+      "bold-retail",
+      "nocturne",
+      "craft"
+    ],
+    "staff-floor-ops": [
+      "dense-ops",
+      "dense-ops-ledger",
+      "dense-ops-floor"
+    ]
+  },
+  "verdict": "PASS \u2014 every HEAD-producible pairing is in the map; map has no extras"
+}

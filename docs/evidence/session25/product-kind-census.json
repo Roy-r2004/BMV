@@ -1,0 +1,1265 @@
+{
+  "question": "product_kind distribution over stored runs; public vs ops split for the Phase-3 skeleton spend decision",
+  "expected_routes": 47,
+  "corpus_a": {
+    "source": "docs/evidence/preview-routes.json kind_context, re-classified by today's resolve_product_kind_contract",
+    "n": 47,
+    "kinds": {
+      "saas_workspace": 1,
+      "storefront": 40,
+      "booking_service": 6
+    },
+    "subtypes": {
+      "booking_service/booking": 6,
+      "saas_workspace/generic": 1,
+      "storefront/storefront": 40
+    },
+    "public_ops_split": {
+      "public": 46,
+      "ops": 1
+    },
+    "home_skeletons": {
+      "ops-dashboard": 1,
+      "public-home": 46
+    },
+    "page_skeletons": {
+      "ops-dashboard": 1,
+      "ops-list": 3,
+      "ops-settings": 1,
+      "public-home": 46,
+      "public-catalog": 40,
+      "public-detail": 40,
+      "public-service": 6,
+      "public-booking": 6
+    },
+    "per_request": {
+      "1": {
+        "business_name": "PlateSync ERP",
+        "kind": "saas_workspace",
+        "subtype": "generic",
+        "home_skeleton_id": "ops-dashboard",
+        "page_skeletons": [
+          "ops-dashboard",
+          "ops-list",
+          "ops-list",
+          "ops-list",
+          "ops-settings"
+        ]
+      },
+      "17": {
+        "business_name": "Jane Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "19": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "20": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "22": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "36": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "37": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "38": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "39": {
+        "business_name": "Alder & Ash Ceramics",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "40": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "41": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "43": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "44": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "45": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "46": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "47": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "48": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "62": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "64": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "65": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "66": {
+        "business_name": "Maison Vaillant",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "67": {
+        "business_name": "Atelier Rousseau",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "68": {
+        "business_name": "Galerie Aubert",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "69": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "70": {
+        "business_name": "Galerie Aubert",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "71": {
+        "business_name": "Atelier Vaugirard",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "73": {
+        "business_name": "Atelier Sorel",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "75": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-service",
+          "public-booking"
+        ]
+      },
+      "76": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "77": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "78": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-service",
+          "public-booking"
+        ]
+      },
+      "79": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "80": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "81": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-service",
+          "public-booking"
+        ]
+      },
+      "82": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "83": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "84": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-service",
+          "public-booking"
+        ]
+      },
+      "85": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "86": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "87": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-service",
+          "public-booking"
+        ]
+      },
+      "88": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "91": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "93": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-service",
+          "public-booking"
+        ]
+      },
+      "95": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "96": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "97": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      },
+      "98": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront",
+        "home_skeleton_id": "public-home",
+        "page_skeletons": [
+          "public-home",
+          "public-catalog",
+          "public-detail"
+        ]
+      }
+    }
+  },
+  "corpus_b": {
+    "source": "requests.generated_pages -> experience_plan.product_kind (live DB, stored at generation time)",
+    "requests_total": 131,
+    "with_generated_pages": 71,
+    "n": 66,
+    "kinds": {
+      "saas_workspace": 1,
+      "storefront": 56,
+      "booking_service": 6,
+      "internal_ops": 3
+    },
+    "subtypes": {
+      "booking_service/booking": 6,
+      "internal_ops/ops": 3,
+      "saas_workspace/accounting": 1,
+      "storefront/storefront": 56
+    },
+    "public_ops_split": {
+      "public": 62,
+      "ops": 4
+    },
+    "uncovered": [
+      {
+        "id": 1,
+        "why": "experience_plan without product_kind (pre-kind era)"
+      },
+      {
+        "id": 8,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 17,
+        "why": "experience_plan without product_kind (pre-kind era)"
+      },
+      {
+        "id": 18,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 21,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 23,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 24,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 25,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 26,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 27,
+        "why": "no experience_plan (bundle keys: ['preview_contract'])"
+      },
+      {
+        "id": 28,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 29,
+        "why": "no experience_plan (bundle keys: ['preview_contract'])"
+      },
+      {
+        "id": 30,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 31,
+        "why": "no experience_plan (bundle keys: ['preview_contract'])"
+      },
+      {
+        "id": 32,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 33,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 34,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 35,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 42,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 49,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 50,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 51,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 52,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 53,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 54,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 55,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 56,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 57,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 58,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 59,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 60,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 61,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 63,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 72,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 74,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 89,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 90,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 92,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 94,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 99,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 100,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 101,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 102,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 113,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 114,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 115,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 116,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 117,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 118,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 119,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 120,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 121,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 123,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 126,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 127,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 128,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 130,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 131,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 133,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 134,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 136,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 137,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 138,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 139,
+        "why": "no generated_pages (never finalized)"
+      },
+      {
+        "id": 143,
+        "why": "no generated_pages (never finalized)"
+      }
+    ],
+    "per_request": {
+      "19": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "saas_workspace",
+        "subtype": "accounting"
+      },
+      "20": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "22": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "36": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "37": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "38": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "39": {
+        "business_name": "Alder & Ash Ceramics",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "40": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "41": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "43": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "44": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "45": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "46": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "47": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "48": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "62": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "64": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "65": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "66": {
+        "business_name": "Maison Vaillant",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "67": {
+        "business_name": "Atelier Rousseau",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "68": {
+        "business_name": "Galerie Aubert",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "69": {
+        "business_name": "Jeanne Kassab Art",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "70": {
+        "business_name": "Galerie Aubert",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "71": {
+        "business_name": "Atelier Vaugirard",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "73": {
+        "business_name": "Atelier Sorel",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "75": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking"
+      },
+      "76": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "77": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "78": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking"
+      },
+      "79": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "80": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "81": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking"
+      },
+      "82": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "83": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "84": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking"
+      },
+      "85": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "86": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "87": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking"
+      },
+      "88": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "91": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "93": {
+        "business_name": "Northgate Dental Studio",
+        "kind": "booking_service",
+        "subtype": "booking"
+      },
+      "95": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "96": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "97": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "98": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "103": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "104": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "105": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "106": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "107": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "108": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "109": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "110": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "111": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "112": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "122": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "124": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "125": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "129": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "132": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "135": {
+        "business_name": "Harbor Dispatch Desk",
+        "kind": "internal_ops",
+        "subtype": "ops"
+      },
+      "140": {
+        "business_name": "Harbor Dispatch Desk",
+        "kind": "internal_ops",
+        "subtype": "ops"
+      },
+      "141": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "142": {
+        "business_name": "Cedar Point Lodge",
+        "kind": "storefront",
+        "subtype": "storefront"
+      },
+      "144": {
+        "business_name": "Harbor Dispatch Desk",
+        "kind": "internal_ops",
+        "subtype": "ops"
+      },
+      "145": {
+        "business_name": "Osteria Vinci",
+        "kind": "storefront",
+        "subtype": "storefront"
+      }
+    }
+  },
+  "overlap": {
+    "ids_in_both": [
+      19,
+      20,
+      22,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      62,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      73,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      91,
+      93,
+      95,
+      96,
+      97,
+      98
+    ],
+    "n": 45,
+    "agree": 44,
+    "drift": [
+      {
+        "id": 19,
+        "stored": "saas_workspace",
+        "rederived": "storefront",
+        "business_name": "Jeanne Kassab Art"
+      }
+    ]
+  },
+  "merged": {
+    "dedup": "union by request id (archive keys verified as request ids via business_name cross-check)",
+    "n": 68,
+    "stored_wins": {
+      "kinds": {
+        "saas_workspace": 2,
+        "storefront": 57,
+        "booking_service": 6,
+        "internal_ops": 3
+      },
+      "public_ops_split": {
+        "public": 63,
+        "ops": 5
+      }
+    },
+    "rederived_wins": {
+      "kinds": {
+        "saas_workspace": 1,
+        "storefront": 58,
+        "booking_service": 6,
+        "internal_ops": 3
+      },
+      "public_ops_split": {
+        "public": 64,
+        "ops": 4
+      }
+    }
+  },
+  "alternatives_ruled_out": {
+    "requests.product_kind column": "does not exist",
+    "app_spec_revisions.source_snapshot_json": "capture_request_source only; derived_context/product_face not persisted (0/114 latest revisions carry it)",
+    "v2 preview_contract blobs": "artifact refs only, no kind"
+  }
+}

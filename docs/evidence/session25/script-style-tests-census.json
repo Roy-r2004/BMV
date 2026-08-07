@@ -1,0 +1,48 @@
+{
+  "question": "roadmap 0.9: 3 script-style test files, 2061 lines \u2014 what remains?",
+  "audit_commit": "614c086",
+  "conversion_commit": "115375f",
+  "trio": [
+    {
+      "file": "tests/preview_app/test_catalogue_contract.py",
+      "lines_now": 2390,
+      "test_functions": 13,
+      "lines_at_614c086": 1782
+    },
+    {
+      "file": "tests/preview_app/test_phase5_ui_alias_imports.py",
+      "lines_now": 246,
+      "test_functions": 4,
+      "lines_at_614c086": 127
+    },
+    {
+      "file": "tests/preview_app/test_safe_stub_braces.py",
+      "lines_now": 173,
+      "test_functions": 5,
+      "lines_at_614c086": 152
+    }
+  ],
+  "trio_lines_at_audit": 2061,
+  "roadmap_total": 2061,
+  "collection_guard": "tests/test_every_test_file_is_collected.py, _EXEMPT empty",
+  "non_test_files_under_tests": [
+    "conftest.py",
+    "rollout/harness.py",
+    "rollout/helpers.py"
+  ],
+  "executed_by": {
+    "as_script": [],
+    "as_pytest_target": [
+      "backend/scripts/cli/mutate_skeleton_contract_budget.py:43: test_catalogue_contract.py",
+      "backend/scripts/cli/mutate_page_write_allowlist.py:32: test_phase5_ui_alias_imports.py",
+      "backend/scripts/cli/mutate_slotfill_contract_retry.py:40: test_catalogue_contract.py",
+      "backend/scripts/cli/mutate_dead_nav_data.py:33: test_catalogue_contract.py",
+      "backend/scripts/cli/mutate_write_file_canonicalization.py:38: test_phase5_ui_alias_imports.py",
+      "backend/scripts/cli/mutate_write_file_canonicalization.py:40: test_catalogue_contract.py",
+      "backend/scripts/cli/mutate_detail_skeleton_assignment.py:44: test_catalogue_contract.py",
+      "backend/scripts/cli/mutate_fix_agent_route_context.py:37: test_catalogue_contract.py"
+    ],
+    "ci_note": "sole workflow is preview-template-tests.yml (vitest); backend pytest has no CI workflow"
+  },
+  "verdict": "RESIDUE IS ZERO: the row's trio is a subset of the eight files commit 115375f already converted; all three are collected pytest modules today"
+}

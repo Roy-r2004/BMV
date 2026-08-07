@@ -1,0 +1,64 @@
+silhouette_census — roadmap 3.7 baseline: distinct page silhouettes on HEAD's stored corpus
+tuple: (section sequence, skeleton, overlay, palette) | date 2026-08-07
+
+corpus (a): 58 archived workspaces — verified 67 tarball dirs, minus the documented
+2026-08-05 additions ['1', '93', '94', '95', '96', '97', '98', '101', '102'] -> 58 workspaces, 753 pages
+  page styles: 537 catalogue-contract scaffold / 216 freeform
+  page classes: 71 home, 91 catalogue, 591 other
+
+A. WORKSPACE SILHOUETTES — (section-component sequence, skeleton, overlay, palette)
+  all pages           209 distinct over  753 pages | top holds 45 = 6.0%
+  home pages           26 distinct over   71 pages | top holds 15 = 21.1%
+  catalogue pages      25 distinct over   91 pages | top holds 22 = 24.2%
+  (slot-name realization of the same tuple: 177 distinct, top 6.1%)
+  whole-site silhouettes: 58 distinct over 58 sites | top holds 1 = 1.7%
+
+  top 5 page silhouettes:
+     45x  skeleton=ops-list overlay=(none) palette=#0f766e
+          sections: PageHeader > FilterBar > DataTable
+     37x  skeleton=(none) overlay=(none) palette=#0f766e
+          sections: (no catalogue sections)
+     22x  skeleton=public-catalog overlay=(none) palette=#0f766e
+          sections: PageHeader > CatalogGrid > CTABand > BrandFooter
+     17x  skeleton=ops-detail overlay=(none) palette=#0f766e
+          sections: PageHeader > DataTable > ActivityFeed
+     17x  skeleton=public-detail overlay=(none) palette=#0f766e
+          sections: MarketingHero > CredentialStrip > InquiryPanel > CTABand > BrandFooter
+
+  per-component contribution (distinct values alone | tuple distinct without it, of 209):
+    section_sequence    81 distinct alone | drop it ->   91 (carries +118)
+    skeleton            14 distinct alone | drop it ->  203 (carries +6)
+    overlay              6 distinct alone | drop it ->  112 (carries +97)
+    palette              3 distinct alone | drop it ->  174 (carries +35)
+    overlay values   : {'(none)': 379, 'soft_glass': 128, 'warm_paper': 112, 'calm_air': 76, 'bold_ink': 46, 'night_floor': 12}
+    palette values   : {'#0f766e': 704, '#0f172a': 39, '#be185d': 10}
+    skeleton values  : {'(none)': 138, 'public-utility': 100, 'public-catalog': 88, 'public-detail': 86, 'ops-list': 80, 'public-home': 67, 'ops-detail': 65, 'ops-dashboard': 54, 'public-service': 38, 'ops-settings': 17, 'public-booking': 17, 'ops-ledger-home': 1, 'public-contact': 1, 'admin-auth': 1}
+    recipe ids (context, not in tuple): {'editorial': 47, 'warm-service': 9, 'dense-ops-ledger': 1, 'craft': 1}
+
+corpus (b): 47 kind_contexts, 637 routes — stored fields are skeleton_id +
+section_slots ONLY (no overlay, no palette is stored per route); the corpora are not
+fully comparable and this census does not pretend they are.
+  routes without skeleton_id: 47; without section_slots: 46
+
+B. KIND_CONTEXT SILHOUETTES — (section_slots, skeleton) [2-tuple, all the corpus stores]
+  all routes           38 distinct over  637 pages | top holds 101 = 15.9%
+  home routes           6 distinct over   62 pages | top holds 45 = 72.6%
+  catalogue routes      6 distinct over   61 pages | top holds 28 = 45.9%
+  whole-site (per kind_context): 47 distinct over 47 | top holds 1 = 2.1%
+  top 5 route silhouettes:
+    101x  skeleton=ops-list sections: header > filters > table
+     60x  skeleton=public-utility sections: header > workspace > footer
+     52x  skeleton=public-detail sections: hero > credentials > inquire > cta > footer
+     48x  skeleton=ops-detail sections: header > table > activity
+     46x  skeleton=(none) sections: (none stored)
+  per-component: section_sequence 35 distinct alone, skeleton 11 distinct alone
+
+C. COMBINED on the comparable 2-tuple (section sequence, skeleton) — workspace pages
+use slot names where scaffolded and catalogue component names where freeform (stated,
+not hidden); kind_context routes use their stored section_slots.
+  all pages+routes     75 distinct over 1390 pages | top holds 180 = 13.0%
+  tuples seen only in workspaces: 37; only in kind_contexts: 7; shared: 31
+  request-id overlap between corpora: 41 of 47 kind_contexts also have an archived workspace: ['17', '19', '20', '22', '36', '37', '38', '39', '40', '41', '43', '44', '45', '46', '47', '48', '62', '64', '65', '66', '67', '68', '69', '70', '71', '73', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '91']
+
+archived: /repo/docs/evidence/session25/silhouette-census.json
+silhouette_census: GREEN (all baked assumptions held)

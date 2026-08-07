@@ -1,0 +1,64 @@
+script-style-tests census — roadmap 0.9 residue (session 25)
+roadmap row total: 2061 lines over 3 files
+
+unique 3-subset of the audit-commit (614c086) counts:
+  tests/preview_app/test_catalogue_contract.py: 1782 lines then, 2390 now, 13 test_ functions, no __main__ block
+  tests/preview_app/test_phase5_ui_alias_imports.py: 127 lines then, 246 now, 4 test_ functions, no __main__ block
+  tests/preview_app/test_safe_stub_braces.py: 152 lines then, 173 now, 5 test_ functions, no __main__ block
+  sum then: 2061
+
+collection guard: present, _EXEMPT empty
+non-test_ files under tests/ (all known imported helpers): ['conftest.py', 'rollout/harness.py', 'rollout/helpers.py']
+
+executed-by sweep over .github/, scripts/, backend/scripts/:
+  as a script (python <file>): 0 — must be 0
+  as a pytest target (mutation harness SUITES): 8
+    backend/scripts/cli/mutate_skeleton_contract_budget.py:43: test_catalogue_contract.py
+    backend/scripts/cli/mutate_page_write_allowlist.py:32: test_phase5_ui_alias_imports.py
+    backend/scripts/cli/mutate_slotfill_contract_retry.py:40: test_catalogue_contract.py
+    backend/scripts/cli/mutate_dead_nav_data.py:33: test_catalogue_contract.py
+    backend/scripts/cli/mutate_write_file_canonicalization.py:38: test_phase5_ui_alias_imports.py
+    backend/scripts/cli/mutate_write_file_canonicalization.py:40: test_catalogue_contract.py
+    backend/scripts/cli/mutate_detail_skeleton_assignment.py:44: test_catalogue_contract.py
+    backend/scripts/cli/mutate_fix_agent_route_context.py:37: test_catalogue_contract.py
+
+verdict: RESIDUE IS ZERO: the row's trio is a subset of the eight files commit 115375f already converted; all three are collected pytest modules today
+json archived: /repo/docs/evidence/session25/script-style-tests-census.json
+
+================================================================================
+APPENDIX A — collection proof (session 25, docker run bmv-local-api, targeted)
+  python -m pytest tests/preview_app/test_catalogue_contract.py \
+    tests/preview_app/test_safe_stub_braces.py \
+    tests/preview_app/test_phase5_ui_alias_imports.py --collect-only -q
+  -> tail: "51 tests collected in 1.04s"
+  breakdown: test_catalogue_contract.py 42 ids (13 test_ functions, three
+  @pytest.mark.parametrize at lines 2052/2115/2162; solo --collect-only on the
+  file: "42 tests collected in 0.95s"), test_safe_stub_braces.py 5 ids,
+  test_phase5_ui_alias_imports.py 4 ids.
+
+APPENDIX B — run proof (same shape, -q, SUMMARY LINE):
+  "51 passed in 4.74s"
+
+APPENDIX C — historical identification (host git, not re-runnable in-container):
+  roadmap row: docs/PREVIEW_ROADMAP.md:1773 (written by 614c086, 2026-08-01)
+  never-collected test_*.py at 614c086 (git show 614c086:<f> | wc -l):
+    tests/preview_app/test_catalogue_contract.py        1782
+    tests/preview_app/test_brand_usage_contract.py       157
+    tests/preview_app/test_safe_stub_braces.py           152
+    tests/appspec/test_app_spec_persistence.py           139
+    tests/preview_app/test_phase5_ui_alias_imports.py    127
+    tests/infrastructure/test_logging.py                  18
+  unique 3-subset summing to 2,061: {1782, 152, 127} — no other triple hits it
+  (closest others: 2048, 2066, 2073, 2078, 2091).
+  conversion commit: 115375f "test(0.9): 2,375 lines of assertions that had
+  never run, and what they found" (2026-08-02) — converted all six plus
+  test_qa_probe.py (deleted, empty) and test_quote_fix.py; suite 1,265 -> 1,443
+  collected (roadmap line 903).
+  git log --follow on each trio file shows 115375f as its conversion point;
+  current files have no `if __name__ == "__main__"` and no `def main`.
+
+CI note: the only workflow in .github/workflows/ is preview-template-tests.yml
+(vitest for backend/preview-template-tests). Backend pytest has NO CI workflow;
+it is run locally by the orchestrator. So the answer to row 0.9's literal
+question "are they run by CI?" was NO then and the mechanism-level fix was
+115375f (collection) plus the collection guard (regression), not a CI change.
