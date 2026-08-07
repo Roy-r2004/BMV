@@ -108,9 +108,18 @@ measurements already in place:
   that does the work, because a floor 500 below the real count would let a third of the suite vanish
   quietly. Subset runs are exempt — every mutation driver runs two or three files.
 
-  **The "asserted in CI" half is open** and needs a pytest workflow. It was deliberately not written
-  blind: 1.10's lesson is that a CI job must be verified on the CI platform, and that job would have
-  failed its first run with local green hiding it.
+  **The "asserted in CI" half is DONE (session 25).** `.github/workflows/backend-pytest.yml`:
+  builds the api image from `Dockerfile.api` exactly as compose does (61 s cold on a hosted
+  runner — layer caching unnecessary), `npm ci`s the template with the image's own Node so the
+  catalogue typecheck test *runs* instead of silently skipping on a fresh checkout, then runs
+  the documented invocation verbatim (image tag aside) — both load-bearing halves included:
+  `pip install -q pytest` and `PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template`. Per 1.10's
+  lesson it was proven ON the CI platform before landing: branch push `ci/pytest-job`, run
+  31217828938, **green — `2058 passed, 1 skipped` in 94.07 s (job 174 s), skip count matching
+  the local baseline exactly** (the skip-shrink defect the npm ci step exists to prevent).
+  `push:` is deliberately unrestricted, unlike the vitest job: the backend suite must be
+  provable green on a working branch before any PR exists. Evidence:
+  `docs/evidence/session25/ci_backend_pytest_run.{json,txt}`.
 - **DoD 7 — route bijection. MEASURED, and the row is open on both halves.**
   `scripts/measure/route_bijection.py`, over the 42 stored architect route lists now archived at
   [`docs/evidence/architect-routes.json`](evidence/architect-routes.json) plus the workspace archive.
@@ -404,6 +413,61 @@ R3's audit finding closed); **the collapse guard** (`67062ff` — `_repair_colla
 at all three AI-repair sites, `repair_collapsed_parent_spec`, 143's fragment class can
 no longer spiral). Still parked on funded runs: R5's `TAIL_RESERVE_SECONDS` and the
 `freeform` rung. Suite 2,058 / 1 / 0.
+
+**Session-25 statuses (2026-08-07, second offline block the same night; key probed first —
+380.154/380, still dry):** R2 — **AUDIT DONE, row CLOSED except the six FILED verbatim
+sites** (table below; every one of the six plus two spot-checked DIFFERENT-ASK rows was
+independently adversarially re-verified against the code and CONFIRMED). DoD 9 — CI half
+DONE (`backend-pytest.yml`, proven green on the `ci/pytest-job` branch push before landing:
+run 31217828938, `2058 passed, 1 skipped` in 94.07 s, job 174 s, counts matching the local
+baseline exactly). DoD 6 — measurement half DONE (convolution numbers beside the parked
+p50 row, Phase 1 DoD). Phase 0: 0.1, 0.5, 0.9 ANSWERED (numbers in their rows). Phase 3:
+3.7's baseline half MEASURED, 3.2's backend half LANDED as inert data + census, 3.5's
+inventory TAKEN (all below). Suite 2,064 / 1 / 0 (+6: the five 3.2 map-consistency pins
+plus the collection guard's auto case for the new test file — verified by a collected-id
+diff against c5249dc, not assumed). Spend: $0.
+
+### R2 — the retry-site audit (session 25, 2026-08-07; offline, READ-ONLY; every model-retry loop in backend/app, exhaustively — AST sweep for asks inside loops + full ask-call census + call-graph tracing, live model config read from the running container)
+
+**50 rows: 26 DIFFERENT-ASK, 6 TRANSPORT-EXEMPT, 6 VERBATIM (FILED), 12 NO-RETRY.** Full
+table: `docs/evidence/session25/retry_site_audit.txt` (paste-ready), `.json`
+(machine-readable), `_sweep.txt` (raw sweep + live config). All landed R2 machinery
+verifies clean — appspec authoring's compact instruction + temp drop, coverage's
+corrective + attempt bump, slot_fill's validator-feedback translation, the repair loop's
+identical-error-set early stop, the blueprint ladder's classify-then-re-ask: each is
+DIFFERENT-ASK or correctly TRANSPORT-EXEMPT, with the variation proven to reach the
+outbound messages.
+
+**THE FINDING — the six VERBATIM rows are ONE defect shape:** quality-retry loops whose
+prompt varies only through state that advances when the previous attempt returned usable
+content. When the model answers garbage without raising (empty/truncated reply, non-empty
+unparseable body, no matching file), the no-progress branch re-asks the SAME model with a
+byte-identical prompt and params — none of the six passes a temperature, and temp>0 alone
+is not material variation. The sites:
+
+| # | site | file:line | the no-progress hole |
+|---|---|---|---|
+| 1 | freeform codegen retry, repeat-failure path | `generate.py:914` | reason string is the only varying element; unlike slot_fill it does not break on empty |
+| 2 | refine_file retry, cut-off repeat path | `critic.py:322` | `incomplete=True` suppresses contract-error context, forcing the constant-instruction branch; empty retry leaves `content` unchanged |
+| 3 | fix_agent catalogue-contract retry, no-progress path | `fix_agent.py:396` | `not retry_data` / `not replacement` both `continue` before errors/candidate mutate; attempt number reaches only telemetry |
+| 4 | workspace_patch catalogue retry, no-progress path | `workspace_patch.py:90` | `_attempt` never referenced in the body; parse-fail and no-matching-file `continue` before inputs reassign |
+| 5 | vite build fix rounds, zero-progress round | `build_phase.py:373` | no equivalent of appspec's `repair_reproduced_parent_errors` early stop exists outside appspec (qualified: byte-identical modulo vite timing digits — non-material) |
+| 6 | chat_rebuild build fix rounds, zero-progress round | `chat_rebuild.py:416` | same class as 5, on the chat-rebuild path |
+
+All six are live-path, all six CONFIRMED by independent adversarial re-verification.
+**FILED, not fixed** — deliberately: six sites are one design decision (which
+generalized no-progress early stop — appspec's identical-error-signature precedent is the
+in-repo shape), the owner has ruled on every behavioral R-item so far, and landing one of
+six as a lone sweep buys little while a sibling offline session shared the working tree.
+Needs the owner's ruling on the early-stop shape; each landing is then its own
+mutation-pinned sweep.
+
+**CONFIG CAVEAT (R7-shaped, FILED with the six):** the three page_experience chains —
+planner `:321`, plan_validation `:464`, plan_expansion `:418` — vary ONLY the model with
+identical prompts and have NO dedup guard (`architect.py:49` and `fix_agent.py:166`
+already dedup). Live config today resolves each pair to distinct models (verified
+in-container), but an equal-model config silently turns all three into verbatim quality
+re-asks. Small offline-provable guard when ruled.
 
 ### R3 — the classification audit (session 23, 2026-08-07; offline, NO code; stored evidence = `ai_usage_events` + deduplicated rejection lines across `docs/evidence/session18-23`)
 
@@ -1762,15 +1826,15 @@ discard rate is a second, independent argument for it (see 2.4-2.5).
 
 | # | Question | Why it changes the plan |
 |---|---|---|
-| 0.1 | **Re-test the pack thesis.** Replay 60 days of real `industry` strings through `pick_template_id`; report hit / miss / wrong-family | Request 70 showed the pack matched even with an empty industry. **Sizes or cancels 1.8** |
+| 0.1 | ~~**Re-test the pack thesis.** Replay 60 days of real `industry` strings through `pick_template_id`; report hit / miss / wrong-family~~ **ANSWERED (session 25) — the thesis HOLDS: 116 stored rows (12 distinct values, honestly small), HIT 93 (80 %) / MISS 19 (16 %) / WRONG-FAMILY 4 (3 %), zero foreign-industry identities.** Every MISS is one mechanism: `hotel` (5 chars) fails `_MIN_DISTINCTIVE_TOKEN_LEN = 6` at `loader.py:125-129`, so 19 of 25 hotel rows — the #3 industry — shipped with NO pack; the 6 that hit did so only because prose added a second hospitality token. All 4 WRONG-FAMILY are the industry-neutral owner-kpi-dashboard (industry-silent, not industry-wrong). **1.8 is ungated**; the actionable defect is the length gate on DECLARED tokens — owner ruling FILED (the gate is also the pottery→fitness fix; exempting declared exact-tag tokens needs a re-measured counterfactual, not an assumption). `scripts/measure/industry_replay_census.py`, evidence session25 | Request 70 showed the pack matched even with an empty industry. **Sizes or cancels 1.8** |
 | 0.2 | `P(refine fires)` per run; does a slot-filled page keep the scaffold marker? | Sets two ledger rows |
 | 0.3 | ~~Fraction of gate blocking issues that are content-shaped vs layout-shaped~~ **ANSWERED — see below** | Gated 2.6, and the answer **reverses** the branch the plan had provisionally chosen |
 | 0.4 | Are visual `revision_instructions` expressible as content-key edits? | **Gates 2.6** with 0.3 |
-| 0.5 | Real `product_kind` distribution (60 days) — `plan_phase.py:119-124` already logs it | Decides whether Phase 3 spends on the 6 public or 9 ops skeletons |
-| 0.6 | Per-call latency distribution + the call census | p95 must be **derived by convolution**, not by scaling a mean. Today p95/p50 = 2.4× |
+| 0.5 | ~~Real `product_kind` distribution (60 days) — `plan_phase.py:119-124` already logs it~~ **ANSWERED (session 25): overwhelmingly PUBLIC — merged dedup n=68: public 63 (92.6 %) / ops 5 (7.4 %) by stored decisions (64/4 by today's classifier; 44-of-45 overlap agreement, 1 drift).** storefront 56, booking_service 6, internal_ops 3, saas_workspace 1 (requests corpus, n=66 with a stored kind); 6 of the 9 ops skeletons have NEVER been exercised. **Phase 3 spends on the 6 public-reachable skeletons first.** `scripts/measure/product_kind_census.py`, evidence session25 | Decides whether Phase 3 spends on the 6 public or 9 ops skeletons |
+| 0.6 | Per-call latency distribution + the call census | p95 must be **derived by convolution**, not by scaling a mean. Today p95/p50 = 2.4×. **Advanced (session 25):** per-call p50/p95 = 16.5 / 117 s (ratio 7.1; 4.5 excluding the 64 zero-ms instant-refusal rows) over 234 windowed ask rows; per-stage + convolved pipeline table in `latency-convolution.*` (session25). Per-model fit still open |
 | 0.7 | Test classification: **388 of 1,012** tests sit on TSX-source machinery | ~3× the original budget; goes straight into P2 staffing |
 | 0.8 | Spec-level content-density metric, logged in parallel on the current architecture | The `fallback_pages` signal reads a literal marker; after the flip it reads 0 forever or 12 forever. Both are silent |
-| 0.9 | Are the 3 script-style test files (2,061 lines, not pytest-collected) run by CI? | Assertions that may never run |
+| 0.9 | ~~Are the 3 script-style test files (2,061 lines, not pytest-collected) run by CI?~~ **ANSWERED (session 25): the residue is ZERO — the row was already closed by `115375f` and nobody marked it.** The trio (`test_catalogue_contract.py` 1,782 + `test_safe_stub_braces.py` 152 + `test_phase5_ui_alias_imports.py` 127 = 2,061 at audit commit `614c086`, the unique 3-subset summing to 2,061) is a subset of the eight files that commit converted; today they collect 51 tests, 51/51 pass in 4.74 s, and 6 mutation-driver files reference them as pytest targets. Nothing to convert, nothing needing a why-not. `scripts/measure/script_style_tests_census.py`, evidence session25 | Assertions that may never run |
 
 **Also land here:** fix `ai_usage_events.request_id` NULLs (39 of 58 rows in run 67, so per-request
 queries undercount by ~⅔); make `success` mean *usable output*, not HTTP 200; add duration logs at
@@ -1997,7 +2061,7 @@ only trio in which **every run finished under 600 s**.
 | | Status |
 |---|---|
 | Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **holds on trio 4, 3 of 3 — with 9-17 s of margin, on n=3.** It did not hold on trio 2 (619.7 s) or trio 3 (600.2 / 602.7 s). Call it met when a trio clears it twice; one clean trio is how the "met and real, on n=1" overstatement happened last time |
-| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **p50 still FAILED at 590 s** (want ≤ 500) — the elective guards bought ~10 s, not 90. **The ask-ceiling half of this row is unproven for `appspec`:** that stage had no `ai_call` scope, so all 49 of its rows carry `writer = NULL, attempt = 1`, and the logical-ask grouping (`request_id`, `stage`, `writer`, attempt not resetting) had nothing to group on. Scopes added in session 6; re-measure on the next funded trio. `appspec` is **147 s of AI per run** and its cost tracks **call count**, not per-call latency — 2-3 calls is 49-94 s, 5-7 calls is 253-294 s, no single call over 120 s, and only 0-27 s of the span is non-AI (`scripts/measure/appspec_cost.py`). **The ask ceiling was off by a constant and is now fixed.** Exactly four asks exceeded 120 s across all twelve runs and all four were 135.0 s to the millisecond (135012 / 135010 / 135007 / 135001 ms; 77, 80, 82, 85; `fix_agent`, `z-ai/glm-5.2`, attempt 1, no failover): `_CANCEL_GRACE_SECONDS` was spent *after* the cap fired. Held back inside it now, and the grace cut 15 s → 2 s. Ask p50 is healthy at 8.1 / 5.7 / 9.6 s, so this was the only ask-side breach |
+| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **p50 still FAILED at 590 s** (want ≤ 500) — the elective guards bought ~10 s, not 90. **The ask-ceiling half of this row is unproven for `appspec`:** that stage had no `ai_call` scope, so all 49 of its rows carry `writer = NULL, attempt = 1`, and the logical-ask grouping (`request_id`, `stage`, `writer`, attempt not resetting) had nothing to group on. Scopes added in session 6; re-measure on the next funded trio. `appspec` is **147 s of AI per run** and its cost tracks **call count**, not per-call latency — 2-3 calls is 49-94 s, 5-7 calls is 253-294 s, no single call over 120 s, and only 0-27 s of the span is non-AI (`scripts/measure/appspec_cost.py`). **The ask ceiling was off by a constant and is now fixed.** Exactly four asks exceeded 120 s across all twelve runs and all four were 135.0 s to the millisecond (135012 / 135010 / 135007 / 135001 ms; 77, 80, 82, 85; `fix_agent`, `z-ai/glm-5.2`, attempt 1, no failover): `_CANCEL_GRACE_SECONDS` was spent *after* the cap fired. Held back inside it now, and the grace cut 15 s → 2 s. Ask p50 is healthy at 8.1 / 5.7 / 9.6 s, so this was the only ask-side breach. **Session 25 (offline), DoD 6's derived number beside this parked row — convolution over stored `ai_usage_events`, runs 129+, 200k draws, seed 20260807:** convolved pipeline wall **p50 554.3 s / p95 760.4 s** vs measured **558.7 / 568.5 s** (n=8 complete runs, spread 552.0-570.5). The convolved p50 is trustworthy (−4.4 s gap); the convolved p95 **overstates by +191.9 s** because the ~540 s deadline induces negative stage correlation (run 141: five refine calls all die at exactly +540.0 s, six fix_agent asks then refuse in 0 ms) — **score p95 from measured wall clock, never from independence convolution** (ruling FILED). Both p50s sit ~55-59 s over the ≤500 s target; codegen dominates at 141.5 s p50 wall (28.7 % of mean), then appspec 100.2 s, seed 97.3 s — and seed (`mock_synthesize`) is ONE serial call riding the 120 s ask cap to the millisecond on 3 of 8 runs (FILED). `scripts/measure/latency_convolution.py`, evidence session25 |
 | Zero consecutive asks to the same resolved model id | **was FALSE, now fixed.** `ac10c9b` deduped the *repair* chains and its test pins those; `call_architect`'s three-name chain was never deduped, and `ARCHITECT_MODEL` = `PREVIEW_APP_MODEL` = `TEXT_MODEL` = `google/gemini-2.5-flash` here **and in the test environment**, so the guard could not have caught it. 7 violations across trio 1; request 74's architect wrote 3 rows, one model, all unusable |
 | Every degraded run carries a machine-readable `degraded: [stage]` marker | **was FALSE, now fixed.** Requests **73, 75 and 76 each degraded three stages and each stored `degraded: []`** — the marker was only ever a log line at scope exit. `finalize` runs inside `generate_preview_app`; `tech`/`proposal`/`build_plans` are skipped *after* it returns, so it structurally could not see them. Published from `GenerationPipeline.run` now, and verified live on 77/78/79 |
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders. **Session 11 ruled on the adjacent question and did not widen the gate:** the scaffold's *"A clear next step from {brand} — warm, specific, and ready when you are."* (7 of 64 workspaces) is a **filled** token, and this gate detects *unfilled* ones like `[Artist Name]`. Matching a sentence this repo writes itself would make this row measure whether we updated our own regex, so the scaffold was fixed instead (`8fe8955`). **The row's number is unchanged by that** — it was never counting these |
@@ -2502,6 +2566,54 @@ identity, and two recipes hard-code their palette back in CSS. One resolution, i
 2. **Human — a standing contact sheet** of 20 home pages and 20 catalogue pages side by side. **Run
    it once now, on HEAD, to establish the baseline.** Blocking at three milestones only: 3.0 sign-off,
    3.4 exit, 3.7 exit.
+
+**3.7's baseline half — MEASURED on HEAD's stored corpus (session 25, offline;
+`scripts/measure/silhouette_census.py`, evidence session25).** Tuple = (section-component
+sequence, skeleton, overlay, palette), per page. Corpus (a): the 58 archived workspaces,
+753 pages. Corpus (b): the 47 kind_contexts, 637 routes — which store `skeleton_id` +
+`section_slots` ONLY, so (b) is a 2-tuple census and the corpora are not fully comparable
+(stated, not hidden). **The numbers:** all 753 workspace pages → 209 distinct silhouettes
+(top holds 6.0 %); but **home pages: 26 distinct over 71, top holds 21.1 % (top-3 43.7 %);
+catalogue pages: 25 over 91, top 24.2 %; and the plan-time corpus's top home silhouette
+holds 72.6 %** (6 distinct over 62). The collapse lives in the components, not the tuple:
+**palette `#0f766e` on 54 of 58 sites (704/753 pages), recipe `editorial` on 47 of 58,
+overlay absent on 30 of 58** — palette contributes 3 distinct values, overlay 6, skeleton
+14, section-sequence 81. This is the baseline a later distinctness gate red-exits against,
+and the designer-decision input. **FILED (gate design):** the full 4-tuple is only
+realizable POST-CODEGEN — 0 of 637 plan-time routes store any overlay/palette field — so
+the mechanical gate either runs after codegen or the architect artifact starts carrying
+palette/overlay; that is a pipeline design decision.
+
+**3.2's backend half — LANDED (session 25): the map as inert data + the census + 5 pins.**
+`industry_templates/compatible_recipes.py` (imported by nothing; one module, not 27 JSON
+stamps — the derivation rule lives beside the data exactly once): 27 packs → 107 pairings
+(16 public packs × the 5 reachable marketing recipes; 8 ops packs × the 3 ops contract
+recipes; 3 unreachable packs carry only their declared hint, flagged).
+`scripts/measure/compatible_recipes_census.py` replays the real selection functions:
+**every HEAD-producible pairing is in the map, zero extras** (9 checks, PASS);
+`tests/preview_app/test_compatible_recipes_map.py` pins consistency (5 passed, 0.16 s).
+No behavioral change — rotation/selection untouched, owner rules any consumer. **FILED
+from the census:** (a) three packs (member-hub, checkout-cart, account-tracking) are DEAD
+DATA — their skeletons fail both surface filters and no call site reaches them; (b) ops
+packs also ride along in public runs via the unconditional `apply_ops_industry_template_to_plan`
+(`plan_phase.py:175-179`) — the map scopes "compatible" to primary-on-own-surface,
+documented; (c) a split recipe stamp for OPS kinds with a brand brief: `plan_phase.py:131`
+nulls app-hub brief recipes only for PUBLIC_KINDS, so an ops plan's design tokens can
+belong to a different recipe than its composition (`:130-133` vs `:165`) — observation
+filed, not fixed.
+
+**3.5's analysis half — the inventory is TAKEN (session 25, read-only):
+`docs/evidence/session25/token-systems-inventory.md`.** The roadmap's claim substantiates
+on all three parts: `brand_locked` is set at 4 sites, all unconditionally True, zero
+False-writers — killing all 6 overlay font pairs (5 distinct) and the recipe's direct
+font writes; the overlay's `token_overrides` replace **10 of 10** recipe kit tokens on
+every run; and 2 recipes hard-code their palette back in CSS — nocturne
+(`index_css.j2:204-220`, j2 only) and craft (`index_css.j2:222-229` **duplicated at
+`preview-template/src/index.css:297-304`** — unlayered rules that beat the token pipeline
+for every craft preview). **FILED for the teammate's branch:** the template-side craft
+block (and the nocturne sync drift — the j2 claims sync with the template CSS but nocturne
+exists only in the j2) — both wait on the owner's 3.5 de-hard-coding ruling; the j2 halves
+are backend-lane.
 
 **Prerequisite, named 2026-08-05 (session 12): the 20-business synthetic brief set does not
 exist.** Every corpus number in this document rides on **17 distinct briefs, 12 business names, and

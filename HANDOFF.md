@@ -4,6 +4,76 @@ Successor to session 22's handoff (below in this file). Process notes, not produ
 
 ---
 
+## Session 25 (2026-08-07 night into 08-08, third offline block — the measurement backlog clears in one fan-out)
+
+**Key probed FIRST: 380.154 / 380 — dry, no top-up**, so this ran the offline block, not
+the funded session-24 backlog. All five backlog items closed, plus DoD 6 (the "if time
+remains" item). One deliberate re-order, reason recorded: the DoD 9 CI job launched FIRST
+(its feedback loop is GitHub-Actions wall-clock and it shares no files with anything
+else); everything else ran beside it concurrently — all nine deliverables are mutually
+independent and collision-safe on disjoint paths.
+
+### THE TALLY
+
+| | |
+|---|---|
+| **Spend** | **$0** (one free key probe; zero model calls, zero generations) |
+| **Suite** | **2,064 passed / 1 skipped / 0 failed** (+6 vs session 24: the five 3.2 map pins + the collection guard's auto case for the new file — proven by a collected-id diff against `c5249dc`, not assumed; the archive-baseline collects 2,012 because untracked corpora and `node_modules` parametrize 47+ cases, worth remembering) |
+| **CI (DoD 9)** | `backend-pytest.yml` **proven green on the branch push before landing**: run 31217828938, `2058 passed, 1 skipped` in 94.07 s, job 174 s, skip count matching local exactly. Branch `ci/pytest-job` kept as the proof record |
+| **R2** | **Row CLOSED except six FILED verbatim sites.** 50-row audit (26 DIFFERENT-ASK / 6 TRANSPORT-EXEMPT / 6 VERBATIM / 12 NO-RETRY), every VERBATIM + two spot-checks independently adversarially re-verified — all CONFIRMED. Table in the roadmap under the R-table; full table + raw sweep archived session25 |
+| **THE silhouette number (3.7 baseline)** | 753 stored pages → 209 distinct silhouettes (top 6.0 %), **but home pages collapse to top = 21.1 %, catalogue 24.2 %, plan-time home 72.6 % — and palette `#0f766e` covers 54 of 58 sites, recipe `editorial` 47 of 58** |
+| **Phase 0** | 0.1 ANSWERED (80 % hit / 16 % miss / 3 % wrong-family — thesis HOLDS; every miss is the `hotel` length-gate, ruling filed); 0.5 ANSWERED (92.6 % public — Phase 3 spends public-first); 0.9 ANSWERED (residue ZERO — `115375f` had already closed it unmarked) |
+| **DoD 6** | Convolved pipeline p50 **554.3 s** (measured 558.7), both ~55-59 s over the parked ≤500 s target; convolved p95 overstates +191.9 s (deadline-induced negative correlation) — p95 must be scored from measured wall clock. Codegen 141.5 s p50 dominates; seed is one serial 97.3 s call riding the 120 s cap |
+
+### What landed on main this block
+
+CI workflow + its evidence; `compatible_recipes.py` (inert data, imported by nothing) +
+census + 5 pins; six census scripts under `scripts/measure/` (industry_replay,
+product_kind, script_style_tests, silhouette, compatible_recipes, latency_convolution);
+16 evidence files under `docs/evidence/session25/`; roadmap rows updated with the numbers
+inline. **No behavioral change anywhere** — the block was measurement + CI by design.
+
+### FILED, not fixed — and why
+
+- **The six R2 VERBATIM sites are ONE defect shape** (no-progress quality retries re-ask
+  byte-identical: `generate.py:914`, `critic.py:322`, `fix_agent.py:396`,
+  `workspace_patch.py:90`, `build_phase.py:373`, `chat_rebuild.py:416`). Deliberately
+  FILED rather than fixing one of six at midnight: the fix is one generalized design
+  decision (appspec's `repair_reproduced_parent_errors` is the in-repo precedent shape),
+  every behavioral R-item so far got an owner ruling first, and a sibling session shared
+  the working tree (below). Each landing is its own mutation-pinned sweep.
+- **Chain dedup gap** (planner / plan_validation / plan_expansion vary model-only with no
+  dedup guard — an equal-model config silently makes them verbatim): small R7-shaped
+  guard when ruled.
+- **0.1's length-gate ruling** (declared exact-tag tokens vs `_MIN_DISTINCTIVE_TOKEN_LEN`),
+  **3.7's gate placement** (post-codegen, or the architect artifact carries
+  palette/overlay), **3.2's three dead packs + ops split-recipe-stamp observation**,
+  **DoD 6's p95 scoring rule** — all in the roadmap with evidence pointers.
+- **For the teammate's branch (template lane, untouched):** craft palette hard-code at
+  `preview-template/src/index.css:297-304` (+ the nocturne j2-only sync drift) — waits on
+  the 3.5 de-hard-coding ruling; j2 halves are backend-lane.
+
+### Process notes
+
+- **A PARALLEL session worked the same checkout during this block** (its artifacts:
+  `refine_scaffold_census.py`, `revision_instruction_census.py`,
+  `docs/evidence/session24-parallel/`, a visual-critique tarball — the 0.2/0.4 lane;
+  none of it touched or committed by this block; commits here used explicit pathspecs
+  only). Two sessions share one index — `git add -A` is how one session ships the
+  other's half-done work. Don't.
+- The fan-out itself: 14 subagents (9 deliverables + 5 adversarial verifiers), ~19 min
+  wall-clock, every census script red-exits on corpus drift so a rerun can't silently
+  measure the wrong thing.
+- `gh` is NOT installed on this machine; the CI agent proved the run via the GitHub REST
+  API instead. The `docker compose exec` pytest trap held (suite via `docker run` with its
+  pip-install half, per the standing rule).
+
+**Still needing the owner:** the key top-up (funded backlog: R5's run-beside, the freeform
+rung, the slot_fill rejection-count read), the six-site R2 early-stop ruling, the 0.1
+length-gate ruling, the 3.7 gate-placement ruling, the DoD 6 p95 scoring ruling.
+
+---
+
 ## Session 23 post-close addendum 2 (same night — the owner ruled, the offline trio landed)
 
 **The owner ruled "land what you can land, no runs tonight" on the decision brief; three
