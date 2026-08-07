@@ -1,6 +1,221 @@
-# Session handoff — four R-rows land, and the ladder's first live test SHIPS the dispatch desk (2026-08-07, session 22)
+# Session handoff — the empty-tuple trio lands evidence-corrected, and the key runs dry mid-ship (2026-08-07, session 23)
 
-Successor to session 21's handoff (below in this file). Process notes, not product docs.
+Successor to session 22's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 23, in one page
+
+**The flagship trio landed — reshaped twice by what 143's artifact actually says — R6
+closed both halves, the R3 audit produced its table, and the one funded run SHIPPED
+rev-1 under the new prompt while the SHARED KEY EXHAUSTED mid-run.** Suite
+**2,026 / 1 / 0** (+14). Two sweeps: **11 + 6 mutations / 0 survivors, both first
+pass**. Evidence: `docs/evidence/session23/`.
+
+### THE TALLY (ships beside accepts, always)
+
+| | |
+|---|---|
+| **Ships / attempts** | **1 / 1** (**145 ✓ ready ~568 s, gate PASSED**, 29.4 s past soft deadline, inside the cap) |
+| **Spec accepts / rejects** | **1 accept** (145 rev-1, coverage 98, prompt rev **2026-08-07.3** — authoring deterministically valid, zero schema-parse issues, one semantic-coverage repair). **New rev-1 count: 1** |
+| **Transport-dead runs** | **0** — slot_fill's one 408 was classified and the cross-provider rung correctly runway-gated (R1's designed fail-closed, read live); the tail's $0/0 ms transport cluster was the KEY exhausting, not weather |
+| Spend | **BMV $0.245** (145, 29 calls) + ~$0.02 probes; brackets 375.332 → 377.884 (pre-launch) → **380.148 of 380 (post-run)**. **KEY EXHAUSTED — the shared key's other project burned ~$4.5 during this one session; no funded runs until topped up** |
+
+### The trio (`772ac82`) — and the three evidence corrections that reshaped it
+
+1. **(b) moved to `app_spec_schema_repair.j2`** — the minItems/too_short class is a
+   pydantic parse failure owned exclusively by the schema-repair rung; once schema
+   attempts are spent the loop goes straight to `_fallback`. `app_spec_repair.j2`
+   NEVER sees the class — the handoff's named target would have been dead code (the
+   exact R2 catalogue-contract lesson). Landed as rule **7a**: the constructive
+   stateless-page fix (author the default state, `initial:true`, add to `states`,
+   reference it; never resend unchanged; never placeholder ids).
+2. **143's revs 1-3 were never authored that way** — the authored spec had 6 pages and
+   ONE error (`page_initial_state_count` on PAGE-AI-FEATURES); the `ai_appspec_repair`
+   call REPLACED it with a 503-byte fragment (a single acceptance-test object).
+   `app_spec_repair.j2` rule 9 now teaches the mined collapse shape: a sub-object or
+   emptied `pages`/`states` is a collapse, not a repair; unfaulted objects survive
+   verbatim. Authoring got rule **9a** (no stateless page, real `PAGE-*`/`STATE-*`
+   ids, `{"id": "Page1", "state_ids": []}` as the mined Invalid exemplar).
+3. **Rev 5 made NO new AI call** — identical `schema_diagnostics` including
+   `completed_at` and `raw_response_sha256`; it was the terminal re-persistence of
+   rev 4. So the early stop saves nothing on 143's exact trace; its payoff is run
+   138's shape (a PAID identical repeat on the general path, 3 attempts live). Landed
+   as the **identical-error-set early stop**: signature = sorted (code, path,
+   message) triples, armed only at the two AI repair dispatches, compared exactly
+   once at the next validation; identical ⇒ `_fallback("repair_reproduced_parent_errors")`.
+   Any change to the set is progress. Coverage re-entry deliberately excluded.
+   6 tests, 11 mutations / 0 survivors first pass.
+   **Fixture lesson worth keeping: an empty `pages[0].state_ids` BESIDE a populated
+   `states` array is deterministically reconciled from the siblings and never reaches
+   the AI rung — 143 failed precisely because its states existed nowhere.**
+
+### R6 — DONE both halves (`f9fc60c`)
+
+Census: analyze (2/2 rows), blueprint (24/24), demo (7/7) were the ONLY stages whose
+every row carried the `record_usage` fallback (`writer IS NULL AND attempt=1 AND
+stage=purpose`) — no `ai_call` scope existed at their ask sites. Now scoped:
+`reference_url_analysis`, `screenshot_analysis`, `mvp_blueprint`,
+`preview_extraction`, `visual_demo`. And the refund: `_StageLimitedAIProvider` gives
+back the budget unit for an ask the provider never answered (143's error-cut
+authoring attempt had spent `APPSPEC_MAX_CALLS` for nothing) — answered asks spend
+for good, floor at zero, both the deadline tally and the instance count refunded.
+7 tests, 6 mutations / 0 survivors first pass.
+
+### R3 — the audit table is in the roadmap (offline, NO code)
+
+Architect JSON and design_manifest have **no decorative strictness to relax** (0
+`unparseable` / 0 `rejected` rows ever; every stored failure was provider transport/
+truncation — design_manifest's lever, if any, is its 1,500-token cap). The class
+lives in slot_fill's catalogue contract, which already tolerates `invalid prop:` /
+`invalid variant:`. **The actionable finding: `detail inquire CTA (#inquire)`
+(validate.py:238) fired ALONE 4 times — ArtworkDetailPage and RoomDetailPage each
+discarded to scaffold at attempt 2/2 for one CTA href whose correct value is a
+compile-time constant.** Second candidate: the image-pool pair (validate.py:251,256).
+Both need the owner's ruling before any coercion lands (R3 boundary).
+
+### Run 145 — the ship, the live R1 read, and the honest confound
+
+Osteria (143's payload byte-verbatim incl. reference_url). Weather CLEAR (2× stop,
+6-7 s). Spec: authoring 36.6 s healthy → coverage review → one semantic-coverage
+repair → accepted **rev-1 coverage 98**, `prompt_revision: 2026-08-07.3` in
+provenance, calls 4, no heals. Codegen: slot_fill 6/7 usable; ReservationsPage
+attempt-1 transport-cut (HTTP 408 at the 120 s ask ceiling) → **classified, and the
+cross-provider rung correctly RUNWAY-GATED** (`slot_fill_transport_fallback_skipped_
+low_runway`, 98.3 s remaining) — R1's designed fail-closed, read live; 0 attempt-3
+rows all-time. **Contract rejections: 0 (second consecutive run)** — the R2 slot_fill
+translation is still unread live, for the good reason. design_manifest: 1/1 healthy
+(planning serial 30.9 s). Ready ~568 s, gate PASSED. **CONFOUND: critic 5/5 and
+fix_agent 6/6 died transport at $0/0 ms exactly when the key crossed 380 — credit
+exhaustion, NOT the R5 starvation pattern; this run's tail is unreadable against the
+R5 table.**
+
+### What I got wrong in session 23
+
+- **My status poll watched `requests.status` for `done`** — shipped runs stay `new`
+  (144 and 142 did too); the 10-minute cap fired on a run that had already shipped.
+  The ship signal is the pipeline log / preview record, not that column.
+- **My first schema-rung early-stop fixture used `pages[0].state_ids: []` beside a
+  populated `states` array** — the deterministic reconciler fixed it and the AI rung
+  never fired. The fixture now uses rev 3's true shape (`pages: []`). The failure was
+  informative: it is exactly why 143 (states nowhere) could not be healed.
+
+### State of the repo (session 23 close)
+
+- **main: `772ac82` (trio) → `f9fc60c` (R6) + docs — pushed.** Suite **2,026 / 1 / 0**
+  (documented command). New drivers, both 0-survivor first pass:
+  `mutate_empty_tuple_reject_class.py` (11), `mutate_r6_telemetry_budget.py` (6).
+- **Credits: the key is EXHAUSTED (380.148 of 380).** BMV's session spend: $0.245 +
+  ~$0.02 probes, fully telemetry-attributed. The other project burned ~$4.5 across
+  this session including ~$2 during the run's ten minutes. **No weather probes, no
+  funded runs, until the owner tops up or rotates the key.**
+- **Running config verified from the recreated process at close:** prompt revision
+  **2026-08-07.3**; TEXT=gemini-3-flash-preview, FIX+QUALITY_FIX=glm-5.2:nitro,
+  PREVIEW_APP=deepseek-v4-pro + fallback haiku-4.5, ARCHITECT/CRITIC=haiku-4.5,
+  APPSPEC on + gemini-2.5-flash ×3 + fallback haiku. (`backend/.env` untouched all
+  session; the session-open cosmetic drift — the container predating the
+  PREVIEW_APP_TRANSPORT_FALLBACK_MODEL line — was erased by the mid-session recreate.)
+
+### The next step (ordered)
+
+1. **Top up or rotate the shared key** — nothing funded moves without it. Then the
+   still-unbound live reads ride the next healthy run free: the R2 contract-retry
+   translation (needs a run WITH contract rejections), attempt-3 slot_fill rows, and
+   a CLEAN tail read against the R5 table (145's was confounded by the dry key).
+2. **The R3 ruling**: coerce the `detail inquire CTA (#inquire)` href (and optionally
+   the image-pool pair) per the audit table, mutation-pinned so leniency never
+   reaches the face/skeleton/import set — or rule the strictness intended.
+3. **R5's ruling** — the measured table has been ready since session 22; one owner
+   word implements `TAIL_RESERVE_SECONDS = 150`.
+4. **R1's remainder**: `coverage_review`'s one-shot is still same-model; the
+   single-provider ask-site survey.
+5. **FILED, new (proof archived in 143's artifact + this session's mining): a
+   repair-output collapse guard** — deterministically REJECT an AI repair whose
+   output empties `pages`/`states` that its parent populated (keep the parent, spend
+   nothing further), the code half of the anti-collapse taught line. Fail-closed,
+   invents nothing; needs a ruling only on whether teaching alone suffices first.
+
+## Next session's prompt, ready to paste (session 24)
+
+```
+Read HANDOFF.md first — "Session 23, in one page" and THE TALLY. Then the roadmap's
+session-23 callout AND the R-table's session-23 status block. Don't re-derive any of it.
+
+main is PUSHED through f9fc60c (+ the docs commit on top). Suite 2,026 / 1 / 0.
+
+THE KEY IS EXHAUSTED — 380.148 of 380 at session-23 close, drained by the shared key's
+other project (~$4.5 in one session; BMV's own spend was $0.245 + probes, fully
+attributed). PROBE CREDITS FIRST. If I have not topped up or rotated the key by the
+time you read this, this is an OFFLINE-ONLY session: no weather probes, no runs, and
+that is fine — the backlog below has offline items. Never launch on a key without at
+least $1.00 of verified headroom AND my top-up confirmed in this prompt or the repo.
+
+Running config verified from the process at close: prompt revision 2026-08-07.3, TEXT
+gemini-3-flash-preview, FIX+QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro +
+fallback haiku-4.5, ARCHITECT/CRITIC haiku-4.5, APPSPEC on + gemini-2.5-flash ×3 +
+fallback haiku.
+
+MY BUDGET: $0 until the key is topped up; if it is, $5 CAP, same rules as ever (probe
+first, bracket every run, 10-minute cap monitored, one run per landed change). Time box
+3 HOURS; reserve the last 20 minutes for close-out. LOCAL only.
+
+THIS SESSION RUNS ON YOUR JUDGMENT — same standing authority as session 23 (reorder
+with recorded reasons; chase what stored evidence proves; the PARKED list, the
+NON-NEGOTIABLEs, fail-closed over clever, and the honest tally are absolute).
+
+THE BACKLOG (my order — yours to re-order with reasons):
+
+1. IF THE KEY IS FUNDED — the unbound live reads, free on the next healthy run beside
+   whatever you land: the R2 contract-retry translation (needs a run WITH slot_fill
+   contract rejections — two straight runs had zero), any attempt-3 slot_fill row, and
+   a CLEAN tail read against the R5 table (145's tail was confounded by the dry key —
+   do NOT count it).
+2. R1'S REMAINDER (offline-provable, ~45 min): coverage_review's one-shot retry is
+   still same-model — give it the classify-first + bounded + cross-provider treatment
+   (the slot_fill/appspec rungs are the pattern); then the single-provider ask-site
+   survey (the R6 scopes just made every ask site queryable — use the census).
+3. THE COLLAPSE GUARD — only with my ruling (it is FILED, next-step item 5): the
+   deterministic rejection of a repair output that empties pages/states its parent
+   populated. If I rule "teach-only first", it stays filed until a live repeat.
+4. R3's COERCION — only with my ruling on the audit table (inquire-CTA first, the
+   image-pool pair second), mutation-pinned so leniency never reaches the
+   face/skeleton/import set.
+5. R5 — only with my ruling: TAIL_RESERVE_SECONDS = 150 per the measured table.
+
+Standing rulings so you never wait: R4 DONE (never lower OPS_MIN_NON_HUB_PAGES=4); the
+ship-gate ops floor firing again is a NEW bug; retries must differ (R2); fallbacks are
+classify-first + bounded + cross-provider (R1); leniency never reaches decision-carrying
+fields (R3); quality failures never take a model fallback. The identical-error-set
+early stop is live — if a run terminates repair_reproduced_parent_errors, that is the
+system working; mine the artifact, don't relaunch blind.
+
+WEATHER GATE (only if funded): two long json_object probes on the spec model (~$0.06),
+probe-parse as tolerant as the pipeline's. LAUNCH: POST /api/requests (never /api/v1),
+multipart, industry always set, host port 8001. The requests.status column stays "new"
+on shipped runs — the ship signal is the pipeline log / preview record, never that
+column.
+
+STANDING TALLY: ships vs attempts AND accepts vs rejects, every reject classified from
+telemetry before any relaunch. A transport-classified dead run at any appspec ask site
+is a NEW bug. Rev-1 count under 2026-08-07.3 stands at 1 — keep counting honestly.
+
+PARKED (touch only with my ruling): ARCHITECT_MODEL, the <=500 s p50 DoD row, R5's
+behavioral half (item 5), the R3 coercions (item 4), the collapse guard (item 3),
+schema-level conditional assertion requirements, relaxing the AppSpec schema, the
+October spec-slot migration.
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory
+backup, one sweep at a time, red for the FILED reason; suite via docker run WITH its
+pip install half; recreate never restart; config from the running process; archive logs
+the moment each run finishes; no code edits while a generation is in flight (sweeps
+count); absolute paths; 10-minute cap.
+
+BEFORE YOU FINISH (the reserved 20 min): .env in the state the evidence supports and
+verified from the running process; R-table statuses updated; HANDOFF/MODEL_RESEARCH
+updated with real numbers including the ships-vs-attempts line; push; next prompt
+written; tell me plainly what each run cost, what landed, what you chose to reorder
+and why, and what's left.
+```
 
 ---
 

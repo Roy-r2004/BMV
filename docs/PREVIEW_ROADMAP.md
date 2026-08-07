@@ -181,7 +181,51 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-07 (session 22)
+## Status — updated 2026-08-07 (session 23)
+
+> ### Session 23 — the empty-tuple trio lands evidence-corrected, R6 and the R3 audit close, and run 145 ships rev-1 under the new prompt
+>
+> - **The empty-tuple reject class (143, session 19 before it) — the trio LANDED
+>   (`772ac82`), reshaped by deeper mining of 143's stored artifact:** (1) revs 1-3's
+>   empty arrays were NOT authored — the authored spec had 6 pages and ONE error, and
+>   the `ai_appspec_repair` call replaced it with a 503-byte fragment (one acceptance-
+>   test object); (2) rev 5 made NO new AI call (identical schema_diagnostics incl.
+>   completed_at and raw_response_sha256 — a terminal re-persistence of rev 4); (3) the
+>   minItems class NEVER reaches `app_spec_repair.j2` (pydantic parse fails first →
+>   schema-repair rung exclusively → fallback), so the handoff's named target would
+>   have been dead code — the R2 catalogue-contract lesson. What landed: app_spec.j2
+>   rule **9a** (no stateless page, real type-prefixed ids, mined `Page1` exemplar);
+>   the repair prompt's **anti-collapse** line (sub-object / emptied pages-states =
+>   collapse, unfaulted objects survive verbatim); the schema-repair prompt's **7a**
+>   constructive stateless-page fix (author the default state, never resend unchanged,
+>   never placeholder ids); and the **identical-error-set early stop** — an AI repair
+>   whose output reproduces its input's (code, path, message) set fails closed with
+>   `repair_reproduced_parent_errors` instead of spending remaining budget, armed only
+>   at the two AI dispatch points, any set change = progress. Prompt revision
+>   **2026-08-07.3**. 6 tests, **11 mutations / 0 survivors first pass**.
+> - **R6 DONE both halves (`f9fc60c`)** — analyze/blueprint/demo were the only stages
+>   with 100% record_usage-fallback rows (no ai_call scope at any ask site); now
+>   scoped (reference_url_analysis, screenshot_analysis, mvp_blueprint,
+>   preview_extraction, visual_demo). And `_StageLimitedAIProvider` refunds the budget
+>   unit for an ask the provider never answered — 143's error-cut authoring had spent
+>   `APPSPEC_MAX_CALLS` for nothing. 7 tests, **6 mutations / 0 survivors**.
+> - **R3 audit DONE (offline, no code)** — full classification table under the
+>   R-backlog; architect + design_manifest have no decorative strictness (0
+>   unparseable/rejected rows ever); the finding is `detail inquire CTA (#inquire)`,
+>   which alone discarded two whole artifacts for a constant href. Owner ruling wanted.
+> - **Run 145 (Osteria, 143's brief verbatim): SHIPPED `ready` ~568 s, quality gate
+>   PASSED, spec accepted rev-1 coverage 98 under 2026-08-07.3** — authoring
+>   deterministically valid (no schema parse issues, no heals, no empty tuples, no
+>   placeholders), one semantic-coverage repair, calls 4. New rev-1 count: 1. R1 read
+>   live (above). **CONFOUND, reported honestly: the tail's critic 5/5 + fix_agent 6/6
+>   transport failures at $0/0 ms coincide with the SHARED KEY EXHAUSTING mid-run
+>   (380.148/380 at post-run bracket) — not pipeline weather, not the R5 pattern; do
+>   not read this run's tail against the R5 table.** Suite **2,026 / 1 / 0**.
+>   Session tally: ships 1/1, accepts 1/1 rev-1, transport-dead 0, BMV spend $0.245 +
+>   ~$0.02 probes. **The key is EXHAUSTED (380.15/380, the other project burned ~$4.5
+>   during this session) — no funded runs possible until it is topped up.**
+
+## Status archive — session 22
 
 > ### Session 22 — four R-rows land in one session, every sweep 0-survivor
 >
@@ -295,6 +339,67 @@ dead translation and an empty-report hole). R3 — untouched (offline audit stil
 R4 — DONE per the ruling (all five rungs, censused, swept; live read on run 144).
 R5 — MEASURED, table + recommendation below; behavioral half owner-parked. R6 — untouched.
 R7 — DONE, generalized to the new preview_app fallback pair.
+
+**Session-23 statuses:** R1 — the slot_fill ladder READ LIVE on run 145: ReservationsPage
+attempt-1 transport-cut (HTTP 408 at the 120 s ceiling) → classified, and the
+cross-provider rung correctly RUNWAY-GATED with its own label
+(`slot_fill_transport_fallback_skipped_low_runway`, 98.3 s remaining) — designed
+fail-closed; the rung itself has still never fired with runway (0 attempt-3 rows
+all-time). Remaining unchanged: coverage_review one-shot; ask-site survey.
+R2 — INSIDE THE REPAIR LOOP now: the identical-error-set early stop
+(`repair_reproduced_parent_errors`, commit `772ac82`) fails closed when an AI repair's
+output reproduces its input's validator error set — run 138's paid-identical-repeat
+class; 145's contract-rejection count was 0 (second consecutive run with none), so the
+slot_fill contract translation is still unread live. R3 — AUDIT DONE (table above;
+NO code): the actionable finding is `detail inquire CTA (#inquire)` — two whole
+artifacts discarded for one constant href; needs the owner's ruling before any coercion
+lands. R5 — still parked, no ruling. R6 — DONE both halves (`f9fc60c`): analyze/
+blueprint/demo asks now carry writer/attempt (the record_usage fallback census is
+clean), and an errored $0 appspec call refunds its budget unit. 6 mutations / 0
+survivors. Empty-tuple trio: see the session-23 status callout at the top of this
+Status section.
+
+### R3 — the classification audit (session 23, 2026-08-07; offline, NO code; stored evidence = `ai_usage_events` + deduplicated rejection lines across `docs/evidence/session18-23`)
+
+Evidence base: slot_fill `rejected` rows = 43 (request_id >= 100; 113 all-time);
+architect: **0 `unparseable` rows ever** (only provider transport 5 / truncated 3, all
+>=100 recovered on the chain); design_manifest: **0 `rejected` rows ever** (14
+`truncated` + 1 transport, all at the provider's 1,500-token cap before the parser saw
+bytes). The DB stores only the coarse reason (`rejected`, generate.py:562); per-code
+counts come from the archived rejection logs (37 deduplicated slot_fill lines).
+
+**Verdict per parser:**
+
+- **architect JSON and design_manifest have NO decorative strictness to relax.** The
+  architect parse is already 4-rung lenient with full post-parse coercion
+  (`_normalize_architect`), and its only code is whole-JSON unparseability — never fired.
+  design_manifest is the repo's most forgiving parser and falls back deterministically;
+  its `design_system` is force-overwritten from the plan regardless, so any model-sent
+  value is decorative by construction. For design_manifest the fix lever, if any, is the
+  1,500-token `max_tokens` cap, not the parser.
+- **slot_fill's catalogue contract is where the class lives.** Most codes are correctly
+  decision-carrying (faces, skeleton wiring, imports, undefined JSX, painting-first hero,
+  itemSpecs bindings — each anchored to a request-numbered incident). The validator
+  already has the in-repo precedent for tolerance: `invalid prop:` / `invalid variant:`
+  are classified cosmetic and tolerated (validate.py:380-388).
+- **THE ACTIONABLE FINDING: `detail inquire CTA (#inquire)` (validate.py:238) fired
+  ALONE 4 times — two whole artifacts (ArtworkDetailPage, RoomDetailPage, both at
+  attempt 2/2) discarded to the generic scaffold, plus two retry asks burned, for one
+  CTA href whose correct value is a compile-time constant.** The cleanest aced8e7
+  candidate: coerce the href by codemod, stay strict on the hero variant and itemSpecs.
+- Second candidate: the `catalogue item photo pool` / `lifestyle imageSrc` pair
+  (validate.py:251,256) — substantive intent (request 62's wrong photos) but exactly
+  coercible (`images.card/hero` → `images.item*`); its one firing discarded a HomePage
+  at attempt 1/2 with no retry (runway-gated).
+- Non-candidates despite looking mechanical: `missing BRAND_MANIFEST services binding`
+  fired 10 times but never alone (coercing it saves zero artifacts); `extra slot:`,
+  `dead hash CTA`, `contact #inquire anchor` (dead code — only fires when InquiryPanel
+  is also missing) are decorative but have zero or co-fired evidence.
+
+The R3 change, when ruled: extend the tolerated-prefix list + a deterministic codemod
+for the inquire-CTA (first) and image-pool (second) codes, mutation-pinned so leniency
+never reaches the face/skeleton/import/binding set. Needs the owner's ruling per the
+standing R3 boundary (leniency never reaches decision-carrying fields).
 
 ### R5 — the measured codegen/tail split (session 22, 2026-08-07; runs 129-142, stored `generation_log` + `ai_usage_events`; NO behavioral change)
 
