@@ -53,8 +53,11 @@ CONTRACT RULES:
    Omit optional trace fields when no trace exists (example: omit `journey_ids`
    rather than `"journey_ids": []`). Required TraceabilityLink fields
    (`capability_ids`, `page_ids`, `evidence_ids`, `acceptance_test_ids`) must each
-   contain at least one existing canonical ID from the same AppSpec. Never emit
-   empty tuples, placeholder IDs, or null unless the schema allows null.
+   contain at least one existing canonical ID from the same AppSpec. The same
+   floor applies OUTSIDE traceability: every capability's `role_ids` and every
+   page's `capability_ids`, `evidence_ids`, and `state_ids` must each name at
+   least one declared ID. Never emit empty tuples, placeholder IDs, or null
+   unless the schema allows null.
    Valid: `"evidence_ids": ["EVIDENCE-CONFIRMATION"]`. Invalid: `"evidence_ids": []`.
 6b. Bind every traceability row to real proof. Each row's `capability_ids` must
    name at least one capability whose own `requirement_ids` includes that row's
@@ -82,9 +85,13 @@ CONTRACT RULES:
    customer's own input clearly requires more. A storefront or portfolio brand
    whose spec contains an ops dashboard is wrong even if the JSON validates:
    the extra surface becomes a journey-required page that cannot be closed.
-9. Every stateful page has an explicit initial state. Actions identify the actor,
-   page, capability, and affected entity where applicable. Transitions identify
-   the action, from-state, to-state, and business effects.
+9. Every stateful page has EXACTLY ONE initial state: of the states a page's
+   `state_ids` lists, exactly one carries `"initial": true` and every sibling
+   carries `"initial": false` — two initial states on one page is a validation
+   failure, not emphasis. Each state's `page_id` must be the one page whose
+   `state_ids` lists it. Actions identify the actor, page, capability, and
+   affected entity where applicable. Transitions identify the action,
+   from-state, to-state, and business effects.
 10. Evidence must be observable and testable. Prefer concrete evidence such as a
     visible confirmation reference, a changed availability record, a persisted
     status, or required content. Avoid vague evidence such as "works correctly".
@@ -92,6 +99,11 @@ CONTRACT RULES:
     existing action and transition and states the expected page/state/evidence.
 12. Acceptance tests prove customer outcomes, not just that a component renders.
     Cover success behavior and important failure behavior for mutations.
+12a. Every assertion carries the reference its kind requires: a `route`
+    assertion requires `page_id`; a `visible` assertion requires `evidence_id`;
+    a `state` assertion requires `state_id` — never emit a state assertion
+    without one. The referenced state or evidence must belong to the page the
+    assertion names.
 13. Not every requirement needs an action. Content, data, and integration
     requirements may use their matching evidence/assertion kinds; do not invent
     fake clicks to satisfy traceability.
@@ -102,8 +114,14 @@ CONTRACT RULES:
     file paths, database schemas, or implementation technology.
 16. Do not silently omit a stated goal because it is difficult, external, or not
     suitable for a static preview. Keep it as required, deferred, or unresolved
-    according to the source and explain its verification boundary.
-17. Every reference must resolve. Output must validate against the exact schema
+    according to the source and explain its verification boundary. Every
+    requirement must end up EITHER traced in `traceability` OR listed in
+    `deferred_scope` — a requirement in neither place is a validation failure.
+17. Every reference must resolve, and DECLARE BEFORE YOU CITE: any ID written
+    into an `*_id` / `*_ids` field must exist as a declared object in its
+    top-level collection — never cite an EVIDENCE-* ID in a page, journey step,
+    assertion, or traceability row without adding the matching item to the
+    `evidence` array itself. Output must validate against the exact schema
     above without repair, comments, markdown fences, or trailing prose.
 
 Return the complete AppSpec JSON object only.

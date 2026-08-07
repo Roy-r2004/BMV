@@ -332,8 +332,11 @@ class Settings:
         self.APPSPEC_SCHEMA_VERSION = (
             os.getenv("APPSPEC_SCHEMA_VERSION", "1.0").strip() or "1.0"
         )
+        # 2026-08-07.1: sessions 18-19's reject shapes taught — exactly-one
+        # initial state, per-kind assertion references, declare-before-cite,
+        # the minItems floor outside traceability, trace-or-defer.
         self.APPSPEC_PROMPT_REVISION = (
-            os.getenv("APPSPEC_PROMPT_REVISION", "2026-07-28.2").strip()
+            os.getenv("APPSPEC_PROMPT_REVISION", "2026-08-07.1").strip()
             or "2026-07-15.1"
         )
         self.APPSPEC_MODEL = _env_or("APPSPEC_MODEL", self.ARCHITECT_MODEL)

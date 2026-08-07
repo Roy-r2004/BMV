@@ -32,6 +32,15 @@ stated preferences but does not independently confirm every reference feature.
 REPAIR RULES:
 1. Fix every schema, reference-integrity, state/action/transition, journey,
    evidence, acceptance-test, and traceability error in the deterministic report.
+   The recurring codes have exact fixes:
+   - `state_assertion_state_required`: add the missing `state_id` to that
+     state-kind assertion (a state on the asserted page), or change its kind.
+   - `missing_reference`: the cited ID does not exist — either declare the
+     missing object in its top-level collection (for example add the cited
+     EVIDENCE-* item to `evidence`) or stop citing it.
+   - `page_initial_state_count`: keep EXACTLY ONE `"initial": true` state per
+     page's `state_ids`, set every sibling to `"initial": false`, and make each
+     state's `page_id` match the one page listing it.
 2. Restore every explicit customer goal identified as omitted or contradicted by
    the semantic review.
 3. Do not solve an unsupported addition by pretending it came from the customer.

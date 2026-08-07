@@ -611,8 +611,12 @@ def test_retry_context_carries_compact_correction(
 
 
 def test_appspec_prompt_revision_records_the_authoring_change() -> None:
-    # Bumped to .2 when rule 8a (product_face binds page surfaces) was added.
-    assert settings.APPSPEC_PROMPT_REVISION == "2026-07-28.2"
+    # 2026-08-07.1: sessions 18-19's reject shapes taught (exactly-one initial
+    # state, per-kind assertion references, declare-before-cite, the minItems
+    # floor outside traceability, trace-or-defer). Previously 2026-07-28.2 for
+    # rule 8a. The stamp rides every revision's provenance, so reject rates are
+    # queryable per prompt revision.
+    assert settings.APPSPEC_PROMPT_REVISION == "2026-08-07.1"
 
 
 def test_authoring_prompt_forbids_empty_trace_arrays() -> None:
