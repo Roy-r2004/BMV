@@ -933,72 +933,94 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ## Next session's prompt, ready to paste
 
 ```
-Read HANDOFF.md first — "Session 21, in one page" and THE TALLY table. Then the roadmap's
-session-21 callout. Don't re-derive any of it.
+Read HANDOFF.md first — "Session 21, in one page" and THE TALLY. Then the roadmap's
+session-21 callout AND the "Reliability hardening backlog — owner-directed" table (R1-R7)
+right below it, including R4's recorded ruling. Don't re-derive any of it.
 
-main is PUSHED through session 21's commits. Suite 1,967 / 1 / 0. Key is SHARED — probe
-credits first, bracket every run, track BMV spend from ai_usage_events, never alarm on idle
-deltas; ~$11.24 left at session-21 close. Running config verified at close: TEXT
-gemini-3-flash-preview, FIX + QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro,
-ARCHITECT/CRITIC haiku-4.5, APPSPEC on + gemini-2.5-flash ×3,
+main is PUSHED through session 21's commits (d19bf81 + the R4 ruling). Suite 1,967 / 1 / 0.
+The key is SHARED — probe credits first, bracket every run, track BMV spend from
+ai_usage_events, never alarm on idle deltas; ~$11.24 left at session-21 close. Running
+config verified at close: TEXT gemini-3-flash-preview, FIX + QUALITY_FIX glm-5.2:nitro,
+PREVIEW_APP deepseek-v4-pro, ARCHITECT/CRITIC haiku-4.5, APPSPEC on + gemini-2.5-flash ×3,
 APPSPEC_TRANSPORT_FALLBACK_MODEL anthropic/claude-haiku-4.5, prompt revision 2026-08-07.1.
-My budget this session: $[N]. 10-minute cap per generation, monitored, always. We work
+My budget this session: $10 — a CAP, not a target; expected spend is ~$2-3. My time box:
+3 HOURS — plan for it: two rows LANDED and mutation-proven beat five rows touched; reserve
+the last 20 minutes for close-out. 10-minute cap per generation, monitored, always. We work
 LOCALLY — prod files only change when I say so.
 
-WHERE SESSION 21 LEFT THE BOARD: ships 3/5 (the closing duo 2/2), spec accepts 3-for-3
-rev-1 at coverage 100, transport-dead runs 0 — the fallback fired live and rescued an
-authoring chain. The dispatch desk (internal_ops) shipped for the first time ever. The two
-non-ships were the haiku APPSPEC trial's honest rejects; haiku-4.5 is ruled out for the
-spec slots as-is (3-of-4 asks burned 24k tokens with 0 output chars).
+THIS SESSION IS THE R-BACKLOG, best practices always. Standing rulings so you never wait:
+
+- R4 is RULED (2026-08-07): the defense-in-depth ladder, gap-fill variant — (1) ONE floor
+  constant shared by the gate and the prompt render (derive, never duplicate — the
+  face_prompt.py pattern), (2) a per-kind floor line in app_spec.j2 rendered for ops kinds
+  only, (3) ops gap-fill to the floor with a PATH-KEYED unserved test (the skeleton-keyed
+  test collides on ops-list and adds zero pages — session 21 proved it), (4) seed-time
+  refusal if still under floor (fail in seconds, not minutes), (5) the ship gate UNTOUCHED
+  as backstop — if it ever fires again it is a NEW bug, file it loudly. Never lower the
+  gate. Never prompt-only.
+- Retries must differ (R2); fallbacks are classify-first + bounded + cross-provider (R1);
+  leniency never reaches decision-carrying fields (R3).
+
+WEATHER GATE before any run: two long json_object probes on the spec model (~$0.06) — the
+probe must tolerate what the pipeline parser tolerates (markdown fences are healthy;
+finish=length on an oversized ask is the probe's fault; the storm class is
+finish_reason=error / $0 / partial body).
+
+LAUNCH MECHANICS (session 21 paid the 404 so you don't): POST /api/requests — NOT /api/v1 —
+multipart, industry always set, host port 8001; the duo3 + dispatch briefs are archived
+verbatim in docs/evidence/session21/briefs-129-132-135.jsonl.
+
+Work in order — judge each yourself, stop cleanly when the clock says so:
+
+1. R5 MEASUREMENT ONLY (~20 min, free, offline): the codegen/tail split from stored stage
+   timings (runs 129-142 all carry them). Deliverable: the measured table in the roadmap +
+   your recommendation. NO behavioral change — the reservation split is mine to rule on
+   with the numbers in front of me.
+
+2. R1+R2 AT SLOT_FILL as one neighborhood (~60-90 min, the biggest block): the
+   highest-volume ask site has NO model fallback (1.12(b) proved scaffolds ship to the gate
+   when the writer is unroutable) and a verbatim contract retry (session 18's
+   byte-identical message — the writer never sees the validator feedback). Classify
+   transport first (reuse the appspec predicate pattern), ONE bounded cross-provider rung,
+   corrective retry that feeds the validator report back, config slot for the fallback
+   model, telemetry attempts distinct. Mutation sweep per fix, suite green. ONE funded run
+   reads both (contract-rejection count + retry-2 outcomes vs the session-18 baseline).
+
+3. R4 THE LADDER (~45-60 min, ruled above): census with the existing harness
+   (ops_home_seed_census.py + the run135-fullchain-replay pattern — 135's stored artifact
+   must fill to the floor and pass the FULL chrome gate offline), mutation-pin each rung,
+   then ONE dispatch-desk run (135 brief verbatim). It must ship or fail on something NEW.
+
+4. R7 (~15 min): the startup warning in assert_safe_runtime_configuration when
+   APPSPEC_TRANSPORT_FALLBACK_MODEL shares a provider prefix with
+   APPSPEC_MODEL/APPSPEC_REPAIR_MODEL. Warn, never crash. Mutation-pin.
+
+5. R6 if time remains: writer/attempt scoping on stages still hitting the admin_ops
+   fallback (writer=None, attempt=1); refund errored $0 calls from the appspec call budget.
+
+6. R3 audit LAST and only if time truly remains (offline, no code): classify the other
+   strict parsers' failure codes (slot_fill contract, architect JSON) into
+   decision-carrying vs decorative, from stored reject evidence. The deliverable is the
+   classification, not edits.
 
 STANDING TALLY: ships vs attempts AND accepts vs rejects, every reject classified from
-telemetry before any relaunch. A transport-classified DEAD RUN is now a new bug at every
-appspec ask site — file it loudly.
+telemetry before any relaunch. A transport-classified dead run at ANY appspec ask site is a
+new bug. Keep counting the rev-1 streak (3-for-3 at session-21 close).
 
-WEATHER GATE before any run: two long json_object probes on the spec model (~$0.06) — and
-the probe's parse must tolerate what the pipeline parser tolerates (markdown fences are
-healthy; finish=length on an oversized ask is the probe's fault, not weather; the storm
-class is finish_reason=error / $0 / partial body).
-
-Work from the roadmap's RELIABILITY HARDENING BACKLOG (owner-directed 2026-08-07, the R1-R7
-table right below the session-21 callout) in its suggested order:
-
-1. R5 measurement — the codegen/tail budget split from stored stage timings (runs 129-142;
-   free, offline). All three session-21 ships starved typecheck-fix AND the visual critic.
-   Bring me the measured split BEFORE any reservation change — the ≤500 s DoD row stays
-   parked.
-
-2. R1+R2 at slot_fill as one neighborhood — the highest-volume ask site still has NO
-   model fallback (1.12(b)) and a verbatim contract retry (session 18's byte-identical
-   message). Classify-first, bounded rungs, corrective retry; mutation sweep per fix; ONE
-   funded run reads both.
-
-3. R4 — the FILED ops_kind_too_few_pages gap (offline proof:
-   docs/evidence/session21/run135-fullchain-replay.txt). Extend unserved-only gap-fill to
-   ops kinds OR get my ruling that ≤3-page ops specs are too thin to demo. If code: census +
-   mutation-pin + ONE dispatch-desk run.
-
-4. R6 + R7 if time remains — telemetry writer/attempt on the stages still hitting the
-   admin_ops fallback, refund errored $0 calls from the appspec call budget, and the
-   startup warning when the transport fallback shares a provider with the primary.
-
-Throughout: keep the rev-1 streak honest — count accepts/rev-mix every run; if gemini stays
-100% rev-1 over ~6 more runs, the repair rung is effectively idle; say so in MODEL_RESEARCH
-and stop treating acceptance as the bottleneck.
-
-PARKED (touch only with my ruling): ARCHITECT_MODEL, the ≤500 s p50 DoD row, schema-level
-conditional assertion requirements, relaxing the AppSpec schema, the October spec-slot
-migration (both candidates now ruled out as-is — a new candidate needs my sign-off first).
+PARKED (touch only with my ruling): ARCHITECT_MODEL, the ≤500 s p50 DoD row, any R5
+behavioral change, schema-level conditional assertion requirements, relaxing the AppSpec
+schema, the October spec-slot migration (both candidates ruled out as-is).
 
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
 one sweep at a time, red for the FILED reason; suite via docker run WITH its pip install
 half; recreate never restart; config from the running process; archive logs the moment each
 run finishes; no code edits while a generation is in flight; absolute paths; 10-minute cap.
 
-BEFORE YOU FINISH: .env in the state the evidence supports and verified from the running
-process; HANDOFF/roadmap/MODEL_RESEARCH updated with real numbers including the
-ships-vs-attempts line; push; next prompt written; tell me plainly what each run cost, what
-landed, and what's left.
+BEFORE YOU FINISH (the reserved 20 min): .env in the state the evidence supports and
+verified from the running process; the R-table statuses updated in the roadmap;
+HANDOFF/MODEL_RESEARCH updated with real numbers including the ships-vs-attempts line;
+push; next prompt written; tell me plainly what each run cost, what landed, and what's
+left.
 ```
 
 ## Session 20's prompt (historical — superseded above)
