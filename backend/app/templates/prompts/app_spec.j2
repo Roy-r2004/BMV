@@ -95,6 +95,14 @@ CONTRACT RULES:
    `state_ids` lists it. Actions identify the actor, page, capability, and
    affected entity where applicable. Transitions identify the action,
    from-state, to-state, and business effects.
+9a. There is no stateless page: every page's `state_ids` names at least one
+   declared state — an empty `state_ids` tuple is a validation failure, not a
+   simplification. Author the page's default state (its normal loaded
+   condition), mark it `"initial": true`, and list it. Every ID is real,
+   type-prefixed, and declared (`PAGE-MENU`, `STATE-MENU-READY`) — a
+   placeholder object is a validation failure, never scaffolding.
+   Valid: `{"id": "PAGE-MENU", "state_ids": ["STATE-MENU-READY"]}`.
+   Invalid: `{"id": "Page1", "state_ids": []}`.
 10. Evidence must be observable and testable. Prefer concrete evidence such as a
     visible confirmation reference, a changed availability record, a persisted
     status, or required content. Avoid vague evidence such as "works correctly".

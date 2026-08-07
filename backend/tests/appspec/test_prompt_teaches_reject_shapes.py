@@ -26,6 +26,7 @@ from app.application.appspec.builder import (
     build_app_spec_candidate,
     repair_app_spec_candidate,
 )
+from app.application.appspec.schema_repair import repair_app_spec_schema_candidate
 from app.infrastructure.templating.renderer import JinjaTemplateRenderer
 
 TEMPLATES_DIR = BACKEND_DIR / "app" / "templates"
@@ -112,3 +113,41 @@ def test_repair_prompt_translates_the_recurring_codes() -> None:
         "page_initial_state_count",
     ):
         assert code in prompt, code
+
+
+def _schema_repair_prompt() -> str:
+    ai = _PromptRecorder()
+    repair_app_spec_schema_candidate(
+        candidate={"schema_version": "1", "pages": []},
+        schema_issue={"code": "app_spec_schema_parse_failed", "issues": []},
+        ai_provider=ai,
+        template_renderer=JinjaTemplateRenderer(TEMPLATES_DIR),
+        model="google/gemini-2.5-flash",
+    )
+    return ai.prompts[0]
+
+
+# Request 143's empty-tuple reject class (2-for-2 sessions with session 19).
+# The mined shapes: rev 4-5's placeholder page `{"id": "Page1", "state_ids":
+# []}` beside one well-formed page, and rev 1's collapse — the repair returned
+# a single acceptance-test object in place of a 6-page spec.
+
+
+def test_authoring_prompt_teaches_the_stateless_page_floor() -> None:
+    prompt = _authoring_prompt()
+    assert "There is no stateless page" in prompt
+    assert '`{"id": "Page1", "state_ids": []}`' in prompt
+    assert '`{"id": "PAGE-MENU", "state_ids": ["STATE-MENU-READY"]}`' in prompt
+
+
+def test_repair_prompt_forbids_collapse_to_a_fragment() -> None:
+    prompt = _repair_prompt()
+    assert "is a collapse, not a repair" in prompt
+    assert "must survive verbatim" in prompt
+
+
+def test_schema_repair_prompt_translates_the_stateless_page_fix() -> None:
+    prompt = _schema_repair_prompt()
+    assert "that page is stateless: author its default state" in prompt
+    assert "Never resend the page unchanged" in prompt
+    assert '`"id": "Page1"`' in prompt

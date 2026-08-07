@@ -297,6 +297,31 @@ def _format_validation_failure(prefix: str, validation_payload: Mapping[str, Any
         return prefix
     return f"{prefix} ({'; '.join(parts)})"
 
+
+def _issue_identity_signature(validation_payload: Mapping[str, Any]) -> str:
+    """Canonical identity of a validator error set: sorted (code, path, message).
+
+    Severity/ctx noise is excluded on purpose: two reports that reject the same
+    paths for the same codes with the same messages are the same verdict, and a
+    repair whose output reproduces its input's verdict has repaired nothing —
+    re-asking on it is the R2 verbatim-retry defect inside the repair loop
+    (request 143 revs 4-5; request 138's repair repeated its parent's error at
+    the identical path). Any change to the set — one error fixed, one added —
+    is progress and never matches.
+    """
+
+    triples = sorted(
+        (
+            str(issue.get("code") or ""),
+            str(issue.get("path") or ""),
+            str(issue.get("message") or ""),
+        )
+        for issue in (validation_payload.get("issues") or [])
+        if isinstance(issue, Mapping)
+    )
+    return json.dumps(triples, ensure_ascii=False)
+
+
 def _coverage_payload(
     review: AppSpecCoverageReview | None,
     *,
@@ -851,6 +876,10 @@ def ensure_approved_app_spec(
     attempt_number = 0
     persisted_schema_payload_hashes: set[str] = set()
     trace_reference_audit: dict[str, Any] = {}
+    # Set at each AI repair dispatch to the signature of the error set that
+    # repair was asked to fix; compared exactly once against the next
+    # iteration's fresh set. Deterministic rungs never set it.
+    last_ai_repair_error_signature: str | None = None
 
     def _sanitize_tracked(
         pending: AppSpecCandidate | None,
@@ -1083,6 +1112,8 @@ def ensure_approved_app_spec(
             )
 
         while True:
+            awaited_repair_signature = last_ai_repair_error_signature
+            last_ai_repair_error_signature = None
             parse_issue: dict[str, Any] | None = None
             if candidate is not None and candidate.payload:
                 try:
@@ -1172,6 +1203,24 @@ def ensure_approved_app_spec(
                             before_sha256=candidate.parent_payload_sha256 or None,
                             after_sha256=sha,
                         )
+
+                # 0a-bis) A repair that reproduces its parent's identical
+                # validator error set has repaired nothing — every remaining
+                # rung already had its chance at this exact set, so spending
+                # further budget re-asks the same question (R2). Fail now,
+                # with the artifact persisted above.
+                if (
+                    awaited_repair_signature is not None
+                    and _issue_identity_signature(validation_payload)
+                    == awaited_repair_signature
+                ):
+                    log.info(
+                        "AppSpec repair reproduced its parent's validator "
+                        "error set for request %s — failing closed instead "
+                        "of spending further repairs",
+                        request_id,
+                    )
+                    return _fallback("repair_reproduced_parent_errors")
 
                 # Empty authoring payload cannot be repaired meaningfully.
                 if candidate is not None and not candidate.payload:
@@ -1382,6 +1431,9 @@ def ensure_approved_app_spec(
                     and candidate.payload
                 ):
                     schema_ai_repairs += 1
+                    last_ai_repair_error_signature = _issue_identity_signature(
+                        validation_payload
+                    )
                     parent_sha = payload_sha256(candidate.payload)
                     parent_row_id = graph_repair_source_revision_id
                     try:
@@ -1456,6 +1508,9 @@ def ensure_approved_app_spec(
                     ai_budget = 0
                 if repairs < ai_budget and candidate is not None:
                     repairs += 1
+                    last_ai_repair_error_signature = _issue_identity_signature(
+                        validation_payload
+                    )
                     pre_ai_errors = list(validation_payload.get("issues") or [])
                     candidate = _sanitize_tracked(
                         repair_app_spec_candidate(

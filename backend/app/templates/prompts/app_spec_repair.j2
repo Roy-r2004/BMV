@@ -61,6 +61,9 @@ REPAIR RULES:
 8. Rebuild complete proof chains for required outcomes: requirement -> capability
    -> page/journey -> evidence -> acceptance test -> traceability.
 9. Return the entire AppSpec. Never return a JSON Patch, partial object, comments,
-   markdown fences, or explanation.
+   markdown fences, or explanation. Returning one sub-object (a single
+   acceptance test, page, or state) in place of the spec, or emptying `pages` /
+   `states` that the rejected candidate populated, is a collapse, not a repair —
+   every object the report does not fault must survive verbatim in your output.
 
 Return the complete repaired AppSpec JSON object only.

@@ -348,8 +348,13 @@ class Settings:
         # the minItems floor outside traceability, trace-or-defer.
         # 2026-08-07.2: R4 rung 2 — the ops-kind page floor (8b), rendered for
         # ops faces only and derived from the ship gate's own constant.
+        # 2026-08-07.3: request 143's empty-tuple reject class — 9a (no
+        # stateless pages, no placeholder objects, mined Page1 shape), the
+        # repair prompt's anti-collapse line (rev 1 returned one acceptance
+        # test in place of a 6-page spec), and the schema-repair prompt's
+        # constructive stateless-page fix (7a).
         self.APPSPEC_PROMPT_REVISION = (
-            os.getenv("APPSPEC_PROMPT_REVISION", "2026-08-07.2").strip()
+            os.getenv("APPSPEC_PROMPT_REVISION", "2026-08-07.3").strip()
             or "2026-07-15.1"
         )
         self.APPSPEC_MODEL = _env_or("APPSPEC_MODEL", self.ARCHITECT_MODEL)
