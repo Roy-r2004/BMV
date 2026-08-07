@@ -1067,73 +1067,90 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 Read HANDOFF.md first — "Session 22, in one page" and THE TALLY. Then the roadmap's
 session-22 callout AND the R-table's session-22 status block. Don't re-derive any of it.
 
-main is PUSHED through session 22's commits. Suite 2,012 / 1 / 0. The key is SHARED —
-probe credits first, bracket every run, track BMV spend from ai_usage_events, never alarm
-on idle deltas; ~$7.86 left at session-22 close. Running config verified at close: TEXT
+main is PUSHED through 41fd68d. Suite 2,012 / 1 / 0. The key is SHARED — probe credits
+first, bracket every run, track BMV spend from ai_usage_events, never alarm on idle
+deltas; ~$7.86 left at session-22 close. Running config verified at close: TEXT
 gemini-3-flash-preview, FIX + QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro +
-PREVIEW_APP_TRANSPORT_FALLBACK_MODEL anthropic/claude-haiku-4.5 (new), ARCHITECT/CRITIC
+PREVIEW_APP_TRANSPORT_FALLBACK_MODEL anthropic/claude-haiku-4.5, ARCHITECT/CRITIC
 haiku-4.5, APPSPEC on + gemini-2.5-flash ×3 + fallback haiku, prompt revision 2026-08-07.2.
-My budget this session: $[N] — a CAP, not a target. My time box: [N] HOURS; reserve the
+
+MY BUDGET: $7 — a CAP, not a target, and it is most of what's left on the key: spend it
+only where a run buys a reading you cannot get offline. Time box 3 HOURS; reserve the
 last 20 minutes for close-out. 10-minute cap per generation, monitored, always. We work
 LOCALLY — prod files only change when I say so.
+
+THIS SESSION RUNS ON YOUR JUDGMENT. The backlog below is my recommended order, not a
+script: you have standing authority to reorder, drop, split, or merge items when the
+evidence in front of you says so — and to chase a defect you can prove from stored
+evidence even if it is not listed. When you deviate, record WHY in the handoff. You do
+not need to ask before: launching a weather-gated run inside the cap, landing a
+mutation-proven fix, or archiving/committing/pushing your work. What stays absolute no
+matter what you choose: the PARKED list, the NON-NEGOTIABLEs, fail-closed over clever,
+and the tally reported honestly.
+
+THE BACKLOG (my order — yours to re-order with reasons):
+
+1. THE EMPTY-TUPLE REJECT CLASS — the flagship (~45-60 min + one run). 143's artifact is
+   ALREADY MINED (session-22 next-step item 3; don't re-derive): revs 1-3 authored EMPTY
+   pages/states arrays; revs 4-5 a placeholder "Page1" page with no states and nothing
+   anywhere to reconcile from; rev 5 reproduced rev 4's validator errors IDENTICALLY.
+   Land the trio as one neighborhood:
+   (a) teach the authoring prompt — every page lists >=1 state_id, real PAGE-*/STATE-*
+       ids, never placeholders (session-20 pattern, mined shapes verbatim);
+   (b) the app_spec_repair.j2 translation for the schema-parse minItems class ("that
+       page is stateless — author its default state, initial:true, reference it in
+       state_ids; never resend the page unchanged");
+   (c) identical-revision early stop — when a repair revision reproduces its parent's
+       IDENTICAL validator error set, fail then instead of spending the remaining
+       budget (R2 inside the repair loop; 143 pays 3 revisions instead of 5).
+   NO deterministic heal — states are decision-carrying (R3) and 143 proves there is
+   nothing to back-fill from. Bump the prompt revision (2026-08-07.3), mutation-pin each
+   part, ONE Osteria run beside it. Judge on accepts, whether repairs stop repeating
+   identical errors, and revisions-to-verdict.
+
+2. THE FREE READS — ride item 1's run (or any healthy run past codegen), ~15 min offline:
+   the R1+R2 slot_fill read that never bound in session 22 — contract-rejection count,
+   "How to repair:" present in any contract retry prompt, attempt-2 outcomes, any
+   attempt=3 slot_fill rows (the rung). Plus the standing free observables: design_manifest
+   success, planning serial, tail state vs the R5 table.
+
+3. R6 (~30-45 min, offline-provable): writer/attempt scoping on stages still hitting the
+   admin_ops.py:330 fallback (writer=None, attempt=1) — find them with a telemetry query
+   over recent runs FIRST; and refund errored $0 calls from the appspec call budget.
+   Mutation sweep per fix, suite green.
+
+4. R3 AUDIT (offline, no code, ~30 min): classify slot_fill-contract and architect-JSON
+   failure codes into decision-carrying vs decorative from stored reject evidence. The
+   deliverable is the classification table in the roadmap, not edits.
+
+5. R5 — ONLY if I have ruled on the tail reservation by the time you read this (the
+   measured table is in the roadmap): implement TAIL_RESERVE_SECONDS per the
+   recommendation, mutation-pinned, one run beside it. No ruling = stays parked.
+
+6. R1's REMAINDER if time remains: coverage_review's one-shot retry is still same-model;
+   survey any remaining single-provider ask sites (architect and fix_agent already have
+   chains).
 
 Standing rulings so you never wait: R4 is DONE and live-proven (run 144 shipped the
 135-shape); never lower the gate (OPS_MIN_NON_HUB_PAGES=4 is pinned). Retries must differ
 (R2); fallbacks are classify-first + bounded + cross-provider (R1); leniency never reaches
 decision-carrying fields (R3). If the ship gate's ops floor EVER fires again it is a NEW
-bug — file it loudly.
+bug — file it loudly. Quality failures NEVER take a model fallback — they repair or fail
+closed; the transport rungs are for weather only.
 
 WEATHER GATE before any run: two long json_object probes on the spec model (~$0.06),
 probe-parse as tolerant as the pipeline's (fences healthy; the storm class is
 finish_reason=error / $0 / partial body). LAUNCH: POST /api/requests (never /api/v1),
 multipart, industry always set, host port 8001.
 
-Work in order — judge each yourself, stop cleanly when the clock says so:
-
-1. THE FREE READS FIRST (~15 min, offline): the R1+R2 slot_fill read did not bind in
-   session 22 (143 died at appspec). On this session's first healthy run past codegen,
-   read: contract-rejection count, "How to repair:" present in any contract retry prompt,
-   attempt-2 outcomes, and any attempt=3 slot_fill rows (the rung). No dedicated run —
-   ride whatever run item 3 or 4 launches.
-
-2. R6 (~30-45 min, offline-provable): writer/attempt scoping on stages still hitting the
-   admin_ops.py:330 fallback (writer=None, attempt=1) — find them with a telemetry query
-   over recent runs first; and refund errored $0 calls from the appspec call budget.
-   Mutation sweep per fix, suite green.
-
-3. THE EMPTY-TUPLE REJECT CLASS (~45 min + one run) — 143's artifact is ALREADY MINED
-   (HANDOFF session-22 next-step item 3 has the shapes; don't re-derive): revs 1-3 were
-   empty pages/states arrays, revs 4-5 a placeholder "Page1" with no states and nothing
-   to reconcile from, rev 5 repeating rev 4's errors identically. Land the trio as one
-   neighborhood: (a) teach the authoring prompt — state_ids minItems + real PAGE-*/STATE-*
-   ids, never placeholders (session-20 pattern, mined shapes verbatim); (b) the
-   app_spec_repair.j2 translation for the schema-parse minItems class ("that page is
-   stateless — author its default state, initial:true, reference it; never resend
-   unchanged"); (c) identical-revision early stop — when a repair revision reproduces its
-   parent's IDENTICAL validator error set, fail then instead of spending the remaining
-   budget (R2 inside the repair loop). NO deterministic heal (states are decision-carrying,
-   R3). Bump the prompt revision, mutation-pin each part, ONE Osteria run beside it. Judge
-   on accepts + whether repairs stop repeating identical errors + revisions-to-verdict.
-
-4. R3 AUDIT (offline, no code, ~30 min): classify slot_fill-contract and architect-JSON
-   failure codes into decision-carrying vs decorative from stored reject evidence. The
-   deliverable is the classification table in the roadmap, not edits.
-
-5. R5 IS WAITING ON MY RULING — the measured table is in the roadmap. If I have ruled by
-   the time you read this, implement TAIL_RESERVE_SECONDS per the recommendation
-   (mutation-pinned, one run beside it). If I have not ruled, leave it parked.
-
-6. If time remains: R1's remainder — coverage_review's one-shot retry is still same-model;
-   survey any remaining single-provider ask sites (architect chain and fix_agent already
-   have chains).
-
 STANDING TALLY: ships vs attempts AND accepts vs rejects, every reject classified from
 telemetry before any relaunch. A transport-classified dead run at ANY appspec ask site is
 a NEW bug. The rev-1 streak ended at 3 — start the new count honestly.
 
-PARKED (touch only with my ruling): ARCHITECT_MODEL, the ≤500 s p50 DoD row, R5's
-behavioral half, schema-level conditional assertion requirements, relaxing the AppSpec
-schema, the October spec-slot migration (both candidates ruled out as-is).
+PARKED (touch only with my ruling): ARCHITECT_MODEL, the <=500 s p50 DoD row, R5's
+behavioral half (unless ruled — item 5), schema-level conditional assertion requirements,
+relaxing the AppSpec schema, the October spec-slot migration (both candidates ruled out
+as-is).
 
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
 one sweep at a time, red for the FILED reason; suite via docker run WITH its pip install
@@ -1144,8 +1161,8 @@ container bind-mounts the repo); absolute paths; 10-minute cap.
 BEFORE YOU FINISH (the reserved 20 min): .env in the state the evidence supports and
 verified from the running process; the R-table statuses updated in the roadmap;
 HANDOFF/MODEL_RESEARCH updated with real numbers including the ships-vs-attempts line;
-push; next prompt written; tell me plainly what each run cost, what landed, and what's
-left.
+push; next prompt written; tell me plainly what each run cost, what landed, what you
+chose to reorder and why, and what's left.
 ```
 
 ## Session 21's prompt (historical — superseded above)
