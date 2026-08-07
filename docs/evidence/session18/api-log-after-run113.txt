@@ -1,0 +1,45 @@
+bmv-api  | Starting BuildMyVersion API on port 8000...
+bmv-api  | INFO  | bmv.Startup | 2026-08-07 00:34:22.900 | Startup:190 | schema_ready db=postgresql://db/buildmyversion elapsed_ms=61 versions={'phase7a': 'phase7a.1', 'phase7b': 'phase7b.1', 'phase7c': 'phase7c.1', 'phase7d': 'phase7d.1', 'phase7e': 'phase7e.1', 'phase7f': 'phase7f.2', 'commercial': 'commercial.1'}
+bmv-api  | INFO  | bmv.AdminBootstrap | 2026-08-07 00:34:22.937 | AdminBootstrap:58 | Updated bootstrap admin user roy.rizkallah@hotmail.com (is_admin/password sync)
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 00:34:22.937 | Boot:122 | SEED_DEMO=false — skipping PlateSync demo seed
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 00:34:22.937 | Boot:131 | PREVIEW_TEMPLATE_DIR=/app/backend/preview-template exists=True
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 00:34:22.937 | Boot:142 | AI_PROVIDER=openrouter LOG_LEVEL=debug
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 00:34:22.970 | Boot:163 | node=v22.14.0 npm=10.9.2
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 00:34:22.970 | Boot:164 | INTERNAL_BASE_URL=http://127.0.0.1:8000
+bmv-api  | INFO:     Started server process [1]
+bmv-api  | INFO:     Waiting for application startup.
+bmv-api  | INFO:     Application startup complete.
+bmv-api  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 36598
+bmv-api  | DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+bmv-api  | INFO  | bmv.RequestPipeline | 2026-08-07 00:34:31.442 | RequestPipeline:63 | Starting background pipeline for request 113
+bmv-api  | INFO  | bmv.Deadline | 2026-08-07 00:34:31.442 | Deadline:328 | request 113 deadline armed: 540s (+60s reserved for post-deadline work)
+bmv-api  | INFO:     172.217.119.4:39831 - "POST /api/requests HTTP/1.1" 200 OK
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-07 00:34:31.448 | GenerationPipeline:83 | Starting full generation pipeline for request 113 (Osteria Vinci)
+bmv-api  | DEBUG | bmv.GenerationPipeline | 2026-08-07 00:34:31.448 | GenerationPipeline:41 | ▶ generation-pipeline request=113 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 400 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 400 None
+bmv-api  | ERROR | bmv.RequestPipeline | 2026-08-07 00:34:33.976 | RequestPipeline:70 | Background pipeline FAILED request 113: bmv/unroutable-model-1p12-test is not a valid model ID
+bmv-api  | ERROR | bmv.RequestPipeline | 2026-08-07 00:34:33.976 | RequestPipeline:71 | Pipeline traceback for request 113
+bmv-api  | Traceback (most recent call last):
+bmv-api  |   File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+bmv-api  |     GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+bmv-api  |   File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+bmv-api  |     return self._run_inner(db, request_id)
+bmv-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/pipelines/orchestrator.py", line 107, in _run_inner
+bmv-api  |     blueprint.generate_mvp_blueprint(db, request_id, self.ai_provider, self.template_renderer)
+bmv-api  |   File "/app/backend/app/application/pipelines/blueprint.py", line 42, in generate_mvp_blueprint
+bmv-api  |     result = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+bmv-api  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/infrastructure/ai_providers/openrouter_provider.py", line 384, in ask_chat
+bmv-api  |     return self._chat_completion(
+bmv-api  |            ^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/infrastructure/ai_providers/openrouter_provider.py", line 312, in _chat_completion
+bmv-api  |     raise_if_unsuccessful(parsed)
+bmv-api  |   File "/app/backend/app/infrastructure/ai_providers/response_parser.py", line 984, in raise_if_unsuccessful
+bmv-api  |     raise ProviderGenerationError(
+bmv-api  | app.infrastructure.ai_providers.response_parser.ProviderGenerationError: bmv/unroutable-model-1p12-test is not a valid model ID

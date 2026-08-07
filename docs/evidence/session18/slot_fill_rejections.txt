@@ -1,0 +1,5 @@
+src/pages/ArtworkDetailPage.tsx attempt 1/2 (truncated) — retrying
+src/pages/GalleryPage.tsx attempt 1/2 (catalogue-contract: missing directory face component:PageHeader, missing BRAND_MANIFEST services binding) — keeping scaffold
+src/pages/MenuFoodPage.tsx attempt 1/2 (catalogue-contract: missing directory face component:PageHeader, missing BRAND_MANIFEST services binding) — keeping scaffold
+src/pages/AboutPage.tsx attempt 1/2 (catalogue-contract: SkeletonComposer invocation, assigned skeleton literal, slot:hero, slot:features, slot:testimonials, slot:cta, slot:footer) — keeping scaffold
+src/pages/MenuWinePage.tsx attempt 1/2 (catalogue-contract: missing directory face component:PageHeader, missing BRAND_MANIFEST services binding) — keeping scaffold

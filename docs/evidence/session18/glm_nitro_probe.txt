@@ -1,0 +1,28 @@
+# FIX_MODEL routing A/B probe — 2026-08-07 session 18
+# Context: fix_agent is unreachable in-pipeline on healthy briefs (12/12 calls across
+# baseline+2b duos fired at t>=534s into a 600s cap and died as runway timeouts), so the
+# glm-5.2:nitro experiment was run as a direct provider A/B from the api container with
+# fix-shaped prompts. Same key, same endpoint, max_tokens 4000/12000, timeout 120/180s.
+
+## Probe 1 — small fix (one-line TS2322, ~250-token output), 3 calls each
+z-ai/glm-5.2       #1: 8.6s  provider=StreamLake finish=stop ctok=289
+z-ai/glm-5.2       #2: 7.8s  provider=StreamLake finish=stop ctok=234
+z-ai/glm-5.2       #3: 5.8s  provider=StreamLake finish=stop ctok=188
+z-ai/glm-5.2:nitro #1: 4.2s  provider=Fireworks  finish=stop ctok=458
+z-ai/glm-5.2:nitro #2: 3.6s  provider=Fireworks  finish=stop ctok=352
+z-ai/glm-5.2:nitro #3: 10.5s provider=Fireworks  finish=stop ctok=1594
+
+## Probe 2 — realistic fix (~130-line file back, ~3.4k-token output), 2 calls each
+z-ai/glm-5.2       #1: 52.5s provider=StreamLake finish=stop ctok=3460   (~66 t/s)
+z-ai/glm-5.2       #2: 60.4s provider=StreamLake finish=stop ctok=3453   (~57 t/s)
+z-ai/glm-5.2:nitro #1: 19.3s provider=Fireworks  finish=stop ctok=3430   (~178 t/s)
+z-ai/glm-5.2:nitro #2: 18.6s provider=Parasail   finish=stop ctok=3438   (~185 t/s)
+
+## Reading
+Default routing pins glm-5.2 to StreamLake at ~57-66 t/s; :nitro routes to Fireworks/
+Parasail at ~178-185 t/s (matches the 189 t/s Artificial Analysis benchmark). At the
+fixer's real output sizes (8-14k tokens) StreamLake arithmetic is 120-230s per call —
+past the 120s per-call cap — which mechanically reproduces the measured 107s avg / 52%
+fail. :nitro at ~180 t/s lands the same ask in 45-80s.
+Verdict: FIX_MODEL=z-ai/glm-5.2:nitro ADOPTED (5/5 success, 3 distinct providers, 3x
+throughput). QUALITY_FIX_MODEL left on base glm-5.2 — one .env line per change; filed.

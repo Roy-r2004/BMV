@@ -1,5 +1,13 @@
 # Model research — every slot, its job, and what should fill it (2026-08-06, session 16)
 
+> **RESULTS (2026-08-07, session 18 — the funded session).** Every experiment below was run;
+> verdicts with numbers in the "Funded-session results" section at the bottom. The adopted
+> config: `TEXT_MODEL=google/gemini-3-flash-preview` (ADOPTED — cut pre-codegen serial time
+> from ~342-389s to ~245-247s on both runs), `FIX_MODEL=z-ai/glm-5.2:nitro` (ADOPTED on a
+> direct provider A/B probe — 3× throughput; the slot is unreachable in-pipeline on healthy
+> briefs), `PREVIEW_APP_MODEL=deepseek/deepseek-v4-pro` (v4-flash REVERTED — cheaper but
+> quality flat-to-slightly-worse and it does not touch the real bottleneck).
+
 Researched overnight on the owner's request. Two inputs: the pipeline's OWN telemetry
 (`ai_usage_events`, 3,200+ calls — the ground truth for what these models do HERE) and the
 August-2026 OpenRouter landscape (web research; sources at the bottom). **No model was changed:
@@ -167,3 +175,91 @@ model-A/B runs must not be the same runs as the appspec on-vs-off experiment.
 - [Gemini 3 Flash Preview on OpenRouter](https://openrouter.ai/google/gemini-3-flash-preview) · [Gemini 2.5 Flash](https://openrouter.ai/google/gemini-2.5-flash) · [Google: Gemini 3.6/3.5 announcement](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) — Gemini lineup + 2.5-flash retirement
 - [OpenRouter free tier guide](https://klymentiev.com/blog/openrouter-free-tier) · [openrouter/free feature discussion](https://github.com/NousResearch/hermes-agent/issues/40717) — the `openrouter/free` router
 - Anthropic first-party pricing via the claude-api reference (Haiku 4.5 $1/$5, Sonnet 5 $3/$15)
+
+---
+
+## Funded-session results (2026-08-07, session 18)
+
+All runs: the duo3 briefs (Osteria Vinci restaurant / Cedar Point Lodge hotel) verbatim, one
+.env line changed per run-pair, container force-recreated and the model verified from the
+running process before every launch. Full telemetry in `ai_usage_events`; logs + launch logs
+in `docs/evidence/session18/`.
+
+### The structural finding that frames every verdict: runway starvation
+
+Both baseline runs shipped `ready` at 578/573s but with 76% call failure — planning +
+architect consumed ~342-389s of the 600s cap before the first page was written, then the
+tail (visual critic, fix_agent, tech/proposal/build_plans) starved: every critic call (16+12)
+and every fix_agent call (6+6) died as `provider_timeout` with runway-sized budgets, $0 cost.
+Codegen "failures" are dominated by this, not by model quality. Any model comparison on
+slot_fill acceptance alone is confounded until the serial planning cost is attacked.
+
+### Experiment 1 — PREVIEW_APP_MODEL: deepseek-v4-flash vs v4-pro → **REVERTED to v4-pro**
+
+| metric | v4-pro (103/104) | v4-flash (105/106) |
+|---|---|---|
+| shipped | 2/2 ready, 578/573s | 2/2 ready, 575/572s |
+| duo cost | $0.61 | $0.42 (-31%) |
+| slot_fill usable | 15/49 (31%) | 5/18 (28%) |
+| codegen success latency | 43-51s avg | 32-41s avg |
+| typecheck errors at ship | 1+1 | 1+3 |
+
+Faster per call and ~6¢/run cheaper, but acceptance flat, typecheck slightly worse, ship rate
+and wall clock identical — the writer is not the bottleneck; the pre-codegen serial cost is.
+Verdict per the session rule (revert on unclear): **reverted**. Re-test v4-flash only after
+the starvation is fixed — its speed edge would then buy real page coverage.
+
+### Experiment 2 — FIX_MODEL: z-ai/glm-5.2:nitro → **ADOPTED** (probe evidence)
+
+The fixer is unreachable in-pipeline on healthy briefs: 12/12 fix_agent calls across both
+duos fired at t≥534s and died in the starved tail. So the routing hypothesis was tested as a
+direct A/B from the api container (`docs/evidence/session18/glm_nitro_probe.txt`): default
+routing pins glm-5.2 to StreamLake at ~57-66 t/s — at the fixer's real 8-14k-token outputs
+that is 120-230s per call, past the 120s per-call cap, mechanically reproducing the measured
+107s avg / 52% fail. `:nitro` routes to Fireworks/Parasail at ~178-185 t/s (5/5 success,
+matches the 189 t/s benchmark) and lands the same ask in 45-80s. One line, reversible,
+prevents a certain arithmetic failure. `QUALITY_FIX_MODEL` left on base glm-5.2 (one line per
+change) — **filed: give it the same suffix next session.**
+
+Post-adoption live data point (run 112, the 1.12b reachability run): the nitro fixer's one
+in-pipeline `fix_agent primary` call **succeeded** — the first fix_agent success ever recorded
+on a funded run — while `quality_repair` on base glm-5.2 failed `provider_truncated_output` in
+the same run. Small n, right direction, and the QUALITY_FIX_MODEL filed item now has evidence.
+
+### Experiment 3 — TEXT_MODEL: gemini-3-flash-preview → **ADOPTED**
+
+| metric | gemini-2.5-flash (103/104) | gemini-3-flash-preview (107/108) |
+|---|---|---|
+| codegen start | 342s / 389s | **245s / 247s** |
+| planner call | 59.3s | 26-30s |
+| blueprint | 26s | 13s |
+| haiku plan_validation downstream | truncated 2/2 (95s + $0.08 wasted/run) | succeeded 2/2 at ~76s |
+| duo cost | $0.61 | $0.51 |
+| slot_fill (restaurant run) | 8/19 usable | 5/14 usable, retries actually firing (attempt-2: 4 fired / 2 passed) |
+| shipped | 2/2 ready | 2/2 ready |
+
+The single biggest lever measured this session: ~100-140s of serial critical path removed on
+both runs, zero failures of its own, cheaper, and it is the forced October-2026 migration
+anyway. Caveat recorded honestly: typecheck-at-ship rose on the restaurant run (7 vs 1)
+because more real pages get written and the fixer still dies in the tail — content volume,
+not model regression. VISION_MODEL still shares gemini-2.5-flash — **filed: migrate it beside
+TEXT_MODEL after a vision-touching run.**
+
+### Bonus finding — ARCHITECT_MODEL (haiku-4.5) planning calls are budget-capped, not flaky
+
+Both baseline runs: `plan_validation` burned exactly its 14,000-token budget with
+`finish_reason: length` and **0 output chars** (95.9s/94.3s, ~$0.08), `design_manifest` the
+same at its 1,500 cap — 100% reproducible, looks like reasoning-token burn before any text.
+Under gemini-3 plans the validation fits (2/2 success) but `design_manifest` still fails 2/2.
+**Filed: either raise/disable reasoning budgets for haiku planning calls or move those two
+writers off haiku; needs one run beside it.**
+
+### slot_fill rejection distribution (backlog item 3) — measured over 8 funded runs
+
+49 baseline slot_fill calls: 34 transport (starvation timeouts), 5 contract rejections, 1
+truncated-then-retried (attempt 2 PASSED — first observed 2.9 retry success). The contract
+class is concentrated: "missing directory face component:PageHeader, missing BRAND_MANIFEST
+services binding" fired 5× across the session on catalogue pages, and a with-runway retry
+(107) failed attempt 2 with the byte-identical error — the writer does not use that
+validator feedback. That is prompt vocabulary (preflight question 5's `public-catalog`
+thread), not model quality.

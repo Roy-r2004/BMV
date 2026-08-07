@@ -1,6 +1,105 @@
-# Session handoff — the v1 role-pages path is removed by owner ruling (2026-08-06, session 17)
+# Session handoff — the funded session: 11 runs, 3 model verdicts, appspec won (2026-08-07, session 18)
 
-Successor to session 16's handoff (below in this file). Process notes, not product docs.
+Successor to session 17's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 18, in one page
+
+**The credits arrived and $3.01 of the owner's $10 budget bought 11 generations (requests
+103-113), three model verdicts, the appspec head-to-head, all three 1.12 reachability runs,
+and one landed+live-proven fix.** Full detail: the roadmap's session-18 callout and
+`docs/MODEL_RESEARCH_2026-08.md` "Funded-session results". Evidence: `docs/evidence/session18/`
+(launch logs, api log dumped after every run, slot_fill rejections, glm probe).
+
+**The mystery spend is CLOSED as a non-issue: the owner confirmed the OpenRouter key is shared
+with another project.** Balance deltas are not all BMV — track BMV spend from `ai_usage_events`,
+bracket runs with the credits probe, never alarm on idle-time usage again.
+
+### What the seven-fix read-list said (baseline duo 103/104, briefs of 95-98 verbatim)
+
+5 of 7 pass; both runs shipped `ready` at 578/573 s. Hotel gallery GONE (was 8/8). Restaurant
+gallery persists as the census's known 2-of-6 residual (fired 103/107/111, not 105/109) — and
+run 111 proved it can FAIL a run outright: the visual critic scored gallery-on-restaurant 30/40,
+`visual_defect_severe` ×3. AboutPage.tsx appeared in rejections → `0e678fa` is half a fix, the
+plan page is the remaining cause. Item 2 (dual reservations nav) unexercised.
+
+### The three verdicts (one .env line per run-pair, judged against the same briefs)
+
+| slot | verdict | the number that decided it |
+|---|---|---|
+| TEXT_MODEL | **gemini-3-flash-preview ADOPTED** | codegen starts 245/247 s vs 342/389 s; planner 26-30 s vs 59 s; duo $0.51 vs $0.61 |
+| FIX_MODEL | **glm-5.2:nitro ADOPTED** (probe-proven; slot tail-starved in-pipeline 12/12) | StreamLake 57-66 t/s vs nitro 178-185 t/s at real fix sizes; first live success run 112 |
+| PREVIEW_APP_MODEL | **v4-flash REVERTED** | acceptance 28% vs 31%, tsc 4 vs 2, ship rate equal — and the writer is not the bottleneck |
+
+**The frame: runway starvation.** Baseline burned 342-389 s before codegen; everything after
+~490 s died with runway-sized timeouts (76% of calls, $0). The critic and fixer never ran on
+healthy briefs — which is why the fixer experiment had to be a direct provider A/B probe.
+
+### The appspec head-to-head: enforcement won, ruling is the owner's
+
+109/110 (`on`) vs 107/108 (`off`), same models, same briefs: **2/2 rev-1 accepts; planning
+~100-150 s → ~22 s (canonical_seed skips `validate_and_expand_plan` — session 16's prediction
+verified); 0 codegen failures; the tail RAN for the first time (critic 4 successes, refine
+fired, tsc 0 on 109); wall 566/561 vs 573/572; route tables leaner and business-matched (9/7
+routes).** Cost +$0.16/run. **Recommendation: KEEP appspec, turn it ON.** `.env` left `off`
+pending the ruling (mode is owner-parked). Caveats: n=2 accepts; a rejected spec now fails the
+request honestly.
+
+### 1.12: answered on all three slots, and the row's premise is dead
+
+(a) architect unroutable → model-fallback chain absorbs it (v4-pro architected, +~100 s), the
+deterministic blueprint is unreachable from model failure; the run then quality-gate-failed on
+content. (b) page-writer unroutable → **slot_fill has no fallback**, scaffolds went to the
+quality gate, honest `failed` inside the cap (566 s). (c) TEXT unroutable → fails at blueprint
+in **4 s, $0.00**. Nowhere does a degraded blueprint preview ship — degraded output becomes an
+honest failure + the customer retry endpoint. Rewrite the row to pin THAT (fail fast, fail
+honest, never a bad demo).
+
+### Landed: the palette fix, with a run beside it (`83bb7c6`)
+
+`_design_system_dict` discarded the four derived colours and omitted `surface_color`; the
+design system now threads ctx → `apply_workspace_guards` → every fallback writer. Also found
+and fixed while landing it: the function existed as TWO diverging copies, and the font-name fix
+(`8fe8955`) had only reached one — patterns' copy was still writing squashed `font_family`
+slugs to every brand_contract consumer. Unified; squash regression mutation-pinned. **6 tests,
+7 mutations, 0 survivors (`mutate_design_palette.py`). Suite: 1,893 / 1 / 0. Live-proven on
+run 112's mock.ts: `#1b3126`/`#577466` (brand-derived) instead of `#0f172a`/`#475569`.**
+
+### Also measured (fresh-log obligations met)
+
+- **slot_fill distribution (backlog 3):** 49 baseline calls = 34 transport (starvation),
+  5 contract, 1 truncated→retried, **attempt 2 PASSED — first observed 2.9 retry success**.
+  The dominant contract failure is one vocabulary gap fired 5×: "missing directory face
+  component:PageHeader, missing BRAND_MANIFEST services binding" on catalogue pages; a
+  with-runway retry failed attempt 2 with the byte-identical message — the writer does not use
+  the validator feedback (preflight Q5's public-catalog thread).
+- **haiku planning writers fail by budget, not flakiness:** `plan_validation` burned exactly
+  14,000 tokens with 0 output chars on both baseline runs (~95 s + $0.08 each), `design_manifest`
+  the same at 1,500 — reasoning-burn shape. Under gemini-3 plans, validation fits (2/2);
+  design_manifest still fails. FILED: budget/model change with a run.
+- Run 104 shipped `/book` + `/book-appointment` + `/book-appointments` — route-alias class.
+
+### What I got wrong in session 18
+
+- **I read run 111's five pages as the deterministic blueprint's output.** Telemetry showed the
+  architect chain had fallen back to v4-pro and succeeded — the deterministic path never ran.
+  Always confirm WHICH writer produced an artifact before crediting a fallback.
+- **I edited bind-mounted production code while run 111 was in flight.** Python's import cache
+  protected the run, but that was luck, not procedure. Code edits wait for the window to close.
+- **My first monitor watched `requests.status` for `done`** — a status that does not exist in
+  this schema (success leaves `new` and writes `generated_pages`; only failure flips status).
+  Caught before it mattered. Resolve terminal conditions from the schema, not assumptions.
+- A `cd backend` for the mutation sweep drifted the working directory and broke the next
+  compound command — the standing operating note, ignored once, cost one retry.
+
+### Filed (each wants one line or one run next session)
+
+1. `QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro` (its base-glm call failed truncated on 112).
+2. VISION_MODEL still on gemini-2.5-flash — migrate beside TEXT_MODEL after a vision-touching run.
+3. The catalogue-contract vocabulary gap (PageHeader/BRAND_MANIFEST) — prompt fix, needs a run.
+4. haiku planning budgets (above).
+5. The appspec ON ruling — one owner word turns the measured win on.
 
 ---
 
@@ -272,60 +371,47 @@ Run one at a time, every file restored from in-memory backups.
 
 ## State of the repo, in four lines
 
-- **`main` is `304e360` (prompt gates) after `7f8e057` (model research) and `d28df68` (the
-  prop-shape wiring), pushed.**
-- **Suite: 1,882 passed / 1 skipped / 0 failed** (documented command). Vitest 39/39 — on CI,
-  observed.
-- **Credits: $0. `total_usage 330.229` of `total_credits 330`** — FOURTH identical reading. The
-  ~$40 mystery spend is still unexplained and is the owner's call.
-- **CI OBSERVED GREEN for the first time** — run #11 on `f019d39`, by the owner, in a browser.
-  1.10 is closed.
+- **`main` is `83bb7c6` (the palette fix) on top of session 17's `fffeb3c`, plus the session-18
+  docs/evidence commits — pushed.**
+- **Suite: 1,893 passed / 1 skipped / 0 failed** (documented command). Vitest untouched (no
+  JS/TS changed).
+- **Credits: ~$10.26 left** (`total_usage 349.745` of `total_credits 360`). Session 18 spent
+  **$3.01 telemetry-attributed** of the owner's $10 budget. The key is SHARED with another
+  project (owner, 2026-08-07) — the "mystery spend" is closed; never alarm on idle usage again.
+- **The running config is the adopted one, verified from the process:** TEXT=gemini-3-flash-preview,
+  FIX=glm-5.2:nitro, PREVIEW_APP=deepseek-v4-pro, ARCHITECT=haiku-4.5, APPSPEC_MODE=off.
 
 ---
 
 ## The next step
 
-**There is no meaningful offline work left.** The next session should not start unless at least
-one of these is true, or it will burn a session confirming this paragraph:
+Ordered by payoff; items 1-2 are single lines or single rulings that bank measured wins.
 
-0. **Credits are topped up or the key is rotated** — probe FIRST, the one-liner below, before
-   anything is restarted:
+1. **The appspec ruling (owner).** The head-to-head is measured and enforcement won on every
+   axis but cost (+$0.16/run): 2/2 rev-1 accepts, planning ~22 s instead of ~100-150 s, zero
+   codegen failures, the tail finally runs, tsc 0 on the restaurant. One word turns it on:
+   `APPSPEC_MODE=on`, recreate, verify. If more acceptance evidence is wanted first, the next
+   two funded duos run `on` and count accepts (rejects now fail honestly — watch for that).
+2. **`QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro`** — same routing arithmetic as FIX_MODEL, its
+   base-glm call failed truncated on 112; one line, one run beside it.
+3. **The catalogue-contract vocabulary gap** — "missing directory face component:PageHeader,
+   missing BRAND_MANIFEST services binding" caused 5 of this session's 6 contract rejections
+   and the writer repeats it verbatim on retry. A prompt-vocabulary fix in the slot_fill
+   contract block, offline-draftable, judged on the next funded run's rejection count.
+4. **The starvation attack is now the p50 work.** With gemini-3 the serial pre-codegen cost is
+   ~245 s; appspec-on cuts planning further. The remaining big rocks: haiku planning writers
+   failing by token budget (filed — budget/model change + run) and codegen running to the
+   deadline by design. Measure before moving anything.
+5. **The gallery residual now has teeth** — run 111 failed SHIP on it. The remaining cause is
+   plan-stage: the plan's pages don't resolve menu→catalogue before the gap-fill runs. Also
+   AboutPage in rejections says `0e678fa` is half a fix (plan page). Both are plan_phase work;
+   both want a run beside them.
+6. **VISION_MODEL migration** beside TEXT_MODEL (October clock), after a vision-touching run.
 
-   ```bash
-   docker compose exec -T api python -c "
-   import requests
-   from app.core.config import settings
-   print(requests.get('https://openrouter.ai/api/v1/credits',
-       headers={'Authorization': f'Bearer {settings.OPENROUTER_API_KEY}'}, timeout=20).json())"
-   ```
-
-If credits returned, the funded backlog is unchanged from session 14 and in this order:
-
-1. **Prove the SEVEN unproven fixes on a run that reaches a build.** `launch_duo3.sh` is ready.
-   Read-list unchanged (session 13's handoff at `1aa3489`, "The next step" item 1): gallery gone;
-   both reservations routes with different labels; no hero subcopy literal; real font name;
-   `grep -c ':slug' src/App.tsx` = 0; second card's slug renders the second item; **dump the api
-   log the moment each run finishes** and grep `slot_fill rejected`.
-2. **1.12's reachability** — unroutable `ARCHITECT_MODEL`, then `PREVIEW_APP_MODEL`, then
-   `TEXT_MODEL`+`ARCHITECT_MODEL` for `build_experience_plan`; one generation each; degraded ship
-   INSIDE the cap with the right `degraded` key and a stored `preview_app`. Recreate, never
-   restart; dump the log first; put `.env` back and verify from the running process.
-3. **`slot_fill`'s rejection distribution** from item 1's logs (filed questions 2 and 3).
-4. **`_design_system_dict` discards four derived colours** — thread the palette through
-   `mock_data.py:313/:323/:375`, `brand_contract.py:255/:638`; pair with item 1's run.
-
-Rulings that unblock work without credits:
-
-5. ~~`internal_ops` reachability and the driving-school default~~ — **RULED "FIX" ON BOTH AND
-   DONE** (`87cd085`), see the one-pager. The classifier item is fully closed.
-6. ~~Dead nav data~~ — **DONE this session** (`1df35e3`), see the one-pager. There is now no
-   code item left that runs without credits.
-
-**Owner decisions:** p50 → Phase 2 under (A); **APPSPEC_MODE is `off` as of 2026-08-06 (owner
-ruling; was shadow) — keep-or-delete is the filed head-to-head experiment, AFTER the fix-proving
-duo**; SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema; key rotation
-and the mystery spend (the owner said 2026-08-05 they would fix the top-up "in a couple of
-days"). The classifier rulings are all given and landed — nothing classifier-shaped is pending.
+**Owner decisions:** the appspec ruling (item 1 — the measured recommendation is ON); p50 →
+Phase 2 under (A); SiteSpec vs AppSpec; the `state_ids` backfill; relaxing the AppSpec schema.
+The 1.12 roadmap row needs REWRITING (its degraded-ship premise is dead — see the one-pager);
+that rewrite is a session task, not a ruling.
 
 ---
 
@@ -447,45 +533,40 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ## Next session's prompt, ready to paste
 
 ```
-Read HANDOFF.md first — "Session 15, in one page" and "The next step". Then the roadmap's
-session-15 callout and the classifier row's session-15 UPDATE. Don't re-derive them.
+Read HANDOFF.md first — "Session 18, in one page" and "The next step". Then the roadmap's
+session-18 callout and MODEL_RESEARCH's "Funded-session results". Don't re-derive them.
 
-main is PUSHED through the session-16 close. Suite 1,881 / 1 / 0. Credits were $0 at last
-check; I said I would fix the top-up within a couple of days of 2026-08-05 — so this session
-may be the funded one. The classifier is FULLY CLOSED — do not reopen it. My product goal,
-recorded: the demo must match the business — storefront is not the universal answer. CI was
-observed green once; 1.10 is closed. Session 16 filed two timing findings (HANDOFF one-pager):
-shadow appspec's ~100-125 s serial cost and slot_fill's provider-errors-as-answers class —
-BOTH need a funded run or my ruling before anyone touches them.
+main is PUSHED through the session-18 close. Suite 1,893 / 1 / 0. Credits: ~$10 left on the
+key, which is SHARED with my other project — track BMV spend from ai_usage_events, never
+alarm on idle-time balance changes. The adopted models are in .env and verified: TEXT
+gemini-3-flash-preview, FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro. My budget this
+session: $[N]. 10-minute cap per generation, monitored, always.
 
-BEFORE ANYTHING ELSE: probe credits — HANDOFF "The next step" item 0. No restarts first.
-IF STILL EMPTY: there is NO offline code work left. State the reading, update nothing, stop.
+MY RULING ON APPSPEC: [on / stay off / more evidence first]. The measured recommendation is
+ON (HANDOFF one-pager, head-to-head numbers). If I say on: flip APPSPEC_MODE=on, recreate,
+verify from the running process, and every run this session is an acceptance data point —
+a rejected spec now fails the request honestly, so count accepts vs rejects.
 
-1. IF CREDITS RETURNED: launch_duo3.sh and the fixes' read-list (HANDOFF item 1) — the seven
-   plus the classifier's live data points (the kind each run resolves, from the log).
-   Dump the api log the moment each run finishes; grep `slot_fill rejected`.
-2. 1.12's reachability — the three unroutable-model runs (HANDOFF item 2). Recreate, never
-   restart; log dumped first; .env restored and verified from the running process.
-3. slot_fill's rejection distribution from item 1's logs — filed questions 2 and 3.
-4. _design_system_dict's four discarded colours — land the fix WITH item 1's run beside it.
-5. THEN, each as its own run-pair, never mixed with each other or with items 1-4:
-   the appspec on-vs-off head-to-head; the model experiments from
-   docs/MODEL_RESEARCH_2026-08.md in payoff order (glm-5.2:nitro on the fixer, then
-   deepseek-v4-flash as the page writer); the prompt-review filed items that want runs
-   (docs/PROMPT_REVIEW_2026-08.md).
-6. Also read FIRST_FUNDED_TRIO_PREFLIGHT.md before spending anything.
-
-DECISIONS THAT ARE MINE: p50 -> Phase 2 under (A) stays put; APPSPEC_MODE is OFF (my ruling,
-2026-08-06 — the on-vs-off head-to-head is filed for AFTER the fix-proving duo, never the same
-runs); SiteSpec vs AppSpec pending; state_ids backfill pending; AppSpec schema untouched; key
-rotation and the mystery spend.
+Then in this order, each with its own run(s), one variable at a time:
+1. QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro — one line, one duo beside it.
+2. The catalogue-contract vocabulary gap ("missing directory face component:PageHeader /
+   BRAND_MANIFEST services binding" — 5 of 6 contract rejections, retry repeats it verbatim).
+   Draft the prompt fix offline, judge on the duo's rejection count vs session 18's numbers.
+3. The haiku planning writers' token-budget failures (plan_validation 14,000/0-chars,
+   design_manifest 1,500/0-chars) — raise the budget or move the writers, one change, run
+   beside it.
+4. The gallery residual at plan stage (it FAILED a ship on 111 — visual critic, scores
+   30/40): make the plan's pages resolve menu→catalogue before the gap-fill, and check
+   AboutPage's public-detail assignment (0e678fa's other half) in the same plan_phase work.
+5. Rewrite the 1.12 roadmap row to pin what actually exists (fail fast + honest + customer
+   retry; no degraded blueprint ship) — docs only, cite runs 111/112/113.
 
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
-one sweep at a time; suite via docker run WITH its pip install half; roadmap in order;
-10-minute cap; config from the running process; archive what you measure. TEN blind spots —
-read the list in HANDOFF; a fixture that short-circuits before the branch under test is
-blind spot 1 wearing a new coat.
+one sweep at a time; suite via docker run WITH its pip install half; recreate never restart;
+config from the running process; archive logs for every run; no code edits while a
+generation is in flight (bind mount); working directory drifts — absolute paths.
 
-BEFORE YOU FINISH: next prompt written out; roadmap corrected in place; HANDOFF updated with
-what landed, what was NOT the filed defect, mutation results, and what you got wrong.
+BEFORE YOU FINISH: .env in the state the evidence supports and verified; HANDOFF/roadmap/
+MODEL_RESEARCH updated with real numbers; push; next prompt written; tell me plainly what
+each run cost and what's left.
 ```

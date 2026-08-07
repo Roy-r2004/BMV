@@ -1,0 +1,648 @@
+bmv-api  | Starting BuildMyVersion API on port 8000...
+bmv-api  | INFO  | bmv.Startup | 2026-08-06 23:22:27.692 | Startup:190 | schema_ready db=postgresql://db/buildmyversion elapsed_ms=59 versions={'phase7a': 'phase7a.1', 'phase7b': 'phase7b.1', 'phase7c': 'phase7c.1', 'phase7d': 'phase7d.1', 'phase7e': 'phase7e.1', 'phase7f': 'phase7f.2', 'commercial': 'commercial.1'}
+bmv-api  | INFO  | bmv.AdminBootstrap | 2026-08-06 23:22:27.730 | AdminBootstrap:58 | Updated bootstrap admin user roy.rizkallah@hotmail.com (is_admin/password sync)
+bmv-api  | INFO  | bmv.Boot | 2026-08-06 23:22:27.730 | Boot:122 | SEED_DEMO=false — skipping PlateSync demo seed
+bmv-api  | INFO  | bmv.Boot | 2026-08-06 23:22:27.730 | Boot:131 | PREVIEW_TEMPLATE_DIR=/app/backend/preview-template exists=True
+bmv-api  | INFO  | bmv.Boot | 2026-08-06 23:22:27.730 | Boot:142 | AI_PROVIDER=openrouter LOG_LEVEL=debug
+bmv-api  | INFO  | bmv.Boot | 2026-08-06 23:22:27.767 | Boot:163 | node=v22.14.0 npm=10.9.2
+bmv-api  | INFO  | bmv.Boot | 2026-08-06 23:22:27.767 | Boot:164 | INTERNAL_BASE_URL=http://127.0.0.1:8000
+bmv-api  | INFO:     Started server process [1]
+bmv-api  | INFO:     Waiting for application startup.
+bmv-api  | INFO:     Application startup complete.
+bmv-api  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 36598
+bmv-api  | DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+bmv-api  | INFO  | bmv.RequestPipeline | 2026-08-06 23:22:51.584 | RequestPipeline:63 | Starting background pipeline for request 105
+bmv-api  | INFO  | bmv.Deadline | 2026-08-06 23:22:51.585 | Deadline:328 | request 105 deadline armed: 540s (+60s reserved for post-deadline work)
+bmv-api  | INFO:     172.217.119.4:61217 - "POST /api/requests HTTP/1.1" 200 OK
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:22:51.592 | GenerationPipeline:83 | Starting full generation pipeline for request 105 (Osteria Vinci)
+bmv-api  | DEBUG | bmv.GenerationPipeline | 2026-08-06 23:22:51.592 | GenerationPipeline:41 | ▶ generation-pipeline request=105 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:23:36.950 | AIRetry:229 | still waiting on qwen/qwen-2.5-coder-32b-instruct (20s elapsed)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:23:48.226 | PreviewPipeline:90 | Starting preview pipeline for request 105
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:23:48.226 | PreviewPipeline:41 | ▶ preview request=105 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+restaurant+food+dining+hero+lifestyle+wide&per_page=8&page=1&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+restaurant+food+dining+workspace+interior&per_page=8&page=2&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | INFO  | bmv.RequestPipeline | 2026-08-06 23:23:51.641 | RequestPipeline:63 | Starting background pipeline for request 106
+bmv-api  | INFO  | bmv.Deadline | 2026-08-06 23:23:51.641 | Deadline:328 | request 106 deadline armed: 540s (+60s reserved for post-deadline work)
+bmv-api  | INFO:     172.217.119.4:59270 - "POST /api/requests HTTP/1.1" 200 OK
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:23:51.651 | GenerationPipeline:83 | Starting full generation pipeline for request 106 (Cedar Point Lodge)
+bmv-api  | DEBUG | bmv.GenerationPipeline | 2026-08-06 23:23:51.651 | GenerationPipeline:41 | ▶ generation-pipeline request=106 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+restaurant+food+dining+product+detail&per_page=8&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+restaurant+food+dining+customer+experience&per_page=8&page=4&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+restaurant+food+dining+team+service&per_page=8&page=5&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+restaurant+food+dining+atmosphere+background&per_page=8&page=1&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=restaurant+plated+dish+food+close+up+detail&per_page=16&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | INFO  | app.application.services.industry_images | Pexels imagery for industry='restaurant' business='Osteria Vinci' slots=['hero', 'hero2', 'card1', 'card2', 'card3', 'ambient', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'item7', 'item8']
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:23:57.038 | PreviewPipeline:49 |   [1/5] Planning agent...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:23:57.039 | PreviewPipeline:41 | ▶ planning started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:24:17.066 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:24:25.315 | AIRetry:229 | still waiting on qwen/qwen-2.5-coder-32b-instruct (20s elapsed)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:24:29.161 | PreviewPipeline:90 | Starting preview pipeline for request 106
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:24:29.161 | PreviewPipeline:41 | ▶ preview request=106 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+professional+small+business+hero+lifestyle+wide&per_page=8&page=4&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+professional+small+business+workspace+interior&per_page=8&page=5&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+professional+small+business+product+detail&per_page=8&page=1&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+professional+small+business+customer+experience&per_page=8&page=2&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+professional+small+business+team+service&per_page=8&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+professional+small+business+atmosphere+background&per_page=8&page=4&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:24:37.073 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=hotel+product+close+up+detail&per_page=16&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | INFO  | app.application.services.industry_images | Pexels imagery for industry='hotel' business='Cedar Point Lodge' slots=['hero', 'hero2', 'card1', 'card2', 'card3', 'ambient', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'item7', 'item8']
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:24:37.845 | PreviewPipeline:49 |   [1/5] Planning agent...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:24:37.845 | PreviewPipeline:41 | ▶ planning started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:24:57.858 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:25:04.279 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:25:17.860 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:25:24.286 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:25:44.297 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:25:52.664 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:26:04.307 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:26:12.669 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:26:17.351 | PreviewPipeline:120 |     product_kind=storefront subtype=storefront pages=3
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+dining+room+plated+food+wide&per_page=8&page=1&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+cafe+interior+warm+seating+food+dining&per_page=8&page=2&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+chef+plated+pasta+dish+detail+food+dining&per_page=8&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+brunch+guests+dining+experience+food&per_page=8&page=4&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+barista+coffee+service+moment+food+dining&per_page=8&page=5&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Osteria+Vinci+restaurant+ambient+candlelight+atmosphere+food+dining&per_page=8&page=1&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=restaurant+plated+dish+food+close+up+detail&per_page=16&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | INFO  | app.application.services.industry_images | Pexels imagery for industry='restaurant' business='Osteria Vinci' slots=['hero', 'hero2', 'card1', 'card2', 'card3', 'ambient', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'item7', 'item8']
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:26:25.945 | PreviewPipeline:229 |     imagery subject=food roles=ambient,card1,card2,card3,hero,hero2
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:26:32.671 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+bmv-api  | WARNING | bmv.ExperiencePlanner | 2026-08-06 23:26:37.982 | ExperiencePlanner:513 | design_manifest raised: ProviderGenerationError: Provider output was truncated.
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:26:37.985 | PreviewPipeline:269 |     design recipe: warm-service (Warm service) overlay=soft_glass hub=marketing template=restaurant-cafe-home ops=staff-floor-ops brand_locked=True brief_sealed=True
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:26:37.989 | PreviewPipeline:50 | ■ planning finished in 160.95s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:26:37.989 | PreviewPipeline:284 |   [2/5] Architect agent...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:26:37.989 | PreviewPipeline:41 | ▶ architect started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:26:52.675 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:26:58.009 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:27:12.680 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (100s elapsed)
+bmv-api  | WARNING | bmv.ExperiencePlanner | 2026-08-06 23:27:13.341 | ExperiencePlanner:474 | plan_validation model=anthropic/claude-haiku-4.5 attempt=1 raised: ProviderGenerationError: Provider output was truncated.
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:27:18.018 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:27:33.344 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:27:38.019 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:27:53.346 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:27:56.065 | PreviewPipeline:120 |     product_kind=storefront subtype=storefront pages=3
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+lifestyle+wide+atmosphere+professional+small+business&per_page=8&page=4&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:27:58.021 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+interior+workspace+professional+small+business&per_page=8&page=5&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+product+detail+close+up+professional+small+business&per_page=8&page=1&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+customer+experience+professional+small+business&per_page=8&page=2&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+team+service+moment+professional+small+business&per_page=8&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=Cedar+Point+Lodge+hotel+ambient+background+texture+professional+small+business&per_page=8&page=4&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): api.pexels.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://api.pexels.com:443 "GET /v1/search?query=hotel+product+close+up+detail&per_page=16&page=3&orientation=landscape HTTP/1.1" 200 None
+bmv-api  | INFO  | app.application.services.industry_images | Pexels imagery for industry='hotel' business='Cedar Point Lodge' slots=['hero', 'hero2', 'card1', 'card2', 'card3', 'ambient', 'item1', 'item2', 'item3', 'item4', 'item5', 'item6', 'item7', 'item8']
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:28:04.554 | PreviewPipeline:229 |     imagery subject=generic roles=ambient,card1,card2,card3,hero,hero2
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | WARNING | bmv.ExperiencePlanner | 2026-08-06 23:28:18.126 | ExperiencePlanner:513 | design_manifest raised: ProviderGenerationError: Provider output was truncated.
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:28:18.127 | PreviewPipeline:269 |     design recipe: editorial (Editorial) overlay=soft_glass hub=marketing template=- ops=owner-kpi-dashboard brand_locked=True brief_sealed=True
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:28:18.131 | PreviewPipeline:50 | ■ planning finished in 220.29s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:28:18.131 | PreviewPipeline:284 |   [2/5] Architect agent...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:28:18.131 | PreviewPipeline:41 | ▶ architect started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:28:35.825 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:28:38.145 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:28:55.828 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:28:58.152 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+bmv-api  | WARNING | bmv.UiCatalogue | 2026-08-06 23:29:02.686 | UiCatalogue:880 | catalogue_contract_components_dropped skeleton=public-catalog kept=26 dropped=UiIcon,TestimonialRail,Tabs,Table chars=4892 budget=4900
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:02.692 | PreviewPipeline:50 | ■ architect finished in 144.70s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:02.692 | PreviewPipeline:356 |   [3/5] Preparing workspace...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.692 | PreviewPipeline:41 | ▶ workspace-prep started
+bmv-api  | INFO  | bmv.Workspace | 2026-08-06 23:29:02.694 | Workspace:167 | prepare_workspace id=105 template=/app/backend/preview-template exists=True
+bmv-api  | INFO  | bmv.Workspace | 2026-08-06 23:29:02.709 | Workspace:189 | workspace ready at /app/data/preview-apps/105 (9 top-level items)
+bmv-api  | INFO  | bmv.AiFeatureSurfaces | 2026-08-06 23:29:02.717 | AiFeatureSurfaces:404 | AI feature surfaces ready (3 features, 0 contextual pages)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:02.717 | PreviewPipeline:416 |     plumbing mock (brand, roles, nav) ready
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:02.717 | PreviewPipeline:50 | ■ workspace-prep finished in 0.03s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:02.717 | PreviewPipeline:223 |   [4/6] Codegen agent — 10 files (cap=40, workers=4)...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.717 | PreviewPipeline:41 | ▶ codegen started
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.719 | PreviewPipeline:81 |     pages: 10 files in parallel (workers=4)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.719 | PreviewPipeline:60 |     >> begin src/pages/ContactPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.719 | PreviewPipeline:60 |     >> begin src/pages/HomePage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.720 | PreviewPipeline:60 |     >> begin src/pages/MenuPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:02.721 | PreviewPipeline:60 |     >> begin src/pages/OurStoryPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:02.724 | Codegen:387 | scaffold-first wrote src/pages/HomePage.tsx skeleton=public-home
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:02.726 | Codegen:257 | compose_utility src/pages/ContactPage.tsx type=contact model=deepseek/deepseek-v4-flash
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:02.727 | Codegen:387 | scaffold-first wrote src/pages/MenuPage.tsx skeleton=public-catalog
+bmv-api  | WARNING | bmv.UiCatalogue | 2026-08-06 23:29:02.728 | UiCatalogue:880 | catalogue_contract_components_dropped skeleton=public-catalog kept=25 dropped=UiIcon,TestimonialRail,Tabs,Table,SpotlightCard chars=4849 budget=4900
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:02.731 | Codegen:438 | slot_fill src/pages/HomePage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:02.733 | Codegen:438 | slot_fill src/pages/MenuPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:02.734 | Codegen:387 | scaffold-first wrote src/pages/OurStoryPage.tsx skeleton=public-home
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:02.735 | Codegen:438 | slot_fill src/pages/OurStoryPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:08.921 | PreviewPipeline:67 |     << done src/pages/ContactPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:08.921 | PreviewPipeline:60 |     >> begin src/pages/PrivateDinnersPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:08.927 | PreviewPipeline:109 |     OK src/pages/ContactPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:08.929 | Codegen:387 | scaffold-first wrote src/pages/PrivateDinnersPage.tsx skeleton=public-booking
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:08.930 | Codegen:438 | slot_fill src/pages/PrivateDinnersPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:18.155 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:22.737 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:22.738 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:22.738 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | WARNING | bmv.UiCatalogue | 2026-08-06 23:29:25.105 | UiCatalogue:880 | catalogue_contract_components_dropped skeleton=public-catalog kept=25 dropped=UiIcon,Tabs,Table,SpotlightCard,Select chars=4809 budget=4900
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:25.118 | PreviewPipeline:50 | ■ architect finished in 66.99s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:25.118 | PreviewPipeline:356 |   [3/5] Preparing workspace...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.118 | PreviewPipeline:41 | ▶ workspace-prep started
+bmv-api  | INFO  | bmv.Workspace | 2026-08-06 23:29:25.120 | Workspace:167 | prepare_workspace id=106 template=/app/backend/preview-template exists=True
+bmv-api  | INFO  | bmv.Workspace | 2026-08-06 23:29:25.141 | Workspace:189 | workspace ready at /app/data/preview-apps/106 (9 top-level items)
+bmv-api  | INFO  | bmv.AiFeatureSurfaces | 2026-08-06 23:29:25.150 | AiFeatureSurfaces:404 | AI feature surfaces ready (3 features, 0 contextual pages)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:25.150 | PreviewPipeline:416 |     plumbing mock (brand, roles, nav) ready
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:25.150 | PreviewPipeline:50 | ■ workspace-prep finished in 0.03s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:29:25.150 | PreviewPipeline:223 |   [4/6] Codegen agent — 16 files (cap=40, workers=4)...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.150 | PreviewPipeline:41 | ▶ codegen started
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.151 | PreviewPipeline:81 |     pages: 16 files in parallel (workers=4)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.151 | PreviewPipeline:60 |     >> begin src/pages/AvailabilityPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.151 | PreviewPipeline:60 |     >> begin src/pages/BookingSummaryPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.152 | PreviewPipeline:60 |     >> begin src/pages/ConfirmationPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:25.152 | PreviewPipeline:60 |     >> begin src/pages/HomePage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:25.155 | Codegen:257 | compose_utility src/pages/BookingSummaryPage.tsx type=generic model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:25.158 | Codegen:387 | scaffold-first wrote src/pages/AvailabilityPage.tsx skeleton=public-booking
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:25.159 | Codegen:438 | slot_fill src/pages/AvailabilityPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:25.160 | Codegen:257 | compose_utility src/pages/ConfirmationPage.tsx type=confirmation model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:25.161 | Codegen:387 | scaffold-first wrote src/pages/HomePage.tsx skeleton=public-home
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:25.162 | Codegen:438 | slot_fill src/pages/HomePage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:28.944 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:34.791 | PreviewPipeline:67 |     << done src/pages/ConfirmationPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:34.791 | PreviewPipeline:60 |     >> begin src/pages/PaymentPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:34.796 | PreviewPipeline:109 |     OK src/pages/ConfirmationPage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:34.797 | Codegen:257 | compose_utility src/pages/PaymentPage.tsx type=checkout model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:35.676 | PreviewPipeline:67 |     << done src/pages/HomePage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:35.677 | PreviewPipeline:60 |     >> begin src/pages/ReservationsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:35.680 | PreviewPipeline:109 |     OK src/pages/HomePage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:35.680 | Codegen:387 | scaffold-first wrote src/pages/ReservationsPage.tsx skeleton=public-booking
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:35.681 | Codegen:438 | slot_fill src/pages/ReservationsPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:42.740 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:42.741 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:45.159 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:45.161 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:45.163 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:46.241 | PreviewPipeline:67 |     << done src/pages/PrivateDinnersPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:46.241 | PreviewPipeline:60 |     >> begin src/pages/admin/AdminDashboardPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:46.244 | PreviewPipeline:109 |     OK src/pages/PrivateDinnersPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:46.244 | Codegen:387 | scaffold-first wrote src/pages/admin/AdminDashboardPage.tsx skeleton=ops-dashboard
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:46.245 | Codegen:438 | slot_fill src/pages/admin/AdminDashboardPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | INFO  | app.application.preview_app.catalogue_contract.repair | Catalogue page healed by slot injection route=/payment slots=['cta']
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:47.353 | PreviewPipeline:67 |     << done src/pages/PaymentPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:47.353 | PreviewPipeline:60 |     >> begin src/pages/RoomDetailPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:47.359 | PreviewPipeline:109 |     OK src/pages/PaymentPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:29:47.359 | Codegen:387 | scaffold-first wrote src/pages/RoomDetailPage.tsx skeleton=public-detail
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:47.360 | Codegen:438 | slot_fill src/pages/RoomDetailPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:29:55.690 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:58.519 | PreviewPipeline:67 |     << done src/pages/ReservationsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:58.519 | PreviewPipeline:60 |     >> begin src/pages/admin/AdminLoginPage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:29:58.521 | Codegen:257 | compose_utility src/pages/admin/AdminLoginPage.tsx type=auth model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:29:58.522 | PreviewPipeline:109 |     OK src/pages/ReservationsPage.tsx
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:02.759 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:02.759 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:05.178 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:05.178 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:05.179 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:06.266 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:07.387 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:08.929 | PreviewPipeline:67 |     << done src/pages/admin/AdminLoginPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:08.929 | PreviewPipeline:60 |     >> begin src/pages/admin/AdminMenuManagementPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:08.934 | PreviewPipeline:109 |     OK src/pages/admin/AdminLoginPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:30:08.935 | Codegen:387 | scaffold-first wrote src/pages/admin/AdminMenuManagementPage.tsx skeleton=ops-list
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:30:08.937 | Codegen:438 | slot_fill src/pages/admin/AdminMenuManagementPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | INFO  | app.application.preview_app.catalogue_contract.repair | Catalogue page healed by slot injection route=/booking-summary slots=['summary', 'cta']
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:13.090 | PreviewPipeline:67 |     << done src/pages/BookingSummaryPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:13.090 | PreviewPipeline:60 |     >> begin src/pages/RoomsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:13.096 | PreviewPipeline:109 |     OK src/pages/BookingSummaryPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:30:13.096 | Codegen:387 | scaffold-first wrote src/pages/RoomsPage.tsx skeleton=public-catalog
+bmv-api  | WARNING | bmv.UiCatalogue | 2026-08-06 23:30:13.098 | UiCatalogue:880 | catalogue_contract_components_dropped skeleton=public-catalog kept=25 dropped=UiIcon,TestimonialRail,Tabs,Table,SpotlightCard chars=4879 budget=4900
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:30:13.098 | Codegen:438 | slot_fill src/pages/RoomsPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:30:13.949 | Deadline:227 | request 106 degraded stage=codegen reason=slot_fill_contract_retry_skipped_low_runway elapsed=382.3s remaining=157.7s
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:30:13.949 | Codegen:483 | slot_fill rejected src/pages/HomePage.tsx attempt 1/2 (catalogue-contract: catalogue item photo pool (images.item*), catalogue lifestyle imageSrc (card/hero)) — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:13.953 | PreviewPipeline:67 |     << done src/pages/HomePage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:13.953 | PreviewPipeline:60 |     >> begin src/pages/admin/BookingDetailPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:30:13.956 | Codegen:387 | scaffold-first wrote src/pages/admin/BookingDetailPage.tsx skeleton=ops-detail
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:13.957 | PreviewPipeline:109 |     OK src/pages/HomePage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:30:13.957 | Codegen:438 | slot_fill src/pages/admin/BookingDetailPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:22.766 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:22.768 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:25.188 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:30:25.703 | Codegen:483 | slot_fill rejected src/pages/RoomDetailPage.tsx attempt 1/2 (catalogue-contract: detail painting-first hero (variant=item), detail itemSpecs binding) — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:25.707 | PreviewPipeline:67 |     << done src/pages/RoomDetailPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:25.708 | PreviewPipeline:60 |     >> begin src/pages/admin/BookingsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:30:25.711 | PreviewPipeline:109 |     OK src/pages/RoomDetailPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:30:25.711 | Codegen:387 | scaffold-first wrote src/pages/admin/BookingsPage.tsx skeleton=ops-list
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:30:25.712 | Codegen:438 | slot_fill src/pages/admin/BookingsPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:26.270 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:28.942 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:33.110 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:33.968 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:42.773 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:42.774 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:45.194 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:45.720 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:46.278 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:48.951 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:53.118 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:30:53.979 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:00.757 | AIRetry:109 | hard deadline hit after 118s (cap 120s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:00.758 | AIRetry:109 | hard deadline hit after 118s (cap 120s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:02.759 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:02.760 | AIRetry:195 | ask budget of 120s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:02.761 | Codegen:451 | slot_fill ask failed for src/pages/MenuPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:02.763 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:02.763 | AIRetry:195 | ask budget of 120s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:02.764 | Codegen:451 | slot_fill ask failed for src/pages/OurStoryPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:02.776 | PreviewPipeline:67 |     << done src/pages/OurStoryPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:02.776 | PreviewPipeline:60 |     >> begin src/pages/admin/AdminPrivateInquiriesPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:02.777 | PreviewPipeline:67 |     << done src/pages/MenuPage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:31:02.781 | Codegen:257 | compose_utility src/pages/admin/AdminPrivateInquiriesPage.tsx type=contact model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:02.782 | PreviewPipeline:109 |     OK src/pages/OurStoryPage.tsx
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:02.786 | PreviewPipeline:109 |     OK src/pages/MenuPage.tsx
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:05.201 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:05.727 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:06.285 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:08.957 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:13.127 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:13.827 | PreviewPipeline:67 |     << done src/pages/admin/AdminPrivateInquiriesPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:13.832 | PreviewPipeline:109 |     OK src/pages/admin/AdminPrivateInquiriesPage.tsx
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:13.986 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:23.186 | AIRetry:109 | hard deadline hit after 118s (cap 120s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:25.191 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:25.191 | AIRetry:195 | ask budget of 120s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:25.192 | Codegen:451 | slot_fill ask failed for src/pages/AvailabilityPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:25.202 | PreviewPipeline:67 |     << done src/pages/AvailabilityPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:25.202 | PreviewPipeline:60 |     >> begin src/pages/admin/CalendarPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:25.207 | PreviewPipeline:109 |     OK src/pages/AvailabilityPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:31:25.209 | Codegen:387 | scaffold-first wrote src/pages/admin/CalendarPage.tsx skeleton=ops-dashboard
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:31:25.210 | Codegen:438 | slot_fill src/pages/admin/CalendarPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:25.733 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:26.287 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:28.960 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:32.947 | PreviewPipeline:67 |     << done src/pages/admin/AdminDashboardPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:32.950 | PreviewPipeline:109 |     OK src/pages/admin/AdminDashboardPage.tsx
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:33.138 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:33.995 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:45.215 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:45.745 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (80s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:48.961 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:49.606 | AIRetry:109 | hard deadline hit after 101s (cap 103s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.614 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.614 | AIRetry:195 | ask budget of 103s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.615 | Codegen:451 | slot_fill ask failed for src/pages/admin/AdminMenuManagementPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:51.625 | PreviewPipeline:67 |     << done src/pages/admin/AdminMenuManagementPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:51.630 | PreviewPipeline:109 |     OK src/pages/admin/AdminMenuManagementPage.tsx
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.677 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:31:51.678 | Deadline:227 | request 105 degraded stage=codegen reason=mock_synthesis_failed_plumbing_mock_kept elapsed=540.1s remaining=-0.1s
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.678 | Codegen:241 |     mock synthesis failed (ProviderGenerationError: Provider HTTP 408.) — keeping the plumbing mock
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:51.678 | PreviewPipeline:50 | ■ codegen finished in 168.94s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:51.679 | PreviewPipeline:61 |   [5/6] Design critic — reviewing + refining pages...
+bmv-api  | WARNING | bmv.UiCatalogue | 2026-08-06 23:31:51.683 | UiCatalogue:880 | catalogue_contract_components_dropped skeleton=public-catalog kept=25 dropped=UiIcon,TestimonialRail,Tabs,Table,SpotlightCard chars=4849 budget=4900
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.685 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.686 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.688 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.690 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.692 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.693 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:31:51.694 | Codegen:449 | critic src/pages/OurStoryPage.tsx: 72 (ok)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.696 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:51.697 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.697 | Codegen:446 | critic skip src/pages/MenuPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.699 | Codegen:446 | critic skip src/pages/HomePage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.700 | Codegen:446 | critic skip src/pages/ContactPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.701 | Codegen:446 | critic skip src/pages/PrivateDinnersPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.703 | Codegen:446 | critic skip src/pages/ReservationsPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.704 | Codegen:446 | critic skip src/pages/admin/AdminDashboardPage.tsx: Provider HTTP 408.
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:31:51.705 | Codegen:449 | critic src/pages/admin/AdminMenuManagementPage.tsx: 72 (ok)
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.706 | Codegen:446 | critic skip src/pages/admin/AdminLoginPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:31:51.707 | Codegen:446 | critic skip src/pages/admin/AdminPrivateInquiriesPage.tsx: Provider HTTP 408.
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:51.708 | PreviewPipeline:77 |     refined 0 page(s)
+bmv-api  | DEBUG | bmv.SafetyGuards | 2026-08-06 23:31:51.783 | SafetyGuards:569 | npm imports rewritten/stripped in src/ui/motion/anime.ts
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:31:51.902 | SafetyGuards:521 | seed keys added for pages that read them: opsHero, services, slots
+bmv-api  | DEBUG | bmv.SafetyGuards | 2026-08-06 23:31:51.904 | SafetyGuards:182 | contract: hardcoded fallback ensure_brand_shape (design_system/services/testimonials/client_names as needed)
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:31:51.966 | SafetyGuards:233 | shared chrome enforced on 2 page(s)
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:31:51.967 | SafetyGuards:1332 | navigation normalized: public
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:31:51.975 | SafetyGuards:298 | dead links repaired across 3 file(s): retargeted=3, dropped=1, homed=1
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:31:51.994 | SafetyGuards:119 | decoded literal html entities in src/pages/PrivateDinnersPage.tsx
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:52.034 | PreviewPipeline:33 |     guards: seed-key:opsHero, seed-key:services, seed-key:slots, src/data/mock.ts (brand shape fallback), chrome:src/pages/HomePage.tsx, chrome:src/pages/PrivateDinnersPage.tsx, nav:public, dead-links:src/pages/MenuPage.tsx (retargeted=1)...
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:52.036 | PreviewPipeline:152 |     assembled router + theme
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:52.038 | PreviewPipeline:335 |   [6/6] Building + AI fix loop...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:31:52.038 | PreviewPipeline:41 | ▶ build+fix-loop started
+bmv-api  | DEBUG | bmv.SharedNpm | 2026-08-06 23:31:52.039 | SharedNpm:121 | shared npm cache hit at /app/data/preview-apps/_shared_npm/f87d5d5148156fb2/node_modules
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:31:52.039 | ViteBuild:47 | npm attach finished in 0.00s workspace=105
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:31:52.640 | ViteBuild:118 | vite build finished in 0.60s exit=0 total_run_build 0.60s workspace=105
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:53.139 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:31:53.997 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | INFO  | bmv.Typecheck | 2026-08-06 23:31:54.387 | Typecheck:504 | typecheck finished in 1.74s status=errors errors=2 workspace=105
+bmv-api  | WARNING | bmv.PreviewPipeline | 2026-08-06 23:31:54.387 | PreviewPipeline:164 |     typecheck initial: 2 error(s) in 2 file(s) — TS2322x2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:54.407 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:196 | fix agent model z-ai/glm-5.2 failed: Provider HTTP 408.
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:54.408 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:196 | fix agent model deepseek/deepseek-v4-flash failed: Provider HTTP 408.
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:54.408 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:196 | fix agent model google/gemini-2.5-flash failed: Provider HTTP 408.
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:213 | fix agent primary: empty response
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:54.408 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:196 | fix agent model z-ai/glm-5.2 failed: Provider HTTP 408.
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:54.408 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:196 | fix agent model deepseek/deepseek-v4-flash failed: Provider HTTP 408.
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:31:54.408 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:196 | fix agent model google/gemini-2.5-flash failed: Provider HTTP 408.
+bmv-api  | WARNING | bmv.FixAgent | 2026-08-06 23:31:54.408 | FixAgent:213 | fix agent strict-retry: empty response
+bmv-api  | DEBUG | bmv.SafetyGuards | 2026-08-06 23:31:54.438 | SafetyGuards:569 | npm imports rewritten/stripped in src/ui/motion/anime.ts
+bmv-api  | INFO  | bmv.FixAgent | 2026-08-06 23:31:54.471 | FixAgent:353 | fix agent fell back to deterministic local repair: none
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:54.474 | PreviewPipeline:228 |     typecheck round 1 patched: none
+bmv-api  | INFO  | bmv.Typecheck | 2026-08-06 23:31:56.188 | Typecheck:504 | typecheck finished in 1.71s status=errors errors=2 workspace=105
+bmv-api  | DEBUG | bmv.SafetyGuards | 2026-08-06 23:31:56.252 | SafetyGuards:569 | npm imports rewritten/stripped in src/ui/motion/anime.ts
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:31:56.398 | SafetyGuards:1332 | navigation normalized: public
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:56.463 | PreviewPipeline:33 |     guards: nav:public
+bmv-api  | DEBUG | bmv.SharedNpm | 2026-08-06 23:31:56.466 | SharedNpm:121 | shared npm cache hit at /app/data/preview-apps/_shared_npm/f87d5d5148156fb2/node_modules
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:31:56.466 | ViteBuild:47 | npm attach finished in 0.00s workspace=105
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:31:56.969 | ViteBuild:118 | vite build finished in 0.50s exit=0 total_run_build 0.50s workspace=105
+bmv-api  | WARNING | bmv.PreviewPipeline | 2026-08-06 23:31:56.969 | PreviewPipeline:164 |     typecheck after round 1: 2 error(s) in 2 file(s) — TS2322x2
+bmv-api  | WARNING | bmv.PreviewPipeline | 2026-08-06 23:31:56.969 | PreviewPipeline:285 |     round 1 made no net progress (2 errors) — stopping repair
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:31:56.970 | Deadline:227 | request 105 degraded stage=visual_critic reason=skipped_past_deadline elapsed=545.4s remaining=-5.4s
+bmv-api  | WARNING | bmv.PreviewPipeline | 2026-08-06 23:31:56.970 | PreviewPipeline:528 |     [7/7] visual critique SKIPPED — past the deadline, and its vision calls would all be refused. Screenshotting for verdicts nobody can pay for is the whole cost with none of the value.
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:56.970 | PreviewPipeline:50 | ■ build+fix-loop finished in 4.93s
+bmv-api  | INFO  | bmv.AiFeatureSurfaces | 2026-08-06 23:31:56.977 | AiFeatureSurfaces:330 | AI panel injected smart-menu-summarizer → src/pages/admin/AdminLoginPage.tsx
+bmv-api  | INFO  | bmv.AiFeatureSurfaces | 2026-08-06 23:31:56.978 | AiFeatureSurfaces:330 | AI panel injected private-event-inquiry-analyst → src/pages/admin/AdminLoginPage.tsx
+bmv-api  | INFO  | bmv.AiFeatureSurfaces | 2026-08-06 23:31:56.978 | AiFeatureSurfaces:330 | AI panel injected automated-menu-image-suggestion → src/pages/admin/AdminLoginPage.tsx
+bmv-api  | INFO  | bmv.AiFeatureSurfaces | 2026-08-06 23:31:56.979 | AiFeatureSurfaces:404 | AI feature surfaces ready (3 features, 3 contextual pages)
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:31:57.016 | PreviewPipeline:878 |     quality gate PASSED
+bmv-api  | INFO:     127.0.0.1:34738 - "GET /api/preview-apps/105/ HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:34738 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:34754 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:60994 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+bmv-api  | INFO:     127.0.0.1:32774 - "GET /api/preview-apps/105/menu HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32784 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32774 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32792 - "GET /api/preview-apps/105/reservations HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32792 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32808 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:03.035 | Codegen:483 | slot_fill rejected src/pages/RoomsPage.tsx attempt 1/2 (catalogue-contract: missing directory face component:PageHeader, missing BRAND_MANIFEST services binding) — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:03.037 | PreviewPipeline:67 |     << done src/pages/RoomsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:03.038 | PreviewPipeline:60 |     >> begin src/pages/admin/DashboardPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:03.041 | PreviewPipeline:109 |     OK src/pages/RoomsPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:03.041 | Codegen:387 | scaffold-first wrote src/pages/admin/DashboardPage.tsx skeleton=ops-dashboard
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:32:03.042 | Codegen:438 | slot_fill src/pages/admin/DashboardPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | ERROR | bmv.Screenshot | 2026-08-06 23:32:04.485 | Screenshot:197 | /reservations rendered the error boundary: Minified React error #31; visit https://react.dev/errors/31?args[]=object%20with%20keys%20%7Btitle%2C%20description%7D for the full message or use the non-minified dev environment for full errors and 
+bmv-api  | INFO:     127.0.0.1:32816 - "GET /api/preview-apps/105/private-dinners HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32832 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32816 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:32:05.217 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:32:05.746 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (100s elapsed)
+bmv-api  | INFO:     127.0.0.1:32848 - "GET /api/preview-apps/105/our-story HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32854 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:32848 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53740 - "GET /api/preview-apps/105/contact HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53752 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53740 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53768 - "GET /api/preview-apps/105/ai-features HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53778 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53768 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:11.966 | AIRetry:109 | hard deadline hit after 118s (cap 120s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | INFO:     127.0.0.1:53792 - "GET /api/preview-apps/105/admin/login HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53796 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53792 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:13.967 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:13.967 | AIRetry:195 | ask budget of 120s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:13.967 | Codegen:451 | slot_fill ask failed for src/pages/admin/BookingDetailPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:13.971 | PreviewPipeline:67 |     << done src/pages/admin/BookingDetailPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:13.971 | PreviewPipeline:60 |     >> begin src/pages/admin/LoginPage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:32:13.974 | Codegen:257 | compose_utility src/pages/admin/LoginPage.tsx type=auth model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:13.975 | PreviewPipeline:109 |     OK src/pages/admin/BookingDetailPage.tsx
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | INFO:     127.0.0.1:53808 - "GET /api/preview-apps/105/admin HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53810 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53808 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53822 - "GET /api/preview-apps/105/admin/menu HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53832 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53822 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | INFO:     127.0.0.1:53850 - "GET /api/preview-apps/105/admin/inquiries HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53850 - "GET /api/preview-apps/105/assets/index-BJxKIoTi.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:53854 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | ERROR | bmv.PreviewPipeline | 2026-08-06 23:32:19.340 | PreviewPipeline:575 |     render smoke FAILED src/pages/ReservationsPage.tsx — /reservations: Minified React error #31; visit https://react.dev/errors/31?args[]=object%20with%20keys%20%7Btitle%2C%20description%7D for the full message or use the non-minified dev environment for f
+bmv-api  | WARNING | bmv.PreviewPipeline | 2026-08-06 23:32:19.346 | PreviewPipeline:614 |     render smoke: replaced src/pages/ReservationsPage.tsx with a safe stub
+bmv-api  | DEBUG | bmv.SharedNpm | 2026-08-06 23:32:19.346 | SharedNpm:121 | shared npm cache hit at /app/data/preview-apps/_shared_npm/f87d5d5148156fb2/node_modules
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:32:19.346 | ViteBuild:47 | npm attach finished in 0.00s workspace=105
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:32:19.920 | ViteBuild:118 | vite build finished in 0.57s exit=0 total_run_build 0.57s workspace=105
+bmv-api  | INFO:     127.0.0.1:45260 - "GET /api/preview-apps/105/reservations HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:45260 - "GET /api/preview-apps/105/assets/index-CWQCWTWF.js HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:45272 - "GET /api/preview-apps/105/assets/index-C4aYcGwI.css HTTP/1.1" 200 OK
+bmv-api  | INFO:     127.0.0.1:45286 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:22.511 | PreviewPipeline:638 |     render smoke: every public page renders after repair
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:22.512 | PreviewPipeline:921 |   OK Preview built: /api/preview-apps/105/
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:22.512 | PreviewPipeline:50 | ■ preview request=105 finished in 514.27s
+bmv-api  | WARNING | bmv.Typecheck | 2026-08-06 23:32:22.513 | Typecheck:602 | typecheck record is stale (source changed since it was taken) — re-running
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:32:23.044 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:23.718 | AIRetry:109 | hard deadline hit after 118s (cap 120s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | INFO  | bmv.Typecheck | 2026-08-06 23:32:24.200 | Typecheck:504 | typecheck finished in 1.69s status=errors errors=1 workspace=105
+bmv-api  | WARNING | bmv.PreviewPipeline | 2026-08-06 23:32:24.203 | PreviewPipeline:1045 |   preview 105 degraded 2 stage(s) to meet its deadline: codegen, visual_critic
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:32:24.216 | Deadline:227 | request 105 degraded stage=tech reason=skipped_past_deadline elapsed=572.6s remaining=-32.6s
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:32:24.216 | GenerationPipeline:299 | request 105: skipping tech — past deadline, preview already delivered
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:32:24.216 | Deadline:227 | request 105 degraded stage=proposal reason=skipped_past_deadline elapsed=572.6s remaining=-32.6s
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:32:24.216 | GenerationPipeline:299 | request 105: skipping proposal — past deadline, preview already delivered
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:32:24.216 | Deadline:227 | request 105 degraded stage=build_plans reason=skipped_past_deadline elapsed=572.6s remaining=-32.6s
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:32:24.216 | GenerationPipeline:299 | request 105: skipping build_plans — past deadline, preview already delivered
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:32:24.217 | GenerationPipeline:50 | ■ generation-pipeline request=105 finished in 572.61s
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-06 23:32:24.217 | GenerationPipeline:315 | Generation pipeline finished for request 105
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:32:24.222 | Deadline:339 | request 105 finished 32.6s past its deadline; degraded=['codegen', 'visual_critic', 'tech', 'proposal', 'build_plans']
+bmv-api  | INFO  | bmv.RequestPipeline | 2026-08-06 23:32:24.222 | RequestPipeline:65 | Finished background pipeline for request 105
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:32:25.220 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (60s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:25.559 | PreviewPipeline:67 |     << done src/pages/admin/LoginPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:25.560 | PreviewPipeline:60 |     >> begin src/pages/admin/MessagesPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:25.565 | PreviewPipeline:109 |     OK src/pages/admin/LoginPage.tsx
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:32:25.566 | Codegen:257 | compose_utility src/pages/admin/MessagesPage.tsx type=contact model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:25.719 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:25.720 | AIRetry:195 | ask budget of 120s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:25.720 | Codegen:451 | slot_fill ask failed for src/pages/admin/BookingsPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:25.726 | Codegen:519 | slot_fill fell back to scaffold for src/pages/admin/BookingsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:25.728 | PreviewPipeline:67 |     << done src/pages/admin/BookingsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:25.728 | PreviewPipeline:60 |     >> begin src/pages/admin/RoomEditPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:25.734 | PreviewPipeline:109 |     OK src/pages/admin/BookingsPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:25.735 | Codegen:387 | scaffold-first wrote src/pages/admin/RoomEditPage.tsx skeleton=ops-detail
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:32:25.737 | Codegen:438 | slot_fill src/pages/admin/RoomEditPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:40.527 | PreviewPipeline:67 |     << done src/pages/admin/MessagesPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:40.527 | PreviewPipeline:60 |     >> begin src/pages/admin/RoomsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:40.533 | PreviewPipeline:109 |     OK src/pages/admin/MessagesPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:40.534 | Codegen:387 | scaffold-first wrote src/pages/admin/RoomsPage.tsx skeleton=ops-list
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:32:40.535 | Codegen:438 | slot_fill src/pages/admin/RoomsPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:32:43.046 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (40s elapsed)
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:43.812 | PreviewPipeline:67 |     << done src/pages/admin/CalendarPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:43.812 | PreviewPipeline:60 |     >> begin src/pages/admin/SettingsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:43.816 | PreviewPipeline:109 |     OK src/pages/admin/CalendarPage.tsx
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:43.816 | Codegen:387 | scaffold-first wrote src/pages/admin/SettingsPage.tsx skeleton=ops-settings
+bmv-api  | DEBUG | bmv.Codegen | 2026-08-06 23:32:43.817 | Codegen:438 | slot_fill src/pages/admin/SettingsPage.tsx attempt 1/2 model=deepseek/deepseek-v4-flash
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-06 23:32:45.738 | AIRetry:229 | still waiting on deepseek/deepseek-v4-flash (20s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:49.666 | AIRetry:109 | hard deadline hit after 24s (cap 26s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:49.667 | AIRetry:109 | hard deadline hit after 9s (cap 11s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:49.667 | AIRetry:109 | hard deadline hit after 47s (cap 49s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:49.667 | AIRetry:109 | hard deadline hit after 6s (cap 8s, 2.0s of it held back to cancel) — cancelling the in-flight call
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.670 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.670 | AIRetry:195 | ask budget of 11s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.671 | Codegen:451 | slot_fill ask failed for src/pages/admin/RoomsPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.673 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.673 | AIRetry:195 | ask budget of 8s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.674 | Codegen:451 | slot_fill ask failed for src/pages/admin/SettingsPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.675 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.675 | AIRetry:195 | ask budget of 26s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.675 | Codegen:451 | slot_fill ask failed for src/pages/admin/RoomEditPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.678 | AIRetry:221 | Timeout on attempt 1/2, retrying
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.678 | AIRetry:195 | ask budget of 49s exhausted before attempt 2/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.679 | Codegen:451 | slot_fill ask failed for src/pages/admin/DashboardPage.tsx: Provider HTTP 408. — keeping scaffold
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.683 | Codegen:519 | slot_fill fell back to scaffold for src/pages/admin/RoomsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.697 | PreviewPipeline:67 |     << done src/pages/admin/SettingsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.698 | PreviewPipeline:67 |     << done src/pages/admin/DashboardPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.699 | PreviewPipeline:67 |     << done src/pages/admin/RoomsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.700 | PreviewPipeline:67 |     << done src/pages/admin/RoomEditPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.702 | PreviewPipeline:109 |     OK src/pages/admin/SettingsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.705 | PreviewPipeline:109 |     OK src/pages/admin/DashboardPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.707 | PreviewPipeline:109 |     OK src/pages/admin/RoomsPage.tsx
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:51.709 | PreviewPipeline:109 |     OK src/pages/admin/RoomEditPage.tsx
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.752 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.Deadline | 2026-08-06 23:32:51.753 | Deadline:227 | request 106 degraded stage=codegen reason=mock_synthesis_failed_plumbing_mock_kept elapsed=540.1s remaining=-0.1s
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.753 | Codegen:241 |     mock synthesis failed (ProviderGenerationError: Provider HTTP 408.) — keeping the plumbing mock
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:51.753 | PreviewPipeline:50 | ■ codegen finished in 206.58s
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:51.754 | PreviewPipeline:61 |   [5/6] Design critic — reviewing + refining pages...
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.757 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.759 | Codegen:449 | critic src/pages/AvailabilityPage.tsx: 72 (ok)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.759 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.761 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.UiCatalogue | 2026-08-06 23:32:51.762 | UiCatalogue:880 | catalogue_contract_components_dropped skeleton=public-catalog kept=25 dropped=UiIcon,TestimonialRail,Tabs,Table,SpotlightCard chars=4879 budget=4900
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.762 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.763 | Codegen:449 | critic src/pages/HomePage.tsx: 72 (ok)
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.766 | Codegen:449 | critic src/pages/RoomDetailPage.tsx: 72 (ok)
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.766 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.769 | Codegen:446 | critic skip src/pages/BookingSummaryPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.771 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.771 | Codegen:446 | critic skip src/pages/ConfirmationPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.AIRetry | 2026-08-06 23:32:51.772 | AIRetry:195 | ask budget of 0s exhausted before attempt 1/2
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.774 | Codegen:446 | critic skip src/pages/RoomsPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.775 | Codegen:446 | critic skip src/pages/PaymentPage.tsx: Provider HTTP 408.
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.776 | Codegen:449 | critic src/pages/admin/BookingDetailPage.tsx: 72 (ok)
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.777 | Codegen:449 | critic src/pages/admin/DashboardPage.tsx: 72 (ok)
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.778 | Codegen:446 | critic skip src/pages/admin/CalendarPage.tsx: Provider HTTP 408.
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.780 | Codegen:449 | critic src/pages/admin/BookingsPage.tsx: 72 (ok)
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.781 | Codegen:449 | critic src/pages/admin/RoomEditPage.tsx: 72 (ok)
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.782 | Codegen:449 | critic src/pages/admin/RoomsPage.tsx: 72 (ok)
+bmv-api  | INFO  | bmv.Codegen | 2026-08-06 23:32:51.783 | Codegen:449 | critic src/pages/admin/SettingsPage.tsx: 72 (ok)
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.784 | Codegen:446 | critic skip src/pages/admin/LoginPage.tsx: Provider HTTP 408.
+bmv-api  | WARNING | bmv.Codegen | 2026-08-06 23:32:51.785 | Codegen:446 | critic skip src/pages/admin/MessagesPage.tsx: Provider HTTP 408.
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:51.785 | PreviewPipeline:77 |     refined 0 page(s)
+bmv-api  | DEBUG | bmv.SafetyGuards | 2026-08-06 23:32:51.874 | SafetyGuards:569 | npm imports rewritten/stripped in src/ui/motion/anime.ts
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:32:51.937 | SafetyGuards:75 | catalogue scaffold replaced src/pages/admin/BookingsPage.tsx
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:32:51.945 | SafetyGuards:75 | catalogue scaffold replaced src/pages/admin/RoomsPage.tsx
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:32:52.004 | SafetyGuards:521 | seed keys added for pages that read them: opsHero, services
+bmv-api  | DEBUG | bmv.SafetyGuards | 2026-08-06 23:32:52.006 | SafetyGuards:182 | contract: hardcoded fallback ensure_brand_shape (design_system/services/testimonials/client_names as needed)
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:32:52.068 | SafetyGuards:233 | shared chrome enforced on 1 page(s)
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:32:52.069 | SafetyGuards:1332 | navigation normalized: public, admin
+bmv-api  | INFO  | bmv.SafetyGuards | 2026-08-06 23:32:52.079 | SafetyGuards:298 | dead links repaired across 4 file(s): retargeted=2, unlinked=2, homed=3
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:52.145 | PreviewPipeline:33 |     guards: src/pages/admin/BookingsPage.tsx, src/pages/admin/RoomsPage.tsx, stats, seed-key:opsHero, seed-key:services, src/data/mock.ts (brand shape fallback), chrome:src/pages/AvailabilityPage.tsx, nav:public...
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:52.148 | PreviewPipeline:152 |     assembled router + theme
+bmv-api  | INFO  | bmv.PreviewPipeline | 2026-08-06 23:32:52.150 | PreviewPipeline:335 |   [6/6] Building + AI fix loop...
+bmv-api  | DEBUG | bmv.PreviewPipeline | 2026-08-06 23:32:52.150 | PreviewPipeline:41 | ▶ build+fix-loop started
+bmv-api  | DEBUG | bmv.SharedNpm | 2026-08-06 23:32:52.151 | SharedNpm:121 | shared npm cache hit at /app/data/preview-apps/_shared_npm/f87d5d5148156fb2/node_modules
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:32:52.151 | ViteBuild:47 | npm attach finished in 0.00s workspace=106
+bmv-api  | INFO  | bmv.ViteBuild | 2026-08-06 23:32:52.634 | ViteBuild:118 | vite build finished in 0.48s exit=0 total_run_build 0.48s workspace=106

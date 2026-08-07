@@ -181,7 +181,66 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-06 (session 16)
+## Status — updated 2026-08-07 (session 18)
+
+> ### Session 18 — THE FUNDED SESSION: 11 runs, three model verdicts, appspec wins its head-to-head, 1.12 answered
+>
+> Eleven generations on the duo3 briefs (requests 103-113), $3.01 telemetry-attributed of the
+> owner's $10 budget. Full logs `docs/evidence/session18/`; verdicts with numbers in
+> [MODEL_RESEARCH_2026-08.md](MODEL_RESEARCH_2026-08.md) "Funded-session results".
+>
+> - **The seven-fix read-list: 5 of 7 pass on the baseline duo (103/104, both shipped `ready`
+>   ~575 s).** Hotel gallery gone (was 8/8 broken); no hero literal; real font names; `:slug` 0;
+>   `Object.values(params)[0]` with token lookup on both detail pages. **Restaurant gallery is
+>   the census's known 2-of-6 residual and fired on 103, 107 and 111, not 105/109** — and on 111
+>   the visual critic scored the gallery pages 30/40 (`visual_defect_severe`, "completely
+>   misaligned with a restaurant business") and FAILED the run: the residual can kill a ship
+>   under the demo-matches-business rule. Item 2 unexercised (architect declared only
+>   `/reservations`). **AboutPage.tsx appeared in slot_fill rejections → `0e678fa` is confirmed
+>   half a fix; the plan page still assigns public-detail.**
+> - **The frame for everything: runway starvation.** Pre-codegen serial cost was 342-389 s of the
+>   600 s cap on baseline; every call after ~490 s died with runway-sized timeouts (76% of
+>   baseline calls, $0 each). The critic and fixer never ran on healthy briefs. Model verdicts:
+>   **TEXT_MODEL → `gemini-3-flash-preview` ADOPTED** (codegen starts 245/247 s vs 342/389 s —
+>   the October migration, done early because it cuts the bottleneck); **FIX_MODEL →
+>   `glm-5.2:nitro` ADOPTED** (probe: default routing pins to StreamLake at 57-66 t/s, past the
+>   120 s call cap at real fix sizes; nitro = 178-185 t/s; first live fix success on run 112);
+>   **PREVIEW_APP_MODEL v4-flash REVERTED** (quality flat-to-slightly-worse, cost saving ~6¢/run,
+>   doesn't touch the bottleneck).
+> - **The appspec head-to-head (109/110 `on` vs 107/108 `off`, same models): enforcement won.**
+>   2/2 rev-1 accepts (the 0-of-18 history predates this year's appspec fixes), planning
+>   collapses ~100-150 s → ~22 s (`canonical_seed` set ⇒ `validate_and_expand_plan` skipped),
+>   **0 codegen failures**, the tail ran for the first time (critic 4 successes, refine fired,
+>   tsc 0 on 109), wall 566/561 vs 573/572, route tables leaner and business-matched (9 and 7
+>   routes). Cost +$0.16/run. **Recommendation to the owner: KEEP appspec and turn it ON;**
+>   `.env` left `off` pending the ruling. Caveat: n=2 accepts, and a rejected spec now fails the
+>   request honestly (strict raises, post-v1-removal).
+> - **1.12 is answered and the row's premise is dead.** (a) Unroutable ARCHITECT_MODEL is
+>   absorbed by the model-fallback chain (v4-pro architected successfully, +~100 s) — the
+>   deterministic blueprint is unreachable from model failure alone. (b) Unroutable
+>   PREVIEW_APP_MODEL: slot_fill has NO fallback; all pages kept scaffolds and the quality gate
+>   failed the run inside the cap (566 s). (c) Unroutable TEXT_MODEL: the pipeline fails at
+>   blueprint in 4 s, $0. **Nowhere does a degraded blueprint preview ship** — the modern
+>   pipeline converts degraded output into honest `failed` + the customer retry endpoint. The
+>   row should be rewritten to pin THAT behavior (fail fast, fail honest, never a bad demo)
+>   rather than a degraded ship that no longer exists.
+> - **`_design_system_dict` palette fix LANDED with a run beside it (`83bb7c6`).** The derived
+>   palette (text/muted/background/surface) threads ctx → guards → every design_system fallback;
+>   `surface_color` (previously omitted) always emitted; the two diverging copies of the
+>   function unified — patterns' copy was still writing squashed `font_family` slugs to every
+>   brand_contract consumer. 6 tests, 7 mutations, 0 survivors. **Live-proven on run 112's
+>   mock.ts: brand-derived `#1b3126`/`#577466` instead of the hardcoded neutrals.**
+> - **slot_fill rejection distribution (backlog item 3), measured:** 49 baseline calls = 34
+>   transport (starvation), 5 contract, 1 truncated-then-retried — **attempt 2 PASSED, the first
+>   observed 2.9 retry success**. The contract class is concentrated: "missing directory face
+>   component:PageHeader, missing BRAND_MANIFEST services binding" fired 5× on catalogue pages,
+>   and a with-runway retry (107) failed attempt 2 with the byte-identical error — the writer
+>   does not use that validator feedback. Prompt vocabulary (preflight Q5), not model quality.
+> - New filed items: QUALITY_FIX_MODEL should get `:nitro` (one line/change rule kept it base;
+>   its base-glm call failed truncated on 112); haiku planning writers (`plan_validation` /
+>   `design_manifest`) burn their exact token budgets with 0 chars out — reasoning-burn shape,
+>   wants a budget/model change with a run; run 104 shipped `/book` + `/book-appointment` +
+>   `/book-appointments` (route-alias class).
 
 > ### Session 16 — an offline architecture review, and AppSpec is switched OFF by owner ruling
 >
