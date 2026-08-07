@@ -349,6 +349,37 @@ def _issue_identity_signature(validation_payload: Mapping[str, Any]) -> str:
     return json.dumps(triples, ensure_ascii=False)
 
 
+def _repair_collapsed_spec(
+    parent_payload: Mapping[str, Any] | None,
+    child_payload: Mapping[str, Any] | None,
+) -> bool:
+    """True when a repair emptied `pages`/`states` its parent populated.
+
+    Request 143 rev 1: the ai_appspec_repair call replaced a 6-page authored
+    spec with a 503-byte fragment — one acceptance-test object, empty `pages`
+    and `states` — and three revisions died reconciling nothing. Both
+    collections carry min_length=1, so an output in this shape can never
+    validate; rejecting it deterministically is pure fail-closed (the taught
+    anti-collapse line is the model-facing half, this guard is the code half —
+    owner-ruled, session 24). A shrink that keeps the collections populated is
+    never a collapse: repairs legitimately drop faulted objects.
+    """
+
+    if not isinstance(parent_payload, Mapping) or not isinstance(
+        child_payload, Mapping
+    ):
+        return False
+    for key in ("pages", "states"):
+        parent_items = parent_payload.get(key)
+        if (
+            isinstance(parent_items, (list, tuple))
+            and parent_items
+            and not child_payload.get(key)
+        ):
+            return True
+    return False
+
+
 def _coverage_payload(
     review: AppSpecCoverageReview | None,
     *,
@@ -1488,7 +1519,19 @@ def ensure_approved_app_spec(
                             exc,
                         )
                         return _fallback("deterministic_validation_failed")
-                    candidate = _sanitize_tracked(repaired, source_snapshot)
+                    repaired_candidate = _sanitize_tracked(repaired, source_snapshot)
+                    if _repair_collapsed_spec(
+                        candidate.payload,
+                        repaired_candidate.payload if repaired_candidate else None,
+                    ):
+                        log.info(
+                            "AppSpec schema repair collapsed the spec for "
+                            "request %s (pages/states emptied) — keeping the "
+                            "parent and failing closed",
+                            request_id,
+                        )
+                        return _fallback("repair_collapsed_parent_spec")
+                    candidate = repaired_candidate
                     _record_lineage(
                         {
                             "repair_type": "ai_schema_repair",
@@ -1539,7 +1582,8 @@ def ensure_approved_app_spec(
                         validation_payload
                     )
                     pre_ai_errors = list(validation_payload.get("issues") or [])
-                    candidate = _sanitize_tracked(
+                    parent_payload_before_repair = candidate.payload
+                    repaired_candidate = _sanitize_tracked(
                         repair_app_spec_candidate(
                             source_snapshot=source_snapshot,
                             derived_context=derived_context,
@@ -1552,6 +1596,18 @@ def ensure_approved_app_spec(
                         ),
                         source_snapshot,
                     )
+                    if _repair_collapsed_spec(
+                        parent_payload_before_repair,
+                        repaired_candidate.payload if repaired_candidate else None,
+                    ):
+                        log.info(
+                            "AppSpec repair collapsed the spec for request %s "
+                            "(pages/states emptied) — keeping the parent and "
+                            "failing closed",
+                            request_id,
+                        )
+                        return _fallback("repair_collapsed_parent_spec")
+                    candidate = repaired_candidate
                     graph_repair_audit = {
                         **graph_repair_audit,
                         "ai_repair": {
@@ -1733,7 +1789,8 @@ def ensure_approved_app_spec(
 
             if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS and _appspec_may_call_model():
                 repairs += 1
-                candidate = _sanitize_tracked(
+                parent_payload_before_repair = spec.model_dump(mode="json")
+                repaired_candidate = _sanitize_tracked(
                     repair_app_spec_candidate(
                         source_snapshot=source_snapshot,
                         derived_context=derived_context,
@@ -1746,6 +1803,18 @@ def ensure_approved_app_spec(
                     ),
                     source_snapshot,
                 )
+                if _repair_collapsed_spec(
+                    parent_payload_before_repair,
+                    repaired_candidate.payload if repaired_candidate else None,
+                ):
+                    log.info(
+                        "AppSpec coverage repair collapsed the spec for "
+                        "request %s (pages/states emptied) — keeping the "
+                        "parent and failing closed",
+                        request_id,
+                    )
+                    return _fallback("repair_collapsed_parent_spec")
+                candidate = repaired_candidate
                 spec = None
                 validation = None
                 coverage = None
