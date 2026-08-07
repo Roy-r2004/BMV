@@ -387,11 +387,13 @@ Run one at a time, every file restored from in-memory backups.
 
 Ordered by payoff; items 1-2 are single lines or single rulings that bank measured wins.
 
-1. **The appspec ruling (owner).** The head-to-head is measured and enforcement won on every
-   axis but cost (+$0.16/run): 2/2 rev-1 accepts, planning ~22 s instead of ~100-150 s, zero
-   codegen failures, the tail finally runs, tsc 0 on the restaurant. One word turns it on:
-   `APPSPEC_MODE=on`, recreate, verify. If more acceptance evidence is wanted first, the next
-   two funded duos run `on` and count accepts (rejects now fail honestly — watch for that).
+1. ~~The appspec ruling~~ — **RULED ON and FLIPPED, 2026-08-07 (same day, post-close).** The
+   owner ruled after reading the head-to-head; `APPSPEC_MODE=on` in local `.env` (recreated,
+   verified from the running process: `should_run=True`), appspec models kept on
+   gemini-2.5-flash by the same ruling (they are what the 2/2 accepts were measured on).
+   `.env.prod` already ran `on`. **Every future run is an acceptance data point — rejects now
+   fail the request honestly, so count accepts vs rejects each session.** The keep-or-delete
+   question from session 16 is closed: KEEP, ENFORCED.
 2. **`QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro`** — same routing arithmetic as FIX_MODEL, its
    base-glm call failed truncated on 112; one line, one run beside it.
 3. **The catalogue-contract vocabulary gap** — "missing directory face component:PageHeader,
@@ -542,10 +544,10 @@ alarm on idle-time balance changes. The adopted models are in .env and verified:
 gemini-3-flash-preview, FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro. My budget this
 session: $[N]. 10-minute cap per generation, monitored, always.
 
-MY RULING ON APPSPEC: [on / stay off / more evidence first]. The measured recommendation is
-ON (HANDOFF one-pager, head-to-head numbers). If I say on: flip APPSPEC_MODE=on, recreate,
-verify from the running process, and every run this session is an acceptance data point —
-a rejected spec now fails the request honestly, so count accepts vs rejects.
+APPSPEC IS ON — I ruled it 2026-08-07 and it is already flipped, recreated and verified
+(appspec models stay on gemini-2.5-flash: they are what the 2/2 accepts were measured on).
+Every run this session is an acceptance data point — a rejected spec now fails the request
+honestly, so count accepts vs rejects and report the tally.
 
 Then in this order, each with its own run(s), one variable at a time:
 1. QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro — one line, one duo beside it.
