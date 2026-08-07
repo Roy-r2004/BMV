@@ -31,6 +31,7 @@ from app.application.preview_app.pipeline.context import PipelineContext
 from app.application.preview_app.pipeline.errors import PreviewAppContractError
 from app.application.preview_app.quality_gate import run_quality_gate_with_heal
 from app.application.preview_app.source_quality import catalogue_page_is_thin
+from app.application.preview_app.content_density import density_record
 from app.application.preview_app.workspace import read_file
 from app.application.services.ai_features import ai_features_from_request
 from app.application.services.progress import emit as _emit
@@ -983,6 +984,19 @@ def run_finalize(ctx: PipelineContext) -> dict:
         for r in plan_roles
     ]
 
+    content_density = density_record(workspace, route_list)
+    if content_density.get("status") == "measured":
+        log.info(
+            "    content density: %s page(s), %s prose chars (median %s), %s under %s",
+            content_density["pages_measured"],
+            content_density["prose_chars_total"],
+            content_density["prose_chars_median"],
+            len(content_density["pages_under_200_chars"]),
+            200,
+        )
+    else:
+        log.warning("    content density unmeasured: %s", content_density.get("reason"))
+
     persisted_plan = _plan_for_persistence(plan)
     preview_app_result = {
         "url": preview_url,
@@ -994,6 +1008,9 @@ def run_finalize(ctx: PipelineContext) -> dict:
         "routes": route_list,
         "design_direction": architect.get("design_direction", ""),
         "fallback_pages": fallback_pages,
+        # Phase 0's 0.8: how much real copy shipped, per routed page — the
+        # signal that survives the Phase 2 flip, unlike the scaffold marker.
+        "content_density": content_density,
         # Remount host iframe past sticky error boundaries after rebuilds.
         "built_at": int(time.time()),
     }
