@@ -22,6 +22,7 @@ from app.application.appspec.coverage import (
     AppSpecCoverageError,
     AppSpecCoverageReview,
     coverage_requires_repair,
+    coverage_retry_instruction,
     review_app_spec_coverage,
 )
 from app.application.appspec.repository import (
@@ -1540,9 +1541,13 @@ def ensure_approved_app_spec(
                     template_renderer=template_renderer,
                     model=runtime_policy.coverage_model,
                 )
-            except AppSpecCoverageError:
+            except AppSpecCoverageError as coverage_error:
                 # Retry one malformed independent review without changing a valid
-                # contract. A second malformed result fails closed below.
+                # contract. Run 133: a verbatim temperature-0 re-ask reproduced
+                # the malformation byte-for-byte, so the retry is VARIED — a
+                # compact corrective instruction naming the first failure — and
+                # its telemetry attempt is bumped so the two coverage rows stay
+                # distinguishable. A second failure fails closed below.
                 try:
                     coverage = review_app_spec_coverage(
                         source_snapshot=source_snapshot,
@@ -1550,6 +1555,10 @@ def ensure_approved_app_spec(
                         ai_provider=provider,
                         template_renderer=template_renderer,
                         model=runtime_policy.coverage_model,
+                        attempt=2,
+                        corrective_instruction=coverage_retry_instruction(
+                            coverage_error
+                        ),
                     )
                 except AppSpecCoverageError:
                     return _fallback("coverage_review_malformed")

@@ -5,7 +5,7 @@ import json
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.application.prompts import PromptTemplate
 from app.application.services.ai_context import ai_call
@@ -33,6 +33,20 @@ class CoverageFinding(BaseModel):
     message: str
     repair_instruction: str = ""
 
+    # Run 133: the reviewer sent explicit nulls for these DEFAULTED evidence
+    # fields and the whole review failed on cosmetics — twice, byte-identical
+    # at temperature 0. A null where the schema default is ""/[] is absence,
+    # not substance. Required fields (code/severity/message) stay strict.
+    @field_validator("source_path", "source_excerpt", "repair_instruction", mode="before")
+    @classmethod
+    def _null_str_is_absent(cls, value: Any) -> Any:
+        return "" if value is None else value
+
+    @field_validator("app_spec_ids", mode="before")
+    @classmethod
+    def _null_list_is_absent(cls, value: Any) -> Any:
+        return [] if value is None else value
+
 
 class GoalCoverage(BaseModel):
     # ignore: models invent keys like assumption_ids; do not fail closed on extras.
@@ -45,6 +59,20 @@ class GoalCoverage(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
     acceptance_test_ids: list[str] = Field(default_factory=list)
     notes: str = ""
+
+    # source_path/source_excerpt/covered stay strict: they are the proof
+    # ledger `coverage_requires_repair` gates on, not optional evidence.
+    @field_validator("notes", mode="before")
+    @classmethod
+    def _null_str_is_absent(cls, value: Any) -> Any:
+        return "" if value is None else value
+
+    @field_validator(
+        "requirement_ids", "evidence_ids", "acceptance_test_ids", mode="before"
+    )
+    @classmethod
+    def _null_list_is_absent(cls, value: Any) -> Any:
+        return [] if value is None else value
 
 
 class AppSpecCoverageReview(BaseModel):
@@ -60,9 +88,43 @@ class AppSpecCoverageReview(BaseModel):
     mislabeled_assumptions: list[CoverageFinding] = Field(default_factory=list)
     open_question_gaps: list[CoverageFinding] = Field(default_factory=list)
 
+    # verdict/score/summary stay strict — a review without them is no review.
+    @field_validator(
+        "goal_coverage",
+        "omissions",
+        "contradictions",
+        "unsupported_additions",
+        "mislabeled_assumptions",
+        "open_question_gaps",
+        mode="before",
+    )
+    @classmethod
+    def _null_list_is_absent(cls, value: Any) -> Any:
+        return [] if value is None else value
+
 
 class AppSpecCoverageError(RuntimeError):
     """The independent reviewer failed to return a usable review."""
+
+
+# Run 133: coverage_review returned byte-identical malformed output twice — a
+# temperature-0 verbatim re-ask buys nothing on malformation. The one-shot
+# retry in generation.py now appends this compact corrective instruction
+# (mirroring the authoring loop's malformed retry) so the second ask is a
+# different ask, and bumps the telemetry attempt so the rows stay
+# distinguishable.
+_COVERAGE_RETRY_INSTRUCTION = (
+    "Your previous coverage review was rejected: {reason}. "
+    "Return one complete JSON object that satisfies the supplied coverage "
+    'schema. Use "" or [] instead of null for optional fields. '
+    "No prose. No markdown. No code fences."
+)
+
+
+def coverage_retry_instruction(error: Exception) -> str:
+    """The corrective second-ask message for one malformed/cut review."""
+
+    return _COVERAGE_RETRY_INSTRUCTION.format(reason=str(error)[:500])
 
 
 def _canonical_json(value: Any) -> str:
@@ -85,6 +147,8 @@ def review_app_spec_coverage(
     model: str | None = None,
     max_tokens: int | None = None,
     minimum_score: int | None = None,
+    attempt: int = 1,
+    corrective_instruction: str | None = None,
 ) -> AppSpecCoverageReview:
     """Compare the approved-source candidate directly with immutable intake."""
 
@@ -105,12 +169,17 @@ def review_app_spec_coverage(
     # long-standing generation/sanitize import cycle and breaks collection.
     from app.application.appspec.builder import _ask_appspec_chat
 
-    with ai_call("appspec", writer="coverage_review", attempt=1):
+    messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+    if corrective_instruction:
+        # Never resend the malformed output — one compact corrective message,
+        # the same shape as the authoring loop's malformed retry.
+        messages.append({"role": "user", "content": corrective_instruction})
+    with ai_call("appspec", writer="coverage_review", attempt=attempt):
         try:
             raw, provider_diag = _ask_appspec_chat(
                 ai_provider,
                 model=model or settings.APPSPEC_COVERAGE_MODEL,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 max_tokens=max_tokens or settings.APPSPEC_COVERAGE_MAX_TOKENS,
                 temperature=0.0,
             )
@@ -262,5 +331,6 @@ __all__ = [
     "CoverageFinding",
     "GoalCoverage",
     "coverage_requires_repair",
+    "coverage_retry_instruction",
     "review_app_spec_coverage",
 ]
