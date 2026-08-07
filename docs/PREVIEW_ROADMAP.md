@@ -181,7 +181,46 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-07 (session 20)
+## Status — updated 2026-08-07 (session 21)
+
+> ### Session 21 — transport can no longer kill a run; ships 3/5 with the closing duo 2/2
+>
+> - **The transport model-fallback LANDED (`3f7f7f9`) and FIRED LIVE the same session.**
+>   `APPSPEC_TRANSPORT_FALLBACK_MODEL` (cross-provider by configuration): when a candidate
+>   ask's bounded same-model re-ask is also cut, ONE ask goes to the other provider before
+>   failing closed — telemetry attempt 3 under the same writer. Fires ONLY on the transport
+>   class (mutation-pinned); malformation/refusal raise as before; the deterministic
+>   validator still gates the fallback's answer. Also closed authoring's empty-cut raise
+>   hole (zero retries before). 13 tests, 11 mutations / 0 survivors. **Live: run 139's
+>   authoring survived two 0-char haiku burns via a gemini attempt-3 candidate.** A
+>   transport-classified dead run is now a NEW bug at every appspec ask site.
+> - **The haiku APPSPEC migration duo (runs 138/139): REVERTED, 0/2 accepts, $0.70.**
+>   3-of-4 haiku authoring asks returned finish=length with 0 output chars at the full 24k
+>   budget ($0.13, 95-116 s each) — the session-18 reasoning-burn class at the appspec slot.
+>   Its one authored spec broke a taught rule and its repair repeated the identical
+>   validator error verbatim. October migration: haiku-4.5 AND gemini-3-flash are both
+>   ruled out as-is; a new candidate needs an owner sign-off.
+> - **Run 135's ops-home seed gap LANDED (`e895ef7`) — and run 140 (135's brief verbatim)
+>   SHIPPED `ready` at 553 s, the first internal_ops ship under enforced appspec ever**
+>   (spec accepted rev-1, coverage 100). `lock_chrome_on_architecture_seed` re-paths the
+>   seed's own ops-dashboard route to `/` when no home exists; census over all 47 stored
+>   kind_contexts: 0 route paths change; 135's stored spec reproduces the defect pre-lock
+>   and seeds home post-lock. 7 tests, 7 mutations / 0 survivors. **FILED with offline
+>   proof (full-chain replay archived): a 3-page ops spec next refuses on
+>   `ops_kind_too_few_pages` — the ops blueprint gap-fill fires only on non-substantive
+>   route tables; needs a gap-fill extension or an owner ruling.**
+> - **Run 133's coverage determinism trap LANDED (`aced8e7`).** The malformation was
+>   explicit nulls on DEFAULTED fields (cosmetic) — now coerced, with required fields and
+>   the proof ledger pinned strict; and the one-shot retry varies (corrective instruction
+>   naming the first failure, attempt bumped to 2). 6 tests, 7 mutations / 0 survivors.
+> - **Closing duo 141/142: 2/2 shipped `ready`, both specs accepted rev-1 at coverage 100**
+>   (~565/558 s; tail degraded past deadline: typecheck errors, visual critic never ran —
+>   the tail starvation is now the dominant residual). Zero seeded gallery artifacts (142's
+>   PAGE-ROOM-GALLERY is the planner's own, as on 132). design_manifest 3-for-3 this
+>   session, 5-for-5 live since the fix. **Session tally: ships 3/5, accepts 3-for-3 rev-1,
+>   transport-dead 0. Spend $1.94 telemetry-attributed; $11.24 left at close.**
+
+## Status archive — session 20
 
 > ### Session 20 — the three remaining items land in one session, each measurement-first
 >

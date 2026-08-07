@@ -1,0 +1,128 @@
+Starting BuildMyVersion API on port 8000...
+INFO  | bmv.Startup | 2026-08-07 12:37:55.392 | Startup:190 | schema_ready db=postgresql://db/buildmyversion elapsed_ms=65 versions={'phase7a': 'phase7a.1', 'phase7b': 'phase7b.1', 'phase7c': 'phase7c.1', 'phase7d': 'phase7d.1', 'phase7e': 'phase7e.1', 'phase7f': 'phase7f.2', 'commercial': 'commercial.1'}
+INFO  | bmv.AdminBootstrap | 2026-08-07 12:37:55.429 | AdminBootstrap:58 | Updated bootstrap admin user roy.rizkallah@hotmail.com (is_admin/password sync)
+INFO  | bmv.Boot | 2026-08-07 12:37:55.429 | Boot:122 | SEED_DEMO=false — skipping PlateSync demo seed
+INFO  | bmv.Boot | 2026-08-07 12:37:55.429 | Boot:131 | PREVIEW_TEMPLATE_DIR=/app/backend/preview-template exists=True
+INFO  | bmv.Boot | 2026-08-07 12:37:55.430 | Boot:142 | AI_PROVIDER=openrouter LOG_LEVEL=debug
+INFO  | bmv.Boot | 2026-08-07 12:37:55.486 | Boot:163 | node=v22.14.0 npm=10.9.2
+INFO  | bmv.Boot | 2026-08-07 12:37:55.486 | Boot:164 | INTERNAL_BASE_URL=http://127.0.0.1:8000
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     172.64.66.1:27556 - "POST /api/v1/requests HTTP/1.1" 404 Not Found
+INFO:     172.64.66.1:40067 - "POST /api/v1/requests HTTP/1.1" 404 Not Found
+INFO  | bmv.RequestPipeline | 2026-08-07 12:40:07.542 | RequestPipeline:63 | Starting background pipeline for request 138
+INFO  | bmv.Deadline | 2026-08-07 12:40:07.543 | Deadline:328 | request 138 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.64.66.1:61764 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 12:40:07.549 | GenerationPipeline:83 | Starting full generation pipeline for request 138 (Osteria Vinci)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 12:40:07.549 | GenerationPipeline:41 | ▶ generation-pipeline request=138 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 12:40:20.221 | AppSpecGeneration:776 | Ensuring approved AppSpec for request 138 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 12:40:40.253 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:41:00.255 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+INFO  | bmv.RequestPipeline | 2026-08-07 12:41:07.618 | RequestPipeline:63 | Starting background pipeline for request 139
+INFO  | bmv.Deadline | 2026-08-07 12:41:07.619 | Deadline:328 | request 139 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.64.66.1:60634 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 12:41:07.624 | GenerationPipeline:83 | Starting full generation pipeline for request 139 (Cedar Point Lodge)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 12:41:07.624 | GenerationPipeline:41 | ▶ generation-pipeline request=139 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 12:41:18.452 | AppSpecGeneration:776 | Ensuring approved AppSpec for request 139 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 12:41:20.263 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:41:38.471 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:41:40.271 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:41:58.475 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:42:00.279 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (100s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 12:42:18.482 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:42:22.652 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:42:38.484 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:42:42.658 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:42:58.490 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (100s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:43:02.661 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 12:43:22.665 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:43:34.820 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+INFO  | bmv.AppSpecGeneration | 2026-08-07 12:43:37.483 | AppSpecGeneration:1294 | AppSpec trace-evidence repair for request 138: add_capability_to_evidence:EVIDENCE-DASHBOARD-MENU-EDITOR:CAP-PDF-MENU
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 12:43:54.822 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:43:57.498 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:44:14.824 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:44:17.501 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (40s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:44:34.835 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:44:37.507 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (60s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:44:54.845 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (100s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:44:57.514 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (80s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 12:45:17.525 | AIRetry:229 | still waiting on anthropic/claude-haiku-4.5 (100s elapsed)
+ERROR | bmv.RequestPipeline | 2026-08-07 12:45:18.343 | RequestPipeline:70 | Background pipeline FAILED request 138: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (visible_assertion_evidence_required: A visible assertion requires evidence_id.; visible_assertion_evidence_required: A visible assertion requires evidence_id.; visible_assertion_evidence_required: A visible assertion requires evidence_id.)
+ERROR | bmv.RequestPipeline | 2026-08-07 12:45:18.344 | RequestPipeline:71 | Pipeline traceback for request 138
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1491, in ensure_approved_app_spec
+    return _fallback("deterministic_validation_failed")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 986, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (visible_assertion_evidence_required: A visible assertion requires evidence_id.; visible_assertion_evidence_required: A visible assertion requires evidence_id.; visible_assertion_evidence_required: A visible assertion requires evidence_id.)
+DEBUG | bmv.AIRetry | 2026-08-07 12:45:20.553 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:45:40.561 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 12:46:00.573 | AIRetry:229 | still waiting on google/gemini-2.5-flash (60s elapsed)
+WARNING | bmv.Deadline | 2026-08-07 12:46:05.148 | Deadline:227 | request 139 degraded stage=appspec reason=stopped_low_downstream_runway elapsed=297.5s remaining=242.5s
+WARNING | bmv.Deadline | 2026-08-07 12:46:05.157 | Deadline:455 | request 139 degraded 1 stage(s) but stored no preview_app to record them on: appspec
+ERROR | bmv.RequestPipeline | 2026-08-07 12:46:05.157 | RequestPipeline:70 | Background pipeline FAILED request 139: AppSpec failed (call_budget_exhausted) and fallback is disabled. (page_initial_state_count: Page 'PAGE-AI-FEATURES' must contain exactly one initial state; found 2.)
+ERROR | bmv.RequestPipeline | 2026-08-07 12:46:05.157 | RequestPipeline:71 | Pipeline traceback for request 139
+Traceback (most recent call last):
+  File "/app/backend/app/application/appspec/generation.py", line 1461, in ensure_approved_app_spec
+    repair_app_spec_candidate(
+  File "/app/backend/app/application/appspec/builder.py", line 673, in repair_app_spec_candidate
+    return _candidate_ask_with_transport_reask(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/builder.py", line 393, in _candidate_ask_with_transport_reask
+    raw, provider_diag = _ask_appspec_chat(
+                         ^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/builder.py", line 165, in _ask_appspec_chat
+    raw = ai_provider.ask_chat(model, messages, **ask_kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 227, in ask_chat
+    self._acquire()
+  File "/app/backend/app/application/appspec/generation.py", line 213, in _acquire
+    raise AppSpecCallBudgetExceeded(
+app.application.appspec.generation.AppSpecCallBudgetExceeded: AppSpec stopped with 242.5s of runway; every run that has ever shipped needed at least 280s after this stage.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1642, in ensure_approved_app_spec
+    return _fallback("call_budget_exhausted")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 986, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (call_budget_exhausted) and fallback is disabled. (page_initial_state_count: Page 'PAGE-AI-FEATURES' must contain exactly one initial state; found 2.)

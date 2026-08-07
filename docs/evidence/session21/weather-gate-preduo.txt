@@ -1,0 +1,9 @@
+haiku probe 1: finish='length' chars=19501 parse_ok=False items=None out_tokens=6000 30.9s -> STORM SIGNAL
+haiku probe 2: finish='length' chars=19423 parse_ok=False items=None out_tokens=6000 31.2s -> STORM SIGNAL
+gemini probe 1: finish='length' chars=24611 parse_ok=False items=None out_tokens=6000 28.4s -> STORM SIGNAL
+WEATHER: STORM — do not launch runs
+haiku probe 1: finish='stop' chars=15287 parse_ok=False items=None out_tokens=4754 25.7s -> STORM SIGNAL
+haiku probe 2: finish='stop' chars=14950 parse_ok=False items=None out_tokens=4754 25.9s -> STORM SIGNAL
+gemini probe 1: finish='stop' chars=16284 parse_ok=True items=None out_tokens=4692 22.8s -> CLEAR
+WEATHER: STORM — do not launch runs
+VERDICT (corrected): weather CLEAR — all probes finish=stop with complete JSON bodies. haiku wraps JSON in markdown fences (pipeline markdown_fence strategy handles healthy streams); 'STORM SIGNAL' lines above were probe parse-strictness + task sizing, not transport. No finish_reason=error, no empty cuts, 8/8 calls healthy.

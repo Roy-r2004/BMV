@@ -288,6 +288,31 @@ skill; MODEL_RESEARCH's original note said a spec slot is worth paying for), or 
 again after a prompt/schema adjustment for the initial-state cardinality it tripped on. Either
 way: one duo, judged on accepts first.
 
+### Session-21 result — APPSPEC_* models: anthropic/claude-haiku-4.5 → **REVERTED**
+
+The haiku duo ran (138 restaurant / 139 hotel, duo3 briefs verbatim, all three slots +
+`APPSPEC_TRANSPORT_FALLBACK_MODEL=gemini-2.5-flash` for cross-provider cover):
+
+| | gemini-2.5-flash (cross-session) | haiku-4.5 (138/139) |
+|---|---|---|
+| spec revisions accepted | 7 accepts / 6 quality-rejects (sessions 18-20); **3-for-3 rev-1 at coverage 100 in session 21** (140/141/142) | **0/2 requests** |
+| dominant failure | authoring quality, variable | **3-of-4 authoring asks: `finish_reason=length`, 0 output chars, full 24k budget billed ($0.13, 95-116 s each)** — the reasoning-burn/empty-content class from its planning-writer record, now at the spec slot |
+| when it did author | — | 65k-char spec violating a taught rule (`visible_assertion_evidence_required`); its 69k-char repair reproduced the IDENTICAL error at the identical path — the repair model does not apply the verbatim validator report |
+| cost per ask | ~$0.04 (50k chars) | ~$0.11-0.14 (0-65k chars) |
+| duo cost / accepted spec | — | **$0.70 / ∞** |
+
+One rescue worth recording: run 139's two 0-char burns raised the provider's retryable
+empty shape, and the NEW transport fallback asked gemini once — a judged 50k-char candidate
+instead of a dead run (it then rejected honestly on `page_initial_state_count`). The
+weather-probe caveat for anthropic models: haiku wraps JSON in markdown fences under
+`response_format: json_object` (healthy-stream parsing handles it), and the 0-char burn did
+NOT reproduce in 6k-token probes — it appears at the 24k-cap ask size. **Both October
+candidates (gemini-3-flash, haiku-4.5) are now ruled out as-is; a new candidate (or a
+reasoning-params/response-field investigation for haiku's empty-content shape) needs an
+owner sign-off before the next duo.** Meanwhile gemini-2.5-flash's session-21 record —
+3-for-3 rev-1 accepts at coverage 100 under prompt revision 2026-08-07.1 — is the strongest
+acceptance streak on file; keep counting before calling acceptance the bottleneck.
+
 ## Session-19 results (2026-08-07, same day)
 
 ### The provider had a bad day, and it found a pipeline defect worth more than the day cost

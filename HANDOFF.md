@@ -1,6 +1,132 @@
-# Session handoff — the remaining items land: plan-stage gallery, transport re-asks, prompt hardening (2026-08-07, session 20)
+# Session handoff — transport can no longer kill a run, and the closing duo went 2/2 (2026-08-07, session 21)
 
-Successor to session 19's handoff (below in this file). Process notes, not product docs.
+Successor to session 20's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 21, in one page
+
+**The session's reason to exist — "2 ships in 9 runs is unacceptable" — closed at 3 ships /
+5 attempts, with the two non-ships being honest quality rejects under a model trial that was
+itself the experiment.** Suite **1,967 / 1 / 0** (measured at close; +26 tests this session —
+session 20's 1,939 was stale by ~2, same class of note as session 18's). Three sweeps,
+**25 mutations / 0 survivors** (11 + 7 + 7). Evidence: `docs/evidence/session21/`.
+
+### THE TALLY (report ships beside accepts, always)
+
+| | |
+|---|---|
+| **Ships / attempts** | **3 / 5** (138 ✗, 139 ✗, **140 ✓, 141 ✓, 142 ✓** — the closing duo 2/2) |
+| **Spec accepts / rejects** | **3 accepts (140, 141, 142 — ALL rev-1, coverage 100 each) / 2 rejected requests** (138, 139 — both under the haiku trial, both honest quality) |
+| **Transport-dead runs** | **0** — every `finish_reason=error` call all session was absorbed (one per shipped run, in the tail) |
+| Spend | **$1.94 telemetry-attributed** (138-142); bracket 365.300 → 368.760 of 380 (**$11.24 left**); ~$0.25 weather probes; the rest of the key-level delta is the shared key's other project |
+
+### Item 1 — transport model-fallback (`3f7f7f9`), LANDED and FIRED LIVE same-session
+
+`APPSPEC_TRANSPORT_FALLBACK_MODEL` (default `anthropic/claude-haiku-4.5`, `.env` keeps it
+cross-provider from the primary — currently haiku since the slots reverted to gemini). When a
+candidate ask's bounded same-model re-ask is ALSO cut, ONE ask goes to the other provider
+before failing closed — attempt 3 under the same writer, so the `ai_usage_events` row is
+unmistakable. Fires ONLY on the transport class (the gate's `provider_error` verdict or the
+provider's retryable empty raise); malformation and refusal raise exactly as before; the
+deterministic validator still gates whatever comes back. Also closed: authoring's retryable
+empty-cut raise previously escaped the loop with ZERO retries. 13 tests, 11 mutations /
+0 survivors. **Live firing on run 139: after two haiku 0-char burns, authoring attempt 3 on
+gemini returned a 50k-char candidate — a judged candidate instead of a dead run, the exact
+designed trade.** After item 1, a transport-classified dead run is a NEW bug — file it loudly.
+
+### Item 2 — the haiku APPSPEC migration duo: REVERTED, decisively
+
+Runs 138/139 (duo3 briefs verbatim, haiku-4.5 in all three APPSPEC_* slots): **0/2 accepts,
+$0.70 duo spend.** The failure shape: **3-of-4 haiku authoring asks returned
+`finish_reason=length` with 0 output chars at the full 24k budget ($0.13, 95-116 s each)** —
+the session-18 reasoning-burn class, now confirmed at the appspec slot. When haiku DID author
+(138, 65k chars), the spec violated a taught rule (`visible_assertion_evidence_required`) and
+haiku's repair returned rev-2 with the IDENTICAL error at the IDENTICAL path — it does not
+apply the verbatim validator report. `.env` reverted to gemini-2.5-flash ×3 (+ fallback
+haiku), recreated, verified from the process. October migration: haiku-4.5 is ruled out
+as-is alongside gemini-3-flash; MODEL_RESEARCH has the table.
+
+### Item 3 — the ops-home seed gap (`e895ef7`): fixed, and run 140 SHIPPED
+
+`lock_chrome_on_architecture_seed` now re-paths an ops-kind seed's own primary
+(`ops-dashboard`) route to `/` when no home exists — never inventing a page, never electing
+the AI hub, never touching public kinds, role defaultPaths kept in step. Census: all 47
+stored kind_contexts replayed through the real lock — 0 route paths change; 135's real
+accepted spec reproduces the defect pre-lock and seeds its home post-lock. 7 tests,
+7 mutations / 0 survivors. **Run 140 (135's brief verbatim): spec accepted rev-1 coverage
+100, SHIPPED `ready` at 553 s — the first internal_ops ship under enforced appspec on
+record.** The fresh spec authored 6 pages with `/` native, so the seed rung wasn't needed
+this time; it remains the floor for 135-shaped thin specs. **FILED, offline-proven
+(full-chain replay archived): a 3-page ops spec would next refuse on
+`ops_kind_too_few_pages` (2 non-hub ops routes < 4) — masked live by missing_home's early
+return; the ops blueprint gap-fill fires only on non-substantive route tables.**
+
+### Item 4 — run 133's coverage determinism trap (`aced8e7`): both halves
+
+Mined: all 4 validation errors were explicit `null`s on DEFAULTED CoverageFinding fields
+(`unsupported_additions[*].source_path/source_excerpt`) — cosmetic. Nulls on defaulted
+fields now coerce to `""`/`[]`; required fields and the goal_coverage proof ledger stay
+strict (mutation-pinned that leniency never widens there). And the one-shot retry VARIES:
+compact corrective instruction naming the first failure, telemetry attempt bumped to 2 (run
+133's two rows were both attempt=1). 6 tests, 7 mutations / 0 survivors.
+
+### The closing duo — the success criterion, met
+
+Runs 141 (Osteria Vinci) / 142 (Cedar Point Lodge), everything adopted: **2/2 shipped
+`ready`, both specs accepted rev-1 at coverage 100** (~565/558 s wall, 24.7/17.8 s past the
+540 s soft deadline, inside the cap, previews delivered). Gallery: 141 zero artifacts
+anywhere; 142's only gallery is the planner's own PAGE-ROOM-GALLERY (`/rooms`) — legitimate,
+same as 132. `design_manifest` on gemini-3-flash: **3-for-3 this session (1.9-2.3k chars,
+5-6.3 s), 5-for-5 live since the fix.** Tail state recorded: typecheck `errors`,
+visual_critic skipped past deadline on both — the tail starvation is now the dominant
+residual (see the p50 note below).
+
+### What I got wrong in session 21
+
+- **My first weather probe called healthy streams a storm twice** — a 60-item task couldn't
+  fit the 6k cap (`length`), and haiku's markdown fences failed my probe's strict parse.
+  The real storm class (finish_reason=error, $0, partial body) never appeared. Corrected in
+  the evidence file; lesson: a probe's parse must match the pipeline parser's tolerance.
+- **The first duo launch 404'd** — the requests router mounts at `/api/requests`, not
+  `/api/v1/requests`. Cost one retry, no spend, no request created.
+- **My first run-monitor script produced no output** (a hung docker-compose subprocess);
+  replaced with a plain shell poll. Watch the watcher.
+- **One mutation survived its first sweep because my existing-home fixture WAS the dashboard
+  candidate** — re-pathing `/` to `/` is a semantic no-op. The fixture now puts the home on a
+  non-preferred route. A sweep with survivors is the system working.
+
+### State of the repo (session 21 close)
+
+- **main: `3f7f7f9` → `aced8e7` → `e895ef7` + docs on top of `b84f50d` — pushed.**
+- **Suite: 1,967 passed / 1 skipped / 0 failed** (documented command). Three new drivers,
+  all 0-survivor: `mutate_transport_model_fallback.py` (11),
+  `mutate_coverage_retry_variation.py` (7), `mutate_ops_home_seed.py` (7). New census:
+  `ops_home_seed_census.py` (red-exit, archived output).
+- **Credits: $11.24 left** (368.760 of 380). Session 21: $1.94 telemetry-attributed
+  (runs 138-142), ~$0.25 probes.
+- **Running config verified from the process at close:** TEXT=gemini-3-flash-preview,
+  FIX+QUALITY_FIX=glm-5.2:nitro, PREVIEW_APP=deepseek-v4-pro, ARCHITECT/CRITIC=haiku-4.5,
+  APPSPEC on + gemini-2.5-flash ×3, **APPSPEC_TRANSPORT_FALLBACK_MODEL=anthropic/claude-haiku-4.5
+  (new)**, prompt revision 2026-08-07.1.
+
+### The next step (ordered)
+
+1. **The tail starvation is now the p50/quality lever.** All three ships ran codegen to the
+   deadline; typecheck landed `errors` and the visual critic never ran on any of them. The
+   appspec side is fixed (3-for-3 rev-1 accepts, ~35-40 s planning): the remaining big rocks
+   are the codegen/tail budget split and the architect serial (owner-parked). Measure-first,
+   owner-adjacent.
+2. **The filed `ops_kind_too_few_pages` gap** — offline-proven on 135's artifact. The honest
+   fix shape: let ops kinds gap-fill unserved blueprint pages on substantive-but-thin appspec
+   tables (the public kinds already do), or a ruling that ≤3-page ops specs are legitimately
+   too thin to demo. Needs a ruling or a run beside it.
+3. **Rev-1 acceptance is suddenly 3-for-3 on gemini** after the hardened prompt + varied
+   coverage retry — keep counting; if the streak holds, the repair rung becomes rare and the
+   appspec wall cost drops toward its floor (~70 s).
+4. **FILED code items if time remains**: the generation/sanitize import cycle; refunding
+   errored $0 calls from the appspec call budget; VISION_MODEL migration beside a
+   vision-touching run.
 
 ---
 
@@ -805,6 +931,74 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ---
 
 ## Next session's prompt, ready to paste
+
+```
+Read HANDOFF.md first — "Session 21, in one page" and THE TALLY table. Then the roadmap's
+session-21 callout. Don't re-derive any of it.
+
+main is PUSHED through session 21's commits. Suite 1,967 / 1 / 0. Key is SHARED — probe
+credits first, bracket every run, track BMV spend from ai_usage_events, never alarm on idle
+deltas; ~$11.24 left at session-21 close. Running config verified at close: TEXT
+gemini-3-flash-preview, FIX + QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro,
+ARCHITECT/CRITIC haiku-4.5, APPSPEC on + gemini-2.5-flash ×3,
+APPSPEC_TRANSPORT_FALLBACK_MODEL anthropic/claude-haiku-4.5, prompt revision 2026-08-07.1.
+My budget this session: $[N]. 10-minute cap per generation, monitored, always. We work
+LOCALLY — prod files only change when I say so.
+
+WHERE SESSION 21 LEFT THE BOARD: ships 3/5 (the closing duo 2/2), spec accepts 3-for-3
+rev-1 at coverage 100, transport-dead runs 0 — the fallback fired live and rescued an
+authoring chain. The dispatch desk (internal_ops) shipped for the first time ever. The two
+non-ships were the haiku APPSPEC trial's honest rejects; haiku-4.5 is ruled out for the
+spec slots as-is (3-of-4 asks burned 24k tokens with 0 output chars).
+
+STANDING TALLY: ships vs attempts AND accepts vs rejects, every reject classified from
+telemetry before any relaunch. A transport-classified DEAD RUN is now a new bug at every
+appspec ask site — file it loudly.
+
+WEATHER GATE before any run: two long json_object probes on the spec model (~$0.06) — and
+the probe's parse must tolerate what the pipeline parser tolerates (markdown fences are
+healthy; finish=length on an oversized ask is the probe's fault, not weather; the storm
+class is finish_reason=error / $0 / partial body).
+
+Work in order:
+
+1. THE TAIL STARVATION — now the dominant residual and the p50/quality lever. All three
+   ships ran codegen to the deadline; typecheck landed `errors` and the visual critic never
+   ran on any of them. The appspec side is fixed (planning ~35-40 s, rev-1 accepts). Measure
+   the codegen/tail budget split first (the stored runs have every stage timing); any change
+   is owner-adjacent — bring numbers, not moves, unless a ruling arrives.
+
+2. The FILED ops_kind_too_few_pages gap — offline-proven on 135's artifact
+   (docs/evidence/session21/run135-fullchain-replay.txt): a 3-page ops spec passes the home
+   gate now but refuses on the 4-page floor; the ops blueprint gap-fill fires only on
+   non-substantive tables. Either extend unserved-only gap-fill to ops kinds (public kinds
+   already have it) or get my ruling that ≤3-page ops specs are too thin to demo. If code:
+   census + mutation-pin + ONE dispatch-desk run.
+
+3. Keep the rev-1 streak honest: count accepts/rev-mix on every run this session. If gemini
+   stays 100% rev-1 over ~6 more runs, the repair rung is effectively idle — note it in
+   MODEL_RESEARCH and stop treating acceptance as the bottleneck.
+
+4. FILED code items if time remains: the generation/sanitize import cycle; refunding
+   errored $0 calls from the appspec call budget; VISION_MODEL migration beside a
+   vision-touching run.
+
+PARKED (touch only with my ruling): ARCHITECT_MODEL, the ≤500 s p50 DoD row, schema-level
+conditional assertion requirements, relaxing the AppSpec schema, the October spec-slot
+migration (both candidates now ruled out as-is — a new candidate needs my sign-off first).
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
+one sweep at a time, red for the FILED reason; suite via docker run WITH its pip install
+half; recreate never restart; config from the running process; archive logs the moment each
+run finishes; no code edits while a generation is in flight; absolute paths; 10-minute cap.
+
+BEFORE YOU FINISH: .env in the state the evidence supports and verified from the running
+process; HANDOFF/roadmap/MODEL_RESEARCH updated with real numbers including the
+ships-vs-attempts line; push; next prompt written; tell me plainly what each run cost, what
+landed, and what's left.
+```
+
+## Session 20's prompt (historical — superseded above)
 
 ```
 Read HANDOFF.md first — "Session 20, in one page" and its tally table. Then the roadmap's
