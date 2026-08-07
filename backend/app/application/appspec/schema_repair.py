@@ -7,11 +7,10 @@ from typing import Any
 
 from app.application.appspec.builder import (
     AppSpecCandidate,
-    _parse_candidate,
+    _candidate_ask_with_transport_reask,
     app_spec_json_schema,
 )
 from app.application.prompts import PromptTemplate
-from app.application.services.ai_context import ai_call
 from app.core.config import settings
 from app.domain.appspec.sanitize.empty_trace import schema_repair_trace_context
 from app.domain.appspec.sanitize.preparse_normalize import schema_fragments_for_paths
@@ -97,14 +96,20 @@ def repair_app_spec_schema_candidate(
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
         empty_trace_context_json=_canonical_json(trace_context),
     )
-    with ai_call("appspec", writer="schema_repair", attempt=1):
-        raw = ai_provider.ask_chat(
-            model or settings.APPSPEC_REPAIR_MODEL,
-            [{"role": "user", "content": prompt}],
-            max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
-            temperature=0.0,
-        )
-    repaired = _parse_candidate(raw)
+    # Through the shared candidate ask: run 123's schema_repair stream was
+    # error-cut at 349 chars, and because this site called ask_chat raw and
+    # parsed with NO finish_reason, the provider-error gate never fired — the
+    # extracted fragment consumed the only schema-repair attempt and the run
+    # died as a spec rejection. The helper threads the provider diagnostics
+    # (so the gate classifies) and re-asks the transport class once.
+    repaired = _candidate_ask_with_transport_reask(
+        ai_provider,
+        writer="schema_repair",
+        model=model or settings.APPSPEC_REPAIR_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
+        temperature=0.0,
+    )
     return AppSpecCandidate(
         payload=repaired.payload,
         response_excerpt=repaired.response_excerpt or excerpt[:2000],

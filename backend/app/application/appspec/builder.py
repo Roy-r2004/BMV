@@ -31,6 +31,7 @@ from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
 from app.domain.schemas.app_spec import AppSpec
 from app.infrastructure.ai_providers.model_capabilities import resolve_model_capability
+from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
 
 # One compact corrective retry for malformed authoring JSON. Does not raise the
 # configured APPSPEC_MAX_CALLS / repair ceilings.
@@ -263,6 +264,89 @@ def parse_app_spec_candidate(candidate: AppSpecCandidate | Mapping[str, Any]) ->
         raise AppSpecBuildError(f"Could not parse AppSpec candidate: {exc}") from exc
 
 
+#: One bounded re-ask for a stream the PROVIDER cut — never for model-authored
+#: malformation, which the authoring loop's wider retryable set owns on
+#: purpose. Kept at 1 because every re-ask also spends the request's appspec
+#: call budget (APPSPEC_MAX_CALLS) and downstream-runway clock.
+_TRANSPORT_REASK_MAX = 1
+
+
+def _candidate_ask_with_transport_reask(
+    ai_provider: AIProvider,
+    *,
+    writer: str,
+    model: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+) -> AppSpecCandidate:
+    """One candidate-shaped ask; an error-cut stream gets exactly one re-ask.
+
+    Run 123: a schema_repair stream error-cut at 349 chars bypassed the
+    provider-error gate (its call site never threaded ``finish_reason`` into
+    the parser), the extracted fragment consumed the only schema-repair
+    attempt, and the run died as a spec rejection. Run 128 proved the
+    authoring loop's re-ask handles the same weather. Every candidate-shaped
+    ask goes through here now: the gate classifies, the transport class —
+    the gate's ``provider_error`` verdict, or the empty-cut shape the provider
+    raises as a retryable ``ProviderGenerationError`` — is re-asked once with
+    the attempt number bumped so ``ai_usage_events`` rows stay
+    distinguishable, and everything else (the model's own malformation)
+    raises exactly as before.
+    """
+    last_error: Exception | None = None
+    for attempt_index in range(1 + _TRANSPORT_REASK_MAX):
+        raw: str | None = None
+        provider_diag: dict[str, Any] = {}
+        with ai_call("appspec", writer=writer, attempt=attempt_index + 1):
+            try:
+                raw, provider_diag = _ask_appspec_chat(
+                    ai_provider,
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except ProviderGenerationError as exc:
+                if not exc.retryable:
+                    raise
+                last_error = exc
+        if raw is None:
+            continue
+        try:
+            candidate = _parse_candidate(
+                raw,
+                finish_reason=provider_diag.get("finish_reason"),
+                provider_diagnostics=provider_diag,
+            )
+        except AppSpecBuildError as exc:
+            transport_cut = dict(exc.json_extraction or {}).get("method") == "provider_error"
+            if transport_cut and attempt_index < _TRANSPORT_REASK_MAX:
+                last_error = exc
+                continue
+            raise
+        merged = dict(candidate.authoring_diagnostics or {})
+        merged["transport_reask_used"] = attempt_index > 0
+        return AppSpecCandidate(
+            payload=candidate.payload,
+            response_excerpt=candidate.response_excerpt,
+            raw_response_sha256=candidate.raw_response_sha256,
+            raw_char_count=candidate.raw_char_count,
+            json_extraction=candidate.json_extraction,
+            parent_payload_sha256=candidate.parent_payload_sha256,
+            repair_type=candidate.repair_type,
+            authoring_diagnostics=merged,
+        )
+    assert last_error is not None
+    if isinstance(last_error, AppSpecBuildError):
+        raise last_error
+    raise AppSpecBuildError(
+        str(last_error),
+        typed_error=AUTHORING_JSON_TRUNCATED,
+        json_extraction={"ok": False, "method": "provider_error", "error": str(last_error)},
+    ) from last_error
+
+
 def build_app_spec_candidate(
     *,
     source_snapshot: Mapping[str, Any],
@@ -416,18 +500,13 @@ def repair_app_spec_candidate(
         coverage_review_json=_canonical_json(coverage_review or {}),
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
     )
-    with ai_call("appspec", writer="repair", attempt=1):
-        raw, provider_diag = _ask_appspec_chat(
-            ai_provider,
-            model=selected_model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
-            temperature=0.05,
-        )
-    return _parse_candidate(
-        raw,
-        finish_reason=provider_diag.get("finish_reason"),
-        provider_diagnostics=provider_diag,
+    return _candidate_ask_with_transport_reask(
+        ai_provider,
+        writer="repair",
+        model=selected_model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens or settings.APPSPEC_REPAIR_MAX_TOKENS,
+        temperature=0.05,
     )
 
 

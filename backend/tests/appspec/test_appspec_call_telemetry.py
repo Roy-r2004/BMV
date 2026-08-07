@@ -127,7 +127,9 @@ def test_coverage_review_is_scoped_separately_from_authoring() -> None:
     [
         "app.application.appspec.builder",
         "app.application.appspec.coverage",
-        "app.application.appspec.schema_repair",
+        # schema_repair no longer asks a model directly — session 20 routed its
+        # ask through builder's `_candidate_ask_with_transport_reask`, which
+        # carries the scope (and the transport re-ask) for every candidate ask.
     ],
 )
 def test_every_appspec_module_that_asks_a_model_imports_the_scope(module_path: str) -> None:

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.application.prompts import PromptTemplate
 from app.application.services.ai_context import ai_call
+from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
 from app.domain.appspec.validation import canonical_app_spec_json
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
@@ -100,12 +101,35 @@ def review_app_spec_coverage(
         app_spec_json=canonical_app_spec_json(app_spec),
         coverage_schema_json=_canonical_json(AppSpecCoverageReview.model_json_schema()),
     )
+    # Lazy on purpose: a module-level `coverage -> builder` import closes the
+    # long-standing generation/sanitize import cycle and breaks collection.
+    from app.application.appspec.builder import _ask_appspec_chat
+
     with ai_call("appspec", writer="coverage_review", attempt=1):
-        raw = ai_provider.ask_chat(
-            model or settings.APPSPEC_COVERAGE_MODEL,
-            [{"role": "user", "content": prompt}],
-            max_tokens=max_tokens or settings.APPSPEC_COVERAGE_MAX_TOKENS,
-            temperature=0.0,
+        try:
+            raw, provider_diag = _ask_appspec_chat(
+                ai_provider,
+                model=model or settings.APPSPEC_COVERAGE_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens or settings.APPSPEC_COVERAGE_MAX_TOKENS,
+                temperature=0.0,
+            )
+        except ProviderGenerationError as exc:
+            if not exc.retryable:
+                raise
+            raise AppSpecCoverageError(
+                f"AppSpec coverage review stream failed in transit: {exc}"
+            ) from exc
+    # A review the provider cut mid-stream must not be adjudicated: the lenient
+    # extractor below can recover a fragment that still carries verdict/score —
+    # request 118's failure shape, unguarded here until session 20. Raising
+    # AppSpecCoverageError hands the cut to generation.py's existing one-shot
+    # coverage retry, which is this site's bounded re-ask (one layer, never
+    # stacked with an in-function loop).
+    if str(provider_diag.get("finish_reason") or "").lower() == "error":
+        raise AppSpecCoverageError(
+            "AppSpec coverage review stream was cut by a provider error "
+            "(finish_reason=error)"
         )
     try:
         payload = extract_json_from_text(raw)
