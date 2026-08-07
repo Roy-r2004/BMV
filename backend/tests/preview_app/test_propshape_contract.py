@@ -209,6 +209,7 @@ def test_rendered_prompts_expose_item_member_names():
         shell_component="PublicShell",
         scaffold_source="// scaffold",
         design_brief_block="",
+        face_contract_block="",
     )
     for expected in (
         '"CredentialStrip.items[]":"title, detail"',

@@ -18,6 +18,9 @@ from app.application.preview_app.catalogue_contract import (
     minimal_catalogue_page_scaffold,
     validate_catalogue_page_content,
 )
+from app.application.preview_app.catalogue_contract.face_prompt import (
+    listing_face_contract_block,
+)
 from app.application.preview_app.catalogue_contract.repair import lock_recipe_section_order
 from app.application.preview_app.codegen.architect import (
     _CHROME_CONTRACTS,
@@ -90,6 +93,16 @@ _SLOT_FILL_RETRY_GUIDANCE = {
     "unparseable-tsx": (
         "The answer did not parse as TSX. Balance every brace, parenthesis, and JSX tag, "
         "and escape apostrophes in visible copy as &apos;."
+    ),
+    # Request 107 repeated a face violation byte-identically with the raw
+    # validator errors in hand — the errors need translating into edits.
+    "catalogue-contract": (
+        "The fill lost its locked face. Each error names what is missing: "
+        '"missing directory face component:<Name>" means the scaffold\'s <Name> component '
+        'is no longer rendered — restore it exactly as the scaffold had it. "missing '
+        'BRAND_MANIFEST services binding" means the scaffold\'s line naming BRAND_MANIFEST '
+        "was deleted — restore it. Start again from the CURRENT SCAFFOLD and change copy "
+        "only."
     ),
 }
 
@@ -422,6 +435,7 @@ def _generate_catalogue_scaffold_first_file(
         shell_component=shell_component,
         scaffold_source=scaffold[:16000],
         design_brief_block=design_brief_block,
+        face_contract_block=listing_face_contract_block(scaffold),
     )
     content = scaffold
     attempt_prompt = prompt

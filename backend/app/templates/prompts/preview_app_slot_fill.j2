@@ -55,6 +55,9 @@ Catalogue components manage their own contrast over their own imagery — trust 
 === CURRENT SCAFFOLD ({{ file_path }}) — START FROM THIS ===
 {{ scaffold_source }}
 
+{% if face_contract_block %}
+{{ face_contract_block }}
+{% endif %}
 RULES:
 - Keep `const SKELETON_ID`, `getSkeleton`, `{{ shell_component }}`, `SkeletonComposer` / `composeSkeletonLayout`, imports from `@/ui`, and every `data-appspec-*` attribute exactly.
 - Do NOT invent local Nav/PublicNav/AdminLayout components. Do NOT add Dialog/Switch/Toggle or forbidden kit props.
