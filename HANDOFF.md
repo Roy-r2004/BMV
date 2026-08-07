@@ -99,12 +99,12 @@ worktree for the one code change.
 - **Phase 0's "also land here" residue: all four verified closed, no code** (0 request_id
   NULLs across the current era's 1,009 rows; `usable` supersedes `success`; duration logs
   present; mkdtemp cleaned). Numbers under the Phase 0 table.
-- **0.8 IMPLEMENTED, HELD on `session24b/content-density`** (`89e7687`): prose chars per
-  routed page with the DoD-2 census's exact predicate, drift-pinned against the census
-  script by test; stored beside `fallback_pages`; failure = recorded `unmeasured`, never
-  an absent key. 10 tests, **9 mutations / 0 survivors first pass**
-  (`scripts/cli/mutate_content_density.py`). **Merge gate: full suite via docker run on a
-  quiet tree** — the branch is pushed and unmerged on purpose.
+- **0.8 IMPLEMENTED and MERGED** (`89e7687`, merged to main as `ac54c7f`, 2026-08-08):
+  prose chars per routed page with the DoD-2 census's exact predicate, drift-pinned
+  against the census script by test; stored beside `fallback_pages`; failure = recorded
+  `unmeasured`, never an absent key. 10 tests, **9 mutations / 0 survivors first pass**
+  (`scripts/cli/mutate_content_density.py`). **Merge gate run and green: full suite via
+  the documented docker run on the merged tree — 2,075 passed / 1 skipped in 59.8 s.**
 
 Tools: `revision_instruction_census.py`, `refine_scaffold_census.py` — both `--check`
 red-exit against their archived JSON, proven red under tamper. Evidence:
