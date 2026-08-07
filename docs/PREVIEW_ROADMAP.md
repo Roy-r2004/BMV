@@ -359,6 +359,40 @@ clean), and an errored $0 appspec call refunds its budget unit. 6 mutations / 0
 survivors. Empty-tuple trio: see the session-23 status callout at the top of this
 Status section.
 
+**Session-24 statuses (same day, post-close offline block):** R1 — **ROW CLOSED except
+live reads.** `coverage_review` got its rung (`dde5460`): classify first
+(`AppSpecCoverageTransportError` at both transport sites), the varied attempt-2 retry
+is the bounded same-model re-ask, and only two cuts in a row buy ONE ask on
+`APPSPEC_TRANSPORT_FALLBACK_MODEL` at telemetry attempt 3 — malformation never reaches
+the rung, mixed sequences fail closed, terminal reasons split honestly
+(`coverage_review_transport` vs `_malformed`). R7's warning now scans
+`APPSPEC_COVERAGE_MODEL` (driver re-anchored + eighth mutation). 7 + 8 mutations / 0
+survivors. And the single-provider ask-site SURVEY is done (below). Suite 2,032 / 1 / 0.
+
+### R1 — the ask-site survey (session 24, 2026-08-07; telemetry census requests ≥ 129 + code posture per site)
+
+| site (stage/writer) | primary | transport posture | verdict |
+|---|---|---|---|
+| appspec authoring / repair / schema_repair | gemini-2.5-flash | classify → 1 re-ask → cross-provider rung, runway-gated | RUNG (`3f7f7f9`) |
+| appspec coverage_review | gemini-2.5-flash | classify → varied attempt-2 → rung on CORRELATED cuts | RUNG (`dde5460`) |
+| codegen slot_fill | deepseek-v4-pro | classify → attempt-2 → cross-provider rung, runway-gated | RUNG (session 22) |
+| architect | haiku → deepseek | cross-provider model chain | CHAIN |
+| fix_agent primary / strict-retry | deepseek / gemini / glm | three-provider chain | CHAIN |
+| planning planner | gemini-3-flash | bounded attempts → deterministic blueprint floor (`planner_failed_deterministic_blueprint`) | FLOOR |
+| planning plan_expansion / plan_validation | gemini-3-flash | attempts; the architect slot is the fallback, not the first ask | CHAIN |
+| planning design_manifest | gemini-3-flash | deterministic fallback dict | FLOOR |
+| seed mock_synthesize | deepseek-v4-pro | plumbing mock kept, degradation recorded (proven live, run 145) | FLOOR |
+| codegen utility_content | deepseek-v4-pro | any exception → `default_utility_content` | FLOOR |
+| design_critic / refine / visual_critic | haiku / deepseek | elective quality stages; skip by design — quality never takes a model fallback | BY DESIGN |
+| demo (visual_demo) | qwen-2.5-coder | deterministic `fallback_visual_demo` | FLOOR |
+| analyze (reference/screenshot analysis) | gemini-3-flash | enrichment; low stakes, 0 transport failures on record | ACCEPTED RISK |
+| **codegen freeform** | **deepseek-v4-pro only** | **2 same-model retries → deterministic scaffold** | **FILED: rung candidate — the 1.12(b) shape (scaffold ships to the gate) that justified slot_fill's rung; 3 transport failures on record** |
+| **blueprint (mvp_blueprint)** | **gemini-3-flash only** | **MANDATORY, single ask, NO retry, NO floor — a transport cut is a dead run** | **FILED: the only mandatory naked ask left; 0 failures on record, so priority is judgment, not urgency** |
+
+The two FILED rows are the R1 backlog's remainder; both need an owner look (freeform
+wants a run beside it; blueprint is a small bounded-retry + rung change provable
+offline).
+
 ### R3 — the classification audit (session 23, 2026-08-07; offline, NO code; stored evidence = `ai_usage_events` + deduplicated rejection lines across `docs/evidence/session18-23`)
 
 Evidence base: slot_fill `rejected` rows = 43 (request_id >= 100; 113 all-time);

@@ -4,6 +4,27 @@ Successor to session 22's handoff (below in this file). Process notes, not produ
 
 ---
 
+## Session 23 post-close addendum (same day, offline block — the key stayed dry)
+
+**R1's row CLOSED except live reads (`dde5460`): coverage_review got its rung** —
+classify first (`AppSpecCoverageTransportError` at both transport sites), varied
+attempt-2 stays the bounded same-model re-ask, only two CORRELATED cuts buy one ask
+on the fallback slot at attempt 3; malformation never reaches the rung; reasons split
+honestly (`coverage_review_transport` vs `_malformed`). R7's warning scans
+`APPSPEC_COVERAGE_MODEL` too (driver re-anchored — the preview sibling had made three
+anchors ambiguous — and the coverage slot pinned as an eighth mutation). **7 + 8
+mutations / 0 survivors** (one first-pass survivor exposed the unpinned
+retryable-raise site; the catching fixture was completed — a `ProviderGenerationResult`
+missing required fields raises TypeError, which `_ask_appspec_chat`'s response-format
+compat catch silently converts into a re-ask: worth remembering when faking that
+class). **And the R1 ask-site survey is DONE** — table in the roadmap. Every ask site
+is now RUNG / CHAIN / FLOOR / BY-DESIGN except two FILED rows: **codegen `freeform`**
+(same-model retries → scaffold — the exact 1.12(b) shape that justified slot_fill's
+rung, 3 transport failures on record) and **blueprint `mvp_blueprint`** (the only
+MANDATORY naked ask left — no retry, no floor; 0 failures on record). Suite
+**2,032 / 1 / 0**. Spend this block: $0 (offline; one free credits probe — key still
+380.15/380).
+
 ## Session 23, in one page
 
 **The flagship trio landed — reshaped twice by what 143's artifact actually says — R6
@@ -141,7 +162,7 @@ R5 table.**
 Read HANDOFF.md first — "Session 23, in one page" and THE TALLY. Then the roadmap's
 session-23 callout AND the R-table's session-23 status block. Don't re-derive any of it.
 
-main is PUSHED through f9fc60c (+ the docs commit on top). Suite 2,026 / 1 / 0.
+main is PUSHED through dde5460 (+ docs commits on top). Suite 2,032 / 1 / 0.
 
 THE KEY IS EXHAUSTED — 380.148 of 380 at session-23 close, drained by the shared key's
 other project (~$4.5 in one session; BMV's own spend was $0.245 + probes, fully
@@ -170,10 +191,11 @@ THE BACKLOG (my order — yours to re-order with reasons):
    contract rejections — two straight runs had zero), any attempt-3 slot_fill row, and
    a CLEAN tail read against the R5 table (145's tail was confounded by the dry key —
    do NOT count it).
-2. R1'S REMAINDER (offline-provable, ~45 min): coverage_review's one-shot retry is
-   still same-model — give it the classify-first + bounded + cross-provider treatment
-   (the slot_fill/appspec rungs are the pattern); then the single-provider ask-site
-   survey (the R6 scopes just made every ask site queryable — use the census).
+2. R1'S REMAINDER — DONE post-close, same day (`dde5460` + the survey table in the
+   roadmap; see the addendum above "Session 23, in one page"). What replaced it: the
+   survey's two FILED rows — codegen `freeform` (rung candidate, wants a run beside
+   it) and blueprint `mvp_blueprint` (mandatory naked ask; small bounded-retry + rung,
+   offline-provable) — both need my look before you land them.
 3. THE COLLAPSE GUARD — only with my ruling (it is FILED, next-step item 5): the
    deterministic rejection of a repair output that empties pages/states its parent
    populated. If I rule "teach-only first", it stays filed until a live repeat.
