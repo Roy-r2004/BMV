@@ -21,6 +21,7 @@ from app.application.appspec.schema_repair import repair_app_spec_schema_candida
 from app.application.appspec.coverage import (
     AppSpecCoverageError,
     AppSpecCoverageReview,
+    AppSpecCoverageTransportError,
     coverage_requires_repair,
     coverage_retry_instruction,
     review_app_spec_coverage,
@@ -1628,7 +1629,18 @@ def ensure_approved_app_spec(
                 # the malformation byte-for-byte, so the retry is VARIED — a
                 # compact corrective instruction naming the first failure — and
                 # its telemetry attempt is bumped so the two coverage rows stay
-                # distinguishable. A second failure fails closed below.
+                # distinguishable. A second failure fails closed below — except
+                # the one case R1 carves out: when BOTH asks were cut in
+                # transit (correlated weather at this site, the run-139 shape),
+                # ONE ask goes to the cross-provider fallback model at
+                # telemetry attempt 3 before failing closed. Malformation never
+                # reaches that rung — a quality failure never takes a model
+                # fallback — and a mixed sequence (one quality failure, one
+                # cut) fails closed too: the rung needs transport proven
+                # correlated, not merely present.
+                first_was_transport = isinstance(
+                    coverage_error, AppSpecCoverageTransportError
+                )
                 try:
                     coverage = review_app_spec_coverage(
                         source_snapshot=source_snapshot,
@@ -1641,6 +1653,29 @@ def ensure_approved_app_spec(
                             coverage_error
                         ),
                     )
+                except AppSpecCoverageTransportError as second_cut:
+                    if not first_was_transport:
+                        return _fallback("coverage_review_transport")
+                    log.info(
+                        "AppSpec coverage review cut twice in transit for "
+                        "request %s — one ask on the cross-provider rung (%s)",
+                        request_id,
+                        settings.APPSPEC_TRANSPORT_FALLBACK_MODEL,
+                    )
+                    try:
+                        coverage = review_app_spec_coverage(
+                            source_snapshot=source_snapshot,
+                            app_spec=spec,
+                            ai_provider=provider,
+                            template_renderer=template_renderer,
+                            model=settings.APPSPEC_TRANSPORT_FALLBACK_MODEL,
+                            attempt=3,
+                            corrective_instruction=coverage_retry_instruction(
+                                second_cut
+                            ),
+                        )
+                    except AppSpecCoverageError:
+                        return _fallback("coverage_review_transport")
                 except AppSpecCoverageError:
                     return _fallback("coverage_review_malformed")
             coverage_payload = _coverage_payload(

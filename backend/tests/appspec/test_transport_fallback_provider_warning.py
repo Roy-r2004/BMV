@@ -26,10 +26,12 @@ def _config(
     primary: str,
     repair: str,
     fallback: str,
+    coverage: str = "google/gemini-2.5-flash",
 ) -> Settings:
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("APPSPEC_MODEL", primary)
     monkeypatch.setenv("APPSPEC_REPAIR_MODEL", repair)
+    monkeypatch.setenv("APPSPEC_COVERAGE_MODEL", coverage)
     monkeypatch.setenv("APPSPEC_TRANSPORT_FALLBACK_MODEL", fallback)
     return Settings()
 
@@ -96,6 +98,23 @@ def test_same_provider_as_both_slots_lists_both(
     assert warn_same_provider_transport_fallback(config) == [
         "APPSPEC_MODEL",
         "APPSPEC_REPAIR_MODEL",
+    ]
+
+
+def test_same_provider_as_coverage_slot_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The coverage reviewer joined the rung's riders (session 24): a fallback
+    # sharing its provider dies in the same storm that cut both coverage asks.
+    config = _config(
+        monkeypatch,
+        primary="google/gemini-2.5-flash",
+        repair="google/gemini-2.5-flash",
+        coverage="anthropic/claude-opus-5",
+        fallback="anthropic/claude-haiku-4.5",
+    )
+    assert warn_same_provider_transport_fallback(config) == [
+        "APPSPEC_COVERAGE_MODEL"
     ]
 
 

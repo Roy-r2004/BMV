@@ -107,6 +107,15 @@ class AppSpecCoverageError(RuntimeError):
     """The independent reviewer failed to return a usable review."""
 
 
+class AppSpecCoverageTransportError(AppSpecCoverageError):
+    """The review stream never arrived intact — weather, not the reviewer.
+
+    Classification is the R1 boundary: only this class may ever reach the
+    cross-provider rung in generation.py. A malformed review (the parent
+    class) is a quality failure and never takes a model fallback.
+    """
+
+
 # Run 133: coverage_review returned byte-identical malformed output twice — a
 # temperature-0 verbatim re-ask buys nothing on malformation. The one-shot
 # retry in generation.py now appends this compact corrective instruction
@@ -186,7 +195,7 @@ def review_app_spec_coverage(
         except ProviderGenerationError as exc:
             if not exc.retryable:
                 raise
-            raise AppSpecCoverageError(
+            raise AppSpecCoverageTransportError(
                 f"AppSpec coverage review stream failed in transit: {exc}"
             ) from exc
     # A review the provider cut mid-stream must not be adjudicated: the lenient
@@ -196,7 +205,7 @@ def review_app_spec_coverage(
     # coverage retry, which is this site's bounded re-ask (one layer, never
     # stacked with an in-function loop).
     if str(provider_diag.get("finish_reason") or "").lower() == "error":
-        raise AppSpecCoverageError(
+        raise AppSpecCoverageTransportError(
             "AppSpec coverage review stream was cut by a provider error "
             "(finish_reason=error)"
         )
@@ -327,6 +336,7 @@ def coverage_requires_repair(
 
 __all__ = [
     "AppSpecCoverageError",
+    "AppSpecCoverageTransportError",
     "AppSpecCoverageReview",
     "CoverageFinding",
     "GoalCoverage",

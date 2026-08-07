@@ -948,7 +948,7 @@ def warn_same_provider_transport_fallback(config: Settings) -> list[str]:
         return []
     offenders = [
         slot
-        for slot in ("APPSPEC_MODEL", "APPSPEC_REPAIR_MODEL")
+        for slot in ("APPSPEC_MODEL", "APPSPEC_REPAIR_MODEL", "APPSPEC_COVERAGE_MODEL")
         if _model_provider_prefix(getattr(config, slot)) == fallback_prefix
     ]
     if offenders:

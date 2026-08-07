@@ -6,10 +6,13 @@ The transport fallback's value is provider independence (runs 136/137: the
 storm cuts primary and re-ask alike). The invariant was a `.env` comment;
 `assert_safe_runtime_configuration` now WARNS — never crashes — when
 `APPSPEC_TRANSPORT_FALLBACK_MODEL` shares a provider prefix with
-`APPSPEC_MODEL`/`APPSPEC_REPAIR_MODEL`. Seven mutations pin: the prefix parse
-(no-slash ids stay unclassifiable, matching is case-insensitive), both primary
-slots scanned, the equality direction, the offenders actually returned, the
-warning being a warning (not a crash), and startup actually calling the check.
+`APPSPEC_MODEL`/`APPSPEC_REPAIR_MODEL`/`APPSPEC_COVERAGE_MODEL` (the coverage
+slot joined when its rung landed, session 24). Eight mutations pin: the prefix
+parse (no-slash ids stay unclassifiable, matching is case-insensitive), all
+three primary slots scanned, the equality direction, the offenders actually
+returned, the warning being a warning (not a crash), and startup actually
+calling the check. Anchors re-scoped to the appspec warn function after the
+preview sibling landed (session 22) made the shared lines ambiguous.
 Restores from an in-memory backup. Exit code 0 only when every mutation is
 caught.
 """
@@ -47,28 +50,50 @@ MUTATIONS = [
     (
         CONFIG,
         "the repair slot drops out of the scan",
+        "        for slot in (\"APPSPEC_MODEL\", \"APPSPEC_REPAIR_MODEL\", \"APPSPEC_COVERAGE_MODEL\")",
+        "        for slot in (\"APPSPEC_MODEL\", \"APPSPEC_COVERAGE_MODEL\")",
+    ),
+    (
+        CONFIG,
+        "the coverage slot drops out of the scan (session 24's rider unpinned)",
+        "        for slot in (\"APPSPEC_MODEL\", \"APPSPEC_REPAIR_MODEL\", \"APPSPEC_COVERAGE_MODEL\")",
         "        for slot in (\"APPSPEC_MODEL\", \"APPSPEC_REPAIR_MODEL\")",
-        "        for slot in (\"APPSPEC_MODEL\",)",
     ),
     (
         CONFIG,
         "the provider comparison inverts: cross-provider configs warn",
+        "        for slot in (\"APPSPEC_MODEL\", \"APPSPEC_REPAIR_MODEL\", \"APPSPEC_COVERAGE_MODEL\")\n"
         "        if _model_provider_prefix(getattr(config, slot)) == fallback_prefix",
+        "        for slot in (\"APPSPEC_MODEL\", \"APPSPEC_REPAIR_MODEL\", \"APPSPEC_COVERAGE_MODEL\")\n"
         "        if _model_provider_prefix(getattr(config, slot)) != fallback_prefix",
     ),
     (
         CONFIG,
         "the warning becomes a startup crash",
         "    if offenders:\n"
-        "        from app.infrastructure.logging import get_logger",
+        "        from app.infrastructure.logging import get_logger\n"
+        "\n"
+        "        get_logger(\"Config\").warning(\n"
+        "            \"APPSPEC_TRANSPORT_FALLBACK_MODEL=%s shares provider %r with %s — \"",
         "    if offenders:\n"
         "        raise RuntimeConfigurationError(\"same_provider_transport_fallback\")\n"
-        "        from app.infrastructure.logging import get_logger",
+        "        from app.infrastructure.logging import get_logger\n"
+        "\n"
+        "        get_logger(\"Config\").warning(\n"
+        "            \"APPSPEC_TRANSPORT_FALLBACK_MODEL=%s shares provider %r with %s — \"",
     ),
     (
         CONFIG,
         "the offender list is swallowed",
+        "            config.APPSPEC_TRANSPORT_FALLBACK_MODEL,\n"
+        "            fallback_prefix,\n"
+        "            \" and \".join(offenders),\n"
+        "        )\n"
         "    return offenders",
+        "            config.APPSPEC_TRANSPORT_FALLBACK_MODEL,\n"
+        "            fallback_prefix,\n"
+        "            \" and \".join(offenders),\n"
+        "        )\n"
         "    return []",
     ),
     (

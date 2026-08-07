@@ -235,3 +235,250 @@ def test_retry_instruction_names_the_failure() -> None:
     message = coverage_retry_instruction(Exception("boom went the verdict"))
     assert "boom went the verdict" in message
     assert '""' in message and "[]" in message  # the null guidance
+
+
+# --- R1 at coverage_review: correlated transport gets ONE cross-provider ask ---
+
+
+def _retryable_provider_error() -> Exception:
+    from app.infrastructure.ai_providers.response_parser import (
+        ProviderGenerationError,
+        ProviderGenerationResult,
+    )
+
+    result = ProviderGenerationResult(
+        provider="openrouter",
+        model="google/gemini-2.5-flash",
+        provider_request_id="req-x",
+        response_format="unknown",
+        text="",
+        structured_payload=None,
+        finish_reason="error",
+        input_tokens=0,
+        output_tokens=0,
+        total_tokens=0,
+        http_status=200,
+        raw_payload_sha256="0" * 64,
+        is_success=False,
+        error_code="provider_empty_response",
+        error_message_redacted="provider returned an empty error-cut stream",
+        retryable=True,
+        refusal=False,
+        truncated=False,
+        latency_ms=8,
+    )
+    error = ProviderGenerationError("stream cut in transit", result=result)
+    assert error.retryable  # the fixture must be the retryable transport shape
+    return error
+
+
+class _WeatherAI:
+    """Scripted provider whose asks can be cut in transit.
+
+    "CUT" simulates the provider-error stream cut (finish_reason=error via
+    last_completion_meta — request 118's shape); "RAISE" raises the retryable
+    ProviderGenerationError (the in-transit cut — coverage's OTHER transport
+    site); anything else is delivered healthy. Records model + scope per ask.
+    """
+
+    def __init__(self, responses: list[Any]) -> None:
+        self.responses = list(responses)
+        self.models: list[str] = []
+        self.scopes: list[tuple[str | None, int | None]] = []
+        self._meta: dict[str, Any] = {}
+
+    @property
+    def name(self) -> str:
+        return "test"
+
+    def last_completion_meta(self) -> dict[str, Any]:
+        return dict(self._meta)
+
+    def ask_chat(self, model: str, messages: list[dict], **_kwargs: Any) -> str:
+        self.models.append(model)
+        scope = current_ai_call()
+        self.scopes.append(
+            (getattr(scope, "writer", None), getattr(scope, "attempt", None))
+        )
+        item = self.responses.pop(0)
+        if item == "CUT":
+            self._meta = {"finish_reason": "error"}
+            return "{\"partial\": "
+        if item == "RAISE":
+            self._meta = {"finish_reason": "error"}
+            raise _retryable_provider_error()
+        self._meta = {"finish_reason": "stop"}
+        return item
+
+    def is_available(self) -> bool:
+        return True
+
+
+def _seed_generation_db():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    req = Request(
+        business_name="Lumina Booking",
+        business_description="A studio appointment booking product.",
+        target_customers="Studio customers",
+        main_problem="Appointments are arranged manually.",
+        desired_outcome="Customers can submit a booking and see confirmation.",
+        email="private@example.com",
+        mvp_blueprint="Derived suggestion: add a booking flow.",
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return db, req
+
+
+def test_double_cut_coverage_takes_one_cross_provider_ask(monkeypatch) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
+    monkeypatch.setattr(
+        settings,
+        "APPSPEC_TRANSPORT_FALLBACK_MODEL",
+        "anthropic/claude-haiku-4.5",
+    )
+    db, req = _seed_generation_db()
+    spec_payload = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+    ai = _WeatherAI(
+        [
+            json.dumps(spec_payload),
+            "CUT",  # coverage attempt 1: cut in transit
+            "CUT",  # attempt 2 (same model, varied): cut again — correlated
+            json.dumps(_healthy_review()),  # attempt 3: the cross-provider rung
+        ]
+    )
+    try:
+        result = ensure_approved_app_spec(
+            db, req.id, ai, JinjaTemplateRenderer(TEMPLATES_DIR)
+        )
+        assert result.revision_record.status == "accepted"
+        coverage_asks = [
+            (model, scope)
+            for model, scope in zip(ai.models, ai.scopes)
+            if scope[0] == "coverage_review"
+        ]
+        assert [scope for _, scope in coverage_asks] == [
+            ("coverage_review", 1),
+            ("coverage_review", 2),
+            ("coverage_review", 3),
+        ]
+        # Attempts 1-2 same model; attempt 3 is the fallback slot.
+        assert coverage_asks[0][0] == coverage_asks[1][0]
+        assert coverage_asks[2][0] == "anthropic/claude-haiku-4.5"
+    finally:
+        db.close()
+
+
+def test_in_transit_raise_is_the_same_transport_class(monkeypatch) -> None:
+    """Coverage's OTHER transport site — the retryable ProviderGenerationError
+    re-raise — must classify identically: a RAISE then a CUT is two correlated
+    cuts, and the rung fires."""
+
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
+    monkeypatch.setattr(
+        settings,
+        "APPSPEC_TRANSPORT_FALLBACK_MODEL",
+        "anthropic/claude-haiku-4.5",
+    )
+    db, req = _seed_generation_db()
+    spec_payload = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+    ai = _WeatherAI(
+        [
+            json.dumps(spec_payload),
+            "RAISE",  # attempt 1: retryable raise in transit
+            "CUT",  # attempt 2: provider-error cut — correlated transport
+            json.dumps(_healthy_review()),  # attempt 3: the rung
+        ]
+    )
+    try:
+        result = ensure_approved_app_spec(
+            db, req.id, ai, JinjaTemplateRenderer(TEMPLATES_DIR)
+        )
+        assert result.revision_record.status == "accepted"
+        assert ai.models[-1] == "anthropic/claude-haiku-4.5"
+        assert ai.scopes[-1] == ("coverage_review", 3)
+    finally:
+        db.close()
+
+
+def test_triple_cut_coverage_fails_closed_with_the_transport_reason(
+    monkeypatch,
+) -> None:
+    from app.application.appspec.generation import AppSpecGenerationError
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
+    db, req = _seed_generation_db()
+    spec_payload = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+    ai = _WeatherAI([json.dumps(spec_payload), "CUT", "CUT", "CUT"])
+    try:
+        with pytest.raises(AppSpecGenerationError) as excinfo:
+            ensure_approved_app_spec(
+                db, req.id, ai, JinjaTemplateRenderer(TEMPLATES_DIR)
+            )
+        assert "coverage_review_transport" in str(excinfo.value)
+        assert len(ai.models) == 4  # authoring + exactly three coverage asks
+    finally:
+        db.close()
+
+
+def test_double_malformation_never_reaches_the_rung(monkeypatch) -> None:
+    """Quality failures never take a model fallback — two malformed reviews
+    fail closed after attempt 2, no third ask, the malformed reason kept."""
+
+    from app.application.appspec.generation import AppSpecGenerationError
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
+    db, req = _seed_generation_db()
+    spec_payload = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+    broken_review = {**_healthy_review(), "verdict": None}
+    ai = _WeatherAI(
+        [
+            json.dumps(spec_payload),
+            json.dumps(broken_review),
+            json.dumps(broken_review),
+        ]
+    )
+    try:
+        with pytest.raises(AppSpecGenerationError) as excinfo:
+            ensure_approved_app_spec(
+                db, req.id, ai, JinjaTemplateRenderer(TEMPLATES_DIR)
+            )
+        assert "coverage_review_malformed" in str(excinfo.value)
+        assert len(ai.models) == 3  # no rung ask
+    finally:
+        db.close()
+
+
+def test_mixed_malformed_then_cut_fails_closed_without_the_rung(
+    monkeypatch,
+) -> None:
+    """The rung needs transport proven CORRELATED — a quality failure followed
+    by one cut is not two cuts, and the terminal reason names the cut."""
+
+    from app.application.appspec.generation import AppSpecGenerationError
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APPSPEC_FALLBACK_ENABLED", False)
+    db, req = _seed_generation_db()
+    spec_payload = json.loads(VALID_FIXTURE.read_text(encoding="utf-8"))
+    broken_review = {**_healthy_review(), "verdict": None}
+    ai = _WeatherAI([json.dumps(spec_payload), json.dumps(broken_review), "CUT"])
+    try:
+        with pytest.raises(AppSpecGenerationError) as excinfo:
+            ensure_approved_app_spec(
+                db, req.id, ai, JinjaTemplateRenderer(TEMPLATES_DIR)
+            )
+        assert "coverage_review_transport" in str(excinfo.value)
+        assert len(ai.models) == 3  # no rung ask
+    finally:
+        db.close()
