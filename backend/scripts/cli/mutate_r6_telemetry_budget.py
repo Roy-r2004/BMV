@@ -48,13 +48,15 @@ MUTATIONS = [
     (
         BLUEPRINT,
         "the blueprint scope is unwired",
-        '    with ai_call(stage="blueprint", writer="mvp_blueprint"):\n'
-        "        result = ai_provider.ask_chat(\n"
-        '            settings.TEXT_MODEL, [{"role": "user", "content": prompt}]\n'
-        "        )",
-        '    result = ai_provider.ask_chat(\n'
-        '        settings.TEXT_MODEL, [{"role": "user", "content": prompt}]\n'
-        "    )",
+        '        with ai_call(stage="blueprint", writer="mvp_blueprint", attempt=attempt):\n'
+        "            try:\n"
+        "                result = ai_provider.ask_chat(model, messages)\n"
+        "            except Exception as exc:  # classified below; never silently eaten\n"
+        "                error = exc",
+        "        try:\n"
+        "            result = ai_provider.ask_chat(model, messages)\n"
+        "        except Exception as exc:  # classified below; never silently eaten\n"
+        "            error = exc",
     ),
     (
         VISUAL_DEMO,

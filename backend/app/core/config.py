@@ -308,6 +308,13 @@ class Settings:
         self.PREVIEW_APP_TRANSPORT_FALLBACK_MODEL = _env_or(
             "PREVIEW_APP_TRANSPORT_FALLBACK_MODEL", "anthropic/claude-haiku-4.5"
         )
+        # R1's last naked ask (owner-ruled, session 24): the blueprint is
+        # MANDATORY — everything downstream reads it — and its single TEXT_MODEL
+        # ask had no retry and no floor, so one transport cut was a dead run.
+        # One bounded same-model re-ask, then ONE ask here, then fail closed.
+        self.BLUEPRINT_TRANSPORT_FALLBACK_MODEL = _env_or(
+            "BLUEPRINT_TRANSPORT_FALLBACK_MODEL", "anthropic/claude-haiku-4.5"
+        )
 
         # Architecture and design-critique are where model "taste" actually shows
         # up (layout, hierarchy, visual judgment) — bulk file codegen can stay on
@@ -999,6 +1006,36 @@ def warn_same_provider_preview_app_fallback(config: Settings) -> list[str]:
     return offenders
 
 
+def warn_same_provider_blueprint_fallback(config: Settings) -> list[str]:
+    """The blueprint sibling of `warn_same_provider_transport_fallback`.
+
+    Same invariant, R1's last rung (session 24): the blueprint ladder's ONE
+    cross-provider ask buys nothing if `BLUEPRINT_TRANSPORT_FALLBACK_MODEL`
+    rides the same provider storm as `TEXT_MODEL`. WARN, never crash.
+    """
+
+    fallback_prefix = _model_provider_prefix(config.BLUEPRINT_TRANSPORT_FALLBACK_MODEL)
+    if fallback_prefix is None:
+        return []
+    offenders = [
+        slot
+        for slot in ("TEXT_MODEL",)
+        if _model_provider_prefix(getattr(config, slot)) == fallback_prefix
+    ]
+    if offenders:
+        from app.infrastructure.logging import get_logger
+
+        get_logger("Config").warning(
+            "BLUEPRINT_TRANSPORT_FALLBACK_MODEL=%s shares provider %r with %s — "
+            "a provider-side storm will cut the fallback with the primary, so "
+            "the transport rung buys nothing. Point it at a different provider.",
+            config.BLUEPRINT_TRANSPORT_FALLBACK_MODEL,
+            fallback_prefix,
+            " and ".join(offenders),
+        )
+    return offenders
+
+
 def assert_safe_runtime_configuration(config: Settings) -> None:
     """Fail startup for malformed or production-unsafe fallback settings."""
 
@@ -1007,6 +1044,7 @@ def assert_safe_runtime_configuration(config: Settings) -> None:
         raise RuntimeConfigurationError(code)
     warn_same_provider_transport_fallback(config)
     warn_same_provider_preview_app_fallback(config)
+    warn_same_provider_blueprint_fallback(config)
 
 
 settings = Settings()

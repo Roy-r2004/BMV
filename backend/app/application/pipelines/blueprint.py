@@ -10,7 +10,70 @@ from app.application.services.ai_features import extract_ai_features_from_bluepr
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
+from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
+from app.infrastructure.logging import get_logger
 from app.application.services.preview_parser import extract_preview_from_blueprint
+
+log = get_logger("Blueprint")
+
+
+def _is_blueprint_transport_cut(error: Exception | None, result: str | None) -> bool:
+    """Transport class only: a retryable provider raise or an empty-cut body.
+
+    Refusal-class (non-retryable) raises are not weather and never re-asked;
+    a non-empty answer is accepted as-is — the blueprint has no quality judge,
+    and quality never takes a model fallback anywhere in this repo.
+    """
+
+    if error is not None:
+        return isinstance(error, ProviderGenerationError) and error.retryable
+    return not (result or "").strip()
+
+
+def _ask_blueprint_with_transport_ladder(
+    ai_provider: AIProvider, prompt: str
+) -> str:
+    """The R1 ladder at the pipeline's last naked MANDATORY ask (session 24).
+
+    Attempt 1 and one bounded same-model re-ask on TEXT_MODEL, then ONE ask on
+    the cross-provider fallback slot, then fail closed exactly as before the
+    ladder existed. Every ask is its own telemetry row (attempt 1/2/3 under
+    writer=mvp_blueprint), so firings are queryable like every other rung's.
+    """
+
+    messages = [{"role": "user", "content": prompt}]
+    last_error: Exception | None = None
+    for attempt, model in (
+        (1, settings.TEXT_MODEL),
+        (2, settings.TEXT_MODEL),
+        (3, settings.BLUEPRINT_TRANSPORT_FALLBACK_MODEL),
+    ):
+        error: Exception | None = None
+        result = ""
+        with ai_call(stage="blueprint", writer="mvp_blueprint", attempt=attempt):
+            try:
+                result = ai_provider.ask_chat(model, messages)
+            except Exception as exc:  # classified below; never silently eaten
+                error = exc
+        if not _is_blueprint_transport_cut(error, result):
+            if error is not None:
+                raise error
+            return result
+        last_error = error
+        if attempt < 3:
+            log.warning(
+                "blueprint ask transport-cut on %s (attempt %s) — %s",
+                model,
+                attempt,
+                "trying the cross-provider rung"
+                if attempt == 2
+                else "one bounded re-ask",
+            )
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(
+        "blueprint ask returned an empty body on the primary and fallback models"
+    )
 
 
 def generate_mvp_blueprint(
@@ -40,10 +103,7 @@ def generate_mvp_blueprint(
         screenshot_analysis=req.screenshot_analysis or "No screenshot analysis available.",
     )
 
-    with ai_call(stage="blueprint", writer="mvp_blueprint"):
-        result = ai_provider.ask_chat(
-            settings.TEXT_MODEL, [{"role": "user", "content": prompt}]
-        )
+    result = _ask_blueprint_with_transport_ladder(ai_provider, prompt)
     req.mvp_blueprint = result
 
     preview = extract_preview_from_blueprint(result, ai_provider, template_renderer)
