@@ -183,6 +183,7 @@ class Settings:
     QUALITY_FIX_MODEL: str
     APPSPEC_MODEL: str
     APPSPEC_REPAIR_MODEL: str
+    APPSPEC_TRANSPORT_FALLBACK_MODEL: str
     APPSPEC_COVERAGE_MODEL: str
     APPSPEC_V2_COVERAGE_MODEL: str
     APPSPEC_MODE: str
@@ -341,6 +342,15 @@ class Settings:
         )
         self.APPSPEC_MODEL = _env_or("APPSPEC_MODEL", self.ARCHITECT_MODEL)
         self.APPSPEC_REPAIR_MODEL = _env_or("APPSPEC_REPAIR_MODEL", self.APPSPEC_MODEL)
+        # The last rung before an appspec ask fails closed on transport: one ask
+        # on a DIFFERENT provider's model (runs 136/137 — a provider-side storm
+        # cuts the primary and its bounded re-ask alike; a same-provider
+        # fallback would ride the same storm). Keep this cross-provider from
+        # APPSPEC_MODEL / APPSPEC_REPAIR_MODEL; when they are equal the
+        # fallback is skipped and the ask fails closed as before.
+        self.APPSPEC_TRANSPORT_FALLBACK_MODEL = _env_or(
+            "APPSPEC_TRANSPORT_FALLBACK_MODEL", "anthropic/claude-haiku-4.5"
+        )
         # Keep the coverage review separately configurable so production can use
         # a different model from the authoring pass instead of self-grading.
         self.APPSPEC_COVERAGE_MODEL = _env_or(

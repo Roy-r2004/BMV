@@ -271,6 +271,90 @@ def parse_app_spec_candidate(candidate: AppSpecCandidate | Mapping[str, Any]) ->
 _TRANSPORT_REASK_MAX = 1
 
 
+def _is_transport_cut(error: Exception) -> bool:
+    """True only for the transport class — never model-authored malformation.
+
+    The two shapes the pipeline can see: the parser gate's ``provider_error``
+    verdict (``finish_reason=error`` with a partial body), and the retryable
+    ``ProviderGenerationError`` the provider raises on an empty cut. A
+    non-retryable raise is refusal-class and a parse failure on a healthy
+    stream is the model's own answer; neither is weather.
+    """
+    if isinstance(error, ProviderGenerationError):
+        return bool(error.retryable)
+    if isinstance(error, AppSpecBuildError):
+        return dict(error.json_extraction or {}).get("method") == "provider_error"
+    return False
+
+
+def _transport_fallback_candidate(
+    ai_provider: AIProvider,
+    *,
+    writer: str,
+    primary_model: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    temperature: float,
+    attempt: int,
+    transport_error: Exception,
+) -> AppSpecCandidate | None:
+    """One ask on a different provider's model after the primary's chain died.
+
+    Runs 136/137: both repair chains were double error-cut — a bounded
+    same-model re-ask cannot dodge a provider-side storm. This is the last
+    rung before failing closed: one ask on
+    ``APPSPEC_TRANSPORT_FALLBACK_MODEL`` (cross-provider by configuration),
+    attempt-numbered above the primary asks so its ``ai_usage_events`` row
+    stays unmistakable. Returns ``None`` when unconfigured or pointed at the
+    primary model — a same-model "fallback" would ride the same storm.
+    The deterministic validator still gates whatever comes back: a fallback
+    spec that is wrong rejects honestly, so this trades a certain dead run for
+    a judged candidate. Malformation from the fallback model raises honestly
+    and is never re-asked.
+    """
+    fallback_model = str(settings.APPSPEC_TRANSPORT_FALLBACK_MODEL or "").strip()
+    if not fallback_model or fallback_model == primary_model:
+        return None
+    with ai_call("appspec", writer=writer, attempt=attempt):
+        try:
+            raw, provider_diag = _ask_appspec_chat(
+                ai_provider,
+                model=fallback_model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        except ProviderGenerationError as exc:
+            if not exc.retryable:
+                raise
+            raise AppSpecBuildError(
+                f"transport fallback model was also cut: {exc}",
+                typed_error=AUTHORING_JSON_TRUNCATED,
+                json_extraction={
+                    "ok": False,
+                    "method": "provider_error",
+                    "error": str(exc),
+                    "transport_fallback_model": fallback_model,
+                    "primary_transport_error": str(transport_error),
+                },
+            ) from exc
+    try:
+        candidate = _parse_candidate(
+            raw,
+            finish_reason=provider_diag.get("finish_reason"),
+            provider_diagnostics=provider_diag,
+        )
+    except AppSpecBuildError as exc:
+        exc.json_extraction["transport_fallback_model"] = fallback_model
+        exc.json_extraction["primary_transport_error"] = str(transport_error)
+        raise
+    merged = dict(candidate.authoring_diagnostics or {})
+    merged["transport_reask_used"] = True
+    merged["transport_fallback_used"] = True
+    merged["transport_fallback_model"] = fallback_model
+    return dataclasses.replace(candidate, authoring_diagnostics=merged)
+
+
 def _candidate_ask_with_transport_reask(
     ai_provider: AIProvider,
     *,
@@ -293,6 +377,12 @@ def _candidate_ask_with_transport_reask(
     the attempt number bumped so ``ai_usage_events`` rows stay
     distinguishable, and everything else (the model's own malformation)
     raises exactly as before.
+
+    Runs 136/137: a provider-side storm cut the primary ask AND its re-ask on
+    both repair chains — the same-model re-ask cannot dodge weather at the
+    provider. When the bounded re-ask is also transport-cut, the tail asks the
+    cross-provider ``APPSPEC_TRANSPORT_FALLBACK_MODEL`` exactly once before
+    failing closed (see ``_transport_fallback_candidate``).
     """
     last_error: Exception | None = None
     for attempt_index in range(1 + _TRANSPORT_REASK_MAX):
@@ -308,7 +398,7 @@ def _candidate_ask_with_transport_reask(
                     temperature=temperature,
                 )
             except ProviderGenerationError as exc:
-                if not exc.retryable:
+                if not _is_transport_cut(exc):
                     raise
                 last_error = exc
         if raw is None:
@@ -320,11 +410,12 @@ def _candidate_ask_with_transport_reask(
                 provider_diagnostics=provider_diag,
             )
         except AppSpecBuildError as exc:
-            transport_cut = dict(exc.json_extraction or {}).get("method") == "provider_error"
-            if transport_cut and attempt_index < _TRANSPORT_REASK_MAX:
-                last_error = exc
-                continue
-            raise
+            if not _is_transport_cut(exc):
+                raise
+            # Transport: re-ask while attempts remain; a cut on the FINAL
+            # attempt falls through to the tail for the cross-provider rung.
+            last_error = exc
+            continue
         merged = dict(candidate.authoring_diagnostics or {})
         merged["transport_reask_used"] = attempt_index > 0
         return AppSpecCandidate(
@@ -338,6 +429,20 @@ def _candidate_ask_with_transport_reask(
             authoring_diagnostics=merged,
         )
     assert last_error is not None
+    # Both primary attempts were transport-cut (anything else raised above).
+    # Last rung: one ask on the cross-provider fallback model, then fail closed.
+    fallback = _transport_fallback_candidate(
+        ai_provider,
+        writer=writer,
+        primary_model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        attempt=_TRANSPORT_REASK_MAX + 2,
+        transport_error=last_error,
+    )
+    if fallback is not None:
+        return fallback
     if isinstance(last_error, AppSpecBuildError):
         raise last_error
     raise AppSpecBuildError(
@@ -378,14 +483,46 @@ def build_app_spec_candidate(
         # `writer=None, attempt=1` (`admin_ops.py:330-332`), which is why appspec
         # — the most expensive stage in the pipeline — was the only one whose
         # sub-calls and re-asks could not be told apart in `ai_usage_events`.
+        transport_raise: ProviderGenerationError | None = None
         with ai_call("appspec", writer="authoring", attempt=attempt_index + 1):
-            raw, provider_diag = _ask_appspec_chat(
-                ai_provider,
-                model=selected_model,
-                messages=messages,
-                max_tokens=token_budget,
-                temperature=0.1 if attempt_index == 0 else 0.0,
+            try:
+                raw, provider_diag = _ask_appspec_chat(
+                    ai_provider,
+                    model=selected_model,
+                    messages=messages,
+                    max_tokens=token_budget,
+                    temperature=0.1 if attempt_index == 0 else 0.0,
+                )
+            except ProviderGenerationError as exc:
+                # The empty-cut raise is the same weather the parser gate
+                # classifies on a partial body; before this catch it escaped
+                # the loop entirely and killed authoring with zero retries.
+                # Refusal-class (non-retryable) raises still propagate.
+                if not _is_transport_cut(exc):
+                    raise
+                transport_raise = exc
+        if transport_raise is not None:
+            last_error = AppSpecBuildError(
+                str(transport_raise),
+                typed_error=AUTHORING_JSON_TRUNCATED,
+                json_extraction={
+                    "ok": False,
+                    "method": "provider_error",
+                    "error": str(transport_raise),
+                },
             )
+            attempt_diagnostics.append(
+                {
+                    "attempt": attempt_index + 1,
+                    "typed_error": AUTHORING_JSON_TRUNCATED,
+                    "provider": {},
+                    "parse": {"method": "provider_error", "empty_cut_raise": True},
+                }
+            )
+            if attempt_index >= APPSPEC_AUTHORING_MALFORMED_RETRY_MAX:
+                break
+            # Transport, not malformation: re-ask with the messages unchanged.
+            continue
         try:
             candidate = _parse_candidate(
                 raw,
@@ -432,6 +569,39 @@ def build_app_spec_candidate(
             ]
 
     assert last_error is not None
+    if _is_transport_cut(last_error):
+        # Every authoring attempt died on weather, not on the model's answer.
+        # Last rung before failing closed: one clean ask (the original prompt,
+        # no corrective instruction) on the cross-provider fallback model.
+        try:
+            fallback = _transport_fallback_candidate(
+                ai_provider,
+                writer="authoring",
+                primary_model=selected_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=token_budget,
+                temperature=0.0,
+                attempt=len(attempt_diagnostics) + 1,
+                transport_error=last_error,
+            )
+        except AppSpecBuildError as exc:
+            attempt_diagnostics.append(
+                {
+                    "attempt": len(attempt_diagnostics) + 1,
+                    "typed_error": exc.typed_error,
+                    "provider": dict(exc.json_extraction or {}),
+                    "parse": dict(exc.authoring_diagnostics or {}),
+                    "transport_fallback": True,
+                }
+            )
+            last_error = exc
+            fallback = None
+        if fallback is not None:
+            merged = dict(fallback.authoring_diagnostics or {})
+            merged["authoring_attempt"] = len(attempt_diagnostics) + 1
+            merged["malformed_retry_used"] = len(attempt_diagnostics) > 1
+            merged["authoring_attempts"] = attempt_diagnostics
+            return dataclasses.replace(fallback, authoring_diagnostics=merged)
     diagnostics = dict(last_error.authoring_diagnostics or {})
     diagnostics["authoring_attempts"] = attempt_diagnostics
     diagnostics["malformed_retry_used"] = len(attempt_diagnostics) > 1

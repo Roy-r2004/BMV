@@ -34,6 +34,7 @@ from app.application.appspec.coverage import (
 from app.application.appspec.fallback import build_fallback_app_spec
 from app.application.appspec.schema_repair import repair_app_spec_schema_candidate
 from app.application.services.ai_context import current_ai_call
+from app.core.config import settings
 from app.infrastructure.ai_providers.response_parser import (
     ProviderGenerationError,
     ProviderGenerationResult,
@@ -186,7 +187,11 @@ def test_repair_never_retries_model_malformation() -> None:
     assert ai.calls == 1  # the model answered; re-asking is the authoring loop's call
 
 
-def test_repair_fails_closed_after_two_cuts() -> None:
+def test_repair_fails_closed_after_two_cuts(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Session 21: two cuts now reach the cross-provider fallback rung first
+    # (tests/appspec/test_transport_model_fallback.py). With the fallback
+    # unconfigured, the original contract holds: two asks, then fail closed.
+    monkeypatch.setattr(settings, "APPSPEC_TRANSPORT_FALLBACK_MODEL", "")
     ai = _MetaAI([("error", _ERROR_CUT_BODY), ("error", _ERROR_CUT_BODY)])
     with pytest.raises(AppSpecBuildError) as excinfo:
         _repair(ai)
