@@ -118,8 +118,16 @@ translation, same treatment the three session-20 codes got.
    audit (classify slot_fill-contract + architect-JSON failure codes decision-carrying vs
    decorative from stored reject evidence — no code).
 2. **The unbound R1+R2 live read** — free on the next healthy run that reaches codegen.
-3. **The empty-tuple reject class** (143, and session 19 before it): mine
-   `app_spec_revisions`, teach the prompt + repair translation, judge on accepts.
+3. **The empty-tuple reject class** (143, and session 19 before it) — the artifact is
+   already mined (post-close, this session): revisions 1-3 authored EMPTY `pages`/`states`
+   arrays outright; revisions 4-5 authored a placeholder-id page (`"Page1"`, no states,
+   nothing anywhere to reconcile from) beside one well-formed page, and **rev 5 reproduced
+   rev 4's validator errors identically**. Three-part fix, all one neighborhood: teach the
+   authoring prompt (state_ids minItems + real `PAGE-*`/`STATE-*` ids, never placeholders),
+   add the `app_spec_repair.j2` translation for the schema-parse minItems class, and stop
+   the repair loop when a revision reproduces its parent's IDENTICAL error set (143 would
+   have failed at rev ~3, not 5). NO deterministic heal — states are decision-carrying
+   (R3), and 143 proves there is nothing to back-fill from.
 4. **R5's ruling** — the measured table is in the roadmap; one owner word implements the
    ~150 s tail reservation.
 5. **R1's remainder**: `coverage_review`'s one-shot is still same-model; survey any other
@@ -1093,12 +1101,19 @@ Work in order — judge each yourself, stop cleanly when the clock says so:
    over recent runs first; and refund errored $0 calls from the appspec call budget.
    Mutation sweep per fix, suite green.
 
-3. THE EMPTY-TUPLE REJECT CLASS (~30-45 min + one run): 143's five revisions all repeated
-   pages[0].state_ids: [] — the same class as session 19. Mine app_spec_revisions for
-   every minItems/empty-tuple reject, teach the prompt the shape (the session-20 pattern:
-   exact fix in app_spec_repair.j2's translation too), bump the prompt revision, mutation
-   pin the render, ONE run on the Osteria brief beside it. Judge on accepts + whether the
-   repair stops repeating the identical error.
+3. THE EMPTY-TUPLE REJECT CLASS (~45 min + one run) — 143's artifact is ALREADY MINED
+   (HANDOFF session-22 next-step item 3 has the shapes; don't re-derive): revs 1-3 were
+   empty pages/states arrays, revs 4-5 a placeholder "Page1" with no states and nothing
+   to reconcile from, rev 5 repeating rev 4's errors identically. Land the trio as one
+   neighborhood: (a) teach the authoring prompt — state_ids minItems + real PAGE-*/STATE-*
+   ids, never placeholders (session-20 pattern, mined shapes verbatim); (b) the
+   app_spec_repair.j2 translation for the schema-parse minItems class ("that page is
+   stateless — author its default state, initial:true, reference it; never resend
+   unchanged"); (c) identical-revision early stop — when a repair revision reproduces its
+   parent's IDENTICAL validator error set, fail then instead of spending the remaining
+   budget (R2 inside the repair loop). NO deterministic heal (states are decision-carrying,
+   R3). Bump the prompt revision, mutation-pin each part, ONE Osteria run beside it. Judge
+   on accepts + whether repairs stop repeating identical errors + revisions-to-verdict.
 
 4. R3 AUDIT (offline, no code, ~30 min): classify slot_fill-contract and architect-JSON
    failure codes into decision-carrying vs decorative from stored reject evidence. The
