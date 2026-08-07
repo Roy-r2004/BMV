@@ -60,6 +60,7 @@ from app.application.ui_catalogue import infer_section_slots, skeleton_contract_
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
+from app.infrastructure.ai_providers.response_parser import ProviderGenerationError
 from app.infrastructure.logging import get_logger
 
 cg_log = get_logger("Codegen")
@@ -80,6 +81,19 @@ _SIGNATURE_SKELETONS = frozenset(
 # Bounded so a per-page retry cannot starve PREVIEW_MAX_AI_CALLS: at most two
 # slot-fill calls per catalogue page, mirroring the freeform path's retry cap.
 _MAX_SLOT_FILL_ATTEMPTS = 2
+
+
+def _is_transport_failure(exc: Exception) -> bool:
+    """True only for the transport class — never the model's own answer.
+
+    Mirrors appspec's `_is_transport_cut` (builder.py): a retryable
+    `ProviderGenerationError` is weather — rate limit, unroutable model,
+    upstream 5xx (1.12(b): an unroutable page writer shipped bare scaffolds
+    to the gate). A non-retryable raise is refusal/config-class and must keep
+    failing closed exactly as before; a parseable answer is the model's own
+    and belongs to the rejection tests, not to this predicate.
+    """
+    return isinstance(exc, ProviderGenerationError) and bool(exc.retryable)
 
 _SLOT_FILL_RETRY_GUIDANCE = {
     "truncated": (
@@ -195,6 +209,61 @@ def _has_contract_retry_runway() -> bool:
         return True
     record_degradation("codegen", "slot_fill_contract_retry_skipped_low_runway")
     return False
+
+
+def _has_transport_fallback_runway() -> bool:
+    """Whether the cross-provider rung can still afford its one ask.
+
+    The same arithmetic as `_has_contract_retry_runway` with its own
+    degradation label, so a run that skipped the transport rung and a run
+    that skipped a contract retry never describe themselves the same way.
+    Kept separate rather than parameterized because the contract gate's
+    source is anchored by a landed mutation sweep.
+    """
+    from app.application.services.request_deadline import (
+        DEFAULT_ASK_CEILING_SECONDS,
+        RESERVE_SECONDS,
+        record_degradation,
+        remaining_seconds,
+    )
+
+    left = remaining_seconds()
+    if left is None or left >= DEFAULT_ASK_CEILING_SECONDS + RESERVE_SECONDS:
+        return True
+    record_degradation("codegen", "slot_fill_transport_fallback_skipped_low_runway")
+    return False
+
+
+def _judge_slot_fill(
+    filled: str,
+    *,
+    file_path: str,
+    architect: dict,
+    route: dict,
+    brand_name: str,
+) -> tuple[str, str, list[str]]:
+    """`(reason, detail, contract_errors)` for a fill; `("", "", [])` when usable.
+
+    One judge for every answer regardless of which model produced it — the
+    cross-provider rung's fill passes through the identical syntactic and
+    contract tests as the primary's, so a fallback can never ship what the
+    primary would have had rejected.
+    """
+    reason, detail = _slot_fill_rejection(filled)
+    contract_errors: list[str] = []
+    if not reason:
+        rejected = _slot_fill_contract_rejection(
+            file_path,
+            filled,
+            architect,
+            route=route,
+            brand_name=brand_name,
+        )
+        if rejected is not None:
+            reason = CONTRACT_REJECTION
+            contract_errors = rejected
+            detail = ", ".join(contract_errors) or "assigned face not preserved"
+    return reason, detail, contract_errors
 
 
 def _slot_fill_retry_prompt(prompt: str, *, reason: str, detail: str) -> str:
@@ -444,6 +513,7 @@ def _generate_catalogue_scaffold_first_file(
     # richer (it back-fills inferred slots) and judging against it would reject
     # fills that enforce goes on to accept.
     contract_route = catalogue_route_for_file(file_path, architect) or merged
+    transport_exc: Exception | None = None
     for attempt in range(1, _MAX_SLOT_FILL_ATTEMPTS + 1):
         # A fill the rejection check throws away cost exactly as much wall clock
         # as one that shipped, and the census has to be able to tell them apart.
@@ -462,25 +532,31 @@ def _generate_catalogue_scaffold_first_file(
                     max_tokens=12000,
                 )
             except Exception as exc:
-                cg_log.warning(
-                    "slot_fill ask failed for %s: %s — keeping scaffold", file_path, exc
-                )
+                if _is_transport_failure(exc):
+                    # Weather, not an answer — the cross-provider rung below
+                    # gets one ask before this page settles for its scaffold.
+                    transport_exc = exc
+                    cg_log.warning(
+                        "slot_fill transport-cut for %s: %s — trying the "
+                        "cross-provider rung",
+                        file_path,
+                        exc,
+                    )
+                else:
+                    cg_log.warning(
+                        "slot_fill ask failed for %s: %s — keeping scaffold",
+                        file_path,
+                        exc,
+                    )
                 break
             filled = _sanitize_emoji_icons(_strip_fences(raw))
-            reason, detail = _slot_fill_rejection(filled)
-            contract_errors: list[str] = []
-            if not reason:
-                rejected = _slot_fill_contract_rejection(
-                    file_path,
-                    filled,
-                    architect,
-                    route=contract_route,
-                    brand_name=brand_name,
-                )
-                if rejected is not None:
-                    reason = CONTRACT_REJECTION
-                    contract_errors = rejected
-                    detail = ", ".join(contract_errors) or "assigned face not preserved"
+            reason, detail, contract_errors = _judge_slot_fill(
+                filled,
+                file_path=file_path,
+                architect=architect,
+                route=contract_route,
+                brand_name=brand_name,
+            )
             # A fill rejected on contract grounds cost the same wall clock as one
             # that shipped, and the census only knew about syntactic rejections.
             call.adjudicate(not reason, reason=UNUSABLE_REJECTED)
@@ -510,16 +586,71 @@ def _generate_catalogue_scaffold_first_file(
             if reason == CONTRACT_REJECTION:
                 # The freeform path's retry shape: exact validator errors, the
                 # assigned contract, and an excerpt of what was rejected. A
-                # generic "try again" produces the same violation twice.
+                # generic "try again" produces the same violation twice — and
+                # request 107 proved the raw errors alone repeat it too, so the
+                # retry also carries their translation into edits.
                 attempt_prompt = f"{prompt}\n\n" + _catalogue_retry_context(
                     errors=contract_errors or ["assigned face not preserved"],
                     contract_json=skeleton_contract_json,
                     rejected_source=filled,
+                    guidance=_SLOT_FILL_RETRY_GUIDANCE[CONTRACT_REJECTION],
                 )
             else:
                 attempt_prompt = _slot_fill_retry_prompt(
                     prompt, reason=reason, detail=detail
                 )
+
+    if transport_exc is not None:
+        # R1's rung at the highest-volume ask site: the primary's raise was
+        # weather (its bounded retries live inside the provider), so ONE ask
+        # goes to the cross-provider fallback before this page settles for its
+        # scaffold. Same judge, distinct telemetry attempt; when unconfigured
+        # or same-model the page fails closed to the scaffold as before.
+        fallback_model = str(settings.PREVIEW_APP_TRANSPORT_FALLBACK_MODEL or "").strip()
+        primary_model = str(settings.PREVIEW_APP_MODEL or "").strip()
+        if (
+            fallback_model
+            and fallback_model != primary_model
+            and _has_transport_fallback_runway()
+        ):
+            with ai_call(
+                "codegen", writer="slot_fill", attempt=_MAX_SLOT_FILL_ATTEMPTS + 1
+            ) as call:
+                try:
+                    raw = ai_provider.ask_chat(
+                        fallback_model,
+                        [{"role": "user", "content": attempt_prompt}],
+                        max_tokens=12000,
+                    )
+                except Exception as exc:
+                    cg_log.warning(
+                        "slot_fill transport fallback also failed for %s: %s — "
+                        "keeping scaffold (primary: %s)",
+                        file_path,
+                        exc,
+                        transport_exc,
+                    )
+                    raw = None
+                if raw is not None:
+                    filled = _sanitize_emoji_icons(_strip_fences(raw))
+                    reason, detail, _fallback_errors = _judge_slot_fill(
+                        filled,
+                        file_path=file_path,
+                        architect=architect,
+                        route=contract_route,
+                        brand_name=brand_name,
+                    )
+                    call.adjudicate(not reason, reason=UNUSABLE_REJECTED)
+                    if not reason:
+                        content = filled
+                    else:
+                        cg_log.warning(
+                            "slot_fill fallback fill rejected for %s (%s%s) — "
+                            "keeping scaffold",
+                            file_path,
+                            reason,
+                            f": {detail}" if detail else "",
+                        )
 
     content, replaced = enforce_catalogue_page_contract(
         file_path,

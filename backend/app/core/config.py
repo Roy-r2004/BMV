@@ -177,6 +177,7 @@ class Settings:
     VISION_MODEL: str
     CODER_MODEL: str
     PREVIEW_APP_MODEL: str
+    PREVIEW_APP_TRANSPORT_FALLBACK_MODEL: str
     ARCHITECT_MODEL: str
     CRITIC_MODEL: str
     FIX_MODEL: str
@@ -298,6 +299,15 @@ class Settings:
         self.VISION_MODEL = _env_or("VISION_MODEL", defaults["vision"])
         self.CODER_MODEL = _env_or("CODER_MODEL", defaults["coder"])
         self.PREVIEW_APP_MODEL = _env_or("PREVIEW_APP_MODEL", defaults["preview_app"])
+        # The last rung before a slot_fill ask settles for its scaffold on
+        # transport (R1 at the highest-volume ask site — 1.12(b): an unroutable
+        # page writer shipped bare scaffolds to the gate). ONE ask on a
+        # DIFFERENT provider's model; same-provider rides the same storm. When
+        # equal to PREVIEW_APP_MODEL the rung is skipped and the page fails
+        # closed to its scaffold as before.
+        self.PREVIEW_APP_TRANSPORT_FALLBACK_MODEL = _env_or(
+            "PREVIEW_APP_TRANSPORT_FALLBACK_MODEL", "anthropic/claude-haiku-4.5"
+        )
 
         # Architecture and design-critique are where model "taste" actually shows
         # up (layout, hierarchy, visual judgment) — bulk file codegen can stay on
@@ -336,8 +346,10 @@ class Settings:
         # 2026-08-07.1: sessions 18-19's reject shapes taught — exactly-one
         # initial state, per-kind assertion references, declare-before-cite,
         # the minItems floor outside traceability, trace-or-defer.
+        # 2026-08-07.2: R4 rung 2 — the ops-kind page floor (8b), rendered for
+        # ops faces only and derived from the ship gate's own constant.
         self.APPSPEC_PROMPT_REVISION = (
-            os.getenv("APPSPEC_PROMPT_REVISION", "2026-08-07.1").strip()
+            os.getenv("APPSPEC_PROMPT_REVISION", "2026-08-07.2").strip()
             or "2026-07-15.1"
         )
         self.APPSPEC_MODEL = _env_or("APPSPEC_MODEL", self.ARCHITECT_MODEL)
@@ -899,12 +911,97 @@ def appspec_fallback_configuration(
     }
 
 
+def _model_provider_prefix(model: str) -> str | None:
+    """The OpenRouter provider segment of ``provider/model``, or None.
+
+    A model id without a ``/`` names no provider — it cannot be classified,
+    so callers must not treat it as matching anything.
+    """
+
+    head, sep, _ = (model or "").strip().partition("/")
+    if not sep or not head:
+        return None
+    return head.lower()
+
+
+def warn_same_provider_transport_fallback(config: Settings) -> list[str]:
+    """Warn when the transport fallback cannot be independent of the primary.
+
+    The transport fallback's whole value is provider independence: a
+    provider-side storm cuts the primary and its bounded same-model re-ask
+    alike (runs 136/137), so a fallback on the SAME provider rides the same
+    storm and R1 silently defeats itself. That invariant lived in a `.env`
+    comment; this asserts it at startup. WARN, never crash — a same-provider
+    fallback still fails closed exactly as before the fallback existed.
+
+    Returns the offending primary slot names so the check is testable without
+    capturing log output.
+    """
+
+    fallback_prefix = _model_provider_prefix(config.APPSPEC_TRANSPORT_FALLBACK_MODEL)
+    if fallback_prefix is None:
+        return []
+    offenders = [
+        slot
+        for slot in ("APPSPEC_MODEL", "APPSPEC_REPAIR_MODEL")
+        if _model_provider_prefix(getattr(config, slot)) == fallback_prefix
+    ]
+    if offenders:
+        from app.infrastructure.logging import get_logger
+
+        get_logger("Config").warning(
+            "APPSPEC_TRANSPORT_FALLBACK_MODEL=%s shares provider %r with %s — "
+            "a provider-side storm will cut the fallback with the primary, so "
+            "the transport rung buys nothing. Point it at a different provider.",
+            config.APPSPEC_TRANSPORT_FALLBACK_MODEL,
+            fallback_prefix,
+            " and ".join(offenders),
+        )
+    return offenders
+
+
+def warn_same_provider_preview_app_fallback(config: Settings) -> list[str]:
+    """The slot_fill twin of `warn_same_provider_transport_fallback`.
+
+    Same invariant, R1's newest rung: `PREVIEW_APP_TRANSPORT_FALLBACK_MODEL`
+    must not share a provider with `PREVIEW_APP_MODEL` or the storm that cut
+    the page writer cuts its fallback too. Kept as a sibling rather than a
+    parameter because the appspec check's source is anchored by a landed
+    mutation sweep. WARN, never crash.
+    """
+
+    fallback_prefix = _model_provider_prefix(
+        config.PREVIEW_APP_TRANSPORT_FALLBACK_MODEL
+    )
+    if fallback_prefix is None:
+        return []
+    offenders = [
+        slot
+        for slot in ("PREVIEW_APP_MODEL",)
+        if _model_provider_prefix(getattr(config, slot)) == fallback_prefix
+    ]
+    if offenders:
+        from app.infrastructure.logging import get_logger
+
+        get_logger("Config").warning(
+            "PREVIEW_APP_TRANSPORT_FALLBACK_MODEL=%s shares provider %r with %s — "
+            "a provider-side storm will cut the fallback with the primary, so "
+            "the transport rung buys nothing. Point it at a different provider.",
+            config.PREVIEW_APP_TRANSPORT_FALLBACK_MODEL,
+            fallback_prefix,
+            " and ".join(offenders),
+        )
+    return offenders
+
+
 def assert_safe_runtime_configuration(config: Settings) -> None:
     """Fail startup for malformed or production-unsafe fallback settings."""
 
     code = config.APPSPEC_FALLBACK_SAFETY_CODE
     if code != "ok":
         raise RuntimeConfigurationError(code)
+    warn_same_provider_transport_fallback(config)
+    warn_same_provider_preview_app_fallback(config)
 
 
 settings = Settings()

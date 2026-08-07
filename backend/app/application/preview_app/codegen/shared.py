@@ -188,6 +188,7 @@ def _catalogue_retry_context(
     contract_json: str,
     rejected_source: str,
     build_context: str = "",
+    guidance: str = "",
 ) -> str:
     source = (rejected_source or "").strip()
     if len(source) <= 3600:
@@ -216,9 +217,15 @@ def _catalogue_retry_context(
         if build_context
         else ""
     )
+    # Request 107 repeated a face violation with the raw validator errors in
+    # hand — the errors need translating into edits, so a caller with a
+    # translation for its rejection class threads it here. Optional because
+    # the fix/critic/refine callers judge different error vocabularies.
+    guidance_section = f"How to repair: {guidance}\n" if guidance else ""
     return (
         "CATALOGUE CONTRACT RETRY. The previous complete source was rejected.\n"
         f"Exact validator errors: {json.dumps(errors, ensure_ascii=False)}\n"
+        f"{guidance_section}"
         f"Assigned compact contract: {contract_json}\n"
         f"{build_section}"
         "Rejected source excerpt (repair these issues; do not copy invalid structure):\n"
