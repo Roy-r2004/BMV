@@ -263,3 +263,27 @@ services binding" fired 5× across the session on catalogue pages, and a with-ru
 (107) failed attempt 2 with the byte-identical error — the writer does not use that
 validator feedback. That is prompt vocabulary (preflight question 5's `public-catalog`
 thread), not model quality.
+
+### Experiment 4 (post-close, owner-requested) — APPSPEC_* models: gemini-3-flash-preview → **REVERTED**
+
+With appspec newly ON (owner ruling), the three `APPSPEC_*` slots were moved to
+`gemini-3-flash-preview` for one duo (runs 114/115, same briefs) against the 109/110 baseline
+(gemini-2.5-flash, 2/2 rev-1 accepts):
+
+| | gemini-2.5-flash (109/110) | gemini-3-flash-preview (114/115) |
+|---|---|---|
+| spec revisions accepted | **2/2 on revision 1** | **0/5** |
+| failure mode | — | 114: `deterministic_validation_failed` ×2 (PAGE-AI-FEATURES authored with two initial states; schema demands exactly one — repair reproduced it). 115: 3 rejects ending `semantic_coverage_failed` |
+| outcome | 2/2 shipped ready | 2/2 requests failed honestly (72 s / 168 s — fail-fast worked) |
+| duo cost | $0.83 | $0.17 |
+
+The AI calls themselves all succeeded — this is spec-authoring quality against the
+deterministic validator, not a provider issue. gemini-3-flash writes better *plans* (the
+TEXT_MODEL adoption stands on its own numbers) but worse *specs* under this schema and prompt.
+Reverted to gemini-2.5-flash, verified from the running process, appspec stays ON.
+
+**The October migration for the appspec slots is therefore still OPEN.** Candidates for next
+time: `anthropic/claude-haiku-4.5` (the architect's structured-JSON discipline is the same
+skill; MODEL_RESEARCH's original note said a spec slot is worth paying for), or gemini-3-flash
+again after a prompt/schema adjustment for the initial-state cardinality it tripped on. Either
+way: one duo, judged on accepts first.

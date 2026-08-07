@@ -1,0 +1,97 @@
+bmv-api  | Starting BuildMyVersion API on port 8000...
+bmv-api  | INFO  | bmv.Startup | 2026-08-07 06:34:16.479 | Startup:190 | schema_ready db=postgresql://db/buildmyversion elapsed_ms=71 versions={'phase7a': 'phase7a.1', 'phase7b': 'phase7b.1', 'phase7c': 'phase7c.1', 'phase7d': 'phase7d.1', 'phase7e': 'phase7e.1', 'phase7f': 'phase7f.2', 'commercial': 'commercial.1'}
+bmv-api  | INFO  | bmv.AdminBootstrap | 2026-08-07 06:34:16.519 | AdminBootstrap:58 | Updated bootstrap admin user roy.rizkallah@hotmail.com (is_admin/password sync)
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 06:34:16.520 | Boot:122 | SEED_DEMO=false — skipping PlateSync demo seed
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 06:34:16.520 | Boot:131 | PREVIEW_TEMPLATE_DIR=/app/backend/preview-template exists=True
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 06:34:16.520 | Boot:142 | AI_PROVIDER=openrouter LOG_LEVEL=debug
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 06:34:16.581 | Boot:163 | node=v22.14.0 npm=10.9.2
+bmv-api  | INFO  | bmv.Boot | 2026-08-07 06:34:16.581 | Boot:164 | INTERNAL_BASE_URL=http://127.0.0.1:8000
+bmv-api  | INFO:     Started server process [1]
+bmv-api  | INFO:     Waiting for application startup.
+bmv-api  | INFO:     Application startup complete.
+bmv-api  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 34049
+bmv-api  | DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+bmv-api  | INFO  | bmv.RequestPipeline | 2026-08-07 06:34:32.578 | RequestPipeline:63 | Starting background pipeline for request 114
+bmv-api  | INFO  | bmv.Deadline | 2026-08-07 06:34:32.578 | Deadline:328 | request 114 deadline armed: 540s (+60s reserved for post-deadline work)
+bmv-api  | INFO:     172.217.119.4:38814 - "POST /api/requests HTTP/1.1" 200 OK
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-07 06:34:32.587 | GenerationPipeline:83 | Starting full generation pipeline for request 114 (Osteria Vinci)
+bmv-api  | DEBUG | bmv.GenerationPipeline | 2026-08-07 06:34:32.587 | GenerationPipeline:41 | ▶ generation-pipeline request=114 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | INFO  | bmv.AppSpecGeneration | 2026-08-07 06:35:00.827 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 114 (force_new=False)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | INFO  | bmv.AppSpecGeneration | 2026-08-07 06:35:17.589 | AppSpecGeneration:1293 | AppSpec trace-evidence repair for request 114: add_capability_to_evidence:EVID-HERO-VISUAL:CAP-RESERVATIONS
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | INFO  | bmv.RequestPipeline | 2026-08-07 06:35:32.626 | RequestPipeline:63 | Starting background pipeline for request 115
+bmv-api  | INFO  | bmv.Deadline | 2026-08-07 06:35:32.627 | Deadline:328 | request 115 deadline armed: 540s (+60s reserved for post-deadline work)
+bmv-api  | INFO:     172.217.119.4:54598 - "POST /api/requests HTTP/1.1" 200 OK
+bmv-api  | INFO  | bmv.GenerationPipeline | 2026-08-07 06:35:32.640 | GenerationPipeline:83 | Starting full generation pipeline for request 115 (Cedar Point Lodge)
+bmv-api  | DEBUG | bmv.GenerationPipeline | 2026-08-07 06:35:32.640 | GenerationPipeline:41 | ▶ generation-pipeline request=115 started
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-07 06:35:37.604 | AIRetry:229 | still waiting on google/gemini-3-flash-preview (20s elapsed)
+bmv-api  | ERROR | bmv.RequestPipeline | 2026-08-07 06:35:43.084 | RequestPipeline:70 | Background pipeline FAILED request 114: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (page_initial_state_count: Page 'PAGE-AI-FEATURES' must contain exactly one initial state; found 2.)
+bmv-api  | ERROR | bmv.RequestPipeline | 2026-08-07 06:35:43.084 | RequestPipeline:71 | Pipeline traceback for request 114
+bmv-api  | Traceback (most recent call last):
+bmv-api  |   File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+bmv-api  |     GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+bmv-api  |   File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+bmv-api  |     return self._run_inner(db, request_id)
+bmv-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+bmv-api  |     approved_app_spec = ensure_approved_app_spec(
+bmv-api  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/appspec/generation.py", line 1490, in ensure_approved_app_spec
+bmv-api  |     return _fallback("deterministic_validation_failed")
+bmv-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+bmv-api  |     raise AppSpecGenerationError(
+bmv-api  | app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (page_initial_state_count: Page 'PAGE-AI-FEATURES' must contain exactly one initial state; found 2.)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | INFO  | bmv.AppSpecGeneration | 2026-08-07 06:35:46.976 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 115 (force_new=False)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-07 06:36:06.995 | AIRetry:229 | still waiting on google/gemini-3-flash-preview (20s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-07 06:36:29.775 | AIRetry:229 | still waiting on google/gemini-3-flash-preview (20s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-07 06:37:03.860 | AIRetry:229 | still waiting on google/gemini-3-flash-preview (20s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-07 06:37:31.614 | AIRetry:229 | still waiting on google/gemini-3-flash-preview (20s elapsed)
+bmv-api  | INFO  | bmv.AppSpecGeneration | 2026-08-07 06:37:43.906 | AppSpecGeneration:1208 | AppSpec pre-parse normalization for request 115: default_optional_empty:journeys, omit_optional_empty_trace:traceability[0].journey_ids, omit_optional_empty_trace:traceability[1].journey_ids, omit_optional_empty_trace:traceability[2].journey_ids, omit_optional_empty_trace:traceability[3].journey_ids, omit_optional_empty_trace:traceability[4].journey_ids
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | DEBUG | bmv.AIRetry | 2026-08-07 06:38:03.936 | AIRetry:229 | still waiting on google/gemini-3-flash-preview (20s elapsed)
+bmv-api  | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+bmv-api  | DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+bmv-api  | ERROR | bmv.RequestPipeline | 2026-08-07 06:38:20.347 | RequestPipeline:70 | Background pipeline FAILED request 115: AppSpec failed (semantic_coverage_failed) and fallback is disabled.
+bmv-api  | ERROR | bmv.RequestPipeline | 2026-08-07 06:38:20.347 | RequestPipeline:71 | Pipeline traceback for request 115
+bmv-api  | Traceback (most recent call last):
+bmv-api  |   File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+bmv-api  |     GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+bmv-api  |   File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+bmv-api  |     return self._run_inner(db, request_id)
+bmv-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+bmv-api  |     approved_app_spec = ensure_approved_app_spec(
+bmv-api  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/appspec/generation.py", line 1630, in ensure_approved_app_spec
+bmv-api  |     return _fallback("semantic_coverage_failed")
+bmv-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bmv-api  |   File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+bmv-api  |     raise AppSpecGenerationError(
+bmv-api  | app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (semantic_coverage_failed) and fallback is disabled.

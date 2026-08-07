@@ -394,6 +394,14 @@ Ordered by payoff; items 1-2 are single lines or single rulings that bank measur
    `.env.prod` already ran `on`. **Every future run is an acceptance data point — rejects now
    fail the request honestly, so count accepts vs rejects each session.** The keep-or-delete
    question from session 16 is closed: KEEP, ENFORCED.
+
+   **And the appspec-model A/B already ran (owner-requested, runs 114/115): gemini-3-flash-preview
+   REJECTED 0-of-5 spec revisions** (deterministic_validation_failed — a page authored with two
+   initial states — then semantic_coverage_failed; both requests failed honestly in 72/168 s,
+   $0.17 total). **Reverted to gemini-2.5-flash, verified live.** The spec slots' October
+   migration is OPEN with gemini-3 ruled out as-is; candidates are haiku-4.5 or gemini-3 after
+   a prompt/schema fix for the initial-state cardinality. MODEL_RESEARCH experiment 4 has the
+   table.
 2. **`QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro`** — same routing arithmetic as FIX_MODEL, its
    base-glm call failed truncated on 112; one line, one run beside it.
 3. **The catalogue-contract vocabulary gap** — "missing directory face component:PageHeader,
