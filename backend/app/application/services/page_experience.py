@@ -457,7 +457,11 @@ def validate_and_expand_plan(
             compact_catalogue_plan_contract(), ensure_ascii=False, separators=(",", ":")
         ),
     )
-    for attempt, model in enumerate((settings.ARCHITECT_MODEL, settings.TEXT_MODEL), start=1):
+    # Session 18: haiku burned exactly its 14,000-token budget with 0 output
+    # chars on both baseline runs (reasoning-burn, ~95 s + $0.08 each) and only
+    # fit once gemini-3 wrote tighter plans. TEXT_MODEL writes the answer;
+    # the architect slot is the fallback, not the first ask.
+    for attempt, model in enumerate((settings.TEXT_MODEL, settings.ARCHITECT_MODEL), start=1):
         try:
             with ai_call("planning", writer="plan_validation", attempt=attempt) as call:
                 raw = ai_provider.ask_chat(model, [{"role": "user", "content": prompt}], max_tokens=14000)
@@ -503,7 +507,10 @@ def build_design_manifest(
     )
     try:
         with ai_call("planning", writer="design_manifest", attempt=1) as call:
-            raw = ai_provider.ask_chat(settings.ARCHITECT_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
+            # Session 18: haiku returned 0 chars at exactly its 1,500 cap on
+            # EVERY run — the fallback dict did the work while the call burned
+            # ~12-13 s + cost. Same reasoning-burn as plan_validation above.
+            raw = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
             manifest = _parse_json_from_response(raw)
             call.adjudicate(bool(manifest), reason=UNUSABLE_REJECTED)
         if manifest:
