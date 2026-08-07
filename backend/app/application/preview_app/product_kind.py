@@ -21,6 +21,23 @@ ProductKind = Literal[
 OPS_KINDS: frozenset[str] = frozenset({"saas_workspace", "internal_ops"})
 PUBLIC_KINDS: frozenset[str] = frozenset({"storefront", "booking_service"})
 
+#: R4 rung 1 — THE floor for non-hub ops routes, shared by the ship gate
+#: (`validate_product_kind_chrome`), the authoring prompt line
+#: (`ops_floor_prompt_block`), the ops gap-fill target and the seed-time
+#: refusal. Derive, never duplicate (the `face_prompt.py` pattern): a rung
+#: reading its own literal is how a gate and its defenses drift apart.
+#: Owner-ruled 2026-08-07: never lower the gate.
+OPS_MIN_NON_HUB_PAGES = 4
+
+
+class OpsSeedUnderFloorError(RuntimeError):
+    """An enforced-appspec ops seed still under the gate's floor after gap-fill.
+
+    Raised at plan/seed time so the request fails in seconds — the exact rule
+    the late gate would spend a full paid codegen run to enforce. The gate
+    stays untouched as backstop; this class reaching it live is a NEW bug.
+    """
+
 _OPS_DASHBOARD_SLOTS = ["header", "kpis", "filters", "table", "chart", "activity", "risk"]
 _OPS_LEDGER_HOME_SLOTS = ["header", "pulse", "kpis", "filters", "table", "chart", "activity"]
 _OPS_INVOICE_BOARD_SLOTS = ["header", "filters", "board"]
@@ -1127,8 +1144,18 @@ def _inject_blueprint_routes(
     *,
     only_when_unserved: bool = False,
     plan: Mapping[str, Any] | None = None,
+    unserved_by_path: bool = False,
+    stop_at_non_hub_floor: int | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     """Add missing blueprint routes.
+
+    ``unserved_by_path`` narrows the unserved test to paths alone (R4 rung 3):
+    ops blueprints repeat `ops-list` across queue/records/reports, so the
+    skeleton-kind test blocks every sibling of one served list page — run
+    135's table added `/settings` alone and stayed under the gate's floor.
+    ``stop_at_non_hub_floor`` stops appending once the gate's own count
+    reaches the floor: every invented page is a scaffold the customer sees,
+    so the fill adds the minimum that ships.
 
     When the architect inventory is thin the blueprint *is* the app and every page
     is added. When it is already substantive this is a gap-fill, and
@@ -1152,6 +1179,12 @@ def _inject_blueprint_routes(
     for bp in contract.pages:
         path = bp.path
         component = bp.component_file
+        if (
+            stop_at_non_hub_floor is not None
+            and path not in existing_paths
+            and len(_non_hub_ops_routes(routes)) >= stop_at_non_hub_floor
+        ):
+            break
         if only_when_unserved and path not in existing_paths:
             parent = _detail_parent_path(path)
             if parent:
@@ -1162,7 +1195,11 @@ def _inject_blueprint_routes(
                     _detail_parent_path(other) == parent for other in existing_paths
                 ):
                     continue
-            elif path != "/" and bp.skeleton_id in served_kinds:
+            elif (
+                not unserved_by_path
+                and path != "/"
+                and bp.skeleton_id in served_kinds
+            ):
                 continue
         if path in existing_paths:
             for rt in routes:
@@ -1220,6 +1257,8 @@ def apply_product_kind_to_architect(
     architect: dict[str, Any] | None,
     contract: ProductKindContract,
     plan: Mapping[str, Any] | None = None,
+    *,
+    refuse_ops_under_floor: bool = False,
 ) -> dict[str, Any]:
     """Stamp kind metadata; preserve LLM routes; seed blueprint only when thin.
 
@@ -1227,6 +1266,11 @@ def apply_product_kind_to_architect(
     only sharpens the gap-fill's "does the app already serve this page" test —
     without it the test reads the route alone, which resolves fewer routes to a
     catalogue than the normalizer will.
+
+    ``refuse_ops_under_floor`` is R4 rung 4, passed ONLY from the enforced-
+    appspec seed path: an ops table still under the gate's floor after the
+    gap-fill raises `OpsSeedUnderFloorError` here — in seconds — instead of
+    spending a paid codegen run to be refused by the same rule at the gate.
     """
     updated = copy.deepcopy(dict(architect or {}))
     updated["product_kind"] = contract.kind
@@ -1289,6 +1333,41 @@ def apply_product_kind_to_architect(
             role_id,
             only_when_unserved=True,
             plan=plan,
+        )
+    elif (
+        contract.kind in OPS_KINDS
+        and len(_non_hub_ops_routes(routes)) < OPS_MIN_NON_HUB_PAGES
+    ):
+        # R4 rung 3: a substantive-but-thin ops table gap-fills to the gate's
+        # own floor. PATH-KEYED on purpose — run 135's accepted 3-page spec was
+        # substantive (2 non-hub paths), and the skeleton key collides on
+        # `ops-list` (queue/records/reports share it), adding `/settings` alone
+        # and staying under the floor. Stops at the floor: every invented page
+        # is a scaffold the customer sees.
+        routes, files, _ = _inject_blueprint_routes(
+            routes,
+            files,
+            contract,
+            role_id,
+            only_when_unserved=True,
+            plan=plan,
+            unserved_by_path=True,
+            stop_at_non_hub_floor=OPS_MIN_NON_HUB_PAGES,
+        )
+
+    if (
+        refuse_ops_under_floor
+        and contract.kind in OPS_KINDS
+        and len(_non_hub_ops_routes(routes)) < OPS_MIN_NON_HUB_PAGES
+    ):
+        # R4 rung 4 — reachable only when the blueprint itself could not fill
+        # to the floor (every blueprint path already taken by non-ops routes).
+        # Failing here costs seconds; the same refusal at the ship gate costs
+        # the whole paid run. The gate stays as backstop.
+        raise OpsSeedUnderFloorError(
+            "ops_kind_too_few_pages at seed time: "
+            f"{len(_non_hub_ops_routes(routes))} non-hub ops route(s) < "
+            f"floor {OPS_MIN_NON_HUB_PAGES} after gap-fill"
         )
 
     for item in files:
@@ -1441,6 +1520,47 @@ def lock_chrome_on_architecture_seed(
     return updated
 
 
+def _non_hub_ops_routes(routes: list[Any]) -> list[dict[str, Any]]:
+    """The routes the ship gate counts against the ops floor.
+
+    ONE counting rule shared by the gate, the ops gap-fill target and the
+    seed-time refusal, so "how many ops pages does this app have" cannot be
+    answered differently by the rung that fills and the gate that refuses.
+    """
+    ops_routes = [
+        rt
+        for rt in routes
+        if isinstance(rt, dict)
+        and (
+            str(rt.get("surface") or "") == "ops"
+            or str(rt.get("layout") or "") == "admin"
+            or str(rt.get("skeleton_id") or "").startswith("ops")
+        )
+    ]
+    # Exclude AI hub from count
+    return [rt for rt in ops_routes if not _is_ai_hub_route(rt)]
+
+
+def ops_floor_prompt_block(derived_context: Mapping[str, Any] | None) -> str:
+    """R4 rung 2: the authoring prompt's per-kind floor line.
+
+    Derived from the gate's own `OPS_MIN_NON_HUB_PAGES` so the taught floor and
+    the graded floor cannot drift apart (the `face_prompt.py` pattern). Renders
+    ONLY for ops kinds — a storefront prompt never learns ops vocabulary.
+    """
+    face = (derived_context or {}).get("product_face") or {}
+    if str(face.get("product_kind") or "") not in OPS_KINDS:
+        return ""
+    return (
+        "8b. Ops-kind page floor. This is a staff-facing workspace product: "
+        f"author at least {OPS_MIN_NON_HUB_PAGES} distinct ops-surface pages "
+        "besides any AI-features hub. The ship gate refuses a route table with "
+        "fewer (`ops_kind_too_few_pages`), so a thinner spec cannot ship. Each "
+        "page must be a real workflow surface (queue, records, reports, "
+        "settings) with its own evidence — never filler pages."
+    )
+
+
 def validate_product_kind_chrome(
     architect: Mapping[str, Any] | None,
     *,
@@ -1466,16 +1586,7 @@ def validate_product_kind_chrome(
         issues.append("ops_kind_public_home")
     if skeleton == "public-home":
         issues.append("ops_kind_marketing_skeleton")
-    ops_routes = [
-        rt
-        for rt in routes
-        if str(rt.get("surface") or "") == "ops"
-        or str(rt.get("layout") or "") == "admin"
-        or str(rt.get("skeleton_id") or "").startswith("ops")
-    ]
-    # Exclude AI hub from count
-    ops_routes = [rt for rt in ops_routes if not _is_ai_hub_route(rt)]
-    if len(ops_routes) < 4:
+    if len(_non_hub_ops_routes(routes)) < OPS_MIN_NON_HUB_PAGES:
         issues.append("ops_kind_too_few_pages")
     return issues
 
@@ -1497,6 +1608,8 @@ def context_from_request(req: Any, extra: str = "") -> str:
 
 __all__ = [
     "OPS_KINDS",
+    "OPS_MIN_NON_HUB_PAGES",
+    "OpsSeedUnderFloorError",
     "PUBLIC_KINDS",
     "ProductKind",
     "ProductKindContract",
@@ -1507,6 +1620,7 @@ __all__ = [
     "context_from_request",
     "lock_chrome_on_architecture_seed",
     "lock_chrome_on_experience_seed",
+    "ops_floor_prompt_block",
     "resolve_product_kind_contract",
     "scrub_negated_product_clauses",
     "validate_product_kind_chrome",

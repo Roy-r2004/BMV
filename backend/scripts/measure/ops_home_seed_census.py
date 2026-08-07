@@ -120,6 +120,32 @@ def part_b_run135() -> int:
         "part B: run 135's accepted spec now seeds its ops home "
         f"(page {home.get('page_id')}) before codegen"
     )
+
+    # R4 (session 22): the ladder's gap-fill rung, replayed on the same stored
+    # artifact through the real apply. The locked seed must fill to the gate's
+    # own floor and pass the FULL chrome gate offline — session 21 proved the
+    # skeleton-keyed fill adds one page (`/settings`) and stays under it.
+    from app.application.preview_app.product_kind import (
+        OPS_MIN_NON_HUB_PAGES,
+        _non_hub_ops_routes,
+        apply_product_kind_to_architect,
+    )
+
+    applied = apply_product_kind_to_architect(locked, contract, {"roles": []})
+    applied_paths = [str(rt.get("path") or "") for rt in applied.get("routes") or []]
+    non_hub = len(_non_hub_ops_routes(applied.get("routes") or []))
+    full_issues = validate_product_kind_chrome(applied)
+    print(
+        f"part B: post-gap-fill paths {applied_paths} "
+        f"({non_hub} non-hub ops, floor {OPS_MIN_NON_HUB_PAGES})"
+    )
+    print(f"part B: FULL chrome gate on the filled table: {full_issues or 'none'}")
+    if non_hub < OPS_MIN_NON_HUB_PAGES:
+        print("part B RED: the gap-fill left run 135's table under the floor")
+        return 1
+    if full_issues:
+        print("part B RED: the filled table still fails the full chrome gate")
+        return 1
     return 0
 
 
@@ -129,7 +155,10 @@ def main() -> int:
     if rc:
         print("CENSUS RED")
     else:
-        print("census green: 47-corpus untouched, run 135's defect fixed at the seed")
+        print(
+            "census green: 47-corpus untouched, run 135 seeds its home AND "
+            "fills to the floor through the full gate"
+        )
     return rc
 
 

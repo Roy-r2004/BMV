@@ -336,8 +336,18 @@ def run_plan_phase(ctx: PipelineContext) -> None:
         architect,
         context=industry_context,
     )
-    # Final kind lock wins over forcer drift on AI hub / extra pages.
-    architect = apply_product_kind_to_architect(architect, kind_contract, plan)
+    # Final kind lock wins over forcer drift on AI hub / extra pages. On the
+    # enforced-appspec path this is also R4 rung 4: an ops table the gap-fill
+    # could not bring to the gate's floor refuses HERE, in seconds, instead of
+    # spending a paid codegen run to be refused by the same rule at the gate.
+    architect = apply_product_kind_to_architect(
+        architect,
+        kind_contract,
+        plan,
+        refuse_ops_under_floor=bool(
+            ctx.enforce_app_spec and ctx.app_spec_result and ctx.app_spec_scope
+        ),
+    )
     try:
         architect = _normalize_architect(architect, plan)
     except Exception:

@@ -452,6 +452,20 @@ def _candidate_ask_with_transport_reask(
     ) from last_error
 
 
+def _ops_floor_block(derived_context: Mapping[str, Any]) -> str:
+    """R4 rung 2's producer, resolved lazily.
+
+    Lazy import — mirrors `source.py`'s `_product_kind_guidance` and keeps
+    `app.application.appspec` free of a package-level dependency on
+    `app.application.preview_app`. The block itself derives from the ship
+    gate's own floor constant, so prompt and gate cannot drift.
+    """
+
+    from app.application.preview_app.product_kind import ops_floor_prompt_block
+
+    return ops_floor_prompt_block(derived_context)
+
+
 def build_app_spec_candidate(
     *,
     source_snapshot: Mapping[str, Any],
@@ -472,6 +486,7 @@ def build_app_spec_candidate(
         source_snapshot_json=_canonical_json(source_snapshot),
         derived_context_json=_canonical_json(derived_context or {}),
         app_spec_json_schema=_canonical_json(app_spec_json_schema()),
+        ops_floor_block=_ops_floor_block(derived_context or {}),
     )
     messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
     attempt_diagnostics: list[dict[str, Any]] = []

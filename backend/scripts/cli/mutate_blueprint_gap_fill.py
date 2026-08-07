@@ -52,17 +52,29 @@ MUTATIONS = [
     (
         PRODUCT_KIND,
         "the gap-fill goes back to adding every blueprint page to a substantive app",
+        # The closing paren binds this to the PUBLIC branch's call — the R4 ops
+        # branch carries the same two kwargs but continues with unserved_by_path.
         """            only_when_unserved=True,
-            plan=plan,""",
+            plan=plan,
+        )""",
         """            only_when_unserved=False,
-            plan=plan,""",
+            plan=plan,
+        )""",
     ),
     # --- the catalogue test, standing alone on the booking contract ------------
     (
         PRODUCT_KIND,
         "a page the app already serves is gap-filled anyway (the kind test)",
-        '            elif path != "/" and bp.skeleton_id in served_kinds:',
-        '            elif path != "/" and False:',
+        '            elif (\n'
+        "                not unserved_by_path\n"
+        '                and path != "/"\n'
+        "                and bp.skeleton_id in served_kinds\n"
+        "            ):",
+        '            elif (\n'
+        "                not unserved_by_path\n"
+        '                and path != "/"\n'
+        "                and False\n"
+        "            ):",
     ),
     # --- the two detail-page guards, each bound by its own fixture -------------
     (
@@ -87,8 +99,15 @@ MUTATIONS = [
     (
         PRODUCT_KIND,
         "the root route loses its exemption and a `/home` page suppresses `/`",
-        '            elif path != "/" and bp.skeleton_id in served_kinds:',
-        "            elif bp.skeleton_id in served_kinds:",
+        '            elif (\n'
+        "                not unserved_by_path\n"
+        '                and path != "/"\n'
+        "                and bp.skeleton_id in served_kinds\n"
+        "            ):",
+        '            elif (\n'
+        "                not unserved_by_path\n"
+        "                and bp.skeleton_id in served_kinds\n"
+        "            ):",
     ),
     # --- what a route is measured against --------------------------------------
     (

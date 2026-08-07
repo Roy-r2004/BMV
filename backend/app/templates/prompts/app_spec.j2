@@ -85,6 +85,9 @@ CONTRACT RULES:
    customer's own input clearly requires more. A storefront or portfolio brand
    whose spec contains an ops dashboard is wrong even if the JSON validates:
    the extra surface becomes a journey-required page that cannot be closed.
+{% if ops_floor_block %}
+{{ ops_floor_block }}
+{% endif %}
 9. Every stateful page has EXACTLY ONE initial state: of the states a page's
    `state_ids` lists, exactly one carries `"initial": true` and every sibling
    carries `"initial": false` — two initial states on one page is a validation
