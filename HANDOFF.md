@@ -1,6 +1,129 @@
-# Session handoff — transport can no longer kill a run, and the closing duo went 2/2 (2026-08-07, session 21)
+# Session handoff — four R-rows land, and the ladder's first live test SHIPS the dispatch desk (2026-08-07, session 22)
 
-Successor to session 20's handoff (below in this file). Process notes, not product docs.
+Successor to session 21's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 22, in one page
+
+**The session was the R-backlog under a $10 / 3-hour box: R5 measured, R1+R2+R4+R7 LANDED
+— every sweep 0-survivor — and the ladder's one funded test SHIPPED the exact run-135
+shape that used to burn a full paid run.** Suite **2,012 / 1 / 0** (+45). Four sweeps:
+**7 + 15 + 10 mutations / 0 survivors** (R7, R1+R2, R4) plus `mutate_blueprint_gap_fill.py`
+re-anchored and re-run **13 / 0**. Evidence: `docs/evidence/session22/`.
+
+### THE TALLY (ships beside accepts, always)
+
+| | |
+|---|---|
+| **Ships / attempts** | **1 / 2** (143 ✗ honest quality, **144 ✓ ready at 552 s, gate PASSED**) |
+| **Spec accepts / rejects** | **1 accept** (144 rev-2, coverage 100, prompt rev 2026-08-07.2) / **1 reject** (143 — 5 revisions, all `state_ids: []`, the session-19 empty-tuple class). **Rev-1 streak ends at 3** |
+| **Transport-dead runs** | **0** — 143's authoring attempt 1 was error-cut and ABSORBED (attempt 2 authored healthy); 144's one demo error-cut absorbed |
+| Spend | **$0.33 telemetry-attributed** (143 $0.07 + 144 $0.27) + ~$0.06 weather; bracket 370.314 → 372.141 of 380 (**$7.86 left**); the rest of the key delta is the shared key's other project |
+
+### R5 — MEASURED, owner's table ready (no behavioral change)
+
+The codegen/tail split from runs 129-142's stored `generation_log` + `ai_usage_events` is
+in the roadmap under the R-table. Headline: **run 140 is the only complete tail on record
+(~142 s: critic 5/5, refine 3/3, fix_agent success → ready 553 s); every other ship gave
+the tail ≤107 s and refine/fix starved at $0.** Today only the POST-gate smoke pass has a
+reservation (`RESERVE_SECONDS=60`); nothing protects the pre-gate tail. Recommendation
+(PARKED on the ruling): `TAIL_RESERVE_SECONDS = 150` beside it, codegen stops opening
+batches at `remaining < 150 + 60` — the same clamp `codegen_phase.py:216-222` already
+applies to the fix loop.
+
+### R1+R2 at slot_fill — LANDED (15 mutations / 0 survivors)
+
+**Correction to the R2 row first:** the retry was NOT byte-identical anymore — session
+20's `8198cdb` already threads the raw validator errors + excerpt. The live defects were
+narrower: the `catalogue-contract` TRANSLATION (request 107's lesson) was **dead code** —
+contract rejections divert to `_catalogue_retry_context`, which never included it, and the
+test pinning it drove a path production never takes; plus an empty-report hole. Now the
+live attempt-2 prompt carries errors AND translation (`guidance=` kwarg), pinned end-to-end.
+**R1:** `generate.py`'s bare `except Exception: break` now classifies
+(`_is_transport_failure` — retryable `ProviderGenerationError` only), and ONE bounded
+cross-provider rung (`PREVIEW_APP_TRANSPORT_FALLBACK_MODEL`, default haiku, in `.env`
+explicitly) fires under telemetry attempt 3, faces the identical judge, is runway-gated
+with its own degradation label, and fails closed to the scaffold on any other class.
+**The first sweep's survivor was the system working**: a contract-invalid fallback fill is
+doubly defended (post-loop enforce), so the "ships unjudged" mutation survived — the
+catching fixture is a fill that PARSES wrong but keeps its face, where the judge is the
+only defense. 17 tests.
+
+### R4 — the ladder, all five rungs, and run 144 is its live proof
+
+`OPS_MIN_NON_HUB_PAGES = 4` shared by gate + prompt + gap-fill + refusal (gate refactored
+to derive — value pinned by test, never lower); `app_spec.j2` rule **8b** for ops faces
+only (builder lazy-imports the producer; **prompt revision 2026-08-07.2**, pin test
+updated); ops gap-fill **PATH-KEYED** with stop-at-floor (census correction: the skeleton
+key adds ONE page, `/settings`, not zero — still under floor); `OpsSeedUnderFloorError`
+refusal opt-in on the enforced seed path only (plan_phase's final kind lock). Census part B
+extended: 135's stored artifact fills to exactly the floor (`/queue` + `/reports`) and
+passes the FULL gate offline; 47-corpus untouched; gallery census byte-identical to
+pristine HEAD. 13 tests, 10 mutations / 0 survivors.
+**Run 144 (135's brief verbatim): spec accepted rev-2 coverage 100 — authored 3 pages with
+`/` NATIVE — the gap-fill added `/queue` + `/records` (blueprint page_ids in the shipped
+table), exactly to the floor, and the run SHIPPED `ready` at 552 s, quality gate PASSED.**
+The class that cost run 135 a full paid run is now a ship.
+
+### R7 — landed and generalized
+
+`assert_safe_runtime_configuration` WARNS (never crashes) on a same-provider transport
+fallback — both pairs: `APPSPEC_TRANSPORT_FALLBACK_MODEL` vs `APPSPEC_MODEL`/
+`APPSPEC_REPAIR_MODEL`, and the new `PREVIEW_APP_TRANSPORT_FALLBACK_MODEL` vs
+`PREVIEW_APP_MODEL`. 7 mutations / 0 survivors (appspec pair); the preview pair rides the
+R1 sweep (2 more mutations there).
+
+### Run 143 — honest quality reject, and the transport gate earned its keep
+
+Osteria (141's accepted brief verbatim): authoring attempt 1 `finish_reason=error` with a
+1.5k partial body — **the session-19 gate classified it and re-asked; attempt 2 authored
+30.8k chars healthy**. That candidate carried `pages[0].state_ids: []` and all 5 revisions
+(repair + schema_repair) repeated the SAME empty-tuple error — rejected honestly in 88 s,
+$0.07. **The R1+R2 slot_fill read did NOT bind** (never reached codegen): the next healthy
+run past codegen reads it free (contract-rejection count + `How to repair:` in any retry
+prompt + attempt-3 rows if weather hits). FILED: the empty-tuple class (`state_ids`
+minItems) is now 2-for-2 sessions in rejects — it wants its own taught line + repair
+translation, same treatment the three session-20 codes got.
+
+### What I got wrong in session 22
+
+- **My first R1 sweep fixture sat in enforce's shadow** — the "ships unjudged" mutation
+  survived because post-loop enforce also discards contract-invalid fills. The sweep
+  worked; the fixture was rebuilt to isolate the judge (parse-broken, face-intact).
+- **My injector refactor drifted two anchors in the landed `mutate_blueprint_gap_fill.py`**
+  (single-line `elif` became multi-line). Caught by the driver's own anchor-count guard on
+  re-run; anchors updated (semantics unchanged), full driver re-run 13/0.
+- **My first "unfillable" refusal fixture wasn't** — layout-less routes get
+  `setdefault("layout", "admin")` from the injector's path-exists branch and become
+  gate-countable. The fixture now pins `layout: "public"` explicitly.
+
+### State of the repo (session 22 close)
+
+- Suite: **2,012 passed / 1 skipped / 0 failed** (documented command). New drivers, all
+  0-survivor: `mutate_transport_fallback_provider_warning.py` (7),
+  `mutate_slotfill_transport_fallback.py` (15), `mutate_ops_floor_ladder.py` (10).
+- **Credits: $7.86 left** (372.141 of 380). Session 22: $0.33 telemetry-attributed
+  (143-144), ~$0.06 weather, ~$0.73 of pre-launch key-level delta was the other project.
+- **Running config verified from the process at close:** TEXT=gemini-3-flash-preview,
+  FIX+QUALITY_FIX=glm-5.2:nitro, PREVIEW_APP=deepseek-v4-pro +
+  **PREVIEW_APP_TRANSPORT_FALLBACK_MODEL=anthropic/claude-haiku-4.5 (new, in `.env`)**,
+  ARCHITECT/CRITIC=haiku-4.5, APPSPEC on + gemini-2.5-flash ×3 + fallback haiku,
+  **prompt revision 2026-08-07.2**.
+
+### The next step (ordered)
+
+1. **The R-backlog's remainder**: R6 (writer/attempt scoping on the `admin_ops.py:330`
+   fallback rows; refund errored $0 calls from the appspec call budget) and the R3 offline
+   audit (classify slot_fill-contract + architect-JSON failure codes decision-carrying vs
+   decorative from stored reject evidence — no code).
+2. **The unbound R1+R2 live read** — free on the next healthy run that reaches codegen.
+3. **The empty-tuple reject class** (143, and session 19 before it): mine
+   `app_spec_revisions`, teach the prompt + repair translation, judge on accepts.
+4. **R5's ruling** — the measured table is in the roadmap; one owner word implements the
+   ~150 s tail reservation.
+5. **R1's remainder**: `coverage_review`'s one-shot is still same-model; survey any other
+   single-provider ask sites.
 
 ---
 
@@ -931,6 +1054,86 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ---
 
 ## Next session's prompt, ready to paste
+
+```
+Read HANDOFF.md first — "Session 22, in one page" and THE TALLY. Then the roadmap's
+session-22 callout AND the R-table's session-22 status block. Don't re-derive any of it.
+
+main is PUSHED through session 22's commits. Suite 2,012 / 1 / 0. The key is SHARED —
+probe credits first, bracket every run, track BMV spend from ai_usage_events, never alarm
+on idle deltas; ~$7.86 left at session-22 close. Running config verified at close: TEXT
+gemini-3-flash-preview, FIX + QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro +
+PREVIEW_APP_TRANSPORT_FALLBACK_MODEL anthropic/claude-haiku-4.5 (new), ARCHITECT/CRITIC
+haiku-4.5, APPSPEC on + gemini-2.5-flash ×3 + fallback haiku, prompt revision 2026-08-07.2.
+My budget this session: $[N] — a CAP, not a target. My time box: [N] HOURS; reserve the
+last 20 minutes for close-out. 10-minute cap per generation, monitored, always. We work
+LOCALLY — prod files only change when I say so.
+
+Standing rulings so you never wait: R4 is DONE and live-proven (run 144 shipped the
+135-shape); never lower the gate (OPS_MIN_NON_HUB_PAGES=4 is pinned). Retries must differ
+(R2); fallbacks are classify-first + bounded + cross-provider (R1); leniency never reaches
+decision-carrying fields (R3). If the ship gate's ops floor EVER fires again it is a NEW
+bug — file it loudly.
+
+WEATHER GATE before any run: two long json_object probes on the spec model (~$0.06),
+probe-parse as tolerant as the pipeline's (fences healthy; the storm class is
+finish_reason=error / $0 / partial body). LAUNCH: POST /api/requests (never /api/v1),
+multipart, industry always set, host port 8001.
+
+Work in order — judge each yourself, stop cleanly when the clock says so:
+
+1. THE FREE READS FIRST (~15 min, offline): the R1+R2 slot_fill read did not bind in
+   session 22 (143 died at appspec). On this session's first healthy run past codegen,
+   read: contract-rejection count, "How to repair:" present in any contract retry prompt,
+   attempt-2 outcomes, and any attempt=3 slot_fill rows (the rung). No dedicated run —
+   ride whatever run item 3 or 4 launches.
+
+2. R6 (~30-45 min, offline-provable): writer/attempt scoping on stages still hitting the
+   admin_ops.py:330 fallback (writer=None, attempt=1) — find them with a telemetry query
+   over recent runs first; and refund errored $0 calls from the appspec call budget.
+   Mutation sweep per fix, suite green.
+
+3. THE EMPTY-TUPLE REJECT CLASS (~30-45 min + one run): 143's five revisions all repeated
+   pages[0].state_ids: [] — the same class as session 19. Mine app_spec_revisions for
+   every minItems/empty-tuple reject, teach the prompt the shape (the session-20 pattern:
+   exact fix in app_spec_repair.j2's translation too), bump the prompt revision, mutation
+   pin the render, ONE run on the Osteria brief beside it. Judge on accepts + whether the
+   repair stops repeating the identical error.
+
+4. R3 AUDIT (offline, no code, ~30 min): classify slot_fill-contract and architect-JSON
+   failure codes into decision-carrying vs decorative from stored reject evidence. The
+   deliverable is the classification table in the roadmap, not edits.
+
+5. R5 IS WAITING ON MY RULING — the measured table is in the roadmap. If I have ruled by
+   the time you read this, implement TAIL_RESERVE_SECONDS per the recommendation
+   (mutation-pinned, one run beside it). If I have not ruled, leave it parked.
+
+6. If time remains: R1's remainder — coverage_review's one-shot retry is still same-model;
+   survey any remaining single-provider ask sites (architect chain and fix_agent already
+   have chains).
+
+STANDING TALLY: ships vs attempts AND accepts vs rejects, every reject classified from
+telemetry before any relaunch. A transport-classified dead run at ANY appspec ask site is
+a NEW bug. The rev-1 streak ended at 3 — start the new count honestly.
+
+PARKED (touch only with my ruling): ARCHITECT_MODEL, the ≤500 s p50 DoD row, R5's
+behavioral half, schema-level conditional assertion requirements, relaxing the AppSpec
+schema, the October spec-slot migration (both candidates ruled out as-is).
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
+one sweep at a time, red for the FILED reason; suite via docker run WITH its pip install
+half; recreate never restart; config from the running process; archive logs the moment
+each run finishes; no code edits while a generation is in flight (sweeps count — the api
+container bind-mounts the repo); absolute paths; 10-minute cap.
+
+BEFORE YOU FINISH (the reserved 20 min): .env in the state the evidence supports and
+verified from the running process; the R-table statuses updated in the roadmap;
+HANDOFF/MODEL_RESEARCH updated with real numbers including the ships-vs-attempts line;
+push; next prompt written; tell me plainly what each run cost, what landed, and what's
+left.
+```
+
+## Session 21's prompt (historical — superseded above)
 
 ```
 Read HANDOFF.md first — "Session 21, in one page" and THE TALLY. Then the roadmap's

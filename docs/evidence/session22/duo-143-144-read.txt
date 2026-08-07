@@ -1,0 +1,38 @@
+=== final stages + wall ===
+ id  | status | stage  | wall_s 
+-----+--------+--------+--------
+ 143 | failed | failed |     88
+ 144 | new    | done   |    552
+(2 rows)
+
+=== spec revisions (accept/reject, revision, prompt rev) ===
+ERROR:  column "revision_number" does not exist
+LINE 1: select request_id, revision_number, status, coverage_score, ...
+                           ^
+=== slot_fill telemetry (R1+R2 read) ===
+ request_id |  writer   | attempt | n | ok | usable | reasons | fin  
+------------+-----------+---------+---+----+--------+---------+------
+        144 | slot_fill |       1 | 3 |  3 |      3 | -       | stop
+(1 row)
+
+=== per-stage spend ===
+ request_id |  usd   | calls | err_cut 
+------------+--------+-------+---------
+        143 | 0.0662 |     6 |       1
+        144 | 0.2655 |    26 |       1
+(2 rows)
+
+=== transport rows anywhere (a transport-dead run at any appspec ask site is a NEW bug) ===
+ request_id |   stage   |     writer      | attempt | finish_reason | success | cost_usd 
+------------+-----------+-----------------+---------+---------------+---------+----------
+        143 | appspec   | authoring       |       1 | error         | t       |        0
+        144 | demo      |                 |       1 | error         | t       |    1e-06
+        144 | seed      | mock_synthesize |       1 |               | f       |        0
+        144 | fix_agent | primary         |       1 |               | f       |        0
+        144 | fix_agent | primary         |       1 |               | f       |        0
+        144 | fix_agent | primary         |       1 |               | f       |        0
+        144 | fix_agent | strict-retry    |       2 |               | f       |        0
+        144 | fix_agent | strict-retry    |       2 |               | f       |        0
+        144 | fix_agent | strict-retry    |       2 |               | f       |        0
+(9 rows)
+

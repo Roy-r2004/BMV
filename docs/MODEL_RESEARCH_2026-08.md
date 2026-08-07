@@ -372,3 +372,15 @@ succeeded. The confirmation duo could not observe the stage live — run 122 shi
 clean quality gate, so `quality_repair` never fired; runs 116-121/123 died at appspec. No
 counter-evidence, the arithmetic stands, one reversible line: **adopted, live in `.env` and
 verified from the running process.**
+
+### Session-22 note — the page-writer transport fallback slot (new, R1)
+
+`PREVIEW_APP_TRANSPORT_FALLBACK_MODEL` (default `anthropic/claude-haiku-4.5`, config-level
+default; cross-provider from deepseek's page writer AND google's spec slots). ONE bounded
+ask when a slot_fill ask raises the retryable transport class — 1.12(b)'s unroutable-writer
+scenario becomes a judged page instead of a bare scaffold at the gate. The fallback's
+answer faces the identical syntactic + contract judge; telemetry rows are attempt=3 under
+`writer=slot_fill`, so its firings are queryable the same way the appspec rung's are.
+Startup warns (never crashes) if either fallback slot shares a provider prefix with its
+primary (R7, generalized). No model verdict changed this session; weather probes on
+gemini-2.5-flash were healthy (2× `stop`, ~1,050 completion tokens, 5-7 s).

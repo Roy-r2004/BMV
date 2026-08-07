@@ -181,7 +181,51 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-07 (session 21)
+## Status — updated 2026-08-07 (session 22)
+
+> ### Session 22 — four R-rows land in one session, every sweep 0-survivor
+>
+> - **R5 MEASURED (no behavioral change):** the codegen/tail split table + the ~150 s
+>   tail-reservation recommendation live under the R-backlog below; run 140 is the natural
+>   experiment (only complete tail on record). Implementation PARKED on the owner's ruling.
+> - **R1+R2 at slot_fill LANDED:** transport classification (`_is_transport_failure`,
+>   retryable-only), ONE cross-provider rung (`PREVIEW_APP_TRANSPORT_FALLBACK_MODEL`,
+>   default haiku, telemetry attempt 3, same judge as the primary, runway-gated with its
+>   own degradation label), and R2's real remaining half — the `catalogue-contract`
+>   TRANSLATION was dead code on the live path (session 20's `8198cdb` already threads raw
+>   errors; the translation only rode `_slot_fill_retry_prompt`, which contract rejections
+>   never reach). Now threaded via `_catalogue_retry_context(guidance=...)` and pinned on
+>   the LIVE path. 17 tests, **15 mutations / 0 survivors** (1 first-pass survivor exposed a
+>   fixture sitting in enforce's shadow — rebuilt with a parse-broken/face-intact fill).
+> - **R4 ladder LANDED (the ruling, all five rungs):** `OPS_MIN_NON_HUB_PAGES = 4` shared
+>   by gate + prompt + gap-fill + refusal (gate refactored to derive, semantics pinned);
+>   `app_spec.j2` 8b floor line for ops faces only (prompt revision **2026-08-07.2**,
+>   builder lazy-imports the producer — `source.py`'s own pattern); ops gap-fill PATH-KEYED
+>   with stop-at-floor (the census correction: the skeleton key adds ONE page, `/settings`,
+>   not zero — still under floor); seed-time refusal `OpsSeedUnderFloorError` opt-in on the
+>   enforced path only. Census extended: 135's stored artifact fills to exactly the floor
+>   (`/queue` + `/reports`) and passes the FULL chrome gate offline; 47-corpus untouched;
+>   gallery census byte-identical to pristine HEAD. 13 tests, **10 mutations /
+>   0 survivors**; `mutate_blueprint_gap_fill.py` re-anchored (2 anchors) and re-run
+>   **13 / 0**.
+> - **R7 LANDED (+ generalized):** `assert_safe_runtime_configuration` WARNS (never
+>   crashes) when `APPSPEC_TRANSPORT_FALLBACK_MODEL` shares a provider prefix with
+>   `APPSPEC_MODEL`/`APPSPEC_REPAIR_MODEL` — and a sibling check covers the new
+>   `PREVIEW_APP_TRANSPORT_FALLBACK_MODEL`/`PREVIEW_APP_MODEL` pair. 7+2 tests,
+>   **7 mutations / 0 survivors** (the preview pair pinned in the R1 sweep).
+> - **Suite 2,012 / 1 / 0** (+45). Funded duo (weather-gated, healthy): **run 143**
+>   (Osteria) — authoring attempt 1 transport-cut and ABSORBED (attempt 2 healthy), then
+>   honest quality reject ×5 revisions on `state_ids: []` (the session-19 empty-tuple
+>   class) — rev-1 streak ends at 3; the slot_fill read did not bind (never reached
+>   codegen; next healthy run reads it free). **Run 144** (dispatch desk, 135 verbatim) —
+>   spec accepted rev-2 coverage 100 under prompt 2026-08-07.2, authored 3 pages with `/`
+>   NATIVE, the gap-fill added `/queue` + `/records` (blueprint page_ids in the shipped
+>   table) exactly to the floor, and the run **SHIPPED `ready` at 552 s, quality gate
+>   PASSED** — the class that cost run 135 a full paid run is now a ship. Session tally:
+>   ships 1/2, accepts 1/1 requests-with-judged-specs each way, transport-dead 0. Spend
+>   $0.33 telemetry-attributed; $7.86 left at close.
+
+## Status archive — session 21
 
 > ### Session 21 — transport can no longer kill a run; ships 3/5 with the closing duo 2/2
 >
@@ -242,6 +286,60 @@ Suggested order: **R5-measurement → R1(slot_fill) + R2(slot_fill) as one neigh
 ruling-or-gap-fill → R6 → R3 audit → R7** — R5's measurement is free and feeds the owner
 ruling; slot_fill is the highest-volume ask site still carrying both the no-fallback and the
 verbatim-retry defects, and one funded run reads both fixes.
+
+**Session-22 statuses:** R1 — slot_fill rung LANDED (remaining: `coverage_review`'s
+same-model one-shot; the single-provider ask-site survey). R2 — slot_fill translation
+LANDED on the live path (remaining: the audit of every other retry site; NOTE the R2 row's
+"byte-identical" claim was already half-fixed by `8198cdb` — the surviving defect was the
+dead translation and an empty-report hole). R3 — untouched (offline audit still open).
+R4 — DONE per the ruling (all five rungs, censused, swept; live read on run 144).
+R5 — MEASURED, table + recommendation below; behavioral half owner-parked. R6 — untouched.
+R7 — DONE, generalized to the new preview_app fallback pair.
+
+### R5 — the measured codegen/tail split (session 22, 2026-08-07; runs 129-142, stored `generation_log` + `ai_usage_events`; NO behavioral change)
+
+Deadline architecture at measurement time: `DEFAULT_TOTAL_SECONDS=540` from the pipeline
+top; the only reservation, `RESERVE_SECONDS=60`, protects the **post-gate** render-smoke
+pass (`request_deadline.py:77-82`). Codegen is MANDATORY (runs to 540 unbounded); the
+pre-gate tail — design_critic, refine, fix_agent (typecheck-fix), visual critic — is
+ELECTIVE and is skipped/starved past the deadline. Nothing reserves time for it.
+
+| run | appspec wall | codegen starts | codegen wall | codegen ends | pre-gate tail window | tail outcome (from `ai_usage_events`) |
+|---|---|---|---|---|---|---|
+| 129 ✓ | 106 s | +151 s | 389 s | **+540 (deadline)** | ~20 s | critic 0/2 ($0), fix_agent 0/6 ($0) — fully starved |
+| 132 ✓ | 124 s | +162 s | 378 s | **+540 (deadline)** | ~20 s | critic 0/5 ($0), fix_agent 0/6 ($0) — fully starved |
+| 135 ✗gate | 79 s | +119 s | 404 s | +523 | ~31 s | critic 3/5, refine 0/2 ($0), fix_agent 0/6 ($0) |
+| **140 ✓** | 103 s | +141 s | **270 s** | **+411** | **~142 s** | **critic 5/5, refine 3/3, fix_agent 1 success — the only complete tail on record; ready at 553 s** |
+| 141 ✓ | 56 s | +92 s | 365 s | +457 | ~107 s | critic 6/8, refine 0/5 ($0), fix_agent 0/6 ($0) |
+| 142 ✓ | 98 s | +113 s | 363 s | +498 | ~60 s | critic 3/5, refine 0/2 ($0), fix_agent 0/6 ($0) |
+
+What the numbers say:
+
+- **Run 140 is the natural experiment.** Its spec authored 6 pages and codegen finished in
+  270 s; the ~142 s tail that bought ran EVERYTHING — critique 5/5, refine 3/3, one
+  fix_agent success — and the run shipped `ready` at 553 s. Every other ship gave the tail
+  ≤107 s and refine + fix_agent starved at $0 on all of them (typecheck landed `errors`).
+- **The measured cost of a complete tail is ~140 s** (140's codegen-end +411 → ready +553:
+  critic ~104 s, build ~22 s, gate ~10 s). 141's 107 s was NOT enough — critique mostly ran
+  but refine (5 calls) and fix_agent (6 calls) still got $0. The floor is between 107 and
+  142 s; the safe reservation is **~140-150 s**.
+- **What a reservation would cost:** slot_fill per-call latency on these runs is avg
+  59-104 s (max pinned at the 120 s ask ceiling), batches parallelized. A 140-150 s
+  codegen cutoff on 129/132-shaped runs (codegen 378-389 s) trades roughly one parallel
+  page-batch for the entire critique/refine/typecheck-fix tail. On 140-shaped runs (spec
+  lean enough that codegen ends early) it costs nothing — the reservation only binds when
+  codegen would starve the tail anyway.
+- **The precedent to copy is already in the file:** `codegen_phase.py:216-222` clamps the
+  fix-loop ceiling to `remaining - RESERVE_SECONDS`. A tail reservation is the same clamp
+  applied to the page-batch loop with a new constant beside `RESERVE_SECONDS`.
+
+**Recommendation (implementation is PARKED pending the owner's ruling on this table):**
+introduce `TAIL_RESERVE_SECONDS = 150` in `request_deadline.py` and have codegen stop
+opening new batches once `remaining < TAIL_RESERVE_SECONDS + RESERVE_SECONDS`, falling
+through to its existing stub+wire path for unwritten routes. This does not move the 540 s
+deadline or the parked ≤500 s p50 DoD row; it re-allocates time codegen provably wastes
+(129/132 ran to the wire and still shipped with a dead tail). Judge it on: refine/fix_agent
+$0-row count and typecheck state on the next ships, against this table as baseline.
 
 ## Status archive — session 20
 
