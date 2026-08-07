@@ -228,6 +228,110 @@ def repair_skeleton_composer_invocation(
     return repaired, True
 
 
+_CONSTANT_BINDING_FIXABLE = frozenset(
+    {
+        "detail inquire CTA (#inquire)",
+        "catalogue item photo pool (images.item*)",
+        "catalogue lifestyle imageSrc (card/hero)",
+    }
+)
+
+#: Codes the SAME near-miss href fires alongside the primary defect — a CTA
+#: broken to `#contact` also trips the dead-hash check, and the detail face's
+#: InquiryPanel allowance is keyed on the inquire anchor. They ride the gate
+#: (never trigger it alone); the re-validate-clean requirement below is what
+#: keeps a genuinely broken import on the strict path.
+_CONSTANT_BINDING_DERIVED = frozenset(
+    {
+        "dead hash CTA (#details/#contact)",
+        "forbidden @/ui component:InquiryPanel",
+    }
+)
+
+_INQUIRE_NEAR_MISS_HREF_RE = re.compile(
+    r"""href:\s*(['"])(?:/contact#inquire|#contact|#details|/contact(?:-us)?)\1"""
+)
+
+_IMAGE_POOL_REGION_RE = re.compile(
+    r"(?:imageSrc:\s*\[[^\]]*\]|PAINTING_IMAGES\s*=\s*\[[^\]]*\])",
+    re.DOTALL,
+)
+
+#: card/hero → item rebinding for lifestyle photo pools. card* maps onto the
+#: front of the item pool, hero* onto the middle — deterministic, bounded by
+#: the item1…item8 members mock.ts declares for exactly this purpose.
+_LIFESTYLE_TO_ITEM = {
+    "card": "item1",
+    "card2": "item2",
+    "card3": "item3",
+    "hero": "item4",
+    "hero2": "item5",
+    "hero3": "item6",
+}
+
+
+def _rebind_lifestyle_image_pools(content: str) -> str:
+    """Rewrite `images.card/hero` to the item pool INSIDE image-array regions only.
+
+    A hero section legitimately reading `images.hero` elsewhere on the page must
+    keep it — the defect is lifestyle photography in the per-item pool
+    (request 62 shipped people-in-museums on every gallery card), so only
+    `imageSrc: […]` arrays and `PAINTING_IMAGES = […]` declarations rebind.
+    """
+
+    def _rebind_region(match: re.Match[str]) -> str:
+        return re.sub(
+            r"images\.(card|hero)(\d*)\b",
+            lambda m: "images."
+            + _LIFESTYLE_TO_ITEM.get(m.group(1) + m.group(2), "item1"),
+            match.group(0),
+        )
+
+    return _IMAGE_POOL_REGION_RE.sub(_rebind_region, content)
+
+
+def repair_constant_binding_defects(content: str, route: dict) -> tuple[str, bool]:
+    """Coerce compile-time-constant contract defects instead of rebuilding.
+
+    R3 (owner-ruled, session 24): `detail inquire CTA (#inquire)` ALONE
+    discarded two whole authored pages to the generic scaffold (session 18's
+    ArtworkDetailPage and RoomDetailPage, both at attempt 2/2, two retry asks
+    burned) and the image-pool pair discarded a HomePage with no retry — for
+    fields whose correct values are known constants. The aced8e7 split applied
+    here: coerce the constant, keep faces/skeleton/imports/slots exactly as
+    strict as before. Applies ONLY when every blocking error is in the fixable
+    set, rewrites only recognizable near-miss shapes, and re-validates — a page
+    it cannot prove clean takes the existing path unchanged.
+    """
+
+    errors = blocking_contract_errors(validate_catalogue_page_content(content, route))
+    fixable = _CONSTANT_BINDING_FIXABLE | _CONSTANT_BINDING_DERIVED
+    if not errors or any(error not in fixable for error in errors):
+        return content, False
+    # No explicit primary-defect clause: each codemod branch below keys on its
+    # own primary code, so derived codes alone leave the page byte-identical
+    # and the `repaired == content` check refuses the heal (pinned by test).
+    repaired = content
+    if "detail inquire CTA (#inquire)" in errors:
+        repaired = _INQUIRE_NEAR_MISS_HREF_RE.sub(
+            "href: '#inquire'", repaired, count=1
+        )
+    if {
+        "catalogue item photo pool (images.item*)",
+        "catalogue lifestyle imageSrc (card/hero)",
+    } & set(errors):
+        repaired = _rebind_lifestyle_image_pools(repaired)
+    if repaired == content:
+        return content, False
+    if blocking_contract_errors(validate_catalogue_page_content(repaired, route)):
+        return content, False
+    logger.info(
+        "Catalogue page healed by constant-binding repair route=%s",
+        route.get("path"),
+    )
+    return repaired, True
+
+
 def repair_missing_catalogue_slots(
     content: str,
     route: dict,
@@ -552,6 +656,11 @@ def enforce_catalogue_page_contract(
     if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
         return content, False
     repaired, healed = repair_skeleton_composer_invocation(content, route)
+    if healed:
+        content = lock_recipe_section_order(repaired, route)
+        if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
+            return content, False
+    repaired, healed = repair_constant_binding_defects(content, route)
     if healed:
         content = lock_recipe_section_order(repaired, route)
         if not blocking_contract_errors(validate_catalogue_page_content(content, route)):

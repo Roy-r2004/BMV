@@ -4,6 +4,7 @@ from __future__ import annotations
 from app.application.preview_app.catalogue_contract.imports import normalize_catalogue_page_imports
 from app.application.preview_app.catalogue_contract.repair import (
     enforce_catalogue_page_contract,
+    repair_constant_binding_defects,
     repair_missing_catalogue_slots,
     repair_skeleton_composer_invocation,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "expected_shell",
     "minimal_catalogue_page_scaffold",
     "normalize_catalogue_page_imports",
+    "repair_constant_binding_defects",
     "repair_missing_catalogue_slots",
     "repair_skeleton_composer_invocation",
     "required_non_shell_slots",
