@@ -543,40 +543,88 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ## Next session's prompt, ready to paste
 
 ```
-Read HANDOFF.md first — "Session 18, in one page" and "The next step". Then the roadmap's
-session-18 callout and MODEL_RESEARCH's "Funded-session results". Don't re-derive them.
+Read HANDOFF.md first — "Session 18, in one page" and "The next step" (note the post-close
+additions: appspec is ON by my ruling, and the appspec-model A/B already ran — gemini-3
+rejected 0/5 specs and was reverted; the spec slots stay on gemini-2.5-flash). Then the
+roadmap's session-18 callout and MODEL_RESEARCH "Funded-session results" incl. experiment 4.
+Don't re-derive any of it.
 
-main is PUSHED through the session-18 close. Suite 1,893 / 1 / 0. Credits: ~$10 left on the
-key, which is SHARED with my other project — track BMV spend from ai_usage_events, never
-alarm on idle-time balance changes. The adopted models are in .env and verified: TEXT
-gemini-3-flash-preview, FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro. My budget this
-session: $[N]. 10-minute cap per generation, monitored, always.
+main is PUSHED through f31f9d9. Suite 1,893 / 1 / 0. The key is SHARED with my other
+project — track BMV spend from ai_usage_events, bracket runs with the credits probe, never
+alarm on idle-time balance changes. The running config is verified: TEXT gemini-3-flash-
+preview, FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro, ARCHITECT/CRITIC haiku-4.5,
+APPSPEC on + gemini-2.5-flash. My budget this session: $[N]. 10-minute cap per generation,
+monitored, always. We work LOCALLY — prod files only change when I say so.
 
-APPSPEC IS ON — I ruled it 2026-08-07 and it is already flipped, recreated and verified
-(appspec models stay on gemini-2.5-flash: they are what the 2/2 accepts were measured on).
-Every run this session is an acceptance data point — a rejected spec now fails the request
-honestly, so count accepts vs rejects and report the tally.
+STANDING TALLY: appspec is enforced, so EVERY run is an acceptance data point (baseline
+2/2 rev-1 accepts on 109/110; a reject fails the request honestly). Report accepts vs
+rejects for the whole session.
 
-Then in this order, each with its own run(s), one variable at a time:
-1. QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro — one line, one duo beside it.
-2. The catalogue-contract vocabulary gap ("missing directory face component:PageHeader /
-   BRAND_MANIFEST services binding" — 5 of 6 contract rejections, retry repeats it verbatim).
-   Draft the prompt fix offline, judge on the duo's rejection count vs session 18's numbers.
-3. The haiku planning writers' token-budget failures (plan_validation 14,000/0-chars,
-   design_manifest 1,500/0-chars) — raise the budget or move the writers, one change, run
-   beside it.
-4. The gallery residual at plan stage (it FAILED a ship on 111 — visual critic, scores
-   30/40): make the plan's pages resolve menu→catalogue before the gap-fill, and check
-   AboutPage's public-detail assignment (0e678fa's other half) in the same plan_phase work.
-5. Rewrite the 1.12 roadmap row to pin what actually exists (fail fast + honest + customer
-   retry; no degraded blueprint ship) — docs only, cite runs 111/112/113.
+Work these in order — each numbered item is ONE variable with its own run(s); do not stack
+two changes into the same duo:
+
+1. QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro (backend/.env line ~44). The evidence already
+   exists (FIX_MODEL probe + run 112: base-glm quality_repair failed truncated while the
+   nitro fix call succeeded) — this duo is confirmation, not discovery. Recreate, verify
+   from the running process, run launch_duo3.sh, judge: quality_repair success/latency vs
+   run 112's failures, plus the standard telemetry. Adopt or revert yourself.
+
+2. WHILE that duo runs (docs only, no host contention): rewrite the roadmap's 1.12 row to
+   pin what runs 111/112/113 proved — an unroutable architect is absorbed by the model
+   fallback chain; slot_fill has NO fallback and scaffolds fail the quality gate honestly
+   inside the cap; an unroutable TEXT fails at blueprint in 4 s / $0. The row's DoD becomes
+   "fail fast, fail honest, stored failure state, customer retry works" — the degraded
+   blueprint ship it used to demand does not exist. Cite the three runs.
+
+3. The catalogue-contract vocabulary gap — the highest-payoff pipeline fix.
+   Evidence: "catalogue-contract: missing directory face component:PageHeader, missing
+   BRAND_MANIFEST services binding" caused 5 of session 18's 6 contract rejections
+   (docs/evidence/session18/slot_fill_rejections.txt), and run 107 proved the writer
+   repeats the violation BYTE-IDENTICAL on a retry that carried the validator errors — the
+   prompt does not teach the vocabulary the validator grades. Find where the slot_fill
+   contract block renders (the catalogue-contract enforcement text) and make the prompt
+   state, in the writer's own terms, what "directory face PageHeader" and "BRAND_MANIFEST
+   services binding" require — with the component/binding names it must emit. Offline-
+   provable half: a render test that the new wording reaches the prompt (variable-audit
+   style), mutation-pinned. Then ONE duo, judged on: contract rejections (baseline 5/6 of
+   that class), slot_fill acceptance (baseline 31%/28%/36% across session-18 duos), pages
+   shipping real content vs scaffold. Adopt/revert yourself and record the counts.
+
+4. The haiku planning budget failures — the cheapest remaining starvation cut.
+   design_manifest fails on EVERY run: exactly 1,500 completion tokens, 0 output chars,
+   finish_reason=length (~12-13 s + cost wasted, then a fallback does the work);
+   plan_validation did the same at 14,000 until gemini-3's tighter plans made it fit, so
+   treat it as fragile, not fixed. Find where those two calls set max_tokens and either
+   raise the budget or route the writers off haiku (ARCHITECT_MODEL stays — the architect
+   call itself is good). ONE change, mutation-pinned where a guard changes, then one run:
+   design_manifest must SUCCEED in the log and planning serial time must not regress
+   (baseline ~22 s under appspec-on).
+
+5. The gallery residual at plan stage — now a ship-killer, not cosmetics (run 111: visual
+   critic scored the gallery pages 30/40, visual_defect_severe ×3, run failed). Root cause
+   from session 18: at gap-fill time the plan's pages do not yet resolve menu→catalogue,
+   so served_kinds misses public-catalog and _storefront_pages()'s /gallery +
+   /gallery/:id → ArtworkDetailPage literals ride in (product_kind.py ~1035-1119; fired on
+   103/107/111, not 105/109 — the census's 2-of-6 residual). Make the plan-stage check
+   resolve a menu/catalogue page the same way the architect-stage check does, and in the
+   same plan_phase neighborhood check AboutPage's public-detail assignment (0e678fa's
+   unfixed half — AboutPage appeared in session-18 rejections with a full-skeleton
+   violation). Wrap-measure with gallery_gapfill_census.py before/after (the 47 stored
+   kind_contexts must not regress), mutation-pin, then one duo: the restaurant must ship
+   with NO /gallery route and NO ArtworkDetailPage, hotel unchanged.
+
+IF BUDGET REMAINS after all five: three enforced-appspec runs on NEW briefs (not the duo3
+pair) to widen the acceptance baseline past n=2 — different industries, industry field
+always set, count accepts.
 
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
-one sweep at a time; suite via docker run WITH its pip install half; recreate never restart;
-config from the running process; archive logs for every run; no code edits while a
-generation is in flight (bind mount); working directory drifts — absolute paths.
+one sweep at a time; suite via docker run WITH its pip install half; recreate never
+restart; config from the running process; archive logs for every run (dump the moment each
+finishes); no code edits while a generation is in flight (bind mount); working directory
+drifts — absolute paths; 10-minute cap, monitored.
 
-BEFORE YOU FINISH: .env in the state the evidence supports and verified; HANDOFF/roadmap/
-MODEL_RESEARCH updated with real numbers; push; next prompt written; tell me plainly what
-each run cost and what's left.
+BEFORE YOU FINISH: .env in the state the evidence supports and verified from the running
+process; HANDOFF/roadmap/MODEL_RESEARCH updated with real numbers (including the appspec
+accept/reject tally); push; next prompt written; tell me plainly what each run cost, what
+landed, and what's left.
 ```
