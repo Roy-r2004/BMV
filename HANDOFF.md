@@ -92,6 +92,32 @@ telemetry is the shared key's other project — tracked, not alarmed on).
   matched); the driver's anchor-count guard flagged it — anchors must include distinguishing
   context lines.
 
+### Post-close: the acceptance-baseline runs and the p50 measurement (same session)
+
+**Five new-brief/retry runs (133-137, $0.45):** 135 (staff-only dispatch desk) — spec
+ACCEPTED rev-2, classified `internal_ops/ops`, staff-only workspace plan, design_manifest
+3-for-3 — and the quality gate then honestly refused the ship on
+**`ops_kind_missing_home:architect.routes`** with the AI repair refused past-deadline. **NEW
+FILED: under enforced appspec, an ops-kind app's seeded route table can lack its ops home —
+the first internal_ops enforcement data point ever.** 133 (florist): coverage_review
+malformed twice on byte-identical `stop` outputs (temp 0 retry buys nothing — filed). 134,
+136, 137: transport storm — 136/137 had real specs whose repair chains were double
+error-cut, **and the new `_candidate_ask_with_transport_reask` fired live on both (attempt-2
+rows in telemetry, its first production firings)**; the weather beat the single re-ask.
+
+**Full-session tally (129-137): 3 spec accepts (129 rev-2, 132 rev-1, 135 rev-2) /
+3 spec quality-rejects (130, 131, 133) / 3 transport-honest (134, 136, 137). Ships: 2.
+Repair-accepts are suddenly 2-of-3 accepts — the translated repair rules are earning.
+Spend $1.22 all-in; $15.51 left at close (364.489 of 380).**
+
+**The p50 decomposition (item 3, measured on 129/132):** planning is fixed (~35-38 s) and
+the serial big rocks are now the **architect (73-221 s of haiku AI — 221 s on 129's 2-call
+retry)** and **appspec (~71-124 s wall, growing ~60-70 s per repair revision)**; codegen
+still runs to the deadline by design and the critic/fixer tail still starves ($0 rows on
+both shipped runs). The architect slot is quality-owner-parked (ARCHITECT_MODEL stays), so
+the next p50 levers are appspec acceptance-on-rev-1 (fewer repair revisions) and the
+codegen/tail budget split — both owner-adjacent, measure-first.
+
 ### Recorded landmine (filed, not fixed)
 
 `pytest tests/appspec/` ALONE fails collection on `test_app_spec_contract` — the
@@ -797,31 +823,37 @@ STANDING TALLY: count appspec accepts vs rejects, classify every reject from tel
 rev-1 vs repair-accept per run (the prompt-revision stamp makes this queryable).
 Cross-session enforced record on the duo3 briefs: 7 accepts / 6 quality-rejects.
 
-Work in order:
+Work in order (items renumbered after the post-close runs — the baseline runs and the p50
+measurement are DONE, see "Post-close" in the one-pager):
 
-1. WIDEN THE ACCEPTANCE BASELINE (twice deferred): three enforced runs on NEW briefs —
-   different industries, industry field always set (e.g. a florist storefront, a yoga
-   studio with class schedules, a staff-only dispatch desk). Judge: accepts vs rejects,
-   rev-1 vs repair-accept, which taught shapes still fire, design_manifest success (free
-   observable), and no blueprint gallery artifacts on the storefront brief's plan.
-
-2. The October migration duo for the APPSPEC slots — now judgeable properly: candidates
+1. The October migration duo for the APPSPEC slots — now judgeable properly: candidates
    anthropic/claude-haiku-4.5 and gemini-3-flash (its 114 failure shape — initial-state
    cardinality — is now both taught in the prompt AND translated in repair). One slot
-   change, one duo minimum, judged on accepts AND rev-1-vs-repair mix per prompt revision.
-   At ~54% acceptance on gemini-2.5-flash, this is the biggest customer-visible lever.
+   change, one duo minimum, judged on accepts AND rev-1-vs-repair mix per prompt revision
+   (2-of-3 session-20 accepts came via repair — the repair translation is earning). At
+   ~50% acceptance on gemini-2.5-flash this is the biggest customer-visible lever. Probe
+   the provider's weather FIRST (session 20 lost 3 of 9 runs to error-cut streams).
 
-3. p50 and the deadline squeeze: 129/132 shipped at 559 s (19 s past deadline, codegen +
-   critic + tech + proposal + build_plans degraded; slot_fill's tail dies as transport at
-   120 s). Measure where the serial time goes now that planning is ~35 s, then attack the
-   biggest term. The p50 DoD row (≤500 s) is still owner-parked — measure, don't move it.
+2. The ops-home enforcement gap, NEW from run 135: an internal_ops app under enforced
+   appspec seeded a route table with no ops home — quality gate refused honestly
+   (`ops_kind_missing_home:architect.routes`), AI repair refused past-deadline. Find where
+   the appspec architecture seed (projection.py) intersects the ops-kind chrome contract;
+   fix at the seed, census over stored ops kind_contexts, mutation-pin, one dispatch-desk
+   run to confirm.
 
-4. VISION_MODEL migration (October clock) beside a vision-touching run.
+3. The coverage determinism trap, from run 133: coverage_review returned byte-identical
+   malformed output twice (temp 0), so generation's one-shot retry buys nothing on
+   malformation — only on transport. Either vary the retry (temp bump / compact
+   instruction, like the authoring loop's) or validate leniently; measure which
+   model_validate failure fired first (the artifact is in the DB).
 
-5. Filed, code-side: the generation/sanitize import cycle (bare `pytest tests/appspec/`
-   fails collection; full suite unaffected); the schema-level conditional requirements for
-   assertion kinds (owner decision — schema change touches all consumers); refunding
-   errored $0 calls from the appspec call budget so transport re-asks never pay twice.
+4. p50: the measurement is done (architect 73-221 s + appspec repair revisions are the
+   serial big rocks; tail still starves). Attack only with the owner's rulings in hand —
+   ARCHITECT_MODEL is quality-parked, the ≤500 s row is owner-parked.
+
+5. VISION_MODEL migration (October clock) beside a vision-touching run; filed code items:
+   the generation/sanitize import cycle, schema-level conditional assertion requirements
+   (owner decision), refunding errored $0 calls from the appspec call budget.
 
 NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
 one sweep at a time, red for the FILED reason; suite via docker run WITH its pip install
