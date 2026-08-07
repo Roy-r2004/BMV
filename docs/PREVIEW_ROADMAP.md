@@ -220,6 +220,29 @@ Recording that here so the next session does not read a productive week as progr
 >   session, 5-for-5 live since the fix. **Session tally: ships 3/5, accepts 3-for-3 rev-1,
 >   transport-dead 0. Spend $1.94 telemetry-attributed; $11.24 left at close.**
 
+## Reliability hardening backlog — owner-directed (2026-08-07, post-session-21)
+
+The owner reviewed session 21's failure-class analysis and directed: **implement all of
+these.** Each row generalizes a pattern already proven in one place to every place the same
+failure class can occur. Standing rules apply unchanged: measure first, one variable per
+change, mutation-pinned, a run beside anything behavioral, and the rows that intersect a
+PARKED ruling still need that ruling's specifics before the behavioral half moves.
+
+| # | practice | done where | remaining work | needs |
+|---|---|---|---|---|
+| R1 | **Cross-provider fallback at every AI ask site** — a retry only helps if the failure is independent; same-model re-asks are correlated. Classify transport first, bound every rung at one ask, fail closed inside the deadline. | appspec authoring/repair/schema_repair (`3f7f7f9`, fired live on 139) | `slot_fill` (NO fallback today — 1.12(b) proved scaffolds ship to the gate when the writer is unroutable); `coverage_review`'s one-shot retry is still same-model; survey any other single-provider ask | code + mutation sweep per site; one run beside the slot_fill change |
+| R2 | **A retry must be a different ask** — temp-0 + identical prompt = identical output by construction. Thread the failure back into the retry (corrective message naming the exact errors), or vary something material. | appspec authoring (compact instruction), coverage (`aced8e7`: corrective + attempt bump) | FILED instance: slot_fill contract retry fails attempt 2 with the **byte-identical** validator message (session 18 — "the writer does not use the validator feedback"); audit every retry site for verbatim re-asks | code + the slot_fill rejection-count read on the next funded run |
+| R3 | **Cosmetic-vs-substantive validation** — be strict about decision-carrying fields, lenient about decoration. Explicit `null` where the schema default is `""`/`[]` is absence, not substance. Pin the strict set by mutation so leniency never creeps into load-bearing fields. | coverage models (`aced8e7`) | audit the other strict parsers of model output (slot_fill contract, architect JSON, design_manifest) for whole-artifact rejections on decorative fields; classify each failure code before touching anything | offline audit first; code only where the reject evidence shows the class fired |
+| R4 | **Enforce invariants at the earliest stage that has the information** — any ship-gate rule decidable at seed/plan time should be satisfied (or refused) there, in seconds, not after a paid run. The late gate stays as backstop. | ops home at the architecture seed (`e895ef7`; run 140 shipped) | the FILED `ops_kind_too_few_pages` (offline-proven on 135's artifact: ops gap-fill fires only on non-substantive tables — extend unserved-only gap-fill to ops kinds, or rule thin ops specs un-demoable); then a systematic pass over `validate_product_kind_chrome` + quality-gate rules: "could this be known before codegen?" | an owner ruling OR the gap-fill extension + census + one dispatch run |
+| R5 | **Per-stage tail budgets** — codegen runs to the deadline by design, so typecheck-fix and the visual critic starved on ALL THREE session-21 ships. Replace first-come-first-served time with explicit downstream reservations (the appspec stage already has `APPSPEC_DOWNSTREAM_RESERVE_SECONDS` as the in-repo precedent). | appspec's downstream reserve | measure the codegen/tail split from stored stage timings (runs 129-142 have them all); then a reservation for the tail stages. **Intersects the owner-parked ≤500 s p50 row — reservations are implementable without moving the DoD, but bring the measured split before any behavioral change** | measurement first (free, offline); owner look at the numbers before the split changes |
+| R6 | **Telemetry completeness: every ask row self-describing** — writer/attempt/model on every row is what made every session-21 diagnosis a query instead of a hunt. | appspec stage (sessions 20-21), coverage attempt bump | stages still hitting the `admin_ops.py:330` fallback (`writer=None, attempt=1`); plus the FILED budget-accounting item: errored $0 calls currently spend the appspec call budget — refund them | code, offline-provable, mutation-pinned |
+| R7 | **Config invariants asserted, not remembered** — the fallback model must stay cross-provider from the primary or item R1 silently defeats itself; today that's a comment in `.env`. `assert_safe_runtime_configuration` (config.py) is the natural home for a same-provider warning. | the runtime skips a same-model fallback (guard, mutation-pinned) | the startup-time check that WARNS when `APPSPEC_TRANSPORT_FALLBACK_MODEL` shares a provider prefix with `APPSPEC_MODEL`/`APPSPEC_REPAIR_MODEL` | small code item, offline-provable |
+
+Suggested order: **R5-measurement → R1(slot_fill) + R2(slot_fill) as one neighborhood → R4's
+ruling-or-gap-fill → R6 → R3 audit → R7** — R5's measurement is free and feeds the owner
+ruling; slot_fill is the highest-volume ask site still carrying both the no-fallback and the
+verbatim-retry defects, and one funded run reads both fixes.
+
 ## Status archive — session 20
 
 > ### Session 20 — the three remaining items land in one session, each measurement-first

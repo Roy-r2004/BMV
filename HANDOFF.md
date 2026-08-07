@@ -960,28 +960,31 @@ the probe's parse must tolerate what the pipeline parser tolerates (markdown fen
 healthy; finish=length on an oversized ask is the probe's fault, not weather; the storm
 class is finish_reason=error / $0 / partial body).
 
-Work in order:
+Work from the roadmap's RELIABILITY HARDENING BACKLOG (owner-directed 2026-08-07, the R1-R7
+table right below the session-21 callout) in its suggested order:
 
-1. THE TAIL STARVATION — now the dominant residual and the p50/quality lever. All three
-   ships ran codegen to the deadline; typecheck landed `errors` and the visual critic never
-   ran on any of them. The appspec side is fixed (planning ~35-40 s, rev-1 accepts). Measure
-   the codegen/tail budget split first (the stored runs have every stage timing); any change
-   is owner-adjacent — bring numbers, not moves, unless a ruling arrives.
+1. R5 measurement — the codegen/tail budget split from stored stage timings (runs 129-142;
+   free, offline). All three session-21 ships starved typecheck-fix AND the visual critic.
+   Bring me the measured split BEFORE any reservation change — the ≤500 s DoD row stays
+   parked.
 
-2. The FILED ops_kind_too_few_pages gap — offline-proven on 135's artifact
-   (docs/evidence/session21/run135-fullchain-replay.txt): a 3-page ops spec passes the home
-   gate now but refuses on the 4-page floor; the ops blueprint gap-fill fires only on
-   non-substantive tables. Either extend unserved-only gap-fill to ops kinds (public kinds
-   already have it) or get my ruling that ≤3-page ops specs are too thin to demo. If code:
-   census + mutation-pin + ONE dispatch-desk run.
+2. R1+R2 at slot_fill as one neighborhood — the highest-volume ask site still has NO
+   model fallback (1.12(b)) and a verbatim contract retry (session 18's byte-identical
+   message). Classify-first, bounded rungs, corrective retry; mutation sweep per fix; ONE
+   funded run reads both.
 
-3. Keep the rev-1 streak honest: count accepts/rev-mix on every run this session. If gemini
-   stays 100% rev-1 over ~6 more runs, the repair rung is effectively idle — note it in
-   MODEL_RESEARCH and stop treating acceptance as the bottleneck.
+3. R4 — the FILED ops_kind_too_few_pages gap (offline proof:
+   docs/evidence/session21/run135-fullchain-replay.txt). Extend unserved-only gap-fill to
+   ops kinds OR get my ruling that ≤3-page ops specs are too thin to demo. If code: census +
+   mutation-pin + ONE dispatch-desk run.
 
-4. FILED code items if time remains: the generation/sanitize import cycle; refunding
-   errored $0 calls from the appspec call budget; VISION_MODEL migration beside a
-   vision-touching run.
+4. R6 + R7 if time remains — telemetry writer/attempt on the stages still hitting the
+   admin_ops fallback, refund errored $0 calls from the appspec call budget, and the
+   startup warning when the transport fallback shares a provider with the primary.
+
+Throughout: keep the rev-1 streak honest — count accepts/rev-mix every run; if gemini stays
+100% rev-1 over ~6 more runs, the repair rung is effectively idle; say so in MODEL_RESEARCH
+and stop treating acceptance as the bottleneck.
 
 PARKED (touch only with my ruling): ARCHITECT_MODEL, the ≤500 s p50 DoD row, schema-level
 conditional assertion requirements, relaxing the AppSpec schema, the October spec-slot
