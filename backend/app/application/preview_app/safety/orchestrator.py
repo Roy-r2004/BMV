@@ -68,6 +68,7 @@ def apply_workspace_guards(
     secondary: str,
     font: str,
     template_renderer: TemplateRenderer,
+    design_system: dict | None = None,
 ) -> list[str]:
     """Run every deterministic build guard. Safe to call before every `vite build`."""
     from app.application.preview_app.assemble import write_app_tsx, write_index_css
@@ -170,14 +171,16 @@ def apply_workspace_guards(
     except Exception as e:
         guard_log.warning("brand content floor skipped: %s", e)
     try:
-        repaired = repair_typed_mock_exports(workspace, brand_name, primary, secondary, font)
+        repaired = repair_typed_mock_exports(
+            workspace, brand_name, primary, secondary, font, design_system
+        )
         if repaired:
             actions.extend([f"mock-typed:{n}" for n in repaired])
             guard_log.info("repaired typed mock exports: %s", ", ".join(repaired))
     except Exception as e:
         guard_log.warning("typed mock repair skipped: %s", e)
     try:
-        if ensure_brand_shape(workspace, brand_name, primary, secondary, font):
+        if ensure_brand_shape(workspace, brand_name, primary, secondary, font, design_system):
             actions.append("src/data/mock.ts (brand shape fallback)")
             guard_log.debug(
                 "contract: hardcoded fallback ensure_brand_shape "
@@ -186,7 +189,9 @@ def apply_workspace_guards(
     except Exception as e:
         guard_log.warning("brand shape guard skipped: %s", e)
     try:
-        usage = ensure_brand_usage_paths(workspace, brand_name, primary, secondary, font)
+        usage = ensure_brand_usage_paths(
+            workspace, brand_name, primary, secondary, font, design_system
+        )
         if usage:
             actions.extend(usage)
     except Exception as e:

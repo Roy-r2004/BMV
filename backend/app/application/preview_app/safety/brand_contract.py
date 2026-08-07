@@ -247,12 +247,17 @@ def _default_brand_top_value(
     secondary: str,
     font: str,
     mock: str,
+    design: dict | None = None,
 ) -> object:
     name = brand_name or "Brand"
     if key in {"design_system", "designSystem"} or (
         req["object_fields"] and not req["is_array"] and "system" in key.lower()
     ):
-        base = _design_system_dict(primary, secondary, font) if "design" in key.lower() else {}
+        base = (
+            _design_system_dict(primary, secondary, font, design)
+            if "design" in key.lower()
+            else {}
+        )
         for field in req["object_fields"]:
             if field not in base:
                 base[field] = _brand_scalar_default(field, name, primary)
@@ -444,6 +449,7 @@ def ensure_brand_paths(
     primary: str = "#6366f1",
     secondary: str = "#0d9488",
     font: str = "Inter",
+    design: dict | None = None,
 ) -> tuple[str, list[str]]:
     """Ensure `brand` in mock.ts satisfies scanned usage paths.
 
@@ -475,7 +481,7 @@ def ensure_brand_paths(
 
         if not _brand_has_top_key(body, key):
             value = _default_brand_top_value(
-                key, req, brand_name, primary, secondary, font, mock,
+                key, req, brand_name, primary, secondary, font, mock, design,
             )
             injections.append(f"{key}: {json.dumps(value, ensure_ascii=False)}")
             logs.append(f"contract: ensured {path_label} as {type_label}")
@@ -539,6 +545,7 @@ def ensure_brand_usage_paths(
     primary: str,
     secondary: str,
     font: str,
+    design: dict | None = None,
 ) -> list[str]:
     """Workspace wrapper: collect paths → ensure_brand_paths → write mock.ts."""
     paths = collect_brand_property_paths(workspace)
@@ -555,6 +562,7 @@ def ensure_brand_usage_paths(
         primary=primary,
         secondary=secondary,
         font=font,
+        design=design,
     )
     if updated != mock:
         write_file(workspace, mock_path, updated)
@@ -569,6 +577,7 @@ def _brand_completeness_patch(
     font: str,
     *,
     client_names: list[str] | None = None,
+    design: dict | None = None,
 ) -> str:
     """TS snippet merged into brand so pages that expect design_system don't white-screen."""
     name = brand_name or "Brand"
@@ -635,10 +644,10 @@ def _brand_completeness_patch(
             "rating": 5,
         },
     ]
-    design = _design_system_dict(primary, secondary, font)
+    design_system = _design_system_dict(primary, secondary, font, design)
     names = client_names or _default_client_names(name)
     return (
-        f"design_system: {json.dumps(design, ensure_ascii=False)},\n"
+        f"design_system: {json.dumps(design_system, ensure_ascii=False)},\n"
         f"  services: {json.dumps(services, ensure_ascii=False)},\n"
         f"  testimonials: {json.dumps(testimonials, ensure_ascii=False)},\n"
         f"  client_names: {json.dumps(names, ensure_ascii=False)},\n"
@@ -695,6 +704,7 @@ def ensure_brand_shape(
     primary: str,
     secondary: str,
     font: str,
+    design: dict | None = None,
 ) -> bool:
     """Guarantee missing brand nested fields so home/ops pages don't crash white.
 
@@ -746,7 +756,7 @@ def ensure_brand_shape(
 
     # Build a full patch once, then keep only the missing keys (avoids duplicate-key overwrite).
     full = _brand_completeness_patch(
-        brand_name, primary, secondary, font, client_names=names,
+        brand_name, primary, secondary, font, client_names=names, design=design,
     )
     keep: list[str] = []
     if needs_ds:

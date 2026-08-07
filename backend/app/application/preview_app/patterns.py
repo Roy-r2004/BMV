@@ -217,20 +217,37 @@ _NAMED_ICONS_IMPORT_RE = re.compile(
 )
 
 
-def design_system_dict(primary: str, secondary: str, font: str) -> dict:
+def design_system_dict(
+    primary: str, secondary: str, font: str, design: dict | None = None
+) -> dict:
+    """The canonical fallback `design_system` object.
+
+    `design` is the run's real design system (`ctx.design_system`); when given,
+    its derived palette (`text_color` / `muted_text_color` / `background_color` /
+    `surface_color`) rides through instead of the hardcoded neutrals — the brand
+    palette derives all four and this fallback used to discard them. The
+    hardcoded values remain the no-palette fallback only.
+
+    `font_family` is the font's *name*, never the squashed slug: the slug form
+    (`"sourcesans3"`) is a second spelling of a font the brief already named,
+    and `assemble.py` can carry it into a CSS font-family that names no
+    installed face. The `+` slug below stays squashed because that is what the
+    Google Fonts URL wants.
+    """
+    design = design or {}
     primary = primary or "#6366f1"
     secondary = secondary or primary
     font_token = (font or "Inter").split(",")[0].strip().strip('"').strip("'") or "Inter"
-    font_class = re.sub(r"[^a-z0-9]+", "", font_token.lower()) or "sans"
     slug = re.sub(r"[^a-z0-9]+", "+", font_token.lower())
     return {
         "primary_color": primary,
         "secondary_color": secondary,
         "accent": primary,
-        "text_color": "#0f172a",
-        "muted_text_color": "#475569",
-        "background_color": "#fafafa",
-        "font_family": font_class,
+        "text_color": design.get("text_color") or "#0f172a",
+        "muted_text_color": design.get("muted_text_color") or "#475569",
+        "background_color": design.get("background_color") or "#fafafa",
+        "surface_color": design.get("surface_color") or "#ffffff",
+        "font_family": font_token,
         "font_import_url": f"https://fonts.googleapis.com/css2?family={slug}:wght@400;500;600;700&display=swap",
         "section_spacing": "4rem",
         "border_radius": "1rem",

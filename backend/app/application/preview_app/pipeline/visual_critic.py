@@ -1074,7 +1074,8 @@ def _run_visual_critique(
 
     def _rebuild_and_guard() -> tuple[bool, str]:
         apply_workspace_guards(
-            workspace, architect, plan, images, brand_name, primary, secondary, font, template_renderer,
+            workspace, architect, plan, images, brand_name, primary, secondary, font,
+            template_renderer, (plan or {}).get("design_system"),
         )
         return run_build(workspace, base_path, template_renderer)
 

@@ -377,7 +377,8 @@ def refine_preview_app_from_chat(
 
         try:
             apply_workspace_guards(
-                workspace, architect, plan, images, brand_name, primary, secondary, font, template_renderer,
+                workspace, architect, plan, images, brand_name, primary, secondary, font,
+                template_renderer, (plan or {}).get("design_system"),
             )
         except Exception as guard_exc:
             refine_log.warning("refine guards skipped: %s", guard_exc)
@@ -414,7 +415,8 @@ def refine_preview_app_from_chat(
             try:
                 fix_build_errors(workspace, errors, architect, ai_provider, template_renderer)
                 apply_workspace_guards(
-                    workspace, architect, plan, images, brand_name, primary, secondary, font, template_renderer,
+                    workspace, architect, plan, images, brand_name, primary, secondary, font,
+                    template_renderer, (plan or {}).get("design_system"),
                 )
             except Exception:
                 pass

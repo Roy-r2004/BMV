@@ -27,7 +27,7 @@ def _pre_build_fixups(ctx: PipelineContext) -> None:
     """Deterministic guards re-applied before every single build attempt."""
     actions = apply_workspace_guards(
         ctx.workspace, ctx.architect, ctx.plan, ctx.images, ctx.brand_name, ctx.primary, ctx.secondary,
-        ctx.font, ctx.template_renderer,
+        ctx.font, ctx.template_renderer, ctx.design_system,
     )
     if actions:
         log.info(f"    guards: {', '.join(actions[:8])}{'...' if len(actions) > 8 else ''}")

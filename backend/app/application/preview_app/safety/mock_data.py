@@ -16,6 +16,7 @@ from app.application.preview_app.patterns import (
     _SEEDED_STUB_DETAIL_MARKER,
     _TYPED_MOCK_EXPORT_RE,
     brand_object_span as _brand_object_span,
+    design_system_dict as _design_system_dict,
 )
 from app.application.preview_app.workspace import list_source_files, read_file, write_file
 from app.infrastructure.logging import get_logger
@@ -216,31 +217,10 @@ def enrich_date_starved_mock_exports(workspace, brand_name: str) -> list[str]:
         write_file(workspace, mock_path, mock)
     return list(reversed(replaced))
 
-def _design_system_dict(primary: str, secondary: str, font: str) -> dict:
-    primary = primary or "#6366f1"
-    secondary = secondary or primary
-    font_token = (font or "Inter").split(",")[0].strip().strip('"').strip("'") or "Inter"
-    # The font's *name*, not a squashed slug. This repair path wrote
-    # `"sourcesans3"` / `"nunitosans"` into `design_system.font_family`, which is
-    # a second spelling of a font the brand brief had already named
-    # `"Source Sans 3"` — so a corpus census reads 5 fonts where there are 3, and
-    # `assemble.py:876` can carry the squashed form into a CSS font-family that
-    # names no installed face. The `+` slug below is the Google Fonts query and
-    # stays squashed, because that is what the URL wants.
-    slug = re.sub(r"[^a-z0-9]+", "+", font_token.lower())
-    return {
-        "primary_color": primary,
-        "secondary_color": secondary,
-        "accent": primary,
-        "text_color": "#0f172a",
-        "muted_text_color": "#475569",
-        "background_color": "#fafafa",
-        "font_family": font_token,
-        "font_import_url": f"https://fonts.googleapis.com/css2?family={slug}:wght@400;500;600;700&display=swap",
-        "section_spacing": "4rem",
-        "border_radius": "1rem",
-        "card_style": "shadow (rgba(0,0,0,0.05))",
-    }
+# `_design_system_dict` is the canonical `patterns.design_system_dict` (imported
+# above). This file used to carry its own diverging copy: the font-name fix
+# (8fe8955) landed here while the patterns copy kept writing squashed slugs into
+# `font_family` for every brand_contract consumer. One function, one behavior.
 
 
 def _default_services(brand_name: str) -> list[dict[str, str]]:
@@ -301,6 +281,7 @@ def _default_export_value(
     primary: str = "#6366f1",
     secondary: str = "#0d9488",
     font: str = "Inter",
+    design: dict | None = None,
 ) -> str:
     low = name.lower()
     if low == "images":
@@ -310,7 +291,9 @@ def _default_export_value(
     if low in ("brand_name", "brandname", "owner_name", "ownername"):
         return json.dumps(brand_name or "Brand", ensure_ascii=False)
     if low in ("design_system", "designsystem"):
-        return json.dumps(_design_system_dict(primary, secondary, font), ensure_ascii=False)
+        return json.dumps(
+            _design_system_dict(primary, secondary, font, design), ensure_ascii=False
+        )
     if low in ("manifest", "brand_manifest", "brandmanifest"):
         # Pages read manifest.brand_name / manifest.services / design_system.*
         # — an array stub white-screens the whole route.
@@ -320,7 +303,7 @@ def _default_export_value(
                 "name": brand_name or "Brand",
                 "tagline": "",
                 "accent": primary,
-                "design_system": _design_system_dict(primary, secondary, font),
+                "design_system": _design_system_dict(primary, secondary, font, design),
                 "services": _default_services(brand_name or "Brand"),
                 "products": _default_products(brand_name or "Brand"),
             },
@@ -359,6 +342,7 @@ def repair_typed_mock_exports(
     primary: str,
     secondary: str,
     font: str,
+    design: dict | None = None,
 ) -> list[str]:
     """Replace auto-seeded array stubs for brand_name / design_system with real shapes.
 
@@ -372,7 +356,7 @@ def repair_typed_mock_exports(
 
     replaced: list[str] = []
     ds_value = _default_export_value(
-        "design_system", {}, {}, {}, brand_name, primary, secondary, font
+        "design_system", {}, {}, {}, brand_name, primary, secondary, font, design
     )
     name_value = json.dumps(brand_name or "Brand", ensure_ascii=False)
 
@@ -447,7 +431,7 @@ def repair_typed_mock_exports(
                 "design_system" not in current and "...brand" not in current
             ):
                 manifest_value = _default_export_value(
-                    "manifest", {}, {}, {}, brand_name, primary, secondary, font
+                    "manifest", {}, {}, {}, brand_name, primary, secondary, font, design
                 )
                 mock = mock[:val_start] + f"{manifest_value};" + mock[val_end:]
                 replaced.append(name)
