@@ -592,6 +592,40 @@ def _infer_surface(page: dict[str, Any]) -> str:
     return "public"
 
 
+_DETAIL_ID_SEGMENT = re.compile(r"(?:^|[^a-z0-9])detail(?:[^a-z0-9]|$)")
+
+
+def _explicit_detail_is_anchored(page: dict[str, Any]) -> bool:
+    """Whether a planner-assigned `public-detail` carries item evidence.
+
+    `0e678fa` made the INFERENCE route-anchored — a detail page shows ONE item,
+    which is a fact about the route — but the explicit-skeleton escape hatch
+    below returned a planner-assigned `public-detail` unchanged, and plan pages
+    carry no path, so the fixed rule could never fire on them. Measured over
+    the 60 stored plans (session 20): ~30 About/Contact/Our-Story/Private-Dining
+    pages carry explicit `public-detail` with no anchor — request 124's
+    PrivateDiningPage fill was rejected for the painting-first hero and
+    itemSpecs that contract demands, and session 18's AboutPage the same way.
+
+    Evidence that keeps the label: an item path (same end-anchored rule the
+    inference uses), or a `detail` segment in the page ID — planner slugs like
+    `painting-detail` / `room-detail-king` NAME the page an item detail. IDs
+    only, never titles: "lodge contact details." in a title is the exact bare
+    substring 0e678fa removed. A page with neither falls through to inference,
+    so prose that independently resolves detail (run 88's sauna page via its
+    "Amenity Detail Page" type) keeps it anyway.
+    """
+    path = str(page.get("path") or "").strip().lower().rstrip("/")
+    if not path:
+        contract_block = page.get("app_spec_contract")
+        if isinstance(contract_block, dict):
+            path = str(contract_block.get("route") or "").strip().lower().rstrip("/")
+    if path and re.search(r"/(?::[^/]+|\[[^\]]+\])$", path):
+        return True
+    page_id = str(page.get("id") or page.get("page_id") or "").casefold()
+    return bool(_DETAIL_ID_SEGMENT.search(page_id))
+
+
 def _infer_skeleton_id(page: dict[str, Any], surface: str) -> str:
     explicit = str(page.get("skeleton_id") or "")
     if explicit:
@@ -600,7 +634,9 @@ def _infer_skeleton_id(page: dict[str, Any], surface: str) -> str:
         except ValueError:
             pass
         else:
-            if skeleton.get("surface") == surface:
+            if skeleton.get("surface") == surface and not (
+                explicit == "public-detail" and not _explicit_detail_is_anchored(page)
+            ):
                 return explicit
 
     path = str(page.get("path") or "").lower().rstrip("/")

@@ -31,6 +31,28 @@ _PAGE_HEADER_BAND = (
     "mx-auto w-full max-w-[92rem] px-6 pt-28 pb-10 lg:px-12 lg:pt-32 lg:pb-14"
 )
 
+# Gallery/shop browse leaves: a route or page whose last path segment (or
+# id/title token, at the plan layer) is one of these IS the catalogue face,
+# whatever the architect labeled it. Shared with the plan-stage blueprint seed
+# (`product_kind._plan_served_kinds`) so "this app already serves a catalogue"
+# means the same thing at both layers — the set must stay byte-identical to the
+# one `minimal_catalogue_page_scaffold` enforced before the hoist (request 64's
+# /gallery shipped ProductShowcase and failed journey_browse_caps).
+CATALOG_BROWSE_LEAVES = frozenset(
+    {
+        "gallery",
+        "collection",
+        "collections",
+        "shop",
+        "catalog",
+        "catalogue",
+        "works",
+        "paintings",
+        "products",
+        "menu",
+    }
+)
+
 _SLOT_COMPONENT = {
     "hero": "MarketingHero",
     "features": "FeatureBento",
@@ -1471,18 +1493,7 @@ def minimal_catalogue_page_scaffold(
     # Gallery/shop browse routes must always be CatalogGrid faces — even when the
     # architect left page_intent empty or assigned public-home. Request 64's
     # /gallery shipped ProductShowcase (3-card cap) and failed journey_browse_caps.
-    force_catalog_browse = browse_leaf in {
-        "gallery",
-        "collection",
-        "collections",
-        "shop",
-        "catalog",
-        "catalogue",
-        "works",
-        "paintings",
-        "products",
-        "menu",
-    }
+    force_catalog_browse = browse_leaf in CATALOG_BROWSE_LEAVES
     # A classes/services listing is a schedule face, not a product grid — it
     # needs times and prices, and its funnel goes to /book, not to a per-item
     # detail route it never declares. `skeleton_hint == "public-catalog"` is new

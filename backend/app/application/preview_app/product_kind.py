@@ -828,7 +828,92 @@ def _sync_role_nav(role: dict[str, Any], pages: list[dict[str, Any]], contract: 
     return touched
 
 
-def _ensure_role_pages(role: dict[str, Any], contract: ProductKindContract) -> bool:
+def _is_ai_hub_page(page: Mapping[str, Any]) -> bool:
+    """The plan-level analogue of `_is_ai_hub_route` — plan pages have no path."""
+    page_id = str(page.get("id") or page.get("page_id") or "").casefold()
+    title = str(page.get("title") or "").casefold()
+    page_type = str(page.get("page_type") or "").casefold()
+    return page_id == "page-ai-features" or page_type == "ai_hub" or title == "ai features hub"
+
+
+def _plan_served_kinds(roles: list[Any]) -> set[str]:
+    """Every skeleton the plan's pages already resolve to, across ALL roles.
+
+    The thin test in `_ensure_role_pages` is per-role, which is exactly how
+    request 124's owner role — one AI-hub page — was handed the full storefront
+    blueprint while the guest role already carried PAGE-MENU, a public-catalog.
+    The architect-stage twin (`_inject_blueprint_routes`) tests the whole route
+    table; this is the same question asked of the whole plan.
+
+    Plan prose can under-resolve a catalogue (request 98's rooms → public-service
+    without the route), so the scaffolder's browse-leaf rule is a second serve
+    signal: a page whose path leaf or id/title token is a catalogue browse word
+    serves `public-catalog` even when inference missed it — the scaffold will
+    force that face later anyway (`force_catalog_browse`).
+    """
+    from app.application.preview_app.catalogue_contract.scaffold import (
+        CATALOG_BROWSE_LEAVES,
+    )
+    from app.application.ui_catalogue import infer_page_contract
+
+    served: set[str] = set()
+    for role in roles:
+        if not isinstance(role, dict):
+            continue
+        for page in role.get("pages") or []:
+            if not isinstance(page, dict) or _is_ai_hub_page(page):
+                continue
+            try:
+                skeleton = str(infer_page_contract(page).get("skeleton_id") or "")
+            except Exception:
+                skeleton = ""
+            if skeleton:
+                served.add(skeleton)
+            hint = _page_path_hint(page)
+            leaf = hint.rstrip("/").rsplit("/", 1)[-1].lower() if hint else ""
+            tokens = set(
+                re.split(
+                    r"[^a-z0-9]+",
+                    f"{page.get('id') or ''} {page.get('title') or ''}".lower(),
+                )
+            )
+            if (leaf and leaf in CATALOG_BROWSE_LEAVES) or (tokens & CATALOG_BROWSE_LEAVES):
+                served.add("public-catalog")
+    return served
+
+
+def _thin_seed_is_redundant(
+    bp: PageBlueprint,
+    plan_served_kinds: set[str] | None,
+    appended_ids: set[str],
+    contract: ProductKindContract,
+) -> bool:
+    """Whether the thin-branch may honestly skip seeding this blueprint page.
+
+    Scope is deliberately PUBLIC pages only: the measured residual is the
+    storefront blueprint riding into thin roles (runs 122/124/125 — gallery +
+    Artwork detail + Gallery/Artwork nav links on a restaurant); ops seeding has
+    no measured instance and keeps today's behavior.
+
+    A detail child is PAIRED, never independently judged: it exists to be
+    reached from its own listing, so it rides only when this pass appended its
+    parent — an Artwork detail attached to a `/menu` catalogue is exactly the
+    residual (mirrors `_inject_blueprint_routes`'s detail-parent guard).
+    """
+    if plan_served_kinds is None or bp.surface != "public":
+        return False
+    parent = _detail_parent_path(bp.path)
+    if parent:
+        parent_ids = {p.id for p in contract.pages if p.path.rstrip("/") == parent.rstrip("/")}
+        return not (parent_ids & appended_ids)
+    return bp.skeleton_id in plan_served_kinds
+
+
+def _ensure_role_pages(
+    role: dict[str, Any],
+    contract: ProductKindContract,
+    plan_served_kinds: set[str] | None = None,
+) -> bool:
     """Merge kind defaults under LLM inventory — never replace a rich brief-driven plan."""
     pages = [p for p in (role.get("pages") or []) if isinstance(p, dict)]
     touched = False
@@ -865,10 +950,14 @@ def _ensure_role_pages(role: dict[str, Any], contract: ProductKindContract) -> b
     # Thin / broken plan → seed missing blueprint pages as fallback.
     by_id = {str(p.get("id") or ""): p for p in pages}
     by_title = {str(p.get("title") or "").casefold(): p for p in pages}
+    appended_ids: set[str] = set()
     for bp in contract.pages:
         existing = by_id.get(bp.id) or by_title.get(bp.title.casefold())
         if existing is None:
+            if _thin_seed_is_redundant(bp, plan_served_kinds, appended_ids, contract):
+                continue
             pages.append(_page_plan_dict(bp))
+            appended_ids.add(bp.id)
             touched = True
             continue
         if contract.kind in OPS_KINDS and (
@@ -923,10 +1012,16 @@ def apply_product_kind_to_plan(
     if not roles:
         roles = [{"id": "ROLE-PRIMARY-USER", "label": "Primary user", "pages": []}]
 
+    # Computed ONCE over the pre-seed plan, then shared by every role: the
+    # serve question is plan-wide (request 124's guest role's PAGE-MENU is what
+    # makes the owner role's gallery redundant), and a role seeded earlier in
+    # this loop must not change the answer for a later one — deterministic and
+    # idempotent across the 2-3 forcer re-applications plan_phase makes.
+    plan_served = _plan_served_kinds(roles)
     for role in roles:
         if not isinstance(role, dict):
             continue
-        _ensure_role_pages(role, contract)
+        _ensure_role_pages(role, contract, plan_served_kinds=plan_served)
 
     direction = str(updated.get("design_direction") or "").strip()
     kind_marker = f"PRODUCT_KIND={contract.kind}/{contract.subtype}"
