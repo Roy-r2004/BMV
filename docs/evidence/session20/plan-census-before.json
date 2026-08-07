@@ -1,0 +1,2110 @@
+{
+ "summary": {
+  "requests_with_plans": 60,
+  "contract_not_rebuildable": 2,
+  "runs_with_blueprint_seeding": 4,
+  "runs_where_seeding_duplicates_a_served_kind": 3,
+  "runs_with_unanchored_public_detail_plan_pages": 50,
+  "replay_mismatches": [
+   "request 19 role ROLE-COLLECTOR"
+  ]
+ },
+ "rows": [
+  {
+   "request": 1,
+   "skipped": "no rebuildable contract"
+  },
+  {
+   "request": 17,
+   "skipped": "no rebuildable contract"
+  },
+  {
+   "request": 19,
+   "kind": "saas_workspace/accounting",
+   "roles": [
+    {
+     "role": "ROLE-COLLECTOR",
+     "seeded": [
+      "books-dashboard"
+     ],
+     "replay_matches": false,
+     "replay_pages": [
+      "PAGE-ARTWORK-DETAIL",
+      "PAGE-ABOUT"
+     ],
+     "stored_pages": [
+      "books-dashboard",
+      "PAGE-ARTWORK-DETAIL",
+      "PAGE-ABOUT"
+     ]
+    },
+    {
+     "role": "ROLE-ARTIST",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 1,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-detail"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [
+    "Books overview"
+   ],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "ROLE-COLLECTOR",
+     "page": "PAGE-ARTWORK-DETAIL",
+     "path_hint": ""
+    },
+    {
+     "role": "ROLE-COLLECTOR",
+     "page": "PAGE-ABOUT",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 20,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-VISITOR",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-ARTIST",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "ROLE-VISITOR",
+     "page": "PAGE-ARTWORK-DETAIL",
+     "path_hint": ""
+    },
+    {
+     "role": "ROLE-VISITOR",
+     "page": "PAGE-ABOUT",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 22,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-COLLECTOR",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-ARTIST",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "ROLE-COLLECTOR",
+     "page": "PAGE-ARTWORK-DETAIL",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 36,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "public-artwork-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 37,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about-artist",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 38,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about-jeanne",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 39,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "product-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 40,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "artist",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 41,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "jeanne",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 43,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "collector",
+     "seeded": []
+    },
+    {
+     "role": "artist",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "collector",
+     "page": "painting-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "collector",
+     "page": "about",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 44,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 45,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 46,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 47,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "operator",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 48,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 62,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 64,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "artist-admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail-one",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 65,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "artist",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 66,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 67,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 68,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about-artist",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact-us",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 69,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 70,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "artwork-detail-1",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "artist",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "inquiry-confirmation",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 71,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 73,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "painting-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 75,
+   "kind": "booking_service/booking",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 76,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "guest",
+     "seeded": []
+    },
+    {
+     "role": "manager",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "guest",
+     "page": "about-us",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 77,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-home",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 78,
+   "kind": "booking_service/booking",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "public-about",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 79,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "lodge_staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail-king",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 80,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "private-dining",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 81,
+   "kind": "booking_service/booking",
+   "roles": [
+    {
+     "role": "patient",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 82,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "lodge-manager",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail-lakeside-king",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "restaurant-page",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "sauna-page",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "canoe-trips-page",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 83,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 84,
+   "kind": "booking_service/booking",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 85,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "lodge_manager",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail-lakeside-suite",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 86,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 87,
+   "kind": "booking_service/booking",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "public-booking",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "about",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "connect-page",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 88,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail-1",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "restaurant",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "sauna",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about-us",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 91,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 93,
+   "kind": "booking_service/booking",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-settings",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 95,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 96,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "manager",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "restaurant",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "sauna",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "canoe-trips",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "room-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 97,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "staff",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "our-story",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "private-dinners",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 98,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "public-dining",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 103,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "our-story",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact-us",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 104,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "admin",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "about-us-page",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 105,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-detail",
+    "ops-list",
+    "public-booking",
+    "public-detail",
+    "public-home",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "private-dinners",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "our-story",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact-location",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 106,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "manager",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "ops-settings",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "room-detail",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 107,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "back-room",
+     "path_hint": ""
+    },
+    {
+     "role": "customer",
+     "page": "contact",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 108,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "manager",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "post-booking-itinerary",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 109,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-CUSTOMER",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-OWNER",
+     "seeded": [
+      "home",
+      "gallery",
+      "gallery_detail"
+     ],
+     "replay_matches": true
+    }
+   ],
+   "seeded_total": 3,
+   "served_kinds_excl_seeded": [
+    "public-booking",
+    "public-detail",
+    "public-home",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [
+    "gallery_detail",
+    "home"
+   ],
+   "residual_nav_labels": [
+    "Home",
+    "Gallery",
+    "Artwork"
+   ],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "ROLE-CUSTOMER",
+     "page": "PAGE-PRIVATE-DINING",
+     "path_hint": ""
+    },
+    {
+     "role": "ROLE-CUSTOMER",
+     "page": "PAGE-OUR-STORY",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 110,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-GUEST",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-STAFF",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home",
+    "public-service",
+    "public-utility"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "ROLE-GUEST",
+     "page": "PAGE-AI-FEATURES",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 111,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "private-dining",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 112,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "customer",
+     "seeded": []
+    },
+    {
+     "role": "owner",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "ops-list",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "customer",
+     "page": "back-room",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 122,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-CUSTOMER",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-OWNER",
+     "seeded": []
+    }
+   ],
+   "seeded_total": 0,
+   "served_kinds_excl_seeded": [
+    "ops-list",
+    "public-booking",
+    "public-service"
+   ],
+   "seeded_redundant_by_served_kind": [],
+   "residual_nav_labels": [],
+   "public_detail_pages_without_item_anchor": []
+  },
+  {
+   "request": 124,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-GUEST",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-OWNER",
+     "seeded": [
+      "home",
+      "gallery",
+      "gallery_detail"
+     ],
+     "replay_matches": true
+    }
+   ],
+   "seeded_total": 3,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "public-booking",
+    "public-catalog",
+    "public-detail",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [
+    "gallery",
+    "gallery_detail",
+    "home"
+   ],
+   "residual_nav_labels": [
+    "Home",
+    "Gallery",
+    "Artwork"
+   ],
+   "public_detail_pages_without_item_anchor": [
+    {
+     "role": "ROLE-GUEST",
+     "page": "PAGE-PRIVATE-DINING",
+     "path_hint": ""
+    },
+    {
+     "role": "ROLE-GUEST",
+     "page": "PAGE-ABOUT",
+     "path_hint": ""
+    }
+   ]
+  },
+  {
+   "request": 125,
+   "kind": "storefront/storefront",
+   "roles": [
+    {
+     "role": "ROLE-GUEST",
+     "seeded": []
+    },
+    {
+     "role": "ROLE-MANAGER",
+     "seeded": [
+      "home",
+      "gallery",
+      "gallery_detail"
+     ],
+     "replay_matches": true
+    }
+   ],
+   "seeded_total": 3,
+   "served_kinds_excl_seeded": [
+    "ops-dashboard",
+    "public-booking",
+    "public-home"
+   ],
+   "seeded_redundant_by_served_kind": [
+    "home"
+   ],
+   "residual_nav_labels": [
+    "Home",
+    "Gallery",
+    "Artwork"
+   ],
+   "public_detail_pages_without_item_anchor": []
+  }
+ ]
+}

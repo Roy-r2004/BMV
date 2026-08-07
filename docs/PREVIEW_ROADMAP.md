@@ -181,7 +181,65 @@ Recording that here so the next session does not read a productive week as progr
 
 ---
 
-## Status — updated 2026-08-07 (session 19)
+## Status — updated 2026-08-07 (session 20)
+
+> ### Session 20 — the three remaining items land in one session, each measurement-first
+>
+> - **Item 5, both halves, LANDED — with the plan census that item 5 was waiting for.**
+>   NEW `scripts/measure/plan_blueprint_census.py` reads the 60 stored `experience_plan`s from
+>   the DB, fingerprints blueprint-seeded pages against each run's OWN stored contract literals,
+>   reconstructs the pre-seed roles, and replays the REAL `_ensure_role_pages` (verdicts:
+>   reproduces / seeds_fewer / diverges_other, red exit on the last). Before/after archived in
+>   `docs/evidence/session20/`. **The serve-aware seed** (`_plan_served_kinds`: plan-WIDE
+>   inference + the hoisted `CATALOG_BROWSE_LEAVES` token rule; paired detail rule; public-only
+>   scope): 109/124 stop seeding entirely, 125 keeps its legitimate bootstrap minus the redundant
+>   `home` — its plan genuinely had no catalogue anywhere. **The detail-assignment guard**
+>   (`_explicit_detail_is_anchored`): planner-assigned `public-detail` survives only with an
+>   end-anchored item path, a `detail` id segment, or prose agreement — over the 60 stored plans
+>   that keeps all 41 genuine detail pages (painting-detail ×11, room-detail variants, run 88's
+>   sauna via prose) and flips 52 mislabeled ones (about ×9, contact ×8, our-story,
+>   private-dining — the 124 PrivateDining rejection class). 47 stored kind_contexts: 0
+>   regressions (boundary/synthetic/deterministic censuses green; gallery census byte-identical
+>   to a pristine-HEAD worktree run). 15 tests, 9 mutations / 0 survivors — after two
+>   fixture-binding survivors were caught and fixed (ops chrome-repair masked the scope pin; a
+>   plural "details" title cannot catch a titles-widened rule). **Live on run 129 (restaurant):
+>   ZERO gallery artifacts in the plan, ZERO slot_fill contract rejections of any class,
+>   shipped `ready` 559 s.**
+> - **The repair-path transport re-ask LANDED** (`_candidate_ask_with_transport_reask`):
+>   `repair` + `schema_repair` route through one bounded helper (1 re-ask on the gate's
+>   `provider_error` verdict or a retryable empty-cut raise, attempt bumped,
+>   `transport_reask_used` in diagnostics) — fixing `schema_repair`'s missing-`finish_reason`
+>   bug, run 123's exact killer, as a side effect; `coverage_review` now refuses
+>   `finish_reason=error` so generation's existing one-shot retry is its bounded re-ask (one
+>   layer, never stacked). 8 tests, 7 mutations / 0 survivors.
+> - **The appspec authoring prompt hardening LANDED (revision `2026-08-07.1`).** The
+>   reject-shape catalog was mined from `app_spec_revisions` 114-128 with transport artifacts
+>   excluded and labeled; five rules taught in `app_spec.j2` (EXACTLY-ONE initial state with
+>   `page_id`/`state_ids` consistency; per-kind assertion references — 12a; declare-before-cite
+>   — 17; the minItems floor outside traceability — 6a; trace-or-defer — 16) and the three
+>   recurring codes translated into exact fixes in `app_spec_repair.j2`. 6 render tests read the
+>   wording off REAL prompts via a fake provider; 7 mutations / 0 survivors; the pinned revision
+>   test updated (container env does not override — verified). **First data points: 129's spec
+>   was accepted on revision 2 — the first spec-repair success on record — while 130 still
+>   rejected on `requirement_unaccounted_for` (the taught rule violated anyway, n=1; honest
+>   fail-fast).**
+> - **Item 4's deferred live observable is CONFIRMED on 129**: `design_manifest` SUCCEEDED —
+>   2,139 output chars in 5.9 s, `finish_reason=stop` on gemini-3-flash — after returning 0
+>   chars at its exact token cap on every haiku run. Planning serial (planner 31.8 s + manifest
+>   5.9 s) did not regress vs the ~22-30 s baseline plus the old 12-13 s failure burn.
+> - **Session-20 tally (enforced appspec): 2 accepts (129 rev-2, 132 rev-1) / 2 rejects
+>   (130 `requirement_unaccounted_for`, 131 `state_assertion_state_required` ×3) — both rejects
+>   violated freshly-taught rules, so the teaching narrowed nothing to zero on gemini-2.5-flash,
+>   but 129's rev-2 accept is the FIRST spec-repair success on record. Run 132 (hotel) shipped
+>   with its only gallery being the planner's own PAGE-ROOM-GALLERY and zero /gallery routes —
+>   the item-5 hotel half, live. Spend $0.77 (129-132); the key was topped up mid-session
+>   (360 → 380; $17.47 left at close).**
+> - Recorded landmine: `pytest tests/appspec/` alone fails collection on
+>   `test_app_spec_contract` via the long-standing generation/sanitize import cycle unless an
+>   earlier module warms `app.application.appspec` — present at HEAD `92c8f0f`, full-suite runs
+>   unaffected. Fixing the cycle is filed, not attempted.
+
+## Status archive — session 19
 
 > ### Session 19 — the provider's bad day found the pipeline's next defect, and three fixes landed with runs beside them
 >

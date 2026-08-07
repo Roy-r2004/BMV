@@ -324,6 +324,20 @@ A rejected spec fails the request honestly — the designed behavior, but at ~45
 the appspec authoring prompt/schema is the next thing to harden, and the October migration duo
 should judge candidates on accepts over MORE than two runs.
 
+### Session-20 addendum — the spec slot's quality problem is now prompt-hardened and better measured
+
+Prompt revision `2026-08-07.1` teaches the five recurring reject shapes (mined from
+`app_spec_revisions` 114-128, transport artifacts excluded) and translates the three
+recurring codes in the repair prompt. First live data: **129 rejected rev-1 then ACCEPTED
+rev-2 — the first spec-repair success on record**; 130/131 still quality-rejected on
+freshly-taught rules (`requirement_unaccounted_for`, `state_assertion_state_required`);
+132 accepted rev-1. Enforced acceptance on the duo3 briefs across sessions 18-20:
+**7 accepts / 6 quality-rejects (~54%)** — gemini-2.5-flash violates stated contract rules
+at high variance, which sharpens the October-migration case: judge candidates on accepts
+AND on rev-1-vs-repair mix, per prompt revision (the stamp makes reject rates queryable).
+The repair paths also now survive transport (`_candidate_ask_with_transport_reask`), so
+future reject tallies are clean of the error-cut class by construction.
+
 ### Experiment 5 — QUALITY_FIX_MODEL: z-ai/glm-5.2:nitro → **ADOPTED**
 
 Same routing arithmetic as FIX_MODEL (StreamLake 57-66 t/s at real repair sizes vs

@@ -1,6 +1,104 @@
-# Session handoff — the provider's bad day, the fix it forced, and three items landed (2026-08-07, session 19)
+# Session handoff — the remaining items land: plan-stage gallery, transport re-asks, prompt hardening (2026-08-07, session 20)
 
-Successor to session 18's handoff (below in this file). Process notes, not product docs.
+Successor to session 19's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 20, in one page
+
+**All of session 19's "next step" items landed in one session, each measurement-first.**
+Suite **1,939 / 1 / 0**; three sweeps, **23 mutations / 0 survivors total** (9 + 7 + 7);
+prompt variable audit clean. Evidence: `docs/evidence/session20/`.
+
+### Item 5 — the gallery residual and the AboutPage half, both landed
+
+The prerequisite came first: **`plan_blueprint_census.py`**, a NEW census over the 60 stored
+`experience_plan`s (the route censuses never covered the plan stage). It fingerprints
+blueprint-seeded pages against each run's OWN stored contract literals, reconstructs pre-seed
+roles, and replays the real `_ensure_role_pages` — red exit on any unexplained divergence.
+Findings that shaped the fix: only 4 of 60 runs were ever seeded (3 modern = 122/124/125,
+1 legacy); **50 of 60 runs carry planner-assigned `public-detail` without item anchors, and a
+naive re-inference would have flipped 8 legitimate `painting-detail` pages** — measured before
+designing, so the guard keys on end-anchored item paths, `detail` ID segments (never titles:
+"contact details." is 0e678fa's own trap), and prose agreement. Result over the archive:
+41 genuine detail pages keep, 52 mislabeled pages (about ×9, contact ×8, private-dining —
+run 124's rejection class) flip to permissive contracts. The serve-aware seed is plan-WIDE
+(124's guest-role menu is what makes the owner-role gallery redundant) with the scaffolder's
+browse-leaf rule as a second signal (hoisted `CATALOG_BROWSE_LEAVES`, byte-identical), a
+PAIRED detail rule (gallery_detail rides only with its parent), and public-only scope.
+47 stored kind_contexts: **0 regressions**; gallery census byte-identical to a pristine-HEAD
+worktree. **Live on 129 (restaurant): zero gallery artifacts in the plan, zero slot_fill
+contract rejections, shipped `ready` at 559 s.** 15 tests, 9 mutations / 0 survivors.
+
+### The repair-path transport re-ask — run 123's killer closed
+
+`_candidate_ask_with_transport_reask` (builder.py): every candidate-shaped ask (`repair`,
+`schema_repair`) gets ONE bounded re-ask on the transport class only — the gate's
+`provider_error` verdict or a retryable empty-cut raise — with the ai_call attempt bumped so
+telemetry rows stay distinguishable, and model-authored malformation still raising untouched.
+Routing `schema_repair` through it fixes its missing-`finish_reason` bug (the exact defect
+that killed run 123). `coverage_review` now refuses `finish_reason=error` outright so
+generation's EXISTING one-shot retry is its bounded re-ask — one layer, never stacked.
+8 tests, 7 mutations / 0 survivors. (The telemetry guard test was updated: schema_repair no
+longer asks a model directly.)
+
+### The authoring prompt hardening — revision `2026-08-07.1`
+
+Reject shapes mined from `app_spec_revisions` 114-128 (transport artifacts excluded and
+labeled as such). Taught in `app_spec.j2`: **exactly-one initial state** (+ `page_id` /
+`state_ids` consistency — the heal/validator mismatch that got 114), **per-kind assertion
+references** (12a — got 116), **declare-before-cite** (17 — got 127), **the minItems floor
+outside traceability** (6a — got 115/123), **trace-or-defer** (16 — got 114). The three
+recurring codes get exact fixes in `app_spec_repair.j2` (the repair model receives the
+validator report verbatim — now with a translation). 6 render tests read the wording off REAL
+prompts; 7 mutations / 0 survivors; revision pinned (env does not override — verified in the
+container). **First data points: 129's spec REJECTED rev-1 then was ACCEPTED on rev-2 — the
+first spec-repair success on record. 130 still rejected on `requirement_unaccounted_for`
+(the taught rule, violated anyway; n=1, honest fail-fast in ~3.5 min).**
+
+### Item 4's deferred observable — CONFIRMED on 129
+
+`design_manifest` **SUCCEEDED**: 2,139 chars, 5.9 s, `stop`, on gemini-3-flash — after 0
+chars at its exact cap on every haiku run. Planning serial (31.8 + 5.9 s) did not regress
+against the ~22-30 s baseline plus the old 12-13 s failure burn.
+
+### Session-20 runs and tally (enforced appspec)
+
+| run | brief | spec | outcome |
+|---|---|---|---|
+| 129 | restaurant | **accepted rev-2** | shipped `ready` 559 s; zero gallery artifacts; design_manifest success; slot_fill 1/5 usable (tail transport deaths, ZERO rejections) |
+| 130 | hotel | rejected rev-1 (`requirement_unaccounted_for`) | honest fail, ~3.5 min |
+| 131 | hotel retry | rejected rev-1 (`state_assertion_state_required` ×3) | honest fail |
+| 132 | hotel retry 2 | **accepted rev-1** | shipped `ready` 559.6 s; only gallery is the planner's own PAGE-ROOM-GALLERY (legit, not seeded); zero /gallery routes; design_manifest success again (2,068 chars, 5.5 s — 2-for-2 live) |
+
+Tally: **2 accepts / 2 rejects** (cross-session enforced record on these briefs: 7 accepts /
+6 quality-rejects). Both rejects violated rules the hardened prompt now states — teaching
+narrowed nothing to zero on gemini-2.5-flash, but 129's rev-2 accept is the FIRST spec-repair
+success on record, and the translated repair rules are the plausible cause worth watching.
+Spend: **$0.77 telemetry-attributed** (129-132). **The key was topped up mid-session:
+total_credits 360 → 380; $17.47 left at close** (bracket 355.384 → 362.530; the delta beyond
+telemetry is the shared key's other project — tracked, not alarmed on).
+
+### What I got wrong in session 20
+
+- **Two mutation survivors were my fixtures' fault, found by the sweeps working as designed**:
+  the ops-scope pin didn't bind (the thin role's AI-hub page was a "marketing landing", so
+  chrome-repair rewrote it into the ops home before the seeding logic ever ran), and a plural
+  "details" title can't catch a titles-widened anchor rule (the word-boundary regex refuses it
+  either way). Both re-swept clean after rebuilt fixtures.
+- **My first trattoria test brief classified `booking_service`, not `storefront`** — "we take
+  reservations" is a booking hint. The fixture-binding assert caught it before any test lied.
+- One sweep printed a `caught` whose anchor had drifted (two `_parse_candidate` call sites
+  matched); the driver's anchor-count guard flagged it — anchors must include distinguishing
+  context lines.
+
+### Recorded landmine (filed, not fixed)
+
+`pytest tests/appspec/` ALONE fails collection on `test_app_spec_contract` — the
+long-standing generation/sanitize import cycle fires unless an earlier module warms
+`app.application.appspec`. Present at HEAD `92c8f0f` (verified from a pristine worktree);
+full-suite runs unaffected. A module-level `coverage → builder` import closes the same cycle,
+which is why coverage's helper import is lazy.
 
 ---
 
@@ -681,6 +779,61 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ---
 
 ## Next session's prompt, ready to paste
+
+```
+Read HANDOFF.md first — "Session 20, in one page" and its tally table. Then the roadmap's
+session-20 callout. Don't re-derive any of it.
+
+main is PUSHED through session 20's commits. Suite 1,939 / 1 / 0. Key is SHARED — track BMV
+spend from ai_usage_events, bracket with the credits probe, never alarm on idle deltas;
+~$17.47 left at session-20 close (topped up to 380 total). Running config verified at close:
+TEXT gemini-3-flash-preview, FIX + QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro,
+ARCHITECT/CRITIC haiku-4.5, APPSPEC on + gemini-2.5-flash ×3, prompt revision 2026-08-07.1.
+My budget this session: $[N]. 10-minute cap per generation, monitored, always. We work
+LOCALLY — prod files only change when I say so.
+
+STANDING TALLY: count appspec accepts vs rejects, classify every reject from telemetry
+(transport is now survivable at all ask sites — a reject means spec quality), and record
+rev-1 vs repair-accept per run (the prompt-revision stamp makes this queryable).
+Cross-session enforced record on the duo3 briefs: 7 accepts / 6 quality-rejects.
+
+Work in order:
+
+1. WIDEN THE ACCEPTANCE BASELINE (twice deferred): three enforced runs on NEW briefs —
+   different industries, industry field always set (e.g. a florist storefront, a yoga
+   studio with class schedules, a staff-only dispatch desk). Judge: accepts vs rejects,
+   rev-1 vs repair-accept, which taught shapes still fire, design_manifest success (free
+   observable), and no blueprint gallery artifacts on the storefront brief's plan.
+
+2. The October migration duo for the APPSPEC slots — now judgeable properly: candidates
+   anthropic/claude-haiku-4.5 and gemini-3-flash (its 114 failure shape — initial-state
+   cardinality — is now both taught in the prompt AND translated in repair). One slot
+   change, one duo minimum, judged on accepts AND rev-1-vs-repair mix per prompt revision.
+   At ~54% acceptance on gemini-2.5-flash, this is the biggest customer-visible lever.
+
+3. p50 and the deadline squeeze: 129/132 shipped at 559 s (19 s past deadline, codegen +
+   critic + tech + proposal + build_plans degraded; slot_fill's tail dies as transport at
+   120 s). Measure where the serial time goes now that planning is ~35 s, then attack the
+   biggest term. The p50 DoD row (≤500 s) is still owner-parked — measure, don't move it.
+
+4. VISION_MODEL migration (October clock) beside a vision-touching run.
+
+5. Filed, code-side: the generation/sanitize import cycle (bare `pytest tests/appspec/`
+   fails collection; full suite unaffected); the schema-level conditional requirements for
+   assertion kinds (owner decision — schema change touches all consumers); refunding
+   errored $0 calls from the appspec call budget so transport re-asks never pay twice.
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
+one sweep at a time, red for the FILED reason; suite via docker run WITH its pip install
+half; recreate never restart; config from the running process; archive logs the moment each
+run finishes; no code edits while a generation is in flight; absolute paths; 10-minute cap.
+
+BEFORE YOU FINISH: .env verified from the running process; HANDOFF/roadmap/MODEL_RESEARCH
+updated with real numbers including the accept/reject tally; push; next prompt written;
+tell me plainly what each run cost, what landed, and what's left.
+```
+
+## Session 19's prompt (historical — superseded above)
 
 ```
 Read HANDOFF.md first — "Session 19, in one page", its tally table, and "The next step".
