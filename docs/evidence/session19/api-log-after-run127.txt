@@ -1,0 +1,153 @@
+Starting BuildMyVersion API on port 8000...
+INFO  | bmv.Startup | 2026-08-07 08:20:47.265 | Startup:190 | schema_ready db=postgresql://db/buildmyversion elapsed_ms=71 versions={'phase7a': 'phase7a.1', 'phase7b': 'phase7b.1', 'phase7c': 'phase7c.1', 'phase7d': 'phase7d.1', 'phase7e': 'phase7e.1', 'phase7f': 'phase7f.2', 'commercial': 'commercial.1'}
+INFO  | bmv.AdminBootstrap | 2026-08-07 08:20:47.312 | AdminBootstrap:58 | Updated bootstrap admin user roy.rizkallah@hotmail.com (is_admin/password sync)
+INFO  | bmv.Boot | 2026-08-07 08:20:47.312 | Boot:122 | SEED_DEMO=false — skipping PlateSync demo seed
+INFO  | bmv.Boot | 2026-08-07 08:20:47.312 | Boot:131 | PREVIEW_TEMPLATE_DIR=/app/backend/preview-template exists=True
+INFO  | bmv.Boot | 2026-08-07 08:20:47.312 | Boot:142 | AI_PROVIDER=openrouter LOG_LEVEL=debug
+INFO  | bmv.Boot | 2026-08-07 08:20:47.369 | Boot:163 | node=v22.14.0 npm=10.9.2
+INFO  | bmv.Boot | 2026-08-07 08:20:47.369 | Boot:164 | INTERNAL_BASE_URL=http://127.0.0.1:8000
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 34046
+DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+INFO  | bmv.RequestPipeline | 2026-08-07 08:21:06.300 | RequestPipeline:63 | Starting background pipeline for request 126
+INFO  | bmv.Deadline | 2026-08-07 08:21:06.300 | Deadline:328 | request 126 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.64.66.1:49773 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 08:21:06.307 | GenerationPipeline:83 | Starting full generation pipeline for request 126 (Osteria Vinci)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 08:21:06.307 | GenerationPipeline:41 | ▶ generation-pipeline request=126 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:21:28.717 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 126 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:21:48.749 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:22:08.753 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:22:22.352 | AppSpecGeneration:1228 | AppSpec deterministic heal #1 for request 126: reference_integrity:hash:a048b3243220ca1a
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:22:22.360 | AppSpecGeneration:1228 | AppSpec deterministic heal #2 for request 126: reference_integrity:hash:a048b3243220ca1a
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:22:22.368 | AppSpecGeneration:1228 | AppSpec deterministic heal #3 for request 126: reference_integrity:hash:a048b3243220ca1a
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:22:22.375 | AppSpecGeneration:1228 | AppSpec deterministic heal #4 for request 126: reference_integrity:hash:a048b3243220ca1a
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:22:42.389 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:23:02.393 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:23:40.523 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:24:00.560 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:24:19.417 | AppSpecGeneration:1208 | AppSpec pre-parse normalization for request 126: omit_optional_empty_trace:traceability[0].journey_ids, omit_optional_empty_trace:traceability[1].journey_ids, omit_optional_empty_trace:traceability[2].journey_ids, omit_optional_empty_trace:traceability[3].journey_ids, omit_optional_empty_trace:traceability[4].journey_ids, omit_optional_empty_trace:traceability[5].journey_ids, omit_optional_empty_trace:traceability[6].journey_ids, omit_optional_empty_trace:traceability[7].journey_ids
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:24:39.443 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:24:59.448 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:25:20.507 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:25:40.511 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+WARNING | bmv.Deadline | 2026-08-07 08:25:44.606 | Deadline:227 | request 126 degraded stage=appspec reason=stopped_low_downstream_runway elapsed=278.3s remaining=261.7s
+WARNING | bmv.Deadline | 2026-08-07 08:25:44.623 | Deadline:455 | request 126 degraded 1 stage(s) but stored no preview_app to record them on: appspec
+ERROR | bmv.RequestPipeline | 2026-08-07 08:25:44.624 | RequestPipeline:70 | Background pipeline FAILED request 126: AppSpec failed (call_budget_exhausted) and fallback is disabled.
+ERROR | bmv.RequestPipeline | 2026-08-07 08:25:44.624 | RequestPipeline:71 | Pipeline traceback for request 126
+Traceback (most recent call last):
+  File "/app/backend/app/application/appspec/generation.py", line 1536, in ensure_approved_app_spec
+    coverage = review_app_spec_coverage(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/coverage.py", line 104, in review_app_spec_coverage
+    raw = ai_provider.ask_chat(
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 226, in ask_chat
+    self._acquire()
+  File "/app/backend/app/application/appspec/generation.py", line 212, in _acquire
+    raise AppSpecCallBudgetExceeded(
+app.application.appspec.generation.AppSpecCallBudgetExceeded: AppSpec stopped with 261.7s of runway; every run that has ever shipped needed at least 280s after this stage.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1633, in ensure_approved_app_spec
+    return _fallback("call_budget_exhausted")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (call_budget_exhausted) and fallback is disabled.
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 37696
+DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+INFO  | bmv.RequestPipeline | 2026-08-07 08:26:16.475 | RequestPipeline:63 | Starting background pipeline for request 127
+INFO  | bmv.Deadline | 2026-08-07 08:26:16.475 | Deadline:328 | request 127 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.64.66.1:16685 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 08:26:16.478 | GenerationPipeline:83 | Starting full generation pipeline for request 127 (Osteria Vinci)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 08:26:16.479 | GenerationPipeline:41 | ▶ generation-pipeline request=127 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:26:41.834 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 127 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:27:01.864 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:27:21.868 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:27:48.624 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:28:25.545 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:28:41.349 | AppSpecGeneration:1208 | AppSpec pre-parse normalization for request 127: default_optional_empty:entities, omit_optional_empty_trace:traceability[0].journey_ids, omit_optional_empty_trace:traceability[3].journey_ids, omit_optional_empty_trace:traceability[5].journey_ids, omit_optional_empty_trace:traceability[7].journey_ids, omit_optional_empty_trace:traceability[8].journey_ids, omit_optional_empty_trace:traceability[9].journey_ids, omit_optional_empty_trace:traceability[10].journey_ids
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:29:01.381 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 08:29:49.797 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:30:09.798 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 08:30:29.803 | AIRetry:229 | still waiting on google/gemini-2.5-flash (60s elapsed)
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:30:46.804 | AppSpecGeneration:1228 | AppSpec deterministic heal #1 for request 127: reference_integrity:hash:e4855c2973280dab
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:30:46.814 | AppSpecGeneration:1228 | AppSpec deterministic heal #2 for request 127: reference_integrity:hash:e4855c2973280dab
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:30:46.823 | AppSpecGeneration:1228 | AppSpec deterministic heal #3 for request 127: reference_integrity:hash:e4855c2973280dab
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:30:46.831 | AppSpecGeneration:1228 | AppSpec deterministic heal #4 for request 127: reference_integrity:hash:e4855c2973280dab
+ERROR | bmv.RequestPipeline | 2026-08-07 08:30:46.843 | RequestPipeline:70 | Background pipeline FAILED request 127: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (missing_reference: evidence reference 'EVIDENCE-MENU-AI-SOMMELIER-WIDGET' does not exist.; missing_reference: evidence reference 'EVIDENCE-MENU-AI-SOMMELIER-WIDGET' does not exist.)
+ERROR | bmv.RequestPipeline | 2026-08-07 08:30:46.843 | RequestPipeline:71 | Pipeline traceback for request 127
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1490, in ensure_approved_app_spec
+    return _fallback("deterministic_validation_failed")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (missing_reference: evidence reference 'EVIDENCE-MENU-AI-SOMMELIER-WIDGET' does not exist.; missing_reference: evidence reference 'EVIDENCE-MENU-AI-SOMMELIER-WIDGET' does not exist.)
+INFO  | bmv.RequestPipeline | 2026-08-07 08:31:17.624 | RequestPipeline:63 | Starting background pipeline for request 128
+INFO  | bmv.Deadline | 2026-08-07 08:31:17.625 | Deadline:328 | request 128 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.64.66.1:58742 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 08:31:17.627 | GenerationPipeline:83 | Starting full generation pipeline for request 128 (Cedar Point Lodge)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 08:31:17.627 | GenerationPipeline:41 | ▶ generation-pipeline request=128 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 08:31:27.504 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 128 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None

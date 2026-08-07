@@ -1,6 +1,146 @@
-# Session handoff — the funded session: 11 runs, 3 model verdicts, appspec won (2026-08-07, session 18)
+# Session handoff — the provider's bad day, the fix it forced, and three items landed (2026-08-07, session 19)
 
-Successor to session 17's handoff (below in this file). Process notes, not product docs.
+Successor to session 18's handoff (below in this file). Process notes, not product docs.
+
+---
+
+## Session 19, in one page
+
+**The plan was five ordered items; gemini-2.5-flash's bad day rewrote the first hour.** Thirteen
+funded generations (116-128), **$1.62 telemetry-attributed over 142 calls**. Evidence:
+`docs/evidence/session19/` (launch logs, api log dumped after every run).
+
+### THE STANDING TALLY (enforced appspec, every run a data point)
+
+**3 accepts / 10 rejects** across requests 116-128. The raw number needs its causes:
+
+| class | requests | what it was |
+|---|---|---|
+| TRANSPORT-adjudicated (the defect, now FIXED) | 118, 119, 120, 121 | error-cut streams fragment-extracted into fake candidates |
+| transport post-fix, failed HONESTLY | 128 | both authoring attempts error-cut; gate refused fragments, no fake revisions |
+| real spec-quality rejects | 116, 126, 127 | state assertions without state_id; call budget exhausted on real outputs; missing evidence reference |
+| mixed | 117, 123 | real authoring quality-rejected, then transport killed the repair chain |
+| **accepts, all rev-1** | **122, 124, 125** | 122's authoring transport-errored and the NEW GATE re-asked — that accept exists because of the fix. All three shipped `ready` (554/556/556 s) |
+
+Yesterday the same model+briefs went 2/2. **With transport removed, the enforced acceptance
+record on these briefs across sessions 18-19 is 5 accepts (109/110/122/124/125) vs 4
+quality-rejects (116/123/126/127) — spec-authoring quality on gemini-2.5-flash is genuinely
+variable, the appspec authoring prompt/schema is the next hardening target, and
+October-migration candidates need accepts over MORE than n=2.**
+
+### The unplanned fix that mattered most: provider errors were minting fake spec rejections
+
+Requests 118-121 all "rejected" their specs in seconds — but `ai_usage_events` showed the
+authoring calls at `finish_reason=error`, $0, 0 tokens, with 1k-34.6k chars of partial body
+over HTTP 200. The parser's fragment strategies (balanced scan, re-escape repair) found small
+complete objects inside the cuts — request 118's "candidate" was **973 chars extracted from a
+15,939-char cut** — returned them `ok=True`, and the pipeline minted revisions and failed the
+requests honestly-looking. Session 16 filed exactly this class for slot_fill; it was alive in
+appspec. **The fix** (`authoring_parser.py`): on `finish_reason=error` only a complete direct
+parse passes; every fragment strategy fails as `app_spec_authoring_json_truncated` (retryable),
+so `build_app_spec_candidate` re-asks the provider. 4 tests
+(`tests/appspec/test_authoring_provider_error.py`), 5 mutations / 0 survivors, suite green.
+**Live-proven within the hour: run 122's authoring attempt 1 errored → gate re-asked → spec
+ACCEPTED rev-1 → shipped `ready` 554 s.** Residual FILED: repair/coverage/schema_repair asks
+now classify honestly but have no per-call transport re-ask (123 died on an errored
+schema_repair).
+
+### The five ordered items
+
+1. **QUALITY_FIX_MODEL=z-ai/glm-5.2:nitro — ADOPTED** (.env line 44, verified from the running
+   process). Probe + run 112 evidence stands (base failed `length/truncated` at 85 s; nitro's
+   fix_agent succeeded in the same run). The duo could not observe the stage live: 122 shipped
+   with a CLEAN quality gate, so quality_repair never fired. No counter-evidence.
+2. **1.12 rewritten** — both roadmap rows now pin "fail fast, fail honest, stored failure
+   state, customer retry works", citing runs 111/112/113. The degraded-blueprint-ship premise
+   is recorded dead.
+3. **Catalogue-contract vocabulary — LANDED + ADOPTED.** New
+   `catalogue_contract/face_prompt.py` derives a LOCKED LISTING FACE block from the validator's
+   own `_DIRECTORY_FACE_REQUIRED`/`_SCHEDULE_FACE_REQUIRED`/`LISTING_FACE_COMPONENTS` (prompt
+   and graded contract cannot drift); rendered only for face scaffolds; contract retry gets a
+   translation entry. 4 tests, 5 mutations / 0 survivors. **Duo 124/125: the taught class fell
+   5-of-6 → 0-of-5; 2/2 shipped ready.** Acceptance 4/11 (36%) flat vs baseline — confounded by
+   deadline-tail transport deaths. Watch item: `forbidden @/ui component:PageHeader` ×1 on a
+   composed page (class was 0 in s18; the block provably does not render for composed
+   scaffolds — pinned).
+4. **Haiku planning starvation — LANDED; live observation DEFERRED.** `design_manifest` +
+   `plan_validation` ask TEXT_MODEL first (architect call stays haiku; haiku is now
+   plan_validation's fallback only). 3 tests, 3 mutations / 0 survivors
+   (`mutate_planning_writer_models.py`). **Three run attempts (126 restaurant, 127 restaurant,
+   128 hotel) all died at appspec (two quality, one transport-honest) — none reached planning.
+   Stopped buying tickets against the degraded provider: design_manifest success + planning
+   serial time (baseline ~22 s) are FREE observables on the next session's first healthy run;
+   read them from its log before anything else.**
+5. **Gallery residual — NOT LANDED, diagnosis sharpened with live evidence.** Under enforced
+   appspec the shipped route tables of 122/124/125 have **NO /gallery** (bbe6359 holds at the
+   architect stage) — but 124's `experience_plan.roles[1].pages` carries blueprint
+   `gallery`/`gallery_detail` pages + "Gallery"/"Artwork" nav links: **the entry point is
+   `_ensure_role_pages`'s thin-branch blueprint append at PLAN stage**, which has none of the
+   serve-aware resolution the route gap-fill got. Cost: wasted slot_fill calls (GalleryPage
+   rejections on 124/125), dead nav labels, and run 111's failed ship. Next session's fix is
+   scoped in the roadmap callout.
+
+### What I got wrong in session 19
+
+- **The first face-vocabulary sweep printed "caught" on a mutation that an infrastructure
+  error had failed** (`No module named 'imp'` — a container pip flake). Re-run by hand, the
+  mutation SURVIVED: my test asserted component names that also live in the embedded scaffold
+  source, so gutting the block changed nothing the test read. Assertion moved to the block's
+  own joined line; full sweep re-run clean. A sweep's red must be red for the filed reason.
+- **I burned three duo attempts (116-121) before checking telemetry for WHY specs were
+  rejecting.** The finish_reason=error rows were visible after the first failure; reading them
+  then would have saved two launches (~$0.12). Check the telemetry of a surprising failure
+  before repeating it.
+- The suite count in session 18's handoff was stale by one (1,894 pass at HEAD, not 1,893) —
+  noted so the next session doesn't chase it.
+
+### Spend and credits
+
+**$1.62 telemetry-attributed** (`ai_usage_events`, requests 116-128, 142 calls). Credits
+bracket: probe at session start `total_usage 349.9196`, at close `355.0122` of 360 —
+**$9.99 → $4.99 left on the key**. The ~$3.47 of key-level delta beyond BMV telemetry is the
+shared key's other project plus non-attributed overhead — per the standing rule, tracked, not
+alarmed on.
+
+The if-budget-remains item (3 new-brief acceptance runs) was deliberately NOT run: item 5 is
+unfinished, and on a day with 4 quality-rejects on calibrated briefs plus an active transport
+storm, new-brief acceptance numbers would measure the provider's weather as much as the
+pipeline.
+
+### State of the repo (session 19 close)
+
+- **main is `d5cdcd3` → `8198cdb` → `fefaf4f` → docs on top of `48ddc90` — pushed.** Four
+  commits: the appspec provider-error gate, the listing-face vocabulary fix, the
+  planning-writer routing, docs+evidence.
+- **Suite: 1,907 passed / 1 skipped / 0 failed** (documented command). Three new mutation
+  drivers, all 0-survivor: `mutate_appspec_provider_error.py` (5), `mutate_slotfill_face_vocabulary.py`
+  (5), `mutate_planning_writer_models.py` (3). Vitest untouched (no JS/TS changed).
+- **Credits: ~$4.99 left** (`total_usage 355.012` of 360). Session 19 spent **$1.62
+  telemetry-attributed** (116-128, 142 calls). Key is SHARED — bracket, don't alarm.
+- **Running config, verified from the process at close:** TEXT=gemini-3-flash-preview,
+  FIX=glm-5.2:nitro, **QUALITY_FIX=glm-5.2:nitro (adopted this session)**,
+  PREVIEW_APP=deepseek-v4-pro, ARCHITECT/CRITIC=haiku-4.5, APPSPEC on + gemini-2.5-flash ×3.
+
+### The next step (ordered)
+
+1. **Read the next healthy run's log for item 4's free observables**: `design_manifest` must
+   SUCCEED (it failed 100% on haiku) and planning serial must stay ~22 s. No dedicated run
+   needed — any run past appspec answers it.
+2. **Item 5, scoped and evidence-backed**: `_ensure_role_pages`'s thin-branch appends the
+   `_storefront_pages()` blueprint (gallery + ArtworkDetail literals) into thin roles at PLAN
+   stage with no serve-aware resolution — proven by 124's `experience_plan.roles[1].pages`.
+   Make it resolve menu/catalogue like the scaffold's `force_catalog_browse` leaf rule; fix
+   AboutPage's plan-page public-detail in the same neighborhood; `gallery_gapfill_census.py`
+   before/after (47 stored kind_contexts must not regress); mutation-pin; one duo.
+3. **Transport re-ask for the appspec repair paths** (the gate's residual): repair/coverage/
+   schema_repair asks classify honestly but a single errored call still kills the run (123, and
+   the class will recur). Same retry shape as authoring.
+4. **The appspec authoring prompt/schema hardening** — 4 quality-rejects in two days
+   (state_id assertions, missing references, empty tuples). Each reject stores its exact
+   validator errors in `app_spec_revisions.deterministic_validation_json`; mine them, teach
+   the prompt the three recurring shapes, judge on accepts.
+5. **The widened acceptance baseline** (the deferred if-budget-remains item) — after 3-4, on a
+   day the provider is healthy: three enforced runs on NEW briefs, industries set, count accepts.
 
 ---
 
@@ -541,6 +681,65 @@ Both writers deleted from `sync_mock_roles_navigation`; 2 mutations, 0 survivors
 ---
 
 ## Next session's prompt, ready to paste
+
+```
+Read HANDOFF.md first — "Session 19, in one page", its tally table, and "The next step".
+Then the roadmap's session-19 callout. Don't re-derive any of it.
+
+main is PUSHED through session 19's four commits. Suite 1,907 / 1 / 0. The key is SHARED —
+track BMV spend from ai_usage_events, bracket with the credits probe, never alarm on idle
+deltas. ~$4.99 left on the key. Running config verified at close: TEXT gemini-3-flash-preview,
+FIX + QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro, ARCHITECT/CRITIC haiku-4.5,
+APPSPEC on + gemini-2.5-flash. My budget this session: $[N]. 10-minute cap per generation,
+monitored, always. We work LOCALLY — prod files only change when I say so.
+
+STANDING TALLY: count appspec accepts vs rejects for every run, and CLASSIFY each reject
+from telemetry before repeating a launch (session 19's rule: finish_reason=error + 0 tokens
+= transport, not spec quality). Cross-session record on the duo3 briefs: 5 accepts /
+4 quality-rejects.
+
+Work in order:
+
+1. FIRST HEALTHY RUN reads item 4's free observables: design_manifest SUCCEEDS in the log
+   (was 0-for-all on haiku; now asks TEXT_MODEL) and planning serial ~22 s. If the provider
+   is still cutting streams (session 19: error-cut authoring at 1k-34k chars), don't fight
+   it — the gate now fails those honestly; do offline work and retry later.
+
+2. The gallery residual, now precisely located at PLAN stage: _ensure_role_pages's
+   thin-branch appends _storefront_pages() (gallery + ArtworkDetail literals) into any
+   thin role with no serve-aware check — proven by 124's experience_plan.roles[1].pages
+   ("Gallery"/"Artwork" nav links, gallery_detail page) while the ROUTE table stayed clean
+   (bbe6359 holds). Make the plan-stage seeding resolve menu/catalogue the way the
+   scaffold's force_catalog_browse leaf rule does; fix AboutPage's plan-page public-detail
+   half in the same neighborhood; wrap-measure with gallery_gapfill_census.py (47 stored
+   kind_contexts must not regress); mutation-pin; ONE duo: restaurant ships no gallery
+   PLAN PAGES and no Gallery/Artwork nav labels, hotel unchanged.
+
+3. Transport re-ask for appspec repair/coverage/schema_repair calls — the gate's residual:
+   they classify honestly now but one errored call still kills the run (123, 128). Same
+   bounded re-ask shape as build_app_spec_candidate. Mutation-pin.
+
+4. Appspec authoring prompt/schema hardening: mine app_spec_revisions'
+   deterministic_validation_json for the recurring reject shapes (state assertions missing
+   state_id; evidence references cited but never declared; initial-state cardinality —
+   gemini-3's 114 failure is the same family). Teach the prompt those three shapes.
+   Offline-provable half first; judge on accepts over the next runs.
+
+5. IF the provider is healthy and budget remains: three enforced runs on NEW briefs
+   (different industries, industry field always set) to widen the acceptance baseline.
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory backup,
+one sweep at a time (and a sweep's red must be red for the FILED reason — session 19 caught
+an infrastructure-red masking a real survivor); suite via docker run WITH its pip install
+half; recreate never restart; config from the running process; archive logs the moment each
+run finishes; no code edits while a generation is in flight; absolute paths; 10-minute cap.
+
+BEFORE YOU FINISH: .env verified from the running process; HANDOFF/roadmap/MODEL_RESEARCH
+updated with real numbers including the accept/reject tally; push; next prompt written;
+tell me plainly what each run cost, what landed, and what's left.
+```
+
+## Session 18's prompt (historical — superseded above)
 
 ```
 Read HANDOFF.md first — "Session 18, in one page" and "The next step" (note the post-close

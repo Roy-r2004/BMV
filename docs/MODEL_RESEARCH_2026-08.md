@@ -287,3 +287,49 @@ time: `anthropic/claude-haiku-4.5` (the architect's structured-JSON discipline i
 skill; MODEL_RESEARCH's original note said a spec slot is worth paying for), or gemini-3-flash
 again after a prompt/schema adjustment for the initial-state cardinality it tripped on. Either
 way: one duo, judged on accepts first.
+
+## Session-19 results (2026-08-07, same day)
+
+### The provider had a bad day, and it found a pipeline defect worth more than the day cost
+
+gemini-2.5-flash returned **error-cut streams on the big appspec asks**: HTTP 200,
+`finish_reason=error`, 0 input/output tokens, 1k-34.6k chars of partial body (7+ such calls
+across requests 117-123; small and 9k-token probes passed throughout — the failure is
+ask-size-shaped). The authoring parser's fragment strategies (balanced scan, repair) found
+small complete objects inside the cuts, returned them `ok=True`, and the pipeline minted
+revisions off them and failed four funded requests (118-121) as spec rejections — request
+118's "candidate" was **973 chars extracted from a 15,939-char cut**. This is session 16's
+"transport failure adjudicated as a model answer" finding, alive in the appspec path.
+
+**Fixed (parser gate + provider re-ask)**: on `finish_reason=error` only a complete direct
+parse may pass; every fragment strategy fails as `app_spec_authoring_json_truncated`
+(retryable), so `build_app_spec_candidate` re-asks the provider. 4 tests, 5 mutations /
+0 survivors (`mutate_appspec_provider_error.py`). **Live-proven the same hour: run 122's
+authoring attempt 1 errored, the gate re-asked, and attempt 2's spec was ACCEPTED on
+revision 1 → the run shipped `ready` at 554 s.** Residual gap, filed: the repair/coverage/
+schema_repair asks classify honestly now but have no per-call transport re-ask — run 123
+died when its schema_repair call errored.
+
+### Appspec acceptance on gemini-2.5-flash is variable, and n=2 was optimistic
+
+Same model, same briefs as the 109/110 head-to-head (2/2 rev-1 accepts): this session's
+transport-clean rejects are REAL spec-quality variance — 116 (state_assertion_state_required
+×2 across authoring + 3 repairs, all real outputs), 123 (missing_required_field + empty-tuple
+page shape across 5 revisions), 126 (call_budget_exhausted on 6 real outputs), 127
+(missing_reference: an evidence id the spec cites but never declares). With the transport
+class removed, the enforced acceptance record on these briefs is **5 accepts
+(109/110/122/124/125) vs 4 quality-rejects (116/123/126/127) across sessions 18-19** — and
+the session-19 accepts all landed on revision 1 while the rejects burned full repair chains.
+A rejected spec fails the request honestly — the designed behavior, but at ~45% quality-reject
+the appspec authoring prompt/schema is the next thing to harden, and the October migration duo
+should judge candidates on accepts over MORE than two runs.
+
+### Experiment 5 — QUALITY_FIX_MODEL: z-ai/glm-5.2:nitro → **ADOPTED**
+
+Same routing arithmetic as FIX_MODEL (StreamLake 57-66 t/s at real repair sizes vs
+nitro 178-185 t/s), plus run 112's direct evidence: base-glm `quality_repair primary`
+failed `length/truncated` at 85 s + $0.037 while the same run's nitro `fix_agent` call
+succeeded. The confirmation duo could not observe the stage live — run 122 shipped with a
+clean quality gate, so `quality_repair` never fired; runs 116-121/123 died at appspec. No
+counter-evidence, the arithmetic stands, one reversible line: **adopted, live in `.env` and
+verified from the running process.**

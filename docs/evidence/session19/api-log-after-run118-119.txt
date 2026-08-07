@@ -1,0 +1,165 @@
+Starting BuildMyVersion API on port 8000...
+INFO  | bmv.Startup | 2026-08-07 06:55:41.225 | Startup:190 | schema_ready db=postgresql://db/buildmyversion elapsed_ms=67 versions={'phase7a': 'phase7a.1', 'phase7b': 'phase7b.1', 'phase7c': 'phase7c.1', 'phase7d': 'phase7d.1', 'phase7e': 'phase7e.1', 'phase7f': 'phase7f.2', 'commercial': 'commercial.1'}
+INFO  | bmv.AdminBootstrap | 2026-08-07 06:55:41.264 | AdminBootstrap:58 | Updated bootstrap admin user roy.rizkallah@hotmail.com (is_admin/password sync)
+INFO  | bmv.Boot | 2026-08-07 06:55:41.264 | Boot:122 | SEED_DEMO=false — skipping PlateSync demo seed
+INFO  | bmv.Boot | 2026-08-07 06:55:41.264 | Boot:131 | PREVIEW_TEMPLATE_DIR=/app/backend/preview-template exists=True
+INFO  | bmv.Boot | 2026-08-07 06:55:41.264 | Boot:142 | AI_PROVIDER=openrouter LOG_LEVEL=debug
+INFO  | bmv.Boot | 2026-08-07 06:55:41.310 | Boot:163 | node=v22.14.0 npm=10.9.2
+INFO  | bmv.Boot | 2026-08-07 06:55:41.310 | Boot:164 | INTERNAL_BASE_URL=http://127.0.0.1:8000
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     172.217.119.4:50147 - "GET /api/health HTTP/1.1" 200 OK
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 34049
+DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+INFO  | bmv.RequestPipeline | 2026-08-07 06:57:49.043 | RequestPipeline:63 | Starting background pipeline for request 116
+INFO  | bmv.Deadline | 2026-08-07 06:57:49.044 | Deadline:328 | request 116 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.217.119.4:29798 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 06:57:49.054 | GenerationPipeline:83 | Starting full generation pipeline for request 116 (Osteria Vinci)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 06:57:49.055 | GenerationPipeline:41 | ▶ generation-pipeline request=116 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 06:58:10.743 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 116 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 06:58:30.779 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+INFO  | bmv.RequestPipeline | 2026-08-07 06:58:49.088 | RequestPipeline:63 | Starting background pipeline for request 117
+INFO  | bmv.Deadline | 2026-08-07 06:58:49.089 | Deadline:328 | request 117 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.217.119.4:29505 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 06:58:49.101 | GenerationPipeline:83 | Starting full generation pipeline for request 117 (Cedar Point Lodge)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 06:58:49.101 | GenerationPipeline:41 | ▶ generation-pipeline request=117 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 06:59:03.075 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 117 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 06:59:09.839 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | bmv.AIRetry | 2026-08-07 06:59:23.091 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 06:59:39.817 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 06:59:43.093 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 07:00:03.096 | AIRetry:229 | still waiting on google/gemini-2.5-flash (60s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 07:00:13.828 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+ERROR | bmv.RequestPipeline | 2026-08-07 07:00:25.451 | RequestPipeline:70 | Background pipeline FAILED request 116: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (state_assertion_state_required: A state assertion requires state_id.; state_assertion_state_required: A state assertion requires state_id.)
+ERROR | bmv.RequestPipeline | 2026-08-07 07:00:25.451 | RequestPipeline:71 | Pipeline traceback for request 116
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1490, in ensure_approved_app_spec
+    return _fallback("deterministic_validation_failed")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (state_assertion_state_required: A state assertion requires state_id.; state_assertion_state_required: A state assertion requires state_id.)
+DEBUG | bmv.AIRetry | 2026-08-07 07:00:30.470 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+DEBUG | bmv.AIRetry | 2026-08-07 07:00:50.471 | AIRetry:229 | still waiting on google/gemini-2.5-flash (40s elapsed)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:01:11.802 | AppSpecGeneration:1208 | AppSpec pre-parse normalization for request 117: default_optional_empty:assumptions, default_optional_empty:open_questions, default_optional_empty:journeys, default_optional_empty:entities, default_schema_version
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:01:11.810 | AppSpecGeneration:1228 | AppSpec deterministic heal #1 for request 117: strip_extra:description, strip_extra:evidence_id, strip_extra:expected, strip_extra:kind, strip_extra:page_id, strip_extra:state_id
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+ERROR | bmv.RequestPipeline | 2026-08-07 07:01:19.356 | RequestPipeline:70 | Background pipeline FAILED request 117: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (app_spec_schema_parse_failed: Candidate did not validate against the AppSpec schema.; invalid_page_shape: Tuple should have at least 1 item after validation, not 0)
+ERROR | bmv.RequestPipeline | 2026-08-07 07:01:19.356 | RequestPipeline:71 | Pipeline traceback for request 117
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1441, in ensure_approved_app_spec
+    return _fallback("deterministic_validation_failed")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (app_spec_schema_parse_failed: Candidate did not validate against the AppSpec schema.; invalid_page_shape: Tuple should have at least 1 item after validation, not 0)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): www.pizzeriabianco.com:443
+DEBUG | urllib3.connectionpool | https://www.pizzeriabianco.com:443 "GET / HTTP/1.1" 200 34049
+DEBUG | charset_normalizer | Encoding detection: utf_8 is most likely the one.
+INFO  | bmv.RequestPipeline | 2026-08-07 07:03:42.589 | RequestPipeline:63 | Starting background pipeline for request 118
+INFO  | bmv.Deadline | 2026-08-07 07:03:42.589 | Deadline:328 | request 118 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.217.119.4:64477 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 07:03:42.592 | GenerationPipeline:83 | Starting full generation pipeline for request 118 (Osteria Vinci)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 07:03:42.592 | GenerationPipeline:41 | ▶ generation-pipeline request=118 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:04:08.438 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 118 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+DEBUG | bmv.AIRetry | 2026-08-07 07:04:28.455 | AIRetry:229 | still waiting on google/gemini-2.5-flash (20s elapsed)
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:04:36.717 | AppSpecGeneration:1208 | AppSpec pre-parse normalization for request 118: default_optional_empty:assumptions, default_optional_empty:open_questions, default_optional_empty:journeys, default_optional_empty:entities, default_schema_version
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:04:36.724 | AppSpecGeneration:1228 | AppSpec deterministic heal #1 for request 118: strip_extra:name, strip_extra:summary, strip_extra:problem, strip_extra:desired_outcome, strip_extra:target_users, strip_extra:success_metrics
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+ERROR | bmv.RequestPipeline | 2026-08-07 07:04:41.711 | RequestPipeline:70 | Background pipeline FAILED request 118: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (app_spec_schema_parse_failed: Candidate did not validate against the AppSpec schema.; invalid_page_shape: Tuple should have at least 1 item after validation, not 0)
+ERROR | bmv.RequestPipeline | 2026-08-07 07:04:41.711 | RequestPipeline:71 | Pipeline traceback for request 118
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1441, in ensure_approved_app_spec
+    return _fallback("deterministic_validation_failed")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (app_spec_schema_parse_failed: Candidate did not validate against the AppSpec schema.; invalid_page_shape: Tuple should have at least 1 item after validation, not 0)
+INFO  | bmv.RequestPipeline | 2026-08-07 07:04:42.639 | RequestPipeline:63 | Starting background pipeline for request 119
+INFO  | bmv.Deadline | 2026-08-07 07:04:42.639 | Deadline:328 | request 119 deadline armed: 540s (+60s reserved for post-deadline work)
+INFO:     172.217.119.4:34448 - "POST /api/requests HTTP/1.1" 200 OK
+INFO  | bmv.GenerationPipeline | 2026-08-07 07:04:42.642 | GenerationPipeline:83 | Starting full generation pipeline for request 119 (Cedar Point Lodge)
+DEBUG | bmv.GenerationPipeline | 2026-08-07 07:04:42.642 | GenerationPipeline:41 | ▶ generation-pipeline request=119 started
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:04:56.492 | AppSpecGeneration:775 | Ensuring approved AppSpec for request 119 (force_new=False)
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:05:03.334 | AppSpecGeneration:1208 | AppSpec pre-parse normalization for request 119: default_optional_empty:assumptions, default_optional_empty:open_questions, default_optional_empty:journeys, default_optional_empty:entities, default_schema_version
+INFO  | bmv.AppSpecGeneration | 2026-08-07 07:05:03.341 | AppSpecGeneration:1228 | AppSpec deterministic heal #1 for request 119: strip_extra:name, strip_extra:summary, strip_extra:problem, strip_extra:desired_outcome, strip_extra:target_users
+DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): openrouter.ai:443
+DEBUG | urllib3.connectionpool | https://openrouter.ai:443 "POST /api/v1/chat/completions HTTP/1.1" 200 None
+ERROR | bmv.RequestPipeline | 2026-08-07 07:05:13.293 | RequestPipeline:70 | Background pipeline FAILED request 119: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (app_spec_schema_parse_failed: Candidate did not validate against the AppSpec schema.; invalid_page_shape: Tuple should have at least 1 item after validation, not 0)
+ERROR | bmv.RequestPipeline | 2026-08-07 07:05:13.293 | RequestPipeline:71 | Pipeline traceback for request 119
+Traceback (most recent call last):
+  File "/app/backend/app/api/v1/routers/requests.py", line 64, in _run_pipeline_in_background
+    GenerationPipeline(get_ai_provider(), get_template_renderer()).run(bg_db, request_id)
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 67, in run
+    return self._run_inner(db, request_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/pipelines/orchestrator.py", line 133, in _run_inner
+    approved_app_spec = ensure_approved_app_spec(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 1441, in ensure_approved_app_spec
+    return _fallback("deterministic_validation_failed")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/app/application/appspec/generation.py", line 985, in _fallback
+    raise AppSpecGenerationError(
+app.application.appspec.generation.AppSpecGenerationError: AppSpec failed (deterministic_validation_failed) and fallback is disabled. (app_spec_schema_parse_failed: Candidate did not validate against the AppSpec schema.; invalid_page_shape: Tuple should have at least 1 item after validation, not 0)
