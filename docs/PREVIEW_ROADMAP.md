@@ -427,6 +427,19 @@ inventory TAKEN (all below). Suite 2,064 / 1 / 0 (+6: the five 3.2 map-consisten
 plus the collection guard's auto case for the new test file — verified by a collected-id
 diff against c5249dc, not assumed). Spend: $0.
 
+**Session-24-parallel statuses (same night, a concurrent second lane; disjoint files by
+agreement — no roadmap/HANDOFF edits until session 25 landed, no retry-site code, no
+`.github`, no template files):** Phase 0: **0.2 and 0.4 ANSWERED** (numbers in their rows —
+0.4 was the last open 2.6 gate; both gates now point the same way), the "also land here"
+residue **all four verified closed with no code** (note under the table). **0.8 IMPLEMENTED
+on held branch `session24b/content-density`** (`89e7687`, 10 tests, 9 mutations / 0
+survivors; merge gate: full suite on a quiet tree). New standing fact from 0.2: the scaffold
+marker literal survives slot-fill on 43.6 % of shipped pages and finalize's substantive
+predicate accepts them — the literal is a dead signal today, retire every literal-marker
+reading. Evidence: `docs/evidence/session24-parallel/` + `visual-critique-reports.tar.gz`
+(the 41 stored critique reports rescued from the api volume; no run after 122 has one).
+Spend: $0.
+
 ### R2 — the retry-site audit (session 25, 2026-08-07; offline, READ-ONLY; every model-retry loop in backend/app, exhaustively — AST sweep for asks inside loops + full ask-call census + call-graph tracing, live model config read from the running container)
 
 **50 rows: 26 DIFFERENT-ASK, 6 TRANSPORT-EXEMPT, 6 VERBATIM (FILED), 12 NO-RETRY.** Full
@@ -1827,19 +1840,28 @@ discard rate is a second, independent argument for it (see 2.4-2.5).
 | # | Question | Why it changes the plan |
 |---|---|---|
 | 0.1 | ~~**Re-test the pack thesis.** Replay 60 days of real `industry` strings through `pick_template_id`; report hit / miss / wrong-family~~ **ANSWERED (session 25) — the thesis HOLDS: 116 stored rows (12 distinct values, honestly small), HIT 93 (80 %) / MISS 19 (16 %) / WRONG-FAMILY 4 (3 %), zero foreign-industry identities.** Every MISS is one mechanism: `hotel` (5 chars) fails `_MIN_DISTINCTIVE_TOKEN_LEN = 6` at `loader.py:125-129`, so 19 of 25 hotel rows — the #3 industry — shipped with NO pack; the 6 that hit did so only because prose added a second hospitality token. All 4 WRONG-FAMILY are the industry-neutral owner-kpi-dashboard (industry-silent, not industry-wrong). **1.8 is ungated**; the actionable defect is the length gate on DECLARED tokens — owner ruling FILED (the gate is also the pottery→fitness fix; exempting declared exact-tag tokens needs a re-measured counterfactual, not an assumption). `scripts/measure/industry_replay_census.py`, evidence session25 | Request 70 showed the pack matched even with an empty industry. **Sizes or cancels 1.8** |
-| 0.2 | `P(refine fires)` per run; does a slot-filled page keep the scaffold marker? | Sets two ledger rows |
+| 0.2 | ~~`P(refine fires)` per run; does a slot-filled page keep the scaffold marker?~~ **ANSWERED (session 24-parallel): refine fires on 74.2 % of judged critic runs** (23 of 31 stored critique reports with a non-empty `refined`; by telemetry 23 of 74 scoped-era runs, 31.1 %, 136 `refine` calls — the scope exists only from request 72). **And a slot-filled page KEEPS the marker, wholesale: 275 of 631 pages (43.6 %) across the 87-run union corpus carry the literal**; 195 of them were reported NOT fallback — every one routed, inspected and ACCEPTED by finalize's `_scaffold_page_is_acceptable`, 0 unrouted stragglers, 0 ghost reports. So `fallback_pages` is coherent under its own substantive predicate, and the LITERAL marker is a dead signal **today** — retire every literal-marker reading (`files_with_scaffold_marker` reads noise). `scripts/measure/refine_scaffold_census.py` (`--check` red-exits, proven red under tamper), evidence session24-parallel | Sets two ledger rows |
 | 0.3 | ~~Fraction of gate blocking issues that are content-shaped vs layout-shaped~~ **ANSWERED — see below** | Gated 2.6, and the answer **reverses** the branch the plan had provisionally chosen |
-| 0.4 | Are visual `revision_instructions` expressible as content-key edits? | **Gates 2.6** with 0.3 |
+| 0.4 | ~~Are visual `revision_instructions` expressible as content-key edits?~~ **ANSWERED (session 24-parallel): mostly yes — 48.9 % of the critic's asks are content-key expressible by a floor rubric whose ties break structural (49.6 % among blocking-severity asks), and the 58-atom hand audit (79 % agreement, archived per-atom) errs 10-to-2 toward MORE content, putting the true share ~60 %; 68.6 % / 73.6 % severe under Phase 2's pages-as-data reading.** Corpus: the 41 stored critique reports (37-122), 752 asks — the raw `revision_instructions` field is never persisted; the findings carry the same asks item-by-item, capped 6/page; no run after 122 has a report (the critic never ran on 129-145, the R5 starvation fact). The structural remainder no content edit fixes: missing sections 123, styling/layout 97, wrong-page identity 34, slot-contract 25, rendering 19. **Consequence for 2.6, same direction as 0.3: build the spec-level content actor, keep the BLOCK for the structural third.** `scripts/measure/revision_instruction_census.py` (`--check` red-exits, proven red under tamper), evidence + corpus tarball session24-parallel / `visual-critique-reports.tar.gz` | **Gates 2.6** with 0.3 |
 | 0.5 | ~~Real `product_kind` distribution (60 days) — `plan_phase.py:119-124` already logs it~~ **ANSWERED (session 25): overwhelmingly PUBLIC — merged dedup n=68: public 63 (92.6 %) / ops 5 (7.4 %) by stored decisions (64/4 by today's classifier; 44-of-45 overlap agreement, 1 drift).** storefront 56, booking_service 6, internal_ops 3, saas_workspace 1 (requests corpus, n=66 with a stored kind); 6 of the 9 ops skeletons have NEVER been exercised. **Phase 3 spends on the 6 public-reachable skeletons first.** `scripts/measure/product_kind_census.py`, evidence session25 | Decides whether Phase 3 spends on the 6 public or 9 ops skeletons |
 | 0.6 | Per-call latency distribution + the call census | p95 must be **derived by convolution**, not by scaling a mean. Today p95/p50 = 2.4×. **Advanced (session 25):** per-call p50/p95 = 16.5 / 117 s (ratio 7.1; 4.5 excluding the 64 zero-ms instant-refusal rows) over 234 windowed ask rows; per-stage + convolved pipeline table in `latency-convolution.*` (session25). Per-model fit still open |
 | 0.7 | Test classification: **388 of 1,012** tests sit on TSX-source machinery | ~3× the original budget; goes straight into P2 staffing |
-| 0.8 | Spec-level content-density metric, logged in parallel on the current architecture | The `fallback_pages` signal reads a literal marker; after the flip it reads 0 forever or 12 forever. Both are silent |
+| 0.8 | Spec-level content-density metric, logged in parallel on the current architecture. **IMPLEMENTED on held branch `session24b/content-density` (`89e7687`), pending merge behind a full suite on a quiet tree:** `content_density.py` measures prose chars per routed page with the archived DoD-2 census's exact predicate (drift-pinned against `content_census.py` by test), stored beside `fallback_pages`; a failed measurement is `status: unmeasured` with the reason, never an absent key. 10 tests, 9 mutations / 0 survivors first pass. The DoD-2 numbers (mean 859 / median 529, 12 % ≥ 200) are its "before" by construction | The `fallback_pages` signal reads a literal marker; after the flip it reads 0 forever or 12 forever. Both are silent — **and the premise is now measured, not predicted: 0.2 found the literal already dead today (43.6 % of pages carry it, accepted)** |
 | 0.9 | ~~Are the 3 script-style test files (2,061 lines, not pytest-collected) run by CI?~~ **ANSWERED (session 25): the residue is ZERO — the row was already closed by `115375f` and nobody marked it.** The trio (`test_catalogue_contract.py` 1,782 + `test_safe_stub_braces.py` 152 + `test_phase5_ui_alias_imports.py` 127 = 2,061 at audit commit `614c086`, the unique 3-subset summing to 2,061) is a subset of the eight files that commit converted; today they collect 51 tests, 51/51 pass in 4.74 s, and 6 mutation-driver files reference them as pytest targets. Nothing to convert, nothing needing a why-not. `scripts/measure/script_style_tests_census.py`, evidence session25 | Assertions that may never run |
 
 **Also land here:** fix `ai_usage_events.request_id` NULLs (39 of 58 rows in run 67, so per-request
 queries undercount by ~⅔); make `success` mean *usable output*, not HTTP 200; add duration logs at
 `typecheck.py:494-499` and around `build.py:83`; clean the leaked `mkdtemp(prefix="bmv-dist-")`
 backups (`build_phase.py:134`, cleaned only at `:289-291`, outside the try).
+
+**All four verified closed (session 24-parallel), no code needed:** request_id NULLs are dead on
+the current pipeline — 0 NULLs across 1,009 rows on Aug 4/6/7 (the 3 post-Aug-1 stragglers are
+requestless `stage='pipeline'` rows; the 853 historical NULLs, Jul 27–Aug 1, stand as an
+undercount caveat for any census over pre-scoping rows). `success` semantics are superseded by
+`usable`/`unusable_reason` (164 rows with `success=t, usable=f` are exactly the HTTP-200-unusable
+class this line wanted distinguishable). Duration logs exist (`typecheck.py` stores `duration_ms`,
+`build.py` logs attach/build seconds). The mkdtemp backup is cleaned in the `finally`
+(`build_phase.py:290-296`).
 
 ### 0.3 answered — the repair edits content, not layout
 
@@ -2384,7 +2406,12 @@ discard rate as much as the call count.** `slot_fill` paid for and threw away **
 i.e. the TSX violating its own skeleton contract. A writer that emits data against a schema makes
 that rejection class unrepresentable, and the retry/scaffold machinery it feeds goes with it.
 
-**2.6 Delete, in dependency order (3 days) — gated on 0.3 and 0.4.**
+**2.6 Delete, in dependency order (3 days) — gated on 0.3 and 0.4. BOTH GATES ANSWERED, same
+direction (0.3 session 10; 0.4 session 24-parallel): the critic's asks are majority
+content-shaped (~60 % audit-implied; 68.6 % under pages-as-data), so the spec-level actor
+(visual finding → content-key edit) is what both measurements support — and the ~⅓ structural
+remainder (missing sections, wrong-page identity, styling) is exactly what the BLOCK keeps
+catching, so the BLOCK stays.**
 
 **The hard gate:** `visual_critic.py:1288` raises `visual_defect_severe` at BLOCK, and **the only
 path that clears it** is the AI repair touching the file → verdict retired → gate passes. A

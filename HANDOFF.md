@@ -74,6 +74,45 @@ length-gate ruling, the 3.7 gate-placement ruling, the DoD 6 p95 scoring ruling.
 
 ---
 
+## Session 24-parallel (same night, the concurrent second lane — 0.2, 0.4, the residue, and 0.8 held)
+
+**Spend $0** (no model calls; DB reads and archives only). Ran beside session 25 in the
+same checkout under an explicit non-conflict agreement: disjoint files only, no
+roadmap/HANDOFF edits until session 25 landed (this page and the ANSWERED rows were folded
+in after its close-out, from `docs/evidence/session24-parallel/ROADMAP_DELTAS.md`), no
+retry-site code, no `.github`, no template files, surgical pathspec-only commits, own git
+worktree for the one code change.
+
+- **0.4 ANSWERED** — the last open 2.6 gate. 48.9 % of the critic's asks content-key
+  expressible by a floor rubric (49.6 % severe); the 58-atom hand audit errs 10-to-2
+  toward MORE content → ~60 % true share; 68.6 % under pages-as-data. Both 2.6 gates now
+  point the same way: spec-level content actor, BLOCK stays for the structural third.
+  Corpus caveat stated in the row: `revision_instructions` is never persisted — the 41
+  stored critique reports (37-122) carry the asks, capped 6/page; **no run after 122 has
+  a report** (the critic never ran on 129-145 — pairs directly with the parked R5 tail
+  ruling).
+- **0.2 ANSWERED** — refine fires on 74.2 % of judged critic runs (31.1 % of scoped-era
+  runs). And the marker half found the bigger fact: **the scaffold literal survives
+  slot-fill on 275 of 631 pages (43.6 %); 195 of them routed, inspected and ACCEPTED by
+  finalize's substantive predicate; 0 ghosts.** `fallback_pages` is honest; the LITERAL
+  is dead today — retire every literal-marker reading.
+- **Phase 0's "also land here" residue: all four verified closed, no code** (0 request_id
+  NULLs across the current era's 1,009 rows; `usable` supersedes `success`; duration logs
+  present; mkdtemp cleaned). Numbers under the Phase 0 table.
+- **0.8 IMPLEMENTED, HELD on `session24b/content-density`** (`89e7687`): prose chars per
+  routed page with the DoD-2 census's exact predicate, drift-pinned against the census
+  script by test; stored beside `fallback_pages`; failure = recorded `unmeasured`, never
+  an absent key. 10 tests, **9 mutations / 0 survivors first pass**
+  (`scripts/cli/mutate_content_density.py`). **Merge gate: full suite via docker run on a
+  quiet tree** — the branch is pushed and unmerged on purpose.
+
+Tools: `revision_instruction_census.py`, `refine_scaffold_census.py` — both `--check`
+red-exit against their archived JSON, proven red under tamper. Evidence:
+`docs/evidence/session24-parallel/` + `docs/evidence/visual-critique-reports.tar.gz` (the
+41 reports rescued from the api volume before the next cleanup could take them).
+
+---
+
 ## Session 23 post-close addendum 2 (same night — the owner ruled, the offline trio landed)
 
 **The owner ruled "land what you can land, no runs tonight" on the decision brief; three

@@ -1,4 +1,9 @@
-# Session 24-parallel — roadmap deltas, held for fold-in
+# Session 24-parallel — roadmap deltas — FOLDED IN (2026-08-08, after session 25 landed)
+
+> Status: every delta below is now in `PREVIEW_ROADMAP.md` (rows 0.2 / 0.4 / 0.8, the
+> "also land here" verification note, the session-24-parallel status block, 2.6's
+> gates-answered line) and `HANDOFF.md` (the session-24-parallel page). This file stays
+> as the provenance record. The 0.8 branch remains held pending its merge gate.
 
 A second session ran beside the session-24 offline block (which owned R2's
 retry-site audit, censuses 0.1/0.5/0.9, Phase 3's 3.7/3.2/3.5, DoD 9's CI half
