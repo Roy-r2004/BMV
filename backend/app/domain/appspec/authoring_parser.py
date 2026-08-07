@@ -271,6 +271,23 @@ def parse_appspec_authoring_output(
             extra={"finish_reason": finish_reason},
         )
 
+    # A stream the provider cut with an error is not the model's answer. Only
+    # the complete direct parse above may pass; every extraction strategy below
+    # exists to find a fragment, and a fragment of an error-cut body is a
+    # different document than the one the model was writing. Request 118: a
+    # 15,939-char partial stream (finish_reason=error, 0 output tokens) was
+    # "repaired" into a 973-char candidate, minted five revisions, and failed
+    # the request as a spec rejection. Truncated is the honest class — the
+    # authoring retry loop re-asks the provider instead of judging the cut.
+    if str(finish_reason or "").lower() == "error":
+        return _fail(
+            code=AUTHORING_JSON_TRUNCATED,
+            strategy="provider_error",
+            raw=text,
+            parser_error="provider_error_cut_stream",
+            extra={"finish_reason": finish_reason, "truncated": True},
+        )
+
     # 2) Explicit labelled JSON fence (or plain ``` fence)
     for match in _FENCE_RE.finditer(text):
         body = (match.group("body") or "").strip()
