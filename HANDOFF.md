@@ -4,6 +4,42 @@ Successor to session 22's handoff (below in this file). Process notes, not produ
 
 ---
 
+## Session 23 post-close addendum 2 (same night — the owner ruled, the offline trio landed)
+
+**The owner ruled "land what you can land, no runs tonight" on the decision brief; three
+of the five open rulings were offline-implementable and all three LANDED** (R5 and the
+freeform rung stay parked — both need a funded run beside them). Suite **2,058 / 1 / 0**
+(+26). Three sweeps, **4 + 6 + 5 mutations / 0 survivors** (the collapse and blueprint
+sweeps first-pass; R3's one survivor exposed a provably-dead gate clause, which was
+REMOVED rather than decorated with a theater mutation). R6's driver re-anchored to the
+new blueprint ladder and re-run 6/6.
+
+1. **R3 coercion (`6f9541f`)** — `repair_constant_binding_defects`: the inquire-CTA
+   href and the lifestyle image-pool rebind heal deterministically when they (plus the
+   two codes the same near-miss href derives) are the WHOLE blocking set, re-validated
+   clean or refused. Wired in the enforce chain — which is also the slot_fill judge's
+   predicate, so the discard AND the burned retries stop together. Strict set
+   untouched; the rebind is region-scoped (a legitimate `images.hero` outside an
+   imageSrc array survives). The freeform-loop integration was deliberately NOT landed
+   (the evidence's burned retries were slot_fill's; an extra seam would have been an
+   unpinned mutation surface).
+2. **The collapse guard (`67062ff`)** — `_repair_collapsed_spec` at ALL THREE AI-repair
+   sites (validation, coverage, schema): a repair output that empties `pages`/`states`
+   its parent populated is rejected — parent kept, fail closed,
+   `repair_collapsed_parent_spec`. Populated shrink is never a collapse. Test-fixture
+   lore worth keeping: an empty required trace beside an unambiguous canonical is
+   deterministically reconciled (smoke26) and never reaches the AI rung — the
+   schema-site fixture uses an invalid surface ENUM instead.
+3. **The blueprint transport ladder (`62b7dd6`)** — the survey's mandatory-naked-ask
+   row closed: classify (retryable raise / empty-cut = transport; refusal propagates;
+   a non-empty answer is NEVER re-asked — no quality judge, quality never falls back),
+   one bounded same-model re-ask, ONE ask on `BLUEPRINT_TRANSPORT_FALLBACK_MODEL`
+   (default haiku, cross-provider from TEXT_MODEL, R7 sibling warning added), then
+   fail closed as before. Attempts 1/2/3 under `writer=mvp_blueprint`.
+
+Spend this block: $0. Still needing the owner: the key top-up, R5's run-beside
+implementation, the freeform rung (both queued for the first funded session).
+
 ## Session 23 post-close addendum (same day, offline block — the key stayed dry)
 
 **R1's row CLOSED except live reads (`dde5460`): coverage_review got its rung** —

@@ -393,6 +393,18 @@ The two FILED rows are the R1 backlog's remainder; both need an owner look (free
 wants a run beside it; blueprint is a small bounded-retry + rung change provable
 offline).
 
+**Session-24 ruled block (same night):** the owner ruled on the decision brief —
+"land what you can, no runs tonight." LANDED offline, each mutation-swept 0-survivor:
+**blueprint's ladder** (`62b7dd6` — the mandatory-naked-ask row above is CLOSED;
+`BLUEPRINT_TRANSPORT_FALLBACK_MODEL` default haiku, R7 sibling warning, attempts 1/2/3
+under `writer=mvp_blueprint`); **R3's coercion** (`6f9541f` — the inquire-CTA and
+image-pool codes now heal deterministically via `repair_constant_binding_defects` in
+the enforce chain, which is also the slot_fill judge's predicate; strict set untouched,
+R3's audit finding closed); **the collapse guard** (`67062ff` — `_repair_collapsed_spec`
+at all three AI-repair sites, `repair_collapsed_parent_spec`, 143's fragment class can
+no longer spiral). Still parked on funded runs: R5's `TAIL_RESERVE_SECONDS` and the
+`freeform` rung. Suite 2,058 / 1 / 0.
+
 ### R3 — the classification audit (session 23, 2026-08-07; offline, NO code; stored evidence = `ai_usage_events` + deduplicated rejection lines across `docs/evidence/session18-23`)
 
 Evidence base: slot_fill `rejected` rows = 43 (request_id >= 100; 113 all-time);
