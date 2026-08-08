@@ -391,9 +391,55 @@ def internal_href_prefixes(source: str) -> list[str]:
     return [match.group("base") for match in _TEMPLATE_BASE_RE.finditer(source or "")]
 
 
-#: One interpolated segment, normalised to a route param so a template link can
-#: be matched against the route table by the same rule as a literal one.
-_INTERPOLATION_RE = re.compile(r"\$\{[^}]*\}")
+#: Stands in for one whole `${…}` group while a template link is split into
+#: segments. A control character, so it can never collide with source text.
+_INTERPOLATION_MARK = "\x00"
+
+
+def _mask_interpolations(raw: str) -> str:
+    """Replace every balanced ``${…}`` group with a single `_INTERPOLATION_MARK`.
+
+    Splitting the raw href on "/" *before* masking is what requests 146 and 148
+    died on. An interpolation is arbitrary JavaScript and may contain slashes of
+    its own — a regex literal is the common case::
+
+        `/gallery/${item.title.toLowerCase().replace(/\\s+/g, '-')}`
+
+    The old code split first, so the `/` inside `/\\s+/g` opened two extra
+    segments and the link resolved to ``/gallery/:_/\\s+/g, '-'))}`` — which
+    matches nothing, and both runs were withheld for a dead link that worked.
+    The bakery declared `/gallery/:id` and the bike shop `/bikes/:id`; masking
+    first, both resolve to `/gallery/:_` and `/bikes/:_` and match.
+
+    Depth-counted rather than regex-matched because interpolations nest:
+    ``${items.map(i => ({ id: i.id }))}`` is one group, and `\\$\\{[^}]*\\}`
+    stops at the first inner `}`. An unterminated group consumes the rest of the
+    string — a truncated template has no further segments worth trusting.
+
+    Braces inside a *string literal* within the interpolation (``${x.replace("}",
+    "")}``) would still miscount. Nothing the generator emits does that, and the
+    failure mode is the pre-existing one — an over-long shape that fails to
+    match — not a link silently declared healthy.
+    """
+    out: list[str] = []
+    i = 0
+    end = len(raw)
+    while i < end:
+        if not raw.startswith("${", i):
+            out.append(raw[i])
+            i += 1
+            continue
+        depth = 1
+        j = i + 2
+        while j < end and depth:
+            if raw[j] == "{":
+                depth += 1
+            elif raw[j] == "}":
+                depth -= 1
+            j += 1
+        out.append(_INTERPOLATION_MARK)
+        i = j
+    return "".join(out)
 
 
 def internal_href_templates(source: str) -> list[str]:
@@ -412,11 +458,18 @@ def internal_href_templates(source: str) -> list[str]:
     """
     out: list[str] = []
     for match in _TEMPLATE_HREF_RE.finditer(source or ""):
-        raw = match.group("value").split("#", 1)[0].split("?", 1)[0]
+        raw = match.group("value")
         if "${" not in raw:
             continue  # a plain literal in backticks — `internal_hrefs` has it
+        # Mask before *any* splitting: see `_mask_interpolations` for why the
+        # reverse order withheld two working previews. The fragment and query
+        # strip is cut the same way — `${…}` is opaque JavaScript that may hold a
+        # "#" or a "?" as readily as it holds a "/", and truncating there loses
+        # the rest of the path.
+        masked = _mask_interpolations(raw).split("#", 1)[0].split("?", 1)[0]
         segments = [
-            ":_" if "${" in seg else seg for seg in raw.strip("/").split("/")
+            ":_" if _INTERPOLATION_MARK in seg else seg
+            for seg in masked.strip("/").split("/")
         ]
         out.append(_norm("/".join(segments)))
     return out
