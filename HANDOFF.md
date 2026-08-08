@@ -1,4 +1,4 @@
-# Session handoff — the stage that writes the catalogue had been dead for 60 requests (2026-08-09, session 28)
+# Session handoff — four owner rulings executed, and the stage that writes the catalogue was dead for 60 requests (2026-08-09, session 28)
 
 Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
 titles survive as their own `##` blocks below (this line had been left naming session 23 while
@@ -77,14 +77,38 @@ nothing. It is reported as `template_default_runs` rather than dropped.
 Denominator: 147 requests across **22 distinct businesses** now, but the clean tail across all three
 predicates is **four runs, three businesses**. The row wants twenty.
 
-### What needs the owner
+### The owner ruled, and all four are executed
 
-1. **The seed's model order** — `deepseek-v4-pro` is 4-of-31 at 66.1 s; `gemini-2.5-flash` was
-   19-of-23 at 27.0 s. The failover catches the failure; the primary still costs ~120 s to discover.
-2. **Industry packs ship literal copy, and the selector mismatched one** (27b, unchanged).
-3. **Catalogue photos cannot depict their items**, and **the item pool is 8** (26, unchanged).
+Evidence: `docs/evidence/session28/four-rulings.md`. Suite **2,280 / 1 skipped**; four sweeps,
+42 mutations, **0 behavioural survivors**.
 
-Read 2 and 3 *next to* the seed finding: both were scored on runs where the seed never answered.
+1. **The seed gets its own model** (`b2c1ba9`). `SEED_MODEL` defaults to `google/gemini-2.5-flash`
+   and leads the chain. The obvious default would have been wrong: `TEXT_MODEL` is
+   `gemini-3-flash-preview`, the fastest model in the corpus and one that **has never returned more
+   than 4,522 tokens here** against a seed that needs 10k+ — it would have truncated instead of
+   timing out. Chain is now gemini-2.5-flash → deepseek → haiku.
+2. **Packs carry structure only** (`eab4ef2`, `f11b9d2`). The mechanism was that
+   `write_plumbing_mock` writes pack copy into `mock.ts` and the seed prompt then hands that file
+   back to the writer as *"CURRENT mock.ts"* — the pack's sentences were being presented as the
+   current draft. The prompt now says what that block is, and a new gate row `pack_copy_shipped`
+   fails any run that ships a pack sentence verbatim. **The selector too:** request 160 matched
+   `fashion-retail-storefront` on the single token *"retail"*, which at six characters cleared the
+   distinctive-token bar; `"retail"` and `"retailer"` are now weak like `"shop"` and `"store"`, and
+   that brief falls to recipe-only.
+3. **Imagery, the whole thing** (`e5002a3`). Pool 8 → **24**, sized from the corpus (13 of 18 stored
+   catalogues exceed 8; request 65 showed every picture twice) and still one request. And
+   correspondence, which was impossible by construction: photographs are now chosen **after** the
+   seed names the items, by scoring the index's own `alt` text against each title, greedy over the
+   best remaining pair.
+4. **The placeholder row is re-scoped** (`d72142c`) and scores **3 of 20 distinct businesses**.
+
+### The one thing to do next, and it costs $0.70
+
+**Nothing above has been through a live generation.** The imagery binding adds an HTTP request to
+the critical path and changes every catalogue; `pack_copy_shipped` **can fail runs that previously
+shipped** — that is the intent, and a run withheld for pack copy is the gate working, not a
+regression; and `SEED_MODEL` points at a model the seed has not used since request 98. One trio
+answers all three.
 
 ### Process notes
 
