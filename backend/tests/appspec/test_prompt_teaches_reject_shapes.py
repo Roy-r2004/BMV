@@ -115,6 +115,31 @@ def test_repair_prompt_translates_the_recurring_codes() -> None:
         assert code in prompt, code
 
 
+def test_the_state_assertion_rule_offers_the_escape_that_actually_works() -> None:
+    """Requests 149, 154 and 155 died because it did not.
+
+    The rule said "add the missing `state_id` … (a state on the asserted page),
+    or change its kind" — and on all three the state the assertion meant did not
+    exist on that page, so neither branch was a legal move and the model
+    re-emitted the same payload until R2 failed the run closed. The
+    `missing_reference` rule three lines below has always offered the third
+    branch: declare the missing object. This one now does too, with the
+    invariants a new state has to satisfy, and a warning against binding to a
+    state that means something else.
+    """
+    prompt = _repair_prompt()
+    rule = prompt.split("`state_assertion_state_required`", 1)[1].split(
+        "`missing_reference`", 1
+    )[0]
+    assert "DECLARE the missing state" in rule
+    assert "`states`" in rule and "state_ids" in rule
+    assert '"initial": false' in rule
+    assert "reachable" in rule
+    assert "booking form displayed" in rule, (
+        "the rule must show why binding to the nearest state is wrong"
+    )
+
+
 def _schema_repair_prompt() -> str:
     ai = _PromptRecorder()
     repair_app_spec_schema_candidate(

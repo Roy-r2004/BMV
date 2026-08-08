@@ -1,0 +1,660 @@
+{
+ "app_spec": {
+  "acceptance_tests": [
+   {
+    "assertions": [
+     {
+      "description": "The user is on the home page.",
+      "expected": "/",
+      "kind": "route",
+      "page_id": "PAGE-HOME"
+     },
+     {
+      "description": "The link to the product catalogue is visible.",
+      "evidence_id": "EVIDENCE-HOME-CATALOG-LINK",
+      "kind": "visible"
+     },
+     {
+      "description": "After clicking the catalogue link, the user is on the catalogue page.",
+      "expected": "/catalogue",
+      "kind": "route",
+      "page_id": "PAGE-CATALOG"
+     },
+     {
+      "description": "A list of products is displayed.",
+      "evidence_id": "EVIDENCE-CATALOG-LIST",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can navigate to and browse the product catalogue.",
+    "id": "TEST-CATALOG-BROWSE",
+    "name": "Customer Browses Catalogue",
+    "requirement_ids": [
+     "REQ-CATALOG-001",
+     "REQ-CATALOG-002"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on the catalogue page.",
+      "expected": "/catalogue",
+      "kind": "route",
+      "page_id": "PAGE-CATALOG"
+     },
+     {
+      "description": "Stock availability is indicated for products in the catalogue list.",
+      "evidence_id": "EVIDENCE-PRODUCT-STOCK",
+      "kind": "visible"
+     },
+     {
+      "description": "The user navigates to a product detail page.",
+      "expected": "/catalogue/some-product-id",
+      "kind": "route",
+      "page_id": "PAGE-PRODUCT-DETAIL"
+     },
+     {
+      "description": "Detailed stock status is visible on the product detail page.",
+      "evidence_id": "EVIDENCE-PRODUCT-STOCK-STATUS",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can view the stock status of products.",
+    "id": "TEST-CHECK-STOCK",
+    "name": "Customer Checks Stock Status",
+    "requirement_ids": [
+     "REQ-STOCK-001"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on the home page.",
+      "expected": "/",
+      "kind": "route",
+      "page_id": "PAGE-HOME"
+     },
+     {
+      "description": "The link to the tool hire section is visible.",
+      "evidence_id": "EVIDENCE-HOME-HIRE-LINK",
+      "kind": "visible"
+     },
+     {
+      "description": "After clicking the hire link, the user is on the tool hire page.",
+      "expected": "/hire",
+      "kind": "route",
+      "page_id": "PAGE-HIRE"
+     },
+     {
+      "description": "A list of hire items is displayed.",
+      "evidence_id": "EVIDENCE-HIRE-ITEM-LIST",
+      "kind": "visible"
+     },
+     {
+      "description": "The user navigates to the hire booking page for a specific item.",
+      "expected": "/hire/book/some-item-id",
+      "kind": "route",
+      "page_id": "PAGE-HIRE-BOOKING"
+     },
+     {
+      "description": "The hire date selection calendar is visible.",
+      "evidence_id": "EVIDENCE-HIRE-CALENDAR",
+      "kind": "visible"
+     },
+     {
+      "description": "The hire booking is confirmed.",
+      "kind": "state",
+      "state_id": null
+     },
+     {
+      "description": "A confirmation message is displayed.",
+      "evidence_id": "EVIDENCE-HIRE-CONFIRMATION",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can successfully reserve a tool for hire.",
+    "id": "TEST-HIRE-RESERVATION",
+    "name": "Customer Reserves Hire Item",
+    "requirement_ids": [
+     "REQ-HIRE-001",
+     "REQ-HIRE-002"
+    ]
+   }
+  ],
+  "actions": [],
+  "capabilities": [
+   {
+    "description": "Allows customers to navigate and view the available product lines and individual items.",
+    "entity_ids": [],
+    "id": "CAP-BROWSE-CATALOG",
+    "name": "Browse Product Catalogue",
+    "requirement_ids": [
+     "REQ-CATALOG-001",
+     "REQ-CATALOG-002"
+    ],
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ]
+   },
+   {
+    "description": "Enables customers to see the current availability of products.",
+    "entity_ids": [],
+    "id": "CAP-CHECK-STOCK",
+    "name": "Check Stock Status",
+    "requirement_ids": [
+     "REQ-STOCK-001"
+    ],
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ]
+   },
+   {
+    "description": "Provides a mechanism for customers to book and reserve tools for hire.",
+    "entity_ids": [],
+    "id": "CAP-RESERVE-HIRE",
+    "name": "Reserve Hire Items",
+    "requirement_ids": [
+     "REQ-HIRE-001",
+     "REQ-HIRE-002"
+    ],
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ]
+   }
+  ],
+  "deferred_scope": [],
+  "evidence": [
+   {
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "description": "A visible link or button to navigate to the product catalogue.",
+    "id": "EVIDENCE-HOME-CATALOG-LINK",
+    "kind": "navigation",
+    "name": "Catalogue Link on Home Page",
+    "page_id": "PAGE-HOME"
+   },
+   {
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "description": "A visible link or button to navigate to the tool hire section.",
+    "id": "EVIDENCE-HOME-HIRE-LINK",
+    "kind": "navigation",
+    "name": "Tool Hire Link on Home Page",
+    "page_id": "PAGE-HOME"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "description": "A list or grid of products from the catalogue, showing at least 16 lines.",
+    "id": "EVIDENCE-CATALOG-LIST",
+    "kind": "list",
+    "name": "Product List Display",
+    "page_id": "PAGE-CATALOG"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "description": "Interactive elements allowing customers to filter the product catalogue.",
+    "id": "EVIDENCE-CATALOG-FILTERS",
+    "kind": "form",
+    "name": "Catalogue Filtering Options",
+    "page_id": "PAGE-CATALOG"
+   },
+   {
+    "capability_ids": [
+     "CAP-CHECK-STOCK"
+    ],
+    "description": "An indicator on each product listing showing its stock availability.",
+    "id": "EVIDENCE-PRODUCT-STOCK",
+    "kind": "status",
+    "name": "Product Stock Status in Catalogue",
+    "page_id": "PAGE-CATALOG"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "description": "The name of the product is clearly displayed.",
+    "id": "EVIDENCE-PRODUCT-NAME",
+    "kind": "text",
+    "name": "Product Name Display",
+    "page_id": "PAGE-PRODUCT-DETAIL"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "description": "Detailed description of the product.",
+    "id": "EVIDENCE-PRODUCT-DESCRIPTION",
+    "kind": "text",
+    "name": "Product Description Display",
+    "page_id": "PAGE-PRODUCT-DETAIL"
+   },
+   {
+    "capability_ids": [
+     "CAP-CHECK-STOCK"
+    ],
+    "description": "Specific stock availability information for the selected product.",
+    "id": "EVIDENCE-PRODUCT-STOCK-STATUS",
+    "kind": "status",
+    "name": "Detailed Product Stock Status",
+    "page_id": "PAGE-PRODUCT-DETAIL"
+   },
+   {
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "description": "A browsable list of tools available for hire.",
+    "id": "EVIDENCE-HIRE-ITEM-LIST",
+    "kind": "list",
+    "name": "List of Hire Items",
+    "page_id": "PAGE-HIRE"
+   },
+   {
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "description": "An indicator showing if a hire item is currently available or booked.",
+    "id": "EVIDENCE-HIRE-ITEM-AVAILABILITY",
+    "kind": "status",
+    "name": "Hire Item Availability Indicator",
+    "page_id": "PAGE-HIRE"
+   },
+   {
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "description": "An interactive calendar for selecting start and end dates for hire.",
+    "id": "EVIDENCE-HIRE-CALENDAR",
+    "kind": "form",
+    "name": "Hire Date Selection Calendar",
+    "page_id": "PAGE-HIRE-BOOKING"
+   },
+   {
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "description": "A summary of the selected hire item, dates, and cost before confirmation.",
+    "id": "EVIDENCE-HIRE-SUMMARY",
+    "kind": "text",
+    "name": "Hire Reservation Summary",
+    "page_id": "PAGE-HIRE-BOOKING"
+   },
+   {
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "description": "A message confirming the successful reservation of a hire item.",
+    "id": "EVIDENCE-HIRE-CONFIRMATION",
+    "kind": "status",
+    "name": "Hire Confirmation Message",
+    "page_id": "PAGE-HIRE-BOOKING"
+   }
+  ],
+  "pages": [
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG",
+     "CAP-RESERVE-HIRE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HOME-CATALOG-LINK",
+     "EVIDENCE-HOME-HIRE-LINK"
+    ],
+    "id": "PAGE-HOME",
+    "name": "Home Page",
+    "primary": true,
+    "purpose": "Entry point for customers to access product catalogue and hire services.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/",
+    "state_ids": [
+     "STATE-HOME-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG",
+     "CAP-CHECK-STOCK"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-CATALOG-LIST",
+     "EVIDENCE-CATALOG-FILTERS",
+     "EVIDENCE-PRODUCT-STOCK"
+    ],
+    "id": "PAGE-CATALOG",
+    "name": "Product Catalogue Page",
+    "purpose": "Display all available product lines and items for browsing.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/catalogue",
+    "state_ids": [
+     "STATE-CATALOG-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG",
+     "CAP-CHECK-STOCK"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-PRODUCT-NAME",
+     "EVIDENCE-PRODUCT-DESCRIPTION",
+     "EVIDENCE-PRODUCT-STOCK-STATUS"
+    ],
+    "id": "PAGE-PRODUCT-DETAIL",
+    "name": "Product Detail Page",
+    "purpose": "Show detailed information for a specific product, including stock status.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/catalogue/v2",
+    "state_ids": [
+     "STATE-PRODUCT-DETAIL-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HIRE-ITEM-LIST",
+     "EVIDENCE-HIRE-ITEM-AVAILABILITY"
+    ],
+    "id": "PAGE-HIRE",
+    "name": "Tool Hire Page",
+    "purpose": "Allow customers to browse hire items and initiate a reservation.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/hire",
+    "state_ids": [
+     "STATE-HIRE-LIST-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HIRE-CALENDAR",
+     "EVIDENCE-HIRE-SUMMARY",
+     "EVIDENCE-HIRE-CONFIRMATION"
+    ],
+    "id": "PAGE-HIRE-BOOKING",
+    "name": "Hire Booking Page",
+    "purpose": "Facilitate the selection of hire dates and completion of a reservation.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/hire/book",
+    "state_ids": [
+     "STATE-HIRE-BOOKING-FORM"
+    ],
+    "surface": "public"
+   }
+  ],
+  "product_intent": {
+   "desired_outcome": "A practical site where the catalogue is browsable and hire is bookable.",
+   "name": "Copperline Hardware Digital Hub",
+   "problem": "Showing a deep catalogue and taking tool-hire reservations.",
+   "success_metrics": [
+    "Increase in online catalogue views",
+    "Number of tool-hire reservations made online",
+    "Customer satisfaction with browsing and booking experience"
+   ],
+   "summary": "A digital platform for Copperline Hardware to showcase its deep product catalog and facilitate tool-hire reservations, serving homeowners, tradespeople, and gardeners.",
+   "target_users": [
+    "Homeowners",
+    "Tradespeople",
+    "Allotment gardeners"
+   ]
+  },
+  "requirements": [
+   {
+    "description": "The system must display a comprehensive product catalogue with at least sixteen tool and garden lines.",
+    "id": "REQ-CATALOG-001",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description"
+    ],
+    "title": "Display Deep Product Catalogue",
+    "verification_mode": "content"
+   },
+   {
+    "description": "Customers must be able to browse the product catalogue.",
+    "id": "REQ-CATALOG-002",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description"
+    ],
+    "title": "Allow Catalogue Browsing",
+    "verification_mode": "content"
+   },
+   {
+    "description": "Customers must be able to check what items are in stock.",
+    "id": "REQ-STOCK-001",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description"
+    ],
+    "title": "Display Stock Availability",
+    "verification_mode": "content"
+   },
+   {
+    "description": "Customers must be able to reserve hire items.",
+    "id": "REQ-HIRE-001",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description"
+    ],
+    "title": "Enable Tool-Hire Reservations",
+    "verification_mode": "content"
+   },
+   {
+    "description": "The system must support the operations of a tool-hire counter.",
+    "id": "REQ-HIRE-002",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description"
+    ],
+    "title": "Tool-Hire Counter Functionality",
+    "verification_mode": "data"
+   }
+  ],
+  "roles": [
+   {
+    "default_page_id": "PAGE-HOME",
+    "description": "A homeowner, tradesperson, or allotment gardener looking to browse products or reserve hire items.",
+    "goals": [
+     "Find specific tools or garden items",
+     "Check product availability",
+     "Reserve tools for hire"
+    ],
+    "id": "ROLE-CUSTOMER",
+    "name": "Customer"
+   }
+  ],
+  "schema_version": "1.0",
+  "states": [
+   {
+    "description": "The home page is displayed with links to catalogue and hire services.",
+    "evidence_ids": [],
+    "id": "STATE-HOME-LOADED",
+    "initial": true,
+    "name": "Home Page Loaded",
+    "page_id": "PAGE-HOME",
+    "terminal": true
+   },
+   {
+    "description": "The full product catalogue is displayed.",
+    "evidence_ids": [],
+    "id": "STATE-CATALOG-LOADED",
+    "initial": true,
+    "name": "Catalogue Loaded",
+    "page_id": "PAGE-CATALOG",
+    "terminal": true
+   },
+   {
+    "description": "A specific product's details are displayed.",
+    "evidence_ids": [],
+    "id": "STATE-PRODUCT-DETAIL-LOADED",
+    "initial": true,
+    "name": "Product Detail Loaded",
+    "page_id": "PAGE-PRODUCT-DETAIL",
+    "terminal": true
+   },
+   {
+    "description": "The list of available hire items is displayed.",
+    "evidence_ids": [],
+    "id": "STATE-HIRE-LIST-LOADED",
+    "initial": true,
+    "name": "Hire List Loaded",
+    "page_id": "PAGE-HIRE",
+    "terminal": true
+   },
+   {
+    "description": "The form for selecting hire dates and confirming reservation is displayed.",
+    "evidence_ids": [],
+    "id": "STATE-HIRE-BOOKING-FORM",
+    "initial": true,
+    "name": "Hire Booking Form Displayed",
+    "page_id": "PAGE-HIRE-BOOKING",
+    "terminal": true
+   }
+  ],
+  "traceability": [
+   {
+    "acceptance_test_ids": [
+     "TEST-CATALOG-BROWSE"
+    ],
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-CATALOG-LIST"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-CATALOG"
+    ],
+    "requirement_id": "REQ-CATALOG-001"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-CATALOG-BROWSE"
+    ],
+    "capability_ids": [
+     "CAP-BROWSE-CATALOG"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HOME-CATALOG-LINK",
+     "EVIDENCE-CATALOG-LIST",
+     "EVIDENCE-CATALOG-FILTERS",
+     "EVIDENCE-PRODUCT-NAME"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-HOME",
+     "PAGE-CATALOG",
+     "PAGE-PRODUCT-DETAIL"
+    ],
+    "requirement_id": "REQ-CATALOG-002"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-CHECK-STOCK"
+    ],
+    "capability_ids": [
+     "CAP-CHECK-STOCK"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-PRODUCT-STOCK",
+     "EVIDENCE-PRODUCT-STOCK-STATUS"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-CATALOG",
+     "PAGE-PRODUCT-DETAIL"
+    ],
+    "requirement_id": "REQ-STOCK-001"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-HIRE-RESERVATION"
+    ],
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HOME-HIRE-LINK",
+     "EVIDENCE-HIRE-ITEM-LIST",
+     "EVIDENCE-HIRE-ITEM-AVAILABILITY",
+     "EVIDENCE-HIRE-CALENDAR",
+     "EVIDENCE-HIRE-SUMMARY",
+     "EVIDENCE-HIRE-CONFIRMATION"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-HOME",
+     "PAGE-HIRE",
+     "PAGE-HIRE-BOOKING"
+    ],
+    "requirement_id": "REQ-HIRE-001"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-HIRE-RESERVATION"
+    ],
+    "capability_ids": [
+     "CAP-RESERVE-HIRE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HIRE-CONFIRMATION"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-HIRE-BOOKING"
+    ],
+    "requirement_id": "REQ-HIRE-002"
+   }
+  ],
+  "transitions": []
+ },
+ "validation": {
+  "is_valid": false,
+  "issues": [
+   {
+    "code": "state_assertion_state_required",
+    "message": "A state assertion requires state_id.",
+    "path": [
+     "acceptance_tests",
+     2,
+     "assertions",
+     6,
+     "state_id"
+    ],
+    "related_ids": [
+     "TEST-HIRE-RESERVATION"
+    ],
+    "severity": "error"
+   }
+  ],
+  "passed": false
+ }
+}

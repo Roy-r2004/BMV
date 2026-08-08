@@ -33,8 +33,15 @@ REPAIR RULES:
 1. Fix every schema, reference-integrity, state/action/transition, journey,
    evidence, acceptance-test, and traceability error in the deterministic report.
    The recurring codes have exact fixes:
-   - `state_assertion_state_required`: add the missing `state_id` to that
-     state-kind assertion (a state on the asserted page), or change its kind.
+   - `state_assertion_state_required`: the assertion names a state the spec does
+     not declare. Bind it to a state already on the asserted page if one means
+     the same thing; otherwise DECLARE the missing state — add it to `states`
+     with `"initial": false`, list its id in that page's `state_ids`, and either
+     mark it `"terminal": true` or give it an outgoing transition, plus one
+     transition INTO it from a state on the same page so it is reachable. Do not
+     bind to a state that means something else ("booking form displayed" is not
+     "booking confirmed"). Changing the assertion's kind or removing it is the
+     last resort.
    - `missing_reference`: the cited ID does not exist — either declare the
      missing object in its top-level collection (for example add the cited
      EVIDENCE-* item to `evidence`) or stop citing it.

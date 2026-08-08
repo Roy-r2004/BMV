@@ -308,6 +308,78 @@ def _heal_tier1_primary_journey(payload: dict[str, Any]) -> list[str]:
     return applied
 
 
+def drop_unbindable_state_assertions(
+    payload: Mapping[str, Any],
+    validation_payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Last-resort salvage for `state_assertion_state_required`. Returns (payload, actions).
+
+    A `kind: "state"` assertion with `state_id: null` is the model saying "I want
+    to assert a state here and I did not declare one". Requests 154 and 155 both
+    died on it and 149 before them — *"the hire booking is confirmed"* against a
+    page whose only state is *"hire booking form displayed"*, *"the bike gallery
+    is in a filtered state"* against a page that declares only *"loaded"*. The
+    state is missing, not the field, so nothing can be bound.
+
+    **This is deliberately not a heal.** It must never run before the model's
+    repair pass: declaring the missing state is the right fix and only the model
+    can write it coherently (the state needs a page listing, a non-initial flag,
+    an outgoing transition and reachability from an initial state — mint any of
+    those wrong and one blocking code becomes three). The repair prompt now says
+    so explicitly. This runs only at the point the pipeline would otherwise throw
+    the whole paid run away, and it does the one thing that is always safe:
+    removes the claim the spec cannot express. `assertions` has `min_length=1`,
+    so a test's last assertion is never dropped — such a spec is genuinely
+    unrepairable and still fails closed.
+    """
+    targets: list[tuple[int, int]] = []
+    for issue in validation_payload.get("issues") or []:
+        if not isinstance(issue, Mapping):
+            continue
+        if str(issue.get("code") or "") != "state_assertion_state_required":
+            continue
+        parts = _path_parts(issue.get("path"))
+        # ("acceptance_tests", i, "assertions", j, "state_id")
+        if len(parts) < 4 or str(parts[0]) != "acceptance_tests":
+            continue
+        if str(parts[2]) != "assertions":
+            continue
+        try:
+            targets.append((int(parts[1]), int(parts[3])))
+        except (TypeError, ValueError):
+            continue
+    if not targets:
+        return dict(payload), []
+
+    healed = copy.deepcopy(dict(payload))
+    tests = healed.get("acceptance_tests")
+    if not isinstance(tests, list):
+        return dict(payload), []
+    applied: list[str] = []
+    # Descending, so an earlier drop cannot shift a later index.
+    for test_index, assertion_index in sorted(set(targets), reverse=True):
+        if test_index < 0 or test_index >= len(tests):
+            continue
+        test = tests[test_index]
+        if not isinstance(test, dict):
+            continue
+        assertions = test.get("assertions")
+        if not isinstance(assertions, list) or len(assertions) <= 1:
+            continue
+        if assertion_index < 0 or assertion_index >= len(assertions):
+            continue
+        dropped = assertions.pop(assertion_index)
+        description = ""
+        if isinstance(dropped, Mapping):
+            description = str(dropped.get("description") or "")
+        applied.append(
+            f"drop_unbindable_state_assertion:{test.get('id')}:{description[:60]}"
+        )
+    if not applied:
+        return dict(payload), []
+    return healed, applied
+
+
 def heal_app_spec_payload(
     payload: Mapping[str, Any],
     validation_payload: Mapping[str, Any],
@@ -388,4 +460,4 @@ def heal_app_spec_payload(
     return healed, applied
 
 
-__all__ = ["heal_app_spec_payload"]
+__all__ = ["drop_unbindable_state_assertions", "heal_app_spec_payload"]

@@ -39,7 +39,10 @@ from app.application.appspec.fallback import (
     build_fallback_app_spec,
     build_fallback_coverage_payload,
 )
-from app.domain.appspec.sanitize.heal import heal_app_spec_payload
+from app.domain.appspec.sanitize.heal import (
+    drop_unbindable_state_assertions,
+    heal_app_spec_payload,
+)
 from app.domain.appspec.sanitize.pipeline import sanitize_app_spec_payload
 from app.domain.appspec.sanitize.preparse_normalize import (
     normalize_app_spec_preparse,
@@ -486,6 +489,32 @@ def _heal_candidate(
     return _sanitize_candidate(healed, source_snapshot), actions
 
 
+def _salvage_unbindable_state_assertions(
+    candidate: AppSpecCandidate | None,
+    validation_payload: Mapping[str, Any],
+) -> tuple[AppSpecCandidate | None, list[str]]:
+    """Drop state assertions naming a state the spec never declared, then re-sanitize.
+
+    Bounded to the one terminal branch that would otherwise discard the run. See
+    `drop_unbindable_state_assertions` for why this is not a heal and must not run
+    ahead of the model's repair pass.
+    """
+    if candidate is None:
+        return None, []
+    payload, actions = drop_unbindable_state_assertions(
+        candidate.payload, validation_payload
+    )
+    if not actions:
+        return candidate, []
+    salvaged = _clone_candidate(
+        candidate,
+        payload,
+        repair_type="state_assertion_salvage",
+        parent_payload_sha256=payload_sha256(candidate.payload),
+    )
+    return salvaged, actions
+
+
 def _graph_repair_candidate(
     candidate: AppSpecCandidate | None,
     validation_payload: Mapping[str, Any],
@@ -921,6 +950,9 @@ def ensure_approved_app_spec(
     coverage_payload = _coverage_payload(None)
     repairs = 0
     deterministic_heals = 0
+    # Bounded to one: the salvage removes an unrepairable claim, so a second
+    # firing would mean the first changed nothing that mattered.
+    state_assertion_salvages = 0
     heal_actions: list[str] = []
     graph_repairs = 0
     graph_repair_audit: dict[str, Any] = {}
@@ -1272,6 +1304,34 @@ def ensure_approved_app_spec(
                     and _issue_identity_signature(validation_payload)
                     == awaited_repair_signature
                 ):
+                    # Before throwing a paid run away: an assertion naming a
+                    # state the spec never declared is the one issue the model
+                    # cannot repair by rewriting what is there — it has to add an
+                    # entity, and until the repair prompt said so it kept
+                    # re-emitting the same `state_id: null`. That is how requests
+                    # 149, 154 and 155 died. Once, and only here, drop the claim
+                    # the spec cannot express rather than lose the whole run;
+                    # anything else in the set still fails closed.
+                    salvaged, salvage_actions = (
+                        _salvage_unbindable_state_assertions(
+                            candidate, validation_payload
+                        )
+                        if state_assertion_salvages < 1
+                        else (candidate, [])
+                    )
+                    if salvage_actions:
+                        state_assertion_salvages += 1
+                        heal_actions.extend(salvage_actions)
+                        candidate = salvaged
+                        awaited_repair_signature = None
+                        spec = None
+                        validation = None
+                        log.info(
+                            "AppSpec salvage for request %s: %s",
+                            request_id,
+                            ", ".join(salvage_actions[:8]),
+                        )
+                        continue
                     log.info(
                         "AppSpec repair reproduced its parent's validator "
                         "error set for request %s — failing closed instead "

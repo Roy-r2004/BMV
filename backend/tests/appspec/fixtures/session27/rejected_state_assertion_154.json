@@ -1,0 +1,683 @@
+{
+ "app_spec": {
+  "acceptance_tests": [
+   {
+    "assertions": [
+     {
+      "description": "The user is on the bike gallery page.",
+      "kind": "route",
+      "page_id": "PAGE-BIKE-GALLERY"
+     },
+     {
+      "description": "The bike range grid is visible.",
+      "evidence_id": "EVIDENCE-BIKE-GRID",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can navigate to and view the bike gallery with a clear grid.",
+    "id": "TEST-VIEW-BIKE-GALLERY",
+    "name": "Customer views bike gallery",
+    "requirement_ids": [
+     "REQ-BIKE-RANGE-DISPLAY",
+     "REQ-CLEAR-RANGE-GRID"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on the bike gallery page.",
+      "kind": "route",
+      "page_id": "PAGE-BIKE-GALLERY"
+     },
+     {
+      "description": "The bike gallery is in a filtered state.",
+      "kind": "state",
+      "state_id": null
+     },
+     {
+      "description": "Filter options are visible.",
+      "evidence_id": "EVIDENCE-BIKE-FILTER-OPTIONS",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can filter the bike gallery by category.",
+    "id": "TEST-FILTER-BIKE-GALLERY",
+    "name": "Customer filters bike gallery",
+    "requirement_ids": [
+     "REQ-BIKE-RANGE-DISPLAY"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on a bike detail page.",
+      "kind": "route",
+      "page_id": "PAGE-BIKE-DETAIL"
+     },
+     {
+      "description": "A large, high-resolution image of the bike is visible.",
+      "evidence_id": "EVIDENCE-BIKE-DETAIL-IMAGE",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can view the detail page for a specific bike with bold photography.",
+    "id": "TEST-VIEW-BIKE-DETAIL",
+    "name": "Customer views bike detail page",
+    "requirement_ids": [
+     "REQ-BOLD-PHOTOGRAPHY"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on the service booking page.",
+      "kind": "route",
+      "page_id": "PAGE-SERVICE-BOOKING"
+     },
+     {
+      "description": "The service selection step is active.",
+      "kind": "state",
+      "state_id": "STATE-SERVICE-BOOKING-SELECT-SERVICE"
+     },
+     {
+      "description": "Service options are displayed.",
+      "evidence_id": "EVIDENCE-SERVICE-OPTIONS",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can start the service booking process.",
+    "id": "TEST-INITIATE-SERVICE-BOOKING",
+    "name": "Customer initiates service booking",
+    "requirement_ids": [
+     "REQ-WORKSHOP-BOOKING",
+     "REQ-EASY-SERVICE-BOOKING"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on the service booking page.",
+      "kind": "route",
+      "page_id": "PAGE-SERVICE-BOOKING"
+     },
+     {
+      "description": "The user is at the date selection step.",
+      "kind": "state",
+      "state_id": null
+     },
+     {
+      "description": "The calendar widget is visible.",
+      "evidence_id": "EVIDENCE-CALENDAR-WIDGET",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can select an available date and time for a service.",
+    "id": "TEST-SELECT-SERVICE-DATE",
+    "name": "Customer selects service date and time",
+    "requirement_ids": [
+     "REQ-WORKSHOP-BOOKING",
+     "REQ-EASY-SERVICE-BOOKING"
+    ]
+   },
+   {
+    "assertions": [
+     {
+      "description": "The user is on the booking confirmation page.",
+      "kind": "route",
+      "page_id": "PAGE-BOOKING-CONFIRMATION"
+     },
+     {
+      "description": "A confirmation message is displayed.",
+      "evidence_id": "EVIDENCE-CONFIRMATION-MESSAGE",
+      "kind": "visible"
+     },
+     {
+      "description": "Booking details are displayed.",
+      "evidence_id": "EVIDENCE-BOOKING-DETAILS",
+      "kind": "visible"
+     }
+    ],
+    "description": "Verify that a customer can confirm their service booking and see a confirmation.",
+    "id": "TEST-CONFIRM-SERVICE-BOOKING",
+    "name": "Customer confirms service booking",
+    "requirement_ids": [
+     "REQ-WORKSHOP-BOOKING",
+     "REQ-EASY-SERVICE-BOOKING"
+    ]
+   }
+  ],
+  "actions": [],
+  "capabilities": [
+   {
+    "description": "Allows customers to view available bike models and their details.",
+    "entity_ids": [],
+    "id": "CAP-BROWSE-BIKES",
+    "name": "Browse Bike Range",
+    "requirement_ids": [
+     "REQ-BIKE-RANGE-DISPLAY",
+     "REQ-BOLD-PHOTOGRAPHY",
+     "REQ-CLEAR-RANGE-GRID"
+    ],
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ]
+   },
+   {
+    "description": "Enables customers to schedule workshop appointments.",
+    "entity_ids": [],
+    "id": "CAP-BOOK-SERVICE",
+    "name": "Book Workshop Service",
+    "requirement_ids": [
+     "REQ-WORKSHOP-BOOKING",
+     "REQ-EASY-SERVICE-BOOKING"
+    ],
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ]
+   }
+  ],
+  "deferred_scope": [],
+  "evidence": [
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES",
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "A prominent hero section with bold imagery and a clear call to action.",
+    "id": "EVIDENCE-HOME-HERO",
+    "kind": "media",
+    "name": "Home Page Hero Section",
+    "page_id": "PAGE-HOME"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "description": "A button or link clearly inviting users to browse the bike range.",
+    "id": "EVIDENCE-HOME-BIKE-CTA",
+    "kind": "text",
+    "name": "Browse Bikes Call to Action",
+    "page_id": "PAGE-HOME"
+   },
+   {
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "A button or link clearly inviting users to book a workshop service.",
+    "id": "EVIDENCE-HOME-SERVICE-CTA",
+    "kind": "text",
+    "name": "Book Service Call to Action",
+    "page_id": "PAGE-HOME"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "description": "A visual grid displaying multiple bike models with their names and basic information.",
+    "id": "EVIDENCE-BIKE-GRID",
+    "kind": "list",
+    "name": "Bike Range Grid",
+    "page_id": "PAGE-BIKE-GALLERY"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "description": "Options to filter the bike range by categories like 'Gravel', 'Commuter', 'Kids'.",
+    "id": "EVIDENCE-BIKE-FILTER-OPTIONS",
+    "kind": "list",
+    "name": "Bike Category Filters",
+    "page_id": "PAGE-BIKE-GALLERY"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "description": "A high-quality photograph of a bike model within the gallery grid.",
+    "id": "EVIDENCE-BIKE-IMAGE",
+    "kind": "media",
+    "name": "High-Resolution Bike Image",
+    "page_id": "PAGE-BIKE-GALLERY"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "description": "A large, prominent image of the selected bike model on its detail page.",
+    "id": "EVIDENCE-BIKE-DETAIL-IMAGE",
+    "kind": "media",
+    "name": "Large Bike Detail Image",
+    "page_id": "PAGE-BIKE-DETAIL"
+   },
+   {
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "description": "A list of technical specifications and features for the selected bike.",
+    "id": "EVIDENCE-BIKE-DETAIL-SPECS",
+    "kind": "list",
+    "name": "Bike Specifications List",
+    "page_id": "PAGE-BIKE-DETAIL"
+   },
+   {
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "A list or set of options for different workshop service types (e.g., 'Annual Service', 'Repair').",
+    "id": "EVIDENCE-SERVICE-OPTIONS",
+    "kind": "list",
+    "name": "Service Type Selection",
+    "page_id": "PAGE-SERVICE-BOOKING"
+   },
+   {
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "An interactive calendar displaying available dates and times for workshop bookings.",
+    "id": "EVIDENCE-CALENDAR-WIDGET",
+    "kind": "form",
+    "name": "Availability Calendar Widget",
+    "page_id": "PAGE-SERVICE-BOOKING"
+   },
+   {
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "A form to collect customer details (name, contact, bike model) for the booking.",
+    "id": "EVIDENCE-BOOKING-FORM",
+    "kind": "form",
+    "name": "Customer Information Form",
+    "page_id": "PAGE-SERVICE-BOOKING"
+   },
+   {
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "A message confirming the successful booking.",
+    "id": "EVIDENCE-CONFIRMATION-MESSAGE",
+    "kind": "text",
+    "name": "Booking Confirmation Text",
+    "page_id": "PAGE-BOOKING-CONFIRMATION"
+   },
+   {
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "description": "Summary of the booked service, date, time, and customer information.",
+    "id": "EVIDENCE-BOOKING-DETAILS",
+    "kind": "list",
+    "name": "Confirmed Booking Details",
+    "page_id": "PAGE-BOOKING-CONFIRMATION"
+   }
+  ],
+  "pages": [
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BROWSE-BIKES",
+     "CAP-BOOK-SERVICE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-HOME-HERO",
+     "EVIDENCE-HOME-BIKE-CTA",
+     "EVIDENCE-HOME-SERVICE-CTA"
+    ],
+    "id": "PAGE-HOME",
+    "name": "Home Page",
+    "purpose": "Landing page for Ridgeline Bike Works, offering entry points to browse bikes or book services.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/",
+    "state_ids": [
+     "STATE-HOME-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-BIKE-GRID",
+     "EVIDENCE-BIKE-FILTER-OPTIONS",
+     "EVIDENCE-BIKE-IMAGE"
+    ],
+    "id": "PAGE-BIKE-GALLERY",
+    "name": "Bike Gallery",
+    "purpose": "Displays the full range of bicycles in a grid format with filtering options.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/gallery",
+    "state_ids": [
+     "STATE-BIKE-GALLERY-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-BIKE-DETAIL-IMAGE",
+     "EVIDENCE-BIKE-DETAIL-SPECS"
+    ],
+    "id": "PAGE-BIKE-DETAIL",
+    "name": "Bike Detail Page",
+    "purpose": "Shows detailed information and high-resolution images for a specific bike model.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/gallery/v2",
+    "state_ids": [
+     "STATE-BIKE-DETAIL-LOADED"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-SERVICE-OPTIONS",
+     "EVIDENCE-CALENDAR-WIDGET",
+     "EVIDENCE-BOOKING-FORM"
+    ],
+    "id": "PAGE-SERVICE-BOOKING",
+    "name": "Service Booking",
+    "purpose": "Allows customers to select a service type and book an available workshop slot.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/service-booking",
+    "state_ids": [
+     "STATE-SERVICE-BOOKING-SELECT-SERVICE"
+    ],
+    "surface": "public"
+   },
+   {
+    "action_ids": [],
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-CONFIRMATION-MESSAGE",
+     "EVIDENCE-BOOKING-DETAILS"
+    ],
+    "id": "PAGE-BOOKING-CONFIRMATION",
+    "name": "Booking Confirmation",
+    "purpose": "Confirms a successful workshop booking and provides next steps.",
+    "role_ids": [
+     "ROLE-CUSTOMER"
+    ],
+    "route": "/service-booking/confirmation",
+    "state_ids": [
+     "STATE-BOOKING-CONFIRMATION-DISPLAYED"
+    ],
+    "surface": "public"
+   }
+  ],
+  "product_intent": {
+   "desired_outcome": "A site that sells the range and fills the workshop diary",
+   "name": "Ridgeline Bike Works Digital Hub",
+   "problem": "Showing the current range and booking workshop slots in one place",
+   "success_metrics": [
+    "Increase in online bike inquiries/sales leads",
+    "Increase in workshop booking utilization",
+    "Reduction in manual booking errors"
+   ],
+   "summary": "A unified digital platform for Ridgeline Bike Works to showcase their bicycle range and manage workshop service bookings, aiming to streamline operations and enhance customer experience.",
+   "target_users": [
+    "Commuters",
+    "Weekend gravel riders",
+    "Parents buying a first bike"
+   ]
+  },
+  "requirements": [
+   {
+    "description": "The website must clearly display the current range of around twenty bike models, categorized by type (gravel, commuter, kids).",
+    "id": "REQ-BIKE-RANGE-DISPLAY",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description",
+     "customer_input.main_problem",
+     "customer_input.what_you_like"
+    ],
+    "title": "Display current bike range",
+    "verification_mode": "content"
+   },
+   {
+    "description": "Customers must be able to book a mechanic slot for repairs and annual services through the website.",
+    "id": "REQ-WORKSHOP-BOOKING",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.business_description",
+     "customer_input.main_problem",
+     "customer_input.what_you_like"
+    ],
+    "title": "Enable workshop slot booking",
+    "verification_mode": "content"
+   },
+   {
+    "description": "The site should feature bold photography for the bike range to attract customers.",
+    "id": "REQ-BOLD-PHOTOGRAPHY",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.what_you_like"
+    ],
+    "title": "Utilize bold photography",
+    "verification_mode": "content"
+   },
+   {
+    "description": "The bike range should be presented in a clear grid layout for easy browsing.",
+    "id": "REQ-CLEAR-RANGE-GRID",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.what_you_like"
+    ],
+    "title": "Provide a clear range grid",
+    "verification_mode": "content"
+   },
+   {
+    "description": "The process for booking workshop services must be straightforward and user-friendly.",
+    "id": "REQ-EASY-SERVICE-BOOKING",
+    "priority": "must",
+    "source_refs": [
+     "customer_input.what_you_like"
+    ],
+    "title": "Ensure easy service booking",
+    "verification_mode": "content"
+   }
+  ],
+  "roles": [
+   {
+    "default_page_id": "PAGE-HOME",
+    "description": "A person browsing bikes or booking a workshop service.",
+    "id": "ROLE-CUSTOMER",
+    "name": "Customer"
+   }
+  ],
+  "schema_version": "1.0",
+  "states": [
+   {
+    "description": "The home page is fully loaded and ready for user interaction.",
+    "evidence_ids": [],
+    "id": "STATE-HOME-LOADED",
+    "initial": true,
+    "name": "Home Page Loaded",
+    "page_id": "PAGE-HOME",
+    "terminal": true
+   },
+   {
+    "description": "The bike gallery page is loaded with all bike models displayed.",
+    "evidence_ids": [],
+    "id": "STATE-BIKE-GALLERY-LOADED",
+    "initial": true,
+    "name": "Bike Gallery Loaded",
+    "page_id": "PAGE-BIKE-GALLERY",
+    "terminal": true
+   },
+   {
+    "description": "A specific bike's detail page is loaded.",
+    "evidence_ids": [],
+    "id": "STATE-BIKE-DETAIL-LOADED",
+    "initial": true,
+    "name": "Bike Detail Loaded",
+    "page_id": "PAGE-BIKE-DETAIL",
+    "terminal": true
+   },
+   {
+    "description": "The user is on the service booking page, selecting a service type.",
+    "evidence_ids": [],
+    "id": "STATE-SERVICE-BOOKING-SELECT-SERVICE",
+    "initial": true,
+    "name": "Select Service Type",
+    "page_id": "PAGE-SERVICE-BOOKING",
+    "terminal": true
+   },
+   {
+    "description": "The booking confirmation page is displayed after a successful service booking.",
+    "evidence_ids": [],
+    "id": "STATE-BOOKING-CONFIRMATION-DISPLAYED",
+    "initial": true,
+    "name": "Booking Confirmation Displayed",
+    "page_id": "PAGE-BOOKING-CONFIRMATION",
+    "terminal": true
+   }
+  ],
+  "traceability": [
+   {
+    "acceptance_test_ids": [
+     "TEST-VIEW-BIKE-GALLERY",
+     "TEST-FILTER-BIKE-GALLERY"
+    ],
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-BIKE-GRID"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-BIKE-GALLERY"
+    ],
+    "requirement_id": "REQ-BIKE-RANGE-DISPLAY"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-INITIATE-SERVICE-BOOKING",
+     "TEST-SELECT-SERVICE-DATE",
+     "TEST-CONFIRM-SERVICE-BOOKING"
+    ],
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-CALENDAR-WIDGET",
+     "EVIDENCE-CONFIRMATION-MESSAGE"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-SERVICE-BOOKING",
+     "PAGE-BOOKING-CONFIRMATION"
+    ],
+    "requirement_id": "REQ-WORKSHOP-BOOKING"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-VIEW-BIKE-DETAIL"
+    ],
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-BIKE-DETAIL-IMAGE",
+     "EVIDENCE-HOME-HERO"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-BIKE-DETAIL",
+     "PAGE-HOME"
+    ],
+    "requirement_id": "REQ-BOLD-PHOTOGRAPHY"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-VIEW-BIKE-GALLERY"
+    ],
+    "capability_ids": [
+     "CAP-BROWSE-BIKES"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-BIKE-GRID"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-BIKE-GALLERY"
+    ],
+    "requirement_id": "REQ-CLEAR-RANGE-GRID"
+   },
+   {
+    "acceptance_test_ids": [
+     "TEST-INITIATE-SERVICE-BOOKING",
+     "TEST-SELECT-SERVICE-DATE",
+     "TEST-CONFIRM-SERVICE-BOOKING"
+    ],
+    "capability_ids": [
+     "CAP-BOOK-SERVICE"
+    ],
+    "evidence_ids": [
+     "EVIDENCE-SERVICE-OPTIONS",
+     "EVIDENCE-BOOKING-FORM"
+    ],
+    "journey_ids": [],
+    "page_ids": [
+     "PAGE-SERVICE-BOOKING",
+     "PAGE-BOOKING-CONFIRMATION"
+    ],
+    "requirement_id": "REQ-EASY-SERVICE-BOOKING"
+   }
+  ],
+  "transitions": []
+ },
+ "validation": {
+  "is_valid": false,
+  "issues": [
+   {
+    "code": "state_assertion_state_required",
+    "message": "A state assertion requires state_id.",
+    "path": [
+     "acceptance_tests",
+     1,
+     "assertions",
+     1,
+     "state_id"
+    ],
+    "related_ids": [
+     "TEST-FILTER-BIKE-GALLERY"
+    ],
+    "severity": "error"
+   },
+   {
+    "code": "state_assertion_state_required",
+    "message": "A state assertion requires state_id.",
+    "path": [
+     "acceptance_tests",
+     4,
+     "assertions",
+     1,
+     "state_id"
+    ],
+    "related_ids": [
+     "TEST-SELECT-SERVICE-DATE"
+    ],
+    "severity": "error"
+   }
+  ],
+  "passed": false
+ }
+}
