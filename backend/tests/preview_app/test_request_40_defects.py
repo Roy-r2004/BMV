@@ -1759,14 +1759,18 @@ def test_a_photo_of_a_person_loses_to_a_photo_of_the_thing() -> None:
 def test_ranking_item_photos_never_returns_fewer_of_them() -> None:
     """A filter that drops photos would reintroduce the repeated-picture defect.
 
-    Eight distinct slots must still be filled even when every photograph the
-    search returned shows a person.
+    Every slot must still be filled even when every photograph the search
+    returned shows a person.
+
+    The photo count is derived from the pool rather than written down: it was
+    literal `12` against a pool of 8, and when the pool was sized to the corpus
+    (8 -> 24, 2026-08-09) the fixture — not the code — is what went red.
     """
     from app.application.services import industry_images as imgs
 
     people = [
         {"id": i, "alt": "a woman painting", "src": {"large": f"https://p/{i}.jpg"}}
-        for i in range(1, 13)
+        for i in range(1, len(imgs._ITEM_SLOTS) + 5)
     ]
     original = imgs._search_pexels
     try:
@@ -3741,17 +3745,22 @@ def test_a_catalogue_card_never_shows_a_slot_ranked_last_for_showing_people(
         )
     )
     mock = "export const seed = {\n  items: [\n" + items + "  ],\n};\n"
+    # Derived, not written down: this read `11` and `bound[8:]` against a pool of
+    # 8, so sizing the pool to the corpus (8 -> 24) turned a passing invariant
+    # into a red fixture. The invariant is "overflow wraps to the front of the
+    # ring", and it holds at any pool size.
+    pool_size = len(item_slot_names())
 
     out, rebound = rebind_catalogue_item_images(mock)
     assert rebound == 3, "the three cards that overflowed the pool must be rebound"
 
     bound = re.findall(r"image: images\.(\w+)", out)
-    assert len(bound) == 11, "no item may be dropped to fix a photograph"
+    assert len(bound) == pool_size + 3, "no item may be dropped to fix a photograph"
     assert all(slot in pool for slot in bound), (
         f"a catalogue card may only name the item pool; got {bound}"
     )
     # The overflow wraps to the front of the ring, not onto a scene slot.
-    assert bound[8:] == ["item1", "item2", "item3"]
+    assert bound[pool_size:] == ["item1", "item2", "item3"]
     # Idempotent — the guard sweep runs before every build attempt.
     assert rebind_catalogue_item_images(out) == (out, 0)
 

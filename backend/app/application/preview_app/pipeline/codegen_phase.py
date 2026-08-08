@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from app.application.preview_app.assemble import find_missing_route_pages, find_unresolved_routes, write_app_tsx
 from app.application.preview_app.codegen.generate import generate_file
+from app.application.preview_app.catalogue_contract.photo_binding import bind_catalogue_photos
 from app.application.preview_app.codegen.mock import synthesize_mock_data
 from app.application.preview_app.fallback import stabilize_all_route_pages, write_safe_stub
 from app.application.preview_app.parallel import parallel_map, split_codegen_phases
@@ -327,5 +328,22 @@ def run_codegen_phase(ctx: PipelineContext) -> None:
         ctx.ai_provider, ctx.template_renderer,
     ):
         log.info("    mock.ts synthesized from page imports")
+        # The catalogue's items exist for the first time here, so this is the
+        # first moment a photograph *can* be chosen for the item it captions —
+        # the pool `ctx.images` carries was searched during planning, from the
+        # industry string, before any item had a name.
+        #
+        # It belongs here and not in the guard sweep, which was the first place
+        # it was tried: the sweep runs before **every** build attempt, so a
+        # network fetch there re-picks the photographs on each retry and the
+        # workspace stops being idempotent (`test_unknown_slot_is_controlled_and
+        # _guards_are_idempotent` caught exactly that). Running once and writing
+        # the result into `ctx.images` means the guard keeps doing what it has
+        # always done — write the slot map it was handed — and the binding costs
+        # one request per generation rather than one per attempt.
+        bound = bind_catalogue_photos(workspace, ctx.industry)
+        if bound:
+            ctx.images.update(bound)
+            log.info("    %d catalogue photo(s) bound to their items", len(bound))
 
     codegen_watch.stop()

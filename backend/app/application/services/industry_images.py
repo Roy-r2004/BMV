@@ -138,7 +138,24 @@ _OBJECT_SLOTS = frozenset({"card1"})
 # a storefront's items each need their own picture or the grid captions two
 # different products with one photo. Harvested from search results the slot loop
 # already paid for, so this costs at most one extra request.
-_ITEM_SLOT_COUNT = 8
+#
+# **24, sized from the corpus rather than from a search page (2026-08-09).** This
+# was 8, and 8 was never a considered number — it was `_search_pexels`'s
+# `per_page=8` showing through. Census over the 18 stored workspaces with a
+# slugged catalogue: **13 declare more items than that**, and the cycle at
+# `item_source.py` is `i % len(item_slot_names())`, so item 9 showed item 1's
+# photograph. Request 65 is 16 items over 8 photos — **every picture twice**.
+# For a gallery selling originals two works sharing one photograph contradicts
+# the product outright.
+#
+# 24 covers the largest catalogue in the corpus (16) with headroom and still
+# costs **one request**: Pexels takes `per_page` up to 80, so a bigger pool is a
+# bigger page, not a second call. The cost is ~2 KB more in the seed prompt.
+_ITEM_SLOT_COUNT = 24
+#: What to ask Pexels for in that single request. Larger than the pool on
+#: purpose: duplicates, the person/empty-prop ranking and `used_ids` all thin the
+#: result, so asking for exactly 24 would deliver fewer.
+_ITEM_POOL_PER_PAGE = 40
 _ITEM_SLOTS = tuple(f"item{i}" for i in range(1, _ITEM_SLOT_COUNT + 1))
 # No "plain background": that phrase is what matched the product *mockups* —
 # request 45 captioned "Deep Sea Currents" with two blank canvases on easels.
@@ -660,7 +677,7 @@ def _item_slot_urls(
     # in the item grid in the first place.
     try:
         for photo in _search_pexels(
-            api_key, pool_query, page=(seed_n % 3) + 1, per_page=16
+            api_key, pool_query, page=(seed_n % 3) + 1, per_page=_ITEM_POOL_PER_PAGE
         ):
             _take(
                 photo.get("id"),
@@ -681,6 +698,66 @@ def _item_slot_urls(
             min(len(off_subject), _ITEM_SLOT_COUNT - len(on_subject)),
         )
     return {slot: pool[i] for i, slot in enumerate(_ITEM_SLOTS) if i < len(pool)}
+
+
+def item_photos_for_titles(
+    titles: list[str], industry: str, *, count: int | None = None
+) -> list[tuple[str, str]]:
+    """Photographs of the things this catalogue actually sells, with their `alt`.
+
+    The pool fetched during planning cannot depict the items — it is composed
+    from the industry string, before any item exists. This is the same search
+    asked *after* the seed has named them, so the query carries the catalogue's
+    own nouns; the `alt` text comes back with each photograph so the caller can
+    tell which picture goes with which item.
+
+    One request, whatever the catalogue's length. Returns `[]` on any failure —
+    no key, no titles, a raising search — because the caller's fallback is the
+    pool it already has, which is today's behaviour.
+    """
+    if not titles:
+        return []
+    api_key = ""
+    try:
+        from app.core.config import settings
+
+        api_key = (getattr(settings, "PEXELS_API_KEY", "") or "").strip()
+    except Exception:  # noqa: BLE001 — configuration is not this function's job
+        api_key = ""
+    if not api_key:
+        return []
+
+    # The subject words the items themselves state, deduped in first-seen order
+    # and clipped: a stock-photo index answers a phrase, not a catalogue.
+    seen: set[str] = set()
+    words: list[str] = []
+    for title in titles:
+        for word in re.findall(r"[A-Za-z][A-Za-z'-]+", title):
+            key = word.lower()
+            if key not in seen and len(key) > 2:
+                seen.add(key)
+                words.append(word)
+    query = " ".join(words[:8]) or _clip_words(industry or "", _MAX_INDUSTRY_QUERY_WORDS)
+    if not query.strip():
+        return []
+
+    wanted = count or max(len(titles), _ITEM_SLOT_COUNT)
+    photos: list[tuple[str, str]] = []
+    try:
+        for photo in _search_pexels(
+            api_key, query, page=1, per_page=min(80, max(wanted * 2, 20))
+        ):
+            url = _pexels_photo_url(photo, large=False)
+            if url:
+                photos.append((url, str(photo.get("alt") or "")))
+    except Exception as exc:  # noqa: BLE001 — item photos are an enhancement
+        logger.warning("Pexels item-title fetch failed (%s); keeping the pool", exc)
+        return []
+    # A photograph of a person is still wrong where the artifact belongs, and
+    # this search asks for the artifact by name, so the same ranking applies.
+    on_subject = [(u, a) for u, a in photos if not _ITEM_SUBJECT_REJECT_RE.search(a)]
+    off_subject = [(u, a) for u, a in photos if _ITEM_SUBJECT_REJECT_RE.search(a)]
+    return on_subject + off_subject
 
 
 def curated_library_urls() -> frozenset[str]:
