@@ -537,6 +537,7 @@ def enforce_catalogue_page_contract(
                         content={},
                         brand_name=brand_name or "Brand",
                         workspace_type=wtype,
+                        architect=architect,
                     ),
                     True,
                 )

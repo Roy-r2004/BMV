@@ -12,24 +12,62 @@ from app.application.preview_app.catalogue_contract.validate import (
 )
 
 
+CLASSES_ROUTE = {
+    "path": "/classes",
+    "title": "Classes & Workshops",
+    "skeleton_id": "public-service",
+    "section_slots": ["hero", "process", "features", "cta", "footer"],
+    "page_id": "classes",
+}
+
+
 def test_classes_route_scaffold_uses_schedule_rail() -> None:
+    architect = {
+        "routes": [
+            {"path": "/", "surface": "public", "skeleton_id": "public-home"},
+            CLASSES_ROUTE,
+            {
+                "path": "/get-in-touch",
+                "title": "Get in touch",
+                "surface": "public",
+                "skeleton_id": "public-utility",
+            },
+        ]
+    }
     tsx = minimal_catalogue_page_scaffold(
         "src/pages/ClassesPage.tsx",
-        {
-            "path": "/classes",
-            "title": "Classes & Workshops",
-            "skeleton_id": "public-service",
-            "section_slots": ["hero", "process", "features", "cta", "footer"],
-            "page_id": "classes",
-        },
+        CLASSES_ROUTE,
         brand_name="Wheelhouse Ceramics",
+        architect=architect,
     )
     assert "ScheduleRail" in tsx
     assert "BRAND_MANIFEST" in tsx
     assert "FeatureBento" not in tsx
     assert "seed.hero" not in tsx
     assert "/ai-features" not in tsx
-    assert 'href: "/contact"' in tsx
+    # The contact CTA lands on the contact page this app declared, which it calls
+    # `/get-in-touch`. The literal `/contact` was right for the apps that happen
+    # to use that word and a dead link for the rest.
+    assert 'href: "/get-in-touch"' in tsx
+    assert "/contact" not in tsx
+
+
+def test_the_contact_cta_is_dropped_when_no_contact_page_exists() -> None:
+    """A missing button beats a dead one — the rail is on this page."""
+    architect = {
+        "routes": [
+            {"path": "/", "surface": "public", "skeleton_id": "public-home"},
+            CLASSES_ROUTE,
+        ]
+    }
+    tsx = minimal_catalogue_page_scaffold(
+        "src/pages/ClassesPage.tsx",
+        CLASSES_ROUTE,
+        brand_name="Wheelhouse Ceramics",
+        architect=architect,
+    )
+    assert "/contact" not in tsx
+    assert 'href: "#classes-list"' in tsx
 
 
 def test_services_catalog_route_uses_schedule_rail() -> None:

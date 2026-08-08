@@ -226,6 +226,49 @@ def booking_route(architect: dict | None) -> str | None:
     return None
 
 
+def _contact_route(architect: dict | None) -> str | None:
+    """The app's contact face, resolved the way the utility compositor names it.
+
+    Imported late: `utility_compositor` imports this module back, and the two
+    have to agree on what a contact page is or a CTA points at a route the
+    compositor gave a different layout.
+    """
+    from app.application.preview_app.utility_compositor import utility_route
+
+    return utility_route(architect, "contact")
+
+
+def declares_path(architect: dict | None, path: str) -> bool:
+    """Whether the app declares this exact route.
+
+    The narrowest of the resolvers, and the right one for an ops console's own
+    chrome: `/invoices` and `/ticket` are the accounting and trading blueprints'
+    own page ids, not a concept another name could stand in for. Either the route
+    is there or the button has nowhere to go.
+    """
+    wanted = str(path or "").rstrip("/") or "/"
+    return any(
+        isinstance(route, dict)
+        and (str(route.get("path") or "").rstrip("/") or "/") == wanted
+        for route in (architect or {}).get("routes") or []
+    )
+
+
+def _ops_header_actions(architect: dict | None, label: str, href: str) -> str:
+    """The ops PageHeader's action row, minus any button with nowhere to go.
+
+    The AI hub is a pipeline constant and always present. The second action is a
+    route the ops blueprint may or may not have seeded — an app whose console
+    never got `/invoices` shipped a "New invoice" button that fell through
+    `path="*"` to the home page, which on an ops console is not even a page the
+    visitor was on. An anchor (`#queue`) is in-page and always fine.
+    """
+    hub = '{ label: "AI features", href: "/ai-features", variant: "secondary" }'
+    if href.startswith("#") or declares_path(architect, href):
+        return f' actions={{[{hub}, {{ label: {_js(label)}, href: {_js(href)} }}]}}'
+    return f" actions={{[{hub}]}}"
+
+
 def catalog_route(architect: dict | None) -> str | None:
     """Where "view collection" goes — the declared browse face, by skeleton first.
 
@@ -745,6 +788,12 @@ def _safe_slot_jsx(
     # so on request 148 every card on a `/bikes` page linked into a `/gallery`
     # the route table does not contain.
     catalog_detail_base = detail_base or _DEFAULT_CATALOG_BASE
+    # Where "Get started" goes when the seed does not say. `/contact#inquire` was
+    # the literal, and `/contact` is a route plenty of apps do not declare — the
+    # fragment made it look like an anchor and it is a route link with an anchor
+    # on the end. Resolve the contact face; with none, fall back to the bare
+    # anchor, which at worst scrolls nowhere.
+    cta_ask_href = f"{_contact_route(architect)}#inquire" if _contact_route(architect) else "#inquire"
     catalog_item_noun = "pieces" if gallery else "items"
     # "Contact for Purchase" is about *a piece*, so it belongs on the detail
     # page. A gallery's standalone /contact page also fields commissions, studio
@@ -840,8 +889,10 @@ def _safe_slot_jsx(
         "cta": (
             f'<CTABand heading={{seed.cta?.heading ?? {cta_heading_fb}}} '
             f'description={{seed.cta?.description ?? {cta_desc_fb}}} '
-            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", href: seed.cta?.primaryHref ?? "/contact#inquire" }} '
-            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", href: seed.cta?.secondaryHref ?? "/contact#inquire" }} />'
+            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", '
+            f'href: seed.cta?.primaryHref ?? {_js(cta_ask_href)} }}}} '
+            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", '
+            f'href: seed.cta?.secondaryHref ?? {_js(cta_ask_href)} }}}} />'
         ),
         "footer": (
             f'<BrandFooter brandName={{{brand_js}}} '
@@ -930,12 +981,9 @@ def _safe_slot_jsx(
             + _d("Books · live", "Markets open · live marks", "Live")
             + "</span>}"
             + _d(
-                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "New invoice", href: "/invoices" }]}',
-                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "New ticket", href: "/ticket" }]}',
-                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "Check in", href: "#queue" }]}',
+                _ops_header_actions(architect, "New invoice", "/invoices"),
+                _ops_header_actions(architect, "New ticket", "/ticket"),
+                _ops_header_actions(architect, "Check in", "#queue"),
             )
             + " />"
         ),
@@ -1335,6 +1383,11 @@ def _schedule_listing_scaffold(
         if book_path
         else "BOOK_PATH"
     )
+    # "Contact" only when there is a contact page; otherwise the rail itself is
+    # the second option, and it is on this page.
+    contact_path = _contact_route(architect)
+    schedule_contact_label = _js("Contact" if contact_path else "Browse schedule")
+    schedule_contact_href = _js(contact_path or "#classes-list")
     appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
     for action_id in action_ids:
@@ -1395,7 +1448,7 @@ export default function {component}() {{
         heading="Not sure which session fits?"
         description="Browse the schedule, or get in touch and we will help you pick a time."
         primaryCta={{{{ label: "Book a time", href: {book_js} }}}}
-        secondaryCta={{{{ label: "Contact", href: "/contact" }}}}
+        secondaryCta={{{{ label: {schedule_contact_label}, href: {schedule_contact_href} }}}}
       />
       <BrandFooter brandName={{{brand_js}}} description="Clear schedules. Real bookings. Brand-first pages." />
       </div>
@@ -1493,9 +1546,14 @@ def _directory_listing_scaffold(
         if book_path
         else _NO_ROUTE_CTA
     )
+    contact_href = _contact_route(architect)
     if people_directory:
         cta_primary = book_cta
-        cta_secondary = '{ label: "Contact", href: "/contact" }'
+        cta_secondary = (
+            f'{{ label: "Contact", href: {_js(contact_href)} }}'
+            if contact_href
+            else '{ label: "Back home", href: "/" }'
+        )
         footer_desc = "Real providers. Clear booking. Not another homepage clone."
         page_desc = "Browse providers, specialties, and availability — then book the right visit."
         showcase_desc = "Each card opens a provider profile. Book when you are ready."
@@ -1649,6 +1707,7 @@ def minimal_catalogue_page_scaffold(
             content={},
             brand_name=brand,
             workspace_type=early_wtype,
+            architect=architect,
         )
     # Product Face Contract: page_intent wins over industry/path keywords — but
     # NOT over surface. `_directory_listing_scaffold` builds a *public* face

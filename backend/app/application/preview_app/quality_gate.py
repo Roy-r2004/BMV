@@ -746,10 +746,12 @@ def heal_quality_gate(
             file_path=rel,
             route={**route, "path": path, "title": title, "skeleton_id": "public-utility"},
             content=default_utility_content(
-                wtype, brand_name=brand_name, title=title, path=path
+                wtype, brand_name=brand_name, title=title, path=path,
+                architect=architect,
             ),
             brand_name=brand_name,
             workspace_type="confirmation",
+            architect=architect,
         )
         write_file(workspace, rel, composed)
         healed.append(rel)

@@ -67,17 +67,12 @@ ALLOWED: dict[str, str] = {
     # path and pinned through normalization, so it is a pipeline constant, not a
     # business's naming choice.
     "/ai-features": "pipeline constant — see test_the_ai_hub_path_is_a_pipeline_constant",
-    # ---- known remaining references, recorded rather than hidden ----
-    # Ops-console chrome and the utility flows. These are not on the public
-    # browse → detail → book journey the trio measures, and each needs its own
-    # resolver (an ops route table, a checkout face) rather than the two written
-    # in this pass. Left as the next slice; an entry here is a debt, not a pardon.
-    "/contact": "utility contact face — needs a utility-route resolver (next slice)",
-    "/checkout": "utility checkout flow — same",
-    "/order-tracking": "utility order flow — same",
-    "/invoices": "ops PageHeader action, accounting console — same",
-    "/ticket": "ops PageHeader action, trading desk — same",
 }
+# The four utility/ops paths that were listed here as debt — `/contact`,
+# `/checkout`, `/order-tracking`, `/invoices`, `/ticket` — are gone.
+# `utility_route` resolves the first three by page kind and `declares_path`
+# gates the ops header actions, so the list is down to the two literals that
+# genuinely cannot be an architect's naming choice.
 
 
 def _literals(path: Path) -> list[tuple[int, str]]:
