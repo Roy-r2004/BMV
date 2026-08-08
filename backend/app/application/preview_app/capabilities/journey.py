@@ -56,7 +56,16 @@ _OPS_PATH_PREFIXES = ("/admin", "/owner", "/ops", "/staff", "/member", "/desk")
 
 #: Link-bearing keys. `defaultPath` is a role's landing route — a dead one drops
 #: the visitor on the catch-all exactly like a dead nav item does.
-_LINK_KEYS = "href|defaultPath"
+#:
+#: `\w*` in front of `href` because the writers do not only write `href`. The
+#: seed's call-to-action band carries `primaryHref` and `secondaryHref`, and the
+#: mock writer fills them with paths it invents: `/reserve` and `/order` on
+#: request 153, `/shop` and `/alerts` on 156, and — on a hardware store — the
+#: literal `/gallery` on 157. Six dead targets across three apps, every one
+#: reported as zero, because the old pattern anchored `href` behind
+#: `(?<![\w-])` and `primaryHref` has a word character in front of it. The
+#: quoted-key arm could not match either: `"primaryHref"` is not `["']?href`.
+_LINK_KEYS = r"\w*[Hh]ref|defaultPath"
 #: href values in emitted TSX **and** in the JSON-shaped props the writers emit.
 #:
 #: The key may be quoted. Request 71's `InquiryConfirmationPage.tsx:24` carried
