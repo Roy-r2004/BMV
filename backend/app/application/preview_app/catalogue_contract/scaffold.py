@@ -140,23 +140,33 @@ def catalog_base_from_path(route_path: str = "", architect: dict | None = None) 
     collection" to a path that fell through to the catch-all — three blocking
     findings on an app whose links all otherwise worked. When the derived base is
     not a declared route, the declared listing wins.
+
+    "The declared listing" is resolved by skeleton before it is resolved by name.
+    The name list below only knows the words a catalogue usually goes by, and
+    request 148's browse face is `/bikes` while 150's is `/catalogue` — neither is
+    in it. Both fell through to the `/gallery` default, so every card the home
+    page rendered linked into a route those apps do not have.
     """
     raw = str(route_path or "").strip()
     base = raw.split("/:")[0].split("/{")[0].rstrip("/")
-    if not base:
-        return _DEFAULT_CATALOG_BASE
     declared = {
         str(r.get("path") or "").rstrip("/")
         for r in ((architect or {}).get("routes") or [])
         if isinstance(r, dict)
     }
-    if not declared or base in declared:
+    if base and (not declared or base in declared):
         return base
+    if browse := catalog_route(architect):
+        return browse
     listing = sorted(
         p for p in declared
         if p and ":" not in p and _LISTING_BASE_RE.match(p + "/")
     )
-    return listing[0] if listing else base
+    if listing:
+        return listing[0]
+    # No path of its own to derive from — a home page's card grid — so fall back
+    # to wherever this app's detail routes actually live.
+    return base or catalogue_detail_base(architect) or _DEFAULT_CATALOG_BASE
 
 
 #: Browse-route names a catalogue listing goes by.
@@ -728,6 +738,12 @@ def _safe_slot_jsx(
 
     # CatalogGrid derives every card's link from detailBase + item id, so the
     # browse → detail hop cannot be dropped by codegen.
+    #
+    # The `products` and `showcase` slots read it too. They used to write the
+    # literal `/gallery/${…}` while this — already derived, already in scope, and
+    # used correctly by the adjacent `catalog` slot six lines down — sat unused,
+    # so on request 148 every card on a `/bikes` page linked into a `/gallery`
+    # the route table does not contain.
     catalog_detail_base = detail_base or _DEFAULT_CATALOG_BASE
     catalog_item_noun = "pieces" if gallery else "items"
     # "Contact for Purchase" is about *a piece*, so it belongs on the detail
@@ -779,7 +795,7 @@ def _safe_slot_jsx(
             'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
             'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
-            'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
+            f'href: `{catalog_detail_base}/${{encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}}` '
             '}))} />'
         ),
         "showcase": (
@@ -789,7 +805,7 @@ def _safe_slot_jsx(
             'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
             'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
-            'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
+            f'href: `{catalog_detail_base}/${{encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}}` '
             '}))} />'
         ),
         # Browse face: every item rendered and linked, not a three-card mosaic.
@@ -1734,7 +1750,13 @@ def minimal_catalogue_page_scaffold(
         if slot_component and slot_component not in components:
             components.append(slot_component)
     path = str(route.get("path") or "")
-    detail_base = catalog_base_from_path(path, architect)
+    # A catalogue face derives its base from its own path — `/gallery/:id` hangs
+    # off `/gallery`, and a browse page is its own base. Every other page has no
+    # claim on one and must read the table: a booking page carrying a `showcase`
+    # slot numbered its cards into `/service/book/:_`, which is a route no app
+    # declares, and before that into the `/gallery` default, which is worse.
+    own_base = path if skeleton_id in {"public-catalog", "public-detail"} else ""
+    detail_base = catalog_base_from_path(own_base, architect)
     slot_lines = "\n".join(
         "    {slot}: (\n      {jsx}\n    ),".format(
             slot=slot,

@@ -13,6 +13,7 @@ from app.application.preview_app.catalogue_contract.item_source import (
 from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
     _is_directory_listing_route,
+    catalog_base_from_path,
     schedule_face_required,
     _paint_first_detail_slots,
     _safe_slot_jsx,
@@ -361,16 +362,30 @@ def repair_missing_catalogue_slots(
     brand = brand_name or "Brand"
     title = str(route.get("title") or "Overview")
     skeleton_id = str(route.get("skeleton_id") or "")
+    # The same base `minimal_catalogue_page_scaffold` derives. Left unpassed, an
+    # injected catalogue slot fell back to the `/gallery` default, so a page the
+    # repair loop touched came out with card links the generator would never have
+    # written — and only on the repair path, which is the hardest place to see it.
+    detail_base = catalog_base_from_path(str(route.get("path") or ""), architect)
     ordered_missing = [
         slot for slot in assigned_non_shell_slots(route) if slot in missing
     ]
     if set(ordered_missing) != missing:
         return content, False
+
+    def _slot_jsx(slot: str) -> str:
+        return _safe_slot_jsx(
+            slot,
+            brand,
+            title,
+            skeleton_id=skeleton_id,
+            detail_base=detail_base,
+            architect=architect,
+        )
+
     try:
         injected = "".join(
-            f"\n    {slot}: (\n      "
-            f"{_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id, architect=architect)}"
-            "\n    ),"
+            f"\n    {slot}: (\n      {_slot_jsx(slot)}\n    ),"
             for slot in ordered_missing
         )
     except ValueError:
@@ -401,10 +416,7 @@ def repair_missing_catalogue_slots(
     if needed:
         repaired = _ensure_ui_import_names(repaired, needed)
 
-    injected_jsx = "".join(
-        _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id, architect=architect)
-        for slot in ordered_missing
-    )
+    injected_jsx = "".join(_slot_jsx(slot) for slot in ordered_missing)
     # Every identifier an injected slot reads out of the mock must be imported,
     # not just `images`.
     repaired = _ensure_mock_import_names(
