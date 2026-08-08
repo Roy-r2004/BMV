@@ -79,17 +79,37 @@ def test_the_corpus_disagrees_with_the_literals_it_replaced() -> None:
     assert set(DECLARED_BROWSE.values()) - {"/gallery", None}
 
 
-def test_the_premise_holds_across_the_corpus() -> None:
-    """One booking face per app, at most one catalogue face — the fact resolved on.
+def test_one_booking_face_per_app_across_the_corpus() -> None:
+    """The fact `booking_route` resolves on, checked rather than assumed.
 
-    If an architect ever declared two `public-booking` routes the resolver would
-    be picking one arbitrarily, and this is where that shows up.
+    Held across 146-151 when this was written and still holds. If an architect
+    ever declares two `public-booking` routes the resolver is picking one
+    arbitrarily, and this is where that shows up.
+
+    **The catalogue half of the premise did not survive.** Request 161 declares
+    two `public-catalog` routes — `/catalogue` and `/hire` — which is a coherent
+    thing for a hardware store with a separate tool-hire counter to want. It
+    shipped `ready` with zero dead links, because `catalog_route` returns the
+    first declared match and every consumer only needs *a* browse face rather
+    than *the* browse face. Recorded here so nobody re-derives a uniqueness
+    guarantee that the corpus has already contradicted.
     """
     for request_id, (_, routes) in REAL_APPS.items():
         booking = [r for r in routes if r["skeleton_id"] == "public-booking"]
-        catalog = [r for r in routes if r["skeleton_id"] == "public-catalog"]
         assert len(booking) <= 1, f"{request_id} declares {len(booking)} booking faces"
-        assert len(catalog) <= 1, f"{request_id} declares {len(catalog)} catalogue faces"
+
+
+def test_two_catalogue_faces_resolve_deterministically() -> None:
+    """Request 161's shape. First declared wins, and it must not wobble."""
+    two = {
+        "routes": [
+            {"path": "/", "surface": "public", "skeleton_id": "public-home"},
+            {"path": "/catalogue", "surface": "public", "skeleton_id": "public-catalog"},
+            {"path": "/hire", "surface": "public", "skeleton_id": "public-catalog"},
+        ]
+    }
+    assert catalog_route(two) == "/catalogue"
+    assert catalog_route(two) == "/catalogue"
 
 
 def test_an_ops_booking_console_is_not_a_public_cta_target() -> None:
