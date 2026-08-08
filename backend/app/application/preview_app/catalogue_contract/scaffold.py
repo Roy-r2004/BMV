@@ -1127,6 +1127,57 @@ def _is_schedule_listing_route(file_path: str, route: dict) -> bool:
     return any(hint in blob for hint in _SCHEDULE_HINTS)
 
 
+def _browse_leaf(route_path: str) -> str:
+    """Last non-param segment of a route — `/shop/items/:id` -> `items`."""
+    stripped = re.sub(r"/:\w+|/\{[^}]+\}", "", str(route_path or ""))
+    return stripped.rstrip("/").rsplit("/", 1)[-1].lower()
+
+
+def _is_public_face(route: dict) -> bool:
+    """A visitor-facing route: PublicShell, and not hanging under an ops prefix."""
+    return expected_shell(route) != "OpsShell" and not _is_ops_path(
+        str(route.get("path") or "")
+    )
+
+
+def schedule_face_required(file_path: str, route: dict) -> bool:
+    """Whether this route's page **must** render a `ScheduleRail`.
+
+    The single answer, for the generator, the gate and the repair alike.
+    `_is_schedule_listing_route` is only half the rule: it says "this route looks
+    like a classes/services listing", and the dispatcher in
+    `minimal_catalogue_page_scaffold` then overrides it in two cases. Those
+    overrides used to live at the call site, so only the generator applied them.
+
+    Requests 147 (Meridian Physiotherapy), 148 (Ridgeline Bike Works) and 150
+    (Copperline Hardware) were all withheld on `listing_not_schedule_rail`
+    against pages that had no business carrying a rail. Each architect had set
+    `page_intent`, so the generator correctly built a CatalogGrid listing — and
+    the gate, calling the bare predicate, failed the page for not being the thing
+    the pipeline had just decided it should not be. 147's was the run's only gate
+    issue. `repair.py` had drifted a third way, inlining `page_intent != "listing"`
+    at one of its two sites, so the repair loop rewrote the page with the same
+    dispatcher that would not emit a rail and then failed it again.
+
+    The two overrides, restated here so they cannot drift again:
+
+    - **`page_intent` wins.** An explicit intent is the architect's contract; the
+      keyword pickers exist only for legacy/thin contracts that left it blank.
+    - **A catalogue browse leaf wins, on a public face.** `/shop`, `/gallery` and
+      friends are CatalogGrid browse routes even when the keywords say schedule
+      (request 64). Ops routes keep the rail: `_directory_listing_scaffold`
+      builds a *public* face and the contract validator rejects it on an
+      OpsShell route, so the generator deliberately lets those fall through.
+    """
+    if not _is_schedule_listing_route(file_path, route):
+        return False
+    if str(route.get("page_intent") or "").strip().lower():
+        return False
+    if _browse_leaf(route.get("path") or "") in CATALOG_BROWSE_LEAVES:
+        return not _is_public_face(route)
+    return True
+
+
 def _is_directory_listing_route(file_path: str, route: dict) -> bool:
     """Doctor/provider/team directories get a people grid — not the homepage hero."""
     skeleton_id = str(route.get("skeleton_id") or "")
@@ -1475,9 +1526,7 @@ def minimal_catalogue_page_scaffold(
     # it could not contain. An ops listing falls through to the generic scaffold
     # below, which builds the shell and slots its own skeleton declares.
     intent = str(route.get("page_intent") or "").strip().lower()
-    public_face = expected_shell(route) != "OpsShell" and not _is_ops_path(
-        str(route.get("path") or "")
-    )
+    public_face = _is_public_face(route)
     route_path = str(route.get("path") or "")
     # Param routes are item detail (or nested record) faces — never a directory
     # listing. Request 50's CollectionDetail at `/gallery/:collectionId` had
@@ -1487,24 +1536,17 @@ def minimal_catalogue_page_scaffold(
         re.search(r"/:\w+", route_path) or re.search(r"/\{[^}]+\}", route_path)
     )
     skeleton_hint = str(route.get("skeleton_id") or "")
-    browse_leaf = (
-        re.sub(r"/:\w+|/\{[^}]+\}", "", route_path).rstrip("/").rsplit("/", 1)[-1].lower()
-    )
+    browse_leaf = _browse_leaf(route_path)
     # Gallery/shop browse routes must always be CatalogGrid faces — even when the
     # architect left page_intent empty or assigned public-home. Request 64's
     # /gallery shipped ProductShowcase (3-card cap) and failed journey_browse_caps.
     force_catalog_browse = browse_leaf in CATALOG_BROWSE_LEAVES
     # A classes/services listing is a schedule face, not a product grid — it
     # needs times and prices, and its funnel goes to /book, not to a per-item
-    # detail route it never declares. `skeleton_hint == "public-catalog"` is new
-    # in this branch and it swallowed every salon `/services` page on the way
-    # past. Scoped to `not intent` so it restores exactly the routes the
-    # keyword picker below used to reach, and nothing more.
-    schedule_face = (
-        not intent
-        and not force_catalog_browse
-        and _is_schedule_listing_route(file_path, route)
-    )
+    # detail route it never declares. The `page_intent` and browse-leaf overrides
+    # that used to be spelled out here now live in `schedule_face_required`, so
+    # the gate and the repair resolve this the same way the generator does.
+    schedule_face = schedule_face_required(file_path, route)
     if (
         public_face
         and not has_route_param
@@ -1542,7 +1584,7 @@ def minimal_catalogue_page_scaffold(
             skeleton_id=str(route.get("skeleton_id") or ""),
             architect=architect,
         )
-    if not intent and _is_schedule_listing_route(file_path, route):
+    if schedule_face:
         return _schedule_listing_scaffold(
             component=component,
             brand=brand,

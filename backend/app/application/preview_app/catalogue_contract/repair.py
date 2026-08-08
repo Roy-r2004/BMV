@@ -13,7 +13,7 @@ from app.application.preview_app.catalogue_contract.item_source import (
 from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
     _is_directory_listing_route,
-    _is_schedule_listing_route,
+    schedule_face_required,
     _paint_first_detail_slots,
     _safe_slot_jsx,
     has_listing_face_component,
@@ -544,7 +544,7 @@ def enforce_catalogue_page_contract(
         re.search(r"/:\w+", route_path) or re.search(r"/\{[^}]+\}", route_path)
     )
     if (
-        _is_schedule_listing_route(file_path, route)
+        schedule_face_required(file_path, route)
         and "ScheduleRail" not in (content or "")
         and not has_route_param
     ):
@@ -608,12 +608,12 @@ def enforce_catalogue_page_contract(
         or _DIRECTORY_FACE_MARKER not in (content or "")
         or lifestyle_catalogue
     ):
-        # Schedule listings (keyword, no intent) still use ScheduleRail — skip those.
-        if (
-            str(route.get("page_intent") or "").strip().lower() != "listing"
-            and _is_schedule_listing_route(file_path, route)
-            and not lifestyle_catalogue
-        ):
+        # Schedule listings still use ScheduleRail — skip those, or the rewrite
+        # below replaces a legitimate rail with a CatalogGrid. This site used to
+        # inline `page_intent != "listing"`, a third variant of the rule the gate
+        # and the generator each spelled differently; it now asks the one
+        # function, so the repair restores exactly the face the generator builds.
+        if schedule_face_required(file_path, route) and not lifestyle_catalogue:
             pass
         else:
             return (

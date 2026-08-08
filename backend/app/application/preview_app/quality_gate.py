@@ -13,7 +13,7 @@ from typing import Any
 
 from app.application.preview_app.catalogue_contract.scaffold import (
     _is_directory_listing_route,
-    _is_schedule_listing_route,
+    schedule_face_required,
     has_listing_face_component,
     minimal_catalogue_page_scaffold,
 )
@@ -187,7 +187,7 @@ def evaluate_quality_gate(
         if not rel:
             continue
         src = _read(workspace, rel)
-        if _is_schedule_listing_route(rel, rt):
+        if schedule_face_required(rel, rt):
             if src and "ScheduleRail" not in src:
                 report.fail(
                     "listing_not_schedule_rail",
@@ -703,7 +703,7 @@ def heal_quality_gate(
         if not rel:
             continue
         src = _read(workspace, rel)
-        if _is_schedule_listing_route(rel, rt) and src and "ScheduleRail" not in src:
+        if schedule_face_required(rel, rt) and src and "ScheduleRail" not in src:
             write_file(
                 workspace,
                 rel,
