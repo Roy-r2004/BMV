@@ -452,6 +452,16 @@ def run_plan_phase(ctx: PipelineContext) -> None:
     clear_stubbed_paths(workspace)
     ctx.full_context = full_context
     ctx.plan = plan
+    # The manifest is what codegen reads for the brand, and `design_manifest`
+    # fills it from the plan's concept name — which is often absent, and used to
+    # be defaulted to the word "Business". Stamp the name the pipeline actually
+    # resolved (business name first) so a page scaffolded from the manifest and a
+    # page scaffolded from `ctx` cannot be addressed to different brands, which
+    # is what request 156 shipped.
+    if isinstance(manifest, dict) and brand_name:
+        manifest["brand_name"] = brand_name
+        if isinstance(manifest.get("brand"), dict):
+            manifest["brand"]["name"] = brand_name
     ctx.manifest = manifest
     ctx.design_system = design_system
     ctx.design_brief = (

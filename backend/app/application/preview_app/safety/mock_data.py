@@ -818,6 +818,74 @@ _BRAND_POISON_SIMPLE = 'brandName={"Brand"}'
 _BRAND_POISON_SIMPLE_ALT = "brandName={'Brand'}"
 
 
+def scrub_placeholder_brand(source: str, brand: str) -> tuple[str, int]:
+    """Put the real brand back into copy the scaffold wrote for a placeholder.
+
+    Returns `(source, replacements)`.
+
+    The old scrub matched one shape of one word — `brandName={"Brand"}` — and
+    request 156 shipped three sentences addressed to "Business": *"Ready for
+    Business?"*, *"Tell Business what you need — clear options, real next
+    steps."*, *"Business — clear choices and real bookings."* Those are the
+    scaffold's brand-bound fallbacks doing exactly what they were written to do,
+    with a placeholder handed to them, and they reached the customer only because
+    `slot_fill` took an HTTP 408 on that page and never replaced them.
+
+    Bounded on purpose. It rewrites the placeholder **only where the scaffold
+    itself puts the brand** — the `brandName` attribute, and inside a quoted
+    string that also carries one of the fallback phrases. A bare `\\bBusiness\\b`
+    sweep over a page would rewrite "business hours" and "small business owners",
+    which is a worse defect than the one being fixed.
+    """
+    from app.application.preview_app.brand_brief import PREVIEW_BRAND_PLACEHOLDERS
+
+    real = (brand or "").strip()
+    if not real or real.casefold() in PREVIEW_BRAND_PLACEHOLDERS:
+        return source, 0
+    words = "|".join(
+        re.escape(word)
+        for word in sorted(PREVIEW_BRAND_PLACEHOLDERS, key=len, reverse=True)
+    )
+    replaced = 0
+
+    def _swap(match: re.Match[str]) -> str:
+        nonlocal replaced
+        replaced += 1
+        return match.group(0).replace(match.group("name"), real)
+
+    # 1) The brand attribute, in every quoting the scaffold and the writers emit.
+    attr = re.compile(
+        rf"""brandName\s*=\s*\{{?\s*(?P<q>["'])(?P<name>{words})(?P=q)\s*\}}?""",
+        re.IGNORECASE,
+    )
+    source = attr.sub(_swap, source)
+
+    # 2) A quoted string that is one of the scaffold's brand-bound fallbacks.
+    #    The phrase is what makes it safe: prose about businesses does not say
+    #    "Ready for X?" with the placeholder standing where a name goes.
+    phrases = (
+        rf"Ready for (?P<name>{words})\?",
+        rf"Tell (?P<name>{words}) what you need",
+        rf"(?P<name>{words}) — clear choices and real bookings",
+        rf"(?P<name>{words}) — original works, shown plainly",
+        rf"What (?P<name>{words}) offers",
+        rf"From (?P<name>{words})",
+        rf"(?P<name>{words}) picks",
+        rf"How (?P<name>{words}) works",
+        rf"Guests of (?P<name>{words})",
+        rf"Why (?P<name>{words})",
+        rf"(?P<name>{words}) in focus",
+        rf"what makes (?P<name>{words}) distinct",
+        rf"(?P<name>{words}) results",
+        rf"(?P<name>{words}) highlight",
+        rf"Ask (?P<name>{words}) a question",
+        rf"Work with (?P<name>{words})",
+    )
+    for phrase in phrases:
+        source = re.compile(phrase, re.IGNORECASE).sub(_swap, source)
+    return source, replaced
+
+
 def dedupe_object_literal_keys(source: str, export_name: str) -> str:
     """Drop earlier duplicates of a key in a top-level ``export const X = {…};``.
 
@@ -1015,6 +1083,13 @@ def sync_mock_images(
         # Also catch JSX string form brandName="Brand"
         text = re.sub(r'brandName="Brand"', f"brandName={{{brand_js}}}", text)
         text = re.sub(r"brandName='Brand'", f"brandName={{{brand_js}}}", text)
+        # …and every other placeholder, including the ones that reached the copy
+        # rather than the attribute.
+        text, swapped = scrub_placeholder_brand(text, brand)
+        if swapped:
+            guard_log.info(
+                "placeholder brand replaced in %s (%s occurrence(s))", rel, swapped
+            )
         if text != original:
             write_file(workspace, rel, text)
             page_actions += 1
