@@ -126,7 +126,57 @@ invocation from `docs/KNOWN_TEST_FAILURES.md` (note: it needs the `bmv-local-api
 Evidence: `docs/evidence/session26/placeholder-gate-census.{md,json}`,
 `docs/evidence/session26/tail-rescope-1.11.md`.
 
-### Is Phase 1 done? No — and the distinction matters for Phase 3
+### The trios ran — 146-151, $1.407, and the clock row is MET
+
+**Six runs, two trios, `$0.234` a run** (the roadmap has been pricing ~$0.42). Balance
+bracketed: 380.153877615 → 381.560541831, **$3.44 left**. Six **new** businesses on purpose —
+the database held 131 requests across 16 names, **nine of them art galleries**.
+
+**The thing that made these different: simultaneous start.** `POST /api/requests` returns
+immediately and runs the pipeline on a background thread, so three POSTs from three threads
+land together — **measured spread 0.002 s**. Twelve prior runs used a 60 s stagger and
+recorded `contention: 0.0` *every single time*; they never collided, so every earlier
+"concurrent" trio was a second clean clock. **Never use the stagger again.**
+
+| run | business | mode | status | wall s | lock wait | gate issues |
+|---|---|---|---|---|---|---|
+| 146 | Kestrel & Fern Bakehouse | plain | failed | 570 | **5.7** | 1 |
+| 147 | Meridian Physiotherapy | url | failed | 556 | 0.0 | 1 |
+| 148 | Ridgeline Bike Works | file | failed | **577** | **17.8** | 4 |
+| 149 | Halcyon Sound Studio | url | failed @ **60 s** | — | — | — |
+| 150 | Copperline Hardware | plain | failed | 564 | **5.4** | 3 |
+| 151 | Vantage Freight Desk | file | **ready** | 553 | 0.0 | **0** |
+
+- **≤ 600 s row MET** — 5 of 5 timed runs, across two trios, satisfying "clear it twice",
+  and **under the first non-zero contention ever recorded**. Request 148 blocked 17.8 s on
+  the lock and still finished 23 s inside the cap.
+- **1.11 CLOSED with zero new code.** Worst lock wait 17.8 s against a 60 s reserve. The
+  reserve holds under real contention — which is exactly the proof the re-scope asked for.
+  Two prior attempts wrote code against a target that had already moved; the third wrote a
+  measurement.
+- **Ship rate 1 of 6, and *which* one shipped is the finding.** 151 is the **`internal_ops`
+  dispatch console** — the kind session 15's classifier work made reachable, and which **0 of
+  47 stored kind_contexts** had ever been. First live outing, zero gate issues. **All five
+  public-facing briefs failed** on `journey_dead_link_offpath` and `listing_not_schedule_rail`
+  (neither is the dead-link class repaired to 31 → 0). This is the first time the pipeline
+  was asked for six businesses it had never seen, and it shipped one.
+- **149 is the R2 early-stop working in production, first time ever observed.** It did NOT
+  overrun — it failed at 60 s: *"AppSpec repair reproduced its parent's validator error set
+  — failing closed instead of spending further repairs."* Session 24 landed that offline and
+  it had never fired live. The underlying error is `state_assertion_state_required`, i.e. the
+  **`state_ids` backfill** already on the open list — it now has a live reproduction.
+  **Trap for the next person: 149 stored no `preview_app` at all, so a poller waiting on
+  `elapsed_seconds` waits forever.** Read request-level `status` too.
+- **The ≤ 560 s floor must be RE-BASED, not scored.** p50 came in at 564 s, but the 558.7 s
+  baseline was eight runs at `contention: 0.0` — serial. Concurrency costs 5-18 s. Comparing
+  them is comparing two experiments.
+
+Both trios ran the **pre-fix** gate (`UVICORN_RELOAD=false`, so the process held the code
+loaded at container start). Deliberate: "clears it twice" requires identical code.
+
+Evidence: `docs/evidence/session26/trios-146-151.md`, launcher archived beside it.
+
+### Is Phase 1 done? Nearly — one row, and it is not about the pipeline
 
 **Code-complete, not proven.** Twelve of thirteen numbered items landed; **1.11 is the only open
 engineering** (and needs re-scoping first — the tail is 255 s non-AI vs 127 s AI, so the original
