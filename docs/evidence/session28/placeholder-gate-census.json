@@ -1,0 +1,317 @@
+{
+ "corpus_runs": 98,
+ "shipped_predicate": {
+  "runs_firing": [
+   "33",
+   "68",
+   "71",
+   "73",
+   "78",
+   "81",
+   "93"
+  ],
+  "run_count": 7,
+  "hits": {
+   "33": [
+    "[Painting Title]"
+   ],
+   "68": [
+    "[Owner Name]",
+    "[Painter's Name]"
+   ],
+   "71": [
+    "[Artist Name]"
+   ],
+   "73": [
+    "[Customer Name]",
+    "[Painting Title]"
+   ],
+   "78": [
+    "[Next available slot]"
+   ],
+   "81": [
+    "[Patient Name]"
+   ],
+   "93": [
+    "[Phone Number]"
+   ]
+  }
+ },
+ "specified_predicate": {
+  "runs_firing": [
+   "19",
+   "34",
+   "37",
+   "39",
+   "43",
+   "135",
+   "140"
+  ],
+  "run_count": 7,
+  "hits": {
+   "19": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "34": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "37": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "39": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "43": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "135": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "140": [
+    "Everyday essential",
+    "Guest favorite"
+   ]
+  }
+ },
+ "specified_predicate_unguarded": {
+  "run_count": 98,
+  "note": "bare match, no `Brand` co-occurrence guard \u2014 matches routes and generic CTAs, retained only to show what the guard removes"
+ },
+ "brand_predicate": {
+  "runs_firing": [
+   "20",
+   "32",
+   "33",
+   "47",
+   "101",
+   "102",
+   "103",
+   "104",
+   "105",
+   "106",
+   "107",
+   "108",
+   "109",
+   "110",
+   "111",
+   "112",
+   "122",
+   "124",
+   "125",
+   "148",
+   "156"
+  ],
+  "run_count": 21,
+  "hits": {
+   "20": {
+    "src/pages/ArtworkDetailPage.tsx": 9
+   },
+   "32": {
+    "src/pages/AboutPage.tsx": 9,
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 1,
+    "src/pages/admin/ArtworkManagementPage.tsx": 2
+   },
+   "33": {
+    "src/pages/CollectionPage.tsx": 2,
+    "src/pages/ContactPage.tsx": 4,
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 1,
+    "src/pages/admin/ArtworkListPage.tsx": 2,
+    "src/pages/admin/InquiriesPage.tsx": 2,
+    "src/pages/admin/LoginPage.tsx": 2,
+    "src/pages/admin/SettingsPage.tsx": 2
+   },
+   "47": {
+    "src/pages/ContactPage.tsx": 7
+   },
+   "101": {
+    "src/pages/ArtworkDetailPage.tsx": 7,
+    "src/pages/ContactPage.tsx": 2,
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 10,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/PrivateDiningPage.tsx": 8,
+    "src/pages/ReservationsPage.tsx": 6,
+    "src/pages/owner/InquiriesPage.tsx": 2,
+    "src/pages/owner/MenuManagePage.tsx": 1,
+    "src/pages/owner/ReservationsManagePage.tsx": 1,
+    "src/pages/owner/SettingsPage.tsx": 1
+   },
+   "102": {
+    "src/pages/AboutPage.tsx": 8,
+    "src/pages/ChatbotPage.tsx": 2,
+    "src/pages/HomePage.tsx": 11,
+    "src/pages/ServicesPage.tsx": 2,
+    "src/pages/TreatmentsPage.tsx": 2,
+    "src/pages/admin/CommunicationsPage.tsx": 1,
+    "src/pages/admin/DashboardPage.tsx": 1,
+    "src/pages/admin/KnowledgeBasePage.tsx": 1,
+    "src/pages/admin/SettingsPage.tsx": 1
+   },
+   "103": {
+    "src/pages/ContactUsPage.tsx": 2,
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 1,
+    "src/pages/MenuFoodPage.tsx": 2,
+    "src/pages/MenuWinePage.tsx": 2,
+    "src/pages/ReservationsPage.tsx": 7,
+    "src/pages/owner/DashboardPage.tsx": 1,
+    "src/pages/owner/EventInquiriesPage.tsx": 2,
+    "src/pages/owner/GalleryManagementPage.tsx": 2,
+    "src/pages/owner/MenuManagementPage.tsx": 1
+   },
+   "104": {
+    "src/pages/AboutPage.tsx": 2,
+    "src/pages/BookingConfirmationPage.tsx": 3,
+    "src/pages/BookingFlowPage.tsx": 6,
+    "src/pages/ContactPage.tsx": 2,
+    "src/pages/RoomDetailPage.tsx": 8,
+    "src/pages/RoomsOverviewPage.tsx": 2,
+    "src/pages/admin/AdminAvailabilityPage.tsx": 1,
+    "src/pages/admin/AdminBookingDetailPage.tsx": 1,
+    "src/pages/admin/AdminBookingsListPage.tsx": 1,
+    "src/pages/admin/AdminDashboardPage.tsx": 1,
+    "src/pages/admin/AdminInquiriesPage.tsx": 2,
+    "src/pages/admin/AdminRoomsListPage.tsx": 1
+   },
+   "105": {
+    "src/pages/ContactPage.tsx": 2,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/OurStoryPage.tsx": 10,
+    "src/pages/admin/AdminLoginPage.tsx": 2,
+    "src/pages/admin/AdminMenuManagementPage.tsx": 1,
+    "src/pages/admin/AdminPrivateInquiriesPage.tsx": 2
+   },
+   "106": {
+    "src/pages/AvailabilityPage.tsx": 5,
+    "src/pages/BookingSummaryPage.tsx": 4,
+    "src/pages/ConfirmationPage.tsx": 2,
+    "src/pages/HomePage.tsx": 11,
+    "src/pages/PaymentPage.tsx": 4,
+    "src/pages/RoomDetailPage.tsx": 8,
+    "src/pages/RoomsPage.tsx": 2,
+    "src/pages/admin/BookingDetailPage.tsx": 1,
+    "src/pages/admin/DashboardPage.tsx": 1,
+    "src/pages/admin/LoginPage.tsx": 2,
+    "src/pages/admin/MessagesPage.tsx": 2,
+    "src/pages/admin/RoomEditPage.tsx": 1,
+    "src/pages/admin/SettingsPage.tsx": 1
+   },
+   "107": {
+    "src/pages/ContactPage.tsx": 2,
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/ReservePage.tsx": 6,
+    "src/pages/owner/DashboardPage.tsx": 1,
+    "src/pages/owner/MenuPage.tsx": 1
+   },
+   "108": {
+    "src/pages/CheckoutPage.tsx": 4,
+    "src/pages/PostBookingItineraryPage.tsx": 9,
+    "src/pages/RoomGalleryPage.tsx": 2,
+    "src/pages/owner/BookingsLedgerPage.tsx": 1,
+    "src/pages/owner/GuestsDirectoryPage.tsx": 1,
+    "src/pages/owner/OccupancyCalendarPage.tsx": 1,
+    "src/pages/owner/OperationsDashboardPage.tsx": 1,
+    "src/pages/owner/PricingManagerPage.tsx": 1,
+    "src/pages/owner/SettingsPage.tsx": 1
+   },
+   "109": {
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 2,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/OurStoryPage.tsx": 1,
+    "src/pages/PrivateDiningPage.tsx": 8,
+    "src/pages/ReservationsPage.tsx": 1
+   },
+   "110": {
+    "src/pages/CheckoutPage.tsx": 4,
+    "src/pages/ExperienceCustomizerPage.tsx": 1,
+    "src/pages/HomePage.tsx": 1,
+    "src/pages/RoomSelectionPage.tsx": 2
+   },
+   "111": {
+    "src/pages/ArtworkDetailPage.tsx": 7,
+    "src/pages/GalleryPage.tsx": 2
+   },
+   "112": {
+    "src/pages/BackRoomPage.tsx": 8,
+    "src/pages/CellarPage.tsx": 2,
+    "src/pages/HomePage.tsx": 10,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/ReservePage.tsx": 6,
+    "src/pages/owner/ChefDashboardPage.tsx": 1,
+    "src/pages/owner/EventLeadsPage.tsx": 2,
+    "src/pages/owner/MenuUpdatePage.tsx": 1,
+    "src/pages/owner/ReservationsOpsPage.tsx": 1,
+    "src/pages/owner/WinePairingsPage.tsx": 1
+   },
+   "122": {
+    "src/pages/ArtworkDetailPage.tsx": 7,
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 2,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/PrivateDiningPage.tsx": 6,
+    "src/pages/WineListPage.tsx": 10
+   },
+   "124": {
+    "src/pages/HomePage.tsx": 10,
+    "src/pages/MenuPage.tsx": 2,
+    "src/pages/PrivateDiningPage.tsx": 8,
+    "src/pages/ReservationsPage.tsx": 2
+   },
+   "125": {
+    "src/pages/GalleryPage.tsx": 2,
+    "src/pages/HomePage.tsx": 10
+   },
+   "148": {
+    "src/pages/BikeDetailPage.tsx": 8,
+    "src/pages/HomePage.tsx": 9
+   },
+   "156": {
+    "src/pages/HomePage.tsx": 3,
+    "src/pages/ServiceBookingPage.tsx": 7
+   }
+  },
+  "note": "fix D's family \u2014 the scaffold's brand-bound fallbacks left holding a placeholder, measured with production's own scrub_placeholder_brand over src/pages/** only. Lives in page TSX, so the shipped gate cannot see it: that gate reads src/data/mock.ts only",
+  "template_default_runs": 98,
+  "template_default_note": "workspaces whose copied-in template files carry `brandName = 'Brand'` as a default parameter. NOT a fire: a default renders only where a call site omits the prop. Reported so the number is visible rather than dropped"
+ },
+ "runs_the_shipped_gate_would_miss": [
+  "19",
+  "20",
+  "32",
+  "34",
+  "37",
+  "39",
+  "43",
+  "47",
+  "101",
+  "102",
+  "103",
+  "104",
+  "105",
+  "106",
+  "107",
+  "108",
+  "109",
+  "110",
+  "111",
+  "112",
+  "122",
+  "124",
+  "125",
+  "135",
+  "140",
+  "148",
+  "156"
+ ],
+ "verdict": "FAILED"
+}

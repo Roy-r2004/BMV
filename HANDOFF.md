@@ -1,12 +1,100 @@
-# Session handoff — 3 of 3 shipped, and the last route literal is out of the planner (2026-08-08, session 27)
+# Session handoff — the stage that writes the catalogue had been dead for 60 requests (2026-08-09, session 28)
 
 Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
 titles survive as their own `##` blocks below (this line had been left naming session 23 while
 24, 25 and 24-parallel landed underneath it — if you add a block, move this line too).
 
-**If you are picking this up, read the session 27 block first** — it carries one open finding
-that needs an owner ruling rather than a patch (industry packs ship literal copy, and one of
-them landed on the wrong business).
+**If you are picking this up, read the session 28 block first.** Phase 1's last offline reads were
+done for $0 and they found that `mock_synthesize` — the stage that writes every app's catalogue
+content — had been failing 87 % of the time since request 101 with nothing showing it. The failover
+landed. **The consequence for anybody citing the archive: every stored workspace from 101 to 161 was
+built with a dead seed, so no catalogue-content judgement made against that corpus is evidence about
+the code that runs now.**
+
+---
+
+## Session 28 (2026-08-09 — Phase 1's last reads, $0, and the defect they turned up)
+
+No generation was launched and no money was spent. Everything below is `ai_usage_events`, the
+`requests` table, and the 98 stored workspaces. Evidence:
+`docs/evidence/session28/phase1-offline-reads.md`.
+
+### The finding
+
+**`mock_synthesize` was the one content-critical stage with no model failover, and it had been
+failing 87 % of the time since request 101.**
+
+    google/gemini-2.5-flash   requests 72-98    19 of 23 usable   mean 27.0 s
+    deepseek/deepseek-v4-pro  requests 101+      4 of 31 usable   mean 66.1 s
+    the last two trios (146-161)                 1 of 11 usable
+
+Ten of those eleven are `provider_timeout` with `output_chars = 0`; six rode the 120 s ask cap to
+the millisecond. The stage spends ~91 s of every run and delivers nothing on ten runs in eleven.
+
+It was invisible because the fallback is quiet by design — the caller keeps the plumbing mock,
+which is the Brand-default seed with the business name pasted through it. Request 161, **a hardware
+store**, therefore shipped `"Copperline Hardware Signature"`, `"Member aftercare"`,
+`"Follow-up visit"`, *"the owner hub's no-show risk view"*, and `client_names: [… "Client 7",
+"Client 8"]`. That is the wellness/booking default on an ironmonger, and it is the *demo matches the
+business* problem at its root.
+
+Fixed in `be7ae70`: a deduped model chain, each link its own numbered ask, a link only started when
+`ask_budget_seconds()` leaves room to finish it (floor 70 s — the one ask that ever succeeded took
+63.9 s), so the chain cannot spend a deadline already lost or push a run through the 600 s cap.
+**Model *order* is left to settings on purpose** — the primary is the weakest link in its own chain,
+which is a ruling, not a retry policy. 10 mutations / 0 survivors; one equivalent mutant recorded
+rather than chased. Suite **2,245 passed / 1 skipped**.
+
+### Phase 1 after the reads
+
+| row | outcome |
+|---|---|
+| `appspec` ask ceiling | **MET** — 37 asks, all with a writer at last, max 47.3 s against 120 s |
+| 120 s ceiling overall | **HOLDS** — 24 capped asks, largest overshoot **21 ms**; the `_CANCEL_GRACE` fix confirmed live |
+| p50 ≤ 560 s floor | **MET at 559.0 s** over eight simultaneous-start runs — the re-base session 26 asked for turned out to be unnecessary |
+| ≤ 600 s | **8 of 8** across three trios, worst 577 s |
+| `degraded:` marker | still populated on every run |
+| `slot_fill` discard | **measured, not closed** — 179.6 s/run, 47.8 %, and **two thirds of it is transport**, not rejections |
+| `placeholder_content_shipped` | **still open, and a third family found** — see below |
+
+**Open engineering in Phase 1: none.** What is left is one funded row and three owner rulings.
+
+### The placeholder row has a third family, and a trap worth copying
+
+`SHIPPED` 7 of 98 (none since 93) · `SPECIFIED` 7 of 98 (none since 140) · **`BRAND` 21 of 98
+(none since 156)**. The third is fix D's — *"Ready for Business?"* — and it lives in page TSX, which
+the shipped gate structurally cannot read. The census now measures it with production's own
+`scrub_placeholder_brand`.
+
+**The trap:** the first cut scanned all of `src/` and fired on 91 of 98 with an identical signature
+every time. Those were the template's own `brandName = 'Brand'` **default parameters**, copied
+verbatim into every workspace and overridden at every call site. Counting them would have repeated
+this census's original sin exactly — the unguarded SPECIFIED set that fired on 87 of 87 and meant
+nothing. It is reported as `template_default_runs` rather than dropped.
+
+Denominator: 147 requests across **22 distinct businesses** now, but the clean tail across all three
+predicates is **four runs, three businesses**. The row wants twenty.
+
+### What needs the owner
+
+1. **The seed's model order** — `deepseek-v4-pro` is 4-of-31 at 66.1 s; `gemini-2.5-flash` was
+   19-of-23 at 27.0 s. The failover catches the failure; the primary still costs ~120 s to discover.
+2. **Industry packs ship literal copy, and the selector mismatched one** (27b, unchanged).
+3. **Catalogue photos cannot depict their items**, and **the item pool is 8** (26, unchanged).
+
+Read 2 and 3 *next to* the seed finding: both were scored on runs where the seed never answered.
+
+### Process notes
+
+- **Read a suspect check in `ai_usage_events` by `finish_reason`, never by run outcomes.** This
+  session opened by finding fix F had misfired 27 times across 14 requests rather than twice; the
+  same query shape then found the seed. A retry ladder hides a misclassifier; a quiet deterministic
+  fallback hides a dead stage.
+- **The pipeline has two silent fallbacks left by design** (plumbing mock, scaffold slot-fill). Both
+  are correct as behaviour. Both need a counter the gate can see, or the next dead writer takes
+  another sixty requests to notice.
+- `docker cp` a measurement script into `bmv-api` before running it — it imports production modules
+  and the workspaces live on that container's volume.
 
 ---
 

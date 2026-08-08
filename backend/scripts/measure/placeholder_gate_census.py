@@ -42,9 +42,23 @@ twice (see the traps section of the roadmap). The bare-match number is retained
 as `specified_predicate_unguarded` so the difference is visible rather than
 quietly dropped.
 
-One exclusion, stated rather than buried: **only `src/data/mock.ts` is read**,
-because that is the only file the shipped gate reads. A placeholder baked into a
-page TSX is out of scope for this row.
+**A third family exists and neither predicate above can see it (added session 28).**
+Session 27's fix D found that `"Business"` is a placeholder brand too — request
+156 shipped *"Ready for Business?"*, *"Tell Business what you need"*,
+*"Business — clear choices and real bookings."* Those are the scaffold's
+brand-bound fallbacks handed a placeholder, and they reached customer-visible
+copy. They live in **page TSX, not `mock.ts`**, so the shipped gate cannot see
+them by construction and the SPECIFIED helpers do not name them either.
+
+The BRAND predicate measures that class by running production's own
+`scrub_placeholder_brand` over each page and counting what it would rewrite —
+importing the function rather than restating its patterns, for the same reason
+the other two are imported. A sentinel brand is passed in because the count is
+the measurement; the real name only decides what the replacement text would be.
+
+The `mock.ts`-only exclusion therefore now applies to the two original predicates
+only, and it is stated rather than buried: the shipped gate reads one file, and
+two of the three placeholder families this repo has found do not live in it.
 
 Read-only. Reads no database and makes no network call.
 """
@@ -67,6 +81,14 @@ from app.application.preview_app.industry_templates.seed import (  # noqa: E402
 from app.application.preview_app.quality_gate import (  # noqa: E402
     _BRACKETED_PLACEHOLDER_RE,
 )
+from app.application.preview_app.safety.mock_data import (  # noqa: E402
+    scrub_placeholder_brand,
+)
+
+#: Passed to `scrub_placeholder_brand` as the "real" name. Any string that is not
+#: itself a placeholder works: the function returns a replacement *count*, and it
+#: is the count this census reads, never the rewritten source.
+_SENTINEL_BRAND = "Sentinel Brand Name"
 
 #: The two titles `product_face.py:118` treats as early-placeholder even without
 #: a "Brand" token in them. Restated here because they are literals there too.
@@ -116,6 +138,44 @@ def scan(source: str) -> dict:
     }
 
 
+def scan_brand(workspace: Path) -> tuple[dict[str, int], int]:
+    """Fix D's family: the scaffold's brand fallbacks left holding a placeholder.
+
+    Production's `scrub_placeholder_brand` decides what counts, so this cannot
+    drift from it. Returns `({relative path: sites}, template_default_sites)`.
+
+    **`src/pages/**` only, and the exclusion is the whole point of the split.**
+    Scanning all of `src/` fires on 91 of 98 workspaces with an identical
+    signature every time — `components/Nav.tsx x1`, `ui/public/AiFeatureDeck.tsx
+    x1`, `AiFeaturePanel.tsx x1`, `AiFeatureStage.tsx x2`. Those are the
+    **template's own default parameter values** (`function Nav({ brandName =
+    'Brand' })`), copied verbatim into every workspace by the scaffolder. A
+    default is not shipped copy: it renders only where a call site omits the
+    prop, which is a different question and is measured separately. Counting
+    them would have reproduced this script's original sin — the unguarded
+    SPECIFIED set that fired on 87 of 87 and meant nothing.
+
+    They are returned rather than dropped, so the number stays visible.
+    """
+    hits: dict[str, int] = {}
+    for tsx in sorted((workspace / "src/pages").rglob("*.tsx")):
+        _, sites = scrub_placeholder_brand(
+            tsx.read_text(errors="replace"), _SENTINEL_BRAND
+        )
+        if sites:
+            hits[str(tsx.relative_to(workspace))] = sites
+
+    template_defaults = 0
+    for tsx in sorted((workspace / "src").rglob("*.tsx")):
+        if tsx.is_relative_to(workspace / "src/pages"):
+            continue
+        _, sites = scrub_placeholder_brand(
+            tsx.read_text(errors="replace"), _SENTINEL_BRAND
+        )
+        template_defaults += sites
+    return hits, template_defaults
+
+
 def run_census(roots: list[Path]) -> dict:
     seen: dict[str, Path] = {}
     for root in roots:
@@ -124,11 +184,18 @@ def run_census(roots: list[Path]) -> dict:
         for d in sorted(root.iterdir(), key=lambda p: p.name):
             if d.is_dir() and d.name.isdigit() and (d / "src/data/mock.ts").is_file():
                 # Last root wins: the live volume supersedes an archive.
-                seen[d.name] = d / "src/data/mock.ts"
+                seen[d.name] = d
 
     runs: dict[str, dict] = {}
-    for name, mock in sorted(seen.items(), key=lambda kv: int(kv[0])):
-        runs[name] = scan(mock.read_text(errors="replace"))
+    brand_hits: dict[str, dict[str, int]] = {}
+    template_default_runs = 0
+    for name, workspace in sorted(seen.items(), key=lambda kv: int(kv[0])):
+        runs[name] = scan((workspace / "src/data/mock.ts").read_text(errors="replace"))
+        hits, template_defaults = scan_brand(workspace)
+        if hits:
+            brand_hits[name] = hits
+        if template_defaults:
+            template_default_runs += 1
 
     shipped_hits = {r: v["shipped"] for r, v in runs.items() if v["shipped"]}
     specified_hits = {r: v["specified"] for r, v in runs.items() if v["specified"]}
@@ -156,7 +223,24 @@ def run_census(roots: list[Path]) -> dict:
             "note": "bare match, no `Brand` co-occurrence guard — matches routes and "
                     "generic CTAs, retained only to show what the guard removes",
         },
-        "runs_the_shipped_gate_would_miss": only_specified,
+        "brand_predicate": {
+            "runs_firing": sorted(brand_hits, key=int),
+            "run_count": len(brand_hits),
+            "hits": brand_hits,
+            "note": "fix D's family — the scaffold's brand-bound fallbacks left "
+                    "holding a placeholder, measured with production's own "
+                    "scrub_placeholder_brand over src/pages/** only. Lives in "
+                    "page TSX, so the shipped gate cannot see it: that gate "
+                    "reads src/data/mock.ts only",
+            "template_default_runs": template_default_runs,
+            "template_default_note": "workspaces whose copied-in template files "
+                    "carry `brandName = 'Brand'` as a default parameter. NOT a "
+                    "fire: a default renders only where a call site omits the "
+                    "prop. Reported so the number is visible rather than dropped",
+        },
+        "runs_the_shipped_gate_would_miss": sorted(
+            set(only_specified) | (set(brand_hits) - set(shipped_hits)), key=int
+        ),
         "verdict": "MET" if not shipped_hits else "FAILED",
     }
 
@@ -189,6 +273,16 @@ def main() -> None:
     print(f"    [unguarded, for contrast] bare match fires on "
           f"{result['specified_predicate_unguarded']['run_count']} runs — routes, "
           f"durations and CTAs; not a placeholder signal")
+    print()
+    br = result["brand_predicate"]
+    print(f"  BRAND predicate (fix D's family, src/pages/** only, production's own "
+          f"scrub_placeholder_brand): {br['run_count']} of {result['corpus_runs']} runs fire")
+    for run in br["runs_firing"]:
+        where = ", ".join(f"{f} x{n}" for f, n in sorted(br["hits"][run].items()))
+        print(f"    request {run}: {where}")
+    print(f"    [not a fire] {br['template_default_runs']} runs carry "
+          f"`brandName = 'Brand'` as a template default parameter, which renders "
+          f"only where a call site omits the prop")
     print()
     print(f"  runs the shipped gate would MISS: "
           f"{result['runs_the_shipped_gate_would_miss'] or 'none'}")
