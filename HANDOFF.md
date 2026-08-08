@@ -1,11 +1,119 @@
-# Session handoff — the p50 row is ruled and Phase 1 is called code-complete-not-proven (2026-08-08, session 26)
+# Session handoff — the route literals are gone from the emitters, and the same bug is waiting in the planner (2026-08-08, session 27)
 
 Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
 titles survive as their own `##` blocks below (this line had been left naming session 23 while
 24, 25 and 24-parallel landed underneath it — if you add a block, move this line too).
 
-**If you are starting Phase 3, read the session 26 block first** — it carries the Phase 1 verdict,
-the sequencing risk, and a stale suite baseline that a draft kickoff brief was still quoting.
+**If you are picking this up, read the session 27 block first** — it carries one ready-to-start
+finding with its root cause already located, and two upstream failures that are now the main tax
+on landing a trio.
+
+---
+
+## Session 27 (2026-08-08 — a route literal may define a route; it may never reference one)
+
+**Spend $0.900297.** Six launches to land three runs. Balance bracketed:
+381.560541831 → 382.460838476, **$2.539 left**. Suite **2,153 passed / 1 skipped / 0 failed**.
+
+Three commits, each gated on a green suite and a mutation sweep with zero survivors:
+
+- **`50d12c2` (2a) — booking and browse CTAs resolve from the route table.** The scaffold wrote
+  the literals `/book` and `/gallery` into every CTA it emitted. Right for the apps whose
+  architect happened to pick those words; a dead link for 148 (`/service/book`), 150
+  (`/hire/reserve`) and 146 (`/cakes/order`). `booking_route` / `catalog_route` resolve by
+  **skeleton, never by name**. When an app declares no booking page — 151 is an ops console — the
+  CTA becomes `#inquire` rather than a fabricated `/book`: a missing button beats a dead one.
+  The trap that would have undone it was `safety/mock_data.py::sync_mock_images`, the last guard
+  before the build, rewriting dead booking CTAs to the literal.
+- **`f742ef7` (2b) — catalogue cards hang off the declared browse route, plus the lint.**
+  `products` and `showcase` emitted `` `/gallery/${…}` `` while `catalog_detail_base` sat unused
+  six lines up. `catalog_base_from_path` also resolved "the declared listing" by *name*, from a
+  vocabulary that knows `gallery`/`shop` and not `/bikes`. `test_route_literal_census.py` reads
+  the emitters' own source and fails on any route literal in emitted-href position that is not on
+  a six-entry allowlist with a reason beside it; it catches both slot reversions with every
+  behavioural test in the tree deleted.
+- **`e153fc0` (2c) — journey hops resolve by skeleton.** `/hire/reserve` shares no first segment
+  with `/book`, so 150's terminal hop resolved to nothing and reported the booking page missing
+  on an app that had one; `/bikes` shares none with `/gallery`, so 148 lost all three hops and
+  **nothing about that funnel was ever checked**. Each hop now carries its skeleton, tried between
+  the exact-hint pass and the stem pass — order matters, so a `/book/faq` policy page no longer
+  outranks the booking page. One extra fix rode along because this pass made it reachable:
+  `journey_no_detail_route` read the architect for param routes while every other check answers
+  against the table `App.tsx` serves, and `assemble.py` mints `listing/:id` into the router only.
+
+### The trio: every route literal is gone from the output
+
+Same three briefs as session 26, `file` run handed **the exact image 148 was given**.
+
+| brief | s26 | s27 |
+|---|---|---|
+| Kestrel & Fern Bakehouse | 146 failed · 1 gate issue · **1 dead link** | 153 failed · 1 gate issue · **0** |
+| Ridgeline Bike Works | 148 failed · 4 gate issues · **3 dead links** · whole journey absent | 156 failed · **1** · **0** |
+| Copperline Hardware | 150 failed · 3 gate issues · **2 dead links** · `next_hop_missing` | 157 **ready** · **0** · **0** |
+
+**Six dead-link occurrences became zero.** No `/book` and no `/gallery` in any of the three
+generated apps. The architects named their faces `/celebration-cakes`, `/bikes`,
+`/service-booking`, `/catalogue`, `/hire/book/itemid` — not one would have matched the old
+literals. Clock 553 / 552 / 554 s.
+
+**Honest ship rate: 1 of 3**, not the 3 of 3 the kickoff projected. The projection assumed the
+route literals were the last thing standing; for Copperline they were.
+
+### The one thing to pick up next, root cause already located
+
+Both remaining failures are the **same** finding, and it is true — read off the shipped routers,
+neither app declares a param route or gets one minted:
+
+    journey_no_detail_route: no detail route is declared, so items cannot be opened
+    153 /celebration-cakes    156 /bikes
+
+**It is this session's rule again, one layer up.**
+`product_kind._inject_blueprint_routes` (`product_kind.py:1188`) skips the `/gallery/:id`
+blueprint unless the literal `/gallery` is already in the table. 156's catalogue is `/bikes`, so
+the parent lookup misses and the detail page is never added. A route literal *referencing* a
+route, surviving in the planner. Same fix shape: resolve the detail blueprint's parent against
+the route wearing `skeleton_id == "public-catalog"` and hang the param off that path. **Not
+attempted** — a fourth pipeline change with planner blast radius, found at the last step of a
+four-step brief, deserves its own gate.
+
+### Two findings nobody was looking for
+
+- **`seed.cta.primaryHref` is an unvalidated route literal and the sweep is structurally blind to
+  it.** The mock writer invents paths — 153 `/reserve`+`/order`, 156 `/shop`+`/alerts`, 157
+  `/gallery` (on a hardware store). Six dead targets, and `dead_link_occurrences` is **0** on all
+  three: `_HREF_LITERAL_RE` (`capabilities/journey.py:60`) has `(?<![\w-])` before `href`, so
+  `primaryHref` can never match. Widening the key to `\w*[Hh]ref` finds all six.
+- **Brand poison reached seed copy.** 156's `mock.ts` says `"Ready for Business?"`.
+  `sync_mock_images` scrubs `brandName={"Brand"}` in pages, not brand fallbacks inside `seed`.
+
+### The upstream tax — three of six launches never reached the preview pipeline
+
+- **`state_assertion_state_required` killed 2 of 6.** Requests **90, 116, 131, 149, 154, 155** —
+  three of those six are today, against 3 of 52 across requests 100-151. Entirely inside
+  `appspec/generation.py`, untouched by this work, and now the single largest cost of landing a
+  trio. Budget accordingly or fix it.
+- **Blueprint returned prose — first occurrence in the archive.** 152 died 11 s in with a
+  `ProviderGenerationError` whose body is the model's own markdown design document.
+  `_is_blueprint_transport_cut` correctly classifies it as a real error, so the ladder fails
+  closed on attempt 1 rather than burning two more asks. 0 of 52 in requests 100-151.
+
+### Process notes
+
+- **`requests.status` is not the run verdict.** It stays `new` when the pipeline *completes* and
+  becomes `failed` only when it raises. The verdict is `generated_pages -> preview_app -> status`.
+  Polling the wrong column makes a finished run look like it is still running — it cost two
+  ten-minute waits. Confirmed against 146-151 as well.
+- **A past run's reference image is recoverable.** `requests.reference_file_path` →
+  `bmv-api:/app/data/uploads/…`; `docker cp` it out and a `file`-mode run repeats with identical
+  input.
+- **Every fix got a mutation sweep, and the survivors were fixtures both times.** 2c's first pass
+  left two: nothing distinguished skeleton-first from stem-first, and nothing had an ops param
+  route. The lesson from session 26 held exactly — a survivor has meant a fixture defect every
+  single time, not a weak fix.
+- **The launcher must run inside the `bmv-local-api` image** (`--network host`); the host python
+  has no `requests`.
+
+Evidence: `docs/evidence/session27/trio-152-157.md`, `docs/evidence/session27/launch_trio.py`.
 
 ---
 
