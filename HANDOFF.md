@@ -56,6 +56,8 @@ rather than chased. Suite **2,245 passed / 1 skipped**.
 | `degraded:` marker | still populated on every run |
 | `slot_fill` discard | **measured, not closed** — 179.6 s/run, 47.8 %, and **two thirds of it is transport**, not rejections |
 | `placeholder_content_shipped` | **still open, and a third family found** — see below |
+| 1.8's empty-industry clause | **MET, 15 of 15** — every blank-`industry` request in the database derives a real trade (all resolve to `art`, including 66-68, the runs the guard was written for). Never scored until now |
+| 1.13's appspec bound | **still production-unproven, with 14 more runs saying so** — live ceiling 8, worst run 7 calls (150), reservation never engaged |
 
 **Open engineering in Phase 1: none.** What is left is one funded row and three owner rulings.
 

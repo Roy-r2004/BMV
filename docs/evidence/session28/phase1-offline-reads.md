@@ -97,6 +97,29 @@ distinct businesses**. The row wants twenty. It is not closable by a trio and it
 is not closable by re-reading the archive; it needs either funding or a re-scope
 to *"zero fires over the last N distinct businesses"* with N stated honestly.
 
+## Two rows nobody had ever scored
+
+**1.8's second clause — "an empty `industry` never reaches `generic` silently" — is MET, 15 of
+15.** The database holds 15 requests with a blank `industry` field, and `industry_or_derived("",
+description)` names a real trade for **every one of them**:
+
+    49-59, 61   "oil painting paintings art gallery atelier"   -> art
+    66, 67, 68  "art gallery oil painting paintings"           -> art
+
+    derived: 15 of 15    fell through to generic: 0
+
+Requests 66-68 are the exact runs the guard was written for — the ones that shipped SIGMA
+camera-lens packaging and an audio-editing timeline to a fine-art gallery because the pipeline had
+the answer in the description and did not read it. The clause has been sitting in the DoD row
+unscored since; it is now scored, on the whole population rather than a sample.
+
+**1.13 is still production-unproven, and now with 14 more runs saying so.** Live
+`APPSPEC_MAX_CALLS = 8` (read out of the running process, not the file). Across 146-161 the appspec
+call counts are 2, 3, 2, 2, **7**, 3, 2, 3, 2, 2, 3, 2, 2, 2 — the ceiling was never reached, and no
+run's degradation list mentions appspec, so the 280 s runway reservation never engaged either. The
+row's own wording stands: *landed, correct, tested, and not yet shown to do anything in production.*
+Request 150's 7 calls is the closest it has come.
+
 ## Two things checked that are not defects
 
 - **"Zero consecutive asks to the same resolved model id"** fires 5 times over
