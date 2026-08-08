@@ -1,6 +1,120 @@
-# Session handoff — the empty-tuple trio lands evidence-corrected, and the key runs dry mid-ship (2026-08-07, session 23)
+# Session handoff — the p50 row is ruled and Phase 1 is called code-complete-not-proven (2026-08-08, session 26)
 
-Successor to session 22's handoff (below in this file). Process notes, not product docs.
+Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
+titles survive as their own `##` blocks below (this line had been left naming session 23 while
+24, 25 and 24-parallel landed underneath it — if you add a block, move this line too).
+
+**If you are starting Phase 3, read the session 26 block first** — it carries the Phase 1 verdict,
+the sequencing risk, and a stale suite baseline that a draft kickoff brief was still quoting.
+
+---
+
+## Session 26 (2026-08-08 — the p50 ruling lands, and row 7 gets looked at)
+
+**Spend $0.** No generation, no model call. The OpenRouter key was probed first and is
+**dry: 380.154 of 385, ≈ $4.85 left ≈ 11 generations** — so this was another offline block,
+and the funded trio is still not launched.
+
+### The two owner rulings
+
+**Row 3 — p50, RULED (C).** Take (A), and carve out the two terms Phase 2 does not remove.
+The ≤ 500 s p50 leaves Phase 1 and is **not** restated in Phase 2, because Phase 2 DoD 6
+already carries a stricter one (≤ 420 s / p95 ≤ 540 s, by convolution) — so (A) turned out
+to be a deletion, not a move, which is worth knowing before someone re-adds it. Carved back
+into Phase 1 as rows in their own right: **seed `mock_synthesize`** (97.3 s p50, ONE serial
+call, hits 120.0 s to the millisecond on 3 of 8 runs — it is capped, not slow) and
+**`slot_fill`'s discarded output** (147.7 s/run on duo 1, the largest recoverable number in
+the pipeline). Neither is per-page fan-out, so the spec flip would have left both standing —
+~245 s of p50 that plain (A) would have parked by accident. 1.13's bound is **kept on its own
+merits** and credited with nothing it has not produced. Phase 1's vacated slot gets a
+**≤ 560 s no-regression floor**, scored from measured wall clock only (DoD 6's ruling: never
+from convolution — it overstates p95 by +191.9 s under a deadline).
+
+**Row 7 — scored at last, and it PASSES: 12 of 12 on request 73.** The row had stood open
+since request 70 on *"73's cards were not scored card-by-card"*, and no session had looked at
+the pictures. Fetched the eight `item*` Pexels URLs out of the stored `mock.ts` and looked at
+all eight: every one is a painting on canvas. 1.9's binding fix holds — no card wraps onto
+`card1/2/3`, the role images ranked last precisely because they show people, which is what put
+the easel photo captioned "Oil on Linen" on request 70. Row restated from "11 of 11" (request
+70's item count, not a principle) to **every card in the catalogue**.
+
+### Two NEW open rows the score turned up — both filed, neither fixed
+
+- **The photographs cannot depict the items, structurally.** 73's twelve works are titled
+  *Whispers of the Forest*, *Coastal Serenity*, *River's Edge*… — representational landscapes
+  to a one. All eight photos are **non-representational abstracts**, several macro crops of
+  paint surface. Right artifact type, wrong artifact. `item_pool_query(industry)`
+  (`industry_images.py:511-527`) builds its query from **the industry string alone** and
+  `_search_pexels` takes `per_page=8, page=1` — the pool is fetched **before any item exists**,
+  so correspondence is impossible by construction and no query tuning reaches it. Invisible to
+  every gate: the vision critic has a wrong-*subject* check (it blocked request 41 for showing
+  people painting) and cannot have a wrong-*work* check without knowing what the work looks
+  like. Fixing it is a capability with a per-run network cost — same shape as the `og_image`
+  extractor that was written down and not built. **Owner ruling wanted.**
+- **The pool is 8 and most catalogues are bigger.** `i % 8`, and a census over the 18 stored
+  workspaces with a slugged catalogue says **13 declare more items than the pool**. Request 65
+  is 16 items over 8 photos — every picture twice; 73 and 88 are 12 items with 4 repeats each.
+  The pool size is not a considered number, it is `per_page=8`. A repeat still shows the
+  artifact type so it does **not** fail row 7 — but for a gallery selling *originals*, two works
+  sharing a photograph contradicts the product. **Ruling wanted:** bigger pool (a second Pexels
+  page is nearly free) or a cap on declared items.
+
+### Two DoD rows were stale and are corrected
+
+Both had been understating Phase 1. **Suite green** read *1,288 / 1 failed*; it is
+**2,075 / 1 / 0** since the 0.8 merge gate. **Vitest CI green on main** read *"main has never
+run them"*; 1.10 recorded the owner watching run #11 go green 39/39 in **session 15** and this
+row was never updated — ten sessions of the DoD table being wrong in our own disfavour. Worth a
+standing habit: when a numbered item closes, grep the DoD table for its row in the same commit.
+
+### Process notes
+
+- **The sandbox has no outbound network.** `curl` to Pexels times out (exit 28, HTTP 000).
+  The api container does have it — that is how it fetched the images originally. Fetch there,
+  `docker cp` out. Cost ~4 min of dead ends before checking.
+- **Stored workspaces are a real corpus and nobody was using them.** 89 preview apps on the
+  volume, 18 with a slugged catalogue. Row 7 had been waiting on a funded run for a question
+  answerable offline for $0. Ask what is already on disk before pricing a generation.
+- **The eight most recent runs (129-145) have no slugged items array at all** — 145's seed
+  degraded to the plumbing mock (4 items, no slug, no image, no price). The newest workspace
+  with a real catalogue is **95**. If the trio is meant to re-score row 7, one of its three
+  briefs must be a catalogue business or the row gets no sample.
+
+Evidence: `docs/evidence/session26/catalogue-card-score-73.md`.
+
+### Is Phase 1 done? No — and the distinction matters for Phase 3
+
+**Code-complete, not proven.** Twelve of thirteen numbered items landed; **1.11 is the only open
+engineering** (and needs re-scoping first — the tail is 255 s non-AI vs 127 s AI, so the original
+target moved). Everything else outstanding is *evidence*: the ≤ 600 s second clean trio, the
+concurrency half (**contention 0.0 s on every trio ever run — never actually tested**), the new
+≤ 560 s floor, the `appspec` ask ceiling, the two carved-out terms, Q8. One row needs no run at
+all: `placeholder_content_shipped` = 0 is authoring work, the gate itself is correct.
+
+**Sequencing risk, flagged for whoever starts Phase 3.** Phase 3 changes the generator. After that,
+Phase 1's 558.7 s measured p50 and ≤ 600 s cap are **unattributable** — a regression could be either
+phase. The trio is **~$1.26 of the $4.85 left**. Cheapest moment to spend it is *before* Stage A
+touches the pipeline. Full standing table: the new *"Phase 1 — where it actually stands"* block at
+the head of the Phase 1 DoD section in the roadmap.
+
+### Note for the parallel lane (Phase 3) — one file, two authors
+
+This session and the Phase 3 lane both edited **`docs/PREVIEW_ROADMAP.md`**, and both wrote into
+**`docs/evidence/session26/`**. The house pathspec rule does not separate them: pathspecs separate
+*files*, and this was one file with two sets of hunks (mine at 334/569/980/1395-1447/2114-2168/2860,
+the Phase 3 lane's REVISED PLAN at 2573 and the two DoD bullets at 2770). They were committed
+together, deliberately, with both lanes named in the message — not swept up silently. **Generalise
+it: when two sessions share a document rather than a directory, `git add <file>` is the same hazard
+as `git add -A`.** Check `git diff` hunk-by-hunk for authorship before committing a shared doc.
+
+**Stale-number warning for the Phase 3 kickoff.** A draft session-27 brief carried *"suite green at
+or above the 1,288 baseline"* — that is the stale DoD row corrected this session. **The real
+baseline is 2,075 / 1 / 0.** A session holding 1,288 could drop ~780 tests and still call itself
+green.
+
+**Still needing the owner:** the key top-up (the trio is ~$1.26 of the $4.85), the two new
+imagery rulings above, plus the standing six-site R2 early-stop, 0.1 length-gate, 3.7
+gate-placement and DoD 6 p95 rulings.
 
 ---
 
@@ -1421,7 +1535,9 @@ What remains classifier-adjacent is only the live data point a funded run adds.
 Unchanged (`capability_ids` unread by `_search_text`).
 
 ### 5. p50 is 563-570 s against a ≤ 500 s DoD
-Unchanged; recommendation (A); owner ruling pending; the row is not moved.
+**RULED 2026-08-08 as (C) — see the session 26 block at the top of this file.** The row leaves
+Phase 1; seed's cap-riding call and `slot_fill`'s discarded output are carved back in as Phase 1
+rows; 1.13's bound is kept on its own merits. Superseded here; do not read this section as open.
 
 ### 6. `slot_fill` rejects 25 of 42 fills and the distribution is still unmeasured
 Needs item 1's log dump.

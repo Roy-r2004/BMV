@@ -331,7 +331,7 @@ PARKED ruling still need that ruling's specifics before the behavioral half move
 | R2 | **A retry must be a different ask** — temp-0 + identical prompt = identical output by construction. Thread the failure back into the retry (corrective message naming the exact errors), or vary something material. | appspec authoring (compact instruction), coverage (`aced8e7`: corrective + attempt bump) | FILED instance: slot_fill contract retry fails attempt 2 with the **byte-identical** validator message (session 18 — "the writer does not use the validator feedback"); audit every retry site for verbatim re-asks | code + the slot_fill rejection-count read on the next funded run |
 | R3 | **Cosmetic-vs-substantive validation** — be strict about decision-carrying fields, lenient about decoration. Explicit `null` where the schema default is `""`/`[]` is absence, not substance. Pin the strict set by mutation so leniency never creeps into load-bearing fields. | coverage models (`aced8e7`) | audit the other strict parsers of model output (slot_fill contract, architect JSON, design_manifest) for whole-artifact rejections on decorative fields; classify each failure code before touching anything | offline audit first; code only where the reject evidence shows the class fired |
 | R4 | **Enforce invariants at the earliest stage that has the information** — any ship-gate rule decidable at seed/plan time should be satisfied (or refused) there, in seconds, not after a paid run. The late gate stays as backstop. | ops home at the architecture seed (`e895ef7`; run 140 shipped) | the FILED `ops_kind_too_few_pages` (offline-proven on 135's artifact: ops gap-fill fires only on non-substantive tables); then a systematic pass over `validate_product_kind_chrome` + quality-gate rules: "could this be known before codegen?" | **RULED (owner, 2026-08-07): implement the defense-in-depth ladder, gap-fill variant** — one floor constant shared by gate + prompt render (derive, never duplicate); a per-kind floor line in `app_spec.j2` (ops kinds only); ops gap-fill to the floor with a PATH-KEYED unserved test (the skeleton-keyed test collides on `ops-list` and adds zero pages — proven session 21); seed-time refusal if still under floor; the ship gate untouched as backstop. Never lower the gate; never prompt-only. Census + mutation-pin per rung + one dispatch-desk run |
-| R5 | **Per-stage tail budgets** — codegen runs to the deadline by design, so typecheck-fix and the visual critic starved on ALL THREE session-21 ships. Replace first-come-first-served time with explicit downstream reservations (the appspec stage already has `APPSPEC_DOWNSTREAM_RESERVE_SECONDS` as the in-repo precedent). | appspec's downstream reserve | measure the codegen/tail split from stored stage timings (runs 129-142 have them all); then a reservation for the tail stages. **Intersects the owner-parked ≤500 s p50 row — reservations are implementable without moving the DoD, but bring the measured split before any behavioral change** | measurement first (free, offline); owner look at the numbers before the split changes |
+| R5 | **Per-stage tail budgets** — codegen runs to the deadline by design, so typecheck-fix and the visual critic starved on ALL THREE session-21 ships. Replace first-come-first-served time with explicit downstream reservations (the appspec stage already has `APPSPEC_DOWNSTREAM_RESERVE_SECONDS` as the in-repo precedent). | appspec's downstream reserve | measure the codegen/tail split from stored stage timings (runs 129-142 have them all); then a reservation for the tail stages. ~~Intersects the owner-parked ≤500 s p50 row~~ — **that row was RULED (C) and moved out on 2026-08-08, so the intersection is gone and R5 no longer waits on it.** R5 now serves the two carved-out Phase 1 rows directly: seed's single cap-riding call is exactly the starvation shape a downstream reservation addresses. Bring the measured split before any behavioral change | measurement first (free, offline); owner look at the numbers before the split changes |
 | R6 | **Telemetry completeness: every ask row self-describing** — writer/attempt/model on every row is what made every session-21 diagnosis a query instead of a hunt. | appspec stage (sessions 20-21), coverage attempt bump | stages still hitting the `admin_ops.py:330` fallback (`writer=None, attempt=1`); plus the FILED budget-accounting item: errored $0 calls currently spend the appspec call budget — refund them | code, offline-provable, mutation-pinned |
 | R7 | **Config invariants asserted, not remembered** — the fallback model must stay cross-provider from the primary or item R1 silently defeats itself; today that's a comment in `.env`. `assert_safe_runtime_configuration` (config.py) is the natural home for a same-provider warning. | the runtime skips a same-model fallback (guard, mutation-pinned) | the startup-time check that WARNS when `APPSPEC_TRANSPORT_FALLBACK_MODEL` shares a provider prefix with `APPSPEC_MODEL`/`APPSPEC_REPAIR_MODEL` | small code item, offline-provable |
 
@@ -566,7 +566,8 @@ What the numbers say:
 introduce `TAIL_RESERVE_SECONDS = 150` in `request_deadline.py` and have codegen stop
 opening new batches once `remaining < TAIL_RESERVE_SECONDS + RESERVE_SECONDS`, falling
 through to its existing stub+wire path for unwritten routes. This does not move the 540 s
-deadline or the parked ≤500 s p50 DoD row; it re-allocates time codegen provably wastes
+deadline or the ≤500 s p50 DoD row (ruled (C) and moved out of Phase 1 on 2026-08-08 — the
+constraint this sentence was hedging against no longer exists); it re-allocates time codegen provably wastes
 (129/132 ran to the wire and still shipped with a dead tail). Judge it on: refine/fix_agent
 $0-row count and typecheck state on the next ships, against this table as baseline.
 
@@ -976,7 +977,7 @@ $0-row count and typecheck state on the next ships, against this table as baseli
 | **1.10** JS test runner (vitest) | **done — observed GREEN on `main` (session 15).** The owner opened run #11 of `preview-template-tests.yml` (push of `f019d39`) in a browser: **Success, vitest 39/39 across 4 files, 27 s, 1 warning annotation.** A human saw it on the CI platform, which is what this row demanded. Previously: **runner done, CI green-on-main pending a merge.** `backend/preview-template-tests/` — vitest 4 + jsdom + testing-library, 9 tests over `SkeletonComposer`, all nine mutation-tested by `tools/mutate.py` with zero survivors. It is a **sibling package on purpose**: the template's `package.json` is the shared-npm cache key, so a devDependency there costs the next generation a cold `npm ci` inside the run (below) |
 | **1.11** bound the post-deadline reserve | **still open. First attempt was wrong and is reverted.** Clipping the capture session's budget to the remaining cap bought **nothing on the cap and cost every judged page**: requests 80/81/82 went 2-of-3 over 600 s (vs 1-of-3) and `visual_pages_reviewed` went **10-of-18 → 0-of-18**. Contention was 0.0 s on all three, so the clip was not even answering a queue. What survives is the lock-**wait** bound, which is cheap and never fired. The overrun is not capture: the gate, the AI repair and finalize all run past the deadline and nothing bounds them. Capping one consumer of an unbounded reserve tightens the distribution without closing it. **Trio 7 adds one sample and it points the same way**: request 93's tail is 32.0 s of which **0.1 s is AI**, with 3 pages judged — see Q10 in the trio 7 section. The tail to attack is non-AI work, and `tail.py` cannot see it without being parameterized past its hardcoded run list |
 | **Duo 1 (95-96)** — the 1.13 proof run | **2 of 2 shipped `ready` with zero gate issues**, on the briefs of 92 and 94 verbatim, and **neither of 1.13's bounds fired** — so the improvement is acceptance variance, not the fix. appspec AI 336.5 → 43.2 s and 331.6 → 94.3 s. **p50 unmoved at 571/573 s**, and codegen is now the dominant term at 315-437 s of AI. Detail below |
-| **1.13** bound `appspec` per request | **landed, and UNPROVEN in production — it did not fire on either duo run.** Added by owner ruling on 2026-08-04 rather than moving the p50 row to Phase 2 — *"let's try B, if it works it works if not we try A."* **`APPSPEC_MAX_CALLS` was enforced per entry into the stage, and the stage is entered twice a generation**, so requests 92/93/94 made **7, 6 and 10** calls against a configured **6** and no budget-exhausted line was ever logged. The tally is the deadline's now, and a runway reservation refuses any appspec call that would leave the pipeline less than **280 s** — under all five shipped runs in the corpus, above what 92 and 94 left themselves (91 s and 136 s). 14 mutations / 0 survivors. **Duo 1 then measured it and neither bound engaged** — 2 and 5 calls against a ceiling of 8, and appspec never reached the elapsed at which the reservation fires. The code is correct and tested and caps a tail trio 7 proved is real; it is simply **not shown to do anything in production yet**, and the duo's improvement belongs to acceptance variance. p50 unmoved at 571/573 s. **The evidence now points at (A)** — not because the bound failed to land but because codegen, at 315-437 s of AI, is the term that decides p50. Owner ruling pending |
+| **1.13** bound `appspec` per request | **landed, and UNPROVEN in production — it did not fire on either duo run.** Added by owner ruling on 2026-08-04 rather than moving the p50 row to Phase 2 — *"let's try B, if it works it works if not we try A."* **`APPSPEC_MAX_CALLS` was enforced per entry into the stage, and the stage is entered twice a generation**, so requests 92/93/94 made **7, 6 and 10** calls against a configured **6** and no budget-exhausted line was ever logged. The tally is the deadline's now, and a runway reservation refuses any appspec call that would leave the pipeline less than **280 s** — under all five shipped runs in the corpus, above what 92 and 94 left themselves (91 s and 136 s). 14 mutations / 0 survivors. **Duo 1 then measured it and neither bound engaged** — 2 and 5 calls against a ceiling of 8, and appspec never reached the elapsed at which the reservation fires. The code is correct and tested and caps a tail trio 7 proved is real; it is simply **not shown to do anything in production yet**, and the duo's improvement belongs to acceptance variance. p50 unmoved at 571/573 s. **The evidence now points at (A)** — not because the bound failed to land but because codegen, at 315-437 s of AI, is the term that decides p50. **RULED 2026-08-08 as (C): the p50 row leaves Phase 1 (Phase 2 DoD 6 already carries a stricter one), seed's cap-riding call and `slot_fill`'s discarded output are carved out as Phase 1 rows, and this bound is KEPT on its own merits — it caps a real tail and is credited with nothing else.** 1.13 stays landed-and-production-UNPROVEN until a trio makes it fire |
 | **1.12** a mandatory stage with no deterministic path | **CLOSED, live-proven on all three slots (session 18, runs 111/112/113) — and the row's original premise is dead: the degraded blueprint ship it demanded does not exist and should not.** What the reachability runs proved, one unroutable model per run, same brief: **(a) run 111, ARCHITECT_MODEL unroutable** — the model-fallback chain absorbed it (deepseek-v4-pro architected successfully, +~100 s); the deterministic blueprint is unreachable from model failure alone, and the run then failed the quality gate on content, honestly. **(b) run 112, PREVIEW_APP_MODEL unroutable** — `slot_fill` has NO fallback; every page kept its scaffold, the quality gate failed the run inside the cap (566 s), stored `failed`. **(c) run 113, TEXT_MODEL unroutable** — the pipeline fails at blueprint in **4 s, $0.00**. Nowhere does a degraded blueprint preview ship: degraded output becomes an honest `failed` + the customer retry endpoint (post-v1-removal strict behavior, session 17). **The DoD this row now pins: fail fast, fail honest, stored failure state, customer retry works** — all four observed on 111/112/113. The owner's "demo the customer loves" rule makes a degraded generic ship a defect, not a fallback; session 13's deterministic paths (`dc750a3`, 19 tests / 23 mutations / 0 survivors) remain as internal safety stubs, but shipping them was never reachable and is not the goal. History below stands as the record of how the premise died: request 74, trio 7's 92/94 (appspec starvation, not model outage), duo 1's variance |
 | **0.9** convert the never-collected test files | **done, and it paid.** Eight files, not the six in the brief — the collection guard found `test_qa_probe.py` (empty) and `test_quote_fix.py` (a print probe) immediately. Suite 1,265 → **1,443 collected, 1,434 passed / 1 skipped / 8 xfailed** |
 | **2.9** contract-invalid pages are scaffolded, never re-asked | **done offline — fix landed, effect unmeasured (needs a funded trio).** A syntactically valid page that failed the catalogue contract was replaced wholesale by the generic deterministic scaffold with **no retry**: `_slot_fill_rejection` only knew empty/truncated/no-export/unparseable, so the retry loop never saw a contract violation. **26 pages across requests 74-79** went that way — HomePage, GalleryPage, ServicesPage, RoomsSuitesPage, ArtworkDetailPage — with **zero** syntactic rejections in the same runs, so `_MAX_SLOT_FILL_ATTEMPTS = 2` had never fired once. The retry now fires on **enforce's own verdict**, not the validator's, and carries the exact `validate_catalogue_page_content` errors. Detail below |
@@ -1391,10 +1392,33 @@ retry.
 `ContactPage.tsx` still appear in the rejection log at all. If they do, the remaining cause is the
 plan page rather than the route text, and question 1 is only half answered.
 
-### p50 — the recommendation is (A), and this is the arithmetic
+### p50 — RULED (C) on 2026-08-08; the arithmetic that decided it
 
-**Owner ruling pending; this row is not moved here.** Per-run AI seconds on duo 1, after the census
-re-attributes the plan phase:
+**Owner ruling taken 2026-08-08: variant (C) — take (A), and carve out the two terms Phase 2 does
+not remove.** For the record, since the labels were only ever shorthand from the 2026-08-04 ruling
+(*"let's try B, if it works it works if not we try A"*):
+
+- **(B)** — bound the `appspec` stage per request. The cheap, local, reversible fix. Landed as 1.13,
+  14 mutations / 0 survivors, and **it never fired**: duo 1 made 2 and 5 calls against a ceiling
+  of 8. Tried; lost. Not because the code is wrong — because it bounded an 8 % term.
+- **(A)** — stop chasing ≤ 500 s by bounding stages in Phase 1 and let the phase that changes the
+  architecture own the number. Phase 1 keeps ≤ 600 s as its clock guarantee.
+- **(C), adopted** — (A), plus the two terms in the p50 that are **not** per-page fan-out and
+  therefore survive Phase 2 untouched: seed's single cap-riding call (97.3 s p50) and `slot_fill`'s
+  discarded output (147.7 s/run). ~245 s of p50 that (A) as originally written would have parked
+  by accident. Both are now Phase 1 DoD rows in their own right.
+
+(A) is a **deletion** from Phase 1 and not an addition to Phase 2: **Phase 2 DoD 6 already carries a
+stricter p50** (≤ 420 s, p95 ≤ 540 s, derived by convolution). Nothing is restated there. Phase 1
+gets a ≤ 560 s no-regression floor in the vacated slot, scored from measured wall clock.
+
+**Why (C) rather than plain (A) — the recommendation predated its own evidence.** The (A) arithmetic
+below is duo 1's. Session 25's convolution arrived afterwards and re-ranked the terms: codegen
+141.5 s p50 wall / 443.9 s AI confirms (A), but seed at 97.3 s is one serial call and appspec at
+100.2 s is not fan-out either. A recommendation written before half its evidence should not be
+adopted verbatim, and was not.
+
+Per-run AI seconds on duo 1, after the census re-attributes the plan phase:
 
 | term | s/run | |
 |---|---|---|
@@ -1414,9 +1438,12 @@ exactly what 2.1-2.5 removes by construction. And the single largest recoverable
 pipeline is **147.7 s per run of `slot_fill` output the pipeline itself threw away**, which no bound
 on appspec can touch.
 
-**Recommendation: take (A).** Move the p50 row to Phase 2 and keep 1.13's bound on its own merits —
+**Recommendation, as filed and now superseded by (C): take (A).** Move the p50 row to Phase 2 and keep 1.13's bound on its own merits —
 it caps a tail trio 7 proved is real (7, 6 and 10 calls against a configured 6) — without crediting
 it with p50 movement it has not produced.
+
+**Ruled 2026-08-08 as (C).** The keep-1.13-on-its-own-merits half is adopted verbatim; the
+move-the-row half is adopted with the two carve-outs above.
 
 ### The menu is redundant by construction, and every business gets a collection
 
@@ -2065,6 +2092,25 @@ ops rail split. `tools/mutate.py` reverts each of those behaviours in turn and a
 goes red: **9 mutations, 9 caught, 0 survivors**, source restored byte-identical. Re-run it after
 touching the composer.
 
+### Phase 1 — where it actually stands (updated 2026-08-08, read this before touching the phase)
+
+**Phase 1 is CODE-COMPLETE and NOT PROVEN.** Twelve of the thirteen numbered items are landed. If
+you are picking this phase up, the work left is almost entirely *observation*, and it is cheap.
+
+| | |
+|---|---|
+| **Open engineering** | **1.11 only** — the post-deadline reserve. First attempt reverted; the measured tail is 255 s non-AI vs 127 s AI, so the target moved and the row needs re-scoping before code. R5's `TAIL_RESERVE_SECONDS` is the standing proposal |
+| **Open, needs one funded trio** | the ≤ 600 s second clean trio; the concurrency half (**contention has been 0.0 s on every trio ever run — it has never actually been tested**); the ≤ 560 s p50 floor; the `appspec` ask-ceiling half; seed's cap-riding call; `slot_fill`'s discarded output; Q8's dead-link verdict |
+| **Open, needs no run** | `placeholder_content_shipped` = 0 fires (the gate works; the *writers* still emit placeholders — that is authoring work, not measurement) |
+| **Ruled and closed 2026-08-08** | the ≤ 500 s p50 row (variant (C) — moved out, two terms carved back in); row 7's catalogue cards (**MET, 12 of 12 on request 73**) |
+| **Newly open, filed not fixed** | the catalogue's photos cannot depict its items (structural); the item pool is 8 while 13 of 18 stored catalogues are bigger |
+
+**The sequencing risk, stated once.** Phase 3 changes the generator. The moment it does, Phase 1's
+**558.7 s measured p50 and its ≤ 600 s cap become unattributable** — a later regression could be
+Phase 3's or could be the thing Phase 1 never proved. **Spend the trio before Stage A touches the
+pipeline.** At ~$0.42 a generation it is ~$1.26 to convert most of the middle row above from
+*unproven* to *answered*, and there is no cheaper moment than now.
+
 ### Phase 1 DoD — with what is evidenced after four concurrent trios (74-85)
 
 Twelve live runs, four trios of three started 60 s apart, each trio a
@@ -2084,13 +2130,18 @@ only trio in which **every run finished under 600 s**.
 | | Status |
 |---|---|
 | Every generation ≤ 600 s request-accepted to ready-or-failed, **including** 3 runs started 60 s apart (`_SESSION_LOCK`, `_install_lock` serialize concurrent runs), one with a `reference_url`, one with a `reference_file` | **holds on trio 4, 3 of 3 — with 9-17 s of margin, on n=3.** It did not hold on trio 2 (619.7 s) or trio 3 (600.2 / 602.7 s). Call it met when a trio clears it twice; one clean trio is how the "met and real, on n=1" overstatement happened last time |
-| p50 ≤ 500 s. No repair loop > 120 s. No ask > 120 s inclusive of failovers | **p50 still FAILED at 590 s** (want ≤ 500) — the elective guards bought ~10 s, not 90. **The ask-ceiling half of this row is unproven for `appspec`:** that stage had no `ai_call` scope, so all 49 of its rows carry `writer = NULL, attempt = 1`, and the logical-ask grouping (`request_id`, `stage`, `writer`, attempt not resetting) had nothing to group on. Scopes added in session 6; re-measure on the next funded trio. `appspec` is **147 s of AI per run** and its cost tracks **call count**, not per-call latency — 2-3 calls is 49-94 s, 5-7 calls is 253-294 s, no single call over 120 s, and only 0-27 s of the span is non-AI (`scripts/measure/appspec_cost.py`). **The ask ceiling was off by a constant and is now fixed.** Exactly four asks exceeded 120 s across all twelve runs and all four were 135.0 s to the millisecond (135012 / 135010 / 135007 / 135001 ms; 77, 80, 82, 85; `fix_agent`, `z-ai/glm-5.2`, attempt 1, no failover): `_CANCEL_GRACE_SECONDS` was spent *after* the cap fired. Held back inside it now, and the grace cut 15 s → 2 s. Ask p50 is healthy at 8.1 / 5.7 / 9.6 s, so this was the only ask-side breach. **Session 25 (offline), DoD 6's derived number beside this parked row — convolution over stored `ai_usage_events`, runs 129+, 200k draws, seed 20260807:** convolved pipeline wall **p50 554.3 s / p95 760.4 s** vs measured **558.7 / 568.5 s** (n=8 complete runs, spread 552.0-570.5). The convolved p50 is trustworthy (−4.4 s gap); the convolved p95 **overstates by +191.9 s** because the ~540 s deadline induces negative stage correlation (run 141: five refine calls all die at exactly +540.0 s, six fix_agent asks then refuse in 0 ms) — **score p95 from measured wall clock, never from independence convolution** (ruling FILED). Both p50s sit ~55-59 s over the ≤500 s target; codegen dominates at 141.5 s p50 wall (28.7 % of mean), then appspec 100.2 s, seed 97.3 s — and seed (`mock_synthesize`) is ONE serial call riding the 120 s ask cap to the millisecond on 3 of 8 runs (FILED). `scripts/measure/latency_convolution.py`, evidence session25 |
+| ~~p50 ≤ 500 s.~~ **MOVED TO PHASE 2 — owner ruling 2026-08-08, variant (C).** No repair loop > 120 s. No ask > 120 s inclusive of failovers | **RULED (C): take (A), carve out the two terms Phase 2 does not remove.** The ≤ 500 s p50 leaves Phase 1 and is not re-stated in Phase 2 — **Phase 2 DoD 6 already carries a stricter one (p50 ≤ 420 s, p95 ≤ 540 s, by convolution)**, so (A) is a deletion here rather than a move. What replaces it in Phase 1 is a no-regression floor (row below), and the two non-fan-out terms stay Phase 1 rows in their own right (rows below). 1.13's bound is kept **on its own merits** and credited with nothing it has not produced. The arithmetic that decided it: `appspec` is 68.8 s of 863.7 s of AI per run (**8 %**), while the four largest terms are 650 s/run — **75 % of a run's AI** — and all four are per-page fan-out that 2.1-2.5 remove by construction. (B) was run, landed and never fired. History below stands as the record. **p50 was FAILED at 590 s** (want ≤ 500) — the elective guards bought ~10 s, not 90. **The ask-ceiling half of this row is unproven for `appspec`:** that stage had no `ai_call` scope, so all 49 of its rows carry `writer = NULL, attempt = 1`, and the logical-ask grouping (`request_id`, `stage`, `writer`, attempt not resetting) had nothing to group on. Scopes added in session 6; re-measure on the next funded trio. `appspec` is **147 s of AI per run** and its cost tracks **call count**, not per-call latency — 2-3 calls is 49-94 s, 5-7 calls is 253-294 s, no single call over 120 s, and only 0-27 s of the span is non-AI (`scripts/measure/appspec_cost.py`). **The ask ceiling was off by a constant and is now fixed.** Exactly four asks exceeded 120 s across all twelve runs and all four were 135.0 s to the millisecond (135012 / 135010 / 135007 / 135001 ms; 77, 80, 82, 85; `fix_agent`, `z-ai/glm-5.2`, attempt 1, no failover): `_CANCEL_GRACE_SECONDS` was spent *after* the cap fired. Held back inside it now, and the grace cut 15 s → 2 s. Ask p50 is healthy at 8.1 / 5.7 / 9.6 s, so this was the only ask-side breach. **Session 25 (offline), DoD 6's derived number beside this parked row — convolution over stored `ai_usage_events`, runs 129+, 200k draws, seed 20260807:** convolved pipeline wall **p50 554.3 s / p95 760.4 s** vs measured **558.7 / 568.5 s** (n=8 complete runs, spread 552.0-570.5). The convolved p50 is trustworthy (−4.4 s gap); the convolved p95 **overstates by +191.9 s** because the ~540 s deadline induces negative stage correlation (run 141: five refine calls all die at exactly +540.0 s, six fix_agent asks then refuse in 0 ms) — **score p95 from measured wall clock, never from independence convolution** (ruling FILED). Both p50s sit ~55-59 s over the ≤500 s target; codegen dominates at 141.5 s p50 wall (28.7 % of mean), then appspec 100.2 s, seed 97.3 s — and seed (`mock_synthesize`) is ONE serial call riding the 120 s ask cap to the millisecond on 3 of 8 runs (FILED). `scripts/measure/latency_convolution.py`, evidence session25 |
+| **p50 ≤ 560 s — no-regression floor (replaces the moved row, 2026-08-08)** | **OPEN, and deliberately not a target.** Phase 1 gave up the ≤ 500 s *goal*, not the ground already held: the floor is set at the worst measured p50 on current code so the next trio has something it can fail. Measured baseline: **558.7 s** (n=8, runs 129-145, spread 552.0-570.5), convolved 554.3 s. Score it from **measured wall clock, never from convolution** — DoD 6 proved independence convolution overstates p95 by +191.9 s under a deadline. If a trio comes in over 560 s, that is a regression to investigate, not a DoD failure to explain away |
+| **seed `mock_synthesize` — one serial call riding the 120 s ask cap** | **CARVED OUT of the moved p50 row (2026-08-08); FILED by DoD 6, now a Phase 1 row.** 97.3 s p50 wall, **14.1 % of the mean run**, and it is **ONE call** — not a fan-out, so Phase 2's spec flip does not touch it. On **3 of 8 runs it hits 120.0 s to the millisecond**, i.e. it is not slow, it is *capped*: the cap is what ends it, and whatever it would have returned after 120 s is lost. Two questions before any fix: does the truncated-at-cap seed degrade (run 145 shipped the plumbing mock — 4 items, no slug, no image, no price), and is one serial call the right shape for the whole catalogue at all. **Not fixed, not estimated — the next funded trio measures it with the scopes already in place** |
+| **`slot_fill` output the pipeline throws away** | **CARVED OUT of the moved p50 row (2026-08-08).** Duo 1 measured `slot_fill` at 205.3 s/run of which **147.7 s is discarded** — the single largest recoverable number in the pipeline, and no bound on appspec ever touched it. It is a rejection-and-retry cost, not per-page authoring cost, so Phase 2 removes the fan-out around it and **not this**. Pairs with the standing open row *"`slot_fill` rejects 25 of 42 fills and the distribution is still unmeasured"* — the distribution read is the prerequisite and it needs a log dump from a funded run |
 | Zero consecutive asks to the same resolved model id | **was FALSE, now fixed.** `ac10c9b` deduped the *repair* chains and its test pins those; `call_architect`'s three-name chain was never deduped, and `ARCHITECT_MODEL` = `PREVIEW_APP_MODEL` = `TEXT_MODEL` = `google/gemini-2.5-flash` here **and in the test environment**, so the guard could not have caught it. 7 violations across trio 1; request 74's architect wrote 3 rows, one model, all unusable |
 | Every degraded run carries a machine-readable `degraded: [stage]` marker | **was FALSE, now fixed.** Requests **73, 75 and 76 each degraded three stages and each stored `degraded: []`** — the marker was only ever a log line at scope exit. `finalize` runs inside `generate_preview_app`; `tech`/`proposal`/`build_plans` are skipped *after* it returns, so it structurally could not see them. Published from `GenerationPipeline.run` now, and verified live on 77/78/79 |
 | `placeholder_content_shipped` fires zero times over 20 businesses; an empty `industry` never reaches `generic` silently | **inverted so far** — the gate exists and fires correctly; it caught 2 leaks on 73 and 2 on 68. The DoD wants **zero fires**, which means the *writers* still emit placeholders. **Session 11 ruled on the adjacent question and did not widen the gate:** the scaffold's *"A clear next step from {brand} — warm, specific, and ready when you are."* (7 of 64 workspaces) is a **filled** token, and this gate detects *unfilled* ones like `[Artist Name]`. Matching a sentence this repo writes itself would make this row measure whether we updated our own regex, so the scaffold was fixed instead (`8fe8955`). **The row's number is unchanged by that** — it was never counting these |
-| 11 of 11 catalogue cards show the artifact type the business sells | **9 of 11 on request 70**; 73's binding is correct but its cards were not scored card-by-card |
-| Suite green at ≥ 1,107 | **1,288 passed / 1 skipped / 1 failed** — the red is another session's in-flight refactor of `test_phase5_ui_alias_imports.py` (at `f9f41eb` that file has zero test functions), not Phase 1 work |
-| Vitest CI job green on main | **runner and workflow exist; `main` has never run them.** 9 tests, 9/9 mutation-caught, `tsc -b` clean, and the whole job verified on a clean `node:22` linux container — which is what caught a resolution defect that a local green was hiding (the template's `node_modules` must exist for its source's bare imports; see 1.10). The row stays **unmet** until `.github/workflows/preview-template-tests.yml` is green on `main` — it cannot be closed from a branch |
+| ~~11 of 11~~ **every card in the catalogue** shows the artifact type the business sells | **MET — 12 of 12 on request 73, scored card by card at last (session 26, offline, $0).** The row is restated because "11 of 11" was request 70's item count, not a principle: 73 ships 12 items and the next brief will ship some other number, so the bar is a rate. **Scored by fetching the eight `item*` Pexels URLs out of the stored `mock.ts` and looking at them** — every one is a painting on canvas, so 1.9's binding fix holds where request 70's 2 misses were (items 9-11 wrapping onto `card1/2/3`, the role images ranked last *precisely because they show people*: the easel photo captioned "Oil on Linen"). **No card shows a person, a studio or a palette.** Two findings the score turned up sit in their own rows below — they are not this row's bar and were not scored against it. Evidence: `docs/evidence/session26/catalogue-card-score-73.md` |
+| **the catalogue's photos cannot depict the items — structural** | **NEW, open, not fixed (session 26).** Request 73's twelve works are titled *Whispers of the Forest*, *Coastal Serenity*, *City Nocturne*, *River's Edge*, *Autumn Hues*, *Mountain Ascension* — representational landscapes to a one. **All eight photographs are non-representational abstracts**, several of them macro crops of paint texture rather than a whole framed work. Right artifact type, wrong artifact — the same defect class as request 70's easel photo, one notch subtler and invisible to every gate we have. **It is structural, not a bad draw:** `item_pool_query(industry)` (`industry_images.py:511-527`) composes its search text from **the industry string alone** — it never sees an item, because the pool is fetched before any item exists, and `_search_pexels` takes `per_page=8, page=1`. One query, eight photos, chosen with no knowledge of what the catalogue will contain. So title↔image correspondence is **impossible by construction** and no amount of query tuning reaches it; it needs the items first, or per-item fetches, or generated imagery. **Not fixed: this is a capability decision with a per-run network cost, the same shape as the `og_image` extractor that was written down and not built.** Owner ruling wanted |
+| **the item pool is 8 and catalogues are bigger** | **NEW, open, not fixed (session 26); the rubric question row 7 was blocked on.** `_IMAGE_POOL_SIZE = len(item_slot_names())` is 8 and the cycle is `i % 8` at `item_source.py:113,136` and `scaffold.py:1389` — so item 9 shows item 1's photograph. **Census over the 18 stored workspaces that have a slugged catalogue: 13 declare more items than the pool.** Request 65 is 16 items over 8 photos — **every picture shown twice**; 73 is 12 items, 4 repeats; 88 is 12 items, 4 repeats; 95 is 8 items and clean. The pool size is not a considered number: it is `_search_pexels`'s `per_page=8`. **Row 7 was scored without this** — a repeat still shows the artifact type, which is the row's literal bar — but for a gallery selling *originals*, two works sharing one photograph contradicts the product in a way it does not for a café's menu. Ruling wanted on whether the fix is a bigger pool (a second Pexels page is nearly free) or a cap on declared items |
+| Suite green at ≥ 1,107 | **MET — 2,075 passed / 1 skipped / 0 failed** in 59.8 s (the 0.8 merge gate, `ac54c7f`, via the documented `docker run`). Row corrected 2026-08-08; it had been left reading the stale *1,288 / 1 failed*, where the red was another session's in-flight refactor of `test_phase5_ui_alias_imports.py` and not Phase 1 work |
+| Vitest CI job green on main | **MET — the owner opened run #11 of `preview-template-tests.yml` (push of `f019d39`) and saw Success, vitest 39/39 across 4 files, 27 s.** Row corrected 2026-08-08: 1.10 recorded the green in session 15 and this row was never updated, so the DoD table has understated Phase 1 by one row for ten sessions. A human saw it on the CI platform, which is what the row demanded. Previously: **runner and workflow exist; `main` has never run them.** 9 tests, 9/9 mutation-caught, `tsc -b` clean, and the whole job verified on a clean `node:22` linux container — which is what caught a resolution defect that a local green was hiding (the template's `node_modules` must exist for its source's bare imports; see 1.10). The row stays **unmet** until `.github/workflows/preview-template-tests.yml` is green on `main` — it cannot be closed from a branch |
 
 **The honest summary:** the clock was **not** a guarantee — run it concurrently
 and the 600 s cap broke on 3 of the first 9 runs, and two DoD rows marked *done*
@@ -2101,6 +2152,14 @@ thinner than the run-to-run spread within a single trio (8 s here, 47 s in
 trio 2), so a slower model day puts it back over. **Not "met" — "no longer
 reproducibly broken."** p50 is 590 s against a 500 s target, and the 120 s ask
 ceiling is still exceeded by design (`_CANCEL_GRACE_SECONDS`, below).
+
+**Amended 2026-08-08 by the (C) ruling.** The p50 sentence above is now history: the
+≤ 500 s target left Phase 1, and what stands in its place is a ≤ 560 s no-regression
+floor against a measured 558.7 s. **Read that as a lowered bar, because it is one.**
+Two of the rows in the table above also turned out to be *stale in our own disfavour* —
+suite green and vitest-on-main were both met and both left reading unmet — so the honest
+summary cuts both ways: the phase was overstated on the clock and understated on the
+tests, and neither was caught until someone re-read the table against the item rows.
 
 #### Where the 600 s went, on request 77
 
@@ -2530,6 +2589,72 @@ got here. **Deepen the 6 public-reachable recipes into complete designs that eac
 spacing scale, container width, grid logic, image treatment and page composition — expressed as
 tokens, with axes as *within-recipe* choices from a declared valid set, never a free cross-product.**
 
+### REVISED PLAN — owner-ruled 2026-08-08 (session 26): "variety with wow", agent-built, free-license-only
+
+**The ruling (owner, 2026-08-08), three amendments to this phase.** (1) **Motion is a first-class
+axis.** Every recipe gains a *motion identity* (easing personality, stagger, travel, reveal style)
+delivered through the same token pipe as color, plus scroll-scrubbed *scenes* per industry pack.
+The quality bar is the pair of demos published this night — STACKLAB (vector) and MAILLARD (photoreal),
+`claude.ai/code/artifact/5ff20e6f-3dc7-4d33-811e-716917be02d6` — judged by a 3-lens agent panel on
+forced-scroll screenshots before the owner saw them. (2) **The workforce is Claude Fable agents.**
+Estimates below are agent-weeks; the calendar is paced by owner sign-offs and funded runs, not by
+authoring. Money is deliberately not estimated in this document. (3) **Third-party UI is
+free-license only** — MIT-verified, copied and *rewritten onto tokens* as `src/ui/**` house
+primitives under a provenance manifest (source repo, commit, license per file); never installed
+wholesale. The only permitted new runtime deps: **Lenis** (MIT smooth scroll), plus **dotLottie**
+if and only if the Stage-C pilot adopts it. GSAP is free since 2025-04 (Webflow) and stays the
+fallback engine, not a second one. **Also RULED: Stage A consumes `compatible_recipes.py`** (packs
+gain `compatible_recipes`, `pick_recipe_id`'s fallback rotates over the reachable set) — the map's
+own docstring required this ruling before any consumer landed.
+
+**Evidence this plan stands on:** `docs/evidence/session25/token-systems-inventory.md` (3.5's
+autopsy — overlay wins all 10 kit tokens, `brand_locked` always True, nocturne/craft hard-codes),
+`industry_templates/compatible_recipes.py` + its census (3.2's inert backend half, PASS on HEAD),
+the 20-brief corpus (`980ca63`), and `docs/evidence/session26/motion-feasibility.md`. Key facts
+from the scan: `motion` ^12.42.2 and `animejs` ^4.5.0 **already ship** in the kit
+(`backend/preview-template/package.json`) but are entrance-only today; the Vite browser baseline
+excludes CSS `animation-timeline`, so the JS progress driver is the mechanism; generated pages may
+import only from `@/ui` (`catalogue.json`), so mined components must become house primitives; one
+fingerprint-keyed lockfile serves every generated site (`npm_shared.py`), so every dependency is a
+global decision.
+
+| Stage | What lands | Maps to | Agent-effort |
+|---|---|---|---|
+| **A — plumbing** | 3.5 execution (one Python resolution into `SiteSpec.design`, delete the losing layers incl. dead `merge_overlay_into_recipe`), 3.1 break the enum (honour discarded props, implement `'split'`), 3.2 consumption per ruling, MIT-only license policy + provenance manifest | 3.5 · 3.1 · 3.2 | ~2 wk |
+| **B — foundry** | 3.8 scroll engine (motion + Lenis; pin/scrub/progress primitives; deterministic QA hooks), 3.9 mine ~25–30 MIT components (Aceternity UI, Magic UI, React Bits) rewritten onto tokens and tagged per recipe personality, 3.10 motion-identity tokens, 3.11 perf + reduced-motion gate | new 3.8–3.11 | ~2–3 wk, parallel with A |
+| **C — taste** | static-bones sign-off (candidate sheet, `claude.ai/code/artifact/347da548-1342-40d5-9e4e-5d4e819e3a4c`), five per-personality motion boards, 3-scene pilot (restaurant / pottery / nightlife) built both ways — hand-choreographed vs Lottie-scrubbed — winner sets the scene pattern | replaces 3.0's designer-week | ~1–1.5 wk, owner-paced |
+| **D — scale** | 3.3+3.6 off hardcoded clamps, 3.4 band layouts (CatalogGrid archetypes first), 3.0a voice props + defaults, scenes to remaining packs in batches of ~6 with a contact-sheet review per batch | 3.3 · 3.6 · 3.4 · 3.0a | ~3–5 wk |
+| **E — proof** | 3.7 silhouette gate extended with motion-identity distinctness, over the 20-brief corpus, on funded runs | 3.7 | ~1 wk |
+
+**3.8 Scroll engine in the kit (~1 wk).** `ScrollScene` / `PinnedStage` / `LayerParallax` /
+`ProgressRail` primitives on `motion`'s scroll() + Lenis, registered in `registry.ts` +
+`catalogue.json` so codegen can emit them. Reduced-motion parity (complete page, no scrub) and a
+`#p=`-style forced-progress hook so `screenshot.py`'s driver stays deterministic — the demos proved
+both patterns.
+
+**3.9 Free-component foundry (~1–1.5 wk).** MIT-only allowlist; every borrowed file recorded in a
+provenance manifest. The rewrite-onto-tokens step is the point, not overhead: raw copy-paste kits
+re-import sameness (every raw-Aceternity site looks like Aceternity). Tag each primitive by recipe
+personality so 3.3/3.4 compose from a per-recipe palette of effects.
+
+**3.10 Motion identity tokens (~0.5 wk).** `--motion-ease/-stagger-ms/-travel/-reveal` per recipe
+through `design_recipes.py` → `index_css.j2` → `presets.tsx`/`anime.ts` (both already centralize
+easing at one constant). **Ops recipes get restraint by design** — fast, calm, instant — per the
+owner's demo-matches-the-business rule; scrollytelling is a public-kind treatment.
+
+**3.11 Performance gate (~1 wk).** Extend the existing headless scroll driver with CDP tracing —
+frame times, long tasks, CLS under scripted scroll — budgets per recipe, wired into
+`quality_gate.py` + the DoD9 pytest CI job. No perf instrumentation exists today (grep: none).
+Jank is how "2040" becomes "2012"; this gate is not optional.
+
+**Scenes.** A `scene` key per industry pack (layered SVG/Lottie + choreography map) rendered by a
+`SceneRenderer` primitive — the pack loader accepts arbitrary keys today and the kit already
+inlines vector art as data-URI SVG, so nothing structural blocks it. The Stage-C pilot decides the
+authoring path per industry; packs with no honest scene (hedge-fund trading desk) stay scene-less
+by design rather than getting a cute irrelevant animation.
+
+---
+
 **3.0a Brand voice — the kit speaks in one business's voice on every site.** A sweep of
 `src/ui/**` found 92 hardcoded strings; most are legitimate chrome. These carry *business voice*
 and are a sameness defect, not a leak (none is in `_BANNED_COPY`):
@@ -2661,6 +2786,11 @@ each brief intends.
   flipping one axis and asserting a DOM or computed-style change.
 - Zero regressions in the rendered-DOM nav-contract test.
 - No page uses a hardcoded `clamp()`, `py-28`, or `max-w-[92rem]`.
+- *(Revised 2026-08-08)* Motion: no two of the 20 share a motion identity; scroll scrub stays
+  inside the 3.11 frame budgets on every recipe; reduced-motion serves a complete page everywhere.
+- *(Revised 2026-08-08)* Provenance: every non-original `src/ui/**` component appears in the
+  manifest with an MIT license and source; no new runtime deps beyond Lenis (+ dotLottie only if
+  the pilot adopts it).
 
 ---
 
@@ -2726,7 +2856,9 @@ the AI must author. That is what makes deferring Phase 2 safe.
 **Annotation, 2026-08-05 (session 12): this section is the operating reality, not the fallback.**
 The project is one owner plus agent sessions at ~$0.42 a generation, and by this section's own
 clock it is in week ~5 of "weeks 1-3" — Phase 1 is still open on 1.10 (blocked on a push), 1.11,
-1.12 and the p50 ruling. The 4.5-people/16-weeks plan above prices a team that does not exist;
+1.12 and the p50 ruling. **Updated 2026-08-08: 1.10 and 1.12 are CLOSED and the p50 row is RULED
+((C) — moved out, two terms carved back in). Phase 1's only open work is 1.11; everything else left
+in the phase is landed code awaiting a funded run to observe it.** The 4.5-people/16-weeks plan above prices a team that does not exist;
 treat it as the full-staffing variant. One gap in this lane is a decision rather than work:
 **weeks 4-16 assume a designer, and 3.0's deliverable is literally "what a named designer will
 actually sign."** No such person is attached. Surfacing that hire — or explicitly deciding the
