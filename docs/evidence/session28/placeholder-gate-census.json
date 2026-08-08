@@ -313,5 +313,82 @@
   "148",
   "156"
  ],
+ "clean_tail": {
+  "runs": 4,
+  "run_ids": [
+   "161",
+   "160",
+   "158",
+   "157"
+  ],
+  "businesses": 3,
+  "business_names": [
+   "Copperline Hardware",
+   "Ridgeline Bike Works",
+   "Kestrel & Fern Bakehouse"
+  ],
+  "target": 20,
+  "unmapped_runs": [],
+  "verdict": "FAILED"
+ },
+ "clean_tail_shipped_only": {
+  "runs": 39,
+  "run_ids": [
+   "161",
+   "160",
+   "158",
+   "157",
+   "156",
+   "153",
+   "151",
+   "150",
+   "148",
+   "147",
+   "146",
+   "145",
+   "144",
+   "142",
+   "141",
+   "140",
+   "135",
+   "132",
+   "129",
+   "125",
+   "124",
+   "122",
+   "112",
+   "111",
+   "110",
+   "109",
+   "108",
+   "107",
+   "106",
+   "105",
+   "104",
+   "103",
+   "102",
+   "101",
+   "98",
+   "97",
+   "96",
+   "95",
+   "94"
+  ],
+  "businesses": 9,
+  "business_names": [
+   "Copperline Hardware",
+   "Ridgeline Bike Works",
+   "Kestrel & Fern Bakehouse",
+   "Vantage Freight Desk",
+   "Meridian Physiotherapy",
+   "Osteria Vinci",
+   "Harbor Dispatch Desk",
+   "Cedar Point Lodge",
+   "Northgate Dental Studio"
+  ],
+  "target": 20,
+  "unmapped_runs": [],
+  "verdict": "FAILED"
+ },
  "verdict": "FAILED"
 }

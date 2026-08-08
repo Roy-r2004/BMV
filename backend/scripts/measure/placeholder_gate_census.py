@@ -176,7 +176,61 @@ def scan_brand(workspace: Path) -> tuple[dict[str, int], int]:
     return hits, template_defaults
 
 
-def run_census(roots: list[Path]) -> dict:
+#: The re-scoped bar (owner ruling, 2026-08-09). The row asked for 20 businesses
+#: and was scored for two sessions against a corpus that could not supply them;
+#: the number is unchanged, what changed is *which* twenty. It is now the most
+#: recent N distinct businesses with no fire on any predicate, so the row grows
+#: with normal work instead of waiting on a $8.40 purpose-built run.
+_CLEAN_TAIL_TARGET_BUSINESSES = 20
+
+
+def clean_tail(
+    run_ids: list[str], firing: set[str], businesses: dict[str, str] | None
+) -> dict:
+    """How many distinct businesses at the newest end fired nothing.
+
+    Walks newest-first and stops at the first run that fires anything. Counting
+    **businesses** rather than runs is the whole point of the re-scope: session
+    26's "28 clean workspaces" were 6 businesses, of which one was 25 runs of
+    the same restaurant, and a row about whether the writers leak placeholders
+    learns nothing from asking one business twenty-five times.
+
+    Without a `businesses` map this reports runs only and says so, rather than
+    quietly counting runs as if they were businesses — which is the error the
+    re-scope exists to correct.
+    """
+    tail_runs: list[str] = []
+    for run in sorted(run_ids, key=int, reverse=True):
+        if run in firing:
+            break
+        tail_runs.append(run)
+
+    if businesses is None:
+        return {
+            "runs": len(tail_runs),
+            "run_ids": tail_runs,
+            "businesses": None,
+            "note": "no --businesses map supplied; runs are NOT businesses and "
+                    "this row is not scoreable without the mapping",
+            "verdict": "UNSCORED",
+        }
+
+    named = [businesses[r] for r in tail_runs if r in businesses]
+    distinct = list(dict.fromkeys(named))
+    return {
+        "runs": len(tail_runs),
+        "run_ids": tail_runs,
+        "businesses": len(distinct),
+        "business_names": distinct,
+        "target": _CLEAN_TAIL_TARGET_BUSINESSES,
+        "unmapped_runs": [r for r in tail_runs if r not in businesses],
+        "verdict": (
+            "MET" if len(distinct) >= _CLEAN_TAIL_TARGET_BUSINESSES else "FAILED"
+        ),
+    }
+
+
+def run_census(roots: list[Path], businesses: dict[str, str] | None = None) -> dict:
     seen: dict[str, Path] = {}
     for root in roots:
         if not root.is_dir():
@@ -241,6 +295,16 @@ def run_census(roots: list[Path]) -> dict:
         "runs_the_shipped_gate_would_miss": sorted(
             set(only_specified) | (set(brand_hits) - set(shipped_hits)), key=int
         ),
+        # Any predicate firing breaks the tail. The row asks whether the
+        # writers ship placeholders, not whether one particular regex noticed.
+        "clean_tail": clean_tail(
+            list(runs),
+            set(shipped_hits) | set(specified_hits) | set(brand_hits),
+            businesses,
+        ),
+        "clean_tail_shipped_only": clean_tail(
+            list(runs), set(shipped_hits), businesses
+        ),
         "verdict": "MET" if not shipped_hits else "FAILED",
     }
 
@@ -251,9 +315,19 @@ def main() -> None:
     ap.add_argument("--json", type=Path)
     ap.add_argument("--check", type=Path,
                     help="archived census JSON; red-exit on any drift")
+    ap.add_argument("--businesses", type=Path,
+                    help='JSON {"146": "Kestrel & Fern Bakehouse", …}. Needed to '
+                         "score the re-scoped row, which counts businesses and "
+                         "not runs. Passed in rather than queried so this stays "
+                         "a script that reads no database")
     args = ap.parse_args()
 
-    result = run_census(args.workspaces)
+    businesses = (
+        json.loads(args.businesses.read_text(encoding="utf-8"))
+        if args.businesses
+        else None
+    )
+    result = run_census(args.workspaces, businesses)
     sh = result["shipped_predicate"]
     sp = result["specified_predicate"]
 
@@ -286,7 +360,20 @@ def main() -> None:
     print()
     print(f"  runs the shipped gate would MISS: "
           f"{result['runs_the_shipped_gate_would_miss'] or 'none'}")
-    print(f"  VERDICT (row is scored on the shipped predicate): {result['verdict']}")
+    print()
+    tail = result["clean_tail"]
+    if tail["businesses"] is None:
+        print(f"  CLEAN TAIL: {tail['runs']} runs — {tail['note']}")
+    else:
+        print(f"  CLEAN TAIL (no predicate fires): {tail['businesses']} of "
+              f"{tail['target']} distinct businesses over {tail['runs']} runs "
+              f"— {tail['verdict']}")
+        for name in tail["business_names"]:
+            print(f"    {name}")
+        if tail["unmapped_runs"]:
+            print(f"    [{len(tail['unmapped_runs'])} tail runs absent from the "
+                  f"business map, not counted: {tail['unmapped_runs']}]")
+    print(f"  VERDICT (original wording, shipped predicate only): {result['verdict']}")
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
