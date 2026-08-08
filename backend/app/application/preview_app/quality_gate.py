@@ -352,6 +352,37 @@ def evaluate_quality_gate(
             "src/data/mock.ts",
         )
 
+    # The third family, and the newest: **the industry pack's own copy.**
+    #
+    # Owner ruling 2026-08-09 — a pack carries structure and slot choices; every
+    # sentence is written for the business. Request 160, a bike workshop, shipped
+    # `fashion-retail-storefront.json` verbatim ("The rack is live", "Shop the
+    # new drop before sizes thin out", "Restock alerts"); request 158, a bakery
+    # taking pre-orders, shipped `restaurant-cafe-home.json`'s "Hold a table — or
+    # join the walk-in list with a real wait time." Neither is a dead link nor a
+    # contract violation, so nothing in the gate saw them, and both shipped.
+    #
+    # This is the same shape as the two families above and fails for the same
+    # reason: content that looks written and says nothing about this business.
+    # Exact leaf, never substring — a pack sentence is distinctive enough that an
+    # identical string in a shipped app came from the pack.
+    #
+    # It fails the run rather than repairing it, deliberately. The house rule
+    # since session 18 is that a degraded generic ship is a defect and not a
+    # fallback, and the repair for "say something true about this business" is
+    # the writers, not a codemod.
+    from app.application.preview_app.industry_templates.loader import (
+        pack_literal_sentences,
+    )
+
+    for leaked in sorted(leaves & pack_literal_sentences()):
+        report.fail(
+            "pack_copy_shipped",
+            f"mock.ts ships the industry pack's own copy {leaked!r} — a pack "
+            "supplies structure; the sentences are written for the business",
+            "src/data/mock.ts",
+        )
+
     # `images` is a slot map consumed as images.hero/.card1 — an empty literal of
     # either shape yields undefined src attributes, so it needs its own code and
     # heal rather than the list-row seeding the generic check triggers.
