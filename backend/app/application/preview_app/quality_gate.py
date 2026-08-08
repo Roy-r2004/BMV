@@ -18,6 +18,10 @@ from app.application.preview_app.catalogue_contract.scaffold import (
     minimal_catalogue_page_scaffold,
 )
 from app.application.preview_app.catalogue_contract.slots import catalogue_route_for_file
+from app.application.preview_app.industry_templates.seed import (
+    early_brand_placeholder_item_titles,
+    early_brand_placeholder_strings,
+)
 from app.application.preview_app.workspace import (
     list_source_files,
     read_file,
@@ -47,6 +51,18 @@ _BRACKETED_PLACEHOLDER_RE = re.compile(r"\[[A-Z][^,\[\]\n]{2,40}\]")
 _EMPTY_IMAGES_EXPORT_RE = re.compile(
     r"export\s+const\s+images\s*=\s*(?:\[\s*\]|\{\s*\})\s*;"
 )
+
+#: A quoted string leaf in `mock.ts`. The early-brand sets below hold *exact*
+#: leaf values, so they are compared against whole literals and never against a
+#: substring of the file: `"Guest favorite"` must not fire on a testimonial
+#: reading "our guest favorite for years".
+_STRING_LEAF_RE = re.compile(r"""(['"])((?:\\.|(?!\1)[^\\\n])*)\1""")
+
+#: The two Brand-default titles `product_face._entry_is_early_placeholder` treats
+#: as early placeholders even though they carry no "Brand" token. Restated here
+#: because they are literals there too; `test_the_named_early_titles_track_product_face`
+#: fails if the two lists drift apart.
+_NAMED_EARLY_TITLES = frozenset({"Everyday essential", "Guest favorite"})
 
 
 @dataclass
@@ -294,6 +310,45 @@ def evaluate_quality_gate(
         report.fail(
             "placeholder_content_shipped",
             f"mock.ts ships the unfilled placeholder {leaked} as content",
+            "src/data/mock.ts",
+        )
+
+    # The second family, and the reason this block exists: item 1.8 specified
+    # this gate on `early_brand_placeholder_strings()` /
+    # `early_brand_placeholder_item_titles()` and the shipped gate used only the
+    # bracket regex above, so for as long as the row has been scored it has
+    # measured one of the two families it was meant to catch. Session 26's
+    # census found the missing one live on 7 of 87 stored workspaces —
+    # `Everyday essential` and `Guest favorite` on requests 19, 34, 37, 39, 43,
+    # **135 and 140** — a set that does not overlap the bracket regex's seven at
+    # all, and two of whose members sit inside the stretch the row was calling
+    # clean.
+    #
+    # These are not brackets-with-a-capital. They are the seed's own default
+    # copy: what the pipeline writes when it has nothing specific to say about
+    # the business. They ship looking like content and say nothing, which is the
+    # same defect as `[Artist Name]` wearing better clothes.
+    #
+    # **The `"Brand" in s` guard is load-bearing and is not ours to invent.**
+    # `early_brand_placeholder_strings()` is *every* string leaf of the
+    # Brand-default seed, and that includes `/gallery`, `60 min`, `Get started`
+    # and `On schedule` — routes, durations and CTAs a real business ships too.
+    # Matched bare it fires on 87 of 87 workspaces and means nothing.
+    # `product_face.py:90` already solved this with a co-occurrence test, and
+    # this reproduces that guard rather than inventing a second rule for the
+    # same question. Exact-leaf comparison, never substring, for the same
+    # reason.
+    early_defaults = {
+        s for s in early_brand_placeholder_strings() if s and "Brand" in s
+    } | {
+        t for t in early_brand_placeholder_item_titles()
+        if t and ("Brand" in t or t in _NAMED_EARLY_TITLES)
+    }
+    leaves = {m.group(2).strip() for m in _STRING_LEAF_RE.finditer(mock)}
+    for leaked in sorted(leaves & early_defaults):
+        report.fail(
+            "placeholder_content_shipped",
+            f"mock.ts ships the unfilled seed default {leaked!r} as content",
             "src/data/mock.ts",
         )
 
