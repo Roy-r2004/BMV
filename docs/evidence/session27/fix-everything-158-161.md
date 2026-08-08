@@ -144,8 +144,19 @@ has already broken.
     second trio     383.176949250   (+$0.716111, 4 launches, 3 completed)
 
 **Session total $1.616407 across 10 launches. $1.823 left.**
-Six of the ten launches produced a finished app; the four that did not are the
-three upstream failures fixes B and F were written from, plus 154's AppSpec death.
+
+Six of the ten launches produced a finished app. Four died upstream, before one
+existed — two causes, two launches each:
+
+    152  Copperline  blueprint, ~11 s   refusal word-search            → F
+    159  Copperline  blueprint, ~11 s   refusal word-search            → F
+    154  Ridgeline   AppSpec, 23%       state_assertion_state_required → B
+    155  Copperline  AppSpec, 23%       state_assertion_state_required → B
+
+Of the six that did build, four shipped `ready` and two — 153 and 156 — were
+**withheld by the gate** for `journey_no_detail_route`, which is fix A. That is a
+different outcome from the four above and should not be counted with them: the
+app was whole, and the gate refused to ship a catalogue with no detail page.
 
 ## Process notes
 
