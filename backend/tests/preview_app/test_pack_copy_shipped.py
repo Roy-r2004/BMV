@@ -166,3 +166,49 @@ def _run_mock_checks(quality_gate, tmp_path: Path, mock: str):
         "export default function HomePage() { return <div />; }\n", encoding="utf-8"
     )
     return quality_gate.evaluate_quality_gate(tmp_path, {}, require_ai_hub=False)
+
+
+def test_a_bike_workshop_does_not_get_a_fashion_boutique():
+    """Request 160's exact brief, and the selector defect underneath the copy one.
+
+    "Bicycle retail, service and workshop" matched
+    `fashion-retail-storefront` on **"retail" alone** — the only pack that
+    matched at all — because at six characters that one declared word cleared
+    `_MIN_DISTINCTIVE_TOKEN_LEN` and a lone tag hit was enough to choose a whole
+    visual identity. The app shipped "The rack is live" and "Shop the new drop
+    before sizes thin out."
+
+    Recipe-only is the right answer here, and `pick_template_id`'s own docstring
+    says so: *"None = recipe-only (better than a wrong utility pack)"*. There is
+    no bicycle pack, and inventing one to fix this would be inventing more copy.
+    """
+    from app.application.preview_app.industry_templates.loader import pick_template_id
+
+    picked = pick_template_id(
+        industry="Bicycle retail, service and workshop",
+        surface="public",
+        seed=160,
+        context=(
+            "A bike shop selling around twenty models across gravel, commuter and "
+            "kids ranges, alongside a workshop that takes in repairs and annual "
+            "services. Customers browse the range and book a mechanic slot."
+        ),
+    )
+    assert picked != "fashion-retail-storefront"
+    assert picked is None
+
+
+def test_a_real_fashion_boutique_still_gets_the_fashion_pack():
+    """Weakening "retail" must not cost the businesses the pack is for."""
+
+    from app.application.preview_app.industry_templates.loader import pick_template_id
+
+    assert (
+        pick_template_id(
+            industry="Womenswear boutique and apparel",
+            surface="public",
+            seed=1,
+            context="An independent clothing boutique with seasonal drops.",
+        )
+        == "fashion-retail-storefront"
+    )

@@ -23,6 +23,18 @@ _WEAK_INDUSTRY_TOKENS = frozenset(
         "home",
         "shop",
         "store",
+        # Same word as "shop" and "store", and it cost request 160 its identity.
+        # A bike workshop declaring "Bicycle retail, service and workshop"
+        # matched `fashion-retail-storefront` on **"retail" alone** — the only
+        # pack that matched at all — and shipped "The rack is live" and "Shop
+        # the new drop before sizes thin out." At six characters it cleared
+        # `_MIN_DISTINCTIVE_TOKEN_LEN`, so one declared category word chose a
+        # whole visual identity. With it weak, that brief matches nothing and
+        # falls to recipe-only, which this function's own docstring already
+        # calls the better answer. Fashion still matches on fashion, apparel,
+        # boutique and clothing.
+        "retail",
+        "retailer",
         "service",
         "services",
         "business",
