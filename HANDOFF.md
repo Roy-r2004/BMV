@@ -82,6 +82,50 @@ standing habit: when a numbered item closes, grep the DoD table for its row in t
 
 Evidence: `docs/evidence/session26/catalogue-card-score-73.md`.
 
+### The offline half of Phase 1, finished this block ($0)
+
+Owner asked to close out everything in Phase 1 that does not need money. Two items, both
+done, and **both changed their row's verdict rather than confirming it**.
+
+**`placeholder_content_shipped` — measured over all 87 stored workspaces, and the row is
+not closable at all.** New `scripts/measure/placeholder_gate_census.py` (`--check` red-exits
+on drift; proven exit 1 under tamper, exit 0 clean). Three findings, one known:
+(1) **7 of 87 workspaces fire** — `[Painting Title]`, `[Owner Name]`, `[Artist Name]`,
+`[Patient Name]`, `[Phone Number]`… — **none since request 93**, but the clean tail is
+28 workspaces of only **6 distinct businesses** (Osteria Vinci 25 runs, Cedar Point Lodge
+19), so it is 28 runs and not 28 samples. (2) **The gate is narrower than item 1.8
+specified**: 1.8 said build it on `early_brand_placeholder_strings()` /
+`early_brand_placeholder_item_titles()`; the shipped gate calls **neither**, and scored with
+`product_face`'s own guard those helpers fire on a **non-overlapping** 7 runs
+(`Everyday essential` / `Guest favorite`) — **including 135 and 140, inside the "clean"
+tail.** A live placeholder class the gate cannot see. (3) **The denominator was never
+reachable**: the row wants 20 businesses; the database holds **131 requests across 16
+distinct business names**. No trio closes this row; 20 distinct businesses is ~$8.40, more
+than the whole balance. **Re-scope it or fund it deliberately.**
+
+**1.11 — re-measured, and the recommendation is DO NOT WRITE CODE.** `tail.py 129 132 135
+140 141 142 144 145`. (First: the roadmap's *"tail.py cannot see it without being
+parameterized"* is **stale** — it takes explicit run ids and refuses void trio 6 by name.)
+Tail is **145.0 s over 8 runs — 3.0 s AI (2 %), 142.0 s non-AI (98 %)**, mean **18.1 s/run**
+vs the baseline's 42.4 s and 33 % AI. So **the AI half of the row's premise is dead**
+(bounding every tail AI call recovers 3.0 s total) and **`RESERVE_SECONDS = 60` is now
+over-sized, ~3× the mean tail** — the row was filed when the reserve was smaller than what
+ran inside it. **But all eight runs recorded `contention: 0.0` on both locks**, so this is
+serial evidence only, and the mechanism that actually broke the row was `_SESSION_LOCK`
+queueing (trio 2: 16.9 / 35.9 / 16.7 s; request 78's whole overrun *was* the block).
+**Re-scoped from "bound the reserve" to "prove it holds under real concurrency" and folded
+into the concurrency trio** — the lock-wait bound for that mechanism already landed and has
+never fired because nothing has ever contended. Tail stays inside the reserve → **1.11
+closes with zero new code**.
+
+**Suite after: 2,075 passed / 1 skipped / 0 failed** via the documented `docker run`
+invocation from `docs/KNOWN_TEST_FAILURES.md` (note: it needs the `bmv-local-api` image
+**and** `-e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template`; a plain
+`docker run python:3.12-slim` has no pytest and no template override).
+
+Evidence: `docs/evidence/session26/placeholder-gate-census.{md,json}`,
+`docs/evidence/session26/tail-rescope-1.11.md`.
+
 ### Is Phase 1 done? No — and the distinction matters for Phase 3
 
 **Code-complete, not proven.** Twelve of thirteen numbered items landed; **1.11 is the only open
