@@ -85,11 +85,42 @@ so the pipeline read the business back to itself, classified it
 `provider_content_refused` with `retryable=False`, and the transport ladder above
 it correctly declined to re-ask a refusal.
 
-Across all **138 stored blueprints the scan had never matched once**. It was not
-a check that mostly worked — it was a check nothing had exercised until a brief
-happened to say the word, and then it took the same brief out twice (152 and
-159). It now reads `finish_reason` alone. The OpenAI `refusal` field and
+Across all **138 stored blueprints the scan had never matched once** — which is
+true, and which understates it badly. Counting *every* stage rather than only
+blueprints, `ai_usage_events` holds **27 misclassifications across 14 requests**,
+all with `finish_reason: stop`, spanning 2026-08-02 to 2026-08-08, requests 81
+through 160:
+
+    blueprint   152, 159                        killed the run
+    planning    102, 148, 150, 156, 157, 160    planner, design_manifest, plan_validation
+    architect   150, 157                        157 fell haiku -> gemini, attempt 3
+    appspec     81, 83
+    codegen     81, 82, 86, 88, 96
+    refine      96
+
+Only the two blueprint hits were fatal, because the blueprint stage has no ladder
+beneath it. Everywhere else a retry or a model fallback absorbed the misfire —
+157 burned two architect attempts and shipped `ready` on the third; 160 took it
+twice during planning and shipped clean. That is why it went unseen for a week:
+it paid for itself in silent retries, and only surfaced when it landed on the one
+stage that cannot retry.
+
+Post-fix the count is **zero**, request 161's full run included.
+
+It now reads `finish_reason` alone. The OpenAI `refusal` field and
 `finish_reason: content_filter` still fire, still non-retryable.
+
+Two adjacent things checked and deliberately not changed:
+
+- `error_classification.py` keeps its own identical `_REFUSAL_HINTS`, but scans
+  `message + type + code` off the **provider's error envelope**, and all three
+  call sites pass `""` or a synthetic string (`"Provider HTTP 500."`). That is
+  the check doing its job. It could only reproduce fix F if a provider echoed
+  prompt text into a 400 body; the corpus holds one `provider_bad_request` and it
+  does not echo. No evidence to act on.
+- Eight older `provider_content_refused` events (2026-07-28 to 08-01, requests
+  36-69) have no `finish_reason` recorded, so genuine and misfire cannot be told
+  apart. Not reconstructable.
 
 ## 4. What is left, and it is a different kind of defect
 
