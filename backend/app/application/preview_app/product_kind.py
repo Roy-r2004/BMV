@@ -1122,6 +1122,73 @@ def _route_page_kind(
         return ""
 
 
+def _detail_host_route(
+    parent_path: str,
+    contract: ProductKindContract,
+    routes: list[dict[str, Any]],
+    plan_pages: Mapping[tuple[str, str], dict[str, Any]],
+) -> dict[str, Any] | None:
+    """The listing a blueprint detail page hangs off — **by kind, not by name**.
+
+    The storefront blueprint's detail page is `/gallery/:id`, so the gap-fill used
+    to look for a literal `/gallery` in the table and skip the detail page when it
+    found none. Request 156's catalogue is called `/bikes` and 153's
+    `/celebration-cakes`, so on both the lookup missed and the app shipped a
+    catalogue grid with **no detail route behind it at all** — every card fell
+    through `path="*"` to the home page, and the journey gate said so
+    (`journey_no_detail_route`).
+
+    The browse page's own guard four lines below already resolves this correctly,
+    by asking whether the app serves the blueprint's *kind*; only the detail
+    child's guard was still reading the literal. This closes that asymmetry.
+
+    Returns ``None`` when the app serves no such listing, which is the one case
+    where skipping the detail page is right.
+    """
+    parent_blueprint = next(
+        (page for page in contract.pages if page.path == parent_path), None
+    )
+    exact = next(
+        (
+            route
+            for route in routes
+            if str(route.get("path") or "").rstrip("/") == parent_path
+        ),
+        None,
+    )
+    if exact is not None or parent_blueprint is None:
+        return exact
+    for route in routes:
+        if _is_ai_hub_route(route):
+            continue
+        path = str(route.get("path") or "").rstrip("/")
+        # A param route is a detail page itself, and `/` is the home page — a
+        # detail child hung off either would be a route the app cannot mean.
+        if not path or ":" in path or "{" in path:
+            continue
+        if _route_page_kind(route, plan_pages) == parent_blueprint.skeleton_id:
+            return route
+    return None
+
+
+def _detail_page_naming(host: Mapping[str, Any], fallback_component: str) -> tuple[str, str]:
+    """(title, component_file) for a detail page injected under a renamed listing.
+
+    The blueprint's are `Artwork` / `ArtworkDetailPage.tsx`, which is right for the
+    gallery it was written for and visible nonsense on a bike shop — the title
+    reaches the nav label and the page header. Derived from the listing the page
+    now hangs off, so a `/bikes` grid gets `Bike Range detail` in
+    `BikeRangeDetailPage.tsx`.
+    """
+    title = str(host.get("title") or "").strip()
+    component = str(host.get("component_file") or "").replace("\\", "/")
+    stem = component.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    stem = re.sub(r"Page$", "", stem) or ""
+    if not stem or not title:
+        return (f"{title} detail" if title else "Detail"), fallback_component
+    return f"{title} detail", f"src/pages/{stem}DetailPage.tsx"
+
+
 def _served_page_kinds(
     routes: list[dict[str, Any]],
     plan_pages: Mapping[tuple[str, str], dict[str, Any]],
@@ -1179,6 +1246,7 @@ def _inject_blueprint_routes(
     for bp in contract.pages:
         path = bp.path
         component = bp.component_file
+        title = bp.title
         if (
             stop_at_non_hub_floor is not None
             and path not in existing_paths
@@ -1191,10 +1259,25 @@ def _inject_blueprint_routes(
                 # A detail page is not free-standing: it is reached from one
                 # listing, so its equivalent is that listing's own detail child
                 # and never an unrelated detail page elsewhere in the app.
-                if parent not in existing_paths or any(
-                    _detail_parent_path(other) == parent for other in existing_paths
+                #
+                # Which listing is resolved by kind (`_detail_host_route`), not by
+                # the blueprint's own path — an app whose catalogue is `/bikes`
+                # still needs `/bikes/:id`, and reading the literal `/gallery`
+                # here left two of session 27's three runs shipping a grid with
+                # nowhere to click through to.
+                host = _detail_host_route(parent, contract, routes, plan_pages)
+                if host is None:
+                    continue
+                host_path = str(host.get("path") or "").rstrip("/")
+                if any(
+                    _detail_parent_path(other) == host_path for other in existing_paths
                 ):
                     continue
+                if host_path != parent:
+                    path = host_path + path[len(parent) :]
+                    if path in existing_paths:
+                        continue
+                    title, component = _detail_page_naming(host, component)
             elif (
                 not unserved_by_path
                 and path != "/"
@@ -1219,7 +1302,7 @@ def _inject_blueprint_routes(
                 "path": path,
                 "page_id": bp.id,
                 "role_id": role_id,
-                "title": bp.title,
+                "title": title,
                 "component_file": component,
                 "layout": "admin" if bp.surface == "ops" else "public",
                 "surface": bp.surface,
