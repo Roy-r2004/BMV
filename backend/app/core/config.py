@@ -178,6 +178,7 @@ class Settings:
     CODER_MODEL: str
     PREVIEW_APP_MODEL: str
     PREVIEW_APP_TRANSPORT_FALLBACK_MODEL: str
+    SEED_MODEL: str
     ARCHITECT_MODEL: str
     CRITIC_MODEL: str
     FIX_MODEL: str
@@ -307,6 +308,33 @@ class Settings:
         # closed to its scaffold as before.
         self.PREVIEW_APP_TRANSPORT_FALLBACK_MODEL = _env_or(
             "PREVIEW_APP_TRANSPORT_FALLBACK_MODEL", "anthropic/claude-haiku-4.5"
+        )
+        # The catalogue writer gets its own model, chosen on measured output
+        # size rather than inherited from the page writer (owner ruling,
+        # 2026-08-09). `mock_synthesize` asks for `max_tokens=14000` and its one
+        # success across requests 146-161 emitted 10,107 completion tokens, so
+        # this slot needs a model that can actually finish a long structured
+        # answer — not the fastest one.
+        #
+        # Measured over requests 129-161, every stage:
+        #
+        #     google/gemini-2.5-flash       97 asks   93 % usable   max 15,248 tok
+        #     google/gemini-3-flash-preview 124       61 %          max  4,522 tok
+        #     anthropic/claude-haiku-4.5    114       53 %          max 24,000 tok
+        #     deepseek/deepseek-v4-pro      192       42 %          max 10,107 tok
+        #
+        # `PREVIEW_APP_MODEL` (deepseek) was the seed's model from request 101
+        # and returned usable output **4 times in 31** — ten of the last eleven
+        # were `provider_timeout` with zero characters, six of them riding the
+        # 120 s ask cap. Inheriting `TEXT_MODEL` instead would look right and be
+        # wrong: gemini-3-flash-preview is fast, but nothing in this corpus has
+        # ever pulled more than 4,522 tokens out of it, a third of what the seed
+        # needs. The 2.5 line is what carries AppSpec's 12-15k token answers at
+        # 88-100 % usable, and it is what the seed itself scored 19-of-23 on
+        # before the switch.
+        self.SEED_MODEL = _env_or(
+            "SEED_MODEL",
+            "google/gemini-2.5-flash" if provider_key == "openrouter" else defaults["text"],
         )
         # R1's last naked ask (owner-ruled, session 24): the blueprint is
         # MANDATORY — everything downstream reads it — and its single TEXT_MODEL

@@ -187,6 +187,11 @@ _SEED_FAILOVER_FLOOR_SECONDS = 70.0
 def _seed_model_chain() -> list[str]:
     """Which models the seed may ask, primary first, each id only once.
 
+    `SEED_MODEL` leads because this ask is long-output work and the models
+    differ by a factor of three in what they will actually finish — see the
+    measurement in `config.py`. The page writer's model follows it rather than
+    leading it, which is the whole content of the owner's 2026-08-09 ruling.
+
     Deduped for the reason `call_architect` documents: when two settings resolve
     to the same id, "fail over" means asking the identical model twice and
     paying twice for the same answer.
@@ -195,8 +200,8 @@ def _seed_model_chain() -> list[str]:
         dict.fromkeys(
             m
             for m in (
+                settings.SEED_MODEL,
                 settings.PREVIEW_APP_MODEL,
-                settings.TEXT_MODEL,
                 settings.ARCHITECT_MODEL,
             )
             if m

@@ -62,9 +62,24 @@ def accept_everything(monkeypatch):
 
 @pytest.fixture
 def three_models(monkeypatch):
-    monkeypatch.setattr(mock_module.settings, "PREVIEW_APP_MODEL", "primary/one")
-    monkeypatch.setattr(mock_module.settings, "TEXT_MODEL", "second/two")
+    monkeypatch.setattr(mock_module.settings, "SEED_MODEL", "primary/one")
+    monkeypatch.setattr(mock_module.settings, "PREVIEW_APP_MODEL", "second/two")
     monkeypatch.setattr(mock_module.settings, "ARCHITECT_MODEL", "third/three")
+
+
+def test_the_seed_asks_its_own_model_before_the_page_writers(monkeypatch, accept_everything):
+    """The owner's 2026-08-09 ruling, in one assertion.
+
+    `PREVIEW_APP_MODEL` was the seed's model from request 101 and returned
+    usable output 4 times in 31. It is still in the chain — it is simply no
+    longer first.
+    """
+
+    monkeypatch.setattr(mock_module.settings, "SEED_MODEL", "seed/own")
+    monkeypatch.setattr(mock_module.settings, "PREVIEW_APP_MODEL", "page/writer")
+    monkeypatch.setattr(mock_module.settings, "ARCHITECT_MODEL", "taste/model")
+
+    assert mock_module._seed_model_chain() == ["seed/own", "page/writer", "taste/model"]
 
 
 def test_a_timeout_on_the_primary_falls_over_to_the_next_model(
@@ -114,7 +129,7 @@ def test_the_chain_is_deduped_so_one_model_is_never_asked_twice(
 ):
     """`call_architect`'s lesson: request 74 asked one model three times."""
 
-    for name in ("PREVIEW_APP_MODEL", "TEXT_MODEL", "ARCHITECT_MODEL"):
+    for name in ("SEED_MODEL", "PREVIEW_APP_MODEL", "ARCHITECT_MODEL"):
         monkeypatch.setattr(mock_module.settings, name, "only/one")
     ai = _ChainAI({"only/one": TimeoutError("provider_timeout")})
 
