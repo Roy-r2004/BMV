@@ -131,7 +131,9 @@ def apply_workspace_guards(
         except Exception as e:
             guard_log.warning("named ui icon exports guard skipped: %s", e)
     try:
-        synced = sync_mock_images(workspace, images, brand_name=brand_name)
+        synced = sync_mock_images(
+            workspace, images, brand_name=brand_name, architect=architect
+        )
         if synced:
             actions.extend([f"mock-images:{n}" for n in synced])
     except Exception as e:

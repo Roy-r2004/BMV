@@ -862,12 +862,24 @@ def dedupe_object_literal_keys(source: str, export_name: str) -> str:
     return source[: match.start(2)] + rebuilt + source[match.end(2) :]
 
 
-def sync_mock_images(workspace, images: dict | None, brand_name: str | None = None) -> list[str]:
+def sync_mock_images(
+    workspace,
+    images: dict | None,
+    brand_name: str | None = None,
+    architect: dict | None = None,
+) -> list[str]:
     """Force ``export const images`` to the pipeline slot map (stops AI photo-ID 404s).
 
     Also rewrites stray Unsplash URLs elsewhere in mock.ts / pages that are not in the
     curated/pipeline set — polish often invents ``photo-…`` IDs that 404.
+
+    ``architect`` is read for one thing: the booking route the dead-CTA rewrite
+    below aims at. This guard is the last thing to touch a page before the build,
+    so a literal target here would re-manufacture the dead `/book` link on every
+    app whose booking page is named something else, undoing the resolution the
+    scaffold just did.
     """
+    from app.application.preview_app.catalogue_contract.scaffold import booking_route
     from app.application.services.industry_images import (
         curated_library_urls,
         curated_photo_ids,
@@ -950,11 +962,17 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         )
         mock = rebound
 
-    # Dead booking CTAs — map to canonical /book (App.tsx also aliases these paths).
+    # Dead booking CTAs — map to the route this app declared for booking. A
+    # rewrite to the literal `/book` swapped one dead link for another on
+    # request 148 (`/service/book`) and 150 (`/hire/reserve`); with no booking
+    # route declared there is nothing to aim at, so the dead href is left for the
+    # journey repair rather than being pointed somewhere equally unreachable.
+    book_target = booking_route(architect)
     rewritten = mock
-    for dead in _DEAD_BOOK_HREFS:
-        if dead in rewritten:
-            rewritten = rewritten.replace(dead, "/book")
+    if book_target:
+        for dead in _DEAD_BOOK_HREFS:
+            if dead in rewritten:
+                rewritten = rewritten.replace(dead, book_target)
     if rewritten != mock:
         actions.append("book-href")
         mock = rewritten
@@ -986,9 +1004,10 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         original = text
         pidx = [0]
         text = _UNSPLASH_URL_RE.sub(lambda m: _replace_url(m, index=pidx), text)
-        for dead in _DEAD_BOOK_HREFS:
-            if dead in text:
-                text = text.replace(dead, "/book")
+        if book_target:
+            for dead in _DEAD_BOOK_HREFS:
+                if dead in text:
+                    text = text.replace(dead, book_target)
         if _BRAND_POISON_SIMPLE in text:
             text = text.replace(_BRAND_POISON_SIMPLE, f"brandName={{{brand_js}}}")
         if _BRAND_POISON_SIMPLE_ALT in text:

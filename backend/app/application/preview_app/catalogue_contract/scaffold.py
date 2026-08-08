@@ -120,8 +120,11 @@ def has_listing_face_component(content: str) -> bool:
 
 
 _DEFAULT_CATALOG_BASE = "/gallery"
-#: Declared booking route for booking_service apps (see product_kind._booking_pages).
-_BOOKING_ROUTE = "/book"
+#: The CTA a page emits when the route it would have linked to is not declared.
+#: A missing button beats a dead one: `#inquire` is an in-page anchor, so the
+#: worst case is a no-op scroll rather than a click that falls through to the
+#: catch-all route and lands the visitor back on the home page.
+_NO_ROUTE_CTA = '{ label: "Send a message", href: "#inquire" }'
 
 
 def catalog_base_from_path(route_path: str = "", architect: dict | None = None) -> str:
@@ -162,6 +165,75 @@ _LISTING_BASE_RE = re.compile(
     r"paintings|pieces|artworks|listings)(/|$)",
     re.I,
 )
+
+
+def _surface_route_path(route: object) -> str:
+    """Declared path of a visitor-facing, non-param route — `""` when it is neither.
+
+    Ops routes are excluded because a public CTA must never hand the visitor an
+    owner console, and param routes because `/bikes/:id` is a shape, not a place
+    a button can point at.
+    """
+    if not isinstance(route, dict):
+        return ""
+    path = str(route.get("path") or "").strip()
+    if not path.startswith("/"):
+        return ""
+    if str(route.get("surface") or "").lower() == "ops" or _is_ops_path(path):
+        return ""
+    if re.search(r"/:\w+", path) or re.search(r"/\{[^}]+\}", path):
+        return ""
+    return path.rstrip("/") or "/"
+
+
+def booking_route(architect: dict | None) -> str | None:
+    """Where "book a visit" goes — the route the architect declared for it.
+
+    Resolved by **skeleton, never by name**. The scaffold used to write the
+    literal `/book` into every booking CTA it emitted, which is right only for
+    the apps whose architect happened to choose that word: request 148 named its
+    booking page `/service/book` and 150 named it `/hire/reserve`, so every
+    "Book a visit" button on those two apps pointed at a path the route table
+    does not contain and the catch-all sent the click home.
+
+    The naming freedom is wanted — the architect describes *this* business, and
+    a bike workshop's booking page is not a clinic's. What was missing is that
+    the emitters never read the table back. Exactly one route per app carries
+    `skeleton_id == "public-booking"` (verified across requests 146–151), so the
+    table already answers this question; this is the reading of it.
+
+    Returns ``None`` when the app declares no booking page at all — request 151
+    is an ops console with no public face, and inventing `/book` for it would
+    manufacture the very dead link this function exists to remove.
+    """
+    for route in (architect or {}).get("routes") or []:
+        if not isinstance(route, dict):
+            continue
+        if str(route.get("skeleton_id") or "") != "public-booking":
+            continue
+        if path := _surface_route_path(route):
+            return path
+    return None
+
+
+def catalog_route(architect: dict | None) -> str | None:
+    """Where "view collection" goes — the declared browse face, by skeleton first.
+
+    Same defect, same shape as `booking_route`: the literal `/gallery` is right
+    for a painter and wrong for request 148's `/bikes` and 150's `/catalogue`.
+    The declared `public-catalog` route wins; a browse-named route is the
+    fallback for thin contracts that never assigned skeletons.
+    """
+    routes = list((architect or {}).get("routes") or [])
+    for route in routes:
+        if isinstance(route, dict) and str(route.get("skeleton_id") or "") == "public-catalog":
+            if path := _surface_route_path(route):
+                return path
+    for route in routes:
+        path = _surface_route_path(route)
+        if path and path != "/" and _LISTING_BASE_RE.match(path + "/"):
+            return path
+    return None
 
 
 # Slots that give a page somewhere for its journey to end.
@@ -350,14 +422,27 @@ def _is_accounting_domain(*parts: str) -> bool:
     return sum(1 for hint in _ACCOUNTING_HINTS if hint in blob) >= 1
 
 
-def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, str]:
+def _non_home_hero_ctas(
+    skeleton_id: str,
+    brand: str,
+    title: str,
+    architect: dict | None = None,
+) -> tuple[str, str]:
     """Return (primaryCta jsx attrs fragment without wrappers, subcopy).
 
     Storefront catalog/detail must not invent /book-appointment.
-    Booking faces keep a real /book target that matches product_kind routes.
+    Booking faces link the *declared* booking route — `booking_route` reads it
+    out of the route table, because the literal `/book` this used to emit was a
+    dead link on every app whose architect named that page something else.
     """
     sk = (skeleton_id or "").lower()
     blob = f"{brand} {title} {sk}".lower()
+    book_href = booking_route(architect)
+    book_cta = (
+        f'{{ label: "Book a visit", href: {_js(book_href)} }}'
+        if book_href
+        else _NO_ROUTE_CTA
+    )
     # The skeleton is stronger evidence than the brand name. A booking or service
     # face must never take the storefront branch: a gallery-flavoured brand on a
     # public-booking page emitted a "View collection" CTA to /gallery, which a
@@ -378,7 +463,7 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
             f"{title} — pick a time that works. This page is not the homepage story."
         )
         return (
-            'primaryCta={{ label: "Book a visit", href: "/book" }} '
+            f"primaryCta={{{book_cta}}} "
             'secondaryCta={{ label: "Back home", href: "/" }}',
             sub,
         )
@@ -412,7 +497,14 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
             # renders id="inquire" in this page's own inquire slot.
             primary = '{ label: "Inquire about this piece", href: "#inquire" }'
         else:
-            primary = '{ label: "View collection", href: "/gallery" }'
+            # The declared browse face, not the word "gallery". 148's is `/bikes`
+            # and 150's is `/catalogue`; both got a dead "View collection".
+            browse_href = catalog_route(architect)
+            primary = (
+                f'{{ label: "View collection", href: {_js(browse_href)} }}'
+                if browse_href
+                else _NO_ROUTE_CTA
+            )
         secondary = '{ label: "Back home", href: "/" }'
         return (
             f"primaryCta={{{primary}}} secondaryCta={{{secondary}}}",
@@ -422,7 +514,7 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
     sub = _js(
         f"{title} — browse what’s here, then book. This page is not the homepage story."
     )
-    primary = '{ label: "Book a visit", href: "/book" }'
+    primary = book_cta
     secondary = '{ label: "Back home", href: "/" }'
     return (
         f"primaryCta={{{primary}}} secondaryCta={{{secondary}}}",
@@ -574,6 +666,7 @@ def _safe_slot_jsx(
     skeleton_id: str = "",
     item_bound: bool = False,
     detail_base: str = _DEFAULT_CATALOG_BASE,
+    architect: dict | None = None,
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
@@ -661,7 +754,7 @@ def _safe_slot_jsx(
             'imageSrc={images.hero} imageAlt="" />'
         )
     else:
-        cta_attrs, sub_js = _non_home_hero_ctas(skeleton_id, brand, title)
+        cta_attrs, sub_js = _non_home_hero_ctas(skeleton_id, brand, title, architect)
         hero_jsx = (
             f'<MarketingHero brandName={{{brand_js}}} '
             f'headline={{{title_js}}} '
@@ -1210,12 +1303,22 @@ def _schedule_listing_scaffold(
     page_id: str,
     action_ids: list[str],
     evidence_ids: list[str],
+    architect: dict | None = None,
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
     base = (listing_path or "/classes").rstrip("/") or "/classes"
     base_js = _js(base)
-    book_js = _js(_BOOKING_ROUTE)
+    # The declared booking route, not the word "book". An app that declares no
+    # booking page keeps its visitor on this page's own rail rather than being
+    # handed a path the router will not match.
+    book_path = booking_route(architect)
+    book_js = _js(book_path or "#classes-list")
+    item_href = (
+        "`${BOOK_PATH}?service=${encodeURIComponent(String(s.id || i + 1))}`"
+        if book_path
+        else "BOOK_PATH"
+    )
     appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
     for action_id in action_ids:
@@ -1249,9 +1352,9 @@ export default function {component}() {{
     level: String(s.level || 'All Levels'),
     day: String(s.day || ''),
     status: String(s.status || 'Open'),
-    // /book is the declared booking route; a query keeps the service without
-    // inventing a /services/:id route the app does not have.
-    href: `${{BOOK_PATH}}?service=${{encodeURIComponent(String(s.id || i + 1))}}`,
+    // BOOK_PATH is this app's declared booking route; a query keeps the service
+    // without inventing a /services/:id route the app does not have.
+    href: {item_href},
   }}));
 
   return (
@@ -1364,8 +1467,18 @@ def _directory_listing_scaffold(
     # storefront's cards each carry their own detail link.
     booking_face = (skeleton_id or "").lower() in {"public-service", "public-booking"}
     storefront_listing = not people_directory
+    # The booking hop is this page's whole funnel, so it has to land on the route
+    # the architect actually declared for it — `/service/book` on request 148,
+    # `/hire/reserve` on 150. When no booking page is declared the CTA becomes an
+    # in-page ask rather than a click that lands the visitor back home.
+    book_path = booking_route(architect)
+    book_cta = (
+        f'{{ label: "Book a visit", href: {_js(book_path)} }}'
+        if book_path
+        else _NO_ROUTE_CTA
+    )
     if people_directory:
-        cta_primary = '{ label: "Book a visit", href: "/book" }'
+        cta_primary = book_cta
         cta_secondary = '{ label: "Contact", href: "/contact" }'
         footer_desc = "Real providers. Clear booking. Not another homepage clone."
         page_desc = "Browse providers, specialties, and availability — then book the right visit."
@@ -1373,7 +1486,7 @@ def _directory_listing_scaffold(
         cta_heading = "Ready to schedule?"
         cta_desc = "Pick a time online — same team you just reviewed."
     elif booking_face:
-        cta_primary = '{ label: "Book a visit", href: "/book" }'
+        cta_primary = book_cta
         cta_secondary = '{ label: "Back home", href: "/" }'
         footer_desc = f"{brand} — clear options, real availability."
         page_desc = "Browse what is offered, then pick a time that works."
@@ -1407,8 +1520,11 @@ def _directory_listing_scaffold(
     # A service listing has no per-item detail route — the funnel goes straight to
     # booking — so numbering its cards into `/services/:id` would point every one of
     # them at a path the planner never declared.
+    # An app that declares no booking page has nowhere for these cards to go, so
+    # they hold the visitor on the grid (`#catalog` is the anchor CatalogGrid
+    # renders below) rather than pointing at a `/book` it never declared.
     item_href = (
-        _js(_BOOKING_ROUTE)
+        _js(book_path or "#catalog")
         if booking_face
         else f"`{base}/${{String(s.slug || s.id || i + 1)}}`"
     )
@@ -1593,6 +1709,7 @@ def minimal_catalogue_page_scaffold(
             page_id=page_id,
             action_ids=action_ids,
             evidence_ids=evidence_ids,
+            architect=architect,
         )
     skeleton_id = str(route["skeleton_id"])
     shell = expected_shell(route)
@@ -1628,6 +1745,7 @@ def minimal_catalogue_page_scaffold(
                 skeleton_id=skeleton_id,
                 item_bound=detail_bound,
                 detail_base=detail_base,
+                architect=architect,
             ),
         )
         for slot in slots
@@ -1645,6 +1763,7 @@ def minimal_catalogue_page_scaffold(
             skeleton_id=skeleton_id,
             item_bound=detail_bound,
             detail_base=detail_base,
+            architect=architect,
         )
         for slot in slots
     )

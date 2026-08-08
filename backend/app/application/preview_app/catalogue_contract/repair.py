@@ -337,6 +337,7 @@ def repair_missing_catalogue_slots(
     route: dict,
     *,
     brand_name: str | None = None,
+    architect: dict | None = None,
 ) -> tuple[str, bool]:
     """Inject deterministic JSX for missing required slots into an AI page.
 
@@ -367,7 +368,9 @@ def repair_missing_catalogue_slots(
         return content, False
     try:
         injected = "".join(
-            f"\n    {slot}: (\n      {_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)}\n    ),"
+            f"\n    {slot}: (\n      "
+            f"{_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id, architect=architect)}"
+            "\n    ),"
             for slot in ordered_missing
         )
     except ValueError:
@@ -399,7 +402,7 @@ def repair_missing_catalogue_slots(
         repaired = _ensure_ui_import_names(repaired, needed)
 
     injected_jsx = "".join(
-        _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
+        _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id, architect=architect)
         for slot in ordered_missing
     )
     # Every identifier an injected slot reads out of the mock must be imported,
@@ -631,7 +634,7 @@ def enforce_catalogue_page_contract(
         ):
             return (
                 minimal_catalogue_page_scaffold(
-                    file_path, route, brand_name=brand_name
+                    file_path, route, brand_name=brand_name, architect=architect
                 ),
                 True,
             )
@@ -669,6 +672,7 @@ def enforce_catalogue_page_contract(
         content,
         route,
         brand_name=brand_name,
+        architect=architect,
     )
     if healed:
         return lock_recipe_section_order(repaired, route), False
@@ -677,6 +681,7 @@ def enforce_catalogue_page_contract(
             file_path,
             route,
             brand_name=brand_name,
+            architect=architect,
         ),
         True,
     )

@@ -2366,23 +2366,40 @@ def test_a_service_listing_card_links_to_booking_not_a_missing_detail_route() ->
 
     Numbering the cards into `/services/:id` pointed every one of them at a path
     the planner never created.
+
+    The route table here is request 150's shape — the booking page is
+    `/hire/reserve`, not `/book` — so this also kills the mutation that replaces
+    the resolver with the literal it used to emit.
     """
-    route = {
-        "path": "/services",
-        "component_file": "src/pages/ServicesPage.tsx",
-        "surface": "public",
-        "skeleton_id": "public-service",
-        "title": "Services",
-        "page_intent": "listing",
-        "section_slots": ["hero", "showcase", "footer"],
+    architect = {
+        "routes": [
+            {"path": "/", "surface": "public", "skeleton_id": "public-home"},
+            {
+                "path": "/services",
+                "component_file": "src/pages/ServicesPage.tsx",
+                "surface": "public",
+                "skeleton_id": "public-service",
+                "title": "Services",
+                "page_intent": "listing",
+                "section_slots": ["hero", "showcase", "footer"],
+            },
+            {
+                "path": "/hire/reserve",
+                "surface": "public",
+                "skeleton_id": "public-booking",
+                "title": "Hire Reservation Page",
+            },
+        ]
     }
+    route = architect["routes"][1]
 
     tsx = minimal_catalogue_page_scaffold(
-        route["component_file"], route, brand_name="Fade & Blade"
+        route["component_file"], route, brand_name="Fade & Blade", architect=architect
     )
 
     assert "/services/${" not in tsx, "there is no /services/:id to link into"
-    assert '"/book"' in tsx
+    assert '"/hire/reserve"' in tsx
+    assert '"/book"' not in tsx, "the literal is a dead link on this route table"
 
 
 # --------------------------------------------------------------------------- #
