@@ -69,16 +69,19 @@ Rules the manifest enforces (a pytest guards each once Stage A lands):
 | source | verdict | consequence |
 |---|---|---|
 | **Magic UI** | **verified MIT** (LICENSE.md in the official repo; only its Pro *templates* are paid, and they live outside the repo) | clear to mine — Tier A, 20 candidates |
-| **React Bits** | **NOT plain MIT — MIT + Commons Clause** (no selling/sublicensing/redistributing components "alone, in a bundle, or as a ported version") | **EXCLUDED by default.** The foundry's rewrite-and-ship model arguably trips the clause; only an owner/legal ruling can re-admit it |
+| **React Bits** | MIT + Commons Clause — the license *explicitly permits* "use, copy, modify, merge, publish, and distribute the Software **as part of an application, website, or product**"; it forbids selling/redistributing *the components themselves* (alone, bundled, or ported) | **ADMITTED — owner ruling 2026-08-09.** Generated customer sites are the explicitly-permitted case. **Bright line recorded:** the preview-template's mined components must never be published as a standalone kit/library (including open-sourcing the template as a component collection) — that is the act the clause forbids. Manifest rows carry `"license": "MIT+Commons-Clause"`, never plain "MIT" |
 | **Aceternity UI** | **MIT claim unverifiable** — no public component repo, no LICENSE file; the official org hosts only boilerplates and the site's licence page covers Pro | all 16 Aceternity candidates gated on a **human license check** before any file is copied |
 | **Lenis** | verified MIT (`darkroomengineering/lenis` — use the `lenis` package, NOT the deprecated `@studio-freight` one) | admissible when Stage B lands it |
 | **dotLottie** | verified MIT (`LottieFiles/dotlottie-web`) | admissible if Stage C adopts it — confirm the WASM renderer self-hosts (no CDN fetch at runtime) |
 
-The roadmap's Stage B line "mine ~25-30 MIT components (Aceternity UI, Magic
-UI, React Bits)" is therefore **stale as written**: today only Magic UI is
-mineable without a ruling. MIT attribution is satisfied by an
-`ATTRIBUTIONS.md` in the preview template (notice preservation), generated
-from the provenance manifest.
+**Stage B mining set, as ruled:** Magic UI's 20 + React Bits' admitted picks
+(~26-30 total — the roadmap's target met from verified sources). Aceternity's
+16 stay gated: its defect is *no findable license text at all*, which no
+ruling can cure; re-admit only if a human check finds actual text. MIT
+attribution is satisfied by an `ATTRIBUTIONS.md` in the preview template
+(notice preservation), generated from the provenance manifest; the allowlist
+gains exactly one non-plain-MIT entry, `MIT+Commons-Clause (React Bits form,
+end-product embedding only)`.
 
 ## Process per mined component (the foundry loop)
 

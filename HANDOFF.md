@@ -115,10 +115,12 @@ source verdicts), **`evidence/session29/phase3-stage-a-verification.md`** (every
 inventory claim re-checked on HEAD — resolution files byte-identical, five drifts pinned:
 `'split'` is at SIX registry sites not three, plan_phase null-out is 130-133, MarketingHero
 already honours `'item'`), and **`evidence/session29/phase3-foundry-shortlist.md`** (36
-candidates). **Two license findings need the owner:** React Bits is MIT+Commons Clause —
-excluded by default, needs a ruling to re-admit; Aceternity's MIT claim is unverifiable (no
-public repo/LICENSE) — all 16 of its candidates gated on a human check. Only Magic UI (20
-candidates) is clear to mine today. The roadmap's Stage B source list is stale as written.
+candidates). **License rulings (owner, 2026-08-09): React Bits ADMITTED** — its license
+explicitly permits distribution "as part of an application, website, or product", which is
+exactly what generated sites are; the bright line recorded in the policy is that the template's
+mined components must never be published as a standalone kit. **Aceternity stays gated** — its
+defect is no findable license text at all, which no ruling can cure. Stage B mining set:
+Magic UI's 20 + React Bits' picks (~26-30 total, roadmap target met from verified sources).
 
 ### Spend the first money here — preflight is DONE, follow the runbook
 
