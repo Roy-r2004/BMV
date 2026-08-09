@@ -1,0 +1,70 @@
+{
+  "bare-bold-retail": {
+    "src/index.css": "fb7b1be5b681e994732b4e7faa9df89dc0afcb766f4d7af0400c6a3ce916c313",
+    "src/lib/recipe-id.ts": "2028b761159dce83269b9386ad7336705f57e9aa63f8a52ae4a19696d2c7f434"
+  },
+  "bare-craft": {
+    "src/index.css": "3d21ee40fa7f0e08c02b4910de2b40aea6729ae9434bbe79dc61c9eb57237d9a",
+    "src/lib/recipe-id.ts": "6cd7fdab9a6686d7eacb809b522f4a4e1c801a4fd45f7d8613b90cf27693d8a5"
+  },
+  "bare-dense-ops": {
+    "src/index.css": "3332a4aa7154e695b35678018b2ea0b24bcd74b593bb59922df69dab34e30042",
+    "src/lib/recipe-id.ts": "1fe9df25bc449b33f95397170a4e724f3e2ac9b1b1a4018c99e18e0305a262ae"
+  },
+  "bare-dense-ops-floor": {
+    "src/index.css": "3e11493f8806a0f1c16d47980a59682216c479853065fcda78e1e6215c2a923b",
+    "src/lib/recipe-id.ts": "6615f7e9d44fc354c8be66cfc1fcc00114446a79740b30ad161ad866a6171577"
+  },
+  "bare-dense-ops-ledger": {
+    "src/index.css": "f64e02516401f789f1be46561c69fb65844c09ee5cb6814a51591640dc332e32",
+    "src/lib/recipe-id.ts": "04fe01431bbbe263204e999f89bc69f6546d96ae415321f70dfec1bdcab9c5c3"
+  },
+  "bare-editorial": {
+    "src/index.css": "dcdacecc277a302461b92c153873e2fbf3381a6a9e63d946da614599427ce456",
+    "src/lib/recipe-id.ts": "1300946f907d59d5102fef99755a29efd86b7f277e99b73c705539f8261c889e"
+  },
+  "bare-nocturne": {
+    "src/index.css": "4aa329e140075b2654e11517984a59c6d08a933e3c3d1e027bfdf3a91358a81b",
+    "src/lib/recipe-id.ts": "020650f42df88f8cf359f51fcd0358989b78a50514711a38662d4e253efea895"
+  },
+  "bare-warm-service": {
+    "src/index.css": "6d7d0556bc921555212a955129a38c5d620fffdff0bed780b333bcf649109122",
+    "src/lib/recipe-id.ts": "507929955f33193f80c15c2f9a69a25e366a656eaf2e9cdf8e7742665ec1b219"
+  },
+  "default-none": {
+    "src/index.css": "6d7d0556bc921555212a955129a38c5d620fffdff0bed780b333bcf649109122",
+    "src/lib/recipe-id.ts": "507929955f33193f80c15c2f9a69a25e366a656eaf2e9cdf8e7742665ec1b219"
+  },
+  "prod-bold-retail": {
+    "src/index.css": "0abb9482177d4b6b61e38e87b42e4d02b24fa349b3db50b43013a0dec0f7e6ed",
+    "src/lib/recipe-id.ts": "2028b761159dce83269b9386ad7336705f57e9aa63f8a52ae4a19696d2c7f434"
+  },
+  "prod-craft": {
+    "src/index.css": "0abb9482177d4b6b61e38e87b42e4d02b24fa349b3db50b43013a0dec0f7e6ed",
+    "src/lib/recipe-id.ts": "6cd7fdab9a6686d7eacb809b522f4a4e1c801a4fd45f7d8613b90cf27693d8a5"
+  },
+  "prod-dense-ops": {
+    "src/index.css": "0abb9482177d4b6b61e38e87b42e4d02b24fa349b3db50b43013a0dec0f7e6ed",
+    "src/lib/recipe-id.ts": "1fe9df25bc449b33f95397170a4e724f3e2ac9b1b1a4018c99e18e0305a262ae"
+  },
+  "prod-dense-ops-floor": {
+    "src/index.css": "0dd7cdbff580528057e60e428b928ab433ddba8131da58e87a4394b05c4beb43",
+    "src/lib/recipe-id.ts": "6615f7e9d44fc354c8be66cfc1fcc00114446a79740b30ad161ad866a6171577"
+  },
+  "prod-dense-ops-ledger": {
+    "src/index.css": "2ee46b0581da5b5cdeaf40c5fec0441c3a82bcf459fb76e3852a8d240efee463",
+    "src/lib/recipe-id.ts": "04fe01431bbbe263204e999f89bc69f6546d96ae415321f70dfec1bdcab9c5c3"
+  },
+  "prod-editorial": {
+    "src/index.css": "0abb9482177d4b6b61e38e87b42e4d02b24fa349b3db50b43013a0dec0f7e6ed",
+    "src/lib/recipe-id.ts": "1300946f907d59d5102fef99755a29efd86b7f277e99b73c705539f8261c889e"
+  },
+  "prod-nocturne": {
+    "src/index.css": "0abb9482177d4b6b61e38e87b42e4d02b24fa349b3db50b43013a0dec0f7e6ed",
+    "src/lib/recipe-id.ts": "020650f42df88f8cf359f51fcd0358989b78a50514711a38662d4e253efea895"
+  },
+  "prod-warm-service": {
+    "src/index.css": "0abb9482177d4b6b61e38e87b42e4d02b24fa349b3db50b43013a0dec0f7e6ed",
+    "src/lib/recipe-id.ts": "507929955f33193f80c15c2f9a69a25e366a656eaf2e9cdf8e7742665ec1b219"
+  }
+}
