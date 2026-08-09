@@ -918,13 +918,32 @@ def bind_ai_features_to_app_spec(
 
     state_id = "STATE-AI-HUB-READY"
     if state_id.casefold() not in id_index:
+        # `initial` only when the page does not already have one. The guard used
+        # to be "is *this id* already present", which cannot see a state the
+        # model wrote under a different name — and the model routinely writes
+        # one, because a page with content has an initial state by definition.
+        #
+        # Requests 137, 138 and 139 died on the identical message:
+        # *"Page 'PAGE-AI-FEATURES' must contain exactly one initial state;
+        # found 2."* Both were `initial: true` — `STATE-AI-FEATURES-LOADED`
+        # from the model and this one from us. **The pipeline injected the
+        # second initial state and then failed the run for having two**, on a
+        # page the pipeline itself requires. Three runs, one hardcoded literal.
+        hub_existing = {
+            str(sid).casefold() for sid in (hub.get("state_ids") or [])
+        }
+        page_already_has_initial = any(
+            str(s.get("id") or "").casefold() in hub_existing and s.get("initial")
+            for s in states
+            if isinstance(s, dict)
+        )
         states.append(
             {
                 "id": state_id,
                 "page_id": PAGE_AI_HUB_ID,
                 "name": "Ready",
                 "description": "AI feature hub is ready for customers and operators.",
-                "initial": True,
+                "initial": not page_already_has_initial,
                 # Content hub has no interaction graph — treat ready as terminal.
                 "terminal": True,
                 "evidence_ids": [],
