@@ -972,6 +972,23 @@ def bind_ai_features_to_app_spec(
     ]
 
     state_id = "STATE-AI-HUB-READY"
+    # A model may write this exact id on a *different* page; wiring assertions
+    # to it would then be `assertion_state_page_mismatch` — the pipeline
+    # arguing with itself again. Mint a sibling id instead of colliding.
+    foreign_owner = next(
+        (
+            s
+            for s in states
+            if str(s.get("id") or "").casefold() == state_id.casefold()
+            and str(s.get("page_id") or "") != hub_id
+        ),
+        None,
+    )
+    if foreign_owner is not None:
+        suffix = 2
+        while f"{state_id}-{suffix}".casefold() in id_index:
+            suffix += 1
+        state_id = f"{state_id}-{suffix}"
     if state_id.casefold() not in id_index:
         # `initial` only when the page does not already have one. The guard used
         # to be "is *this id* already present", which cannot see a state the

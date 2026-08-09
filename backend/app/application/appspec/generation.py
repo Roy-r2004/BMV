@@ -41,6 +41,7 @@ from app.application.appspec.fallback import (
 )
 from app.domain.appspec.sanitize.heal import (
     drop_unbindable_state_assertions,
+    restore_dropped_trace_links,
     heal_app_spec_payload,
 )
 from app.domain.appspec.sanitize.pipeline import sanitize_app_spec_payload
@@ -953,6 +954,7 @@ def ensure_approved_app_spec(
     # Bounded to one: the salvage removes an unrepairable claim, so a second
     # firing would mean the first changed nothing that mattered.
     state_assertion_salvages = 0
+    terminal_salvages = 0
     heal_actions: list[str] = []
     graph_repairs = 0
     graph_repair_audit: dict[str, Any] = {}
@@ -1201,6 +1203,59 @@ def ensure_approved_app_spec(
                 revision_record=rejected,
             )
 
+        def _terminal_salvage_pass() -> bool:
+            """One full deterministic pass before a paid run is discarded.
+
+            Every rung in the loop is individually capped (heals, graph, trace,
+            schema, AI repairs), so a run can reach a fatal exit with a
+            mechanical issue a rung would have fixed if its budget had not been
+            spent on an earlier shape of the document. This is the last-resort
+            generalization of fix B's salvage: run the code-driven heals and the
+            unbindable-assertion drops once more, uncapped, at the exact point
+            the alternative is losing the run. Scope is untouched by
+            construction — heals wire references and strip rejected shapes, the
+            salvage removes only unprovable proof claims, and neither can
+            delete a requirement, page, or capability. True if it changed the
+            candidate (the loop revalidates; anything still failing dies
+            exactly as before).
+            """
+            nonlocal candidate, spec, validation, terminal_salvages
+            if terminal_salvages >= 1 or candidate is None or not candidate.payload:
+                return False
+            terminal_salvages += 1
+            healed_payload, heal_acts = heal_app_spec_payload(
+                candidate.payload, validation_payload
+            )
+            salvaged_payload, drop_acts = drop_unbindable_state_assertions(
+                healed_payload, validation_payload
+            )
+            # Progress is a changed document, not a non-empty action list —
+            # some heals emit audit actions (integrity hashes, diagnostics)
+            # without touching the payload, and a no-op pass must not buy a
+            # revalidation loop.
+            if salvaged_payload == candidate.payload:
+                return False
+            if not heal_acts and not drop_acts:
+                return False
+            heal_actions.extend(heal_acts + drop_acts)
+            candidate = _sanitize_tracked(
+                _clone_candidate(
+                    candidate,
+                    salvaged_payload,
+                    repair_type="terminal_salvage",
+                    parent_payload_sha256=payload_sha256(candidate.payload),
+                ),
+                source_snapshot,
+            )
+            spec = None
+            validation = None
+            log.info(
+                "AppSpec terminal salvage for request %s: %s",
+                request_id,
+                ", ".join((heal_acts + drop_acts)[:8]),
+            )
+            return True
+
         while True:
             awaited_repair_signature = last_ai_repair_error_signature
             last_ai_repair_error_signature = None
@@ -1331,6 +1386,8 @@ def ensure_approved_app_spec(
                             request_id,
                             ", ".join(salvage_actions[:8]),
                         )
+                        continue
+                    if _terminal_salvage_pass():
                         continue
                     log.info(
                         "AppSpec repair reproduced its parent's validator "
@@ -1621,6 +1678,8 @@ def ensure_approved_app_spec(
 
                 # Schema failures fail closed once the schema-repair attempts are spent.
                 if has_schema_parse and schema_ai_repairs >= settings.APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS:
+                    if _terminal_salvage_pass():
+                        continue
                     return _fallback("deterministic_validation_failed")
 
                 # 3) AI repair — at most once after graph-membership failures.
@@ -1667,6 +1726,31 @@ def ensure_approved_app_spec(
                             request_id,
                         )
                         return _fallback("repair_collapsed_parent_spec")
+                    # Whole-document re-emission's one measured cost: silently
+                    # dropping an object it was never asked to touch. Restore
+                    # any trace row whose whole proof chain still resolves in
+                    # the repaired document (request 130's death class).
+                    if repaired_candidate is not None:
+                        restored_payload, restored = restore_dropped_trace_links(
+                            parent_payload_before_repair,
+                            repaired_candidate.payload,
+                        )
+                        if restored:
+                            heal_actions.extend(restored)
+                            repaired_candidate = _clone_candidate(
+                                repaired_candidate,
+                                restored_payload,
+                                repair_type="trace_attrition_restore",
+                                parent_payload_sha256=payload_sha256(
+                                    repaired_candidate.payload
+                                ),
+                            )
+                            log.info(
+                                "AppSpec repair dropped unfaulted trace rows for "
+                                "request %s; restored: %s",
+                                request_id,
+                                ", ".join(restored[:8]),
+                            )
                     candidate = repaired_candidate
                     graph_repair_audit = {
                         **graph_repair_audit,
@@ -1685,7 +1769,11 @@ def ensure_approved_app_spec(
                     validation = None
                     continue
 
-                # 4) Safety-net fallback — only when explicitly enabled.
+                # 4) One deterministic pass before losing the run, then the
+                # safety-net fallback — which is only taken when explicitly
+                # enabled; with fallback disabled this is the death line.
+                if _terminal_salvage_pass():
+                    continue
                 return _fallback("deterministic_validation_failed")
 
             # Final reference-integrity pass before acceptance. Reconstruct

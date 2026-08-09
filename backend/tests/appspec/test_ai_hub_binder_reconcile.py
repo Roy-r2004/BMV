@@ -206,6 +206,50 @@ def test_retrace_reuses_surviving_capability_and_test():
     assert cap_ids.count("CAP-AI-CONCIERGE") == 1, "binder minted a duplicate capability"
 
 
+def test_a_foreign_state_ai_hub_ready_gets_a_sibling_id_not_a_collision():
+    """A model may write STATE-AI-HUB-READY on its own page. Wiring the hub's
+    assertions to it would be `assertion_state_page_mismatch` — the pipeline
+    arguing with itself. The binder mints a sibling id on the hub instead."""
+
+    spec = _base_spec(
+        [
+            {
+                "id": "PAGE-DASH",
+                "name": "Dashboard",
+                "route": "/dash",
+                "state_ids": ["STATE-AI-HUB-READY"],
+                "capability_ids": [],
+                "evidence_ids": [],
+                "role_ids": ["ROLE-CUSTOMER"],
+            }
+        ]
+    )
+    spec["states"] = [
+        {
+            "id": "STATE-AI-HUB-READY",
+            "page_id": "PAGE-DASH",
+            "name": "Ready",
+            "initial": True,
+            "evidence_ids": [],
+        }
+    ]
+    bound = bind_ai_features_to_app_spec(spec, _features())
+    hub = next(p for p in bound["pages"] if p["id"] == PAGE_AI_HUB_ID)
+    minted = [s for s in bound["states"] if str(s["page_id"]) == PAGE_AI_HUB_ID]
+    assert minted, "no state minted on the hub"
+    assert all(s["id"] != "STATE-AI-HUB-READY" for s in minted)
+    assert minted[0]["id"].startswith("STATE-AI-HUB-READY-")
+    assert minted[0]["id"] in hub["state_ids"]
+    # The foreign page's state is untouched.
+    foreign = next(s for s in bound["states"] if s["page_id"] == "PAGE-DASH")
+    assert foreign["id"] == "STATE-AI-HUB-READY"
+    # And every hub assertion binds the minted sibling, not the foreign state.
+    for test in bound["acceptance_tests"]:
+        for assertion in test["assertions"]:
+            if assertion.get("page_id") == PAGE_AI_HUB_ID:
+                assert assertion["state_id"] == minted[0]["id"]
+
+
 def test_bound_and_traced_spec_is_untouched():
     """The early return must still fire when nothing is stranded."""
 
