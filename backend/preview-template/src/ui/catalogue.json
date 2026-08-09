@@ -671,6 +671,53 @@
       ]
     },
     {
+      "name": "ShimmerButton",
+      "surface": "public",
+      "path": "effects/ShimmerButton.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "shimmerDuration",
+        "className"
+      ]
+    },
+    {
+      "name": "AnimatedGridPattern",
+      "surface": "public",
+      "path": "effects/AnimatedGridPattern.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "width",
+        "height",
+        "numSquares",
+        "maxOpacity",
+        "duration",
+        "className"
+      ]
+    },
+    {
+      "name": "ScrollProgress",
+      "surface": "public",
+      "path": "effects/ScrollProgress.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "className"
+      ]
+    },
+    {
+      "name": "ProgressiveBlur",
+      "surface": "public",
+      "path": "effects/ProgressiveBlur.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "height",
+        "position",
+        "blurLevels",
+        "className"
+      ]
+    },
+    {
       "name": "CredentialStrip",
       "surface": "public",
       "path": "public/CredentialStrip.tsx",

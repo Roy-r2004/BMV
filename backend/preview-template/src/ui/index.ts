@@ -31,6 +31,7 @@ export {
 } from './core';
 
 export {
+  AnimatedGridPattern,
   AnimatedList,
   AnimatedShinyText,
   AuroraText,
@@ -41,10 +42,14 @@ export {
   MagicCard,
   Marquee,
   NumberTicker,
+  ProgressiveBlur,
   Ripple,
+  ScrollProgress,
+  ShimmerButton,
   TextReveal,
   VelocityScroll,
   WordRotate,
+  type AnimatedGridPatternProps,
   type AnimatedListProps,
   type AnimatedShinyTextProps,
   type AuroraTextProps,
@@ -55,7 +60,10 @@ export {
   type MagicCardProps,
   type MarqueeProps,
   type NumberTickerProps,
+  type ProgressiveBlurProps,
   type RippleProps,
+  type ScrollProgressProps,
+  type ShimmerButtonProps,
   type TextRevealProps,
   type VelocityScrollProps,
   type WordRotateProps,

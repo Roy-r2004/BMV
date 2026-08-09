@@ -1,5 +1,17 @@
 [
   {
+    "path": "src/ui/effects/AnimatedGridPattern.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/animated-grid-pattern.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "square positions come from an id+cycle hash, never randomized — the scatter is identical run-to-run; grid lines ride --color-border-subtle and breathing cells ride the brand token (upstream gray/currentColor); reduced motion renders the bare grid",
+    "recipe_personalities": ["editorial", "dense-ops", "craft"]
+  },
+  {
     "path": "src/ui/effects/AnimatedList.tsx",
     "source_repo": "https://github.com/magicuidesign/magicui",
     "source_path": "apps/www/registry/magicui/animated-list.tsx",
@@ -120,6 +132,18 @@
     "recipe_personalities": ["dense-ops", "bold-retail", "editorial"]
   },
   {
+    "path": "src/ui/effects/ProgressiveBlur.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/progressive-blur.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "dead children prop and leftover gradient-blur class dropped; static backdrop-filter stack — nothing to guard for reduced motion; rgba(0,0,0,x) stops are mask alpha geometry, not palette; layer construction deduplicated into one helper",
+    "recipe_personalities": ["nocturne", "editorial", "bold-retail"]
+  },
+  {
     "path": "src/ui/effects/Ripple.tsx",
     "source_repo": "https://github.com/magicuidesign/magicui",
     "source_path": "apps/www/registry/magicui/ripple.tsx",
@@ -130,6 +154,30 @@
     "rewritten": true,
     "rewrite_notes": "rings ride --color-brand mixes, not foreground neutrals; upstream animate-ripple keyframes became a motion-driven pulse (no new CSS); reduced motion renders static rings; motion-safe via useMotionSafe",
     "recipe_personalities": ["editorial", "warm-service", "dense-ops"]
+  },
+  {
+    "path": "src/ui/effects/ScrollProgress.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/scroll-progress.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "fixed violet/pink/peach hex gradient became brand→accent tokens; native scroll drives it (no smoothing dependency); reduced motion renders nothing — the scrollbar already tells the truth",
+    "recipe_personalities": ["editorial", "nocturne"]
+  },
+  {
+    "path": "src/ui/effects/ShimmerButton.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/shimmer-button.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "NOT grafted into core/Button — ops surfaces keep a chrome-free Button by the restraint rule; upstream config keyframes (shimmer-slide + spin-around) and container queries became one motion-driven sweep; black/white hardcodes became brand/card tokens; radius rides --radius-ui; reduced motion renders the resting button",
+    "recipe_personalities": ["bold-retail", "warm-service", "nocturne"]
   },
   {
     "path": "src/ui/effects/TextReveal.tsx",

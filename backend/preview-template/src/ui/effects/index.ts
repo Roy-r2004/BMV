@@ -1,3 +1,4 @@
+export { AnimatedGridPattern, type AnimatedGridPatternProps } from './AnimatedGridPattern';
 export { AnimatedList, type AnimatedListProps } from './AnimatedList';
 export { AnimatedShinyText, type AnimatedShinyTextProps } from './AnimatedShinyText';
 export { AuroraText, type AuroraTextProps } from './AuroraText';
@@ -8,7 +9,10 @@ export { Lens, type LensProps } from './Lens';
 export { MagicCard, type MagicCardProps } from './MagicCard';
 export { Marquee, type MarqueeProps } from './Marquee';
 export { NumberTicker, type NumberTickerProps } from './NumberTicker';
+export { ProgressiveBlur, type ProgressiveBlurProps } from './ProgressiveBlur';
 export { Ripple, type RippleProps } from './Ripple';
+export { ScrollProgress, type ScrollProgressProps } from './ScrollProgress';
+export { ShimmerButton, type ShimmerButtonProps } from './ShimmerButton';
 export { TextReveal, type TextRevealProps } from './TextReveal';
 export { VelocityScroll, type VelocityScrollProps } from './VelocityScroll';
 export { WordRotate, type WordRotateProps } from './WordRotate';

@@ -86,14 +86,26 @@ frozen), index.css byte-identical (silhouette 17/17 at every step), main untouch
   strengthens an existing test), sweep **8/0** (`mutate_session30_b3.py`), session **53/0**.
   Silhouette 17/17 after every step. Evidence: `stage-b-batch3-foundry.md`.
 
+- **(3.10 wiring, `b335a1c`)** — owner said "finish them": both motion engines (presets.tsx +
+  anime.ts/AnimeChrome) now derive every timing constant from `motionIdentity()` as ratios off
+  the legacy base (18px/90ms == pinned DEFAULT_IDENTITY) — bare recipes compute exactly the
+  old motion; the six families move at their temperament. Anime ease gated on
+  `motionIsAuthored()`; tempo clamped [0.45, 1.4]. Suite **2,392/1/0** (+7 accounted),
+  sweep 7/0. Reveal-SHAPE switching (blur/slide per `reveal`) stays post-trio with the critic.
+- **(B4)** — last Lenis-free primitives, ledger **18 rows**: ShimmerButton (standalone — the
+  core/Button graft was REJECTED: ops keeps a chrome-free Button), AnimatedGridPattern
+  (id+cycle hash scatter), ScrollProgress (native scroll, brand→accent), ProgressiveBlur.
+  Suite 2,392/1/0 (+0), sweep 6/0. **Session sweeps: 66/0 across eight scripts.**
+
 **Tomorrow, first moves, in order:** (1) top up ≥ $5; (2) `git checkout main` — the tree sits
 on `phase3-stage-a` and the trio must run the frozen build; (3) runbook exactly
 (`session29/TRIO_LAUNCH_RUNBOOK.md`): probe → cheap confirm → restart `bmv-api` + behaviour
 probe → quiet host (rag-mvp containers too) → launch → bracket; (4) readout, file evidence,
 DoD 10 runs 1-3; (5) merge `phase3-stage-a` iff deaths from fixed classes = 0; (6) back on the
-branch: Lenis (now legal — clocks banked) + presets/anime wiring onto motionIdentity under the
-critic loop + batch 4 (Scroll Progress with Lenis, Shimmer→core/Button, AnimatedGridPattern,
-Progressive Blur / Magic Card grafts) + 3.11 perf gate.
+branch — Stage B remainder is now ONLY: Lenis (clocks banked) → reveal-shape switching under
+the screenshot/critic loop → 3.11 perf gate (CDP tracing, built after Lenis so it measures the
+real scroll engine). Then Stage C owner sign-offs (static bones, motion boards, 3-scene pilot)
+gate Stage D.
 
 ---
 
