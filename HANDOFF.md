@@ -1,13 +1,60 @@
-# Session handoff — every AppSpec death since 129 root-caused for $0, and three of the kickoff's claims were wrong (2026-08-09, session 29)
+# Session handoff — Stage A landed on its branch, all gates green; the trio is still waiting on the top-up (2026-08-09, session 30)
 
 Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
 titles survive as their own `##` blocks below (this line had been left naming session 23 while
 24, 25 and 24-parallel landed underneath it — if you add a block, move this line too).
 
-**If you are picking this up, read the session 29 block first.** All 12 AppSpec deaths since 129
-now have a root cause and a fix, heal, or written fatality ruling; five fixes landed (suite
-**2,322 / 1 skipped**, 19 mutations / 0 survivors, $0 spent) and none of them has been through a
-live run yet — the first funded trio validates all five at once.
+**If you are picking this up, read the session 30 block first.** Phase 3 Stage A (A1-A4) is
+complete on branch `phase3-stage-a` with every gate green — and NOT merged: the merge gate is
+the validation trio's readout, and the trio never launched because the shared OpenRouter key
+stayed overdrawn (−$0.063 at every probe, 19:02→20:04). **Next session: top up ≥ $5, run the
+trio per `docs/evidence/session29/TRIO_LAUNCH_RUNBOOK.md` on frozen main, file the readout,
+then merge the branch if the readout is clean for the fixed classes.**
+
+---
+
+## Session 30 (2026-08-09 — Stage A on `phase3-stage-a`: 5 commits, every gate green, $0; trio still blocked on money)
+
+Evidence: `docs/evidence/session30/` — `stage-a1-single-resolution.md`,
+`stage-a2-enum-broken.md`, `stage-a3-compatible-recipes-consumed.md`,
+`stage-a4-provenance-guards.md`, `silhouette_snapshot.py` + `silhouette-before.json`,
+four sweep scripts (`mutate_session30_a[1-4].py`).
+
+### The trio (Job 1) — blocked all session
+
+Balance probed at 19:02, between every A-item, and at close: **−$0.063482, unchanged** — the
+top-up never landed, and the runbook's abort criterion held (do not launch). Zero model spend
+this session. The generator on main is untouched; the npm lockfile fingerprint is untouched
+(A4 adds files but no dependencies), so the trio's clock rows stay valid. **The branch must NOT
+be merged before the trio runs on frozen main** — launch sequence and readout order are in the
+session-29 runbook, unchanged.
+
+### Stage A (Job 2) — A1-A4 landed, in order, on `phase3-stage-a`
+
+| commit | item | gates |
+|---|---|---|
+| `842c02f` | Silhouette gate BEFORE baseline — 17 cases (8 recipes × prod chain + bare fallback + default), index.css AND recipe-id.ts hashed | baseline itself documents the sameness defect: six marketing recipes → ONE identical index.css on the prod chain (`0abb9482…`) |
+| `89d81b8` | **A1** — `resolve_site_design` (new `site_design.py`) settles the three-system fight once; `write_index_css` renders it; `src/lib/site-design.ts` emitted per workspace + emitter-pinned template default; DELETED: `merge_overlay_into_recipe`, overlay font lane (6 dead mood pairs), recipe-direct fonts, `recipe_font_import_css` | silhouette 17/17 byte-identical; suite 2,346/1/0 (every count named); sweep 14/0; new cross-language pin: resolved variants == recipe.ts maps, all 8 recipes |
+| `4202abe` | **A2** — six maps become defaults (accessors consume SITE_DESIGN, family+validity guarded); MarketingHero honours every accepted variant ("the rest", per the HEAD verification); FeatureBento honours its variant; **'split' DELETED at all 12 sites** (ruling: no signed design exists, Stage A adds no looks; catalogue REGENERATED via `ui_registry --write`) | tsc 0; silhouette 17/17; suite 2,354/1/0; sweep 9/0; equivalent ds-vs-recipe source mutant proved with 8/8 data |
+| `81b360d` | **A3** — loader stamps `compatible_recipes` onto every pack from the one keyed map (packs never author it — pinned); `pick_recipe_id` fallback rotates `MARKETING_RECIPE_IDS` (seeds 1-3 were unpickable for public kinds and shipped dead-recipe fonts); keyword path + fail-closed hint pairing untouched | silhouette 17/17; suite 2,361/1/0; sweep 5/0; 3 equivalent classes recorded with reasons |
+| `a42b4fe` | **A4** — `PROVENANCE.json` ([]) + `provenance.py` (allowlist w/ exactly one non-plain entry; full-sha pin; **React Bits bright line + Aceternity gate mechanized fail-closed**; frozen 26-name dep baseline + delta guard) + `ATTRIBUTIONS.md` pinned byte-for-byte to its generator | guards 16/16 each able to fire; sweep 10/0; suite **2,378/1/0**; silhouette 17/17 |
+
+Suite walk, every count explained by collect-only diff: 2,337/1 baseline → 2,346 (A1: +8 tests
++1 collection param, 1 rename) → 2,354 (A2: +7+1) → 2,361 (A3: +6+1) → 2,378 (A4: +16+1).
+Total sweep: **38 mutations / 0 survivors** across four scripts.
+
+### Two facts the next session should not rediscover
+
+1. The silhouette tool (`silhouette_snapshot.py`) is the Stage-B/D regression gate too — run
+   it before and after any template change; `silhouette-before.json` is the frozen baseline.
+2. Docker-on-macOS mount staleness: a container started immediately after a host write can see
+   a truncated file (observed once — SyntaxError on a host-valid file; retry read true bytes).
+   Parse on the host before debugging "corruption" inside a container.
+
+### DoD 10 streak
+
+Unchanged at 0 runs — starts with the first funded run after `2ded6fa`; the trio is runs 1-3
+when it launches. Owner rulings on N / distinct-business spread / stress briefs still pending.
 
 ---
 

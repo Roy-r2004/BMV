@@ -2671,7 +2671,7 @@ global decision.
 
 | Stage | What lands | Maps to | Agent-effort |
 |---|---|---|---|
-| **A — plumbing** | 3.5 execution (one Python resolution into `SiteSpec.design`, delete the losing layers incl. dead `merge_overlay_into_recipe`), 3.1 break the enum (honour discarded props, implement `'split'`), 3.2 consumption per ruling, MIT-only license policy + provenance manifest | 3.5 · 3.1 · 3.2 | ~2 wk |
+| **A — plumbing** | 3.5 execution (one Python resolution into `SiteSpec.design`, delete the losing layers incl. dead `merge_overlay_into_recipe`), 3.1 break the enum (honour discarded props, implement `'split'`), 3.2 consumption per ruling, MIT-only license policy + provenance manifest. **LANDED on branch `phase3-stage-a` (session 30): A1 `89d81b8` · A2 `4202abe` · A3 `81b360d` · A4 `a42b4fe` (+ gate baseline `842c02f`); silhouette 17/17 byte-identical at every step, suite 2,378/1/0, sweeps 38/0. `'split'` was DELETED, not implemented — no signed design exists and Stage A adds no looks; the declaration can return with an implementation in B/D. Merge gated on the validation trio's readout.** | 3.5 · 3.1 · 3.2 | ~2 wk |
 | **B — foundry** | 3.8 scroll engine (motion + Lenis; pin/scrub/progress primitives; deterministic QA hooks), 3.9 mine ~25–30 MIT components (Aceternity UI, Magic UI, React Bits) rewritten onto tokens and tagged per recipe personality, 3.10 motion-identity tokens, 3.11 perf + reduced-motion gate | new 3.8–3.11 | ~2–3 wk, parallel with A |
 | **C — taste** | static-bones sign-off (candidate sheet, `claude.ai/code/artifact/347da548-1342-40d5-9e4e-5d4e819e3a4c`), five per-personality motion boards, 3-scene pilot (restaurant / pottery / nightlife) built both ways — hand-choreographed vs Lottie-scrubbed — winner sets the scene pattern | replaces 3.0's designer-week | ~1–1.5 wk, owner-paced |
 | **D — scale** | 3.3+3.6 off hardcoded clamps, 3.4 band layouts (CatalogGrid archetypes first), 3.0a voice props + defaults, scenes to remaining packs in batches of ~6 with a contact-sheet review per batch | 3.3 · 3.6 · 3.4 · 3.0a | ~3–5 wk |
@@ -2733,11 +2733,18 @@ compositions.** For scale: `MarketingHero.tsx` is 568 lines for six variants.
 value comes from `SiteSpec.design`. Honour the props the kit discards
 (`MarketingHero.tsx:90-91`, `FeatureBento.tsx:54-55`). Implement `'split'` — declared at
 `registry.ts:148,496,618`, no branch, silently falls through to cinematic.
+*LANDED (session 30, `4202abe`, branch `phase3-stage-a`): maps are defaults consuming the
+emitted `SITE_DESIGN`; both components honour valid caller variants; `'split'` deleted at all
+SIX registry sites + six catalogue mirrors (the HEAD count, not this paragraph's three) rather
+than implemented — deletion ruling in `evidence/session30/stage-a2-enum-broken.md`.*
 
 **3.2 Recipe/pack compatibility (3 days).** Do **not** decouple pack order from recipe —
 `design_recipes.py:653-668` fails closed on purpose (*"pottery → agency stack"*). Instead each pack
 gains **`compatible_recipes: [ids]`**. Also, `pick_recipe_id`'s fallback rotates over eight recipes,
 three of which `plan_phase.py:129-132` then nulls for public kinds — rotate over the *reachable* set.
+*Consumption LANDED (session 30, `81b360d`, branch `phase3-stage-a`): loader stamps every pack
+from the map; fallback rotates `MARKETING_RECIPE_IDS`; keyword path and fail-closed pairing
+untouched.*
 
 **3.3 + 3.6 Tokens and composition, together (4 weeks).** Run as one workstream so composition is not
 the thing cut when the schedule slips — it is the one that changes the silhouette. Add
@@ -2759,6 +2766,9 @@ testimonials → process → credentials.
 pairs are unreachable (`brand_locked` always true), its ten token overrides wipe the recipe's
 identity, and two recipes hard-code their palette back in CSS. One resolution, in Python, into
 `SiteSpec.design`. Delete the losing layers.
+*LANDED (session 30, `89d81b8`, branch `phase3-stage-a`): `resolve_site_design` in
+`site_design.py`; losing layers deleted; the nocturne/craft CSS hard-codes deliberately kept —
+they are winning layers whose retirement is 3.3's, and the silhouette gate pins them.*
 
 **3.7 Two distinctness gates (1 week).**
 1. **Mechanical — silhouette, not enum identity.** Per page, the ordered list of *(section component,
