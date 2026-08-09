@@ -1,19 +1,93 @@
-# Session handoff — the trio found why every app ships generic copy: one import line (2026-08-09, session 28)
+# Session handoff — every AppSpec death since 129 root-caused for $0, and three of the kickoff's claims were wrong (2026-08-09, session 29)
 
 Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
 titles survive as their own `##` blocks below (this line had been left naming session 23 while
 24, 25 and 24-parallel landed underneath it — if you add a block, move this line too).
 
-**If you are picking this up, read the session 28 block first.** Phase 1's last offline reads were
-done for $0 and they found that `mock_synthesize` — the stage that writes every app's catalogue
-content — had been failing 87 % of the time since request 101 with nothing showing it. The failover
-landed. **The consequence for anybody citing the archive: every stored workspace from 101 to 161 was
-built with a dead seed, so no catalogue-content judgement made against that corpus is evidence about
-the code that runs now.**
+**If you are picking this up, read the session 29 block first.** All 12 AppSpec deaths since 129
+now have a root cause and a fix, heal, or written fatality ruling; five fixes landed (suite
+**2,322 / 1 skipped**, 19 mutations / 0 survivors, $0 spent) and none of them has been through a
+live run yet — the first funded trio validates all five at once.
+
+---
+
+## Session 29 (2026-08-09 — the AppSpec review: 12 deaths, two mechanisms, five fixes, $0)
+
+Evidence: `docs/evidence/session29/` — `appspec-deaths-129-166.md` (every death root-caused, three
+kickoff corrections), `validator-rule-audit.md` (all 39 fired codes: heal / repair / fatal),
+`repair-shape-recommendation.md` (the design answer, measured), `mutate_session29_fixes.py`
+(19 killed / 0 survived).
+
+### The finding that reframes the review
+
+**Nine of the twelve deaths trace to two mechanisms, and neither is the repair loop:** the AI-hub
+binder writing state the validator then rejects (130, 136, 137, 139), and an error with no legal
+move meeting a whole-document repair (131, 138, 149, 154, 155). The other three: a fragment
+mistaken for the document (143), a coverage reviewer malformation (133) and a transport double-cut
+(134) — the last two already fixed by ladders that landed after those runs died.
+
+### Three kickoff claims corrected on the evidence
+
+1. **`trace_evidence_mismatch` was never an open killer.** The four "failures" are
+   `pre_trace_evidence_repair` *audit rows* — the deterministic trace repair (live since `dff8bb4`,
+   2026-07-27) healed all four at zero model cost; 3 of 4 accepted on the next revision. The
+   *source* was ours: synthetic surface evidence minted with `capability_ids[:1]`. Now carries the
+   page's whole list.
+2. **The "schema_repair collapse" was garbage-in, not attention collapse.** 143's extraction
+   accepted a **414-char nested fragment of a 31,303-char response** (`ok: true`, method
+   "repaired") and the 473-token "collapse" was the model echoing the prompt's anti-example
+   skeleton after being told to repair a 198-char fragment. The anti-collapse prompt line was never
+   failing. Fix: `_is_fragment_extraction` — ≥2k raw chars and under half recovered → fail closed
+   to the re-ask class.
+3. **Transport was already closed** — every zero-token death predates the
+   `_candidate_ask_with_transport_reask` ladder (2026-08-07 18:04).
+
+### The five fixes (each: tests + sweep, 19 mutations / 0 survivors total)
+
+| # | defect | fix |
+|---|---|---|
+| 1 | 136: binder appended a second `/ai-features` page → `duplicate_route` | hub **adopted by route**, all wiring uses the adopted page id |
+| 2 | 130: repair dropped an injected requirement's trace; "already bound" = "requirement exists" | binder **re-traces stranded `customer_input.ai_features` requirements** after every candidate pass, reusing surviving pieces |
+| 3 | 129-family: surface evidence carried one page capability | synthetic surface evidence carries **every** page capability |
+| 4 | 143: fragment accepted as document | **fragment guard** in `authoring_parser.py`, both recovery paths |
+| 5 | 138: `visible_assertion_evidence_required` reproduced byte-identically, no legal move | taught fix in `app_spec_repair.j2` + last-resort **salvage** (same rung as fix B); the old test asserting the code was "genuinely repairable" now records 138's contradiction |
+
+Plus the owner-approved imagery item: **per-item photo queries** (`item_photos_by_title` — one
+search per *distinct* item subject, capped at 16, industry word riding along; own-query photos
+dominate cross-matches; pooled search stays as fallback). 165's cake-gallery-full-of-bread is the
+regression fixture.
+
+### The design answer (kickoff step 3)
+
+**Keep whole-document repair; keep hardening the rungs around it.** Measured convergence: of 24
+accepted runs since 129 — 54 % zero repairs, 83 % ≤1, the whole 158-166 tail zero. Deaths died
+with repair budget remaining, of no-legal-move errors and pipeline-inflicted state — **patches
+would have saved none of them**, and zero length-truncated repairs since 129 means the grammar
+risk patches add buys nothing measured. Watch item: repair attrition of unfaulted objects (130's
+dropped trace row — once in 36 requests; countermeasure designed, not built).
+
+### Fix B status — honest, not proven-live
+
+All four `state_assertion_state_required` deaths predate fix B by hours; zero occurrences since.
+Test-proven (fixtures are 154/155's rejected payloads verbatim). **Only a funded run that trips
+the code proves it live** — the check is heal_actions/prompt-escape, never
+`repair_reproduced_parent_errors`.
+
+### Spend the first money here
+
+The three briefs (`session28/launch_duo.py` + `session27/launch_trio.py`), simultaneous start.
+Read, in order: (1) `mock.ts` catalogue survival (`check_catalogue_survival.py`, not ship rate);
+(2) per-item binding — `item_photos_by_title` queries in the log, cake titles bound to cake
+photographs on 165's brief; (3) any AppSpec death at all — there should be none from the fixed
+classes; (4) fix B's marker if any run trips it. Balance before/after (shared key — bracket it).
 
 ---
 
 ## Session 28 (2026-08-09 — Phase 1's last reads, $0, and the defect they turned up)
+
+**Read this block second.** Its headline finding stands: `mock_synthesize` had been failing 87 %
+of the time since request 101, so **no catalogue-content judgement against workspaces 101-161 is
+evidence about the code that runs now.**
 
 No generation was launched and no money was spent. Everything below is `ai_usage_events`, the
 `requests` table, and the 98 stored workspaces. Evidence:
