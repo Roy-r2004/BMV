@@ -130,6 +130,32 @@ despite promising it "can never fail to build"; and `ensure_seed_scaffold_fields
 `'Everyday essential'` / `'Guest favorite'` — **the pipeline manufacturing the content its own gate
 rejects.** 8 mutations, 0 survivors. Suite **2,290 / 1 skipped**.
 
+### The duo validated all four — 165/166, $0.667, and 166 shipped where 163 crashed
+
+Evidence: `docs/evidence/session28/duo-165-166.md`.
+
+| | before | now |
+|---|---|---|
+| 166 Copperline | 163 **crashed** in the stub writer at 88 % | **ready**, 559 s, 28 real titles, **no Brand-default residue at all** |
+| 165 Bakehouse | 162 withheld: `placeholder_content_shipped` ×2 | withheld: `visual_defect_severe` ×3, 32 real titles |
+
+**Zero imports** in either `mock.ts`; `Everyday essential` / `Guest favorite` **gone**; journey walked
+and **0 dead links** on both. All four fixes confirmed live.
+
+**165's new failure is a better failure.** The visual critic: *"the 'Cake Gallery' is populated
+entirely with photographs of everyday bakery items (loaves of bread)"*. The binding fired (`8
+catalogue photo(s) bound`) and bound the wrong pictures — it ranks a pool searched for the
+*business*, so a bakery's pool is bread and every cake title matched bread. Session 26 filed this
+defect as *invisible to every gate we have*; **it is now visible to one.** The remaining step is the
+one already designed: query the index with the item's own words instead of ranking a business-level
+pool.
+
+**One correction, carried on the file that was wrong.** `trio-162-164.md` claimed all three trio
+runs shipped generic content for the import reason. Wrong by two runs — 163 had 30 real titles, 164
+had 42, and only 163 went nuclear. The check read a 900-character window instead of counting. The
+corrected method is `check_catalogue_survival.py`: count distinct titles **and** look for plumbing
+markers separately, because both can be true at once.
+
 ### Spend the first money here, and read the right number
 
 **The four fixes above have not been through a run.** $0.843562 left, which is less than a trio.
