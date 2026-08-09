@@ -113,6 +113,40 @@ def test_no_api_key_yields_empty_lists_per_title(monkeypatch):
     assert result == [[], []]
 
 
+def test_a_slow_index_stops_costing_at_the_budget(monkeypatch):
+    """Sixteen sequential 8 s timeouts is a 128 s worst case inside the
+    generation clock. Past the budget no NEW search is launched; titles whose
+    query already ran keep their results, the rest fall to the pooled path."""
+
+    calls: list[str] = []
+    clock = {"now": 0.0}
+
+    def fake_search(api_key, query, *, page, per_page, timeout=8.0):
+        calls.append(query)
+        clock["now"] += 8.0  # every search rides its timeout
+        return [{"src": {"medium": f"https://p/{len(calls)}"}, "alt": query}]
+
+    monkeypatch.setattr(
+        "app.core.config.settings.PEXELS_API_KEY", "k", raising=False
+    )
+    monkeypatch.setattr(
+        "app.application.services.industry_images._search_pexels", fake_search
+    )
+    monkeypatch.setattr(
+        "app.application.services.industry_images.time.monotonic",
+        lambda: clock["now"],
+    )
+    words = [
+        "Alpha", "Bravo", "Charlie", "Delta", "Echo",
+        "Foxtrot", "Golf", "Hotel", "India", "Juliet",
+    ]
+    titles = [f"{w} Figurine" for w in words]
+    result = item_photos_by_title(titles, "bakery", budget_seconds=20.0)
+    # 0 s, 8 s, 16 s elapsed before searches 1-3; the 4th would start at 24 s.
+    assert len(calls) == 3, calls
+    assert [bool(r) for r in result] == [True] * 3 + [False] * 7
+
+
 def test_one_search_per_distinct_subject(monkeypatch):
     calls: list[str] = []
 

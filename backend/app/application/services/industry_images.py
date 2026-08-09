@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from typing import Any
 
 import requests
@@ -775,8 +776,20 @@ def _title_query(title: str) -> str:
     return " ".join(words[:4]).lower()
 
 
+#: Wall-clock ceiling for the whole per-item fetch pass. Sixteen sequential
+#: searches at the 8 s HTTP timeout is a 128 s worst case inside the
+#: generation's own clock — a slow index day must degrade to the pooled
+#: fallback, never eat the deadline. 20 s covers ~14 healthy searches
+#: (measured p50 well under 1.5 s) and caps a sick index at ~one timeout.
+_ITEM_QUERY_BUDGET_SECONDS = 20.0
+
+
 def item_photos_by_title(
-    titles: list[str], industry: str, *, per_query: int = 6
+    titles: list[str],
+    industry: str,
+    *,
+    per_query: int = 6,
+    budget_seconds: float = _ITEM_QUERY_BUDGET_SECONDS,
 ) -> list[list[tuple[str, str]]]:
     """Photographs of *each* item, searched with that item's own words.
 
@@ -803,6 +816,7 @@ def item_photos_by_title(
         return [[] for _ in titles]
 
     industry_head = _clip_words(industry or "", 2)
+    started = time.monotonic()
     results_by_query: dict[str, list[tuple[str, str]]] = {}
     per_title: list[list[tuple[str, str]]] = []
     for title in titles:
@@ -812,6 +826,11 @@ def item_photos_by_title(
             continue
         if query not in results_by_query:
             if len(results_by_query) >= _MAX_ITEM_QUERIES:
+                per_title.append([])
+                continue
+            if time.monotonic() - started > budget_seconds:
+                # Out of runway: no NEW searches. Titles whose query already
+                # ran keep their results; the rest fall to the pooled binding.
                 per_title.append([])
                 continue
             # The industry disambiguates the noun ("tart" the pastry, not the

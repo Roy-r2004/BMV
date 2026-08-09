@@ -18,9 +18,11 @@ REPO = Path("/repo")
 HEAL = REPO / "backend/app/domain/appspec/sanitize/heal.py"
 GEN = REPO / "backend/app/application/appspec/generation.py"
 AI = REPO / "backend/app/application/services/ai_features.py"
+IMG = REPO / "backend/app/application/services/industry_images.py"
 
 T_HARD = ["tests/appspec/test_terminal_salvage_and_attrition.py"]
 T_BINDER = ["tests/appspec/test_ai_hub_binder_reconcile.py"]
+T_PHOTO = ["tests/preview_app/test_per_item_photo_binding.py"]
 
 EXIT4_HOOK = (
     "                # 4) One deterministic pass before losing the run, then the\n"
@@ -61,6 +63,9 @@ MUT: list[tuple[str, Path, list[str], int, str, str]] = [
     ("S1 foreign hub-ready state collides again", AI, T_BINDER, 1,
      '        and str(s.get("page_id") or "") != hub_id',
      "        and False"),
+    ("T1 per-item search budget removed", IMG, T_PHOTO, 1,
+     "            if time.monotonic() - started > budget_seconds:",
+     "            if False:"),
 ]
 
 
