@@ -145,7 +145,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     path: 'public/MarketingHero.tsx',
     requiredProps: ['brandName', 'headline', 'subcopy', 'primaryCta', 'imageSrc'],
     optionalProps: ['secondaryCta', 'imageAlt', 'eyebrow', 'variant', 'className'],
-    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split'] },
+    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split', 'item'] },
   },
   {
     name: 'FeatureBento',
@@ -493,7 +493,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     ],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split'],
+      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split', 'item'],
       FeatureBento: ['bento', 'grid', 'alternating'],
     },
   },

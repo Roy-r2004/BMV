@@ -597,6 +597,48 @@ def _ts_cta(cta: dict) -> str:
     return f"{{ label: '{_ts_label(cta)}', href: '{_ts_label(cta, key='href')}' }}"
 
 
+def _seed_items_block(mock: str, brand: str) -> str:
+    """`seed.items`, borrowed from the catalogue this app already has.
+
+    **This guard used to manufacture the content its own gate rejects.** When
+    `seed.items` was missing it wrote three literals — `'{brand} signature'`,
+    `'Everyday essential'`, `'Guest favorite'` — and the last two are exactly
+    the strings `placeholder_content_shipped` fails a run for. Request 162 is
+    the proof: the seed model answered (3,311 tokens, a real bakery catalogue
+    in `products`), the writer said nothing generic, and the run was **withheld
+    at 574 s for two titles the pipeline wrote itself, after the model, into a
+    key the model had not used.**
+
+    The app's real catalogue is in the same file, so this reads it. Only when
+    there is nothing to borrow does it fall back, and then to the brand's own
+    name rather than to a string the gate is going to reject — a stub that
+    fails the gate is not a stub, it is a delayed failure.
+    """
+    from app.application.preview_app.catalogue_contract.photo_binding import (
+        catalogue_item_titles,
+    )
+
+    def _escape(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("'", "\\'")
+
+    borrowed = [t for t in catalogue_item_titles(mock) if t][:3]
+    if borrowed:
+        rows = "".join(
+            f"    {{ title: '{_escape(title)}', description: 'From the "
+            f"{brand} range.' }},\n"
+            for title in borrowed
+        )
+        return "items: [\n" + rows + "  ]"
+
+    return (
+        "items: [\n"
+        f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
+        f"    {{ title: '{brand} selection', description: 'Chosen by the {brand} counter.' }},\n"
+        f"    {{ title: '{brand} regular', description: 'The one people come back to {brand} for.' }},\n"
+        "  ]"
+    )
+
+
 def ensure_seed_scaffold_fields(
     mock: str, brand_name: str = "Brand", architect: dict | None = None
 ) -> str:
@@ -635,13 +677,7 @@ def ensure_seed_scaffold_fields(
             f"    secondaryCta: {_ts_cta(secondary_cta)},\n"
             "  }"
         ),
-        "items": (
-            "items: [\n"
-            f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
-            "    { title: 'Everyday essential', description: 'Built for daily use.' },\n"
-            f"    {{ title: 'Guest favorite', description: 'The one people come back to {brand} for.' }},\n"
-            "  ]"
-        ),
+        "items": _seed_items_block(mock, brand),
         "features": (
             "features: [\n"
             f"    {{ title: 'What {brand} is known for', description: 'Concrete offerings guests can book without guessing.' }},\n"

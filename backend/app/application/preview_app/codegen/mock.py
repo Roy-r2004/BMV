@@ -144,9 +144,19 @@ def _typescript_candidate_defines(
         return False
     return result.returncode == 0 and result.stdout == "ok"
 
+#: `export { x } from './y'` — an import wearing an export's clothes, and the
+#: only re-export form left once bare `import` is rejected below. Matched on the
+#: source rather than the token stream because a *data key* called `from` is
+#: ordinary in a seed (`{ from: '2026-01-01', to: '2026-01-31' }`) and a token
+#: rule could not tell the two apart.
+_REEXPORT_RE = re.compile(r"^\s*export\b[^\n;]*\bfrom\s+['\"]", re.MULTILINE)
+
+
 def _valid_synthesized_mock_source(content: str, needed: list[str]) -> bool:
     """Fail closed unless a safe candidate parses and defines every needed export."""
     if not content.strip() or looks_truncated_source(content):
+        return False
+    if _REEXPORT_RE.search(content):
         return False
     tokens = _source_tokens(content)
     if not tokens:
@@ -154,20 +164,21 @@ def _valid_synthesized_mock_source(content: str, needed: list[str]) -> bool:
     for index, token in enumerate(tokens):
         if token == "require":
             return False
-        if token == "import" and index + 1 < len(tokens):
-            if tokens[index + 1] == "(":
-                return False
-            if (
-                index + 2 < len(tokens)
-                and re.match(r"^[A-Za-z_$][\w$]*$", tokens[index + 1])
-                and tokens[index + 2] == "="
-            ):
-                return False
-            if (
-                tokens[index + 1].startswith("\0http://")
-                or tokens[index + 1].startswith("\0https://")
-            ):
-                return False
+        # ANY import, not three exotic shapes of one. The prompt's first rule is
+        # "Plain data module — NO imports", and this checked for dynamic
+        # `import(`, aliased `import x =`, and URL specifiers while waving
+        # through the ordinary one. Request 163's seed opened with
+        # `import { Role } from './types';`, a file the workspace does not have:
+        # it passed here, then **`vite` failed with `Could not resolve
+        # './types'`**, the repairs failed with it, and the nuclear stabilizer
+        # replaced the model's whole catalogue with the plumbing mock. All three
+        # runs of the 162-164 trio shipped generic content for this one reason.
+        #
+        # Rejecting it here is the cheap end: the caller falls to the next model
+        # in the chain, which is what the failover is for. Accepting it costs a
+        # build, a repair ladder, and the catalogue.
+        if token == "import":
+            return False
         if (
             token == "from"
             and index + 1 < len(tokens)

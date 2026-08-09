@@ -282,7 +282,8 @@
           "product",
           "editorial",
           "atelier",
-          "split"
+          "split",
+          "item"
         ]
       }
     },
@@ -863,7 +864,8 @@
           "product",
           "editorial",
           "atelier",
-          "split"
+          "split",
+          "item"
         ],
         "FeatureBento": [
           "bento",
