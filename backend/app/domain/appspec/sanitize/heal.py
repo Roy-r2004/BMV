@@ -312,7 +312,7 @@ def drop_unbindable_state_assertions(
     payload: Mapping[str, Any],
     validation_payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], list[str]]:
-    """Last-resort salvage for `state_assertion_state_required`. Returns (payload, actions).
+    """Last-resort salvage for unbindable assertions. Returns (payload, actions).
 
     A `kind: "state"` assertion with `state_id: null` is the model saying "I want
     to assert a state here and I did not declare one". Requests 154 and 155 both
@@ -320,6 +320,14 @@ def drop_unbindable_state_assertions(
     page whose only state is *"hire booking form displayed"*, *"the bike gallery
     is in a filtered state"* against a page that declares only *"loaded"*. The
     state is missing, not the field, so nothing can be bound.
+
+    `visible_assertion_evidence_required` is the same dead end one field over:
+    request 138's repair reproduced all four *"A visible assertion requires
+    evidence_id"* issues byte-identically, because the claimed surface had no
+    evidence object to bind and the prompt taught no legal move. Both codes
+    anchor `("acceptance_tests", i, "assertions", j, <field>)`, and the salvage
+    for both is the one always-safe action: remove the claim the spec cannot
+    prove.
 
     **This is deliberately not a heal.** It must never run before the model's
     repair pass: declaring the missing state is the right fix and only the model
@@ -332,20 +340,25 @@ def drop_unbindable_state_assertions(
     so a test's last assertion is never dropped — such a spec is genuinely
     unrepairable and still fails closed.
     """
-    targets: list[tuple[int, int]] = []
+    salvageable = {
+        "state_assertion_state_required": "drop_unbindable_state_assertion",
+        "visible_assertion_evidence_required": "drop_unprovable_visible_assertion",
+    }
+    targets: dict[tuple[int, int], str] = {}
     for issue in validation_payload.get("issues") or []:
         if not isinstance(issue, Mapping):
             continue
-        if str(issue.get("code") or "") != "state_assertion_state_required":
+        label = salvageable.get(str(issue.get("code") or ""))
+        if label is None:
             continue
         parts = _path_parts(issue.get("path"))
-        # ("acceptance_tests", i, "assertions", j, "state_id")
+        # ("acceptance_tests", i, "assertions", j, "state_id"|"evidence_id")
         if len(parts) < 4 or str(parts[0]) != "acceptance_tests":
             continue
         if str(parts[2]) != "assertions":
             continue
         try:
-            targets.append((int(parts[1]), int(parts[3])))
+            targets.setdefault((int(parts[1]), int(parts[3])), label)
         except (TypeError, ValueError):
             continue
     if not targets:
@@ -357,7 +370,7 @@ def drop_unbindable_state_assertions(
         return dict(payload), []
     applied: list[str] = []
     # Descending, so an earlier drop cannot shift a later index.
-    for test_index, assertion_index in sorted(set(targets), reverse=True):
+    for test_index, assertion_index in sorted(targets, reverse=True):
         if test_index < 0 or test_index >= len(tests):
             continue
         test = tests[test_index]
@@ -373,7 +386,7 @@ def drop_unbindable_state_assertions(
         if isinstance(dropped, Mapping):
             description = str(dropped.get("description") or "")
         applied.append(
-            f"drop_unbindable_state_assertion:{test.get('id')}:{description[:60]}"
+            f"{targets[(test_index, assertion_index)]}:{test.get('id')}:{description[:60]}"
         )
     if not applied:
         return dict(payload), []

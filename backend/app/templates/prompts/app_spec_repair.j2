@@ -45,6 +45,15 @@ REPAIR RULES:
    - `missing_reference`: the cited ID does not exist — either declare the
      missing object in its top-level collection (for example add the cited
      EVIDENCE-* item to `evidence`) or stop citing it.
+   - `visible_assertion_evidence_required`: the assertion claims something is
+     visible but names no proof. Bind `evidence_id` to an evidence item already
+     on the assertion's page that shows the same surface; otherwise DECLARE the
+     missing evidence — add an item to `evidence` with that `page_id`, a `kind`
+     matching what is shown, `capability_ids` naming a capability on that page,
+     and list its id in the page's `evidence_ids`. The evidence describes a
+     surface the page already renders; it is proof, not new product behavior.
+     Re-emitting the assertion with `evidence_id: null` again is a dead run,
+     not a repair. Removing the assertion is the last resort.
    - `page_initial_state_count`: keep EXACTLY ONE `"initial": true` state per
      page's `state_ids`, set every sibling to `"initial": false`, and make each
      state's `page_id` match the one page listing it.

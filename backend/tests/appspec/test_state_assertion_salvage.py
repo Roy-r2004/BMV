@@ -251,14 +251,18 @@ def test_the_salvage_ignores_every_other_code() -> None:
     assert salvaged == spec
 
 
-def test_a_sibling_assertion_code_is_not_salvage_material() -> None:
+def test_sibling_assertion_codes_route_stays_visible_salvages() -> None:
     """The path shape is not the filter — the code is.
 
-    `visible_assertion_evidence_required` and `route_assertion_page_required`
-    point at the same `acceptance_tests[i].assertions[j]` shape, and both are
-    genuinely repairable: the evidence or the page exists and the model only has
-    to cite it. Dropping those assertions would delete coverage over a defect the
-    repair pass fixes routinely, and the path guard alone cannot tell them apart.
+    This test used to assert `visible_assertion_evidence_required` was not
+    salvage material because *"the evidence exists and the model only has to
+    cite it."* Request 138 disproved the premise: four visible assertions
+    claimed surfaces with no evidence object to cite, the repair reproduced all
+    four byte-identically, and the run died. The salvage runs only at the
+    terminal branch — after the (now taught) repair has had its chance — so at
+    that point the claim is unprovable, same as a state that was never
+    declared. `route_assertion_page_required` stays out: a route assertion's
+    page genuinely always exists to be cited.
     """
     spec = {
         "acceptance_tests": [
@@ -285,8 +289,13 @@ def test_a_sibling_assertion_code_is_not_salvage_material() -> None:
         ]
     }
     salvaged, actions = drop_unbindable_state_assertions(spec, validation)
-    assert actions == []
-    assert salvaged == spec
+    assert actions == [
+        "drop_unprovable_visible_assertion:TEST-A:it shows"
+    ]
+    remaining = salvaged["acceptance_tests"][0]["assertions"]
+    assert [a["kind"] for a in remaining] == ["route", "state"]
+    # The original payload is never mutated in place.
+    assert len(spec["acceptance_tests"][0]["assertions"]) == 3
 
 
 # --------------------------------------------------------------------------- #
