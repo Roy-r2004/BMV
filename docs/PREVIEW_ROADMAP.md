@@ -2126,6 +2126,12 @@ judgement made against that corpus is evidence about the code that runs now.** R
 item-pool row, the photo-correspondence row and the industry-pack finding on a run made after
 `be7ae70`, or do not cite them.
 
+**Ship rate is not this phase's number.** Phase 1's DoD is *ready-or-failed* under 600 s — a fast,
+honest failure satisfies it. The 10/10 target the owner asked for on 2026-08-09 lives in **Phase 2
+DoD 10** (zero upstream deaths over N consecutive funded runs, withholds tracked separately), added
+that day. Do not read a withheld run as a Phase 1 failure and do not credit Phase 1 with a ship
+streak.
+
 ### Phase 1 DoD — with what is evidenced after four concurrent trios (74-85)
 
 Twelve live runs, four trios of three started 60 s apart, each trio a
@@ -2564,6 +2570,36 @@ right by accident (home hero a painting, `/artist` hero the artist at her easel)
    this row's value from here is watching that number fall as 2.4-2.5 lands.
 9. **Total collected test count never drops below 1,107**, asserted in CI. **Floor done, CI half
    open** (`7f8f91f`) — there is no pytest job in CI yet.
+10. **Every request reaches the customer: zero upstream deaths over N consecutive funded runs,
+    withholds tracked separately with a reason each.** Added 2026-08-09 (owner asked for a 10/10
+    success target; this row is where it lives — no phase owned a ship-rate number before this).
+    **The row is deliberately two numbers, not one:**
+    - **Upstream deaths — the target is zero.** An upstream death is a run that produces *nothing a
+      customer could open*: an AppSpec terminal rejection, a crash before the workspace is ready,
+      a dead build with no shipped preview. Baseline: **15 upstream deaths since request 129, 12 of
+      them AppSpec** (all 12 root-caused and closed, session 29); of the last eight funded runs
+      (158-166) exactly one — 163's stub-writer crash, fixed `cff858e` and re-run clean as 166.
+    - **Withholds — tracked, not targeted (yet).** A run the quality gate stops (`ready` withheld
+      with `visual_defect_severe`, `placeholder_content_shipped`, …) is the gate *working*; request
+      165 is the canonical example. Counting withholds as failures would pressure the gates, which
+      is the trade session 18 ruled out. Each withhold carries its gate code and the defect gets a
+      backlog entry; the withhold *rate* gets its own target only when the owner sets one, on a
+      measured curve.
+    **Scoring rules, learned the expensive way:** score upstream deaths from
+    `app_spec_revisions.generation_metadata_json->>'terminal_reason'` on the request's FINAL
+    revision plus the request table's outcome — never by counting issue occurrences across stored
+    revisions (rejected audit rows of successful heals count as deaths under that reading, and did,
+    in the session 29 kickoff). Count the whole tail, never a sampled window. A run that dies of
+    provider weather on *every* configured provider counts as an upstream death for this row —
+    infrastructure is not an excuse, it is a rung that needs deepening.
+    **OWNER DECISIONS to arm the row:** (a) **N** — proposed **10**, matching the ask; 10
+    consecutive funded runs is ~3-4 trios ≈ $3.3 at current cost. (b) Whether the N runs must span
+    **distinct businesses** (recommended: yes, ≥ 6 distinct — the archive's ship rate was once
+    measured on a corpus that was 9/16 art galleries, and the row above already wants 20). (c)
+    Whether a deliberate no-model-can-answer stress brief is in or out of scope for the streak.
+    **Current status: UNMEASURED on post-session-29 code — zero funded runs since the nine
+    fix/hardening mechanisms landed.** The streak starts counting at the first funded run after
+    `2ded6fa`.
 
 ### The nav guarantees — how they are actually protected
 

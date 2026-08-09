@@ -97,6 +97,15 @@ identical reason. The honest boundary is written in the evidence file: a paid-mo
 always be starved by weather or the clock — what is now guaranteed is that no run dies while a
 deterministic, scope-preserving action remains, and no deterministic action ever degrades scope.
 
+### The 10/10 target now has an owner: Phase 2 DoD 10
+
+Added 2026-08-09 at the owner's ask. **Zero upstream deaths over N consecutive funded runs
+(proposed N=10), withholds tracked separately with a gate code each — never counted as failures.**
+Scoring rules are in the row (final-revision `terminal_reason`, whole tail, no sampled windows).
+Three owner decisions arm it: N, whether the streak must span distinct businesses (recommended
+≥ 6), and whether stress briefs count. The streak starts at the first funded run after `2ded6fa`.
+Phase 1 explicitly does not own ship rate — its DoD is ready-or-failed under 600 s.
+
 ### Spend the first money here
 
 The three briefs (`session28/launch_duo.py` + `session27/launch_trio.py`), simultaneous start.
