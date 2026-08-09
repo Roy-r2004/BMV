@@ -254,6 +254,28 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     optionalProps: ['className'],
   },
   {
+    // Foundry (Stage B): adapted from Magic UI, MIT — provenance in PROVENANCE.json.
+    name: 'AnimatedShinyText',
+    surface: 'public',
+    path: 'effects/AnimatedShinyText.tsx',
+    requiredProps: ['children'],
+    optionalProps: ['className', 'shimmerWidth'],
+  },
+  {
+    name: 'WordRotate',
+    surface: 'public',
+    path: 'effects/WordRotate.tsx',
+    requiredProps: ['words'],
+    optionalProps: ['className', 'duration'],
+  },
+  {
+    name: 'Ripple',
+    surface: 'public',
+    path: 'effects/Ripple.tsx',
+    requiredProps: [],
+    optionalProps: ['className', 'mainCircleSize', 'mainCircleOpacity', 'numCircles'],
+  },
+  {
     name: 'CredentialStrip',
     surface: 'public',
     path: 'public/CredentialStrip.tsx',

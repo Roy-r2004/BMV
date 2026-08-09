@@ -31,6 +31,15 @@ export {
 } from './core';
 
 export {
+  AnimatedShinyText,
+  Ripple,
+  WordRotate,
+  type AnimatedShinyTextProps,
+  type RippleProps,
+  type WordRotateProps,
+} from './effects';
+
+export {
   AccentBeam,
   AiFeatureDeck,
   AiFeaturePanel,

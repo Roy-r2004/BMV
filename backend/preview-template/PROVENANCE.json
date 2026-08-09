@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "path": "src/ui/effects/AnimatedShinyText.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/animated-shiny-text.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "shine rides --color-foreground mixes, not hardcoded neutrals; upstream Tailwind-config keyframes became a motion-driven background sweep (no new CSS); reduced motion renders static; cn from @/lib/utils -> ../lib/cn",
+    "recipe_personalities": ["nocturne", "bold-retail", "editorial"]
+  },
+  {
+    "path": "src/ui/effects/Ripple.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/ripple.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "rings ride --color-brand mixes, not foreground neutrals; upstream animate-ripple keyframes became a motion-driven pulse (no new CSS); reduced motion renders static rings; motion-safe via useMotionSafe",
+    "recipe_personalities": ["editorial", "warm-service", "dense-ops"]
+  },
+  {
+    "path": "src/ui/effects/WordRotate.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/word-rotate.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "renders a span, not the upstream h1 (heading composition); interval never runs under reduced motion; styling stays with the caller (font-display + tokens); cn path swapped",
+    "recipe_personalities": ["warm-service", "bold-retail"]
+  }
+]

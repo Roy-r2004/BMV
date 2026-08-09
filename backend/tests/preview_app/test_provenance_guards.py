@@ -39,9 +39,11 @@ _VALID_ROW = {
 }
 
 
-def test_committed_manifest_is_an_empty_array_that_validates() -> None:
+def test_committed_manifest_validates_with_zero_problems() -> None:
+    """Stage A landed this manifest empty; Stage B appends one row per mined
+    file. Whatever it holds, every row must clear every policy rule and the
+    dependency delta must be fully manifested."""
     rows = load_manifest()
-    assert rows == [], "Stage A lands the manifest EMPTY; Stage B appends rows"
     assert validate_manifest(rows) == []
     assert dependency_delta_problems(rows) == []
 
@@ -205,7 +207,7 @@ def test_attributions_generator_renders_rows_deterministically() -> None:
 
 
 if __name__ == "__main__":
-    test_committed_manifest_is_an_empty_array_that_validates()
+    test_committed_manifest_validates_with_zero_problems()
     test_attributions_file_matches_the_generator()
     test_allowlist_carries_exactly_one_non_plain_entry()
     test_a_fully_valid_row_passes()
