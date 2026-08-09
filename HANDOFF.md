@@ -97,7 +97,18 @@ frozen), index.css byte-identical (silhouette 17/17 at every step), main untouch
   (id+cycle hash scatter), ScrollProgress (native scroll, brand→accent), ProgressiveBlur.
   Suite 2,392/1/0 (+0), sweep 6/0. **Session sweeps: 66/0 across eight scripts.**
 
-**Tomorrow, first moves, in order:** (1) top up ≥ $5; (2) `git checkout main` — the tree sits
+**Session-30 late additions (post-B4):** (a) **trio pre-flight** — every runbook precondition as
+one GO/NO-GO: `python3 docs/evidence/session30/preflight_trio.py` (from main, where the file is
+absent from the tree: `git show phase3-stage-a:docs/evidence/session30/preflight_trio.py |
+python3 -`); validated tonight — NO-GO on exactly branch/tree/balance, as expected. (b) **motion
+boards for Stage C** — `python3 docs/evidence/session30/build_motion_boards.py` builds all eight
+recipes on the frozen gate brief (zero AI, zero deps) into gitignored `boards/`; serve with
+`cd boards && python3 -m http.server 8930`. Same brand, eight temperaments; the cover page states
+honestly that the six marketing recipes still share one stylesheet (the Stage-D target). (c) merge
+dry-run: `phase3-stage-a` is a clean fast-forward from main (12 ahead, 0 behind).
+
+**Tomorrow, first moves, in order:** (0) pre-flight (above) until GO; (1) top up ≥ $5;
+(2) `git checkout main` — the tree sits
 on `phase3-stage-a` and the trio must run the frozen build; (3) runbook exactly
 (`session29/TRIO_LAUNCH_RUNBOOK.md`): probe → cheap confirm → restart `bmv-api` + behaviour
 probe → quiet host (rag-mvp containers too) → launch → bracket; (4) readout, file evidence,

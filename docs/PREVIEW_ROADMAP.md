@@ -2672,7 +2672,7 @@ global decision.
 | Stage | What lands | Maps to | Agent-effort |
 |---|---|---|---|
 | **A — plumbing** | 3.5 execution (one Python resolution into `SiteSpec.design`, delete the losing layers incl. dead `merge_overlay_into_recipe`), 3.1 break the enum (honour discarded props, implement `'split'`), 3.2 consumption per ruling, MIT-only license policy + provenance manifest. **LANDED on branch `phase3-stage-a` (session 30): A1 `89d81b8` · A2 `4202abe` · A3 `81b360d` · A4 `a42b4fe` (+ gate baseline `842c02f`); silhouette 17/17 byte-identical at every step, suite 2,378/1/0, sweeps 38/0. `'split'` was DELETED, not implemented — no signed design exists and Stage A adds no looks; the declaration can return with an implementation in B/D. Merge gated on the validation trio's readout.** | 3.5 · 3.1 · 3.2 | ~2 wk |
-| **B — foundry** | 3.8 scroll engine (motion + Lenis; pin/scrub/progress primitives; deterministic QA hooks), 3.9 mine ~25–30 MIT components (Aceternity UI, Magic UI, React Bits) rewritten onto tokens and tagged per recipe personality, 3.10 motion-identity tokens, 3.11 perf + reduced-motion gate | new 3.8–3.11 | ~2–3 wk, parallel with A |
+| **B — foundry** | 3.8 scroll engine (motion + Lenis; pin/scrub/progress primitives; deterministic QA hooks), 3.9 mine ~25–30 MIT components (Aceternity UI, Magic UI, React Bits) rewritten onto tokens and tagged per recipe personality, 3.10 motion-identity tokens, 3.11 perf + reduced-motion gate. **MOSTLY LANDED on `phase3-stage-a` (session 30): 3.9 at 18 primitives (B1 `35bb7dc` · B2 `25a2479` · B3 `e35719c` · B4 `0477c9c`) and 3.10 complete both halves (data `25a2479`, wiring `b335a1c`); silhouette 17/17 at every step, suite 2,392/1/0, session sweeps 66/0. Still open, all post-trio by design: 3.8 (Lenis is a dependency — illegal before the trio banks its clocks), reveal-shape switching (needs the screenshot/critic loop), 3.11.** | new 3.8–3.11 | ~2–3 wk, parallel with A |
 | **C — taste** | static-bones sign-off (candidate sheet, `claude.ai/code/artifact/347da548-1342-40d5-9e4e-5d4e819e3a4c`), five per-personality motion boards, 3-scene pilot (restaurant / pottery / nightlife) built both ways — hand-choreographed vs Lottie-scrubbed — winner sets the scene pattern | replaces 3.0's designer-week | ~1–1.5 wk, owner-paced |
 | **D — scale** | 3.3+3.6 off hardcoded clamps, 3.4 band layouts (CatalogGrid archetypes first), 3.0a voice props + defaults, scenes to remaining packs in batches of ~6 with a contact-sheet review per batch | 3.3 · 3.6 · 3.4 · 3.0a | ~3–5 wk |
 | **E — proof** | 3.7 silhouette gate extended with motion-identity distinctness, over the 20-brief corpus, on funded runs | 3.7 | ~1 wk |
@@ -2687,11 +2687,26 @@ both patterns.
 provenance manifest. The rewrite-onto-tokens step is the point, not overhead: raw copy-paste kits
 re-import sameness (every raw-Aceternity site looks like Aceternity). Tag each primitive by recipe
 personality so 3.3/3.4 compose from a per-recipe palette of effects.
+> **Session 30:** 18 primitives mined, all from Magic UI at one pinned MIT commit (`5543371f`),
+> manifested + attributed + personality-tagged; pins added along the way: no hex, no
+> `Math.random`, no CSS keyframes, motion-safety wherever `motion/react` appears. Below the
+> ~25–30 ambition ON PURPOSE: kit twins were not duplicated (AccentBeam/MotionReveal own those
+> niches), HeroVideoDialog has no honest asset to feed it, scroll-coupled pieces wait for Lenis,
+> Aceternity stays gated per owner ruling. React Bits is admitted and unmined — pull on Stage-C
+> demand, not for the count.
 
 **3.10 Motion identity tokens (~0.5 wk).** `--motion-ease/-stagger-ms/-travel/-reveal` per recipe
 through `design_recipes.py` → `index_css.j2` → `presets.tsx`/`anime.ts` (both already centralize
 easing at one constant). **Ops recipes get restraint by design** — fast, calm, instant — per the
 owner's demo-matches-the-business rule; scrollytelling is a public-kind treatment.
+> **LANDED (session 30), one deliberate deviation:** the identity travels through
+> `SiteSpec.design` → `site-design.ts` → `motionIdentity()`, NOT through `index_css.j2` — the
+> CSS gate stays byte-identical pre-trio and the ratios prove bare-recipe parity arithmetically
+> (Stage D may still surface CSS custom props later without unwinding anything). Data half
+> `25a2479` (eight authored identities; distinctness + ops-restraint pinned), wiring half
+> `b335a1c` (both engines derive every constant from the identity; anime ease gated on
+> `motionIsAuthored()`; tempo clamped). Reveal-shape switching is the remaining visual half —
+> post-trio, under the critic loop.
 
 **3.11 Performance gate (~1 wk).** Extend the existing headless scroll driver with CDP tracing —
 frame times, long tasks, CLS under scripted scroll — budgets per recipe, wired into
