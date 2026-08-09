@@ -106,6 +106,20 @@ Three owner decisions arm it: N, whether the streak must span distinct businesse
 ≥ 6), and whether stress briefs count. The streak starts at the first funded run after `2ded6fa`.
 Phase 1 explicitly does not own ship rate — its DoD is ready-or-failed under 600 s.
 
+### Phase 3 prep — done in the top-up window, $0, generator untouched
+
+Four documents, all committed: **`docs/PHASE3_STAGE_A_PLAN.md`** (A1-A4 in landing order; hard
+rule: Stage A works on a branch and merges only after the validation trio runs on the frozen
+build), **`docs/PHASE3_LICENSE_POLICY.md`** (MIT-per-file-at-commit, provenance manifest schema,
+source verdicts), **`evidence/session29/phase3-stage-a-verification.md`** (every session-25
+inventory claim re-checked on HEAD — resolution files byte-identical, five drifts pinned:
+`'split'` is at SIX registry sites not three, plan_phase null-out is 130-133, MarketingHero
+already honours `'item'`), and **`evidence/session29/phase3-foundry-shortlist.md`** (36
+candidates). **Two license findings need the owner:** React Bits is MIT+Commons Clause —
+excluded by default, needs a ruling to re-admit; Aceternity's MIT claim is unverifiable (no
+public repo/LICENSE) — all 16 of its candidates gated on a human check. Only Magic UI (20
+candidates) is clear to mine today. The roadmap's Stage B source list is stale as written.
+
 ### Spend the first money here — preflight is DONE, follow the runbook
 
 **`docs/evidence/session29/TRIO_LAUNCH_RUNBOOK.md`** — every check executed green on 2026-08-09
