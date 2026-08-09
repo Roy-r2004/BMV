@@ -56,6 +56,34 @@ Total sweep: **38 mutations / 0 survivors** across four scripts.
 Unchanged at 0 runs — starts with the first funded run after `2ded6fa`; the trio is runs 1-3
 when it launches. Owner rulings on N / distinct-business spread / stress briefs still pending.
 
+### Addendum (same night) — Stage B opened on the same branch, trio still protected
+
+Owner directed Stage B to start ahead of the trio ("trio tomorrow"). Two commits, same gates
+discipline, and the trio's preconditions are intact: **no dependency entered (npm fingerprint
+frozen), index.css byte-identical (silhouette 17/17 at every step), main untouched, tree clean.**
+
+- **`35bb7dc` (B1)** — foundry loop live end-to-end: AnimatedShinyText, WordRotate, Ripple mined
+  from Magic UI at pinned `5543371f` (MIT verified at that sha), rewritten onto tokens,
+  registered + catalogue regen + barrel + provenance rows + ATTRIBUTIONS regen. BorderBeam and
+  BlurFade deliberately NOT mined — kit twins (AccentBeam / MotionReveal own those niches).
+  4 foundry coherence pins. Suite 2,383/1/0.
+- **`25a2479` (B2 + 3.10 data half)** — **motion identity per recipe**: authored in
+  `design_recipes.RECIPES`, resolved through SiteSpec.design (v1.1), consumed via guarded
+  `motionIdentity()`. Pinned: six distinct family identities; every ops stagger < every
+  marketing stagger (owner's restraint rule as an assertion). Five more primitives:
+  NumberTicker, VelocityScroll (native-scroll velocity marquee, no Lenis), AuroraText,
+  DotPattern (seeded delays — new pin: effects may never call Math.random), AvatarCircles.
+  Suite **2,385/1/0**; sweeps this session now **45/0** across five scripts.
+  Wiring `presets.tsx`/`anime.ts` onto the identity (changes every page's entrance motion)
+  is deferred to post-trio WITH the screenshot/critic loop.
+
+**Tomorrow, first moves, in order:** (1) top up ≥ $5; (2) `git checkout main` — the tree sits
+on `phase3-stage-a` and the trio must run the frozen build; (3) runbook exactly
+(`session29/TRIO_LAUNCH_RUNBOOK.md`): probe → cheap confirm → restart `bmv-api` + behaviour
+probe → quiet host (rag-mvp containers too) → launch → bracket; (4) readout, file evidence,
+DoD 10 runs 1-3; (5) merge `phase3-stage-a` iff deaths from fixed classes = 0; (6) back on the
+branch: batch 3 mining + Lenis (now legal — clocks banked) + presets wiring under the critic.
+
 ---
 
 ## Session 29 (2026-08-09 — the AppSpec review: 12 deaths, two mechanisms, five fixes, $0)
