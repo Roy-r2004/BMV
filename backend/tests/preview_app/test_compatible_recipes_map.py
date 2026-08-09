@@ -1,7 +1,10 @@
-"""Pin the inert compatible_recipes map to the packs and recipes it describes.
+"""Pin the compatible_recipes map to the packs and recipes it describes.
 
-Session 25, roadmap 3.2 (backend half). The map is DATA — nothing in the
-pipeline consumes it — but it must never drift from the corpus it indexes:
+Session 25 authored the map inert; Stage A (session 30, per the session-26
+ruling) made it CONSUMED — the loader stamps it onto every pack and
+``pick_recipe_id``'s fallback rotates over its marketing set (consumption
+pins live in ``test_compatible_recipes_consumption.py``). The map must never
+drift from the corpus it indexes:
 every pack keyed, every recipe id real, and the pairing HEAD deterministically
 produces (the pack's recipe_hint via ``template_recipe_hint``) present in the
 pack's list. The deep prover is

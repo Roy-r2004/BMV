@@ -64,6 +64,10 @@ _NEGATED_CLAUSE_RE = re.compile(
 
 @lru_cache(maxsize=1)
 def load_templates() -> dict[str, dict[str, Any]]:
+    from app.application.preview_app.industry_templates.compatible_recipes import (
+        compatible_recipes_for,
+    )
+
     out: dict[str, dict[str, Any]] = {}
     if not _PACKS_DIR.is_dir():
         return out
@@ -75,6 +79,12 @@ def load_templates() -> dict[str, dict[str, Any]]:
         tid = str(data.get("id") or path.stem).strip()
         if not tid:
             continue
+        # Stage A / 3.2 (session-26 ruling): every loaded pack carries its
+        # compatible recipe set. STAMPED from the one keyed map, never
+        # authored in the pack JSON — the derivation rule lives beside the
+        # data exactly once (compatible_recipes.py), and a pack the map does
+        # not know gets an empty tuple, which the map-corpus pin red-exits.
+        data["compatible_recipes"] = list(compatible_recipes_for(tid))
         out[tid] = data
     return out
 

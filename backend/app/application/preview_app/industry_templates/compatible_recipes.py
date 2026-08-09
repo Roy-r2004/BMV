@@ -1,11 +1,19 @@
-"""compatible_recipes — pack -> recipe pairing map. INERT DATA, imported by nothing.
+"""compatible_recipes — pack -> recipe pairing map. CONSUMED since Stage A.
 
-Session 25, roadmap item 3.2 (backend half). This module records, as data, which
-design recipes HEAD can currently pair with each industry pack. It changes no
-behavior: ``pick_recipe_id``, its fallback rotation, and the fail-closed
-hint-match pairing in ``design_recipes.apply_recipe_to_architect`` are untouched
-and nothing in the pipeline imports this module. Any rotation/selection change
-that would *consume* this map is a separate, owner-ruled step.
+Session 25, roadmap item 3.2 (backend half) authored this as inert data; the
+owner ruled consumption on 2026-08-08 (session 26) and Stage A (session 30)
+landed it. Two consumers, exactly:
+
+1. ``loader.load_templates`` stamps ``compatible_recipes`` onto every loaded
+   pack from this map (packs never author the field themselves — pinned).
+2. ``pick_recipe_id``'s no-keyword fallback rotates over
+   ``MARKETING_RECIPE_IDS`` — the reachable brief-recipe set — instead of all
+   eight recipes.
+
+The keyword path in ``pick_recipe_id`` and the fail-closed hint-match pairing
+in ``design_recipes.apply_recipe_to_architect`` stay untouched: the
+plan_phase null-out remains the guard for keyword false-hits, and
+"pottery -> agency stack" must still fail loudly.
 
 WHY ONE MODULE, NOT 27 JSON EDITS. The packs in ``packs/*.json`` are owned
 content data whose single behavioral pairing knob is ``recipe_hint``. The

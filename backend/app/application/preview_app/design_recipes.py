@@ -525,9 +525,18 @@ def pick_recipe_id(
                 scores[recipe_id] += 2
     best = max(scores.values())
     if best <= 0:
-        # Deterministic rotation so consecutive businesses don't all look identical.
-        order = list(RECIPES.keys())
-        return order[(seed or 0) % len(order)]
+        # Deterministic rotation so consecutive businesses don't all look
+        # identical — over the REACHABLE set (Stage A / 3.2, session-26
+        # ruling). Public kinds null app-hub brief recipes downstream
+        # (plan_phase), so a fallback slot spent on dense-ops* was a slot the
+        # run could never keep; ops kinds override the brief recipe entirely.
+        # The keyword path above is untouched — the downstream null-out stays
+        # the guard for keyword false-hits.
+        from app.application.preview_app.industry_templates.compatible_recipes import (
+            MARKETING_RECIPE_IDS,
+        )
+
+        return MARKETING_RECIPE_IDS[(seed or 0) % len(MARKETING_RECIPE_IDS)]
     winners = [recipe_id for recipe_id, score in scores.items() if score == best]
     if len(winners) == 1:
         return winners[0]
