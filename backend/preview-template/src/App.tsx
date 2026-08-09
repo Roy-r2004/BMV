@@ -1,8 +1,18 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/AdminLayout';
 import HomePage from './pages/HomePage';
+import ServicesPage from './pages/ServicesPage';
+import TeamPage from './pages/TeamPage';
+import BookingPage from './pages/BookingPage';
+import GalleryPage from './pages/GalleryPage';
+import ContactPage from './pages/ContactPage';
+import OwnerDashboardPage from './pages/OwnerDashboardPage';
+import BookingsAdminPage from './pages/admin/BookingsPage';
+import ClientsPage from './pages/admin/ClientsPage';
+import AiFrontDeskPage from './pages/admin/AiFrontDeskPage';
+import SettingsPage from './pages/admin/SettingsPage';
+import ReportsPage from './pages/admin/ReportsPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import { ScrollToTop } from './components/ScrollToTop';
 import { notifyParent, registerPreviewNavigate, setupPreviewBridge } from './lib/preview-bridge';
@@ -41,9 +51,21 @@ export default function App() {
       <RouteBridge />
       <RoleBridge />
       <Routes>
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<HomePage />} />
-        </Route>
+        {/* Design-draft review: these pages carry their own chrome, so they
+            render outside PublicLayout while the speechless-face draft is
+            iterated across the full salon site (Home/Services/Team/Booking). */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/team" element={<TeamPage />} />
+        <Route path="/booking" element={<BookingPage />} />
+        <Route path="/gallery" element={<GalleryPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/owner" element={<OwnerDashboardPage />} />
+        <Route path="/owner/bookings" element={<BookingsAdminPage />} />
+        <Route path="/owner/clients" element={<ClientsPage />} />
+        <Route path="/owner/ai" element={<AiFrontDeskPage />} />
+        <Route path="/owner/settings" element={<SettingsPage />} />
+        <Route path="/owner/reports" element={<ReportsPage />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
         </Route>

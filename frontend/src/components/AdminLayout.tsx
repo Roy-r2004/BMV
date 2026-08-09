@@ -45,6 +45,12 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
 
+  const links = [
+    { to: '/admin', end: true, icon: <IconOps />, label: 'Overview', short: 'Home' },
+    { to: '/admin/requests', end: false, icon: <IconRequests />, label: 'Requests', short: 'Requests' },
+    { to: '/admin/usage', end: false, icon: <IconUsage />, label: 'Usage', short: 'Usage' },
+  ];
+
   const loadStatus = useCallback(async () => {
     if (!hasAdminSession()) return;
     try {
