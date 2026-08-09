@@ -553,20 +553,14 @@ def apply_recipe_to_plan(
     )
     recipe = get_recipe(chosen)
     design = dict(updated.get("design_system") or {})
-    fonts = recipe["fonts"]
     tokens = recipe["tokens"]
-    brand_locked = bool(design.get("brand_locked"))
     design["recipe_id"] = recipe["id"]
     design["hub_variant"] = recipe["hub_variant"]
-    # Recipe owns composition; a locked brand brief owns palette + type.
-    if not brand_locked:
-        design["font_family"] = fonts["sans"].split(",")[0].strip().strip('"')
-        design["display_font_family"] = fonts["display"].split(",")[0].strip().strip('"')
-        design["font_import_url"] = (
-            "https://fonts.googleapis.com/css2?family="
-            + fonts["import"]
-            + "&display=swap"
-        )
+    # Recipe owns composition; the brand brief owns palette + type (its
+    # typography is the brief-time recipe's font pair, brand_brief.py:100-104).
+    # The direct font writes that used to sit here were dead on every
+    # production run — brand_locked is always True by this point (session-25
+    # inventory §4) — and Stage A deleted the losing lane.
     design["border_radius"] = tokens["radius_ui"]
     design["style_keywords"] = recipe["label"]
     design["hero_variant"] = recipe["hero_variant"]
@@ -705,18 +699,6 @@ def apply_recipe_to_architect(architect: dict[str, Any], plan: dict[str, Any]) -
         direction = f"{direction} {template_line}".strip()
     updated["design_direction"] = direction
     return updated
-
-
-def recipe_font_import_css(recipe: dict[str, Any]) -> str:
-    fonts = recipe.get("fonts") or {}
-    family = fonts.get("import")
-    if not family:
-        return ""
-    return (
-        '@import url("https://fonts.googleapis.com/css2?family='
-        + family
-        + '&display=swap");\n'
-    )
 
 
 _HEX_RE = re.compile(r"^#?[0-9a-fA-F]{3,8}$")

@@ -51,7 +51,10 @@ def test_seed_diverges_when_keywords_tie() -> None:
     assert pick_design_mood("SaaS CRM dashboard platform workspace", seed=1) == "soft_glass"
 
 
-def test_overlay_stamps_tokens_and_fonts_on_plan() -> None:
+def test_overlay_stamps_tokens_and_never_fonts() -> None:
+    """Stage A deleted the overlay's font lane — the six mood pairs were dead
+    on every production run (brand_locked always True). The overlay owns
+    atmosphere / radius / density; fonts are the brand brief's lane only."""
     plan = apply_recipe_to_plan(
         {},
         industry="Healthcare",
@@ -70,8 +73,11 @@ def test_overlay_stamps_tokens_and_fonts_on_plan() -> None:
     assert ds["design_overlay_id"] == "calm_air"
     assert isinstance(ds.get("token_overrides"), dict)
     assert "atmosphere" in ds["token_overrides"]
-    assert ds.get("font_sans")
-    assert "Inter" not in (ds.get("font_sans") or "")
+    assert ds["border_radius"] == ds["token_overrides"]["radius_ui"]
+    # The deleted lane stays deleted: no overlay writer for any font key.
+    assert "font_sans" not in ds
+    assert "font_display" not in ds
+    assert "font_import" not in ds
     assert stamped["design_overlay"]["id"] == "calm_air"
 
 
@@ -120,7 +126,7 @@ def test_overlay_micro_variation_by_seed() -> None:
 if __name__ == "__main__":
     test_clinic_brief_picks_calm_air()
     test_seed_diverges_when_keywords_tie()
-    test_overlay_stamps_tokens_and_fonts_on_plan()
+    test_overlay_stamps_tokens_and_never_fonts()
     test_overlay_respects_brand_locked_fonts()
     test_overlay_micro_variation_by_seed()
     print("Design overlay tests passed (5 tests)")

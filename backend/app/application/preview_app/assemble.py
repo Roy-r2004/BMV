@@ -20,7 +20,6 @@ from app.application.preview_app.workspace import (
     write_file,
     write_trusted_workspace_file,
 )
-from app.application.preview_app.theme import sanitize_theme_inputs
 from app.application.preview_app.protected_paths import (
     canonical_workspace_path,
     safe_generated_route_path,
@@ -828,6 +827,12 @@ def write_recipe_id(workspace, recipe: dict | None = None) -> None:
     )
 
 
+def write_site_design(workspace, design: dict) -> None:
+    from app.application.preview_app.site_design import site_design_ts
+
+    write_file(workspace, "src/lib/site-design.ts", site_design_ts(design))
+
+
 def write_index_css(
     workspace,
     primary: str,
@@ -837,60 +842,22 @@ def write_index_css(
     recipe: dict | None = None,
     design_system: dict | None = None,
 ) -> None:
-    from app.application.preview_app.design_recipes import get_recipe, recipe_font_import_css
-
-    primary, secondary, font_family = sanitize_theme_inputs(primary, secondary, font)
-    resolved = dict(recipe or get_recipe(None))
-    tokens = dict(resolved.get("tokens") or {})
-    fonts = dict(resolved.get("fonts") or {})
-    ds = design_system or {}
-    # Per-request overlay (and brand brief) win over recipe kit defaults.
-    overrides = ds.get("token_overrides")
-    if isinstance(overrides, dict):
-        tokens.update({k: v for k, v in overrides.items() if v is not None})
-    if ds.get("font_sans"):
-        fonts["sans"] = ds["font_sans"]
-    if ds.get("font_display"):
-        fonts["display"] = ds["font_display"]
-    if ds.get("font_import"):
-        fonts["import"] = ds["font_import"]
-    if ds.get("font_sans") or ds.get("font_display") or ds.get("font_import"):
-        resolved["fonts"] = fonts
-    if ds.get("font_family"):
-        font_family = str(ds["font_family"])
-    if ds.get("brand_locked"):
-        if ds.get("primary_color"):
-            primary = str(ds["primary_color"])
-        if ds.get("secondary_color"):
-            secondary = str(ds["secondary_color"])
-    font_import = (
-        f'@import url("https://fonts.googleapis.com/css2?family={fonts.get("import")}&display=swap");'
-        if fonts.get("import")
-        else recipe_font_import_css(resolved)
+    from app.application.preview_app.site_design import (
+        css_render_context,
+        resolve_site_design,
     )
-    css = template_renderer.render(
-        "codegen/index_css.j2",
+
+    design = resolve_site_design(
+        design_system=design_system,
+        recipe=recipe,
         primary=primary,
         secondary=secondary,
-        font_family=font_family,
-        font_sans=fonts.get("sans") or font_family,
-        font_display=fonts.get("display") or fonts.get("sans") or font_family,
-        font_import=font_import,
-        radius_ui=tokens.get("radius_ui") or "0.75rem",
-        bg_mix=tokens.get("bg_mix") or "4%",
-        fg_mix=tokens.get("fg_mix") or "32%",
-        muted_mix=tokens.get("muted_mix") or "30%",
-        border_mix=tokens.get("border_mix") or "16%",
-        shadow_ui=tokens.get("shadow") or "0 24px 50px -36px",
-        shadow_alpha=tokens.get("shadow_alpha") or "35%",
-        glow=tokens.get("glow") or "12%",
-        card_color=tokens.get("card") or "white",
-        atmosphere=tokens.get("atmosphere")
-        or "radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--color-brand) 10%, transparent), transparent 50%)",
-        recipe_id=resolved.get("id") or "warm-service",
+        font=font,
     )
+    css = template_renderer.render("codegen/index_css.j2", **css_render_context(design))
     write_file(workspace, "src/index.css", css)
-    write_recipe_id(workspace, resolved)
+    write_recipe_id(workspace, {"id": design["recipe_id"]})
+    write_site_design(workspace, design)
 
 
 def write_app_tsx(workspace, architect: dict, template_renderer: TemplateRenderer) -> list[str]:

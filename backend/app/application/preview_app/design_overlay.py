@@ -1,14 +1,15 @@
 """Per-request design token overlays — unique visual face without industry hardcoding.
 
-Moods are aesthetic directions (type, density, atmosphere), not vertical packs.
-Picked from the brief + a stable seed so the same request stays consistent and
-different businesses don't share one kit look.
+Moods are aesthetic directions (density, atmosphere, surface tokens), not
+vertical packs. Picked from the brief + a stable seed so the same request stays
+consistent and different businesses don't share one kit look. Fonts are the
+brand brief's lane, not the overlay's (Stage A deleted the dead mood pairs).
 """
 from __future__ import annotations
 
 import hashlib
 import re
-from typing import Any, Mapping
+from typing import Any
 
 # Visual moods — brief keywords nudge; seed breaks ties for uniqueness.
 _MOODS: dict[str, dict[str, Any]] = {
@@ -26,11 +27,6 @@ _MOODS: dict[str, dict[str, Any]] = {
             "care",
             "patient",
         ),
-        "fonts": {
-            "sans": '"Source Sans 3", "Segoe UI", sans-serif',
-            "display": '"Fraunces", Georgia, serif',
-            "import": "Fraunces:opsz,wght@9..144,500;9..144,600&family=Source+Sans+3:wght@400;500;600;700",
-        },
         "tokens": {
             "radius_ui": "0.85rem",
             "bg_mix": "3%",
@@ -62,11 +58,6 @@ _MOODS: dict[str, dict[str, Any]] = {
             "restaurant",
             "boutique",
         ),
-        "fonts": {
-            "sans": '"DM Sans", "Segoe UI", sans-serif',
-            "display": '"Libre Baskerville", Georgia, serif',
-            "import": "Libre+Baskerville:wght@400;700&family=DM+Sans:wght@400;500;600;700",
-        },
         "tokens": {
             "radius_ui": "0.95rem",
             "bg_mix": "5%",
@@ -97,11 +88,6 @@ _MOODS: dict[str, dict[str, Any]] = {
             "marketplace",
             "menu",
         ),
-        "fonts": {
-            "sans": '"Space Grotesk", "Segoe UI", sans-serif',
-            "display": '"Space Grotesk", "Segoe UI", sans-serif',
-            "import": "Space+Grotesk:wght@400;500;600;700",
-        },
         "tokens": {
             "radius_ui": "0.35rem",
             "bg_mix": "6%",
@@ -134,11 +120,6 @@ _MOODS: dict[str, dict[str, Any]] = {
             "reconcil",
             "saas",
         ),
-        "fonts": {
-            "sans": '"IBM Plex Sans", "Segoe UI", sans-serif',
-            "display": '"IBM Plex Sans", "Segoe UI", sans-serif',
-            "import": "IBM+Plex+Sans:wght@400;500;600;700",
-        },
         "tokens": {
             "radius_ui": "0.55rem",
             "bg_mix": "4%",
@@ -171,11 +152,6 @@ _MOODS: dict[str, dict[str, Any]] = {
             "warehouse",
             "logistics",
         ),
-        "fonts": {
-            "sans": '"IBM Plex Sans", "Segoe UI", sans-serif',
-            "display": '"IBM Plex Sans", "Segoe UI", sans-serif',
-            "import": "IBM+Plex+Sans:wght@400;500;600;700",
-        },
         "tokens": {
             "radius_ui": "0.3rem",
             "bg_mix": "10%",
@@ -207,11 +183,6 @@ _MOODS: dict[str, dict[str, Any]] = {
             "app",
             "product",
         ),
-        "fonts": {
-            "sans": '"Manrope", "Segoe UI", sans-serif',
-            "display": '"Manrope", "Segoe UI", sans-serif',
-            "import": "Manrope:wght@400;500;600;700;800",
-        },
         "tokens": {
             "radius_ui": "0.75rem",
             "bg_mix": "7%",
@@ -271,7 +242,6 @@ def build_design_overlay(
 ) -> dict[str, Any]:
     mid = mood_id if mood_id in _MOODS else pick_design_mood(*parts, seed=seed)
     mood = _MOODS[mid]
-    fonts = dict(mood["fonts"])
     tokens = dict(mood["tokens"])
     # Micro-variation from seed so two “calm_air” businesses still differ slightly.
     tweak = int(hashlib.sha256(f"{seed}:{mid}".encode()).hexdigest()[:2], 16)
@@ -285,7 +255,6 @@ def build_design_overlay(
         "label": mood["label"],
         "blurb": mood["blurb"],
         "density": mood["density"],
-        "fonts": fonts,
         "tokens": tokens,
     }
 
@@ -298,10 +267,15 @@ def apply_design_overlay_to_plan(
     industry: str = "",
     business_name: str = "",
 ) -> dict[str, Any]:
-    """Stamp a per-request design overlay onto plan.design_system (fonts + tokens)."""
+    """Stamp a per-request design overlay onto plan.design_system (tokens only).
+
+    Type never ships from here: the brand brief owns fonts on every production
+    run (brand_locked is always True — session-25 inventory §4), so the six
+    mood font pairs were dead weight and Stage A deleted the lane. The overlay
+    owns atmosphere / radius / density.
+    """
     updated = dict(plan or {})
     design = dict(updated.get("design_system") or {})
-    # Brand brief already locked palette/type — still allow atmosphere/radius overlay.
     overlay = build_design_overlay(
         context,
         industry,
@@ -311,28 +285,12 @@ def apply_design_overlay_to_plan(
         str(updated.get("ops_direction") or ""),
         seed=seed,
     )
-    fonts = overlay["fonts"]
     tokens = overlay["tokens"]
     design["design_overlay_id"] = overlay["id"]
     design["design_overlay_label"] = overlay["label"]
     design["design_overlay_blurb"] = overlay["blurb"]
     design["density"] = overlay["density"]
     design["token_overrides"] = tokens
-    if not design.get("brand_locked"):
-        design["font_sans"] = fonts["sans"]
-        design["font_display"] = fonts["display"]
-        design["font_import"] = fonts["import"]
-        design["font_family"] = fonts["sans"].split(",")[0].strip().strip('"')
-        design["display_font_family"] = fonts["display"].split(",")[0].strip().strip('"')
-        design["font_import_url"] = (
-            "https://fonts.googleapis.com/css2?family="
-            + fonts["import"]
-            + "&display=swap"
-        )
-    else:
-        # Locked brand keeps type; overlay still owns atmosphere / radius / density.
-        design.setdefault("font_sans", fonts["sans"])
-        design.setdefault("font_display", fonts["display"])
     design["border_radius"] = tokens["radius_ui"]
     design["style_keywords"] = f"{design.get('style_keywords') or ''} · {overlay['label']}".strip(" ·")
     updated["design_system"] = design
@@ -342,30 +300,3 @@ def apply_design_overlay_to_plan(
         "density": overlay["density"],
     }
     return updated
-
-
-def merge_overlay_into_recipe(
-    recipe: Mapping[str, Any] | None,
-    design_system: Mapping[str, Any] | None,
-) -> dict[str, Any]:
-    """Return recipe copy with overlay fonts/tokens applied for CSS assembly."""
-    from app.application.preview_app.design_recipes import get_recipe
-
-    resolved = dict(recipe or get_recipe(None))
-    ds = dict(design_system or {})
-    tokens = dict(resolved.get("tokens") or {})
-    fonts = dict(resolved.get("fonts") or {})
-    overrides = ds.get("token_overrides")
-    if isinstance(overrides, dict):
-        tokens.update({k: v for k, v in overrides.items() if v is not None})
-    if ds.get("font_sans"):
-        fonts["sans"] = ds["font_sans"]
-    if ds.get("font_display"):
-        fonts["display"] = ds["font_display"]
-    if ds.get("font_import"):
-        fonts["import"] = ds["font_import"]
-    resolved["tokens"] = tokens
-    resolved["fonts"] = fonts
-    if ds.get("design_overlay_id"):
-        resolved["overlay_id"] = ds["design_overlay_id"]
-    return resolved
