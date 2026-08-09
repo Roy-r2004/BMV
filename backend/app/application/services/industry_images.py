@@ -760,6 +760,91 @@ def item_photos_for_titles(
     return on_subject + off_subject
 
 
+#: Distinct per-item searches per generation. Catalogues run 18-32 items, but
+#: items share subjects ("Almond Croissant" and "Butter Croissant" are one
+#: query), so the cap is rarely felt; when it is, the overflow items fall back
+#: to whatever the pooled candidates match.
+_MAX_ITEM_QUERIES = 16
+
+
+def _title_query(title: str) -> str:
+    """The subject phrase one item's own words state, empty when they state none."""
+    words = [
+        w for w in re.findall(r"[A-Za-z][A-Za-z'-]+", title or "") if len(w) > 2
+    ]
+    return " ".join(words[:4]).lower()
+
+
+def item_photos_by_title(
+    titles: list[str], industry: str, *, per_query: int = 6
+) -> list[list[tuple[str, str]]]:
+    """Photographs of *each* item, searched with that item's own words.
+
+    Request 165 is why the pooled search is not enough: a bakery's pool is
+    bread, so every cake title matched bread and the critic withheld the run on
+    a cake gallery full of loaves. One query per *distinct* item subject — a
+    croissant photograph cannot answer for a celebration cake, whatever the
+    ranking does downstream.
+
+    Returns one candidate list per title, parallel to ``titles``; a search that
+    fails or a title with no subject words yields an empty list for that title
+    only. All-empty means the caller falls back to the pooled behaviour.
+    """
+    if not titles:
+        return []
+    api_key = ""
+    try:
+        from app.core.config import settings
+
+        api_key = (getattr(settings, "PEXELS_API_KEY", "") or "").strip()
+    except Exception:  # noqa: BLE001 — configuration is not this function's job
+        api_key = ""
+    if not api_key:
+        return [[] for _ in titles]
+
+    industry_head = _clip_words(industry or "", 2)
+    results_by_query: dict[str, list[tuple[str, str]]] = {}
+    per_title: list[list[tuple[str, str]]] = []
+    for title in titles:
+        query = _title_query(title)
+        if not query:
+            per_title.append([])
+            continue
+        if query not in results_by_query:
+            if len(results_by_query) >= _MAX_ITEM_QUERIES:
+                per_title.append([])
+                continue
+            # The industry disambiguates the noun ("tart" the pastry, not the
+            # adjective) without overpowering the item's own words.
+            search_text = f"{query} {industry_head}".strip()
+            try:
+                photos = _search_pexels(
+                    api_key, search_text, page=1, per_page=per_query
+                )
+            except Exception as exc:  # noqa: BLE001 — an enhancement, not a stage
+                logger.warning(
+                    "Pexels per-item fetch failed for %r (%s); leaving the slot "
+                    "to the pooled candidates",
+                    search_text[:60],
+                    exc,
+                )
+                photos = []
+            found: list[tuple[str, str]] = []
+            for photo in photos:
+                url = _pexels_photo_url(photo, large=False)
+                if url:
+                    found.append((url, str(photo.get("alt") or "")))
+            on_subject = [
+                (u, a) for u, a in found if not _ITEM_SUBJECT_REJECT_RE.search(a)
+            ]
+            off_subject = [
+                (u, a) for u, a in found if _ITEM_SUBJECT_REJECT_RE.search(a)
+            ]
+            results_by_query[query] = on_subject + off_subject
+        per_title.append(list(results_by_query[query]))
+    return per_title
+
+
 def curated_library_urls() -> frozenset[str]:
     """All known-good curated CDN URLs (for scrubbing AI-invented Unsplash IDs)."""
     urls: set[str] = set()

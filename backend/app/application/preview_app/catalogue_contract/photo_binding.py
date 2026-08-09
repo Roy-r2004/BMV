@@ -69,6 +69,7 @@ def bind_catalogue_photos(workspace, industry: str | None) -> dict[str, str]:
     """
     from app.application.preview_app.workspace import read_file
     from app.application.services.industry_images import (
+        item_photos_by_title,
         item_photos_for_titles,
         item_slot_names,
     )
@@ -77,10 +78,18 @@ def bind_catalogue_photos(workspace, industry: str | None) -> dict[str, str]:
         titles = catalogue_item_titles(read_file(workspace, "src/data/mock.ts"))
         if not titles:
             return {}
-        candidates = item_photos_for_titles(titles, industry or "")
-        if not candidates:
-            return {}
-        bound = bind_photos_to_titles(titles, candidates, item_slot_names())
+        # Ask the index with each item's own words first. Request 165: the
+        # pooled search is composed for the *business*, so a bakery's pool is
+        # bread and every cake title matched bread — per-item queries are the
+        # only search that can return a photograph *of the item*.
+        per_title = item_photos_by_title(titles, industry or "")
+        if any(per_title):
+            bound = bind_per_title_photos(titles, per_title, item_slot_names())
+        else:
+            candidates = item_photos_for_titles(titles, industry or "")
+            if not candidates:
+                return {}
+            bound = bind_photos_to_titles(titles, candidates, item_slot_names())
         # A binding that repeats a photograph is worse than the rotation it
         # replaces, which is distinct by construction. Take it or leave it whole.
         if len(set(bound.values())) != len(bound):
@@ -174,6 +183,75 @@ def score_photo_for_title(title: str, alt: str) -> int:
     if score and title.strip().lower() in (alt or "").lower():
         score += 1
     return score
+
+
+def bind_per_title_photos(
+    titles: list[str],
+    per_title: list[list[tuple[str, str]]],
+    slots: tuple[str, ...],
+) -> dict[str, str]:
+    """Assign each slot a photograph searched for *that item*, best-first.
+
+    A photograph from the item's own query outranks any cross-match, and the
+    index's own relevance order breaks ties inside a query. Cross-matches (a
+    photo fetched for one title answering another) exist only as fallback for
+    items whose search returned nothing, scored by `score_photo_for_title` the
+    same way the pooled binding scores. Uniqueness by URL: shared queries hand
+    the same candidates to several titles, and no two cards may share a photo.
+    """
+    if not titles:
+        return {}
+    # One global candidate list deduped by URL, remembering the best (title,
+    # rank) that fetched each photo.
+    urls: list[str] = []
+    alts: dict[str, str] = {}
+    own_rank: dict[tuple[int, str], int] = {}
+    for t_index, results in enumerate(per_title[: len(slots)]):
+        for rank, (url, alt) in enumerate(results):
+            if not url:
+                continue
+            if url not in alts:
+                urls.append(url)
+                alts[url] = alt
+            own_rank[(t_index, url)] = min(
+                rank, own_rank.get((t_index, url), rank)
+            )
+    if not urls:
+        return {}
+
+    pairs: list[tuple[int, int, int]] = []
+    for t_index in range(min(len(titles), len(slots))):
+        for u_index, url in enumerate(urls):
+            rank = own_rank.get((t_index, url))
+            if rank is not None:
+                score = 2000 - rank + score_photo_for_title(titles[t_index], alts[url])
+            else:
+                score = score_photo_for_title(titles[t_index], alts[url])
+                if not score:
+                    continue
+            pairs.append((-score, u_index, t_index))
+    pairs.sort()
+
+    taken_titles: set[int] = set()
+    taken_urls: set[int] = set()
+    bound: dict[str, str] = {}
+    for _neg, u_index, t_index in pairs:
+        if t_index in taken_titles or u_index in taken_urls:
+            continue
+        taken_titles.add(t_index)
+        taken_urls.add(u_index)
+        bound[slots[t_index]] = urls[u_index]
+
+    # An item nothing answered for still needs a distinct picture.
+    spare = (url for i, url in enumerate(urls) if i not in taken_urls)
+    for t_index in range(min(len(titles), len(slots))):
+        if t_index in taken_titles:
+            continue
+        url = next(spare, "")
+        if not url:
+            break
+        bound[slots[t_index]] = url
+    return bound
 
 
 def bind_photos_to_titles(

@@ -296,6 +296,10 @@ def test_a_binding_that_would_repeat_a_photograph_is_refused(monkeypatch, tmp_pa
         encoding="utf-8",
     )
     monkeypatch.setattr(
+        "app.application.services.industry_images.item_photos_by_title",
+        lambda *_a, **_k: [[], []],
+    )
+    monkeypatch.setattr(
         "app.application.services.industry_images.item_photos_for_titles",
         lambda *_a, **_k: [("https://p/one.jpg", "a mountain ridge")],
     )
@@ -323,8 +327,12 @@ def test_every_failure_path_changes_nothing(monkeypatch, tmp_path):
     mock.write_text("export const brand = { name: 'X' };", encoding="utf-8")
     assert pb.bind_catalogue_photos(tmp_path, "art") == {}
 
-    # A search that raises.
+    # A search that raises — the per-item search and the pooled fallback both.
     mock.write_text('export const seed = { items: [{"title": "A Ridge"}] };', encoding="utf-8")
+    monkeypatch.setattr(
+        "app.application.services.industry_images.item_photos_by_title",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("pexels down")),
+    )
     monkeypatch.setattr(
         "app.application.services.industry_images.item_photos_for_titles",
         lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("pexels down")),
@@ -332,6 +340,10 @@ def test_every_failure_path_changes_nothing(monkeypatch, tmp_path):
     assert pb.bind_catalogue_photos(tmp_path, "art") == {}
 
     # A search that returns nothing.
+    monkeypatch.setattr(
+        "app.application.services.industry_images.item_photos_by_title",
+        lambda *_a, **_k: [[]],
+    )
     monkeypatch.setattr(
         "app.application.services.industry_images.item_photos_for_titles",
         lambda *_a, **_k: [],
