@@ -65,6 +65,22 @@ between top-up and launch.**
   (129-144 corpus shape); keep the briefs controlled this trio, add an
   AI-features brief to the next one.
 
+## Interpretation notes from the pipeline sweep (`pipeline-review-findings.md`)
+
+- Immediately before launch, re-verify the two environmental flips: npm root
+  warm (`shared_npm_root()` + `_vite_ready`) and
+  `preview-template/node_modules/typescript/lib/typescript.js` present in the
+  container. Both verified green at freeze; the code freeze keeps the npm
+  fingerprint stable.
+- `grep "already failed this process" ` in api logs after the trio —
+  `_FAILED_FIX_MODELS` is process-global, so runs 2-3 may repair on a
+  different model than run 1. Same skew existed in all prior trios.
+- On any run that took visual repairs, read `_bmv_visual_critique.json`'s
+  `unmeasured` list — the remeasure path can ship `ready` with repaired pages
+  never judged.
+- Confirm `visual_demo_json` carries a real theme (the visual-demo fallback
+  is silent).
+
 ## Abort criteria
 
 - Balance probe shows the top-up did not land → do not launch.
