@@ -958,9 +958,69 @@ def test_strips_forbidden_acceptance_assertion_fields() -> None:
     assert spec.acceptance_tests[0].assertions[0].expected.startswith("entity_id=")
 
 
+def test_synthetic_surface_evidence_carries_every_page_capability() -> None:
+    """Request 129: `EVIDENCE-ADMIN-DASHBOARD-SURFACE` was minted with the
+    page's *first* capability only, so a trace attaching it for any other
+    capability on the same page manufactured `trace_evidence_mismatch`. A page
+    surface is proof for every capability the page exposes."""
+
+    payload = {
+        "schema_version": "1.0",
+        "product_intent": {
+            "name": "Test",
+            "summary": "s",
+            "problem": "p",
+            "target_users": ["u"],
+            "desired_outcome": "o",
+        },
+        "requirements": [],
+        "assumptions": [],
+        "open_questions": [],
+        "roles": [],
+        "entities": [],
+        "capabilities": [],
+        "pages": [
+            {
+                "id": "PAGE-ADMIN-DASHBOARD",
+                "name": "Dashboard",
+                "purpose": "Operate.",
+                "route": "/admin",
+                "surface": "ops",
+                "role_ids": [],
+                "capability_ids": [
+                    "CAP-UNIFIED-HUB-DASHBOARD",
+                    "CAP-AI-VISUAL-ENHANCER",
+                ],
+                "state_ids": [],
+                "action_ids": [],
+                "evidence_ids": [],
+            }
+        ],
+        "states": [],
+        "actions": [],
+        "transitions": [],
+        "evidence": [],
+        "journeys": [],
+        "acceptance_tests": [],
+        "traceability": [],
+        "deferred_scope": [],
+    }
+    sanitized = sanitize_app_spec_payload(payload, _source_snapshot())
+    surface = next(
+        e
+        for e in sanitized["evidence"]
+        if str(e.get("id", "")).endswith("-SURFACE")
+    )
+    assert surface["capability_ids"] == [
+        "CAP-UNIFIED-HUB-DASHBOARD",
+        "CAP-AI-VISUAL-ENHANCER",
+    ]
+
+
 if __name__ == "__main__":
     test_strips_derived_context_refs_and_defers_blueprint_requirements()
     test_adds_page_evidence_when_missing()
+    test_synthetic_surface_evidence_carries_every_page_capability()
     test_repairs_empty_capability_requirement_ids()
     test_normalizes_invalid_evidence_and_assertion_kinds()
     test_repairs_entity_fields_and_deferred_scope_gaps()

@@ -90,7 +90,14 @@ def _sanitize_page_evidence_ids(
                 f"{page.get('name', 'this page')}."
             ),
             "kind": "navigation",
-            "capability_ids": capability_ids[:1],
+            # The whole page's capability list, not its first entry. A page
+            # surface is proof for any capability the page exposes; carrying
+            # one meant any later trace attachment for a *different* page
+            # capability manufactured `trace_evidence_mismatch` — request
+            # 129's `EVIDENCE-ADMIN-DASHBOARD-SURFACE` carried the page's
+            # first capability while the trace needed `CAP-AI-VISUAL-ENHANCER`,
+            # the page's fifth.
+            "capability_ids": capability_ids,
         }
     )
     page["evidence_ids"] = [evidence_id]
