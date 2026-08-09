@@ -1,4 +1,4 @@
-# Session handoff — four owner rulings executed, and the stage that writes the catalogue was dead for 60 requests (2026-08-09, session 28)
+# Session handoff — the trio found why every app ships generic copy: one import line (2026-08-09, session 28)
 
 Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
 titles survive as their own `##` blocks below (this line had been left naming session 23 while
@@ -102,13 +102,41 @@ Evidence: `docs/evidence/session28/four-rulings.md`. Suite **2,280 / 1 skipped**
    best remaining pair.
 4. **The placeholder row is re-scoped** (`d72142c`) and scores **3 of 20 distinct businesses**.
 
-### The one thing to do next, and it costs $0.70
+### The trio ran — 162-164, $0.979, 1 of 3 ready, and it found the thing underneath
 
-**Nothing above has been through a live generation.** The imagery binding adds an HTTP request to
-the critical path and changes every catalogue; `pack_copy_shipped` **can fail runs that previously
-shipped** — that is the intent, and a run withheld for pack copy is the gate working, not a
-regression; and `SEED_MODEL` points at a model the seed has not used since request 98. One trio
-answers all three.
+Evidence: `docs/evidence/session28/trio-162-164.md`. Same three briefs as 27b, simultaneous start.
+
+**The seed fix works, unambiguously**: 3 of 3 usable on the first attempt, `gemini-2.5-flash`,
+15.7 / 24.3 / 33.3 s, against **1 of 11 at a 91 s mean**. `pack_copy_shipped` fired zero times. 164
+shipped **24 item slots with 24 distinct URLs** — no repeated photographs — and the binding logged
+`12 catalogue photo(s) bound to their items`.
+
+**And every shipped app still carries the Brand-default wellness seed** — *"AI-guided consult"*,
+*"Member aftercare"* — on a bakery, a hardware store and a bike shop. Both facts are true, and one
+line explains them:
+
+    src/data/mock.ts:1   import { Role } from './types';
+
+The prompt says *"Plain data module — NO imports"*. The validator checked dynamic `import(`, aliased
+`import x =` and URL specifiers, and waved through the ordinary one. So the model wrote a real
+catalogue **and** an import of a file that does not exist; `vite` failed on it; the repair ladder
+failed with it; and `build_phase`'s nuclear stabilizer rewrote `mock.ts` with the plumbing mock,
+discarding the catalogue. 162 was then withheld for the plumbing mock's *own* placeholders and 163
+died inside the stub writer. **One defect produced all three outcomes.**
+
+Four fixes in `cff858e`, all pre-existing: the import; `MarketingHero`'s `item` variant, which the
+component has a branch for and the registry denied; `write_safe_stub` raising on a cosmetic error
+despite promising it "can never fail to build"; and `ensure_seed_scaffold_fields` writing
+`'Everyday essential'` / `'Guest favorite'` — **the pipeline manufacturing the content its own gate
+rejects.** 8 mutations, 0 survivors. Suite **2,290 / 1 skipped**.
+
+### Spend the first money here, and read the right number
+
+**The four fixes above have not been through a run.** $0.843562 left, which is less than a trio.
+Run the same three briefs and check **whether `mock.ts` still holds the model's catalogue at the
+end** — `grep -c '"title"' src/data/mock.ts` against the seed's `completion_tokens` — not the ship
+rate. 27b was 3 of 3 with a plumbing seed in every app; this trio was 1 of 3 and said so. **Ship
+rate alone would have called last night a success and tonight a regression, and been wrong twice.**
 
 ### Process notes
 
