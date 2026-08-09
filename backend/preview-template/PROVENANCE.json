@@ -1,5 +1,17 @@
 [
   {
+    "path": "src/ui/effects/AnimatedList.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/animated-list.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "arrival ease/travel come from motionIdentity() instead of a fixed spring — ops feeds tick, retail feeds pop; reduced motion renders the complete list statically (every item, no arrivals); React.memo wrapper dropped for kit consistency",
+    "recipe_personalities": ["dense-ops", "warm-service", "bold-retail"]
+  },
+  {
     "path": "src/ui/effects/AnimatedShinyText.tsx",
     "source_repo": "https://github.com/magicuidesign/magicui",
     "source_path": "apps/www/registry/magicui/animated-shiny-text.tsx",
@@ -48,6 +60,54 @@
     "recipe_personalities": ["editorial", "craft", "dense-ops"]
   },
   {
+    "path": "src/ui/effects/FlickeringGrid.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/flickering-grid.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "every random call became an index+tick hash and skipped frames replay missed ticks — identical run-to-run at any frame rate for the screenshot critic; color defaults to the brand token, resolved from computed style (canvas can't read var()); reduced motion draws tick zero once — texture without flicker; fixed width/height props dropped (container-driven)",
+    "recipe_personalities": ["nocturne", "bold-retail"]
+  },
+  {
+    "path": "src/ui/effects/Lens.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/lens.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "demo-oriented static/fixed-position modes dropped; corner radius rides --radius-ui; reduced motion renders the wrapped content untouched — the zoom is a flourish, never the only way to see the image; mask 'black' is alpha geometry, not palette",
+    "recipe_personalities": ["craft", "bold-retail", "editorial"]
+  },
+  {
+    "path": "src/ui/effects/MagicCard.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/magic-card.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "border sweep runs brand→accent token mixes resting on --color-border-subtle (upstream hardcoded violet/pink hex + next-themes dark detection — both gone, tokens know the theme); surface is --color-card; orb mode and global pointer listeners dropped; reduced motion renders a plain resting card",
+    "recipe_personalities": ["nocturne", "bold-retail", "warm-service"]
+  },
+  {
+    "path": "src/ui/effects/Marquee.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/marquee.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "upstream Tailwind-config animate-marquee keyframes became a motion-driven frame loop (no new CSS), sharing VelocityScroll's wrap math; pause-on-hover is a ref the loop reads instead of animation-play-state; vertical mode dropped (no kit consumer); reduced motion renders one static row",
+    "recipe_personalities": ["bold-retail", "craft", "warm-service"]
+  },
+  {
     "path": "src/ui/effects/NumberTicker.tsx",
     "source_repo": "https://github.com/magicuidesign/magicui",
     "source_path": "apps/www/registry/magicui/number-ticker.tsx",
@@ -70,6 +130,18 @@
     "rewritten": true,
     "rewrite_notes": "rings ride --color-brand mixes, not foreground neutrals; upstream animate-ripple keyframes became a motion-driven pulse (no new CSS); reduced motion renders static rings; motion-safe via useMotionSafe",
     "recipe_personalities": ["editorial", "warm-service", "dense-ops"]
+  },
+  {
+    "path": "src/ui/effects/TextReveal.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/text-reveal.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "ghost/active words are currentColor mixes instead of black/white pairs with dark: variants — inherits any section's palette; native scroll drives the scrub; reduced motion renders the sentence as a plain full-strength paragraph in normal flow",
+    "recipe_personalities": ["editorial", "nocturne", "craft"]
   },
   {
     "path": "src/ui/effects/VelocityScroll.tsx",

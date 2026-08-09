@@ -81,6 +81,11 @@ def test_every_mined_effect_is_manifested_and_motion_safe() -> None:
             f"{rel} uses Math.random — the screenshot critic must see the "
             "same frame twice; seed by index instead"
         )
+        assert not re.search(r"@keyframes|animation(?:-name|-play-state)?\s*:", source), (
+            f"{rel} smuggles CSS keyframes — mined animation is motion-driven "
+            "(batch 3's Marquee is the precedent: upstream animate-marquee "
+            "became a frame loop)"
+        )
 
 
 def test_motion_identity_accessor_guards_and_falls_back() -> None:

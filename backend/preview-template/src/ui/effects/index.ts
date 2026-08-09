@@ -1,8 +1,14 @@
+export { AnimatedList, type AnimatedListProps } from './AnimatedList';
 export { AnimatedShinyText, type AnimatedShinyTextProps } from './AnimatedShinyText';
 export { AuroraText, type AuroraTextProps } from './AuroraText';
 export { AvatarCircles, type AvatarCirclesProps } from './AvatarCircles';
 export { DotPattern, type DotPatternProps } from './DotPattern';
+export { FlickeringGrid, type FlickeringGridProps } from './FlickeringGrid';
+export { Lens, type LensProps } from './Lens';
+export { MagicCard, type MagicCardProps } from './MagicCard';
+export { Marquee, type MarqueeProps } from './Marquee';
 export { NumberTicker, type NumberTickerProps } from './NumberTicker';
 export { Ripple, type RippleProps } from './Ripple';
+export { TextReveal, type TextRevealProps } from './TextReveal';
 export { VelocityScroll, type VelocityScrollProps } from './VelocityScroll';
 export { WordRotate, type WordRotateProps } from './WordRotate';

@@ -76,13 +76,24 @@ frozen), index.css byte-identical (silhouette 17/17 at every step), main untouch
   Suite **2,385/1/0**; sweeps this session now **45/0** across five scripts.
   Wiring `presets.tsx`/`anime.ts` onto the identity (changes every page's entrance motion)
   is deferred to post-trio WITH the screenshot/critic loop.
+- **(B3)** — six more primitives at the same pin, foundry ledger now **14 rows**: TextReveal
+  (currentColor-mix scroll manifesto), AnimatedList (arrivals ride `motionIdentity()` — ops
+  ticks, retail pops), Marquee (config-keyframes → frame loop; new pin: effects may never
+  smuggle `@keyframes`/`animation-*:`), MagicCard (brand→accent border sweep, no next-themes),
+  FlickeringGrid (index+tick hash, replay of missed ticks — deterministic at any frame rate),
+  Lens (radius token, reduced motion = plain image). HeroVideoDialog deliberately NOT mined —
+  generated sites have no real video assets to feed it. Suite **2,385/1/0** (+0: the pin
+  strengthens an existing test), sweep **8/0** (`mutate_session30_b3.py`), session **53/0**.
+  Silhouette 17/17 after every step. Evidence: `stage-b-batch3-foundry.md`.
 
 **Tomorrow, first moves, in order:** (1) top up ≥ $5; (2) `git checkout main` — the tree sits
 on `phase3-stage-a` and the trio must run the frozen build; (3) runbook exactly
 (`session29/TRIO_LAUNCH_RUNBOOK.md`): probe → cheap confirm → restart `bmv-api` + behaviour
 probe → quiet host (rag-mvp containers too) → launch → bracket; (4) readout, file evidence,
 DoD 10 runs 1-3; (5) merge `phase3-stage-a` iff deaths from fixed classes = 0; (6) back on the
-branch: batch 3 mining + Lenis (now legal — clocks banked) + presets wiring under the critic.
+branch: Lenis (now legal — clocks banked) + presets/anime wiring onto motionIdentity under the
+critic loop + batch 4 (Scroll Progress with Lenis, Shimmer→core/Button, AnimatedGridPattern,
+Progressive Blur / Magic Card grafts) + 3.11 perf gate.
 
 ---
 
