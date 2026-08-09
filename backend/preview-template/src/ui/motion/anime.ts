@@ -1,15 +1,39 @@
 /**
  * Page-level choreography via anime.js.
  * React-bound UI (chat bubbles, AnimatePresence) stays on motion/react.
+ *
+ * 3.10 wiring: every timing constant below derives from the recipe's motion
+ * identity as a ratio off the legacy base (travel 18px, stagger 90ms), so a
+ * bare/unknown recipe resolves to exactly the pre-3.10 values while authored
+ * recipes get their temperament — an ops floor snaps in 6px hops, nocturne
+ * drifts 22px at 130ms. The anime ease swaps to the identity's cubic-bezier
+ * only when a recipe authored one; 'out(3)' stays the un-authored voice.
  */
 import { animate, stagger, type AnimationParams, type JSAnimation } from 'animejs';
+
+import { motionIdentity, motionIsAuthored } from '../../lib/motion-identity';
 
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-const easeOut = 'out(3)';
+const identity = motionIdentity();
+
+/**
+ * The recipe's rhythm as multipliers off the legacy base. travel: amplitude
+ * (18px base); pace: stagger cadence (90ms base); tempo: duration scale —
+ * pace clamped so extreme staggers stay watchable.
+ */
+export const motionRhythm = {
+  travel: (Number.parseFloat(identity.travel) || 18) / 18,
+  pace: identity.staggerMs / 90,
+  tempo: Math.min(1.4, Math.max(0.45, identity.staggerMs / 90)),
+} as const;
+
+const easeOut = motionIsAuthored()
+  ? `cubicBezier(${identity.ease.join(',')})`
+  : 'out(3)';
 
 export type EntranceOpts = {
   delay?: number;
@@ -24,7 +48,12 @@ export function playEntrance(
   opts: EntranceOpts = {},
 ): JSAnimation | null {
   if (prefersReducedMotion()) return null;
-  const { delay = 0, duration = 1100, y = 42, blur = 14 } = opts;
+  const {
+    delay = 0,
+    duration = 1100 * motionRhythm.tempo,
+    y = 42 * motionRhythm.travel,
+    blur = 14,
+  } = opts;
   return animate(target, {
     opacity: [0, 1],
     translateY: [y, 0],
@@ -42,7 +71,12 @@ export function staggerIn(
   opts: EntranceOpts & { staggerMs?: number } = {},
 ): JSAnimation | null {
   if (prefersReducedMotion()) return null;
-  const { delay = 0, duration = 720, y = 36, staggerMs = 110 } = opts;
+  const {
+    delay = 0,
+    duration = 720 * motionRhythm.tempo,
+    y = 36 * motionRhythm.travel,
+    staggerMs = 110 * motionRhythm.pace,
+  } = opts;
   return animate(targets, {
     opacity: [0, 1],
     translateY: [y, 0],
@@ -103,7 +137,7 @@ export function observeSectionReveal(
     node.style.opacity = '1';
     return () => undefined;
   }
-  const { duration = 920, y = 56 } = opts;
+  const { duration = 920 * motionRhythm.tempo, y = 56 * motionRhythm.travel } = opts;
   node.style.opacity = '0';
   const io = new IntersectionObserver(
     (entries) => {

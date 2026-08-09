@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { cn } from '../lib/cn';
 import {
+  motionRhythm,
   observeSectionReveal,
   playEntrance,
   prefersReducedMotion,
@@ -32,9 +33,15 @@ export function AnimeHeroItem({
       return;
     }
     el.style.opacity = '0';
+    const delayStep = 160 * motionRhythm.pace;
     let anim: ReturnType<typeof playEntrance> = null;
     try {
-      anim = playEntrance(el, { delay: 120 + index * 160, y: 48, blur: 16, duration: 1200 });
+      anim = playEntrance(el, {
+        delay: 120 + index * delayStep,
+        y: 48 * motionRhythm.travel,
+        blur: 16,
+        duration: 1200 * motionRhythm.tempo,
+      });
     } catch {
       el.style.opacity = '1';
       return;
@@ -46,7 +53,7 @@ export function AnimeHeroItem({
         el.style.filter = 'none';
         el.style.transform = 'none';
       }
-    }, 1800 + index * 160);
+    }, 1800 + index * delayStep);
     return () => {
       window.clearTimeout(fallback);
       anim?.pause?.();
@@ -95,7 +102,7 @@ export function AnimeStagger({ children, className, role }: BoxProps) {
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
-          staggerIn(kids, { staggerMs: 120, y: 40 });
+          staggerIn(kids, { staggerMs: 120 * motionRhythm.pace, y: 40 * motionRhythm.travel });
           io.disconnect();
         }
       },

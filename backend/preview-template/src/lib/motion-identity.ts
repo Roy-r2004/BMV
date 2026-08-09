@@ -33,6 +33,22 @@ function isEase(value: unknown): value is [number, number, number, number] {
   );
 }
 
+/**
+ * True only when the recipe AUTHORED a temperament (3.10). The bare/unknown
+ * fallback is named 'entrance-only' — for it, both motion engines must keep
+ * their legacy constants byte-for-byte, so un-recipe'd pages never move
+ * differently than they did before the wiring.
+ */
+export function motionIsAuthored(): boolean {
+  const raw = SITE_DESIGN.motion;
+  return (
+    !!raw &&
+    typeof raw.identity === 'string' &&
+    raw.identity !== '' &&
+    raw.identity !== 'entrance-only'
+  );
+}
+
 export function motionIdentity(): MotionIdentity {
   const raw = SITE_DESIGN.motion;
   if (!raw) return DEFAULT_IDENTITY;
