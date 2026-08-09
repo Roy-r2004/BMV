@@ -33,6 +33,15 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "editorial",
         "feature_variant": "alternating",
+        # Motion identity (3.10): the recipe's temperament as animation values.
+        # Delivered through SiteSpec.design; consumed by the kit's effects.
+        "motion": {
+            "identity": "editorial-calm",
+            "ease": [0.22, 1.0, 0.36, 1.0],
+            "stagger_ms": 110,
+            "travel": "18px",
+            "reveal": "fade-up",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "default",
@@ -95,6 +104,14 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        # Ops restraint by design: fast, calm, instant (owner's rule).
+        "motion": {
+            "identity": "ops-utility",
+            "ease": [0.4, 0.0, 0.2, 1.0],
+            "stagger_ms": 45,
+            "travel": "8px",
+            "reveal": "fade",
+        },
         "chrome": {
             "shell": "solid",
             "nav": "minimal",
@@ -153,6 +170,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        "motion": {
+            "identity": "ops-ledger-paper",
+            "ease": [0.4, 0.0, 0.2, 1.0],
+            "stagger_ms": 55,
+            "travel": "10px",
+            "reveal": "fade",
+        },
         "chrome": {
             "shell": "solid",
             "nav": "minimal",
@@ -210,6 +234,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        "motion": {
+            "identity": "ops-floor-instant",
+            "ease": [0.4, 0.0, 0.2, 1.0],
+            "stagger_ms": 35,
+            "travel": "6px",
+            "reveal": "fade",
+        },
         "chrome": {
             "shell": "solid",
             "nav": "minimal",
@@ -265,6 +296,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "service",
         "feature_variant": "bento",
+        "motion": {
+            "identity": "warm-rise",
+            "ease": [0.34, 1.3, 0.64, 1.0],
+            "stagger_ms": 90,
+            "travel": "16px",
+            "reveal": "rise",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "default",
@@ -325,6 +363,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "product",
         "feature_variant": "bento",
+        "motion": {
+            "identity": "retail-punch",
+            "ease": [0.85, 0.0, 0.15, 1.0],
+            "stagger_ms": 60,
+            "travel": "26px",
+            "reveal": "slide-up",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "minimal",
@@ -382,6 +427,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "cinematic",
         "feature_variant": "alternating",
+        "motion": {
+            "identity": "nocturne-drift",
+            "ease": [0.16, 1.0, 0.3, 1.0],
+            "stagger_ms": 130,
+            "travel": "22px",
+            "reveal": "blur-fade",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "stacked",
@@ -439,6 +491,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         # Unique silhouette — must NOT share `product` with bold-retail.
         "hero_variant": "atelier",
         "feature_variant": "alternating",
+        "motion": {
+            "identity": "craft-settle",
+            "ease": [0.25, 1.0, 0.5, 1.0],
+            "stagger_ms": 100,
+            "travel": "14px",
+            "reveal": "fade-up",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "default",

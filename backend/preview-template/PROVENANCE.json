@@ -8,8 +8,56 @@
     "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
     "retrieved": "2026-08-09",
     "rewritten": true,
-    "rewrite_notes": "shine rides --color-foreground mixes, not hardcoded neutrals; upstream Tailwind-config keyframes became a motion-driven background sweep (no new CSS); reduced motion renders static; cn from @/lib/utils -> ../lib/cn",
+    "rewrite_notes": "shine rides --color-foreground mixes, not hardcoded neutrals; upstream Tailwind-config keyframes became a motion-driven background sweep (no new CSS); ease from motionIdentity(); reduced motion renders static; cn from @/lib/utils -> ../lib/cn",
     "recipe_personalities": ["nocturne", "bold-retail", "editorial"]
+  },
+  {
+    "path": "src/ui/effects/AuroraText.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/aurora-text.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "default stops are brand/accent mixes, never upstream's fixed pink/violet; Tailwind-config aurora keyframes became a motion-driven background sweep (no new CSS); reduced motion keeps the gradient fill static",
+    "recipe_personalities": ["nocturne", "warm-service", "bold-retail"]
+  },
+  {
+    "path": "src/ui/effects/AvatarCircles.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/avatar-circles.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "borders ride --color-card and the +N chip rides brand tokens (upstream hardcoded white/black/gray); dead href anchors removed — presentational spans; images through KitImage (fallback discipline)",
+    "recipe_personalities": ["warm-service", "editorial", "craft"]
+  },
+  {
+    "path": "src/ui/effects/DotPattern.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/dot-pattern.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "default color rides --color-border-subtle (upstream forced a neutral); glow delays seeded by dot index, never Math.random() — the screenshot critic sees the same frame twice; reduced motion renders the static texture; ResizeObserver instead of window resize",
+    "recipe_personalities": ["editorial", "craft", "dense-ops"]
+  },
+  {
+    "path": "src/ui/effects/NumberTicker.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/number-ticker.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "color inherits caller tokens (upstream forced black/white); reduced motion renders the final value instantly — a stat is content; format extracted and reused for the resting state",
+    "recipe_personalities": ["dense-ops", "bold-retail", "editorial"]
   },
   {
     "path": "src/ui/effects/Ripple.tsx",
@@ -24,6 +72,18 @@
     "recipe_personalities": ["editorial", "warm-service", "dense-ops"]
   },
   {
+    "path": "src/ui/effects/VelocityScroll.tsx",
+    "source_repo": "https://github.com/magicuidesign/magicui",
+    "source_path": "apps/www/registry/magicui/scroll-based-velocity.tsx",
+    "source_commit": "5543371f99eaa6d1549a8dec864e78ee0b4515f2",
+    "license": "MIT",
+    "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
+    "retrieved": "2026-08-09",
+    "rewritten": true,
+    "rewrite_notes": "condensed to one component (upstream container/row/context family); four measured copies instead of ResizeObserver plumbing; reduced motion renders a single static row; type/color stay with caller tokens; no Lenis — reacts to native scroll velocity",
+    "recipe_personalities": ["bold-retail", "nocturne"]
+  },
+  {
     "path": "src/ui/effects/WordRotate.tsx",
     "source_repo": "https://github.com/magicuidesign/magicui",
     "source_path": "apps/www/registry/magicui/word-rotate.tsx",
@@ -32,7 +92,7 @@
     "license_url": "https://github.com/magicuidesign/magicui/blob/5543371f99eaa6d1549a8dec864e78ee0b4515f2/LICENSE.md",
     "retrieved": "2026-08-09",
     "rewritten": true,
-    "rewrite_notes": "renders a span, not the upstream h1 (heading composition); interval never runs under reduced motion; styling stays with the caller (font-display + tokens); cn path swapped",
+    "rewrite_notes": "renders a span, not the upstream h1 (heading composition); interval never runs under reduced motion; ease from motionIdentity(); styling stays with the caller (font-display + tokens); cn path swapped",
     "recipe_personalities": ["warm-service", "bold-retail"]
   }
 ]

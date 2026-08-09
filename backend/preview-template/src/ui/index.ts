@@ -32,10 +32,20 @@ export {
 
 export {
   AnimatedShinyText,
+  AuroraText,
+  AvatarCircles,
+  DotPattern,
+  NumberTicker,
   Ripple,
+  VelocityScroll,
   WordRotate,
   type AnimatedShinyTextProps,
+  type AuroraTextProps,
+  type AvatarCirclesProps,
+  type DotPatternProps,
+  type NumberTickerProps,
   type RippleProps,
+  type VelocityScrollProps,
   type WordRotateProps,
 } from './effects';
 

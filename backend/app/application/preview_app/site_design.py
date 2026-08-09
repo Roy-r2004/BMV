@@ -15,9 +15,10 @@ the render-time defaults are unchanged. Stage A is plumbing — if this module
 changes what any recipe looks like, that is a Stage A defect.
 
 The new axes (type ramp, spacing scale, container width, grid logic, image
-treatment, motion identity) are explicit placeholders: today's template
-constants stated once, identical for every recipe until Stage D varies them
-(motion identity until 3.10).
+treatment) are explicit placeholders: today's template constants stated once,
+identical for every recipe until Stage D varies them. Motion identity (3.10)
+is live: each recipe authors its temperament in ``design_recipes.RECIPES``
+and it ships through this resolution.
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ from typing import Any
 
 from app.application.preview_app.theme import sanitize_theme_inputs
 
-SITE_DESIGN_VERSION = "1.0"
+SITE_DESIGN_VERSION = "1.1"
 
 #: Today's implicit template constants, stated explicitly. Every recipe shares
 #: these values until Stage D introduces per-recipe variation; the numbers are
@@ -47,6 +48,8 @@ _PLACEHOLDER_AXES: dict[str, Any] = {
     "container": {"max": "92rem"},
     "grid": {"catalog_archetype": "uniform"},
     "image_treatment": {"policy": "cover"},
+    # Fallback only — every RECIPES entry authors its own motion identity
+    # (3.10); this shape covers bare/custom recipe dicts.
     "motion": {
         "identity": "entrance-only",
         "ease": None,
@@ -150,6 +153,11 @@ def resolve_site_design(
     }
     for axis, value in _PLACEHOLDER_AXES.items():
         design[axis] = json.loads(json.dumps(value))
+    # Motion identity (3.10) is per-recipe, not a shared placeholder: the
+    # recipe's authored temperament ships whenever the recipe declares one.
+    recipe_motion = resolved.get("motion")
+    if isinstance(recipe_motion, dict):
+        design["motion"] = json.loads(json.dumps(recipe_motion))
     return design
 
 
@@ -222,10 +230,10 @@ _SITE_DESIGN_TS_INTERFACE = """export interface SiteDesign {
   image_treatment: { policy: string };
   motion: {
     identity: string;
-    ease: null;
-    stagger_ms: null;
-    travel: null;
-    reveal: null;
+    ease: number[] | null;
+    stagger_ms: number | null;
+    travel: string | null;
+    reveal: string | null;
   };
 }"""
 

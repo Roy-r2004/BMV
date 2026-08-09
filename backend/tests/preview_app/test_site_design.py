@@ -179,17 +179,53 @@ def test_resolved_variants_match_template_maps_for_every_recipe() -> None:
 
 def test_placeholder_axes_present_and_recipe_invariant() -> None:
     """Stage A states today's constants once; Stage D varies them. Until then
-    every recipe must carry identical placeholder axes."""
+    every recipe must carry identical placeholder axes — EXCEPT motion, which
+    3.10 made per-recipe (its own pin below)."""
     baseline = _bare("editorial")
     for axis in ("type_ramp", "spacing", "container", "grid", "image_treatment", "motion"):
         assert axis in baseline, f"axis {axis} missing"
     assert baseline["container"] == {"max": "92rem"}
     assert baseline["spacing"]["section_y"] == "7rem"
-    assert baseline["motion"]["identity"] == "entrance-only"
     for recipe_id in RECIPES:
         design = _bare(recipe_id)
-        for axis in ("type_ramp", "spacing", "container", "grid", "image_treatment", "motion"):
+        for axis in ("type_ramp", "spacing", "container", "grid", "image_treatment"):
             assert design[axis] == baseline[axis], f"{recipe_id}.{axis} diverged"
+
+
+def test_motion_identity_is_authored_per_recipe() -> None:
+    """3.10: motion is a first-class axis (session-26 ruling). Every recipe
+    ships a complete authored identity; the six families never share one
+    (the Phase 3 DoD's distinctness seed); ops recipes stay more restrained
+    than every marketing recipe — fast, calm, instant, by the owner's
+    demo-matches-the-business rule. A bare/unknown recipe keeps the
+    entrance-only fallback."""
+    identities: dict[str, str] = {}
+    marketing_staggers: list[int] = []
+    ops_staggers: list[int] = []
+    for recipe_id in RECIPES:
+        motion = _bare(recipe_id)["motion"]
+        assert isinstance(motion["identity"], str) and motion["identity"]
+        ease = motion["ease"]
+        assert isinstance(ease, list) and len(ease) == 4
+        assert all(isinstance(n, (int, float)) for n in ease)
+        assert isinstance(motion["stagger_ms"], int) and motion["stagger_ms"] > 0
+        assert str(motion["travel"]).endswith("px")
+        assert motion["reveal"]
+        family = "dense-ops" if recipe_id.startswith("dense-ops") else recipe_id
+        identities.setdefault(family, motion["identity"])
+        (ops_staggers if recipe_id.startswith("dense-ops") else marketing_staggers).append(
+            motion["stagger_ms"]
+        )
+    assert len(set(identities.values())) == 6, "two families share a motion identity"
+    assert max(ops_staggers) < min(marketing_staggers), (
+        "ops restraint violated — an ops recipe staggers slower than a marketing one"
+    )
+    # The fallback shape survives for recipes that author nothing.
+    bare = resolve_site_design(
+        design_system={}, recipe={"id": "bare"}, primary=None, secondary=None, font=None
+    )
+    assert bare["motion"]["identity"] == "entrance-only"
+    assert bare["motion"]["ease"] is None
 
 
 def test_emitted_ts_round_trips_and_template_default_is_pinned() -> None:
@@ -256,6 +292,7 @@ if __name__ == "__main__":
     test_renderer_defaults_fill_empty_recipe()
     test_resolved_variants_match_template_maps_for_every_recipe()
     test_placeholder_axes_present_and_recipe_invariant()
+    test_motion_identity_is_authored_per_recipe()
     test_emitted_ts_round_trips_and_template_default_is_pinned()
     test_write_index_css_writes_css_recipe_id_and_site_design()
     print("Site design resolution tests passed (8 tests)")

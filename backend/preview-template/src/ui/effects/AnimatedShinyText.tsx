@@ -3,6 +3,7 @@ import * as React from 'react';
 import { motion } from 'motion/react';
 
 import { cn } from '../lib/cn';
+import { motionIdentity } from '../../lib/motion-identity';
 import { useMotionSafe } from '../motion/presets';
 
 export interface AnimatedShinyTextProps {
@@ -43,7 +44,7 @@ export function AnimatedShinyText({
       className={cn('bg-clip-text text-muted', className)}
       initial={{ backgroundPosition: 'calc(-1 * var(--shiny-width)) 0' }}
       animate={{ backgroundPosition: 'calc(100% + var(--shiny-width)) 0' }}
-      transition={{ repeat: Infinity, duration: 2.4, ease: [0.6, 0.6, 0, 1], repeatDelay: 0.6 }}
+      transition={{ repeat: Infinity, duration: 2.4, ease: motionIdentity().ease, repeatDelay: 0.6 }}
     >
       {children}
     </motion.span>

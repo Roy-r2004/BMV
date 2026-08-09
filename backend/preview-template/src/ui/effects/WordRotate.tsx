@@ -3,6 +3,7 @@ import * as React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { cn } from '../lib/cn';
+import { motionIdentity } from '../../lib/motion-identity';
 import { useMotionSafe } from '../motion/presets';
 
 export interface WordRotateProps {
@@ -46,7 +47,7 @@ export function WordRotate({ words, duration = 2500, className }: WordRotateProp
           initial={{ opacity: 0, y: '-0.9em' }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: '0.9em' }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
+          transition={{ duration: 0.25, ease: motionIdentity().ease }}
         >
           {words[index]}
         </motion.span>

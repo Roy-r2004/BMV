@@ -42,15 +42,15 @@ export interface SiteDesign {
   image_treatment: { policy: string };
   motion: {
     identity: string;
-    ease: null;
-    stagger_ms: null;
-    travel: null;
-    reveal: null;
+    ease: number[] | null;
+    stagger_ms: number | null;
+    travel: string | null;
+    reveal: string | null;
   };
 }
 
 export const SITE_DESIGN: SiteDesign = {
-  "version": "1.0",
+  "version": "1.1",
   "recipe_id": "warm-service",
   "palette": {
     "primary": "#6366f1",
@@ -103,10 +103,15 @@ export const SITE_DESIGN: SiteDesign = {
     "policy": "cover"
   },
   "motion": {
-    "identity": "entrance-only",
-    "ease": null,
-    "stagger_ms": null,
-    "travel": null,
-    "reveal": null
+    "identity": "warm-rise",
+    "ease": [
+      0.34,
+      1.3,
+      0.64,
+      1.0
+    ],
+    "stagger_ms": 90,
+    "travel": "16px",
+    "reveal": "rise"
   }
 };

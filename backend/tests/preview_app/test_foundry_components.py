@@ -70,10 +70,34 @@ def test_every_mined_effect_is_manifested_and_motion_safe() -> None:
         rel = f"src/ui/effects/{path.name}"
         assert rel in manifested, f"{rel} has no provenance row"
         source = path.read_text(encoding="utf-8")
-        assert "useMotionSafe" in source, f"{rel} ignores reduced motion"
+        # Reduced-motion parity is required exactly where motion exists —
+        # a static component (no motion/react import) has nothing to guard.
+        if "motion/react" in source:
+            assert "useMotionSafe" in source, f"{rel} animates but ignores reduced motion"
         assert not re.search(r"#[0-9a-fA-F]{3,8}\b", source), (
             f"{rel} hardcodes a hex color — rewrite onto tokens"
         )
+        assert "Math.random" not in source, (
+            f"{rel} uses Math.random — the screenshot critic must see the "
+            "same frame twice; seed by index instead"
+        )
+
+
+def test_motion_identity_accessor_guards_and_falls_back() -> None:
+    """`motionIdentity()` reads emitted data, so it must validate every field
+    and fall back to the kit's entrance constants — same discipline as the
+    variant axes. And it must have real consumers, not be a dead lane."""
+    lib = (TEMPLATE / "src" / "lib" / "motion-identity.ts").read_text(encoding="utf-8")
+    assert "function isEase(value: unknown)" in lib
+    assert "value.length === 4" in lib
+    assert "const DEFAULT_IDENTITY: MotionIdentity" in lib
+    assert "isEase(raw.ease) ? raw.ease : DEFAULT_IDENTITY.ease" in lib
+    consumers = [
+        p.name
+        for p in EFFECTS_DIR.glob("*.tsx")
+        if "motionIdentity()" in p.read_text(encoding="utf-8")
+    ]
+    assert len(consumers) >= 2, f"motion identity has too few consumers: {consumers}"
 
 
 def test_every_manifested_component_row_is_registered() -> None:
@@ -95,5 +119,6 @@ if __name__ == "__main__":
     test_every_registry_component_is_importable_from_the_barrel()
     test_every_registry_component_file_exists()
     test_every_mined_effect_is_manifested_and_motion_safe()
+    test_motion_identity_accessor_guards_and_falls_back()
     test_every_manifested_component_row_is_registered()
-    print("Foundry component tests passed (4 tests)")
+    print("Foundry component tests passed (5 tests)")
