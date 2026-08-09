@@ -106,7 +106,13 @@ Three owner decisions arm it: N, whether the streak must span distinct businesse
 ≥ 6), and whether stress briefs count. The streak starts at the first funded run after `2ded6fa`.
 Phase 1 explicitly does not own ship rate — its DoD is ready-or-failed under 600 s.
 
-### Spend the first money here
+### Spend the first money here — preflight is DONE, follow the runbook
+
+**`docs/evidence/session29/TRIO_LAUNCH_RUNBOOK.md`** — every check executed green on 2026-08-09
+(live config, keys, npm cache warm, refimg staged, readout dry-run verified on 163/165/166,
+photo-search wall-clock budget landed). Top up → one cheap confirm call → restart `bmv-api` +
+behaviour probe → quiet host → `session27/launch_trio.py`. **Known blind spot: all three briefs
+are `needs_ai: no`, so the binder fixes cannot fire this trio and absent markers are expected.**
 
 The three briefs (`session28/launch_duo.py` + `session27/launch_trio.py`), simultaneous start.
 Read, in order: (1) `mock.ts` catalogue survival (`check_catalogue_survival.py`, not ship rate);
