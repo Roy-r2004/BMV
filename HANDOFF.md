@@ -73,6 +73,30 @@ Test-proven (fixtures are 154/155's rejected payloads verbatim). **Only a funded
 the code proves it live** — the check is heal_actions/prompt-escape, never
 `repair_reproduced_parent_errors`.
 
+### Part 2 — the hardening pass (same day): no run dies while a deterministic, scope-safe action could save it
+
+Evidence: `docs/evidence/session29/failure-surface-hardening.md` — the whole failure surface,
+stage by stage, with what was built, what was ruled fatal-by-design, and what was deliberately
+not built. Four mechanisms landed (sweep `mutate_hardening.py`: **10 killed / 0 survived**):
+
+1. **Terminal salvage pass** — at every deterministic fatal exit (schema attempts spent, repairs
+   spent or deadline-zeroed, identical-error stop), the code-driven heals and unbindable-assertion
+   drops run once more, uncapped, and the loop revalidates. Progress = a *changed document*.
+   Scope-safe by construction; anything still failing dies exactly as before. This converts the
+   deadline-stopped death (138's shape) into a ship when the leftovers are mechanical.
+2. **Attrition guard** — a repair that drops a trace row it was never asked to touch (130's class)
+   gets it restored, but only when the whole proof chain still resolves in the repaired document.
+3. **Exact-duplicate heal** — byte-identical re-emissions dropped; conflicting objects stay a
+   model merge.
+4. **Binder state-id collision** — a model-authored `STATE-AI-HUB-READY` elsewhere gets a minted
+   sibling on the hub instead of a collision.
+
+Integration tests drive the real loop with scripted providers: the deadline-shaped run that used
+to die now accepts with the salvage in `heal_actions`; the unsalvageable run still dies with the
+identical reason. The honest boundary is written in the evidence file: a paid-model stage can
+always be starved by weather or the clock — what is now guaranteed is that no run dies while a
+deterministic, scope-preserving action remains, and no deterministic action ever degrades scope.
+
 ### Spend the first money here
 
 The three briefs (`session28/launch_duo.py` + `session27/launch_trio.py`), simultaneous start.
