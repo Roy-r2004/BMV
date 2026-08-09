@@ -1,4 +1,5 @@
 import { RECIPE_ID } from './recipe-id';
+import { SITE_DESIGN } from './site-design';
 
 export type RecipeId =
   | 'editorial'
@@ -22,8 +23,25 @@ export type NavVariant = 'default' | 'minimal' | 'stacked';
 export type FooterVariant = 'statement' | 'compact' | 'columns';
 export type BrandPlacement = 'start' | 'center';
 
+export const HERO_VARIANTS: readonly HeroVariant[] = [
+  'cinematic',
+  'service',
+  'compact',
+  'product',
+  'editorial',
+  'atelier',
+];
+export const FEATURE_VARIANTS: readonly FeatureVariant[] = ['bento', 'grid', 'alternating'];
+const SHELL_CHROMES: readonly ShellChrome[] = ['solid', 'immersive'];
+const NAV_VARIANTS: readonly NavVariant[] = ['default', 'minimal', 'stacked'];
+const FOOTER_VARIANTS: readonly FooterVariant[] = ['statement', 'compact', 'columns'];
+const BRAND_PLACEMENTS: readonly BrandPlacement[] = ['start', 'center'];
+
 /**
  * One distinct hero composition per recipe — do not collapse pairs.
+ * Since Stage A (3.1) these maps are the DEFAULTS: the rendered value comes
+ * from SiteSpec.design (`SITE_DESIGN`, resolved once in Python); the map
+ * answers only when the design carries no valid value for this recipe.
  * Must stay 1:1 with backend design_recipes.py hero_variant values.
  */
 const HERO_BY_RECIPE: Record<RecipeId, HeroVariant> = {
@@ -102,28 +120,53 @@ export function currentRecipeId(): RecipeId {
   return normalizeRecipeId(RECIPE_ID);
 }
 
+/**
+ * SITE_DESIGN speaks for exactly one site — the one whose recipe it was
+ * resolved for. It answers only when asked about that recipe (family match),
+ * only with a value from the axis's declared valid set; anything else falls
+ * back to the map default. Runtime-guarded because the emitted design is
+ * data, not types.
+ */
+function designVariant<T extends string>(
+  value: string | null | undefined,
+  valid: readonly T[],
+  recipeId: RecipeId
+): T | null {
+  if (normalizeRecipeId(SITE_DESIGN.recipe_id) !== recipeId) return null;
+  return value != null && (valid as readonly string[]).includes(value) ? (value as T) : null;
+}
+
 export function recipeHeroVariant(recipeId: RecipeId = currentRecipeId()): HeroVariant {
-  return HERO_BY_RECIPE[recipeId];
+  return designVariant(SITE_DESIGN.variants.hero, HERO_VARIANTS, recipeId) ?? HERO_BY_RECIPE[recipeId];
 }
 
 export function recipeFeatureVariant(recipeId: RecipeId = currentRecipeId()): FeatureVariant {
-  return FEATURE_BY_RECIPE[recipeId];
+  return (
+    designVariant(SITE_DESIGN.variants.feature, FEATURE_VARIANTS, recipeId) ??
+    FEATURE_BY_RECIPE[recipeId]
+  );
 }
 
 export function recipeShellChrome(recipeId: RecipeId = currentRecipeId()): ShellChrome {
-  return SHELL_BY_RECIPE[recipeId];
+  return designVariant(SITE_DESIGN.variants.shell, SHELL_CHROMES, recipeId) ?? SHELL_BY_RECIPE[recipeId];
 }
 
 export function recipeNavVariant(recipeId: RecipeId = currentRecipeId()): NavVariant {
-  return NAV_BY_RECIPE[recipeId];
+  return designVariant(SITE_DESIGN.variants.nav, NAV_VARIANTS, recipeId) ?? NAV_BY_RECIPE[recipeId];
 }
 
 export function recipeFooterVariant(recipeId: RecipeId = currentRecipeId()): FooterVariant {
-  return FOOTER_BY_RECIPE[recipeId];
+  return (
+    designVariant(SITE_DESIGN.variants.footer, FOOTER_VARIANTS, recipeId) ??
+    FOOTER_BY_RECIPE[recipeId]
+  );
 }
 
 export function recipeBrandPlacement(recipeId: RecipeId = currentRecipeId()): BrandPlacement {
-  return BRAND_BY_RECIPE[recipeId];
+  return (
+    designVariant(SITE_DESIGN.variants.brand_placement, BRAND_PLACEMENTS, recipeId) ??
+    BRAND_BY_RECIPE[recipeId]
+  );
 }
 
 /** Display type treatment — italic for editorial/warm/nocturne/craft, upright for ops/retail. */

@@ -282,7 +282,6 @@
           "product",
           "editorial",
           "atelier",
-          "split",
           "item"
         ]
       }
@@ -864,7 +863,6 @@
           "product",
           "editorial",
           "atelier",
-          "split",
           "item"
         ],
         "FeatureBento": [
@@ -934,8 +932,7 @@
           "cinematic",
           "compact",
           "product",
-          "atelier",
-          "split"
+          "atelier"
         ],
         "FeatureBento": [
           "grid",
@@ -1004,8 +1001,7 @@
           "atelier",
           "service",
           "editorial",
-          "compact",
-          "split"
+          "compact"
         ],
         "FeatureBento": [
           "alternating",
@@ -1082,8 +1078,7 @@
           "compact",
           "editorial",
           "product",
-          "atelier",
-          "split"
+          "atelier"
         ],
         "FeatureBento": [
           "grid",
@@ -1196,7 +1191,6 @@
       ],
       "supportedVariants": {
         "MarketingHero": [
-          "split",
           "editorial"
         ],
         "FeatureBento": [

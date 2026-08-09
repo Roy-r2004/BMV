@@ -308,12 +308,12 @@ def test_catalogue_contract_rejects_invented_ui_prop() -> None:
     )
     with_variant = valid.replace(
         "<MarketingHero ",
-        '<MarketingHero variant="split" ',
+        '<MarketingHero variant="editorial" ',
         1,
     )
     invented = with_variant.replace(
-        'variant="split"',
-        'variant="split" inventedProp="nope"',
+        'variant="editorial"',
+        'variant="editorial" inventedProp="nope"',
         1,
     )
     errors = validate_catalogue_page_content(invented, route)
@@ -329,10 +329,10 @@ def test_catalogue_contract_rejects_invalid_literal_variant() -> None:
     )
     with_variant = valid.replace(
         "<MarketingHero ",
-        '<MarketingHero variant="split" ',
+        '<MarketingHero variant="editorial" ',
         1,
     )
-    invalid = with_variant.replace('variant="split"', 'variant="giant"')
+    invalid = with_variant.replace('variant="editorial"', 'variant="giant"')
     errors = validate_catalogue_page_content(invalid, route)
     assert "invalid variant:MarketingHero.variant=giant" in errors
 

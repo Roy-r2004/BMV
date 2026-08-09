@@ -145,7 +145,7 @@ export const CATALOGUE_COMPONENTS: readonly ComponentMeta[] = [
     path: 'public/MarketingHero.tsx',
     requiredProps: ['brandName', 'headline', 'subcopy', 'primaryCta', 'imageSrc'],
     optionalProps: ['secondaryCta', 'imageAlt', 'eyebrow', 'variant', 'className'],
-    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split', 'item'] },
+    variants: { variant: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'item'] },
   },
   {
     name: 'FeatureBento',
@@ -493,7 +493,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     ],
     allowedComponents: [...PUBLIC_ALLOWED],
     supportedVariants: {
-      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'split', 'item'],
+      MarketingHero: ['cinematic', 'service', 'compact', 'product', 'editorial', 'atelier', 'item'],
       FeatureBento: ['bento', 'grid', 'alternating'],
     },
   },
@@ -507,7 +507,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     recommendedOrder: ['shell', 'hero', 'features', 'showcase', 'process', 'testimonials', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED, 'ScheduleRail', 'Badge'],
     supportedVariants: {
-      MarketingHero: ['service', 'editorial', 'cinematic', 'compact', 'product', 'atelier', 'split'],
+      MarketingHero: ['service', 'editorial', 'cinematic', 'compact', 'product', 'atelier'],
       FeatureBento: ['grid', 'alternating', 'bento'],
     },
   },
@@ -539,7 +539,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     // from rendering empty.
     allowedComponents: [...PUBLIC_ALLOWED, 'InquiryPanel'],
     supportedVariants: {
-      MarketingHero: ['item', 'product', 'atelier', 'service', 'editorial', 'compact', 'split'],
+      MarketingHero: ['item', 'product', 'atelier', 'service', 'editorial', 'compact'],
       FeatureBento: ['alternating', 'grid'],
     },
   },
@@ -571,7 +571,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
       'FilterBar',
     ],
     supportedVariants: {
-      MarketingHero: ['compact', 'editorial', 'product', 'atelier', 'split'],
+      MarketingHero: ['compact', 'editorial', 'product', 'atelier'],
       FeatureBento: ['grid', 'bento'],
     },
   },
@@ -615,7 +615,7 @@ export const SKELETONS: readonly SkeletonDefinition[] = [
     recommendedOrder: ['shell', 'hero', 'credentials', 'process', 'features', 'testimonials', 'booking', 'cta', 'footer'],
     allowedComponents: [...PUBLIC_ALLOWED, 'Input', 'Select', 'Dialog'],
     supportedVariants: {
-      MarketingHero: ['split', 'editorial'],
+      MarketingHero: ['editorial'],
       FeatureBento: ['grid'],
     },
   },
