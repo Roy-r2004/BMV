@@ -22,6 +22,24 @@ _FENCE_RE = re.compile(
     re.MULTILINE,
 )
 
+# A recovered object dwarfed by the response it came from is a nested fragment,
+# not the document. Request 143: an unescaped quote desynchronised the outer
+# object of a 31,303-char authoring response, the span fallback surfaced one
+# balanced 414-char acceptance-test object, and the run spent every repair on a
+# candidate that was 1.3 % of what the model wrote — five revisions, dead.
+# Failing closed re-asks the writer, which is a legal move; repairing a
+# fragment has none. The raw floor keeps the guard out of small documents,
+# where legitimate extractions (prose-wrapped objects, first-object policy)
+# can sit near the ratio boundary.
+_FRAGMENT_GUARD_MIN_RAW_CHARS = 2000
+_FRAGMENT_GUARD_MIN_RATIO = 0.5
+
+
+def _is_fragment_extraction(raw_chars: int, extracted_chars: int) -> bool:
+    if raw_chars < _FRAGMENT_GUARD_MIN_RAW_CHARS:
+        return False
+    return extracted_chars < raw_chars * _FRAGMENT_GUARD_MIN_RATIO
+
 
 @dataclass
 class AppSpecAuthoringParseResult:
@@ -155,6 +173,8 @@ def _repaired_result(
     if recovered is None:
         return None
     payload, extracted, method = recovered
+    if _is_fragment_extraction(len(text), len(extracted)):
+        return None
     return AppSpecAuthoringParseResult(
         ok=True,
         payload=payload,
@@ -360,6 +380,18 @@ def parse_appspec_authoring_output(
         )
 
     loaded, err = _try_loads(candidate)
+    if isinstance(loaded, dict) and _is_fragment_extraction(len(text), len(candidate)):
+        return _fail(
+            code=AUTHORING_JSON_SYNTAX_INVALID,
+            strategy="balanced_scan",
+            raw=text,
+            parser_error="fragment_extracted",
+            extra={
+                "finish_reason": finish_reason,
+                "truncated": False,
+                "candidate_chars": len(candidate),
+            },
+        )
     if isinstance(loaded, dict):
         return AppSpecAuthoringParseResult(
             ok=True,
