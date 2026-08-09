@@ -375,11 +375,20 @@ def evaluate_quality_gate(
         pack_literal_sentences,
     )
 
-    for leaked in sorted(leaves & pack_literal_sentences()):
+    # ONE issue, not one per sentence. Replayed over the 98 stored workspaces
+    # this fires on 41 of them, and the recent ones carry 29-33 sentences each —
+    # a run withheld for pack copy would bury every other finding in its own
+    # report. The count is the finding; three examples are enough to recognise
+    # which pack it came from.
+    leaked = sorted(leaves & pack_literal_sentences())
+    if leaked:
+        shown = " · ".join(repr(s) for s in leaked[:3])
+        more = f" (+{len(leaked) - 3} more)" if len(leaked) > 3 else ""
         report.fail(
             "pack_copy_shipped",
-            f"mock.ts ships the industry pack's own copy {leaked!r} — a pack "
-            "supplies structure; the sentences are written for the business",
+            f"mock.ts ships {len(leaked)} sentence(s) of industry-pack copy "
+            f"verbatim — {shown}{more}. A pack supplies structure; the sentences "
+            "are written for the business",
             "src/data/mock.ts",
         )
 

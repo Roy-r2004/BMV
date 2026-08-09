@@ -212,3 +212,23 @@ def test_a_real_fashion_boutique_still_gets_the_fashion_pack():
         )
         == "fashion-retail-storefront"
     )
+
+
+def test_a_run_drowning_in_pack_copy_reports_one_issue(tmp_path):
+    """Replayed over the corpus this fires on 41 of 98, at 29-33 sentences each.
+
+    One issue per sentence would bury every other finding in the report of the
+    run that most needs reading.
+    """
+    from app.application.preview_app import quality_gate
+
+    leaked = sorted(pack_literal_sentences())[:12]
+    body = ", ".join(f'k{i}: "{s}"' for i, s in enumerate(leaked))
+    mock = f"export const brand = {{ name: 'X' }};\nexport const seed = {{ {body} }};\n"
+
+    report = _run_mock_checks(quality_gate, tmp_path, mock)
+    hits = [i for i in report.issues if i.code == "pack_copy_shipped"]
+
+    assert len(hits) == 1, "one issue names the count; it does not repeat itself"
+    assert "12 sentence(s)" in hits[0].message
+    assert "+9 more" in hits[0].message

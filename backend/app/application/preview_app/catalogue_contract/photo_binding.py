@@ -112,10 +112,11 @@ def catalogue_item_titles(mock_source: str, *, limit: int = 64) -> list[str]:
         chunk = _balanced_array(mock_source, match.end() - 1)
         if not chunk:
             continue
-        titles = [
-            m.group(2).strip()
-            for m in (_TITLE_RE.finditer(chunk) or [])
-        ] or [m.group(2).strip() for m in _TS_TITLE_RE.finditer(chunk)]
+        # JSON-quoted keys first — that is what the seed writes. The bare-key
+        # form is the fallback for a hand-edited or scaffolded module.
+        titles = [m.group(2).strip() for m in _TITLE_RE.finditer(chunk)] or [
+            m.group(2).strip() for m in _TS_TITLE_RE.finditer(chunk)
+        ]
         # Objects carrying both `title` and `name` yield two hits for one item;
         # consecutive duplicates are that, not two items with the same name.
         deduped: list[str] = []

@@ -27,11 +27,11 @@ MUTATIONS = [
      "        if isinstance(node, dict):\n            for value in node.values():\n                _walk(value, out)",
      "        if isinstance(node, dict):\n            for value in []:\n                _walk(value, out)"),
     ("gate", "q7 the gate no longer fails on pack copy",
-     "    for leaked in sorted(leaves & pack_literal_sentences()):",
-     "    for leaked in sorted(set() & pack_literal_sentences()):"),
+     "    leaked = sorted(leaves & pack_literal_sentences())",
+     "    leaked = sorted(set() & pack_literal_sentences())"),
     ("gate", "q8 substring matching instead of exact leaf",
-     "    for leaked in sorted(leaves & pack_literal_sentences()):",
-     "    for leaked in sorted(s for s in pack_literal_sentences() if any(s in l for l in leaves)):"),
+     "    leaked = sorted(leaves & pack_literal_sentences())",
+     "    leaked = sorted(s for s in pack_literal_sentences() if any(s in l for l in leaves))"),
 ]
 
 def run_tests() -> bool:
