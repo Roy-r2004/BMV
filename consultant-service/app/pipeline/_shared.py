@@ -36,6 +36,71 @@ def extract_json_from_text(text: str) -> dict:
     return json.loads(candidate[start : end + 1])
 
 
+def extract_json_objects(text: str, required_keys: set[str] | None = None) -> list[dict]:
+    """Salvages every individually-well-formed `{...}` object found in text,
+    regardless of whether the surrounding array/wrapper is itself valid
+    JSON. Used where a model's response is a list of independent objects
+    (e.g. one per image prompt) — if the response gets cut off or one
+    object's escaping is malformed, every object before/around the bad one
+    is still recoverable instead of losing the whole batch.
+    """
+    # A stack of open-brace positions, one per nesting depth — every time a
+    # `}` matches a `{`, that span is tried as a candidate, at ANY depth.
+    # The per-prompt objects live nested inside {"image_prompts": [...]},
+    # so a scanner that only captured depth-0 spans would find nothing at
+    # all once the truncated/malformed outer wrapper stops the top-level
+    # object from ever closing.
+    objects = []
+    stack: list[int] = []
+    in_string = False
+    escape = False
+    for i, ch in enumerate(text):
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            stack.append(i)
+        elif ch == "}" and stack:
+            start = stack.pop()
+            candidate = text[start : i + 1]
+            try:
+                obj = json.loads(candidate)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(obj, dict) and (not required_keys or required_keys.issubset(obj)):
+                objects.append(obj)
+    return objects
+
+
+def slugify(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    return slug or "item"
+
+
+def employees_with_ids(consult_result: dict) -> list[dict]:
+    """`recommended_ai_employees` items only have title/why — derive a
+    stable slug id from the title so image generation, storage, and
+    frontend/pptx grouping all key off the same identifier without
+    threading extra state through the pipeline.
+    """
+    employees = consult_result.get("recommended_ai_employees") or []
+    seen: dict[str, int] = {}
+    out = []
+    for emp in employees:
+        base = slugify(emp.get("title", "ai_employee"))
+        seen[base] = seen.get(base, 0) + 1
+        eid = base if seen[base] == 1 else f"{base}_{seen[base]}"
+        out.append({"id": eid, "title": emp.get("title", "AI Employee"), "why": emp.get("why", "")})
+    return out
+
+
 def log_usage(
     db: Session,
     request_id: int | None,

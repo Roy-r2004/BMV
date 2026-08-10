@@ -128,12 +128,8 @@ function PageHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: str
 
 function VisionPage({ preview }: { preview: PreviewResponse }) {
   return (
-    <div className="h-full min-h-0 flex flex-col px-2 sm:px-4 py-3">
-      <AttractionImageGallery
-        images={preview.generated_pages?.attraction_images ?? []}
-        conceptName={preview.concept_name ?? undefined}
-        businessName={preview.business_name}
-      />
+    <div className="max-w-5xl mx-auto px-2 sm:px-4 py-3 pb-10">
+      <AttractionImageGallery images={preview.generated_pages?.attraction_images ?? []} />
     </div>
   );
 }
@@ -1280,7 +1276,7 @@ export default function ConsultantExperience({ preview, onRequestBuild, demoView
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.32, ease }}
-            className={`absolute inset-0 ${activeTab === 'vision' ? 'overflow-hidden' : 'overflow-y-auto'}`}
+            className="absolute inset-0 overflow-y-auto"
           >
             {activeTab === 'vision' && <VisionPage preview={preview} />}
             {activeTab === 'overview' && <OverviewPage preview={preview} />}

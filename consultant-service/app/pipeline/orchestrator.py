@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import Request
 from app.pipeline import analyze, blueprint, consult, image_prompts, images, plan
-from app.pipeline._shared import emit
+from app.pipeline._shared import emit, employees_with_ids
 
 
 def run(request_id: int) -> None:
@@ -59,10 +59,10 @@ def _run_inner(db: Session, request_id: int) -> None:
     blueprint.write_technical_plan(db, request_id, consult_result, plan_result)
 
     emit(db, request_id, "directing", "Directing your images...", 62)
-    prompts = image_prompts.craft_image_prompts(db, request_id, plan_result)
+    prompts = image_prompts.craft_image_prompts(db, request_id, consult_result, plan_result)
 
-    emit(db, request_id, "images", "Generating images for each role...", 70)
-    saved_images = images.generate_images(db, request_id, plan_result.get("roles", []), prompts)
+    emit(db, request_id, "images", "Generating images for each AI employee...", 70)
+    saved_images = images.generate_images(db, request_id, employees_with_ids(consult_result), prompts)
 
     if not saved_images:
         req = db.get(Request, request_id)
@@ -70,7 +70,7 @@ def _run_inner(db: Session, request_id: int) -> None:
         req.is_failed = True
         req.is_generating = False
         db.commit()
-        emit(db, request_id, "failed", "Image generation failed for every role", 70)
+        emit(db, request_id, "failed", "Image generation failed for every AI employee", 70)
         return
 
     req = db.get(Request, request_id)

@@ -1,6 +1,9 @@
+import io
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.ai import provider
@@ -9,20 +12,54 @@ from app.models import GeneratedImage, Request
 from app.pipeline._shared import log_usage
 
 
+@lru_cache(maxsize=1)
+def _bmv_logo() -> Image.Image | None:
+    if not os.path.isfile(settings.BMV_LOGO_PATH):
+        return None
+    return Image.open(settings.BMV_LOGO_PATH).convert("RGBA")
+
+
+def _apply_bmv_watermark(image_bytes: bytes) -> bytes:
+    """Composites the real BMV logo into the bottom-right corner — more
+    reliable than asking the image model to draw legible small text (we've
+    seen it garble URLs/labels at that scale). No-op if the logo file isn't
+    present, so this never breaks image generation.
+    """
+    logo = _bmv_logo()
+    if logo is None:
+        return image_bytes
+
+    base = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+    mark_size = max(56, min(160, round(base.width * 0.09)))
+    padding = round(base.width * 0.025)
+    mark = logo.resize((mark_size, mark_size), Image.LANCZOS)
+    base.paste(mark, (base.width - mark_size - padding, base.height - mark_size - padding), mark)
+
+    out = io.BytesIO()
+    base.save(out, format="PNG")
+    return out.getvalue()
+
+
 def generate_images(
     db: Session,
     request_id: int,
-    roles: list[dict],
+    employees: list[dict],
     image_prompts: list[dict],
 ) -> list[GeneratedImage]:
     """Stage 5: calls the image model for every crafted prompt in parallel
     (network-bound, no DB access inside worker threads — results are
-    written back on the calling thread once all calls finish)."""
+    written back on the calling thread once all calls finish).
+
+    `GeneratedImage.role_id`/`role_label` hold AI-employee id/title now, not
+    product roles/screens — see image_prompts.py's module docstring for why.
+    Column names kept as-is to avoid an unnecessary rename; they're a
+    generic "what is this image about" pairing either way.
+    """
     req = db.get(Request, request_id)
     if req is None:
         raise ValueError(f"Request {request_id} not found")
 
-    role_labels = {r.get("id", "role"): r.get("label", "Role") for r in roles}
+    employee_titles = {e.get("id", "employee"): e.get("title", "AI Employee") for e in employees}
 
     def _call(item):
         try:
@@ -54,12 +91,12 @@ def generate_images(
 
         file_name = f"{role_id}_{variant}.png"
         with open(os.path.join(out_dir, file_name), "wb") as f:
-            f.write(result["image_bytes"])
+            f.write(_apply_bmv_watermark(result["image_bytes"]))
 
         image_row = GeneratedImage(
             request_id=request_id,
             role_id=role_id,
-            role_label=role_labels.get(role_id, "Role"),
+            role_label=employee_titles.get(role_id, "AI Employee"),
             variant=variant,
             file_path=f"/uploads/images/{request_id}/{file_name}",
             prompt=item.get("prompt", ""),

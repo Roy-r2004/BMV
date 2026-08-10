@@ -29,5 +29,13 @@ class Settings:
 
     UPLOADS_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 
+    # The real BMV logo, composited onto every generated image as a corner
+    # credit mark — more reliable than asking the image model to draw
+    # legible "BMV" text (we've seen it garble small text like URLs/labels).
+    BMV_LOGO_PATH: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        "frontend", "public", "logo.png",
+    )
+
 
 settings = Settings()

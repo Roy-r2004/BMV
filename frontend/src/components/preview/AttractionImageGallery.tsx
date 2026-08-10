@@ -7,8 +7,6 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 interface Props {
   images: AttractionImage[];
-  conceptName?: string;
-  businessName?: string;
 }
 
 interface RoleGroup {
@@ -22,7 +20,7 @@ function resolveImageUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
 
-export default function AttractionImageGallery({ images, conceptName, businessName }: Props) {
+export default function AttractionImageGallery({ images }: Props) {
   const roleGroups = useMemo<RoleGroup[]>(() => {
     const byRole = new Map<string, RoleGroup>();
     for (const img of images) {
@@ -58,13 +56,13 @@ export default function AttractionImageGallery({ images, conceptName, businessNa
   if (!activeGroup || !activeImage) return null;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       {/* Role switcher */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease }}
-        className="flex items-center justify-center gap-1.5 flex-wrap px-2"
+        className="shrink-0 flex items-center justify-center gap-1.5 flex-wrap px-2"
       >
         {roleGroups.map((group) => {
           const active = group.roleId === activeGroup.roleId;
@@ -88,54 +86,49 @@ export default function AttractionImageGallery({ images, conceptName, businessNa
         })}
       </motion.div>
 
-      {/* Main showcase — browser-chrome frame */}
-      <div className="relative flex-1 min-h-0 px-1 sm:px-2">
+      {/* Main showcase — full width, natural (uncropped) height so nothing
+          the hero graphic composed is ever cut off or hidden. */}
+      <div className="relative w-full px-1 sm:px-2">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.985 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, ease }}
-          className="h-full min-h-0 flex flex-col rounded-xl overflow-hidden border border-slate-200/90 bg-white shadow-[0_24px_70px_-28px_rgba(15,23,42,0.35)]"
+          className="relative w-full rounded-2xl overflow-hidden bg-slate-950 shadow-[0_30px_80px_-24px_rgba(15,23,42,0.5)] cursor-zoom-in"
+          onClick={() => setLightboxOpen(true)}
         >
-          {/* Chrome bar */}
-          <div className="shrink-0 flex items-center gap-2 px-3.5 py-2 bg-slate-50/90 border-b border-slate-200/80">
-            <span className="flex gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-              <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-            </span>
-            <span className="flex-1 mx-2 truncate text-center text-[11px] font-medium text-slate-400 bg-white border border-slate-200/80 rounded-md px-3 py-1">
-              {(conceptName || businessName || 'your-business').toLowerCase().replace(/[^a-z0-9]+/g, '')}.app — {activeGroup.roleLabel}
-            </span>
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(true)}
-              className="shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
-              title="View fullscreen"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-              </svg>
-            </button>
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={`${activeGroup.roleId}-${activeVariant}`}
+              src={resolveImageUrl(activeImage.image_url)}
+              alt={`${activeGroup.roleLabel} — concept ${activeVariant + 1}`}
+              initial={{ opacity: 0, scale: 1.015 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35, ease }}
+              className="block w-full h-auto"
+            />
+          </AnimatePresence>
+
+          {/* Caption badge */}
+          <div className="absolute left-4 bottom-4 flex items-center gap-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 pl-3 pr-4 py-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="text-xs font-semibold text-white/90 tracking-wide">{activeGroup.roleLabel}</span>
           </div>
 
-          {/* Image */}
-          <div
-            className="relative flex-1 min-h-0 bg-slate-100 cursor-zoom-in"
-            onClick={() => setLightboxOpen(true)}
+          {/* Expand icon */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxOpen(true);
+            }}
+            className="absolute right-4 top-4 flex items-center justify-center w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-black/60 transition-colors"
+            title="View fullscreen"
           >
-            <AnimatePresence mode="wait">
-              <motion.img
-                key={`${activeGroup.roleId}-${activeVariant}`}
-                src={resolveImageUrl(activeImage.image_url)}
-                alt={`${activeGroup.roleLabel} — concept ${activeVariant + 1}`}
-                initial={{ opacity: 0, scale: 1.015 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35, ease }}
-                className="absolute inset-0 w-full h-full object-cover object-top"
-              />
-            </AnimatePresence>
-          </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+            </svg>
+          </button>
         </motion.div>
       </div>
 
@@ -164,7 +157,7 @@ export default function AttractionImageGallery({ images, conceptName, businessNa
                 <img
                   src={resolveImageUrl(img.image_url)}
                   alt={`${activeGroup.roleLabel} concept ${i + 1} thumbnail`}
-                  className="w-full h-full object-cover object-top"
+                  className="w-full h-full object-cover object-center"
                 />
                 <span className={`absolute bottom-0.5 right-1 text-[9px] font-bold rounded px-1 ${active ? 'bg-indigo-500 text-white' : 'bg-slate-900/60 text-white'}`}>
                   {i + 1}

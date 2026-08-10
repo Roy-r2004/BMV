@@ -1,10 +1,11 @@
 """Builds a downloadable PowerPoint recap of a request's deliverable:
 opening slide contrasting today vs. the AI-powered vision, one slide per
-role using that role's generated image, and a closing next-steps slide.
+AI employee using that employee's generated hero image, and a closing
+next-steps slide.
 
 Pure presentation assembly — no AI calls, no cost. Reads whatever the
 pipeline already produced (analysis/consult/plan JSON + GeneratedImage
-files on disk) and degrades gracefully when a role has no image yet.
+files on disk) and degrades gracefully when an employee has no image yet.
 """
 
 import json
@@ -18,6 +19,7 @@ from pptx.util import Emu, Inches, Pt
 
 from app.config import settings
 from app.models import Request
+from app.pipeline._shared import employees_with_ids
 
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
@@ -171,10 +173,10 @@ def build_presentation(
     primary = _hex_to_rgb(theme.get("primary_color"))
     concept = plan_result.get("concept_name") or req.business_name
 
-    images_by_role: dict[str, list] = {}
+    images_by_employee: dict[str, list] = {}
     for img in images:
-        images_by_role.setdefault(img.role_id, []).append(img)
-    for lst in images_by_role.values():
+        images_by_employee.setdefault(img.role_id, []).append(img)
+    for lst in images_by_employee.values():
         lst.sort(key=lambda i: i.variant)
 
     # ── Slide 1: where you are -> where {concept} takes you ──────────────
@@ -223,38 +225,30 @@ def build_presentation(
         Inches(12.1), Inches(0.75), size=12, color=_MUTED, align=PP_ALIGN.LEFT,
     )
 
-    # ── One slide per role ────────────────────────────────────────────────
-    for i, role in enumerate(plan_result.get("roles") or []):
+    # ── One slide per AI employee ─────────────────────────────────────────
+    for i, emp in enumerate(employees_with_ids(consult_result)):
         slide = prs.slides.add_slide(blank)
         _add_bg(slide, _LIGHT_BG)
         _add_accent_bar(slide, primary, 0, 0, SLIDE_W)
 
         _add_text(
-            slide, f"ROLE {i + 1:02d}", MARGIN, Inches(0.5), Inches(6), Inches(0.4),
+            slide, f"AI EMPLOYEE {i + 1:02d}", MARGIN, Inches(0.5), Inches(6), Inches(0.4),
             size=13, color=primary, bold=True,
         )
         _add_text(
-            slide, role.get("label", "Role"), MARGIN, Inches(0.9), Inches(6.1), Inches(0.9),
+            slide, emp.get("title", "AI Employee"), MARGIN, Inches(0.9), Inches(6.1), Inches(0.9),
             size=26, color=_SLATE_DARK, bold=True,
         )
         _add_text(
-            slide, role.get("description", ""), MARGIN, Inches(1.85), Inches(6.1), Inches(1.6),
-            size=14, color=_SLATE, line_spacing=1.25,
+            slide, emp.get("why", ""), MARGIN, Inches(1.85), Inches(6.1), Inches(3.5),
+            size=14, color=_SLATE, line_spacing=1.3,
         )
-
-        features = (role.get("features_shown") or [])[:4]
-        if features:
-            _eyebrow(slide, "What this unlocks", MARGIN, Inches(3.5), primary)
-            _add_bullets(
-                slide, features, MARGIN, Inches(3.95), Inches(6.1), Inches(3),
-                size=13, color=_SLATE_DARK, accent=primary, gap=1.0,
-            )
 
         # Image, right side
         pic_left, pic_top = Inches(7.1), Inches(0.9)
         pic_w, pic_h = Inches(5.6), Inches(5.9)
-        role_images = images_by_role.get(role.get("id", ""), [])
-        img_path = _abs_image_path(role_images[0].file_path) if role_images else None
+        emp_images = images_by_employee.get(emp.get("id", ""), [])
+        img_path = _abs_image_path(emp_images[0].file_path) if emp_images else None
         if img_path:
             _place_image_cover(slide, img_path, pic_left, pic_top, pic_w, pic_h)
         else:

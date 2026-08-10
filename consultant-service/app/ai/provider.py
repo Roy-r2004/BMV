@@ -48,9 +48,16 @@ def chat(model: str, messages: list[dict], *, max_tokens: int = 2000, timeout: f
     return resp.json()
 
 
-def generate_image(prompt: str, *, model: str | None = None, max_tokens: int = 4096, timeout: float = 120.0) -> dict:
+def generate_image(prompt: str, *, model: str | None = None, max_tokens: int = 10000, timeout: float = 120.0) -> dict:
     """Calls an image-output-capable model via OpenRouter's chat completions
     endpoint (modalities=["image", "text"]). Returns {"image_bytes": bytes, "usage": dict | None}.
+
+    max_tokens is generous (not the usual tight cap) — this model spends
+    ~1000-1500 tokens on internal reasoning before the ~4000+ tokens of
+    actual image output. Seen in testing: a 4096 cap let reasoning alone
+    exhaust the budget and return `finish_reason: "length"` with zero
+    image — a real, silent-looking failure, not a cost-safety trade-off
+    worth making here.
     """
     resp = httpx.post(
         CHAT_URL,
