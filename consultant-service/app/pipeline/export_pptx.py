@@ -1,0 +1,299 @@
+"""Builds a downloadable PowerPoint recap of a request's deliverable:
+opening slide contrasting today vs. the AI-powered vision, one slide per
+role using that role's generated image, and a closing next-steps slide.
+
+Pure presentation assembly — no AI calls, no cost. Reads whatever the
+pipeline already produced (analysis/consult/plan JSON + GeneratedImage
+files on disk) and degrades gracefully when a role has no image yet.
+"""
+
+import json
+import os
+
+from pptx import Presentation
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.util import Emu, Inches, Pt
+
+from app.config import settings
+from app.models import Request
+
+SLIDE_W = Inches(13.333)
+SLIDE_H = Inches(7.5)
+MARGIN = Inches(0.6)
+
+_DARK_BG = RGBColor(0x0B, 0x10, 0x20)
+_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+_LIGHT_BG = RGBColor(0xF8, 0xFA, 0xFC)
+_SLATE = RGBColor(0x47, 0x55, 0x69)
+_SLATE_DARK = RGBColor(0x0F, 0x17, 0x2A)
+_MUTED = RGBColor(0x94, 0xA3, 0xB8)
+
+
+def _hex_to_rgb(hex_color: str | None, fallback: str = "#4f46e5") -> RGBColor:
+    value = (hex_color or fallback).lstrip("#")
+    if len(value) != 6:
+        value = fallback.lstrip("#")
+    return RGBColor(int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16))
+
+
+def _abs_image_path(file_path: str) -> str | None:
+    """`/uploads/images/{id}/{file}.png` -> absolute path on disk, or None if missing."""
+    marker = "/uploads/"
+    if marker not in file_path:
+        return None
+    rel = file_path.split(marker, 1)[1]
+    abs_path = os.path.join(settings.UPLOADS_DIR, rel)
+    return abs_path if os.path.isfile(abs_path) else None
+
+
+def _add_bg(slide, color: RGBColor) -> None:
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = color
+
+
+def _add_text(
+    slide,
+    text: str,
+    left, top, width, height,
+    *,
+    size: int,
+    color: RGBColor,
+    bold: bool = False,
+    align=PP_ALIGN.LEFT,
+    font: str = "Calibri",
+    anchor=None,
+    line_spacing: float | None = None,
+):
+    box = slide.shapes.add_textbox(left, top, width, height)
+    tf = box.text_frame
+    tf.word_wrap = True
+    if anchor is not None:
+        tf.vertical_anchor = anchor
+    p = tf.paragraphs[0]
+    p.alignment = align
+    if line_spacing:
+        p.line_spacing = line_spacing
+    run = p.add_run()
+    run.text = text
+    run.font.size = Pt(size)
+    run.font.bold = bold
+    run.font.color.rgb = color
+    run.font.name = font
+    return box
+
+
+def _add_bullets(
+    slide,
+    items: list[str],
+    left, top, width, height,
+    *,
+    size: int,
+    color: RGBColor,
+    accent: RGBColor,
+    gap: float = 1.35,
+):
+    box = slide.shapes.add_textbox(left, top, width, height)
+    tf = box.text_frame
+    tf.word_wrap = True
+    for i, item in enumerate(items):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.space_after = Pt(size * gap)
+        run = p.add_run()
+        run.text = f"›  {item}"
+        run.font.size = Pt(size)
+        run.font.color.rgb = color
+        run.font.name = "Calibri"
+    return box
+
+
+def _add_accent_bar(slide, color: RGBColor, left, top, width, height=Emu(0)) -> None:
+    from pptx.enum.shapes import MSO_SHAPE
+
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height or Pt(5))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = color
+    shape.line.fill.background()
+
+
+def _eyebrow(slide, text: str, left, top, color: RGBColor):
+    return _add_text(
+        slide, text.upper(), left, top, Inches(8), Inches(0.4),
+        size=13, color=color, bold=True,
+    )
+
+
+def _title_slide_layout(prs: Presentation, slide):
+    slide.shapes.title = None  # blank layout has no placeholders to clear
+
+
+def build_presentation(
+    req: Request,
+    analysis: dict,
+    consult_result: dict,
+    plan_result: dict,
+    images: list,
+) -> Presentation:
+    prs = Presentation()
+    prs.slide_width = SLIDE_W
+    prs.slide_height = SLIDE_H
+    blank = prs.slide_layouts[6]
+
+    theme = plan_result.get("visual_theme") or {}
+    primary = _hex_to_rgb(theme.get("primary_color"))
+    concept = plan_result.get("concept_name") or req.business_name
+
+    images_by_role: dict[str, list] = {}
+    for img in images:
+        images_by_role.setdefault(img.role_id, []).append(img)
+    for lst in images_by_role.values():
+        lst.sort(key=lambda i: i.variant)
+
+    # ── Slide 1: where you are -> where {concept} takes you ──────────────
+    slide = prs.slides.add_slide(blank)
+    _add_bg(slide, _DARK_BG)
+    _add_accent_bar(slide, primary, 0, 0, SLIDE_W)
+
+    _add_text(
+        slide, req.business_name, MARGIN, Inches(0.5), Inches(12), Inches(0.5),
+        size=14, color=_MUTED, bold=True,
+    )
+    _add_text(
+        slide, f"What we have — and where {concept} takes you", MARGIN, Inches(0.95),
+        Inches(12.1), Inches(1.1), size=30, color=_WHITE, bold=True,
+    )
+
+    col_w = Inches(5.85)
+    left_x = MARGIN
+    right_x = Inches(6.9)
+    top_y = Inches(2.3)
+
+    _eyebrow(slide, "Today", left_x, top_y, RGBColor(0xF8, 0x71, 0x71))
+    pain_points = analysis.get("pain_points") or []
+    _add_bullets(
+        slide, pain_points or ["Manual, reactive operations with no AI layer."],
+        left_x, top_y + Inches(0.5), col_w, Inches(4),
+        size=15, color=RGBColor(0xE2, 0xE8, 0xF0), accent=RGBColor(0xF8, 0x71, 0x71),
+    )
+
+    _eyebrow(slide, f"With {concept}", right_x, top_y, RGBColor(0x4A, 0xDE, 0x80))
+    outcome_lines = [analysis.get("growth_opportunity") or ""] if analysis.get("growth_opportunity") else []
+    outcome_lines += (consult_result.get("recommended_features") or [])[:4]
+    _add_bullets(
+        slide, [x for x in outcome_lines if x],
+        right_x, top_y + Inches(0.5), col_w, Inches(4),
+        size=15, color=RGBColor(0xE2, 0xE8, 0xF0), accent=RGBColor(0x4A, 0xDE, 0x80),
+    )
+
+    _add_text(
+        slide, consult_result.get("consulting_summary") or "", MARGIN, Inches(6.55),
+        Inches(12.1), Inches(0.7), size=12, color=_MUTED, align=PP_ALIGN.LEFT,
+    )
+
+    # ── One slide per role ────────────────────────────────────────────────
+    for i, role in enumerate(plan_result.get("roles") or []):
+        slide = prs.slides.add_slide(blank)
+        _add_bg(slide, _LIGHT_BG)
+        _add_accent_bar(slide, primary, 0, 0, SLIDE_W)
+
+        _add_text(
+            slide, f"ROLE {i + 1:02d}", MARGIN, Inches(0.5), Inches(6), Inches(0.4),
+            size=13, color=primary, bold=True,
+        )
+        _add_text(
+            slide, role.get("label", "Role"), MARGIN, Inches(0.9), Inches(6.1), Inches(0.9),
+            size=26, color=_SLATE_DARK, bold=True,
+        )
+        _add_text(
+            slide, role.get("description", ""), MARGIN, Inches(1.85), Inches(6.1), Inches(1.6),
+            size=14, color=_SLATE, line_spacing=1.25,
+        )
+
+        features = role.get("features_shown") or []
+        if features:
+            _eyebrow(slide, "What this unlocks", MARGIN, Inches(3.5), primary)
+            _add_bullets(
+                slide, features, MARGIN, Inches(3.95), Inches(6.1), Inches(3),
+                size=13, color=_SLATE_DARK, accent=primary, gap=1.1,
+            )
+
+        # Image, right side
+        pic_left, pic_top = Inches(7.1), Inches(0.9)
+        pic_w, pic_h = Inches(5.6), Inches(5.9)
+        role_images = images_by_role.get(role.get("id", ""), [])
+        img_path = _abs_image_path(role_images[0].file_path) if role_images else None
+        if img_path:
+            slide.shapes.add_picture(img_path, pic_left, pic_top, width=pic_w, height=pic_h)
+        else:
+            from pptx.enum.shapes import MSO_SHAPE
+
+            placeholder = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pic_left, pic_top, pic_w, pic_h)
+            placeholder.fill.solid()
+            placeholder.fill.fore_color.rgb = RGBColor(0xE2, 0xE8, 0xF0)
+            placeholder.line.color.rgb = RGBColor(0xCB, 0xD5, 0xE1)
+            tf = placeholder.text_frame
+            tf.word_wrap = True
+            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            p = tf.paragraphs[0]
+            p.alignment = PP_ALIGN.CENTER
+            run = p.add_run()
+            run.text = "Image pending"
+            run.font.size = Pt(16)
+            run.font.color.rgb = _SLATE
+
+    # ── Closing slide ─────────────────────────────────────────────────────
+    slide = prs.slides.add_slide(blank)
+    _add_bg(slide, _DARK_BG)
+    _add_accent_bar(slide, primary, 0, 0, SLIDE_W)
+
+    _add_text(
+        slide, "The next step", MARGIN, Inches(0.7), Inches(10), Inches(0.4),
+        size=13, color=_MUTED, bold=True,
+    )
+    _add_text(
+        slide, f"Ready to make {concept} real?", MARGIN, Inches(1.1), Inches(12), Inches(1),
+        size=30, color=_WHITE, bold=True,
+    )
+
+    employees = consult_result.get("recommended_ai_employees") or []
+    if employees:
+        col_w = Inches(3.85)
+        gap = Inches(0.25)
+        for i, emp in enumerate(employees[:3]):
+            x = MARGIN + i * (col_w + gap)
+            from pptx.enum.shapes import MSO_SHAPE
+
+            card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, Inches(2.5), col_w, Inches(3.4))
+            card.fill.solid()
+            card.fill.fore_color.rgb = RGBColor(0x14, 0x1B, 0x2E)
+            card.line.color.rgb = RGBColor(0x2A, 0x33, 0x4A)
+            tf = card.text_frame
+            tf.word_wrap = True
+            tf.margin_left = Pt(14)
+            tf.margin_right = Pt(14)
+            tf.margin_top = Pt(16)
+            p0 = tf.paragraphs[0]
+            r0 = p0.add_run()
+            r0.text = emp.get("title", "AI Employee")
+            r0.font.bold = True
+            r0.font.size = Pt(15)
+            r0.font.color.rgb = _WHITE
+            p1 = tf.add_paragraph()
+            p1.space_before = Pt(8)
+            r1 = p1.add_run()
+            r1.text = emp.get("why", "")
+            r1.font.size = Pt(11.5)
+            r1.font.color.rgb = _MUTED
+
+    _add_text(
+        slide, f"Prepared exclusively for {req.business_name}", MARGIN, Inches(6.7),
+        Inches(12), Inches(0.5), size=12, color=_MUTED,
+    )
+
+    return prs
+
+
+def export_path_for(request_id: int) -> str:
+    out_dir = os.path.join(settings.UPLOADS_DIR, "exports")
+    os.makedirs(out_dir, exist_ok=True)
+    return os.path.join(out_dir, f"{request_id}.pptx")

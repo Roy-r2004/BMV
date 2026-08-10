@@ -11,6 +11,7 @@ import ShareDemoButton from '../components/ShareDemoButton';
 import GenerationCinematic from '../components/preview/GenerationCinematic';
 import VisualDemoPreview from '../components/VisualDemoPreview';
 import PreviewAppPreview from '../components/preview/PreviewAppPreview';
+import ConsultantExperience from '../components/preview/ConsultantExperience';
 import RoleBasedPreview from '../components/preview/rolePages/RoleBasedPreview';
 import DeliveryNavigator from '../components/delivery/DeliveryNavigator';
 import { buildDeliveryNavItems } from '../components/delivery/deliveryNavItems';
@@ -85,7 +86,10 @@ export default function ResultPreviewPage() {
   const requestId = id ? Number(id) : 0;
   const isShareRoute = location.pathname.startsWith('/share/');
   const isDemoView = searchParams.get('from') === 'demo' || isShareRoute;
-  const showRefineChat = !isDemoView;
+  // The refine chat drives live-preview rebuilds — the consultant-service
+  // image pipeline has no chat backend, so hide it for image results.
+  const isAttractionResult = Boolean(preview?.generated_pages?.attraction_images?.length);
+  const showRefineChat = !isDemoView && !isAttractionResult;
   const chatGutter = showRefineChat ? 'result-with-chat-gutter' : '';
 
   const handlePreviewUpdate = useCallback((updates: Partial<PreviewResponse>) => {
@@ -169,6 +173,14 @@ export default function ResultPreviewPage() {
 
       <AiModelsBanner status={aiStatus} compact />
 
+      {isAttractionResult ? (
+        <ConsultantExperience
+          preview={preview}
+          onRequestBuild={handleRequestBuild}
+          demoView={isDemoView}
+        />
+      ) : (
+      <>
       <div className="result-above-fold">
         {revealed && (
           <motion.div
@@ -255,7 +267,7 @@ export default function ResultPreviewPage() {
           buildPlans={preview.build_plans}
           onRequestBuild={handleRequestBuild}
           onRegeneratePlans={
-            isDemoView
+            isDemoView || isAttractionResult
               ? undefined
               : async () => {
                   const res = await generateBuildPlans(preview.id);
@@ -268,6 +280,8 @@ export default function ResultPreviewPage() {
           demoView={isDemoView}
         />
       </div>
+      </>
+      )}
 
       {showRefineChat && (
         <PreviewRefineChat

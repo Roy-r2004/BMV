@@ -277,10 +277,19 @@ export interface PreviewAppInfo {
   built_at?: number | null;
 }
 
+export interface AttractionImage {
+  role_id: string;
+  role_label: string;
+  image_url: string;
+  variant: number;
+}
+
 export interface GeneratedPages {
   roles?: GeneratedRole[];
   preview_app?: PreviewAppInfo;
   experience_plan?: Record<string, unknown>;
+  /** AI-generated concept images per role (consultant-service pipeline). */
+  attraction_images?: AttractionImage[];
 }
 
 // ─── Preview response ──────────────────────────────────────────────────────────

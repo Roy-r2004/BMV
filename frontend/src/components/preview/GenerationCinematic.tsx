@@ -27,6 +27,14 @@ const STAGE_TO_STEP: Record<string, number> = {
   critic: 3, visual_critic: 3,
   build: 4, build_done: 4, build_failed: 4, tech: 4, proposal: 4, build_plans: 4,
   done: 5, ready: 5, failed: 4,
+  // Consultant-service pipeline (analyze → consult → plan → blueprint →
+  // technical → image direction → images). `blueprint`/`done`/`failed` reuse
+  // the ids above.
+  queued: 0, analyzing: 0, consulting: 0,
+  planning: 1,
+  technical: 4,
+  directing: 2,
+  images: 3,
 };
 
 /* ─── SVG icon paths (Heroicons 24 outline, viewBox 0 0 24 24) ────────── */
