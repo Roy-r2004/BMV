@@ -10,6 +10,7 @@ files on disk) and degrades gracefully when a role has no image yet.
 import json
 import os
 
+from PIL import Image
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
@@ -45,6 +46,33 @@ def _abs_image_path(file_path: str) -> str | None:
     rel = file_path.split(marker, 1)[1]
     abs_path = os.path.join(settings.UPLOADS_DIR, rel)
     return abs_path if os.path.isfile(abs_path) else None
+
+
+def _place_image_cover(slide, img_path: str, left, top, width, height) -> None:
+    """Places an image filling exactly (left, top, width, height) with no
+    distortion and no letterboxing — crops the longer axis, like CSS
+    `object-fit: cover`. Plain `add_picture(..., width=, height=)` stretches
+    the source to fit both dimensions, which visibly distorts any image
+    whose aspect ratio doesn't already match the target box.
+    """
+    with Image.open(img_path) as im:
+        native_w, native_h = im.size
+    native_ratio = native_w / native_h
+    target_ratio = width / height
+
+    pic = slide.shapes.add_picture(img_path, left, top, width=width, height=height)
+    if native_ratio > target_ratio:
+        # Image relatively wider than the box — crop left/right.
+        visible_fraction = target_ratio / native_ratio
+        crop = (1 - visible_fraction) / 2
+        pic.crop_left = crop
+        pic.crop_right = crop
+    elif native_ratio < target_ratio:
+        # Image relatively taller than the box — crop top/bottom.
+        visible_fraction = native_ratio / target_ratio
+        crop = (1 - visible_fraction) / 2
+        pic.crop_top = crop
+        pic.crop_bottom = crop
 
 
 def _add_bg(slide, color: RGBColor) -> None:
@@ -163,31 +191,36 @@ def build_presentation(
         Inches(12.1), Inches(1.1), size=30, color=_WHITE, bold=True,
     )
 
+    # Capped tightly (3 per column, not 4-5) and given a wide clearance gap
+    # before the summary line below — a real stress test (a verbose dental
+    # clinic's 4 long pain points) overflowed into the summary at looser
+    # caps/spacing. 3 short, punchy bullets read better anyway.
     col_w = Inches(5.85)
     left_x = MARGIN
     right_x = Inches(6.9)
     top_y = Inches(2.3)
+    bullets_h = Inches(3.65)
 
     _eyebrow(slide, "Today", left_x, top_y, RGBColor(0xF8, 0x71, 0x71))
-    pain_points = analysis.get("pain_points") or []
+    pain_points = (analysis.get("pain_points") or [])[:3]
     _add_bullets(
         slide, pain_points or ["Manual, reactive operations with no AI layer."],
-        left_x, top_y + Inches(0.5), col_w, Inches(4),
-        size=15, color=RGBColor(0xE2, 0xE8, 0xF0), accent=RGBColor(0xF8, 0x71, 0x71),
+        left_x, top_y + Inches(0.5), col_w, bullets_h,
+        size=15, color=RGBColor(0xE2, 0xE8, 0xF0), accent=RGBColor(0xF8, 0x71, 0x71), gap=1.15,
     )
 
     _eyebrow(slide, f"With {concept}", right_x, top_y, RGBColor(0x4A, 0xDE, 0x80))
     outcome_lines = [analysis.get("growth_opportunity") or ""] if analysis.get("growth_opportunity") else []
-    outcome_lines += (consult_result.get("recommended_features") or [])[:4]
+    outcome_lines += (consult_result.get("recommended_features") or [])[:2]
     _add_bullets(
-        slide, [x for x in outcome_lines if x],
-        right_x, top_y + Inches(0.5), col_w, Inches(4),
-        size=15, color=RGBColor(0xE2, 0xE8, 0xF0), accent=RGBColor(0x4A, 0xDE, 0x80),
+        slide, [x for x in outcome_lines if x][:3],
+        right_x, top_y + Inches(0.5), col_w, bullets_h,
+        size=15, color=RGBColor(0xE2, 0xE8, 0xF0), accent=RGBColor(0x4A, 0xDE, 0x80), gap=1.15,
     )
 
     _add_text(
-        slide, consult_result.get("consulting_summary") or "", MARGIN, Inches(6.55),
-        Inches(12.1), Inches(0.7), size=12, color=_MUTED, align=PP_ALIGN.LEFT,
+        slide, consult_result.get("consulting_summary") or "", MARGIN, Inches(6.65),
+        Inches(12.1), Inches(0.75), size=12, color=_MUTED, align=PP_ALIGN.LEFT,
     )
 
     # ── One slide per role ────────────────────────────────────────────────
@@ -209,12 +242,12 @@ def build_presentation(
             size=14, color=_SLATE, line_spacing=1.25,
         )
 
-        features = role.get("features_shown") or []
+        features = (role.get("features_shown") or [])[:4]
         if features:
             _eyebrow(slide, "What this unlocks", MARGIN, Inches(3.5), primary)
             _add_bullets(
                 slide, features, MARGIN, Inches(3.95), Inches(6.1), Inches(3),
-                size=13, color=_SLATE_DARK, accent=primary, gap=1.1,
+                size=13, color=_SLATE_DARK, accent=primary, gap=1.0,
             )
 
         # Image, right side
@@ -223,7 +256,7 @@ def build_presentation(
         role_images = images_by_role.get(role.get("id", ""), [])
         img_path = _abs_image_path(role_images[0].file_path) if role_images else None
         if img_path:
-            slide.shapes.add_picture(img_path, pic_left, pic_top, width=pic_w, height=pic_h)
+            _place_image_cover(slide, img_path, pic_left, pic_top, pic_w, pic_h)
         else:
             from pptx.enum.shapes import MSO_SHAPE
 
@@ -255,35 +288,44 @@ def build_presentation(
         size=30, color=_WHITE, bold=True,
     )
 
-    employees = consult_result.get("recommended_ai_employees") or []
+    employees = (consult_result.get("recommended_ai_employees") or [])[:3]
     if employees:
-        col_w = Inches(3.85)
+        n = len(employees)
+        col_w = Inches((12.133 - (n - 1) * 0.25) / n)
         gap = Inches(0.25)
-        for i, emp in enumerate(employees[:3]):
+        card_top = Inches(2.5)
+        card_h = Inches(2.9)
+        for i, emp in enumerate(employees):
             x = MARGIN + i * (col_w + gap)
             from pptx.enum.shapes import MSO_SHAPE
 
-            card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, Inches(2.5), col_w, Inches(3.4))
+            card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, card_top, col_w, card_h)
             card.fill.solid()
             card.fill.fore_color.rgb = RGBColor(0x14, 0x1B, 0x2E)
             card.line.color.rgb = RGBColor(0x2A, 0x33, 0x4A)
             tf = card.text_frame
             tf.word_wrap = True
-            tf.margin_left = Pt(14)
-            tf.margin_right = Pt(14)
-            tf.margin_top = Pt(16)
+            tf.vertical_anchor = MSO_ANCHOR.TOP
+            tf.margin_left = Pt(16)
+            tf.margin_right = Pt(16)
+            tf.margin_top = Pt(18)
+            tf.margin_bottom = Pt(18)
             p0 = tf.paragraphs[0]
+            p0.alignment = PP_ALIGN.LEFT
             r0 = p0.add_run()
             r0.text = emp.get("title", "AI Employee")
             r0.font.bold = True
             r0.font.size = Pt(15)
             r0.font.color.rgb = _WHITE
+            r0.font.name = "Calibri"
             p1 = tf.add_paragraph()
+            p1.alignment = PP_ALIGN.LEFT
             p1.space_before = Pt(8)
             r1 = p1.add_run()
             r1.text = emp.get("why", "")
             r1.font.size = Pt(11.5)
             r1.font.color.rgb = _MUTED
+            r1.font.name = "Calibri"
 
     _add_text(
         slide, f"Prepared exclusively for {req.business_name}", MARGIN, Inches(6.7),
