@@ -18,7 +18,18 @@ export interface MdItem {
   raw?: string;
 }
 
+/** Windows-style `\r\n` leaves a trailing `\r` on every line but the last
+ * after a naive `.split('\n')` — and since `.` doesn't match `\r` and `$`
+ * (without `/m`) requires true end-of-string, that trailing `\r` silently
+ * fails line-anchored regexes like the bullet-marker matcher below (found
+ * live: it discarded every list item except the last). Normalize once,
+ * here at the entry point every section body derives from. */
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, '\n');
+}
+
 export function splitH2Sections(markdown: string): MdSection[] {
+  markdown = normalizeLineEndings(markdown);
   const sections: MdSection[] = [];
   const parts = markdown.split(/^##\s+(?!#)/m).filter(Boolean);
   for (const part of parts) {
@@ -38,6 +49,13 @@ export function findSection(sections: MdSection[], pattern: RegExp): MdSection |
 
 /** Sub-sections introduced with `### Name`. */
 export function splitH3Subsections(body: string): MdItem[] {
+  // String.split() on a pattern that never matches returns the whole input
+  // as a single element — without this guard, a body with zero `###`
+  // headers was misread as one malformed subsection (the entire body,
+  // sliced at its first newline) instead of correctly returning empty so
+  // callers fall through to parseListItems.
+  body = normalizeLineEndings(body);
+  if (!/^###\s+/m.test(body)) return [];
   const items: MdItem[] = [];
   const parts = body.split(/^###\s+/m).filter(Boolean);
   for (const part of parts) {
@@ -57,7 +75,7 @@ export function splitH3Subsections(body: string): MdItem[] {
 export function parseListItems(body: string): MdItem[] {
   const items: MdItem[] = [];
   // Join wrapped lines: a list item runs until the next marker or blank line.
-  const lines = body.split('\n');
+  const lines = normalizeLineEndings(body).split('\n');
   let current: string | null = null;
   const flush = () => {
     if (!current) return;
@@ -91,6 +109,7 @@ export function parseListItems(body: string): MdItem[] {
 
 /** First paragraph of a body (text before the first blank line or list). */
 export function firstParagraph(body: string): string {
+  body = normalizeLineEndings(body);
   const beforeList = body.split(/^\s*(?:[-*+]|\d+[.)])\s+/m)[0] ?? body;
   const para = beforeList.split(/\n\s*\n/)[0] ?? beforeList;
   return stripInlineMarkdown(para.replace(/\n/g, ' ').trim());
