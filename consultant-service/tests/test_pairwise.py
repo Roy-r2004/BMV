@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 from app.ai import provider
 from app.pipeline import pairwise
+from app.templating import render
 
 
 def _response(payload: str) -> dict:
@@ -126,3 +127,46 @@ def test_pairwise_uses_its_own_configured_judge(dental_spec):
         pairwise._judge_once(None, None, b"a", b"b", dental_spec)
 
     assert used == ["anthropic/claude-sonnet-5"], "the comparator is a separate instrument from the per-image judge"
+
+
+# ── the v2 rubric (session 33) ───────────────────────────────────────────
+
+def test_the_rubric_forbids_text_claims_outright(dental_spec):
+    """Two judges have now failed this instrument the same way: pick the
+    first-presented image, then justify it with a spelling claim the
+    text-truth gate contradicts on the same file. v2 removes the question
+    rather than hoping for a better answer to it."""
+    prompt = render("image_pairwise_judge.j2",
+                    screen_title="Dashboard", product_name="P", business_name="B", industry="I")
+
+    assert "may not make any claim about text content, spelling, wording or text accuracy" in prompt
+    assert "If your reason for preferring one image is that its text is more correct, discard the reason" in prompt
+    # v1 led with text truth as criterion 1. It must not be a criterion at all.
+    assert "TEXT TRUTH" not in prompt
+    assert "must be spelled exactly" not in prompt
+
+
+def test_the_rubric_makes_a_tie_a_real_answer(dental_spec):
+    """The pressure to name a winner is what the position bias hid behind."""
+    prompt = render("image_pairwise_judge.j2",
+                    screen_title="Dashboard", product_name="P", business_name="B", industry="I")
+    assert '"tie" is a real answer here, not a failure to decide' in prompt
+    assert "The order the images appear in this message is arbitrary" in prompt
+
+
+def test_the_rubric_no_longer_judges_a_corner_the_pipeline_stopped_reserving(dental_spec):
+    """WATERMARK_STYLE=footer since session 32. v1 scored images against a
+    reserved bottom-right corner that no prompt asks for any more."""
+    prompt = render("image_pairwise_judge.j2",
+                    screen_title="Dashboard", product_name="P", business_name="B", industry="I")
+    assert "logo corner" not in prompt
+    assert "reserved" not in prompt
+
+
+def test_the_rubric_still_names_the_defects_the_dod_lists(dental_spec):
+    """DoD line 2's defect list is what this instrument is now for."""
+    prompt = render("image_pairwise_judge.j2",
+                    screen_title="Dashboard", product_name="P", business_name="B", industry="I")
+    for defect in ("Duplication", "Clipping and truncation", "Blank and unlabelled elements",
+                   "Chrome that is not the application"):
+        assert defect in prompt

@@ -104,10 +104,13 @@ def test_the_intelligence_module_carries_no_field_labels(dental_spec):
     ):
         for label in ("Reasoning line:", "Confidence readout:", "Headline:"):
             assert label not in prompt, f"{label!r} is a field label sitting in front of a string to render"
-        # The values themselves must survive the rewrite.
-        assert "Optimize Travel Lift 2" in prompt
-        assert "High demand, low current use" in prompt
-        assert "92% optimal" in prompt
+        # Nor wrapped in anything. The first attempt at this rewrite quoted
+        # each value to delimit it, and the salon anchor drew the quotation
+        # marks: its headline shipped reading «"Recommend Add-on: Deep
+        # Conditioning"». A delimiter is scaffolding too.
+        for value in ("Optimize Travel Lift 2", "High demand, low current use", "92% optimal"):
+            assert value in prompt
+            assert f'"{value}"' not in prompt, f"{value!r} is wrapped in quotes the model can draw"
         assert "Resource Allocation" in prompt
 
 
@@ -338,3 +341,45 @@ def _blank_png() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (64, 40), "white").save(buf, format="PNG")
     return buf.getvalue()
+
+
+def test_the_intelligence_module_leaves_no_title_vacancy():
+    """The law cell shipped cards headed "SOFTWARE-FORMED OPINION" and "ONLY
+    AI INTELLIGENCE" — both paraphrases of the sentence that used to open
+    this block. The module has no title field, so an untitled panel next to
+    descriptive prose gets titled from the prose. Closing the vacancy is the
+    fix; forbidding the behaviour is what failed in session 32."""
+    prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
+
+    assert "Its topmost line is the headline below" in prompt
+    assert "nothing whatever is written above that headline" in prompt
+    # The noun phrases the model lifted must not be there to lift.
+    assert "ONLY AI element" not in prompt
+    assert "states an opinion the software has formed" not in prompt
+    # The constraint it carried still has to be said, just not as a caption.
+    assert "not a log, a feed, a task queue or a list of events" in prompt
+
+
+def test_composition_variants_carry_no_name_header_the_model_can_title_a_panel_with():
+    """The session-33 golden set shipped an intelligence module titled "HERO
+    INTELLIGENCE" (law) and another titled "PREMIUM AI INTELLIGENCE"
+    (retail). Both anchors ran the hero-intelligence variant, whose directive
+    opened "COMPOSITION DIRECTION — Hero Intelligence:" and asked for
+    "premium, polished treatment". The variant's label is for humans and for
+    the bake-off matrix; it does not belong in the text the model reads."""
+    for variant in prompt_builder.COMPOSITION_VARIANTS:
+        directive = variant["directive"]
+        assert "COMPOSITION DIRECTION" not in directive
+        assert variant["label"] not in directive, f"{variant['label']!r} is a title waiting to be drawn"
+    # The stale name too: W12 replaced the AI Workstream log with the
+    # intelligence module, and a directive still asking for "the AI
+    # Workstream module" invites a panel by that name.
+    assert not any("AI Workstream" in v["directive"] for v in prompt_builder.COMPOSITION_VARIANTS)
+
+
+def test_the_variant_still_reaches_the_prompt(dental_spec):
+    """De-scaffolding must not make the composition variable disappear — it
+    is the axis anchor selection is built on."""
+    variant = prompt_builder.COMPOSITION_VARIANTS[0]
+    prompt = prompt_builder.build_dashboard_image_prompt(dental_spec, composition=variant)
+    assert variant["directive"][:60] in prompt

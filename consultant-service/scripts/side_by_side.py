@@ -36,12 +36,14 @@ def _cell(rows: list[dict], brief: str, label: str) -> dict | None:
     return matches[-1] if matches else None
 
 
-def _image_for(cell: dict, variant: str) -> str | None:
+def _image_for(cell: dict, variant: str, index: int = 0) -> str | None:
     """The composited hero if the run produced one, else the raw screenshot —
     an old-default run predates compositing and has only the screenshot,
     which is exactly the comparison being shown."""
     root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), cell["out_dir"])
-    screen = cell["screens"][0]
+    if index >= len(cell["screens"]):
+        return None
+    screen = cell["screens"][index]
     base = os.path.join(root, "images", str(cell["request_id"]))
     for name in (f"{screen['role_id']}_{variant}.png", f"{screen['role_id']}_0.png"):
         path = os.path.join(base, name)
@@ -61,6 +63,10 @@ def main() -> None:
     parser.add_argument("--old-label", default="", help="condition label of the current default run")
     parser.add_argument("--new-label", default="golden", help="condition label of the new pipeline run")
     parser.add_argument("--briefs", nargs="+", default=None)
+    parser.add_argument(
+        "--full-set", action="store_true",
+        help="every screen of the new cell on one sheet, instead of one screen beside the old default",
+    )
     args = parser.parse_args()
 
     with open(RESULTS_PATH, encoding="utf-8") as f:
@@ -83,27 +89,56 @@ def main() -> None:
             print(f"  {brief}: new image missing on disk — skipped")
             continue
 
-        panels = [("NEW PIPELINE", new_path)]
-        if old_path:
-            panels.insert(0, ("CURRENT DEFAULT", old_path))
-        else:
-            print(f"  {brief}: no current-default run to compare against — showing the new one alone")
-
-        images = [(label, _fit(path, _PANEL_W)) for label, path in panels]
-        sheet_w = len(images) * _PANEL_W + (len(images) + 1) * _GAP
-        sheet_h = _HEADER + _LABEL + max(img.height for _, img in images) + _GAP
-        sheet = Image.new("RGB", (sheet_w, sheet_h), "#FFFFFF")
-        draw = ImageDraw.Draw(sheet)
-
         bundle = golden.load_brief(brief)
-        draw.text((_GAP, 30), f"{bundle['intake']['business_name']}  —  {bundle['archetype']}", fill="#111827")
-        draw.text((_GAP, 52), f"{bundle['screens'][0].screen_title} screen", fill="#6B7280")
 
-        x = _GAP
-        for label, image in images:
-            draw.text((x, _HEADER), label, fill="#6B7280")
-            sheet.paste(image, (x, _HEADER + _LABEL))
-            x += _PANEL_W + _GAP
+        if args.full_set:
+            # Every screen of the deliverable, stacked. Every sheet the owner
+            # has judged so far showed ONE screen per business; what a client
+            # actually receives is the set, and consistency ACROSS the set is
+            # the thing a single-screen sheet cannot show.
+            panels = []
+            for index, screen in enumerate(new_cell["screens"]):
+                path = _image_for(new_cell, "hero", index)
+                if path is None:
+                    print(f"  {brief}: screen {screen['role_id']} missing on disk — skipped")
+                    continue
+                title = screen["role_id"].replace("_", " ").title()
+                panels.append((f"{index + 1}. {title}", path))
+            if not panels:
+                continue
+            images = [(label, _fit(path, _PANEL_W)) for label, path in panels]
+            sheet_w = _PANEL_W + 2 * _GAP
+            sheet_h = _HEADER + sum(_LABEL + img.height + _GAP for _, img in images)
+            sheet = Image.new("RGB", (sheet_w, sheet_h), "#FFFFFF")
+            draw = ImageDraw.Draw(sheet)
+            draw.text((_GAP, 30), f"{bundle['intake']['business_name']}  —  {bundle['archetype']}", fill="#111827")
+            draw.text((_GAP, 52), f"the complete {len(images)}-screen deliverable", fill="#6B7280")
+            y = _HEADER
+            for label, image in images:
+                draw.text((_GAP, y), label, fill="#6B7280")
+                sheet.paste(image, (_GAP, y + _LABEL))
+                y += _LABEL + image.height + _GAP
+        else:
+            panels = [("NEW PIPELINE", new_path)]
+            if old_path:
+                panels.insert(0, ("CURRENT DEFAULT", old_path))
+            else:
+                print(f"  {brief}: no current-default run to compare against — showing the new one alone")
+
+            images = [(label, _fit(path, _PANEL_W)) for label, path in panels]
+            sheet_w = len(images) * _PANEL_W + (len(images) + 1) * _GAP
+            sheet_h = _HEADER + _LABEL + max(img.height for _, img in images) + _GAP
+            sheet = Image.new("RGB", (sheet_w, sheet_h), "#FFFFFF")
+            draw = ImageDraw.Draw(sheet)
+
+            draw.text((_GAP, 30), f"{bundle['intake']['business_name']}  —  {bundle['archetype']}", fill="#111827")
+            draw.text((_GAP, 52), f"{bundle['screens'][0].screen_title} screen", fill="#6B7280")
+
+            x = _GAP
+            for label, image in images:
+                draw.text((x, _HEADER), label, fill="#6B7280")
+                sheet.paste(image, (x, _HEADER + _LABEL))
+                x += _PANEL_W + _GAP
 
         out_path = os.path.join(SHEET_DIR, f"{brief}.png")
         sheet.save(out_path)

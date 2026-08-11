@@ -283,7 +283,11 @@ def test_ai_module_replaces_the_activity_log_rather_than_joining_it(dental_spec)
     spec.ai.headline = "Recommended: Tuesday"
     spec.ai.rationale = "Two cancellations, hygienist free"
     prompt = prompt_builder.build_dashboard_image_prompt(spec)
-    assert "The intelligence module — the ONLY AI element" in prompt
+    # Marker chosen for what it pins, not for its wording: the AI block
+    # exists and it declares the headline to be the module's top line.
+    # Session 33 rewrote the opening sentence because the model was
+    # drawing it as the panel's title (tests/test_end_to_end_defects.py).
+    assert "Its topmost line is the headline below" in prompt
     assert "AI WORKSTREAM" not in prompt
     assert "Recommended: Tuesday" in prompt
 
@@ -297,7 +301,7 @@ def test_ai_module_can_be_switched_off_wholesale(dental_spec):
     spec.ai.headline = "Recommended: Tuesday"
     with patch.object(prompt_builder.settings, "ENABLE_AI_LAYER", False):
         prompt = prompt_builder.build_dashboard_image_prompt(spec)
-    assert "The intelligence module — the ONLY AI element" not in prompt
+    assert "Its topmost line is the headline below" not in prompt
     assert "AI WORKSTREAM" in prompt
 
 

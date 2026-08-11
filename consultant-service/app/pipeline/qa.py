@@ -21,9 +21,11 @@ outage in the gate must not reject every candidate a request has.
 """
 
 import base64
+import io
 import logging
 import time
 
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.ai import provider
@@ -39,24 +41,82 @@ JUDGE_PROMPT_VERSION = "image-quality-judge-v1"
 TRANSCRIPTION_PROMPT_VERSION = "image-text-transcription-v1"
 
 
+def _magnified_bands(image_bytes: bytes) -> list[bytes]:
+    """The top band and the left band, upscaled — the two places the
+    brand-critical strings live (a top navigation bar or a left sidebar,
+    plus the product wordmark in the corner of whichever it is).
+
+    This exists because of a measured miss. On the session-33 golden set the
+    salon schedule screen rendered its navigation item as "Cilents" — i and
+    l transposed — and the gate reported the screen as passing, because the
+    transcriber read back "Clients". The anchor of the same run rendered
+    "Clients" correctly in the same slot at the same size, so the difference
+    is in the pixels, not in the reading.
+
+    The transcription prompt has told the model "if a word looks misspelled,
+    transcribe the misspelling — do not correct it" since it was written. It
+    did not help, which is this project's recurring lesson: an instruction
+    against a behaviour does not remove the behaviour. What the model was
+    short of is not willingness but RESOLUTION — the nav label is roughly
+    ten pixels tall in a 1376px-wide image, and a vision model downsamples
+    before it reads. Handing it the same pixels at 3x is a change to what it
+    can see rather than to what it is asked to do.
+
+    Deterministic, PIL-only, no extra model call — the crops ride along as
+    additional images on the transcription call that was already happening.
+    Failure here returns nothing rather than raising: a gate that cannot
+    magnify must still run at the old fidelity.
+    """
+    try:
+        base = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        width, height = base.size
+        bands = [
+            base.crop((0, 0, width, max(1, round(height * 0.14)))),      # top bar / wordmark
+            base.crop((0, 0, max(1, round(width * 0.22)), height)),      # left sidebar / wordmark
+        ]
+        out = []
+        for band in bands:
+            if band.width < 8 or band.height < 8:
+                continue
+            scaled = band.resize((band.width * 3, band.height * 3), Image.LANCZOS)
+            buffer = io.BytesIO()
+            scaled.save(buffer, format="PNG")
+            out.append(buffer.getvalue())
+        return out
+    except Exception as exc:
+        logger.warning("could not magnify text bands, transcribing at source resolution: %s", exc)
+        return []
+
+
 def transcribe(db: Session, request_id: int, image_bytes: bytes, screen: str | None = None) -> list[str] | None:
     """Every string visible in the image, as rendered. None when the call or
     parse failed — the caller must treat that as "unknown", never as "no
     text found", which would fail every brand-critical string at once."""
     prompt = render("image_text_transcription.j2")
-    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
+
+    def _uri(data: bytes) -> str:
+        return "data:image/png;base64," + base64.b64encode(data).decode()
+
+    content: list[dict] = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": _uri(image_bytes)}},
+    ]
+    bands = _magnified_bands(image_bytes) if settings.ENABLE_TEXT_TRUTH_ZOOM else []
+    if bands:
+        content.append({
+            "type": "text",
+            "text": (
+                "The images that follow are the same screenshot's top band and left band, enlarged 3x. "
+                "They contain no text the first image does not. Read the wordmark and the navigation "
+                "items from these, character by character, and report what is drawn there rather than "
+                "the word you expect it to be."
+            ),
+        })
+        content.extend({"type": "image_url", "image_url": {"url": _uri(b)}} for b in bands)
     try:
         body = provider.chat(
             settings.QA_MODEL,
-            [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": data_uri}},
-                    ],
-                }
-            ],
+            [{"role": "user", "content": content}],
             max_tokens=2000,
         )
         parsed = extract_json_from_text(body["choices"][0]["message"]["content"])

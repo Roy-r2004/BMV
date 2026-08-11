@@ -149,6 +149,13 @@ class Settings:
     # auto-reject at any aesthetic score. One extra cheap vision call per
     # candidate (~$0.001).
     ENABLE_TEXT_TRUTH_GATE: bool = _env_bool("ENABLE_TEXT_TRUTH_GATE", True)
+    # Attach 3x magnifications of the top and left bands to the transcription
+    # call. The gate's job is to notice a misspelled brand string, and on the
+    # session-33 golden set it missed one ("Cilents" for "Clients") because
+    # the label is ~10px tall and the transcriber read the word it expected.
+    # Deterministic PIL crops, no extra model call, a few tenths of a cent in
+    # extra image input. Off restores the single-image call exactly.
+    ENABLE_TEXT_TRUTH_ZOOM: bool = _env_bool("ENABLE_TEXT_TRUTH_ZOOM", True)
     # W2 art-direction packs: a per-archetype design system (type pairing,
     # density, chart treatment, color stance) appended to the image prompt.
     #

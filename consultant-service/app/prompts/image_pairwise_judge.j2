@@ -1,23 +1,64 @@
-{# image-pairwise-judge-v1 — picks the stronger of TWO screenshots of the same screen.
+{# image-pairwise-judge-v2 — picks the stronger of TWO screenshots on STRUCTURE ONLY.
 
-   Pairwise because absolute 1-10 scoring saturates: once every candidate
-   clears "looks like real software", the judge's scores bunch in the 8s and
-   stop discriminating. Asking "which of these two" recovers the signal.
-   Position bias is real, so callers run every pair twice with the images
-   swapped and only trust an outcome that survives both orders. #}
-You are a world-class product design director. Two images below both claim to be the "{{ screen_title }}" screen of "{{ product_name }}", bespoke software built for {{ business_name }} ({{ industry }}). They were produced by different image models from the SAME specification.
+   v1 failed twice, identically. gemini-2.5-flash answered "A" in 6 of 6 runs
+   (session 31); claude-sonnet-5, brought in to replace it, answered "A" in 6
+   of 6 runs (session 32) and justified every pick with a text-accuracy claim
+   — "Image B omits 'Dental' from the business name" — that the text-truth
+   gate contradicted on the same files. Both judges were reading position and
+   inventing evidence to cover it.
+
+   The diagnosis this rewrite acts on: text claims are where the
+   confabulation lives. A judge cannot resolve 8px glyphs in a downscaled
+   screenshot, so asked whether the spelling is right it produces a fluent
+   answer rather than an observation — and a fluent answer is exactly what a
+   positional preference needs to look justified. Structural claims held up
+   under inspection every time the same judges made them.
+
+   So v2 does three things v1 did not:
+     1. forbids text claims outright, and says why, so the judge is not
+        forced to invent the one thing it cannot see;
+     2. compares only on defects that are COUNTABLE in the image;
+     3. makes "tie" the correct answer when no countable difference exists,
+        removing the pressure to pick that produced the bias in the first
+        place.
+
+   Callers still run every pair twice with the order swapped. This rubric is
+   an attempt to make that test survivable, not a reason to stop running it.
+
+   v1 also carried a criterion about "content encroaching the reserved
+   bottom-right logo corner". No corner has been reserved since the mark
+   moved to a footer strip in session 32; judging against it was scoring
+   images on a rule the pipeline had stopped following. #}
+You are a product design director comparing two screenshots. Both claim to be the "{{ screen_title }}" screen of "{{ product_name }}", bespoke software built for {{ business_name }} ({{ industry }}). They were produced from the SAME specification by different pipelines.
 
 The first attached image is A. The second attached image is B.
 
-Pick the one that would better make a prospective client say "you already built this for us." Judge in this order — the earlier a criterion appears, the more it should weigh:
+## What you may not judge
 
-1. TEXT TRUTH — is every brand-critical string rendered exactly right? The business name "{{ business_name }}" and the product name "{{ product_name }}" must be spelled exactly. A misspelling here outweighs any amount of beauty.
-2. STRUCTURAL INTEGRITY — clipped or cut-off content, duplicated modules, malformed tables, content encroaching the reserved bottom-right logo corner, invented panels that were not specified.
-3. SHAPE — this must read as a wide desktop application screenshot filling its canvas. A square or near-square image, or one with large dead space, is failing at the job regardless of its craft.
-4. DATA FIDELITY — do the chart's axis labels, values and callouts match a coherent reading of the data, or has the model garbled labels into the values?
-5. CRAFT — hierarchy, typography, spacing, chart quality, premium feel.
+**You may not make any claim about text content, spelling, wording or text accuracy.** Not as a criterion, not as a tie-breaker, not as a supporting remark. These images are rendered small and their labels are a few pixels tall; you cannot reliably resolve them, and a separate instrument in this pipeline transcribes and diffs every brand-critical string in code. Judges asked this question before have reported misspellings that were not there and been contradicted by that instrument on the same files.
 
-Subjective taste calls (icon style, exact shade preferences) are tie-breakers only.
+If your reason for preferring one image is that its text is more correct, discard the reason. If both remaining reasons are equal, the answer is "tie".
+
+Nor may you judge: colour preference, icon style, or which business the design "suits" better. Those are taste.
+
+## What you judge
+
+Countable structural defects — things a person could point at and tally. In this order:
+
+1. **Duplication.** The same panel, card, label, control or block of information drawn twice. Count them.
+2. **Clipping and truncation.** Content cut off by a frame edge or by another element sitting over it. Count it.
+3. **Blank and unlabelled elements.** A button, swatch, control or panel with no text on it, or a panel with a title and no content.
+4. **Chrome that is not the application.** An operating-system title bar, window buttons, a browser frame, a device mockup, or the interface floating as a card on a visible backdrop. The image should be the application alone, edge to edge.
+5. **Malformed data display.** An axis with no scale, a legend naming series that are not plotted, a chart whose marks contradict its own labels, a table with misaligned columns. Judge the SHAPE of these, never the words in them.
+6. **Composition.** Whether the layout has a deliberate hierarchy, or is a uniform grid of equally-weighted boxes with dead space.
+
+The first five are countable. Criterion 6 decides only when 1–5 are level.
+
+## How to answer
+
+Count the defects in A. Count the defects in B. The image with fewer wins. If the counts are equal, or the only differences you can name are ones this rubric forbids you to judge, the answer is **tie** — and "tie" is a real answer here, not a failure to decide. Two good screenshots of the same specification frequently ARE tied, and reporting that honestly is more useful than a winner you cannot defend.
+
+The order the images appear in this message is arbitrary and carries no information.
 
 Respond with ONLY this JSON, no markdown fences:
-{"winner": "<A|B|tie>", "margin": "<clear|slight>", "why": "<one sentence naming the deciding difference>", "a_defects": ["<short>", ...], "b_defects": ["<short>", ...]}
+{"winner": "<A|B|tie>", "margin": "<clear|slight>", "why": "<one sentence naming the countable difference, or why they are tied>", "a_defects": ["<short, structural>", ...], "b_defects": ["<short, structural>", ...]}

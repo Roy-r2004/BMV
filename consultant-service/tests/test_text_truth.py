@@ -339,3 +339,70 @@ def test_a_genuine_misspelling_still_fails_when_other_strings_are_fine(dental_sp
     result = text_truth.check(dental_spec, transcript)
     assert result["passed"] is False
     assert result["failures"][0]["closest"] == "smilebrite dental"
+
+
+# ── the magnified bands (session 33) ─────────────────────────────────────
+
+def test_the_transcription_call_carries_magnified_bands():
+    """The gate missed "Cilents" for "Clients" on the salon schedule screen
+    and reported it as passing. The transcription prompt already said "do
+    not correct a misspelling" and had said so since it was written — what
+    the model lacked was resolution, not willingness, so the fix hands it
+    the same pixels bigger rather than asking again."""
+    import io as _io
+
+    from PIL import Image as _Image
+
+    from app.pipeline import qa as qa_mod
+
+    buf = _io.BytesIO()
+    _Image.new("RGB", (1376, 814), "black").save(buf, format="PNG")
+    sent = {}
+
+    def fake_chat(model, messages, **kwargs):
+        sent["content"] = messages[0]["content"]
+        return {"choices": [{"message": {"content": '{"text": ["Clients"]}'}}], "usage": {}}
+
+    class _Db:
+        def add(self, *_): ...
+        def commit(self): ...
+
+    with patch.object(qa_mod.provider, "chat", side_effect=fake_chat):
+        qa_mod.transcribe(_Db(), 1, buf.getvalue())
+
+    images = [p for p in sent["content"] if p["type"] == "image_url"]
+    assert len(images) == 3, "the full screenshot plus a magnified top band and left band"
+    assert any("enlarged 3x" in p.get("text", "") for p in sent["content"] if p["type"] == "text")
+
+
+def test_the_bands_can_be_switched_off_wholesale():
+    import io as _io
+
+    from PIL import Image as _Image
+
+    from app.pipeline import qa as qa_mod
+
+    buf = _io.BytesIO()
+    _Image.new("RGB", (400, 300), "black").save(buf, format="PNG")
+    sent = {}
+
+    def fake_chat(model, messages, **kwargs):
+        sent["content"] = messages[0]["content"]
+        return {"choices": [{"message": {"content": '{"text": []}'}}], "usage": {}}
+
+    class _Db:
+        def add(self, *_): ...
+        def commit(self): ...
+
+    with patch.object(qa_mod.provider, "chat", side_effect=fake_chat), \
+         patch.object(qa_mod.settings, "ENABLE_TEXT_TRUTH_ZOOM", False):
+        qa_mod.transcribe(_Db(), 1, buf.getvalue())
+
+    assert len([p for p in sent["content"] if p["type"] == "image_url"]) == 1
+
+
+def test_an_unmagnifiable_image_still_transcribes():
+    """A gate that cannot crop must run at the old fidelity, not fail."""
+    from app.pipeline import qa as qa_mod
+
+    assert qa_mod._magnified_bands(b"not an image") == []

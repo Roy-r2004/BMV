@@ -29,7 +29,7 @@ from app.ui_spec import UIDemoSpec
 
 logger = logging.getLogger("consultant.pairwise")
 
-PAIRWISE_PROMPT_VERSION = "image-pairwise-judge-v1"
+PAIRWISE_PROMPT_VERSION = "image-pairwise-judge-v2"
 
 # Generous on purpose, the same lesson the image path already carries: a
 # reasoning-capable judge spends tokens thinking BEFORE it writes anything,

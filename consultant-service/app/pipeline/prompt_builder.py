@@ -67,42 +67,49 @@ def prompt_version(base: str, spec: UIDemoSpec, archetype_id: str | None = None)
 # SAME data/branding/design constraints — so the 3 candidates explore
 # genuinely different layouts, not just variance. Exploratory; not wired
 # into the default pipeline yet.
+# The directives are sentence-case prose and carry no "NAME:" header, for
+# the same reason every other block in this file stopped carrying one. The
+# session-33 golden set shipped two anchors whose intelligence module was
+# titled from the variant's own name: law drew "HERO INTELLIGENCE" and
+# retail drew "PREMIUM AI INTELLIGENCE", both on the hero-intelligence
+# variant, whose directive opened "COMPOSITION DIRECTION — Hero
+# Intelligence:" and went on to ask for "premium, polished treatment".
+# The variant's `label` is for humans, the log line and the bake-off matrix;
+# it is deliberately not in the text the model reads.
 COMPOSITION_VARIANTS = [
     {
         "id": "hero-intelligence",
         "label": "Hero Intelligence",
         "directive": (
-            "COMPOSITION DIRECTION — Hero Intelligence: one dominant chart or intelligence module, "
-            "commanding the most visual weight and space of anything on the screen. Build the layout as "
-            "an asymmetric two-column composition — not a uniform grid — with supporting KPIs arranged "
-            "around the hero element. The AI Workstream module gets premium, polished treatment. Establish "
-            "a strong, unmistakable top-level visual hierarchy: this screen is built around insight, not "
-            "raw operations."
+            "Build this screen around one dominant chart or one dominant insight module, commanding more "
+            "visual weight and space than anything else on the screen. Lay it out as an asymmetric "
+            "two-column composition rather than a uniform grid, with the supporting metrics arranged "
+            "around that dominant element. Establish a strong, unmistakable top-level hierarchy: this "
+            "screen is built around a conclusion, not around raw operations."
         ),
     },
     {
         "id": "command-center",
         "label": "Command Center",
         "directive": (
-            "COMPOSITION DIRECTION — Command Center: an operational, action-oriented layout, built for "
-            "someone actively running the business right now. Favor richer status, workflow and "
-            "people-related components — a stronger sense of live activity in progress — over any single "
-            "hero visualization; no one element should dominate the way a hero chart would elsewhere. Use "
-            "an asymmetric, modular composition with varied card sizes and shapes arranged with intention, "
-            "not a uniform grid, so it reads as a busy, capable operations hub."
+            "Lay this screen out for someone actively running the business right now — operational and "
+            "action-oriented. Favour richer status, workflow and people-related components, a stronger "
+            "sense of live activity in progress, over any single dominant visualization; no one element "
+            "should dominate the way a single large chart would elsewhere. Use an asymmetric, modular "
+            "composition with varied card sizes and shapes arranged with intention, not a uniform grid, "
+            "so it reads as a busy, capable place of work."
         ),
     },
     {
         "id": "executive-overview",
         "label": "Executive Overview",
         "directive": (
-            "COMPOSITION DIRECTION — Executive Overview: fewer, larger, higher-value modules rather than "
-            "many small cards — restraint and confidence over density. This is the strongest typography "
-            "and most executive hierarchy of any variant. Favor premium, synthesized business insights and "
-            "AI-generated recommendations over raw operational detail. Deliberately avoid repetitive, "
-            "identical KPI-card behavior — if KPIs appear, treat them as part of a larger insight module "
-            "rather than a uniform row of small boxes. This should feel like a boardroom summary a business "
-            "owner glances at once a day, not a workbench they live in."
+            "Lay this screen out with fewer, larger, higher-value modules rather than many small cards — "
+            "restraint and confidence over density, and the strongest typographic hierarchy of any "
+            "layout. Favour synthesized conclusions over raw operational detail. Deliberately avoid a "
+            "uniform row of identical small metric boxes; if metrics appear, treat them as part of a "
+            "larger module. This should read like a summary a business owner glances at once a day, not "
+            "a workbench they live in."
         ),
     },
 ]
@@ -474,28 +481,48 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     # string to render is indistinguishable, to the model, from a caption it
     # is being asked to draw. Asking it not to does not work; that was tried
     # in session 32 and the leaks came from the run carrying the instruction.
-    lines = [
-        "The intelligence module — the ONLY AI element on this screen, given real size and premium treatment. "
-        "It states an opinion the software has formed; it is NOT a log, a feed, a task queue or a list of events.",
-        "",
-        f'It says, large and in the accent: "{ai.headline}"',
+    # The module has no title field, and an untitled panel sitting under
+    # descriptive prose invites the model to title it FROM that prose. The
+    # law cell shipped one card headed "SOFTWARE-FORMED OPINION" and another
+    # headed "ONLY AI INTELLIGENCE" — both lifted from the sentence that
+    # used to open this block ("the ONLY AI element on this screen… it
+    # states an opinion the software has formed"). Removing the field labels
+    # was not enough; the description itself was being read as a caption.
+    #
+    # So the vacancy is closed rather than the behaviour forbidden: the
+    # headline is declared to be the module's topmost line, which is the
+    # same move that fixed the window chrome at the top of the canvas.
+    # Bare strings on their own lines, the same shape the metric-card and
+    # panel blocks use — and specifically NOT wrapped in quotation marks. The
+    # first attempt at this rewrite quoted each value to delimit it, and the
+    # salon anchor drew the delimiters: its headline shipped reading
+    # «"Recommend Add-on: Deep Conditioning"», quotation marks included.
+    # Anything placed around a string to mark it out is itself a candidate
+    # for being drawn. The order is stated once, in prose, above.
+    intro = [
+        "One module on this screen is given real size and premium treatment. Its topmost line is the "
+        "headline below, set large and in the accent; the module has no separate title, and nothing "
+        "whatever is written above that headline.",
     ]
+    order = ["the headline"]
+    values = [ai.headline]
     if ai.rationale:
-        lines.append(f'Beneath that, one short quieter line reading: "{ai.rationale}"')
+        order.append("one short, quieter line beneath it")
+        values.append(ai.rationale)
     if ai.confidence:
-        lines.append(f'Its confidence reads: "{ai.confidence}"')
+        order.append("a confidence readout")
+        values.append(ai.confidence)
     if ai.chips:
-        lines.append(
-            "Below those, small outlined pills, with nothing written above them: "
-            + " · ".join(f'"{chip}"' for chip in ai.chips[:4])
-        )
-    lines.append("")
-    lines.append(
+        order.append("a row of small outlined pills")
+        values.append(" · ".join(ai.chips[:4]))
+    intro.append("The lines below are, in order: " + ", then ".join(order) + ".")
+
+    tail = (
         "Render the confidence as a small precise readout — a compact meter, ring or percentage, not a "
-        "decorative gauge. A viewer should see at a glance that the software reached a conclusion and can "
-        "say why. Only the quoted strings appear; the words describing them do not."
+        "decorative gauge. This is the one place AI appears on the screen, and it is not a log, a feed, a "
+        "task queue or a list of events."
     )
-    return "\n".join(lines)
+    return "\n".join(intro) + "\n\n" + "\n".join(values) + "\n\n" + tail
 
 
 def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
