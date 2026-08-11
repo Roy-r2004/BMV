@@ -85,13 +85,13 @@ imagery. Session 32 rebuilt the register and ran the funded comparison.
 | | | |
 |---|---|---|
 | W8 Footer-strip mark | **DONE, ON** | no corner clipping in 120 images; the corner reservation is gone from the prompt |
-| W9 Cinematic register | **ON, OWNER'S CALL PENDING** | built, fixed over four cycles; no automated instrument could rank it against light |
+| W9 Cinematic register | **DONE, ON — OWNER SIGNED OFF 2026-08-11** | chosen on the owner's eye; no automated instrument could rank it, which is why that line was always theirs |
 | W10 Hero asset | **DONE, ON** | 6/6 briefs produced concrete photographable subjects |
 | W11 Tool screens | **DONE, ON** | 6/6 tool anchors once `anchor_tool` became a top-level required field |
 | W12 AI module | **DONE, ON** | recommendation + reasoning + confidence, replacing the log |
 | W2 Art packs | **STILL OFF** | re-run with the corner free: tied at 9.2 on a saturated judge — no evidence either way |
 | W5 Design sheet | **CLOSED, OFF** | re-run with the corner free: 8.5 vs 9.2. Session 31 blamed the corner; that was wrong, it loses on its own merits |
-| W7 Phase-2 bridge | **NOT STARTED** | gated on the owner's sign-off |
+| W7 Phase-2 bridge | **UNBLOCKED, NOT STARTED** | sign-off received; it is the closing session's job |
 
 **The measurement problem is the finding.** The per-image judge scored full
 cinematic, hero-off, tool-off and packs-on all at exactly 9.2 — it is a defect
@@ -100,9 +100,12 @@ the first-presented image 6 of 6 and fabricated text failures to justify it,
 contradicted by the text-truth gate passing all 8 files. That is the second
 judge to fail this way, and the order-swap protocol caught it both times.
 
-So DoD line 3 rests entirely on the owner's eye now, as it was always written
-to. Sheets: `docs/evidence/session32/sign-off/`. Full write-up:
-`docs/evidence/session32/results.md`.
+DoD line 3 therefore rested entirely on the owner's eye, as it was always
+written to — **and they signed off on 2026-08-11: the cinematic register
+ships.** Line 2 was amended the same day (see the DoD below). Sheets:
+`docs/evidence/session32/sign-off/`. Full write-up:
+`docs/evidence/session32/results.md`. The closing session's brief:
+`docs/evidence/session32/next-session-prompt.md`.
 
 Cost holds: a 2-screen brief with tiering measured **$0.372**, inside the
 $0.60 DoD line, and flash follow-ups inherit the register from a pro anchor.
