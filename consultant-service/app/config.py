@@ -28,6 +28,35 @@ class Settings:
     # screen-continuation step needs.
     IMAGE_MODEL: str = _env_or("IMAGE_MODEL", "google/gemini-3-pro-image")
 
+    # ── Per-role, per-archetype image models (W1) ─────────────────────────
+    # The anchor screen and the follow-up screens are different jobs: the
+    # anchor invents a design, the follow-ups copy one they're handed as a
+    # reference image. So the model is chosen per ROLE, and per archetype —
+    # a kanban pipeline and a chart-led analytics screen don't have to be
+    # best served by the same model. Entries are written here ONLY from a
+    # measured bake-off (see docs/evidence/session31/images-bakeoff.md);
+    # anything absent falls back to IMAGE_MODEL, so an archetype nobody has
+    # measured behaves exactly as before.
+    ARCHETYPE_IMAGE_MODELS: dict[str, dict[str, str]] = {}
+    # Operator-level escape hatches (env), used by bake-off runs and by
+    # incident response — they outrank the measured table on purpose.
+    IMAGE_MODEL_ANCHOR: str = _env_or("IMAGE_MODEL_ANCHOR", "")
+    IMAGE_MODEL_FOLLOWUP: str = _env_or("IMAGE_MODEL_FOLLOWUP", "")
+
+    def anchor_model_for(self, archetype_id: str | None) -> str:
+        return (
+            self.IMAGE_MODEL_ANCHOR
+            or self.ARCHETYPE_IMAGE_MODELS.get(archetype_id or "", {}).get("anchor")
+            or self.IMAGE_MODEL
+        )
+
+    def followup_model_for(self, archetype_id: str | None) -> str:
+        return (
+            self.IMAGE_MODEL_FOLLOWUP
+            or self.ARCHETYPE_IMAGE_MODELS.get(archetype_id or "", {}).get("followup")
+            or self.IMAGE_MODEL
+        )
+
     # Soft bounds, not a fixed target — the plan stage decides the actual
     # count per business (see prompts/plan.j2). MIN only guards the fallback
     # path; MAX is a cost/sanity cap on a real model response.

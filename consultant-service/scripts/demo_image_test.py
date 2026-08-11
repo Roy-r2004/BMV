@@ -3,6 +3,9 @@
     python scripts/demo_image_test.py --business dental
     python scripts/demo_image_test.py --business hvac --generate
     python scripts/demo_image_test.py --business law --generate --model google/gemini-3-pro-image
+    python scripts/demo_image_test.py --business salon --generate \
+        --anchor-model google/gemini-3-pro-image \
+        --followup-model google/gemini-3.1-flash-image      # tiering trial
 
 Without --generate: runs analysis -> UIDemoSpec -> prompt building only
 (one cheap text call if OPENROUTER_API_KEY is set, deterministic fallback
@@ -112,6 +115,8 @@ def main() -> None:
     parser.add_argument("--business", choices=sorted(FIXTURES), default="dental")
     parser.add_argument("--generate", action="store_true", help="really generate images (REAL COST)")
     parser.add_argument("--model", help="override IMAGE_MODEL for this run (bake-offs)")
+    parser.add_argument("--anchor-model", help="model for the anchor screen only (tiering trial)")
+    parser.add_argument("--followup-model", help="model for follow-up screens only (tiering trial)")
     parser.add_argument("--screens", type=int, help="limit to the first N screens (e.g. 1 = anchor dashboard only, for cheap prompt iteration)")
     parser.add_argument("--reuse-spec", help="path to a saved <n>_<screen>.spec.json — skip ui_spec's LLM call and reuse this exact spec, for a clean prompt-only A/B test")
     parser.add_argument("--reference", help="path to a PNG attached as a style reference to the ANCHOR generation itself — for the no-reference-vs-reference ceiling experiment; prompt text is unchanged")
@@ -187,7 +192,12 @@ def main() -> None:
         print(f"attaching anchor reference: {args.reference}")
 
     print("\ngenerating images (REAL COST)...")
-    saved = images_stage.generate_demo_screens(db, req.id, archetype_id, specs, anchor_reference_images=anchor_reference_images)
+    saved = images_stage.generate_demo_screens(
+        db, req.id, archetype_id, specs,
+        anchor_reference_images=anchor_reference_images,
+        anchor_model=args.anchor_model,
+        followup_model=args.followup_model,
+    )
     for row in saved:
         abs_path = os.path.join(settings.UPLOADS_DIR, row.file_path.split("/uploads/", 1)[1])
         print(f"  {row.role_label}: qa={row.qa_score} -> {abs_path}")

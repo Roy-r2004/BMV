@@ -84,11 +84,19 @@ def _generate_candidates(
     fallback_prompt: str | None = None,
 ) -> list[dict]:
     """Fires one call per entry in `prompts` (each `{"prompt": str,
-    "variant_id": str | None}`) in parallel. For the anchor screen these are
-    3 genuinely different composition-variant prompts; for follow-up
-    screens (and anchor regeneration retries) it's the same prompt repeated.
-    Each result: {"prompt", "variant_id", "image_bytes", "usage",
-    "latency_s", "error", "used_reference", "dropped_reference_error"}.
+    "variant_id": str | None, "model": str | None}`) in parallel. For the
+    anchor screen these are 3 genuinely different composition-variant
+    prompts; for follow-up screens (and anchor regeneration retries) it's
+    the same prompt repeated. Each result: {"prompt", "variant_id", "model",
+    "image_bytes", "usage", "latency_s", "error", "used_reference",
+    "dropped_reference_error"}.
+
+    `model` is a per-call generation variable, exactly like `variant_id`:
+    resolved once here (falling back to settings.IMAGE_MODEL) and carried on
+    every result — including failures — so the ledger, the log line and the
+    saved metadata record the model that ACTUALLY produced each candidate.
+    That's what makes a bake-off matrix and per-role tiering (pro-class
+    anchor, flash-class follow-ups) expressible without a global mutation.
 
     A call made WITH a reference image that fails is retried once without
     it — some models can't take image input, and a slightly less consistent
@@ -105,28 +113,30 @@ def _generate_candidates(
     def _one(item: dict) -> dict:
         prompt = item["prompt"]
         variant_id = item.get("variant_id")
+        model = item.get("model") or settings.IMAGE_MODEL
         start = time.monotonic()
         refs = reference_images
         dropped_reference_error: Exception | None = None
         try:
-            result = provider.generate_image(prompt, reference_images=refs)
+            result = provider.generate_image(prompt, model=model, reference_images=refs)
         except Exception as first_exc:
             if not refs:
-                return {"error": first_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "prompt": prompt}
+                return {"error": first_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt}
             try:
                 dropped_reference_error = first_exc
                 refs = None
-                result = provider.generate_image(fallback_prompt or prompt)
+                result = provider.generate_image(fallback_prompt or prompt, model=model)
             except Exception as second_exc:
-                return {"error": second_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "prompt": prompt}
+                return {"error": second_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt}
         if not _decodable(result.get("image_bytes") or b""):
             return {
                 "error": ValueError("model returned undecodable image bytes"),
-                "latency_s": time.monotonic() - start, "variant_id": variant_id, "prompt": prompt,
+                "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt,
             }
         return {
             "prompt": prompt,
             "variant_id": variant_id,
+            "model": model,
             "image_bytes": result["image_bytes"],
             "usage": result.get("usage"),
             "latency_s": time.monotonic() - start,
@@ -166,15 +176,16 @@ def _render_screen(
 
     scored: list[dict] = []
     for i, cand in enumerate(candidates):
+        cand_model = cand.get("model") or settings.IMAGE_MODEL
         if cand.get("error") is not None:
             log_usage(
                 db, request_id,
-                provider="openrouter", model=settings.IMAGE_MODEL, purpose="image",
+                provider="openrouter", model=cand_model, purpose="image",
                 image_count=1, success=False, error=str(cand["error"])[:500],
             )
             logger.warning(
-                "candidate failed: request=%s screen=%s attempt=%s variant=%s error=%s",
-                request_id, spec.screen_slug, i, cand.get("variant_id"), cand["error"],
+                "candidate failed: request=%s screen=%s attempt=%s variant=%s model=%s error=%s",
+                request_id, spec.screen_slug, i, cand.get("variant_id"), cand_model, cand["error"],
             )
             continue
         if cand.get("dropped_reference_error") is not None:
@@ -183,13 +194,13 @@ def _render_screen(
             # reference path never failed at all.
             log_usage(
                 db, request_id,
-                provider="openrouter", model=settings.IMAGE_MODEL, purpose="image",
+                provider="openrouter", model=cand_model, purpose="image",
                 image_count=1, success=False,
                 error=f"reference attempt failed, retried without: {str(cand['dropped_reference_error'])[:400]}",
             )
         log_usage(
             db, request_id,
-            provider="openrouter", model=settings.IMAGE_MODEL, purpose="image",
+            provider="openrouter", model=cand_model, purpose="image",
             usage=cand.get("usage"), image_count=1, success=True,
         )
         cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
@@ -202,7 +213,7 @@ def _render_screen(
         logger.info(
             "candidate scored: request=%s screen=%s archetype=%s model=%s attempt=%s variant=%s "
             "latency=%.1fs qa_score=%s approved=%s issues=%s",
-            request_id, spec.screen_slug, spec.style.archetype, settings.IMAGE_MODEL, i, cand.get("variant_id"),
+            request_id, spec.screen_slug, spec.style.archetype, cand_model, i, cand.get("variant_id"),
             cand["latency_s"], cand["verdict"]["score"], cand["verdict"]["approved"],
             "; ".join(cand["verdict"]["issues"][:3]) or "-",
         )
@@ -221,23 +232,32 @@ def _render_screen(
             retry_source = max(scored, key=lambda c: c["verdict"]["score"] or 0)
         else:
             retry_source = prompts[0]
-        retry_item = {"prompt": retry_source["prompt"], "variant_id": retry_source.get("variant_id")}
+        # The retry inherits the retried candidate's own model, not the
+        # global default — under tiering/bake-off the two differ, and a
+        # regeneration silently switching models would make the ledger and
+        # the saved metadata describe a run that never happened.
+        retry_item = {
+            "prompt": retry_source["prompt"],
+            "variant_id": retry_source.get("variant_id"),
+            "model": retry_source.get("model"),
+        }
         logger.info(
-            "no approved candidate, regenerating once: request=%s screen=%s variant=%s",
-            request_id, spec.screen_slug, retry_item["variant_id"],
+            "no approved candidate, regenerating once: request=%s screen=%s variant=%s model=%s",
+            request_id, spec.screen_slug, retry_item["variant_id"], retry_item["model"] or settings.IMAGE_MODEL,
         )
         extra = _generate_candidates([retry_item], reference_images, fallback_prompt)
         for cand in extra:
+            cand_model = cand.get("model") or settings.IMAGE_MODEL
             if cand.get("error") is not None:
                 log_usage(
                     db, request_id,
-                    provider="openrouter", model=settings.IMAGE_MODEL, purpose="image",
+                    provider="openrouter", model=cand_model, purpose="image",
                     image_count=1, success=False, error=str(cand["error"])[:500],
                 )
                 continue
             log_usage(
                 db, request_id,
-                provider="openrouter", model=settings.IMAGE_MODEL, purpose="image",
+                provider="openrouter", model=cand_model, purpose="image",
                 usage=cand.get("usage"), image_count=1, success=True,
             )
             cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
@@ -286,6 +306,7 @@ def _save_selected(
                 f.write(_apply_bmv_watermark(cand["image_bytes"]))
 
     composition_variant = selected.get("variant_id")
+    selected_model = selected.get("model") or settings.IMAGE_MODEL
     saved_prompt_version = prompt_version + ("+composition" if composition_variant else "")
     metadata = {
         "business_id": request_id,
@@ -293,7 +314,7 @@ def _save_selected(
         "archetype": archetype_id,
         "composition_variant": composition_variant,
         "provider": "openrouter",
-        "model": settings.IMAGE_MODEL,
+        "model": selected_model,
         "prompt_version": saved_prompt_version,
         "qa_score": selected["verdict"]["score"],
         "qa_issues": selected["verdict"]["issues"],
@@ -301,6 +322,7 @@ def _save_selected(
             {
                 "attempt": c["attempt"],
                 "variant": c.get("variant_id"),
+                "model": c.get("model") or settings.IMAGE_MODEL,
                 "qa_score": c["verdict"]["score"],
                 "approved": c["verdict"]["approved"],
                 "latency_s": round(c["latency_s"], 1),
@@ -323,7 +345,7 @@ def _save_selected(
         archetype=archetype_id,
         composition_variant=composition_variant,
         provider="openrouter",
-        model=settings.IMAGE_MODEL,
+        model=selected_model,
         prompt_version=saved_prompt_version,
         qa_score=selected["verdict"]["score"],
         qa_issues=json.dumps(selected["verdict"]["issues"]),
@@ -339,12 +361,23 @@ def generate_demo_screens(
     archetype_id: str,
     ui_specs: list[UIDemoSpec],
     anchor_reference_images: list[bytes] | None = None,
+    anchor_model: str | None = None,
+    followup_model: str | None = None,
 ) -> list[GeneratedImage]:
     """anchor_reference_images: optional EXTERNAL style-reference image(s)
     attached to the anchor call itself (not the usual follow-up-screen
     references). Tested and found to lower quality (the model tends to
     clone the reference cheaply rather than exceed it) — normal runs never
-    pass this; kept only so the comparison remains reproducible."""
+    pass this; kept only so the comparison remains reproducible.
+
+    anchor_model / followup_model: per-ROLE model overrides. Split in two
+    because the anchor and the follow-ups are different jobs — the anchor
+    invents the design from scratch, the follow-ups copy a design they're
+    handed as a reference image — which is exactly what makes tiering
+    (pro-class anchor, flash-class follow-ups) plausible. Both default to
+    the per-archetype config default, so an ordinary request is unchanged."""
+    anchor_model = anchor_model or settings.anchor_model_for(archetype_id)
+    followup_model = followup_model or settings.followup_model_for(archetype_id)
     req = db.get(Request, request_id)
     if req is None:
         raise ValueError(f"Request {request_id} not found")
@@ -367,6 +400,7 @@ def generate_demo_screens(
         {
             "prompt": prompt_builder.build_dashboard_image_prompt(anchor_spec, composition=variant),
             "variant_id": variant["id"],
+            "model": anchor_model,
         }
         for variant in anchor_variants
     ]
@@ -395,7 +429,10 @@ def generate_demo_screens(
         else:
             prompt = standalone_prompt
             version = prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION
-        prompts = [{"prompt": prompt, "variant_id": None} for _ in range(settings.SECONDARY_CANDIDATES)]
+        prompts = [
+            {"prompt": prompt, "variant_id": None, "model": followup_model}
+            for _ in range(settings.SECONDARY_CANDIDATES)
+        ]
         selected, pool = _render_screen(
             db, request_id, spec, prompts, version,
             reference_images=anchor_reference, fallback_prompt=standalone_prompt,
