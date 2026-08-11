@@ -1,13 +1,15 @@
 """Pins for the 2K follow-up canvas (JOB 1, session 34).
 
 Session 33's worst credibility class — collapsed letterforms ("Cilents",
-"Portfollo", "Highiights", "beoking", "10:1S", "SLB" for "5LB") — was six
-for six on flash FOLLOW-UP screens: ten-pixel glyphs where i/l/1 and S/5
-become the same shape. The probe (docs/evidence/session34/probe/) showed
-gemini-3.1-flash-image honours image_config 2K (2752x1536, same 1.79:1
-shape, $0.1019 vs $0.070) while gemini-3-pro-image silently ignores it on
-both slugs. So: follow-ups ask for 2K by default, the anchor asks for
-nothing, and everything about that is pinned here.
+"Portfollo", "Highiights", "beoking", "10:1S", "SLB" for "5lb") — was
+five of six on flash FOLLOW-UP screens: ten-pixel glyphs where i/l/1 and
+S/5 become the same shape. (The sixth, "SLB", was a pro anchor — a
+residual risk resolution cannot fix, owned by the text-truth gate.) The
+probe (docs/evidence/session34/probe/) showed gemini-3.1-flash-image
+honours image_config 2K (2752x1536, same 1.79:1 shape, $0.1019 vs $0.070)
+while gemini-3-pro-image silently ignores it on both slugs. So:
+follow-ups ask for 2K by default, the anchor asks for nothing, and
+everything about that is pinned here.
 
 The properties that matter:
 

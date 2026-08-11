@@ -27,14 +27,21 @@ Both sizes have the same 1.79:1 shape, so pixel count changes and
 composition does not. Pro will not go bigger through OpenRouter, full stop —
 it accepts the field silently and bills its fixed 1120 tokens.
 
-## Why pro's refusal does not matter
+## Why pro's refusal matters less than it looks — CORRECTED
 
-The defect attribution in [`session33/defect-sweep.md`](../session33/defect-sweep.md)
-is six for six: **every collapsed-letterform instance sits on a flash
-FOLLOW-UP screen** (retail/analytics, salon/schedule ×3, salon/analytics,
-hedgefund/clients_overview). No anchor produced one — the s33 salon anchor
-rendered "Clients" correctly while the follow-up rendered "Cilents". The
-model that needs the pixels is the model that honours the request.
+**Correction (same session, caught during the full-set re-measure):** the
+attribution is five of six, not six of six. "SLB" sat on retail/analytics,
+which is retail's ANCHOR — a pro screen at the default size. The other
+five (salon/schedule ×3, salon/analytics, hedgefund/clients_overview) are
+flash follow-ups, and those are killed by 2K. What remains is a residual
+anchor letterform risk that resolution cannot fix (pro ignores the
+request): observed once across the six s33 anchor screens, and NOT
+reproduced on the same brief/model/size in the s34 re-run ("Whole Bean
+5lb · Ground 5lb" rendered correctly). JOB 4's nav compositing would not
+have covered it either — "SLB" was a configurator value, not a nav label.
+The instruments that own this residue are the text-truth gate (which
+demonstrably rejects on brand-string failures) and the regeneration it
+buys.
 
 ## The same-brief comparison (the experiment the brief asked for)
 

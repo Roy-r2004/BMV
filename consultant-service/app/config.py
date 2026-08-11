@@ -103,13 +103,14 @@ class Settings:
     #   gemini-3-pro-image at 2K      -> IGNORED on both slugs: 1376x768,
     #                                    image_tokens=1120, price unchanged.
     #
-    # Why the default is follow-ups-only: every one of the six collapsed-
+    # Why the default is follow-ups-only: five of the six collapsed-
     # letterform defects in the session-33 sweep ("Cilents", "Portfollo",
-    # "Highiights", "beoking", "10:1S", "SLB") is on a flash FOLLOW-UP
-    # screen; no anchor produced one. The model that needs the pixels is
-    # the model that honours the request. The anchor knob exists so the
-    # probe can be re-run from env when a provider change makes pro honour
-    # it too.
+    # "Highiights", "beoking", "10:1S") are on flash FOLLOW-UP screens,
+    # and flash honours the request. The sixth ("SLB", retail's analytics)
+    # was a PRO ANCHOR — a residual risk resolution cannot fix, because
+    # pro ignores the field; it is left to the text-truth gate and the
+    # regeneration it buys. The anchor knob exists so the probe can be
+    # re-run from env when a provider change makes pro honour it too.
     IMAGE_SIZE_ANCHOR: str = _env_or("IMAGE_SIZE_ANCHOR", "")
     IMAGE_SIZE_FOLLOWUP: str = _env_or("IMAGE_SIZE_FOLLOWUP", "2K")
     # Sent only when a size is set. 16:9 maps to the same 1.79:1 the models
