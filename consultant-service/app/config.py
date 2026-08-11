@@ -224,6 +224,13 @@ class Settings:
     # deck's artifacts, and the reason the image model is never asked for a
     # device mockup (it garbles the UI text it just got right).
     ENABLE_PRESENTATION_COMPOSITING: bool = _env_bool("ENABLE_PRESENTATION_COMPOSITING", True)
+    # JOB 2 (session 34): when the model draws the interface as a rounded
+    # card floating on a backdrop — forbidden in the prompt twice, drawn
+    # anyway on 5 of 15 session-33 screens — detect it deterministically in
+    # PIL and crop to the interface. Conservative by construction (three
+    # independent guards, see images._floating_backdrop_bbox); a full-bleed
+    # screen passes through bit-identical, pinned.
+    ENABLE_BACKDROP_CROP: bool = _env_bool("ENABLE_BACKDROP_CROP", True)
     # ── Session 32: the cinematic register ───────────────────────────────
     # Where the BMV mark goes. "footer" grows the canvas by a thin strip
     # BELOW the interface and puts the mark there; "corner" is the original

@@ -30,7 +30,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter, ImageStat
 from sqlalchemy.orm import Session
 
 from app.ai import provider
@@ -132,6 +132,128 @@ def _decodable(image_bytes: bytes) -> bool:
         return True
     except Exception:
         return False
+
+
+def _floating_backdrop_bbox(im: Image.Image) -> tuple[int, int, int, int] | None:
+    """Where the model drew the interface as a card floating on a backdrop,
+    the box to crop to — None when the screen is full-bleed and must not be
+    touched.
+
+    The prompt forbids the backdrop in two places and the model draws it
+    anyway (5 of 15 screens on the session-33 set; session 32 "fixed" it
+    twice). So this stops asking and detects it instead, from the one
+    property that separates a backdrop from the interface: the interface has
+    small text and hairlines everywhere — high LOCAL contrast — while a
+    backdrop, flat or gradient, has almost none. The bounding box of
+    local-contrast pixels is the interface plus anything hanging off it,
+    which is exactly what the brief says to keep.
+
+    Three guards, each of which independently refuses the crop, because a
+    false positive that shaves real UI is much worse than a missed backdrop:
+
+      1. the content box must float — a real margin on ALL four sides
+         (full-bleed screens touch at least one edge);
+      2. it must fill most of the frame — this is a screenshot, not a
+         thumbnail on a poster;
+      3. the ring must be a DIFFERENT surface from the interface's own
+         ground, where "ground" is sampled from the FLAT pixels of a frame
+         just inside the box edge — the app's own padding. On a full-bleed
+         screen that frame is literally the same surface as the ring;
+         under a floating card it is the card, a different color entirely
+         (distance ~240 on the salon set vs ~10 on full-bleed law). Two
+         earlier cuts of this guard are worth remembering: a thin
+         unmasked band at the box edge let PANEL EDGES dominate and
+         false-positived two full-bleed law screens, and flat pixels over
+         the whole interior let a large smooth PHOTOGRAPH drag the mean
+         and false-positived all three. Padding ground, flat-masked, is
+         the surface the ring must be compared against. Too few flat
+         pixels to establish ground = refuse, same as every other doubt.
+    """
+    rgb = im.convert("RGB")
+    width, height = rgb.size
+    # Local contrast: the difference between the image and a lightly blurred
+    # copy of itself. Text and hairlines survive; flat color and smooth
+    # gradients cancel to ~0. MinFilter kills isolated grain so a noisy
+    # backdrop pixel cannot inflate the box.
+    contrast = ImageChops.difference(rgb, rgb.filter(ImageFilter.GaussianBlur(2))).convert("L")
+    mask = contrast.point(lambda p: 255 if p >= 8 else 0).filter(ImageFilter.MinFilter(3))
+    bbox = mask.getbbox()
+    if bbox is None:
+        return None
+    # 3px INSIDE the contrast boundary: the card's edge is a soft multi-pixel
+    # blend into the backdrop, and cropping at the outermost contrast pixel
+    # keeps a visible sliver of it. Content sits far deeper inside the card
+    # than 3px (the card's own padding), so this cuts blend, never UI.
+    left, top, right, bottom = bbox[0] + 3, bbox[1] + 3, bbox[2] - 3, bbox[3] - 3
+    margins = (left, top, width - right, height - bottom)
+    if min(margins) < max(6, round(0.012 * min(width, height))):
+        return None
+    if (right - left) < 0.55 * width or (bottom - top) < 0.55 * height:
+        return None
+    # A floating card is drawn roughly centered — near-even margins (the
+    # salon set: 21-26px all round). App padding is NOT symmetric: the nav
+    # bar hugs the top, so a full-bleed screen's content box sits high
+    # (session-33 law: 18px top vs 61px bottom — and that screen must not
+    # be cropped). Lopsided margins mean this is layout, not a backdrop.
+    if max(margins) / max(1, min(margins)) > 2.5:
+        return None
+
+    def _mean(box: tuple[int, int, int, int], stat_mask: Image.Image | None = None) -> tuple[float, ...]:
+        region = rgb.crop(box)
+        if stat_mask is None:
+            return tuple(ImageStat.Stat(region).mean)
+        return tuple(ImageStat.Stat(region, stat_mask.crop(box)).mean)
+
+    # The ring: everything outside the content box, sampled as four strips.
+    ring_strips = [
+        _mean((0, 0, width, top)),
+        _mean((0, bottom, width, height)),
+        _mean((0, top, left, bottom)),
+        _mean((right, top, width, bottom)),
+    ]
+    ring = tuple(sum(c[i] for c in ring_strips) / len(ring_strips) for i in range(3))
+
+    # The interface's own ground: flat pixels of a frame just inside the box
+    # edge (3px of edge blend skipped, then a band ~4% of the frame deep).
+    frame_t = max(12, round(0.04 * min(right - left, bottom - top)))
+    frame_box = (left + 3, top + 3, right - 3, bottom - 3)
+    flat = mask.crop(frame_box).point(lambda p: 0 if p else 255)
+    core = (frame_t, frame_t, (frame_box[2] - frame_box[0]) - frame_t, (frame_box[3] - frame_box[1]) - frame_t)
+    if core[2] > core[0] and core[3] > core[1]:
+        flat.paste(0, core)  # only the frame band counts, not the interior
+    stat = ImageStat.Stat(rgb.crop(frame_box), flat)
+    if sum(stat.count) < 3 * 500:
+        return None  # not enough flat padding to establish a ground
+    interior = tuple(stat.mean)
+
+    if sum((a - b) ** 2 for a, b in zip(ring, interior)) ** 0.5 < 40:
+        return None
+    return (left, top, right, bottom)
+
+
+def _crop_floating_backdrop(image_bytes: bytes) -> bytes:
+    """Applied to every screen candidate before QA, so the judge scores what
+    would actually ship. Returns the bytes unchanged — bit for bit — unless
+    every guard in _floating_backdrop_bbox agrees there is a backdrop, and
+    returns the original on ANY failure: a crop must never cost a request
+    its screenshot."""
+    if not settings.ENABLE_BACKDROP_CROP:
+        return image_bytes
+    try:
+        im = Image.open(io.BytesIO(image_bytes))
+        bbox = _floating_backdrop_bbox(im)
+        if bbox is None:
+            return image_bytes
+        out = io.BytesIO()
+        im.crop(bbox).save(out, format="PNG")
+        logger.info(
+            "cropped a floating backdrop: %sx%s -> %sx%s",
+            im.width, im.height, bbox[2] - bbox[0], bbox[3] - bbox[1],
+        )
+        return out.getvalue()
+    except Exception as exc:
+        logger.warning("backdrop crop failed, keeping the original bytes: %s", exc)
+        return image_bytes
 
 
 def _generate_candidates(
@@ -266,6 +388,10 @@ def _render_screen(
             usage=cand.get("usage"), image_count=1, success=True,
             screen=spec.screen_slug,
         )
+        # Backdrop crop BEFORE QA: the judge must score the artifact that
+        # would ship, and a screen that stops floating here needs no
+        # regeneration for having floated.
+        cand["image_bytes"] = _crop_floating_backdrop(cand["image_bytes"])
         cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
         # Attempt numbers double as candidate FILENAMES in _save_selected, so
         # they must be unique among *scored* candidates. The positional index
@@ -326,6 +452,7 @@ def _render_screen(
                 usage=cand.get("usage"), image_count=1, success=True,
                 screen=spec.screen_slug,
             )
+            cand["image_bytes"] = _crop_floating_backdrop(cand["image_bytes"])
             cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
             cand["attempt"] = len(scored)
             scored.append(cand)
