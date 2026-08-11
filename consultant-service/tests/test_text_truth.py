@@ -372,7 +372,13 @@ def test_the_transcription_call_carries_magnified_bands():
 
     images = [p for p in sent["content"] if p["type"] == "image_url"]
     assert len(images) == 3, "the full screenshot plus a magnified top band and left band"
-    assert any("enlarged 3x" in p.get("text", "") for p in sent["content"] if p["type"] == "text")
+    # The wording matters less than the instruction: the crops must arrive
+    # introduced as magnified views to be read glyph by glyph. (The exact
+    # factor is adaptive since 2K follow-ups — see tests/test_image_size.py.)
+    assert any(
+        "cropped and magnified" in p.get("text", "") and "character by character" in p.get("text", "")
+        for p in sent["content"] if p["type"] == "text"
+    )
 
 
 def test_the_bands_can_be_switched_off_wholesale():

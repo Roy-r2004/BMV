@@ -1,0 +1,134 @@
+# source: golden:salon
+# prompt_version: dashboard-image-v2-cinematic+tool+hero+ai
+# watermark: footer
+# characters: 10014
+
+TASK
+
+Create a realistic desktop screenshot of a production software tool used by Hair Salon — bespoke software built specifically for this business. The quality bar is what a top-tier studio delivers to a client who is not price-sensitive: on the software side Arc, Raycast and Linear's dark surfaces; on the other side the digital work luxury property developers, private banks and marque automakers commission. It must be real, believable production software where every element does a job — not a concept shot — and the business owner's reaction should be "you already built this for us?"
+
+BUSINESS
+
+Lumière Hair Studio
+
+SOFTWARE
+
+Product name: Lumière Studio OS
+Purpose: AI-powered salon management
+Layout density: comfortable but realistic
+
+The screen to draw:
+
+Dashboard
+
+Page header text:
+
+Good morning, Genevieve
+Your studio at a glance
+
+Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the far left, these items spaced across the middle, and at the right end one accented button reading Confirm Booking; mark the current screen active)
+
+Dashboard
+Schedule
+Clients
+Services
+Staff
+Reports
+Settings
+
+Statistics for the page header (a compact row at its top-right — small uppercase labels under larger numerals, separated by thin vertical rules; NOT cards)
+
+18 Today's Bookings
+$1,420 Revenue Today
+1:00 PM Next Available
+
+The visual centerpiece of this screen, rendered INSIDE the application's content area:
+
+Subject: A stylist's hands sectioning long, glossy brown hair for a cut in a bright salon
+Treatment: cinematic still
+Caption to render on it, exactly once: "Precision Cut"
+
+Render this as a real, photographic-quality image centred in the content area, with interface on both sides, taking roughly half of that area — the way a property portal shows the building or a configurator shows the car. The product's own panels and controls sit around it and, where a real product would, slightly over its edges: a small floating label, a marker, a control resting on top.
+It is an IMAGE, not an illustration: correct perspective, real materials, real light. No diagram, no wireframe, no line drawing, no clip art, no 3D-render-of-a-concept. It carries no text of its own beyond the caption above, and no cursor, toolbar, slider, crop handle or other image-editing control anywhere on or near it. It must be the actual thing this business sells or works on — never a generic stock scene, never an abstract stand-in.
+
+The selection flow this screen is built around. It is a selector, not a metrics dashboard, and its structure IS the flow below: numbered stages the user moves through left to right, each with a small letterspaced uppercase step label. The chosen option in every stage is unmistakably marked with the accent; the options not chosen stay legible but recede.
+
+1. Select Service
+   Options: Haircut · Color & Highlights · Styling & Updo · Bridal Package · Extensions · Treatment
+   Selected: Haircut
+
+2. Choose Stylist
+   Options: Eleanor Vance · Marcus Chen · Sophia Rossi · David Kim · Isabella Cruz · Chloe Davis (Color)
+   Selected: Eleanor Vance
+
+3. Pick Time Slot
+   Options: 9:00 AM · 10:15 AM · 11:30 AM · 1:00 PM · 2:15 PM · 3:30 PM
+   Selected: 10:15 AM
+
+The panel the selection resolves to; its heading is the title below
+
+Booking Details
+
+Women's Cut   Eleanor Vance   10:15 AM   60 min   $75
+
+The main button reads "Confirm Booking" and is the single most prominent accented element on the screen.
+A quieter outlined button beneath it reads "Modify Selection".
+
+One module on this screen is given real size and premium treatment. Its topmost line is the headline below, set large and in the accent; the module has no separate title, and nothing whatever is written above that headline.
+The lines below are, in order: the headline, then one short, quieter line beneath it, then a confidence readout, then a row of small outlined pills.
+
+Recommend Add-on: Deep Conditioning
+High-value clients booking full color services often upgrade.
+88% likely
+Color clients · Upsell opportunity · Higher ARPU
+
+Render the confidence as a small precise readout — a compact meter, ring or percentage, not a decorative gauge. This is the one place AI appears on the screen, and it is not a log, a feed, a task queue or a list of events.
+
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
+
+Branding:
+
+Business name: Lumière Hair Studio
+Industry: Hair Salon
+Primary brand color: #b76e79 (the hue the dark ground is built from, and the source of the single luminous accent)
+Secondary color: #2d2a26 (structural tints only — never a second accent)
+The product wordmark "Lumière Studio OS" appears small and plain at the far left of the top navigation bar.
+
+DESIGN CONSTRAINTS
+
+The bar is not "looks like functional software" — plenty of dark admin themes clear that bar and still read as a stock template. The bar is: this is the flagship screen of a product someone spent a fortune building, the one a luxury developer, a private bank or a marque automaker puts on stage. Real, believable production software where every element does a job — but the kind that makes a viewer lean toward the screen within the first half-second.
+
+Use:
+- a deep, single-hue ground: near-black carrying one dominant colour drawn from the brand — not neutral charcoal, not pure black, and never more than one ground hue on the screen
+- exactly ONE luminous accent (a warm metallic, or the brightest tint of the brand hue), spent only on the active state, the primary action and the single most important number — its scarcity is what makes it read as expensive
+- real depth and light: a soft directional falloff across the ground, panels lifted by low-opacity elevation rather than hard borders, hairline strokes only where separation is genuinely needed
+- two typographic voices in deliberate contrast: a display face with real character for the page title and hero numerals, against a small, letterspaced, uppercase sans for labels, steps and captions — that contrast does most of the work
+- generous negative space treated as luxury rather than emptiness: FEWER elements, each given real room. Bare ground between elements is the point — never add a panel to fill a gap, and never repeat a panel you have already drawn. Restraint is the most expensive thing on the screen
+- the interface is the canvas: its own background reaches all four edges, with no margin, vignette or backdrop visible around it. That is about where the BACKGROUND ends, not about packing content — a screen with six elements and a lot of quiet ground still reaches the edges
+- text that survives being read: on a dark ground, small type loses legibility fast. Every visible label, chip and caption is large enough and high-contrast enough to be crisply legible, correctly spelled and never faint grey-on-grey. Prefer fewer, larger labels over many tiny ones; if a label cannot be rendered sharply at its size, make it bigger rather than dimmer
+- a strong asymmetric composition — one commanding focal element with supporting material arranged around it, never a uniform grid of equally-weighted cards
+- restrained, precise iconography: thin strokes, consistent weight, small
+- realistic UI states: one nav item active, one option visibly selected, one row subtly hovered
+
+Avoid — this is the list that separates expensive dark software from the cliché, and every item is forbidden:
+- neon glow, bloom, lens flare, light streaks, or any element emitting light it has no reason to emit
+- HUD or sci-fi-movie overlays, wireframe globes, circuit-board patterns, hexagon grids, scan lines, targeting reticles
+- floating 3D geometry, abstract blobs, particle fields, purple-to-blue gradient smears
+- glassmorphism as decoration, frosted panels stacked over one another, translucency for its own sake
+- a second accent colour, rainbow data series, or colour used anywhere hierarchy would do the job
+- illustration, concept art, or anything that reads as a design-portfolio mockup rather than shipped software
+- laptop, phone or browser mockup frames around the interface
+- the application floating as a rounded card, window or panel on a backdrop, with margin or vignette visible around it — there is no backdrop, the interface IS the canvas
+- lorem ipsum, placeholder data, or invented UI elements no real product would have
+- a blank button, empty swatch or unlabelled control — every element carries its own text
+- two panels carrying the same title, or the same information shown twice in different shapes
+- a dense grid of small cards; if the content listed above does not fill the screen, give what is there more room rather than inventing more of it
+- long sentences anywhere in the interface — every visible string is a label, a name, a number or a short phrase
+
+This screen is dark because software for a decision this considered is dark. It is not dark in order to look futuristic. If the first word a viewer reaches for is "sci-fi", it has failed; the first word should be "expensive".
+
+The navigation, content and data must be internally coherent — they all describe the same business on the same day. A prospect looking at this should think "they already built this for me," not "this is a generic template with my name on it."
+
+OUTPUT
+
+A full-bleed desktop application screenshot filling the entire canvas edge to edge. The topmost row of pixels already belongs to the application itself — its own header or navigation starts at the very top of the canvas, with nothing at all above it. No device frame, no browser chrome, no drop shadow around the app, no background visible behind it.

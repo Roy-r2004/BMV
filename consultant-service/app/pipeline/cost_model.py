@@ -38,6 +38,18 @@ MEASURED_IMAGE_COST_USD: dict[str, float] = {
     "google/gemini-3.1-flash-image": 0.06959,
     "openai/gpt-5.4-image-2": 0.26197,
 }
+# The same models asked for a 2K canvas (image_config, session 34).
+#   flash: 3 ledgered calls on request 76 (the s34-2k salon run), mean
+#          $0.10341 (range $0.1025–0.1052) — 1680 image tokens vs ~1290
+#          at the default size.
+#   pro:   probe-measured once (docs/evidence/session34/probe/) — it
+#          IGNORES the size request on both slugs and bills exactly its
+#          default 1120 tokens, which is why its entry equals its
+#          default rate.
+MEASURED_IMAGE_COST_2K_USD: dict[str, float] = {
+    "google/gemini-3.1-flash-image": 0.10341,
+    "google/gemini-3-pro-image": 0.14663,
+}
 # Anything unmeasured is costed at the most expensive thing we have ever run,
 # so an unknown model can only ever make a projection look WORSE than it is.
 # A projection that flatters an unmeasured model is the failure mode that
@@ -76,7 +88,15 @@ def projected_image_count(archetype_id: str | None = None) -> dict:
     }
 
 
-def _rate(model: str) -> float:
+def _rate(model: str, image_size: str | None = None) -> float:
+    """The measured $/image for a model at the size the pipeline will ask it
+    for. A size we have never measured falls to the most-expensive-known
+    rate, same principle as an unmeasured model — never flatter the
+    projection with an assumed bargain."""
+    if image_size == "2K":
+        return MEASURED_IMAGE_COST_2K_USD.get(model, UNMEASURED_IMAGE_COST_USD)
+    if image_size:
+        return UNMEASURED_IMAGE_COST_USD
     return MEASURED_IMAGE_COST_USD.get(model, UNMEASURED_IMAGE_COST_USD)
 
 
@@ -84,8 +104,8 @@ def projected_request_cost(archetype_id: str | None = None) -> dict:
     """USD a request is projected to cost, at the models this archetype
     actually resolves to. `nominal_usd` is the number DoD line 4 is about."""
     counts = projected_image_count(archetype_id)
-    anchor_rate = _rate(settings.anchor_model_for(archetype_id))
-    followup_rate = _rate(settings.followup_model_for(archetype_id))
+    anchor_rate = _rate(settings.anchor_model_for(archetype_id), settings.IMAGE_SIZE_ANCHOR or None)
+    followup_rate = _rate(settings.followup_model_for(archetype_id), settings.IMAGE_SIZE_FOLLOWUP or None)
 
     images_nominal = counts["anchor_candidates"] * anchor_rate + counts["followup_candidates"] * followup_rate
     # A regeneration re-fires the screen's OWN model, so the anchor's retry is

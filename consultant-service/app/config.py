@@ -91,6 +91,37 @@ class Settings:
     # alone no longer does it.
     FOLLOWUP_MODEL_FALLBACK: str = _env_or("FOLLOWUP_MODEL_FALLBACK", "google/gemini-3.1-flash-image")
 
+    # ── Output resolution (JOB 1, session 34) ─────────────────────────────
+    # Asked of the model via OpenRouter's image_config; empty string = send
+    # nothing and take the model's default (~1376x768).
+    #
+    # Probed 2026-08-12 on the real salon anchor prompt
+    # (docs/evidence/session34/probe/results.json):
+    #   gemini-3.1-flash-image at 2K  -> 2752x1536, the same 1.79:1 shape as
+    #                                    its default, $0.1019/image (ledger-
+    #                                    measured default: $0.070), 24s.
+    #   gemini-3-pro-image at 2K      -> IGNORED on both slugs: 1376x768,
+    #                                    image_tokens=1120, price unchanged.
+    #
+    # Why the default is follow-ups-only: every one of the six collapsed-
+    # letterform defects in the session-33 sweep ("Cilents", "Portfollo",
+    # "Highiights", "beoking", "10:1S", "SLB") is on a flash FOLLOW-UP
+    # screen; no anchor produced one. The model that needs the pixels is
+    # the model that honours the request. The anchor knob exists so the
+    # probe can be re-run from env when a provider change makes pro honour
+    # it too.
+    IMAGE_SIZE_ANCHOR: str = _env_or("IMAGE_SIZE_ANCHOR", "")
+    IMAGE_SIZE_FOLLOWUP: str = _env_or("IMAGE_SIZE_FOLLOWUP", "2K")
+    # Sent only when a size is set. 16:9 maps to the same 1.79:1 the models
+    # produce unprompted, so this changes pixel count, never composition.
+    IMAGE_ASPECT_RATIO: str = _env_or("IMAGE_ASPECT_RATIO", "16:9")
+
+    def image_config_for_role(self, role: str) -> dict | None:
+        size = self.IMAGE_SIZE_ANCHOR if role == "anchor" else self.IMAGE_SIZE_FOLLOWUP
+        if not size:
+            return None
+        return {"image_size": size, "aspect_ratio": self.IMAGE_ASPECT_RATIO}
+
     def anchor_model_for(self, archetype_id: str | None) -> str:
         return (
             self.IMAGE_MODEL_ANCHOR

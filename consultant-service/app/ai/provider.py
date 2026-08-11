@@ -138,9 +138,20 @@ def generate_image(
     reference_images: list[bytes] | None = None,
     max_tokens: int = 10000,
     timeout: float = 120.0,
+    image_config: dict | None = None,
 ) -> dict:
     """Calls an image-output-capable model via OpenRouter's chat completions
     endpoint (modalities=["image", "text"]). Returns {"image_bytes": bytes, "usage": dict | None}.
+
+    image_config: OpenRouter's output-size hint, e.g.
+    {"image_size": "2K", "aspect_ratio": "16:9"} — omitted from the request
+    body entirely when None. Probed 2026-08-12 on the salon anchor prompt
+    (docs/evidence/session34/probe/): gemini-3.1-flash-image honours it
+    (2752x1536, same 1.79:1 shape as its default, $0.1019 vs $0.070);
+    gemini-3-pro-image accepts the field and ignores it on BOTH slugs
+    (1376x768 and image_tokens=1120 exactly as without it). Models that
+    ignore it do so silently, so adopting a size means re-measuring output
+    dimensions, not trusting this parameter.
 
     reference_images: optional PNG bytes attached alongside the prompt as
     image_url content parts — used for multi-screen visual consistency
@@ -175,6 +186,14 @@ def generate_image(
     # no image at all. Neither bills, so a couple of spaced retries are free
     # insurance for a lead's request.
     resolved_model = model or settings.IMAGE_MODEL
+    body_json: dict = {
+        "model": resolved_model,
+        "messages": [{"role": "user", "content": content}],
+        "modalities": ["image", "text"],
+        "max_tokens": max_tokens,
+    }
+    if image_config:
+        body_json["image_config"] = image_config
     last_error: str | None = None
     for attempt in range(3):
         if attempt:
@@ -183,12 +202,7 @@ def generate_image(
             resp = httpx.post(
                 CHAT_URL,
                 headers=_headers(),
-                json={
-                    "model": resolved_model,
-                    "messages": [{"role": "user", "content": content}],
-                    "modalities": ["image", "text"],
-                    "max_tokens": max_tokens,
-                },
+                json=body_json,
                 timeout=timeout,
             )
         except httpx.TransportError as exc:

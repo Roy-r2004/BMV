@@ -169,29 +169,34 @@ def _generate_candidates(
         prompt = item["prompt"]
         variant_id = item.get("variant_id")
         model = item.get("model") or settings.IMAGE_MODEL
+        # Per-item like `model`, and carried on every result — including
+        # failures — so the regeneration retry re-fires the size the
+        # original candidate ran at rather than silently reverting.
+        image_config = item.get("image_config")
         start = time.monotonic()
         refs = reference_images
         dropped_reference_error: Exception | None = None
         try:
-            result = provider.generate_image(prompt, model=model, reference_images=refs)
+            result = provider.generate_image(prompt, model=model, reference_images=refs, image_config=image_config)
         except Exception as first_exc:
             if not refs:
-                return {"error": first_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt}
+                return {"error": first_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt, "image_config": image_config}
             try:
                 dropped_reference_error = first_exc
                 refs = None
-                result = provider.generate_image(fallback_prompt or prompt, model=model)
+                result = provider.generate_image(fallback_prompt or prompt, model=model, image_config=image_config)
             except Exception as second_exc:
-                return {"error": second_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt}
+                return {"error": second_exc, "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt, "image_config": image_config}
         if not _decodable(result.get("image_bytes") or b""):
             return {
                 "error": ValueError("model returned undecodable image bytes"),
-                "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt,
+                "latency_s": time.monotonic() - start, "variant_id": variant_id, "model": model, "prompt": prompt, "image_config": image_config,
             }
         return {
             "prompt": prompt,
             "variant_id": variant_id,
             "model": model,
+            "image_config": image_config,
             "image_bytes": result["image_bytes"],
             "usage": result.get("usage"),
             "latency_s": time.monotonic() - start,
@@ -298,6 +303,7 @@ def _render_screen(
             "prompt": retry_source["prompt"],
             "variant_id": retry_source.get("variant_id"),
             "model": retry_source.get("model"),
+            "image_config": retry_source.get("image_config"),
         }
         logger.info(
             "no approved candidate, regenerating once: request=%s screen=%s variant=%s model=%s",
@@ -521,6 +527,7 @@ def generate_demo_screens(
                 "prompt": prompt_builder.build_design_sheet_prompt(ui_specs[0], archetype_id),
                 "variant_id": "design-sheet",
                 "model": anchor_model,
+                "image_config": settings.image_config_for_role("anchor"),
             }],
             None,
         )[0]
@@ -560,6 +567,7 @@ def generate_demo_screens(
             ),
             "variant_id": variant["id"],
             "model": anchor_model,
+            "image_config": settings.image_config_for_role("anchor"),
         }
         for variant in anchor_variants
     ]
@@ -603,7 +611,12 @@ def generate_demo_screens(
             base_version = prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION
         version = prompt_builder.prompt_version(base_version, spec, archetype_id)
         prompts = [
-            {"prompt": prompt, "variant_id": None, "model": followup_model}
+            {
+                "prompt": prompt,
+                "variant_id": None,
+                "model": followup_model,
+                "image_config": settings.image_config_for_role("followup"),
+            }
             for _ in range(settings.SECONDARY_CANDIDATES)
         ]
         selected, pool = _render_screen(

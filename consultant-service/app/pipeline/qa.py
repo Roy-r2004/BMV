@@ -66,6 +66,15 @@ def _magnified_bands(image_bytes: bytes) -> list[bytes]:
     additional images on the transcription call that was already happening.
     Failure here returns nothing rather than raising: a gate that cannot
     magnify must still run at the old fidelity.
+
+    The magnification factor is chosen per band so the scaled long edge
+    lands at or under 4224px — which is exactly 3x at the 1376/1408-wide
+    default output, so nothing changes there. It exists because follow-ups
+    now render at 2K (2752px wide): a blind 3x would make a 8256px-wide
+    payload whose only effects are upload weight and the risk of the call
+    failing — which fails OPEN, silently un-gating exactly the screens the
+    gate exists for. A 2K band at 1x already carries twice the glyph pixels
+    the 1K pipeline's source did.
     """
     try:
         base = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -78,7 +87,10 @@ def _magnified_bands(image_bytes: bytes) -> list[bytes]:
         for band in bands:
             if band.width < 8 or band.height < 8:
                 continue
-            scaled = band.resize((band.width * 3, band.height * 3), Image.LANCZOS)
+            factor = max(1, min(3, 4224 // max(band.width, band.height)))
+            scaled = band if factor == 1 else band.resize(
+                (band.width * factor, band.height * factor), Image.LANCZOS,
+            )
             buffer = io.BytesIO()
             scaled.save(buffer, format="PNG")
             out.append(buffer.getvalue())
@@ -106,7 +118,7 @@ def transcribe(db: Session, request_id: int, image_bytes: bytes, screen: str | N
         content.append({
             "type": "text",
             "text": (
-                "The images that follow are the same screenshot's top band and left band, enlarged 3x. "
+                "The images that follow are the same screenshot's top band and left band, cropped and magnified. "
                 "They contain no text the first image does not. Read the wordmark and the navigation "
                 "items from these, character by character, and report what is drawn there rather than "
                 "the word you expect it to be."
