@@ -17,9 +17,14 @@ assumes one variant is always best; every generation scores fresh.
 QA and regeneration are config knobs (see config.py) because this is lead
 gen — cost per request matters.
 
-All AI calls happen in worker threads (network-bound); DB writes and QA
-bookkeeping stay on the calling thread, same discipline as the rest of the
-pipeline.
+Threading (session 34): follow-up SCREENS run concurrently, each on its
+own DB session (orchestrator.run's own pattern) — they are independent of
+each other and serializing them was the request path's biggest block of
+avoidable wall clock. Within a screen, candidate generations run in
+parallel as before, and qa.review_image fires its three instruments
+concurrently. No SQLAlchemy Session is ever shared across threads: the
+caller's session handles the anchor, each screen worker owns one for its
+subtree.
 """
 
 import io
@@ -469,10 +474,17 @@ def _render_screen(
         # thing a prospect actually notices. Candidates whose transcription
         # call failed (passed is None) rank between the two: unknown, not
         # known-bad.
-        def _fallback_rank(cand: dict) -> tuple[int, float]:
+        #
+        # Confirmed structural defects rank the same way, between text and
+        # score: on the first funded run of the defect check (request 77,
+        # session 34) the dashboard's regeneration produced a CLEAN 7.8 and
+        # this rank shipped the 8.1 carrying a verifier-confirmed floating
+        # backdrop instead. A prospect notices the defect, not the 0.3.
+        def _fallback_rank(cand: dict) -> tuple[int, int, float]:
             passed = (cand["verdict"].get("text_truth") or {}).get("passed", None)
             text_rank = {True: 2, None: 1, False: 0}[passed]
-            return text_rank, cand["verdict"]["score"] or 0
+            clean_rank = 0 if (cand["verdict"].get("defects") or {}).get("confirmed") else 1
+            return text_rank, clean_rank, cand["verdict"]["score"] or 0
 
         selected = max(scored, key=_fallback_rank)
         logger.warning(
@@ -554,6 +566,7 @@ def _save_selected(
         "qa_score": selected["verdict"]["score"],
         "qa_issues": selected["verdict"]["issues"],
         "text_truth": selected["verdict"].get("text_truth"),
+        "defects": selected["verdict"].get("defects"),
         "composites": composites,
         "candidates": [
             {
@@ -562,6 +575,7 @@ def _save_selected(
                 "model": c.get("model") or settings.IMAGE_MODEL,
                 "qa_score": c["verdict"]["score"],
                 "text_truth_passed": (c["verdict"].get("text_truth") or {}).get("passed"),
+                "defects_confirmed": len((c["verdict"].get("defects") or {}).get("confirmed", [])),
                 "approved": c["verdict"]["approved"],
                 "latency_s": round(c["latency_s"], 1),
                 "selected": c is selected,
@@ -728,31 +742,63 @@ def generate_demo_screens(
         anchor_reference = anchor_reference_images
     else:
         anchor_reference = [anchor_selected["image_bytes"]]
-    for spec in ui_specs[1:]:
-        standalone_prompt = prompt_builder.build_dashboard_image_prompt(spec, archetype_id=archetype_id)
-        if settings.USE_REFERENCE_IMAGES:
-            prompt = prompt_builder.build_continuation_prompt(spec, anchor_spec.screen_title, archetype_id)
-            base_version = prompt_builder.SCREEN_CONTINUATION_PROMPT_VERSION
-        else:
-            prompt = standalone_prompt
-            base_version = prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION
-        version = prompt_builder.prompt_version(base_version, spec, archetype_id)
-        prompts = [
-            {
-                "prompt": prompt,
-                "variant_id": None,
-                "model": followup_model,
-                "image_config": settings.image_config_for_role("followup"),
-            }
-            for _ in range(settings.SECONDARY_CANDIDATES)
-        ]
-        selected, pool = _render_screen(
-            db, request_id, spec, prompts, version,
-            reference_images=anchor_reference, fallback_prompt=standalone_prompt,
-        )
-        if selected is None:
-            logger.warning("screen produced no usable image, skipping: request=%s screen=%s", request_id, spec.screen_slug)
-            continue
-        saved.append(_save_selected(db, request_id, spec, archetype_id, selected, pool, version, nav_edge=nav_edge))
+
+    def _one_followup(spec: UIDemoSpec) -> GeneratedImage | None:
+        """One follow-up screen, generation through save, on its OWN DB
+        session — the same pattern orchestrator.run uses, for the same
+        reason: a SQLAlchemy Session must never be shared across threads.
+        The screens are independent of each other (each references the
+        anchor, none references a sibling), and running them serially was
+        the request path's single biggest block of avoidable wall clock —
+        the 3-minute DoD line is what pays for this thread, and the defect
+        check (JOB 3) is what spends the headroom.
+        """
+        from app.database import SessionLocal
+
+        # expire_on_commit=False: the row this returns outlives the session —
+        # the caller (and bakeoff's report) reads its columns after close().
+        screen_db = SessionLocal(expire_on_commit=False)
+        try:
+            standalone_prompt = prompt_builder.build_dashboard_image_prompt(spec, archetype_id=archetype_id)
+            if settings.USE_REFERENCE_IMAGES:
+                prompt = prompt_builder.build_continuation_prompt(spec, anchor_spec.screen_title, archetype_id)
+                base_version = prompt_builder.SCREEN_CONTINUATION_PROMPT_VERSION
+            else:
+                prompt = standalone_prompt
+                base_version = prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION
+            version = prompt_builder.prompt_version(base_version, spec, archetype_id)
+            prompts = [
+                {
+                    "prompt": prompt,
+                    "variant_id": None,
+                    "model": followup_model,
+                    "image_config": settings.image_config_for_role("followup"),
+                }
+                for _ in range(settings.SECONDARY_CANDIDATES)
+            ]
+            selected, pool = _render_screen(
+                screen_db, request_id, spec, prompts, version,
+                reference_images=anchor_reference, fallback_prompt=standalone_prompt,
+            )
+            if selected is None:
+                logger.warning("screen produced no usable image, skipping: request=%s screen=%s", request_id, spec.screen_slug)
+                return None
+            return _save_selected(screen_db, request_id, spec, archetype_id, selected, pool, version, nav_edge=nav_edge)
+        except Exception:
+            # One screen's hard failure must not take its siblings down with
+            # it — the request ships with fewer screens (loudly) instead of
+            # failing outright, and the anchor path still fails the request
+            # when nothing at all was produced.
+            logger.exception("follow-up screen failed: request=%s screen=%s", request_id, spec.screen_slug)
+            return None
+        finally:
+            screen_db.close()
+
+    followup_specs = list(ui_specs[1:])
+    if followup_specs:
+        with ThreadPoolExecutor(max_workers=min(3, len(followup_specs))) as screen_pool:
+            for row in screen_pool.map(_one_followup, followup_specs):
+                if row is not None:
+                    saved.append(row)
 
     return saved

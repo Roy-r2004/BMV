@@ -205,6 +205,18 @@ class Settings:
     # Deterministic PIL crops, no extra model call, a few tenths of a cent in
     # extra image input. Off restores the single-image call exactly.
     ENABLE_TEXT_TRUTH_ZOOM: bool = _env_bool("ENABLE_TEXT_TRUTH_ZOOM", True)
+    # JOB 3 (session 34): per-screen structural defect check. One inspector
+    # reports countable structural defects (text claims forbidden — text
+    # truth is text_truth.py's job), then EACH claim goes to a separate
+    # verifier told to refute it, defaulting to refuted when uncertain. A
+    # claim both stages agree on rejects the candidate; the existing
+    # regeneration path handles the rest. This two-stage shape found 13 of
+    # 15 golden-set screens defective in session 33 — including two the
+    # per-image judge scored 9.2 — and refuted 16 further claims that would
+    # each have been a single-stage false rejection. Runs concurrently with
+    # the judge and the transcription, on the flash-class model: cents.
+    ENABLE_DEFECT_CHECK: bool = _env_bool("ENABLE_DEFECT_CHECK", True)
+    DEFECT_MODEL: str = _env_or("DEFECT_MODEL", _env_or("QA_MODEL", "google/gemini-2.5-flash"))
     # W2 art-direction packs: a per-archetype design system (type pairing,
     # density, chart treatment, color stance) appended to the image prompt.
     #

@@ -31,7 +31,7 @@ def test_qa_parses_verdict(dental_spec):
     # in test_text_truth.py.
     with patch.object(qa.provider, "chat", return_value=_chat_response(
         '{"score": 8.7, "issues": ["minor icon blur"], "approved": true}'
-    )), patch.object(qa, "log_usage"), patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False):
+    )), patch.object(qa, "log_usage"), patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, b"png-bytes", dental_spec)
     assert verdict == {"score": 8.7, "issues": ["minor icon blur"], "approved": True}
 
@@ -92,7 +92,7 @@ def test_generate_candidates_retries_without_reference_on_failure():
 def test_qa_string_false_is_not_approval(dental_spec):
     with patch.object(qa.provider, "chat", return_value=_chat_response(
         '{"score": 3.0, "issues": ["garbled text"], "approved": "false"}'
-    )), patch.object(qa, "log_usage"), patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False):
+    )), patch.object(qa, "log_usage"), patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, b"png-bytes", dental_spec)
     assert verdict["approved"] is False
 
@@ -203,7 +203,7 @@ def test_a_candidate_under_the_dod_floor_is_not_approved(dental_spec):
     body = {"choices": [{"message": {"content": '{"score": 7.9, "issues": [], "approved": true}'}}], "usage": {}}
 
     with patch.object(qa.provider, "chat", return_value=body), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False), \
          patch.object(qa, "log_usage"):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
@@ -217,7 +217,7 @@ def test_a_missing_score_keeps_the_judges_own_verdict(dental_spec):
     body = {"choices": [{"message": {"content": '{"issues": [], "approved": true}'}}], "usage": {}}
 
     with patch.object(qa.provider, "chat", return_value=body), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False), \
          patch.object(qa, "log_usage"):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
@@ -229,7 +229,7 @@ def test_the_code_gate_only_ever_subtracts(dental_spec):
     body = {"choices": [{"message": {"content": '{"score": 9.4, "issues": ["x"], "approved": false}'}}], "usage": {}}
 
     with patch.object(qa.provider, "chat", return_value=body), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False), \
          patch.object(qa, "log_usage"):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 

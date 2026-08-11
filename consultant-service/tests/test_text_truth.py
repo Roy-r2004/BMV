@@ -153,14 +153,41 @@ def _qa_response(content: str) -> dict:
     return {"choices": [{"message": {"content": content}}], "usage": {"cost": 0.001}}
 
 
+def _routed_chat(judge=None, transcription=None):
+    """A provider.chat fake that answers by INSTRUMENT, not by call order.
+    review_image fires its instruments concurrently (session 34), so a test
+    that hands out responses in arrival order is a race. Each value may be
+    a single response, an Exception to raise, or a list consumed in order
+    (an instrument's own retries ARE serial)."""
+    routes = {
+        "product design director": judge,
+        "transcribe the misspelling": transcription,
+    }
+
+    def _fake(model, messages, **kwargs):
+        content = messages[0]["content"]
+        text = content[0]["text"] if isinstance(content, list) else content
+        for marker, resp in routes.items():
+            if resp is not None and marker in text:
+                item = resp.pop(0) if isinstance(resp, list) else resp
+                if isinstance(item, Exception):
+                    raise item
+                return item
+        raise AssertionError(f"unrouted chat call: {text[:80]}")
+
+    return _fake
+
+
 def test_gate_rejects_a_high_scoring_but_misspelled_screen(dental_spec):
     """The whole point: aesthetics never override the client's name."""
-    judged = _qa_response('{"score": 9.4, "issues": [], "approved": true}')
-    transcribed = _qa_response('{"text": ["SmileBright Dental", "SmileBright Operatons"], "uncertain": []}')
-
-    with patch.object(qa.provider, "chat", side_effect=[judged, transcribed]), \
+    fake = _routed_chat(
+        judge=_qa_response('{"score": 9.4, "issues": [], "approved": true}'),
+        transcription=_qa_response('{"text": ["SmileBright Dental", "SmileBright Operatons"], "uncertain": []}'),
+    )
+    with patch.object(qa.provider, "chat", side_effect=fake), \
          patch.object(qa, "log_usage"), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True), \
+         patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
     assert verdict["approved"] is False
@@ -170,15 +197,17 @@ def test_gate_rejects_a_high_scoring_but_misspelled_screen(dental_spec):
 
 
 def test_gate_cannot_rescue_a_screen_the_judge_rejected(dental_spec):
-    judged = _qa_response('{"score": 3.0, "issues": ["garbled chart"], "approved": false}')
-    transcribed = _qa_response(
-        '{"text": ["SmileBright Dental", "SmileBright Operations", "Dashboard", "Schedule",'
-        ' "Patients", "Recall", "Reports", "Settings"], "uncertain": []}'
+    fake = _routed_chat(
+        judge=_qa_response('{"score": 3.0, "issues": ["garbled chart"], "approved": false}'),
+        transcription=_qa_response(
+            '{"text": ["SmileBright Dental", "SmileBright Operations", "Dashboard", "Schedule",'
+            ' "Patients", "Recall", "Reports", "Settings"], "uncertain": []}'
+        ),
     )
-
-    with patch.object(qa.provider, "chat", side_effect=[judged, transcribed]), \
+    with patch.object(qa.provider, "chat", side_effect=fake), \
          patch.object(qa, "log_usage"), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True), \
+         patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
     assert verdict["approved"] is False
@@ -186,11 +215,14 @@ def test_gate_cannot_rescue_a_screen_the_judge_rejected(dental_spec):
 
 def test_a_transcription_outage_fails_open(dental_spec):
     """An outage in the gate must not reject every candidate a request has."""
-    judged = _qa_response('{"score": 8.6, "issues": [], "approved": true}')
-
-    with patch.object(qa.provider, "chat", side_effect=[judged, RuntimeError("judge down")]), \
+    fake = _routed_chat(
+        judge=_qa_response('{"score": 8.6, "issues": [], "approved": true}'),
+        transcription=RuntimeError("transcription down"),
+    )
+    with patch.object(qa.provider, "chat", side_effect=fake), \
          patch.object(qa, "log_usage"), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True), \
+         patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
     assert verdict["approved"] is True
@@ -198,12 +230,14 @@ def test_a_transcription_outage_fails_open(dental_spec):
 
 
 def test_gate_still_runs_when_the_aesthetic_judge_is_down(dental_spec):
-    transcribed = _qa_response('{"text": ["SmileBright Dental", "Smilebrite Operations"], "uncertain": []}')
-
-    with patch.object(qa.provider, "chat", side_effect=[
-        RuntimeError("judge down"), RuntimeError("judge down"), transcribed,
-    ]), patch.object(qa, "log_usage"), patch.object(qa.time, "sleep"), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+    fake = _routed_chat(
+        judge=[RuntimeError("judge down"), RuntimeError("judge down")],
+        transcription=_qa_response('{"text": ["SmileBright Dental", "Smilebrite Operations"], "uncertain": []}'),
+    )
+    with patch.object(qa.provider, "chat", side_effect=fake), \
+         patch.object(qa, "log_usage"), patch.object(qa.time, "sleep"), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True), \
+         patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
     assert verdict["score"] is None
@@ -220,7 +254,8 @@ def test_gate_can_be_disabled(dental_spec):
 
     with patch.object(qa.provider, "chat", side_effect=only_the_judge), \
          patch.object(qa, "log_usage"), \
-         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False):
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa.settings, "ENABLE_DEFECT_CHECK", False):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
     assert calls == [1], "no transcription call when the gate is off"

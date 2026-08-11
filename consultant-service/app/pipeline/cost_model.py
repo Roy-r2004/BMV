@@ -59,6 +59,12 @@ UNMEASURED_IMAGE_COST_USD = max(MEASURED_IMAGE_COST_USD.values())
 # Measured 2026-08-11, same source: one aesthetic judge call ($0.00112) plus
 # one transcription call ($0.00169) per candidate.
 QA_COST_PER_CANDIDATE_USD = 0.00281
+# The structural defect check (JOB 3): one inspector plus its verifier
+# calls. Measured on request 77 (the s34-defects dental run): 6 inspections
+# $0.006153 + 9 verifications $0.007540 over 6 candidates = $0.00228 per
+# candidate at the observed 1.5 claims/candidate. Counted only while
+# ENABLE_DEFECT_CHECK is on.
+DEFECT_CHECK_COST_PER_CANDIDATE_USD = 0.00228
 # analyze + consult + plan + blueprint + technical_plan + ui_spec, all on
 # ANALYSIS_MODEL. Measured on request 68, the first end-to-end run through
 # the public intake path (docs/evidence/session33/job1-real-pipeline.md):
@@ -113,8 +119,11 @@ def projected_request_cost(archetype_id: str | None = None) -> dict:
     regen_per_screen = max(0, settings.MAX_REGENERATIONS)
     images_worst = images_nominal + regen_per_screen * (anchor_rate + (counts["screens"] - 1) * followup_rate)
 
-    qa_nominal = counts["nominal"] * QA_COST_PER_CANDIDATE_USD
-    qa_worst = counts["worst_case"] * QA_COST_PER_CANDIDATE_USD
+    per_candidate_qa = QA_COST_PER_CANDIDATE_USD + (
+        DEFECT_CHECK_COST_PER_CANDIDATE_USD if settings.ENABLE_DEFECT_CHECK else 0
+    )
+    qa_nominal = counts["nominal"] * per_candidate_qa
+    qa_worst = counts["worst_case"] * per_candidate_qa
 
     return {
         **counts,

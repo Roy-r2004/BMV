@@ -1,36 +1,46 @@
 """Optional vision-model QA over generated screenshot candidates.
-Prompt versions: image-quality-judge-v1 (prompts/image_quality_judge.j2)
-and image-text-transcription-v1 (prompts/image_text_transcription.j2).
+Prompt versions: image-quality-judge-v1 (prompts/image_quality_judge.j2),
+image-text-transcription-v1 (prompts/image_text_transcription.j2),
+image-defect-inspector-v1 / image-defect-verifier-v1 (defect_check.py).
 
-Two instruments, deliberately separate:
+Three instruments, deliberately separate:
 
-1. The aesthetic judge scores craft and approves or rejects.
+1. The aesthetic judge scores craft and approves or rejects. The threshold
+   is enforced in code, not by the judge (see review_image).
 2. The text-truth gate (W3) transcribes what is actually rendered and
    diffs it against the spec in code (pipeline/text_truth.py). It can only
    ever REJECT — a screen carrying the client's name misspelled is
    unusable however beautiful it is, and no aesthetic score may override
    that. It can never rescue a screen the judge rejected.
+3. The structural defect check (JOB 3): one inspector reports countable
+   structural defects, each claim goes to a separate verifier told to
+   refute it (pipeline/defect_check.py). A claim both stages agree on
+   rejects the candidate. Like text truth, it only subtracts.
+
+The three primary calls are independent reads of the same bytes, so they
+run CONCURRENTLY — this is what pays for the defect check without blowing
+the 3-minute request line. Every DB write happens on the calling thread
+after the joins; the worker threads only do network I/O, so no Session is
+ever shared across threads.
 
 Fail-open by design: if the judge call/parse fails on BOTH attempts, the
 candidate passes with a null score and the failure is logged — a QA outage
-must never take down image generation itself. One retry first, though:
-real runs have shown transient timeouts on this call, and a judge that
-never actually looked at the image is worse than a slightly slower one.
-The transcription call fails open the same way, for the same reason: an
-outage in the gate must not reject every candidate a request has.
+must never take down image generation itself. The transcription call and
+both defect stages fail open the same way, for the same reason.
 """
 
 import base64
 import io
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.ai import provider
 from app.config import settings
-from app.pipeline import text_truth
+from app.pipeline import defect_check, text_truth
 from app.pipeline._shared import extract_json_from_text, log_usage
 from app.templating import render
 from app.ui_spec import UIDemoSpec
@@ -100,15 +110,17 @@ def _magnified_bands(image_bytes: bytes) -> list[bytes]:
         return []
 
 
-def transcribe(db: Session, request_id: int, image_bytes: bytes, screen: str | None = None) -> list[str] | None:
-    """Every string visible in the image, as rendered. None when the call or
-    parse failed — the caller must treat that as "unknown", never as "no
-    text found", which would fail every brand-critical string at once."""
+def _uri(data: bytes) -> str:
+    return "data:image/png;base64," + base64.b64encode(data).decode()
+
+
+# ── the three instruments as pure network calls (no DB — the caller logs) ─
+
+def _transcribe_call(image_bytes: bytes) -> dict:
+    """{"transcript": list[str] | None, "usage": dict | None, "error": ...}.
+    None means the call or parse failed — "unknown", never "no text found",
+    which would fail every brand-critical string at once."""
     prompt = render("image_text_transcription.j2")
-
-    def _uri(data: bytes) -> str:
-        return "data:image/png;base64," + base64.b64encode(data).decode()
-
     content: list[dict] = [
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": _uri(image_bytes)}},
@@ -132,64 +144,18 @@ def transcribe(db: Session, request_id: int, image_bytes: bytes, screen: str | N
             max_tokens=2000,
         )
         parsed = extract_json_from_text(body["choices"][0]["message"]["content"])
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.QA_MODEL, purpose="image_text",
-            usage=body.get("usage"), success=True, screen=screen,
-        )
-        return [str(t) for t in (parsed.get("text") or [])]
+        return {
+            "transcript": [str(t) for t in (parsed.get("text") or [])],
+            "usage": body.get("usage"),
+            "error": None,
+        }
     except Exception as exc:
-        log_usage(
-            db, request_id,
-            provider="openrouter", model=settings.QA_MODEL, purpose="image_text",
-            success=False, error=str(exc)[:480], screen=screen,
-        )
-        logger.warning("text transcription failed open: request=%s error=%s", request_id, exc)
-        return None
+        return {"transcript": None, "usage": None, "error": str(exc)[:480]}
 
 
-def _apply_text_truth_gate(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoSpec, verdict: dict) -> dict:
-    """Adds "text_truth" to the verdict and, on failure, forces approval off.
-
-    Only ever subtracts. A verdict the aesthetic judge already rejected
-    stays rejected even if every brand string is perfect.
-    """
-    # ENABLE_VISION_QA is the master cost switch for vision calls ("no QA
-    # calls on this deployment"). The gate is a vision call, so it obeys
-    # that switch too — turning QA off and still being billed for a
-    # transcription per candidate would be a nasty surprise.
-    if not (settings.ENABLE_VISION_QA and settings.ENABLE_TEXT_TRUTH_GATE):
-        return verdict
-
-    transcript = transcribe(db, request_id, image_bytes, spec.screen_slug)
-    if transcript is None:
-        verdict["text_truth"] = {"passed": None, "reason": "transcription unavailable"}
-        return verdict
-
-    result = text_truth.check(spec, transcript)
-    verdict["text_truth"] = {
-        "passed": result["passed"],
-        "checked": result["checked"],
-        "failures": result["failures"],
-        "absent": result["absent"],
-    }
-    if not result["passed"]:
-        issues = text_truth.describe(result)
-        verdict["issues"] = (verdict.get("issues") or []) + issues
-        verdict["approved"] = False
-        logger.info(
-            "text-truth gate rejected a candidate: request=%s screen=%s %s",
-            request_id, spec.screen_slug, "; ".join(issues[:3]),
-        )
-    return verdict
-
-
-def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoSpec) -> dict:
-    """Returns {"score": float | None, "issues": list[str], "approved": bool,
-    "text_truth": {...} | absent}."""
-    if not settings.ENABLE_VISION_QA:
-        return {"score": None, "issues": [], "approved": True}
-
+def _judge_call(image_bytes: bytes, spec: UIDemoSpec) -> dict:
+    """{"verdict": {...} | None, "usage": dict | None, "error": ...} with
+    the retry inside — verdict None means failed after retry (fail open)."""
     prompt = render(
         "image_quality_judge.j2",
         screen_title=spec.screen_title,
@@ -198,8 +164,7 @@ def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoS
         industry=spec.business.industry,
         min_score=settings.QA_MIN_SCORE,
     )
-    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
-
+    data_uri = _uri(image_bytes)
     last_exc: Exception | None = None
     for attempt in range(2):
         if attempt:
@@ -239,30 +204,158 @@ def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoS
             # judge that returned no number must not reject every candidate.
             if score is not None and score < settings.QA_MIN_SCORE:
                 approved = False
-            verdict = {
-                "score": score,
-                "issues": [str(i) for i in (parsed.get("issues") or [])][:10],
-                "approved": bool(approved),
+            return {
+                "verdict": {
+                    "score": score,
+                    "issues": [str(i) for i in (parsed.get("issues") or [])][:10],
+                    "approved": bool(approved),
+                },
+                "usage": body.get("usage"),
+                "error": None,
             }
-            log_usage(
-                db, request_id,
-                provider="openrouter", model=settings.QA_MODEL, purpose="image_qa",
-                usage=body.get("usage"), success=True, screen=spec.screen_slug,
-            )
-            return _apply_text_truth_gate(db, request_id, image_bytes, spec, verdict)
         except Exception as exc:
             last_exc = exc
+    return {"verdict": None, "usage": None, "error": f"failed after retry: {str(last_exc)[:480]}"}
 
+
+# ── public wrappers ──────────────────────────────────────────────────────
+
+def transcribe(db: Session, request_id: int, image_bytes: bytes, screen: str | None = None) -> list[str] | None:
+    """Every string visible in the image, as rendered. None when the call or
+    parse failed. Ledgers its own usage row."""
+    result = _transcribe_call(image_bytes)
+    log_usage(
+        db, request_id,
+        provider="openrouter", model=settings.QA_MODEL, purpose="image_text",
+        usage=result["usage"], success=result["error"] is None,
+        error=result["error"], screen=screen,
+    )
+    if result["error"] is not None:
+        logger.warning("text transcription failed open: request=%s error=%s", request_id, result["error"])
+    return result["transcript"]
+
+
+def _apply_text_truth(verdict: dict, spec: UIDemoSpec, transcript: list[str] | None) -> dict:
+    """Adds "text_truth" to the verdict and, on failure, forces approval off.
+
+    Only ever subtracts. A verdict the aesthetic judge already rejected
+    stays rejected even if every brand string is perfect.
+    """
+    if transcript is None:
+        verdict["text_truth"] = {"passed": None, "reason": "transcription unavailable"}
+        return verdict
+    result = text_truth.check(spec, transcript)
+    verdict["text_truth"] = {
+        "passed": result["passed"],
+        "checked": result["checked"],
+        "failures": result["failures"],
+        "absent": result["absent"],
+    }
+    if not result["passed"]:
+        issues = text_truth.describe(result)
+        verdict["issues"] = (verdict.get("issues") or []) + issues
+        verdict["approved"] = False
+    return verdict
+
+
+def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoSpec) -> dict:
+    """Returns {"score": float | None, "issues": list[str], "approved": bool,
+    "text_truth": {...} | absent, "defects": {...} | absent}.
+
+    Fires the judge, the transcription and the defect inspector
+    CONCURRENTLY (independent reads of the same bytes), then the
+    per-claim verifiers, then writes every ledger row from this thread.
+    """
+    if not settings.ENABLE_VISION_QA:
+        return {"score": None, "issues": [], "approved": True}
+
+    run_text = settings.ENABLE_TEXT_TRUTH_GATE
+    run_defects = settings.ENABLE_DEFECT_CHECK
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        judge_future = pool.submit(_judge_call, image_bytes, spec)
+        transcribe_future = pool.submit(_transcribe_call, image_bytes) if run_text else None
+        inspect_future = pool.submit(defect_check.inspect_call, image_bytes, spec) if run_defects else None
+
+        judge_result = judge_future.result()
+        transcribe_result = transcribe_future.result() if transcribe_future else None
+        inspect_result = inspect_future.result() if inspect_future else None
+
+        # Verifiers reuse the pool — the three primaries are done by now.
+        verify_futures = []
+        if inspect_result and inspect_result["claims"]:
+            verify_futures = [
+                pool.submit(defect_check.verify_call, image_bytes, claim, spec)
+                for claim in inspect_result["claims"]
+            ]
+        verify_results = [f.result() for f in verify_futures]
+
+    # ── everything below is on the calling thread: DB, verdict assembly ──
     log_usage(
         db, request_id,
         provider="openrouter", model=settings.QA_MODEL, purpose="image_qa",
-        success=False, error=f"failed after retry: {str(last_exc)[:480]}", screen=spec.screen_slug,
+        usage=judge_result["usage"], success=judge_result["error"] is None,
+        error=judge_result["error"], screen=spec.screen_slug,
     )
-    logger.warning("image QA failed open after retry: request=%s error=%s", request_id, last_exc)
-    # Still gated: the aesthetic judge being down is no reason to ship the
-    # client's name misspelled — that check is a separate call and may well
-    # have succeeded.
-    return _apply_text_truth_gate(
-        db, request_id, image_bytes, spec,
-        {"score": None, "issues": [f"qa-failed after retry: {str(last_exc)[:120]}"], "approved": True},
-    )
+    if judge_result["verdict"] is not None:
+        verdict = judge_result["verdict"]
+    else:
+        logger.warning("image QA failed open after retry: request=%s error=%s", request_id, judge_result["error"])
+        # Still gated below: the aesthetic judge being down is no reason to
+        # ship the client's name misspelled or a duplicated panel — those
+        # checks are separate calls and may well have succeeded.
+        verdict = {"score": None, "issues": [f"qa-failed {str(judge_result['error'])[:120]}"], "approved": True}
+
+    if run_text and transcribe_result is not None:
+        log_usage(
+            db, request_id,
+            provider="openrouter", model=settings.QA_MODEL, purpose="image_text",
+            usage=transcribe_result["usage"], success=transcribe_result["error"] is None,
+            error=transcribe_result["error"], screen=spec.screen_slug,
+        )
+        if transcribe_result["error"] is not None:
+            logger.warning(
+                "text transcription failed open: request=%s error=%s",
+                request_id, transcribe_result["error"],
+            )
+        verdict = _apply_text_truth(verdict, spec, transcribe_result["transcript"])
+        if verdict.get("text_truth", {}).get("passed") is False:
+            logger.info(
+                "text-truth gate rejected a candidate: request=%s screen=%s %s",
+                request_id, spec.screen_slug,
+                "; ".join(verdict["issues"][-3:]),
+            )
+
+    if run_defects and inspect_result is not None:
+        log_usage(
+            db, request_id,
+            provider="openrouter", model=settings.DEFECT_MODEL, purpose="image_defect",
+            usage=inspect_result["usage"], success=inspect_result["error"] is None,
+            error=inspect_result["error"], screen=spec.screen_slug,
+        )
+        confirmed = []
+        for claim, verification in zip(inspect_result["claims"], verify_results):
+            log_usage(
+                db, request_id,
+                provider="openrouter", model=settings.DEFECT_MODEL, purpose="image_defect_verify",
+                usage=verification["usage"], success=verification["error"] is None,
+                error=verification["error"], screen=spec.screen_slug,
+            )
+            if verification["confirmed"]:
+                confirmed.append({**claim, "verifier_reason": verification["reason"]})
+        verdict["defects"] = {
+            "claims": len(inspect_result["claims"]),
+            "confirmed": confirmed,
+        }
+        if confirmed:
+            verdict["issues"] = (verdict.get("issues") or []) + [
+                f"structural defect ({c['kind']}): {c['what']}" for c in confirmed
+            ]
+            verdict["approved"] = False
+            logger.info(
+                "defect check rejected a candidate: request=%s screen=%s %s",
+                request_id, spec.screen_slug,
+                "; ".join(f"{c['kind']}@{c['where'][:60]}" for c in confirmed[:3]),
+            )
+
+    return verdict
