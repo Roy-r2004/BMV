@@ -79,3 +79,41 @@ business-specific (`Concrete Mixer (Electric)`, `Cascade Endurance Gravel`).
 ## DoD 10
 
 Runs 1–3 of the streak: **2 ready, 1 withheld, 0 deaths.**
+
+---
+
+# Run 170 — Stage A/B validated in production (post-merge)
+
+The trio ran from the frozen `main`, so it validated the session-29 fixes and
+nothing of ours. After the merge, one run on merged `main` closes that gap.
+
+**170 · Lantern & Ash · late-night cocktail bar → recipe `nocturne` · 558 s ·
+`ready` · $0.375736 (39 calls).** DoD 10 streak run 4.
+
+Classification is the owner's rule holding again: a dim late-opening bar
+resolved to `nocturne`, not to a storefront default.
+
+Verified in the shipped workspace (`/app/data/preview-apps/170`):
+
+| claim | evidence |
+|---|---|
+| A1's single resolution ships per workspace | `src/lib/site-design.ts` **present** |
+| SiteSpec.design is v1.1 | `"version": "1.1"`, `"recipe_id": "nocturne"` |
+| 3.10 identity is real, not a default | `"identity": "nocturne-drift"`, ease `[0.16, 1.0, 0.3, 1.0]` — the authored temperament, not the `entrance-only` fallback |
+| Both engines consume it in the shipped app | `motionIdentity` × 2 in `presets.tsx`, × 2 in `anime.ts` |
+| The arsenal ships | 19 files in `src/ui/effects/` (18 primitives + barrel) |
+| **The arsenal is inert** | **0 generated pages reference any foundry primitive** — the reachability gap, confirmed empirically in production exactly as the catalogue read predicted |
+
+So Stage A is a proven no-op on live generation, 3.10 is proven live
+end-to-end, and Stage B's mining is proven *shipped but unreachable*. That
+last row is the honest state of the foundry and the next thing worth fixing.
+
+## Session cost, final
+
+| item | ledger |
+|---|---|
+| Trio 167–169 | $0.920532 (96 calls) |
+| Run 170 | $0.375736 (39 calls) |
+| **Total** | **$1.296268 (135 calls)** |
+
+Owner cap $3 — **$1.30 used, 43%.**

@@ -97,6 +97,42 @@ frozen), index.css byte-identical (silhouette 17/17 at every step), main untouch
   (id+cycle hash scatter), ScrollProgress (native scroll, brand→accent), ProgressiveBlur.
   Suite 2,392/1/0 (+0), sweep 6/0. **Session sweeps: 66/0 across eight scripts.**
 
+### 2026-08-10 — the trio ran, the branch merged, Stage A/B validated live ($1.296)
+
+**`phase3-stage-a` is MERGED into `main`** (fast-forward, 45 commits). Gate was
+"upstream deaths from the session-29 fixed classes = 0" and the trio delivered exactly that.
+
+- **Trio 167–169 from frozen `main`:** 167 Copperline Hardware `ready`, 168 Ridgeline Bike Works
+  `ready`, 169 Kestrel & Fern Bakehouse `withheld` (`pack_copy_shipped`). **0 upstream deaths** —
+  best trio to date. Walls 553–575 s. Per-item photo binding validated (one Pexels query per
+  item — run 165's exact failure). Session-29 markers did NOT fire and are **live-unproven**, not
+  proven: all three briefs are `needs_ai:no`. Next trio needs a `needs_ai:yes` brief.
+- **Run 170 post-merge:** Lantern & Ash → recipe `nocturne`, 558 s, `ready`. Confirms in the
+  shipped workspace: `site-design.ts` present, v1.1, `nocturne-drift` with its authored ease,
+  both engines consuming `motionIdentity`, 19 effect files present — **and 0 pages using any of
+  them.** DoD 10 streak now **4 runs: 3 ready, 1 withheld, 0 deaths.**
+- **Cost from `ai_usage_events`, not the balance:** $0.920532 + $0.375736 = **$1.296268** (135
+  calls) against a $3 owner cap. The balance fell far more because the shared key has another
+  consumer — measured at $3.26/30 min *before* launch while this session spent $0. Attribute
+  from the ledger; no leak alarm.
+- **Offline before launch:** suite **2,393/1/0**, silhouette 17/17, tsc 0, build clean, and all
+  eight sweeps re-run. That re-run caught a real regression — A4's P7 went kill → SURVIVED
+  because Stage B's rows displaced the empty-manifest branch from `ATTRIBUTIONS.md`. Pinned
+  directly (`ea49e1e`); **sweeps back to 66/0**.
+
+**Three defects now on the books (none caused by the branch):**
+1. **Foundry reachability** — all 18 primitives are registered/exported/manifested/attributed but
+   **0 of 15 skeletons list them in `allowedComponents`**, so codegen can never emit one and the
+   validator would reject it. Proven empirically by run 170. `recipe_personalities` in the
+   manifest is consumed by nothing. Fix shape (owner call, Stage C/D adjacent): per-skeleton
+   allow-lists keyed on those personality tags, NOT a blanket append. See
+   `session30/foundry-reachability-gap.md`.
+2. **Industry-pack copy ships verbatim** — withheld 169 correctly (29 sentences of *restaurant*
+   copy in a bakery's `mock.ts`).
+3. **The same leak passed `ready` in 167** — a hardware store carrying "AI-guided consult",
+   "Member aftercare", "Follow-up visit". The gate is threshold-shaped (sentence count); the
+   defect is categorical. Demo-matches-the-business leaking through a threshold.
+
 **Session-30 late additions (post-B4):** (a) **trio pre-flight** — every runbook precondition as
 one GO/NO-GO: `python3 docs/evidence/session30/preflight_trio.py` (from main, where the file is
 absent from the tree: `git show phase3-stage-a:docs/evidence/session30/preflight_trio.py |
