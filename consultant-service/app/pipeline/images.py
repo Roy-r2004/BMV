@@ -193,7 +193,12 @@ def _render_screen(
             usage=cand.get("usage"), image_count=1, success=True,
         )
         cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
-        cand["attempt"] = i
+        # Attempt numbers double as candidate FILENAMES in _save_selected, so
+        # they must be unique among *scored* candidates. The positional index
+        # is not: with [ok, error, ok] the survivors take 0 and 2, and the
+        # regeneration pass (len(scored) == 2) collides with the last one —
+        # two images writing cand2.png, one silently overwriting the other.
+        cand["attempt"] = len(scored)
         logger.info(
             "candidate scored: request=%s screen=%s archetype=%s model=%s attempt=%s variant=%s "
             "latency=%.1fs qa_score=%s approved=%s issues=%s",
@@ -269,13 +274,16 @@ def _save_selected(
 
     # Non-selected candidates + per-image metadata go to disk (not the DB) —
     # enough to compare prompt/model/composition performance later without
-    # bloating rows.
+    # bloating rows. Watermarked like the selected image: everything under
+    # UPLOADS_DIR is statically served (main.py mounts /uploads), so a raw
+    # candidate here is a full-quality UNBRANDED copy of the demo at a
+    # guessable URL — exactly what the watermark exists to prevent.
     candidates_dir = os.path.join(out_dir, "candidates")
     os.makedirs(candidates_dir, exist_ok=True)
     for cand in all_candidates:
         if cand is not selected:
             with open(os.path.join(candidates_dir, f"{spec.screen_slug}_cand{cand['attempt']}.png"), "wb") as f:
-                f.write(cand["image_bytes"])
+                f.write(_apply_bmv_watermark(cand["image_bytes"]))
 
     composition_variant = selected.get("variant_id")
     saved_prompt_version = prompt_version + ("+composition" if composition_variant else "")
@@ -345,14 +353,22 @@ def generate_demo_screens(
 
     saved: list[GeneratedImage] = []
 
-    # ── Anchor screen: 3 distinct composition variants, not re-rolls ──────
+    # ── Anchor screen: distinct composition variants, not re-rolls ────────
+    # DASHBOARD_CANDIDATES is the cost knob the module docstring promises
+    # ("this is lead gen — cost per request matters"): it caps how many
+    # composition variants the anchor explores. It had decoupled from the
+    # generation path when variants replaced re-rolls — defined, documented
+    # in .env.example, and read by nothing.
     anchor_spec = ui_specs[0]
+    anchor_variants = prompt_builder.COMPOSITION_VARIANTS[
+        : max(1, settings.DASHBOARD_CANDIDATES)
+    ]
     anchor_prompts = [
         {
             "prompt": prompt_builder.build_dashboard_image_prompt(anchor_spec, composition=variant),
             "variant_id": variant["id"],
         }
-        for variant in prompt_builder.COMPOSITION_VARIANTS
+        for variant in anchor_variants
     ]
     anchor_selected, anchor_pool = _render_screen(
         db, request_id, anchor_spec, anchor_prompts,
