@@ -64,7 +64,7 @@ This is what a 3-screen deliverable depends on and it had never been tested in
 this register. Cost of a 2-screen brief: **$0.372**, comfortably inside the
 $0.60 DoD line.
 
-**The footer strip works.** No corner clipping anywhere in 46 images. The
+**The footer strip works.** No corner clipping anywhere in 120 generated images. The
 old corner mark is visible clipping the "Schedule Filler" chip in the light
 control on the dental sheet.
 

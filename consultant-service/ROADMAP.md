@@ -80,25 +80,32 @@ The owner saw the sign-off sheets, called them nice, and asked for something
 modern, futuristic and AI-forward, with a luxury property configurator as the
 reference. The pipeline could not produce that image: `_DESIGN_CONSTRAINTS`
 mandated a light base and banned dark themes, hero composition and rendered
-imagery. Session 32 rebuilds the register — and takes the corner change above,
-which was already the recommended next step.
+imagery. Session 32 rebuilt the register and ran the funded comparison.
 
 | | | |
 |---|---|---|
-| W8 Footer-strip mark | **BUILT, DEFAULT ON** | `WATERMARK_STYLE=footer`; the prompt's corner reservation now emits only in `corner` mode |
-| W9 Cinematic register | **BUILT, DEFAULT ON, UNMEASURED** | `IMAGE_REGISTER=cinematic`; light kept verbatim as the A/B control |
-| W10 Hero asset | **BUILT, DEFAULT ON, UNMEASURED** | `spec.hero` — a photoreal centerpiece inside the content area |
-| W11 Tool screens | **BUILT, DEFAULT ON, UNMEASURED** | `spec.concept` — selector / configurator / explorer with real steps |
-| W12 AI module | **BUILT, DEFAULT ON, UNMEASURED** | `spec.ai` — a recommendation with reasoning and confidence, replacing the log |
+| W8 Footer-strip mark | **DONE, ON** | no corner clipping in 120 images; the corner reservation is gone from the prompt |
+| W9 Cinematic register | **ON, OWNER'S CALL PENDING** | built, fixed over four cycles; no automated instrument could rank it against light |
+| W10 Hero asset | **DONE, ON** | 6/6 briefs produced concrete photographable subjects |
+| W11 Tool screens | **DONE, ON** | 6/6 tool anchors once `anchor_tool` became a top-level required field |
+| W12 AI module | **DONE, ON** | recommendation + reasoning + confidence, replacing the log |
+| W2 Art packs | **STILL OFF** | re-run with the corner free: tied at 9.2 on a saturated judge — no evidence either way |
+| W5 Design sheet | **CLOSED, OFF** | re-run with the corner free: 8.5 vs 9.2. Session 31 blamed the corner; that was wrong, it loses on its own merits |
+| W7 Phase-2 bridge | **NOT STARTED** | gated on the owner's sign-off |
 
-**Nothing in session 32 has been seen by a model — $0 was spent, by the
-owner's instruction.** Session 31's lesson stands: W2 and W5 were both built,
-both looked right, and both lost. Until the A/B in
-`docs/evidence/session32/funded-run.md` runs, "cinematic is better" is a
-hypothesis with good reasons behind it, not a result.
+**The measurement problem is the finding.** The per-image judge scored full
+cinematic, hero-off, tool-off and packs-on all at exactly 9.2 — it is a defect
+detector, not a quality meter. The pairwise judge (`claude-sonnet-5`) picked
+the first-presented image 6 of 6 and fabricated text failures to justify it,
+contradicted by the text-truth gate passing all 8 files. That is the second
+judge to fail this way, and the order-swap protocol caught it both times.
 
-W2 and W5 are still built and one env var away, and the corner that defeated
-them is now free — a re-run is step 5 of the funded run.
+So DoD line 3 rests entirely on the owner's eye now, as it was always written
+to. Sheets: `docs/evidence/session32/sign-off/`. Full write-up:
+`docs/evidence/session32/results.md`.
+
+Cost holds: a 2-screen brief with tiering measured **$0.372**, inside the
+$0.60 DoD line, and flash follow-ups inherit the register from a pro anchor.
 
 ## Workstreams
 
