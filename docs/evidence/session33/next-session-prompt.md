@@ -81,8 +81,28 @@ pixels and the class may simply go away — for near-zero engineering.
 3. If it works: adopt it, check the cost delta (output tokens scale with
    pixels — this may not be free), re-check the $0.60 line with
    `cost_model.py`, and pin it.
-4. If the model will not go bigger: say so plainly and move to JOB 3, which
-   is then the only route for menu labels.
+4. **If the model will not go bigger**, say so plainly and fall through to
+   JOB 3b below. Note that JOB 3's defect checker is NOT a fallback here: its
+   rubric forbids text claims, exactly as the pairwise rubric does, so it
+   cannot see a misspelled label by design.
+
+## JOB 3b — Composite the navigation labels (only if JOB 1 fails)
+
+If the canvas cannot grow, the menu labels cannot be made legible by asking,
+and the class stops being fixable at the prompt layer. Then draw them:
+composite the wordmark and the nav items in PIL over the bar the model drew,
+from the exact strings in the spec.
+
+Narrower than it sounds, and the reason to do this one first if compositing
+happens at all: nav labels are short, in a known band, on a flat ground, and
+we already know the strings. The hard part is matching the model's own type
+treatment closely enough that the strip does not read as pasted on — so
+sample the drawn colour and cap height from the rendered bar rather than
+picking a font size in advance, and put it behind a flag so it can be turned
+off in one env var if it looks wrong.
+
+This is the same split as JOB 4 and W4 before it, applied to the strings that
+cost the most when they are wrong.
 
 **Do not skip to the clever fix without running this.** It is $0.40 and it
 either removes a whole class or tells you the class needs real work.
@@ -128,6 +148,24 @@ three times.
 
 Measure it honestly on the golden set: how many real defects caught, how many
 false rejections bought, what it did to wall clock and cost.
+
+## JOB 3c — Give the AI module a title of its own (~1 hour, $0 to build)
+
+Six screens across the run drew a heading on the intelligence module that
+nobody asked for: "HERO INTELLIGENCE", "ONLY AI INTELLIGENCE", "PREMIUM AI
+INTELLIGENCE", "INTELLIGENCE MODULE", "SOFTWARE-FORMED OPINION", "OPINION".
+Every one was lifted from the prose sitting nearest to it.
+
+Session 33 removed the specific phrases it could find, and the re-run invented
+new ones. The reason is structural: `AiLayer` has no title field, so the panel
+has a vacancy and the model fills it from context. Deleting the phrases just
+moves which context it reaches for.
+
+Add the field, have the ui_spec stage fill it with a real product label, and
+render it as an exact string like every other label. Then nothing is left to
+be guessed. This needs the golden briefs re-frozen under a new `ui-spec-v3`
+directory — do NOT overwrite `briefs-v2`, it is the control arm for every
+comparison this session runs.
 
 ## JOB 4 — Draw the charts in code (the structural one — only if 1–3 land)
 
