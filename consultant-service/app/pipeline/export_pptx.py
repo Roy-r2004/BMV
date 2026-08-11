@@ -295,11 +295,28 @@ def build_presentation(
                 slide, "IN DETAIL", Inches(9.25), Inches(1.55), Inches(3.4), Inches(0.3),
                 size=11, color=_MUTED, bold=True,
             )
-            top = Inches(1.95)
-            slot_h = Inches(2.45)
+            # Each crop gets the height its own aspect ratio needs at the
+            # column width, and the stack is centred against the hero.
+            #
+            # The slots used to be a fixed 2.45" tall. A detail crop is a
+            # wide, thin band — detail_1 is roughly 3.7:1 — so at 3.5" wide
+            # it renders under an inch tall and left 1.5" of its slot empty,
+            # twice per slide. The result was a column labelled IN DETAIL
+            # containing two thumbnails too small to show any detail, which
+            # is the one thing they exist to do.
+            column_w = Inches(3.5)
+            gap = Inches(0.2)
+            heights = []
             for detail in details[:2]:
-                _place_image_contain(slide, detail, Inches(9.25), top, Inches(3.5), slot_h)
-                top = top + slot_h + Inches(0.15)
+                with Image.open(detail) as im:
+                    heights.append(Emu(round(column_w * im.height / im.width)))
+            stack_h = sum(heights, Emu(0)) + gap * (len(heights) - 1)
+            # Centred on the hero's vertical span, so the two columns still
+            # read as one block rather than a picture beside a caption.
+            top = Inches(1.95) + max(Emu(0), Emu(round((Inches(5.0) - stack_h) / 2)))
+            for detail, height in zip(details[:2], heights):
+                _place_image_contain(slide, detail, Inches(9.25), top, column_w, height)
+                top = top + height + gap
         else:
             _place_image_contain(slide, hero, MARGIN, Inches(1.55), Inches(12.13), Inches(5.4))
 
@@ -394,7 +411,16 @@ def build_presentation(
         col_w = Inches((12.133 - (n - 1) * 0.25) / n)
         gap = Inches(0.25)
         card_top = Inches(2.5)
-        card_h = Inches(2.9)
+        # Sized from the longest "why" rather than fixed at 2.9". With two
+        # employees and one-line reasons the fixed height produced two boxes
+        # four times taller than their own text, which reads as content that
+        # failed to load. ~46 characters fit a line at 11.5pt in this column,
+        # and the estimate only ever grows the card: a card slightly too tall
+        # is untidy, a card too short clips the text.
+        chars_per_line = max(20, int(col_w / Inches(0.083)))
+        longest = max((len(e.get("why", "")) for e in employees), default=0)
+        lines = max(1, -(-longest // chars_per_line))
+        card_h = min(Inches(3.6), Inches(0.95) + Inches(0.26) * lines)
         for i, emp in enumerate(employees):
             x = MARGIN + i * (col_w + gap)
             from pptx.enum.shapes import MSO_SHAPE

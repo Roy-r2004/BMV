@@ -64,6 +64,21 @@ This is what a 3-screen deliverable depends on and it had never been tested in
 this register. Cost of a 2-screen brief: **$0.372**, comfortably inside the
 $0.60 DoD line.
 
+> **Superseded 2026-08-12 (session 33).** That figure was two screens at three
+> anchor candidates. The shipped configuration is now three screens at two
+> anchor candidates, measured across five briefs:
+>
+> | | measured |
+> |---|---|
+> | 3-screen golden brief (images + QA) | **$0.4415** average, 90–101s |
+> | full request through the public path, incl. text stages | **$0.5336**, 2m48s |
+> | projected nominal, from `cost_model.py` | $0.4604 |
+> | projected worst case (every screen regenerates) | $0.7538 |
+>
+> Per successful image call, from the ledger: `gemini-3-pro-image` $0.14578
+> (n=90), `gemini-3.1-flash-image` $0.06959 (n=25). See
+> [`../session33/dod-assessment.md`](../session33/dod-assessment.md).
+
 **The footer strip works.** No corner clipping anywhere in 120 generated images. The
 old corner mark is visible clipping the "Schedule Filler" chip in the light
 control on the dental sheet.

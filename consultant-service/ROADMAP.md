@@ -72,7 +72,8 @@ screens conditioned on the anchor — halving cost with little visible loss.
 **Phase 1 is not declared shippable.** DoD line 2 fails on measurement and
 line 3 is waiting on the owner's eye — see
 `docs/evidence/session31/dod-assessment.md` and the sheets in
-`docs/evidence/session31/sign-off/`.
+`docs/evidence/session31/sign-off/`. (Line 3 was signed off on 2026-08-11;
+line 2 still fails as of session 33, on both of its clauses.)
 
 ## Status after session 32 (2026-08-11) — the cinematic register
 
@@ -91,7 +92,7 @@ imagery. Session 32 rebuilt the register and ran the funded comparison.
 | W12 AI module | **DONE, ON** | recommendation + reasoning + confidence, replacing the log |
 | W2 Art packs | **STILL OFF** | re-run with the corner free: tied at 9.2 on a saturated judge — no evidence either way |
 | W5 Design sheet | **CLOSED, OFF** | re-run with the corner free: 8.5 vs 9.2. Session 31 blamed the corner; that was wrong, it loses on its own merits |
-| W7 Phase-2 bridge | **UNBLOCKED, NOT STARTED** | sign-off received; it is the closing session's job |
+| W7 Phase-2 bridge | **DONE (session 33)** | `phase2_bridge.py` + 15 tests |
 
 **The measurement problem is the finding.** The per-image judge scored full
 cinematic, hero-off, tool-off and packs-on all at exactly 9.2 — it is a defect
@@ -109,6 +110,45 @@ ships.** Line 2 was amended the same day (see the DoD below). Sheets:
 
 Cost holds: a 2-screen brief with tiering measured **$0.372**, inside the
 $0.60 DoD line, and flash follow-ups inherit the register from a pro anchor.
+(Superseded by session 33's measurement: **$0.4415** for a 3-screen brief,
+**$0.5336** for a full request through the public path.)
+
+## Status after session 33 (2026-08-12) — measured on the real thing
+
+The closing session ran the pipeline the way a client does — one request
+through the public intake, then the first complete 5-brief x 3-screen golden
+set in this register — and **Phase 1 is not shippable.** Two DoD lines fail,
+and both failures were invisible to every measurement taken before, because
+every measurement before went through `scripts/bakeoff.py` on frozen
+single-screen briefs.
+
+| | | |
+|---|---|---|
+| W7 Phase-2 bridge | **DONE** | `phase2_bridge.py` + 15 tests; blueprint prose deliberately does not cross |
+| W4 Compositing | **DONE, ON** | deck rebuilt, all 7 slides read; two proportion defects fixed |
+| Cost knob | **DONE** | `DASHBOARD_CANDIDATES` 3 -> 2; `cost_model.py` evaluates DoD line 4 for $0 |
+| Pairwise instrument | **KEPT** | the v2 rubric passes both the known pair and the order swap. Two models had failed v1 identically |
+| DoD line 1 | **FAILS** | a shipped nav label reads "Cilents"; the gate passed it |
+| DoD line 2 | **FAILS** | 4 of 15 screens below 8; **13 of 15 carry a listed defect**, including both that scored 9.2 |
+
+Full assessment: `docs/evidence/session33/dod-assessment.md`. Findings and
+spend: `docs/evidence/session33/results.md`.
+
+**The two things the next session has to decide.**
+
+1. `QA_MIN_SCORE` is **7**, and DoD line 2's floor is **8**. The pipeline has
+   never been configured to enforce the number it is judged against; sessions
+   31 and 32 passed that clause by luck. Raising it costs roughly one extra
+   image on 20% of screens and still does not guarantee the floor, because the
+   best-effort path ships the highest scorer when nothing is approved. That is
+   an owner's call, not a tuning decision.
+2. The defect clause needs an instrument. The per-image judge cannot be it —
+   it scored 9.2 twice for screens carrying duplicated panels and invented
+   panel titles. The swap-tested **pairwise** judge now can: across four runs
+   it found real duplication, real clipping and a real floating-card
+   violation, made no text claims, and attributed the same defect to the same
+   image under an order swap. Wiring it into the request path as a per-screen
+   defect check has never been tried and is the obvious next move.
 
 ## Workstreams
 
@@ -156,10 +196,16 @@ if it wins.
 artifact; candidate hygiene and watermark policy (done); per-request cost
 line surfaced in admin.
 
-**W7 — The Phase-2 bridge.** A `blueprint → BMV brief` mapper so a closed
-Phase-1 client upgrades into the React pipeline without re-intake — same
-name, industry, palette, and the already-agreed screen inventory. This is
-the strategic glue; it costs one mapping module plus tests.
+**W7 — The Phase-2 bridge. DONE** (session 33): `app/pipeline/phase2_bridge.py`
+maps a finished Phase-1 request onto the payload backend's
+`POST /api/v1/requests` accepts — same name, industry, palette, and the
+already-agreed screen inventory, read from the images that really rendered
+rather than from a plan that can name a screen that never did. The MVP
+blueprint deliberately does NOT cross: Phase 2's `capture_request_source`
+excludes blueprint prose from the AppSpec author's snapshot on purpose, and
+routing it through an intake field would defeat that decision under another
+name. It invents nothing — no palette produces no palette and a note saying
+so. 15 tests.
 
 ## What "astonishing" means (the DoD)
 

@@ -383,3 +383,27 @@ def test_the_variant_still_reaches_the_prompt(dental_spec):
     variant = prompt_builder.COMPOSITION_VARIANTS[0]
     prompt = prompt_builder.build_dashboard_image_prompt(dental_spec, composition=variant)
     assert variant["directive"][:60] in prompt
+
+
+def test_the_top_bar_button_is_named_not_described():
+    """Both retail screens in the session-33 golden set shipped a top-bar
+    button labelled literally "Action". The nav block asked for "a single
+    accented action button at the right" and supplied no string, so the model
+    used the only word it had. The spec already carries a real one."""
+    spec = _tool_spec()
+    prompt = prompt_builder.build_dashboard_image_prompt(spec)
+
+    assert "accented action button" not in prompt
+    assert "one accented button reading Confirm Booking" in prompt
+
+
+def test_no_button_is_asked_for_when_the_spec_names_none():
+    """An unlabelled control is on the defect list and an invented one is
+    worse, so the button is simply not requested."""
+    spec = _tool_spec()
+    spec.concept.primary_action = ""
+    prompt = prompt_builder.build_dashboard_image_prompt(spec)
+
+    assert "accented button reading" not in prompt
+    assert "accented action button" not in prompt
+    assert "these items spaced across the middle;" in prompt

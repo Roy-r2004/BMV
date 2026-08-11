@@ -367,9 +367,19 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
             "region and no other, with the current screen marked active"
         )
     elif is_tool_screen(spec):
+        # The button at the right end is named, not described. Both retail
+        # screens in the session-33 golden set shipped a top-bar button
+        # labelled literally "Action" — this block used to ask for "a single
+        # accented action button at the right" and supply no string, so the
+        # model used the only word it had been given. The spec already
+        # carries a real one in concept.primary_action; where it does not,
+        # the button is not asked for at all, because an unlabelled control
+        # is on DoD line 2's defect list and an invented one is worse.
+        action = (spec.concept.primary_action or "").strip()
+        button = f", and at the right end one accented button reading {action}" if action else ""
         placement = (
             "Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the "
-            "far left, these items spaced across the middle, a single accented action button at the right; "
+            f"far left, these items spaced across the middle{button}; "
             "mark the current screen active)"
         )
     else:

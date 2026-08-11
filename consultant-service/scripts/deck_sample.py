@@ -63,20 +63,34 @@ def main() -> None:
         business_description = intake["business_description"]
         industry = intake["industry"]
 
+    # The prose below is PLACEHOLDER, and derived from this brief so it is at
+    # least about the right business. Golden briefs are frozen at the ui_spec
+    # stage and carry no business analysis and no AI-employee list, so a
+    # sample deck has to invent that text.
+    #
+    # It used to be hardcoded dental copy — "no-shows go unnoticed until the
+    # chair sits empty", "lapsed patients are recalled by hand" — which the
+    # retail sample duly printed underneath the name of a coffee roastery.
+    # What this script exists to check is the deck's LAYOUT: distortion,
+    # overlap, proportion, dead space. Nobody should read its sentences and
+    # think the pipeline wrote them.
+    industry = intake["industry"]
+    concept = intake["plan_result"]["concept_name"]
+    summary = intake["consult_result"].get("consulting_summary", "")
     analysis = {
         "pain_points": [
-            "No-shows go unnoticed until the chair sits empty.",
-            "Lapsed patients are recalled by hand, when someone remembers.",
-            "The schedule is rebuilt every morning from three places.",
+            f"[sample] The day is reconstructed by hand from several systems at {intake['business_name']}.",
+            f"[sample] Nobody sees a problem in {industry.lower()} until it has already cost something.",
+            "[sample] The work that would grow the business is the work that gets postponed.",
         ],
-        "growth_opportunity": "Fill the schedule automatically and recover the revenue no-shows take with them.",
+        "growth_opportunity": f"[sample] {summary}" if summary else "[sample] Automate the daily work and act on it sooner.",
     }
     consult_result = {
         **intake["consult_result"],
-        "recommended_features": ["Automatic recall of lapsed patients", "Same-day gap filling from the waitlist"],
+        "recommended_features": [f"[sample] {concept} daily operations", "[sample] Automated follow-up"],
         "recommended_ai_employees": [
-            {"title": "AI Front Desk", "why": "Confirms, reschedules and fills cancellations without anyone picking up the phone."},
-            {"title": "AI Recall Assistant", "why": "Works the lapsed-patient list every day and books the ones who reply."},
+            {"title": "AI Operations Lead", "why": f"[sample] Runs the daily {industry.lower()} workflow and escalates only what needs a person."},
+            {"title": "AI Demand Analyst", "why": "[sample] Watches the numbers every day and says what to do about them."},
         ],
     }
 
