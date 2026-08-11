@@ -1,0 +1,125 @@
+# source: demo:tool
+# prompt_version: dashboard-image-v2-cinematic+tool+hero+ai
+# watermark: footer
+# characters: 7904
+
+TASK
+
+Create a realistic desktop screenshot of a production software tool used by Residential property development — bespoke software built specifically for this business. The quality bar is what a top-tier studio delivers to a client who is not price-sensitive: on the software side Arc, Raycast and Linear's dark surfaces; on the other side the digital work luxury property developers, private banks and marque automakers commission. It must be real, believable production software where every element does a job — not a concept shot — and the business owner's reaction should be "you already built this for us?"
+
+BUSINESS
+
+Garden View
+
+SOFTWARE
+
+Product name: Garden View Explorer
+Purpose: choosing a residence
+Layout density: comfortable but realistic
+
+SCREEN
+
+Block Floor Selection
+
+HEADER
+
+Block & Floor Selection
+Choose a block and floor
+
+NAVIGATION (a horizontal bar across the very top of the screen: the product wordmark at the far left, these items spaced across the middle, a single accented action button at the right; mark the current screen active)
+
+Residences
+Amenities
+Gallery
+Location
+About
+
+HEADER STATS (a compact row at the top-right of the page header — small uppercase labels under larger numerals, separated by thin vertical rules; NOT cards)
+
+3 Blocks
+61 Floors
+180+ Residences
+
+HERO ASSET — the visual centerpiece, rendered INSIDE the application's content area
+
+Subject: a 30-storey glass residential tower at dusk above a lit city
+Treatment: photoreal render
+Caption to render on it, exactly once: "Block A"
+
+Render this as a real, photographic-quality image centred in the content area, with interface on both sides, taking roughly half of that area — the way a property portal shows the building or a configurator shows the car. The product's own panels and controls sit around it and, where a real product would, slightly over its edges: a small floating label, a marker, a control resting on top.
+It is an IMAGE, not an illustration: correct perspective, real materials, real light. No diagram, no wireframe, no line drawing, no clip art, no 3D-render-of-a-concept. It carries no text of its own beyond the caption above. It must be the actual thing this business sells or works on — never a generic stock scene, never an abstract stand-in.
+
+SELECTION FLOW — this screen is a selector, not a metrics dashboard. Its structure IS the flow below: numbered stages the user moves through left to right, each with a small letterspaced uppercase step label. The chosen option in every stage is unmistakably marked with the accent; the options not chosen stay legible but recede.
+
+1. Select Block
+   Options: Block A · Block B · Block C
+   Selected: Block A
+
+2. Select Floor
+   Options: 30 · 25 · 18 · 12 · 02
+   Selected: 18
+
+RESULT PANEL — what the selection above resolves to
+
+Block A · Level 18
+
+A-1801   2 Bedrooms   124.5 SQM
+A-1802   1 Bedroom   86.3 SQM
+A-1803   3 Bedrooms   162.4 SQM
+A-1804   2 Bedrooms   118.7 SQM
+
+PRIMARY ACTION BUTTON: "View Floor Plan" — the single most prominent accented element on the screen.
+SECONDARY ACTION BUTTON: "Explore Units" — quieter, outlined, beneath it.
+
+AI MODULE — the ONLY AI element on this screen, given real size and premium treatment. It states an opinion the software has formed; it is NOT a log, a feed, a task queue or a list of events.
+
+Headline: Recommended: A-1803
+Reasoning line: Best light, under budget, ready March
+Confidence readout: 94% match
+Supporting chips: Corner unit · Sea view · Ready March
+
+Render the headline large and in the accent, the reasoning as one short quieter line beneath it, and the confidence as a small precise readout — a compact meter, ring or percentage, not a decorative gauge. Any chips are small outlined pills. A viewer should see at a glance that the software reached a conclusion and can say why.
+
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own.
+
+BRANDING
+
+Business name: Garden View
+Industry: Residential property development
+Location: Beirut Central District
+Primary brand color: #0B3B2E (the hue the dark ground is built from, and the source of the single luminous accent)
+Secondary color: #C9A227 (structural tints only — never a second accent)
+The product wordmark "Garden View Explorer" appears small and plain at the far left of the top navigation bar.
+
+DESIGN CONSTRAINTS
+
+The bar is not "looks like functional software" — plenty of dark admin themes clear that bar and still read as a stock template. The bar is: this is the flagship screen of a product someone spent a fortune building, the one a luxury developer, a private bank or a marque automaker puts on stage. Real, believable production software where every element does a job — but the kind that makes a viewer lean toward the screen within the first half-second.
+
+Use:
+- a deep, single-hue ground: near-black carrying one dominant colour drawn from the brand — not neutral charcoal, not pure black, and never more than one ground hue on the screen
+- exactly ONE luminous accent (a warm metallic, or the brightest tint of the brand hue), spent only on the active state, the primary action and the single most important number — its scarcity is what makes it read as expensive
+- real depth and light: a soft directional falloff across the ground, panels lifted by low-opacity elevation rather than hard borders, hairline strokes only where separation is genuinely needed, a gentle vignette at the outer edges
+- two typographic voices in deliberate contrast: a display face with real character for the page title and hero numerals, against a small, letterspaced, uppercase sans for labels, steps and captions — that contrast does most of the work
+- generous negative space treated as luxury rather than emptiness: fewer elements, each given room, with the composition breathing at the outer margins
+- a strong asymmetric composition — one commanding focal element with supporting material arranged around it, never a uniform grid of equally-weighted cards
+- restrained, precise iconography: thin strokes, consistent weight, small
+- realistic UI states: one nav item active, one option visibly selected, one row subtly hovered
+
+Avoid — this is the list that separates expensive dark software from the cliché, and every item is forbidden:
+- neon glow, bloom, lens flare, light streaks, or any element emitting light it has no reason to emit
+- HUD or sci-fi-movie overlays, wireframe globes, circuit-board patterns, hexagon grids, scan lines, targeting reticles
+- floating 3D geometry, abstract blobs, particle fields, purple-to-blue gradient smears
+- glassmorphism as decoration, frosted panels stacked over one another, translucency for its own sake
+- a second accent colour, rainbow data series, or colour used anywhere hierarchy would do the job
+- illustration, concept art, or anything that reads as a design-portfolio mockup rather than shipped software
+- laptop, phone or browser mockup frames around the interface
+- lorem ipsum, placeholder data, or invented UI elements no real product would have
+- long sentences anywhere in the interface — every visible string is a label, a name, a number or a short phrase
+
+This screen is dark because software for a decision this considered is dark. It is not dark in order to look futuristic. If the first word a viewer reaches for is "sci-fi", it has failed; the first word should be "expensive".
+
+The navigation, content and data must be internally coherent — they all describe the same business on the same day. A prospect looking at this should think "they already built this for me," not "this is a generic template with my name on it."
+
+OUTPUT
+
+A full-bleed desktop application screenshot filling the entire canvas edge to edge. No device frame, no browser chrome, no drop shadow around the app, no background visible behind it.

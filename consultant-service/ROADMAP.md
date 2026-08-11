@@ -74,10 +74,31 @@ line 3 is waiting on the owner's eye — see
 `docs/evidence/session31/dod-assessment.md` and the sheets in
 `docs/evidence/session31/sign-off/`.
 
-The single highest-value next change, from three experiments that all lost
-the same way: brand the raw screenshot with a footer strip rather than a
-corner mark, so the prompt no longer has to reserve the bottom-right
-corner — then re-run W2 and W5, which are built and one env var away.
+## Status after session 32 (2026-08-11) — the cinematic register
+
+The owner saw the sign-off sheets, called them nice, and asked for something
+modern, futuristic and AI-forward, with a luxury property configurator as the
+reference. The pipeline could not produce that image: `_DESIGN_CONSTRAINTS`
+mandated a light base and banned dark themes, hero composition and rendered
+imagery. Session 32 rebuilds the register — and takes the corner change above,
+which was already the recommended next step.
+
+| | | |
+|---|---|---|
+| W8 Footer-strip mark | **BUILT, DEFAULT ON** | `WATERMARK_STYLE=footer`; the prompt's corner reservation now emits only in `corner` mode |
+| W9 Cinematic register | **BUILT, DEFAULT ON, UNMEASURED** | `IMAGE_REGISTER=cinematic`; light kept verbatim as the A/B control |
+| W10 Hero asset | **BUILT, DEFAULT ON, UNMEASURED** | `spec.hero` — a photoreal centerpiece inside the content area |
+| W11 Tool screens | **BUILT, DEFAULT ON, UNMEASURED** | `spec.concept` — selector / configurator / explorer with real steps |
+| W12 AI module | **BUILT, DEFAULT ON, UNMEASURED** | `spec.ai` — a recommendation with reasoning and confidence, replacing the log |
+
+**Nothing in session 32 has been seen by a model — $0 was spent, by the
+owner's instruction.** Session 31's lesson stands: W2 and W5 were both built,
+both looked right, and both lost. Until the A/B in
+`docs/evidence/session32/funded-run.md` runs, "cinematic is better" is a
+hypothesis with good reasons behind it, not a result.
+
+W2 and W5 are still built and one env var away, and the corner that defeated
+them is now free — a re-run is step 5 of the funded run.
 
 ## Workstreams
 

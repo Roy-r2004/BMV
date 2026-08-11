@@ -1,0 +1,135 @@
+# source: golden:dental
+# prompt_version: dashboard-image-v2-cinematic
+# watermark: footer
+# characters: 7578
+
+TASK
+
+Create a realistic desktop screenshot of a production software application used by Dental Clinic — bespoke software built specifically for this business. The quality bar is what a top-tier studio delivers to a client who is not price-sensitive: on the software side Arc, Raycast and Linear's dark surfaces; on the other side the digital work luxury property developers, private banks and marque automakers commission. It must be real, believable production software where every element does a job — not a concept shot — and the business owner's reaction should be "you already built this for us?"
+
+BUSINESS
+
+SmileBright Dental
+
+SOFTWARE
+
+Product name: SmileBright Operations
+Purpose: AI front-desk automation
+Layout density: comfortable but realistic
+
+SCREEN
+
+Dashboard
+
+HEADER
+
+Good morning, Dr. Carter
+Your practice at a glance
+
+NAVIGATION (left sidebar, top to bottom; mark the current screen active)
+
+Dashboard
+Schedule
+Patients
+Recall
+Reports
+Settings
+
+KPI CARDS
+
+Appointments Today
+18
++2 vs yesterday
+
+Confirmed Patients
+16
++10% vs last week
+
+No-Show Rate
+6.2%
+-1.5% vs last week
+
+Revenue Forecast
+$4,850
++12% vs last week
+
+PRIMARY PANEL
+
+Upcoming Appointments
+
+9:00 AM   Sarah Chen   Cleaning   Dr. Carter
+9:30 AM   Michael Lee   Crown Prep   Dr. Davis
+10:00 AM   Emily White   Invisalign Check   Dr. Nguyen
+10:15 AM   David Brown   Deep Cleaning   Hygienist A
+
+SECONDARY PANEL
+
+Recall Opportunities
+
+Olivia Garcia   3 months overdue   Cleaning   Jan 23
+William Johnson   6 months overdue   Check-up   Oct 22
+Sophia Rodriguez   2 months overdue   Implant Follow-up   Feb 23
+
+CHART — this is the screen's HERO element, the single most visually crafted thing on it
+
+Weekly Appointments
+Mon 15
+Tue 18
+Wed 17
+Thu 20
+Fri 16
+Sat 8
+Y-axis unit: Appointments
+Trend annotation to render prominently on the chart: "-47% Mon → Sat"
+Emphasize the peak point (Thu, 20) with a distinct marker or callout.
+
+This chart is the single most visually crafted element on the screen — not a small thumbnail squeezed into a side card. Give it real, generous space: at minimum as wide as two KPI cards combined, with genuine height, positioned so it reads as a centerpiece, not an afterthought. Polished axis treatment — visible gridlines, axis tick labels, the unit shown clearly. Render the trend/peak annotations above as actual visual callouts on the chart itself (a small badge, an emphasized point with a marker and label) — comparison context, not just raw numbers. Premium data-viz styling: a smooth curve or well-proportioned bars, a subtle gradient fill under a line, a glowing or emphasized endpoint, color pulled intentionally from the brand palette. Give the Y-axis unit real typographic presence with a deliberate, clearly legible caption — render it horizontally (never rotated or sideways), positioned so it reads immediately without tilting your head.
+
+AI WORKSTREAM — this is the ONLY AI-activity module on this screen. Its exact title is "AI Workstream" — render it once, with exactly this title. Do NOT create, in addition to this, any other card or panel titled "AI Task Queue", "Task Queue", "Queue", or any second AI-activity panel anywhere on the screen. Even though the items below mix Done, In Progress and Queued statuses, render ALL of them together inside this one card — never split them by status into two separate visual groups or panels.
+
+AI System — Confirmed Michael Lee · 5 min ago · status: Done
+AI System — Recalled Olivia Garcia · 15 min ago · status: In Progress
+AI System — Filled 3:00 PM slot · 30 min ago · status: Queued
+
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own.
+
+BRANDING
+
+Business name: SmileBright Dental
+Industry: Dental Clinic
+Primary brand color: #0e9594 (the hue the dark ground is built from, and the source of the single luminous accent)
+Secondary color: #1d4ed8 (structural tints only — never a second accent)
+The product wordmark "SmileBright Operations" appears small and plain at the top of the sidebar.
+
+DESIGN CONSTRAINTS
+
+The bar is not "looks like functional software" — plenty of dark admin themes clear that bar and still read as a stock template. The bar is: this is the flagship screen of a product someone spent a fortune building, the one a luxury developer, a private bank or a marque automaker puts on stage. Real, believable production software where every element does a job — but the kind that makes a viewer lean toward the screen within the first half-second.
+
+Use:
+- a deep, single-hue ground: near-black carrying one dominant colour drawn from the brand — not neutral charcoal, not pure black, and never more than one ground hue on the screen
+- exactly ONE luminous accent (a warm metallic, or the brightest tint of the brand hue), spent only on the active state, the primary action and the single most important number — its scarcity is what makes it read as expensive
+- real depth and light: a soft directional falloff across the ground, panels lifted by low-opacity elevation rather than hard borders, hairline strokes only where separation is genuinely needed, a gentle vignette at the outer edges
+- two typographic voices in deliberate contrast: a display face with real character for the page title and hero numerals, against a small, letterspaced, uppercase sans for labels, steps and captions — that contrast does most of the work
+- generous negative space treated as luxury rather than emptiness: fewer elements, each given room, with the composition breathing at the outer margins
+- a strong asymmetric composition — one commanding focal element with supporting material arranged around it, never a uniform grid of equally-weighted cards
+- restrained, precise iconography: thin strokes, consistent weight, small
+- realistic UI states: one nav item active, one option visibly selected, one row subtly hovered
+
+Avoid — this is the list that separates expensive dark software from the cliché, and every item is forbidden:
+- neon glow, bloom, lens flare, light streaks, or any element emitting light it has no reason to emit
+- HUD or sci-fi-movie overlays, wireframe globes, circuit-board patterns, hexagon grids, scan lines, targeting reticles
+- floating 3D geometry, abstract blobs, particle fields, purple-to-blue gradient smears
+- glassmorphism as decoration, frosted panels stacked over one another, translucency for its own sake
+- a second accent colour, rainbow data series, or colour used anywhere hierarchy would do the job
+- illustration, concept art, or anything that reads as a design-portfolio mockup rather than shipped software
+- laptop, phone or browser mockup frames around the interface
+- lorem ipsum, placeholder data, or invented UI elements no real product would have
+- long sentences anywhere in the interface — every visible string is a label, a name, a number or a short phrase
+
+This screen is dark because software for a decision this considered is dark. It is not dark in order to look futuristic. If the first word a viewer reaches for is "sci-fi", it has failed; the first word should be "expensive".
+
+The navigation, content and data must be internally coherent — they all describe the same business on the same day. A prospect looking at this should think "they already built this for me," not "this is a generic template with my name on it."
+
+OUTPUT
+
+A full-bleed desktop application screenshot filling the entire canvas edge to edge. No device frame, no browser chrome, no drop shadow around the app, no background visible behind it.

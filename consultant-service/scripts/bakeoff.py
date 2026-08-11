@@ -114,6 +114,8 @@ def main() -> None:
     parser.add_argument("--label", default="", help="name this condition (e.g. nopack) so an A/B pair does not collide")
     parser.add_argument("--no-art-packs", action="store_true", help="W2 A/B control: run with ENABLE_ART_PACKS off")
     parser.add_argument("--design-sheet", action="store_true", help="W5: generate a style board first and condition every screen on it")
+    parser.add_argument("--register", choices=("cinematic", "light"), help="design register for this cell (session 32 A/B)")
+    parser.add_argument("--watermark", choices=("footer", "corner"), help="where the BMV mark goes; 'corner' also re-adds the corner reservation to the prompt")
     parser.add_argument("--force", action="store_true", help="re-run a cell that already has a result")
     parser.add_argument("--report", action="store_true", help="print the matrix so far and exit")
     args = parser.parse_args()
@@ -130,7 +132,13 @@ def main() -> None:
     if not anchor_model:
         parser.error("pass --model, or --anchor-model and --followup-model")
 
+    # The register belongs in the cell key. Two cells that differ only by
+    # register would otherwise share a key AND an output directory, and the
+    # second would silently overwrite the first's screenshots — which has
+    # already cost this project one lost cell (session 31, $0.353).
     label = args.label or ("nopack" if args.no_art_packs else "")
+    if args.register:
+        label = f"{label}-{args.register}" if label else args.register
     key = _cell_key(args.brief, anchor_model, followup_model, label)
     if not args.force and any(r["key"] == key for r in rows):
         print(f"cell already run: {key} (pass --force to re-run)")
@@ -150,6 +158,10 @@ def main() -> None:
     settings.UPLOADS_DIR = cell_dir
     if args.no_art_packs:
         settings.ENABLE_ART_PACKS = False
+    if args.register:
+        settings.IMAGE_REGISTER = args.register
+    if args.watermark:
+        settings.WATERMARK_STYLE = args.watermark
     if args.candidates:
         settings.DASHBOARD_CANDIDATES = args.candidates
     if args.secondary:
@@ -174,6 +186,9 @@ def main() -> None:
     print(f"      screens={[s.product.screen_type for s in specs]} "
           f"candidates={settings.DASHBOARD_CANDIDATES}/{settings.SECONDARY_CANDIDATES} "
           f"judge={settings.QA_MODEL} (FIXED)")
+    print(f"      register={settings.IMAGE_REGISTER} watermark={settings.WATERMARK_STYLE} "
+          f"hero={settings.ENABLE_HERO_ASSET} tool_screens={settings.ENABLE_TOOL_SCREENS} "
+          f"ai_layer={settings.ENABLE_AI_LAYER}")
 
     started = time.monotonic()
     saved = images_stage.generate_demo_screens(
@@ -201,6 +216,12 @@ def main() -> None:
         "label": label,
         "art_packs": settings.ENABLE_ART_PACKS,
         "design_sheet": bool(args.design_sheet),
+        "register": settings.IMAGE_REGISTER,
+        "watermark": settings.WATERMARK_STYLE,
+        "hero_asset": settings.ENABLE_HERO_ASSET,
+        "tool_screens": settings.ENABLE_TOOL_SCREENS,
+        "ai_layer": settings.ENABLE_AI_LAYER,
+        "briefs_dir": os.path.relpath(golden.briefs_dir(), os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
         "brief": args.brief,
         "archetype": bundle["archetype"],
         "anchor_model": anchor_model,

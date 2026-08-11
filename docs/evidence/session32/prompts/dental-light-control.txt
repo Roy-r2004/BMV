@@ -1,0 +1,135 @@
+# source: golden:dental
+# prompt_version: dashboard-image-v2-light
+# watermark: footer
+# characters: 7078
+
+TASK
+
+Create a realistic desktop screenshot of a production SaaS application used by Dental Clinic — bespoke software built specifically for this business by an elite product-design studio. The quality bar is Linear, Stripe, Arc, Ramp and Vercel at their most polished, with the craft of a top-tier product-design portfolio piece. It must be real, believable production software — not a fantasy concept shot — but visually impressive enough that the business owner's reaction is "you already built this for us?"
+
+BUSINESS
+
+SmileBright Dental
+
+SOFTWARE
+
+Product name: SmileBright Operations
+Purpose: AI front-desk automation
+Layout density: comfortable but realistic
+
+SCREEN
+
+Dashboard
+
+HEADER
+
+Good morning, Dr. Carter
+Your practice at a glance
+
+NAVIGATION (left sidebar, top to bottom; mark the current screen active)
+
+Dashboard
+Schedule
+Patients
+Recall
+Reports
+Settings
+
+KPI CARDS
+
+Appointments Today
+18
++2 vs yesterday
+
+Confirmed Patients
+16
++10% vs last week
+
+No-Show Rate
+6.2%
+-1.5% vs last week
+
+Revenue Forecast
+$4,850
++12% vs last week
+
+PRIMARY PANEL
+
+Upcoming Appointments
+
+9:00 AM   Sarah Chen   Cleaning   Dr. Carter
+9:30 AM   Michael Lee   Crown Prep   Dr. Davis
+10:00 AM   Emily White   Invisalign Check   Dr. Nguyen
+10:15 AM   David Brown   Deep Cleaning   Hygienist A
+
+SECONDARY PANEL
+
+Recall Opportunities
+
+Olivia Garcia   3 months overdue   Cleaning   Jan 23
+William Johnson   6 months overdue   Check-up   Oct 22
+Sophia Rodriguez   2 months overdue   Implant Follow-up   Feb 23
+
+CHART — this is the screen's HERO element, the single most visually crafted thing on it
+
+Weekly Appointments
+Mon 15
+Tue 18
+Wed 17
+Thu 20
+Fri 16
+Sat 8
+Y-axis unit: Appointments
+Trend annotation to render prominently on the chart: "-47% Mon → Sat"
+Emphasize the peak point (Thu, 20) with a distinct marker or callout.
+
+This chart is the single most visually crafted element on the screen — not a small thumbnail squeezed into a side card. Give it real, generous space: at minimum as wide as two KPI cards combined, with genuine height, positioned so it reads as a centerpiece, not an afterthought. Polished axis treatment — visible gridlines, axis tick labels, the unit shown clearly. Render the trend/peak annotations above as actual visual callouts on the chart itself (a small badge, an emphasized point with a marker and label) — comparison context, not just raw numbers. Premium data-viz styling: a smooth curve or well-proportioned bars, a subtle gradient fill under a line, a glowing or emphasized endpoint, color pulled intentionally from the brand palette. Give the Y-axis unit real typographic presence with a deliberate, clearly legible caption — render it horizontally (never rotated or sideways), positioned so it reads immediately without tilting your head.
+
+AI WORKSTREAM — this is the ONLY AI-activity module on this screen. Its exact title is "AI Workstream" — render it once, with exactly this title. Do NOT create, in addition to this, any other card or panel titled "AI Task Queue", "Task Queue", "Queue", or any second AI-activity panel anywhere on the screen. Even though the items below mix Done, In Progress and Queued statuses, render ALL of them together inside this one card — never split them by status into two separate visual groups or panels.
+
+AI System — Confirmed Michael Lee · 5 min ago · status: Done
+AI System — Recalled Olivia Garcia · 15 min ago · status: In Progress
+AI System — Filled 3:00 PM slot · 30 min ago · status: Queued
+
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own.
+
+BRANDING
+
+Business name: SmileBright Dental
+Industry: Dental Clinic
+Primary brand color: #0e9594 (accents only, on a light interface)
+Secondary color: #1d4ed8 (sparingly)
+Palette: light interface, teal accents
+The product wordmark "SmileBright Operations" appears small and plain at the top of the sidebar.
+
+DESIGN CONSTRAINTS
+
+The bar is not "looks like functional software" — plenty of generic admin templates clear that bar and still feel cheap. The bar is: this looks like a $50K+ bespoke product a top-tier product-design studio built specifically for this business — real production SaaS, not concept art or a design portfolio shot, but visually striking within the first half-second, not merely tidy.
+
+Use:
+- confident, deliberate visual hierarchy: one clear focal point (the single most important number or chart, given real size/weight dominance), everything else visibly secondary — never a flat grid of equally-weighted boxes
+- beautiful, considered typography: a real type scale with intentional weight and size contrast, numerals that feel designed rather than default UI-kit text, nothing oversized or gimmicky
+- sophisticated spacing used as a design tool: generous room that creates rhythm and focus, never sparse/empty and never cramped
+- premium card treatment: refined hairline borders (#E5E7EB), soft layered shadows for real depth, subtle tonal or gradient fills where they add richness — vary card size and visual weight so the layout reads as designed, not a row of identical repetitive white boxes
+- clean white / very-light-gray base (#FFFFFF content on #F8F9FB canvas), with the brand color used generously and with intention — chart, focal metric, avatar colors, active states — not just one timid accent dot
+- tasteful, consistent iconography and colorful avatar initials that feel art-directed, not stock
+- generous internal padding on every card, especially any list or activity feed — the last row or entry always sits with visible breathing room above the card's bottom edge, never clipped
+- every status pill, badge or icon clearly communicates its own meaning at a glance — never a bare dash or icon with no label; give any row-level menu/icon button its own comfortable spacing so it never crowds the text next to it
+- realistic UI states: one nav item active, one row subtly hovered
+
+Avoid:
+- generic admin-dashboard energy, a wireframe feeling, or anything that reads as templated
+- futuristic or holographic interfaces, neon glow, dark sci-fi themes, glassmorphism
+- excessive empty space, timid/tiny UI elements, weak hierarchy, boring uniform tables
+- oversized decorative icons, giant display text for its own sake, random 3D shapes
+- marketing landing-page composition or hero-style layouts
+- abstract illustrations, stock-photo backgrounds, or fantasy concept-art rendering
+- laptop / phone / browser mockup frames around the interface
+- invented random UI elements that no real product would have
+- lorem ipsum or meaningless placeholder data
+
+The navigation, metrics, chart and data must be internally coherent — they all describe the same business on the same day. A prospect looking at this should think "they already built this for me," not "this is a generic template with my name on it."
+
+OUTPUT
+
+A full-bleed desktop application screenshot filling the entire canvas edge to edge. No device frame, no browser chrome, no drop shadow around the app, no background visible behind it.

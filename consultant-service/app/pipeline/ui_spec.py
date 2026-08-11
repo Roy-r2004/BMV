@@ -22,7 +22,7 @@ from app.ui_spec import ChartSpec, Kpi, Panel, UIDemoSpec
 
 logger = logging.getLogger("consultant.ui_spec")
 
-UI_SPEC_PROMPT_VERSION = "ui-spec-v1"
+UI_SPEC_PROMPT_VERSION = "ui-spec-v2"
 
 
 def _fallback_specs(req: Request, plan_result: dict, screen_count: int) -> tuple[str, list[UIDemoSpec]]:

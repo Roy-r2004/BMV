@@ -110,16 +110,19 @@ def test_disabling_packs_restores_the_previous_prompt_exactly(dental_spec):
 
 
 def test_prompt_version_records_the_pack_only_when_one_applied(dental_spec):
-    with patch.object(prompt_builder.settings, "ENABLE_ART_PACKS", True):
-        assert prompt_builder.prompt_version("dashboard-image-v1", dental_spec, "operations-dashboard") == (
-            f"dashboard-image-v1+{art_packs.ART_PACK_VERSION}"
-        )
-        # Flag on, but this archetype has no pack — provenance must say so.
-        assert prompt_builder.prompt_version("dashboard-image-v1", dental_spec, "nope") == "dashboard-image-v1"
-    with patch.object(prompt_builder.settings, "ENABLE_ART_PACKS", False):
-        assert prompt_builder.prompt_version("dashboard-image-v1", dental_spec, "operations-dashboard") == (
-            "dashboard-image-v1"
-        )
+    with patch.object(prompt_builder.settings, "IMAGE_REGISTER", "light"):
+        with patch.object(prompt_builder.settings, "ENABLE_ART_PACKS", True):
+            assert prompt_builder.prompt_version("dashboard-image-v1", dental_spec, "operations-dashboard") == (
+                f"dashboard-image-v1-light+{art_packs.ART_PACK_VERSION}"
+            )
+            # Flag on, but this archetype has no pack — provenance must say so.
+            assert prompt_builder.prompt_version("dashboard-image-v1", dental_spec, "nope") == (
+                "dashboard-image-v1-light"
+            )
+        with patch.object(prompt_builder.settings, "ENABLE_ART_PACKS", False):
+            assert prompt_builder.prompt_version("dashboard-image-v1", dental_spec, "operations-dashboard") == (
+                "dashboard-image-v1-light"
+            )
 
 
 def test_continuation_prompt_carries_the_pack_too(dental_spec):

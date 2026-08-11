@@ -1,4 +1,4 @@
-{# ui-spec-v1 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. #}
+{# ui-spec-v2 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 adds hero / concept / ai. #}
 You are a senior product designer at a SaaS company, preparing the demo content for a personalized product preview. Convert the business analysis below into structured UI content for {{ screen_count }} screens of ONE coherent software product. You are producing DATA ONLY — layout and style are handled elsewhere.
 
 BUSINESS
@@ -28,6 +28,31 @@ RULES FOR THE CONTENT
 - activity: 3-4 entries, "<Name> — <short action>" style.
 - product.screen_type must be the archetype's screen_type for that screen. style.archetype = the chosen archetype id. style.density = "normal" (or "compact" only if this business is genuinely high-volume). style.palette_description = one short phrase, e.g. "light interface, teal accents".
 
+THE HERO ASSET — the single biggest lever on whether this demo impresses
+Every screen gets a "hero": a real, photographable subject this business works on or sells, rendered inside the product's content area. A property developer gets the building; a roastery gets the beans mid-roast; a dental practice gets the treatment room or a 3D scan; a hedge fund gets the trading floor or the city at dusk.
+- hero.subject: 5-12 words, concrete and physical, with a time of day or lighting condition. "A 30-storey glass residential tower at dusk" — not "modern architecture", not "innovation", not anything abstract.
+- hero.treatment: EXACTLY one of: photoreal render, product photograph, aerial view, plan view, cinematic still, material close-up.
+- hero.caption: at most 4 words, or "" — a label overlaid on the image, like "Block A" or "Lot 14 · North".
+- hero.placement: "left", "right" or "center".
+- If this business genuinely has no photographable subject, set hero.subject to "" and it will be omitted. Prefer finding one.
+
+THE SCREEN CONCEPT — is this a dashboard, or a tool?
+A dashboard reports. A tool lets someone DO the thing they came to do, and it is far more impressive when the business has one obvious such decision: choosing a unit, configuring an order, booking a slot, exploring a catalogue.
+- concept.kind: one of dashboard, selector, configurator, explorer, assistant.
+- Make the ANCHOR screen a tool (selector/configurator/explorer) whenever this business has a real multi-step choice a customer or staff member makes. Otherwise "dashboard".
+- concept.steps: 2-3 stages, each {"label": "<2-3 words, e.g. Select Block>", "options": ["<3-6 short options>"], "selected": "<one of them>"}. Real options from this business — actual unit types, actual service tiers, actual product lines.
+- concept.detail: the panel the selection resolves to — title plus 4-6 short rows (e.g. the available units on the chosen floor, with size and price).
+- concept.primary_action / secondary_action: 2-3 words each, e.g. "View Floor Plan" / "Explore Units".
+- On a screen where concept.kind is "dashboard", omit steps/detail/actions.
+
+THE AI MODULE — what makes them say "this revolves around AI"
+Every screen gets an "ai": an opinion the software formed, not a log of what it did.
+- ai.headline: the recommendation itself, at most 5 words. "Recommended: Unit A-1803", "Reorder Ethiopian Friday".
+- ai.rationale: WHY, at most 8 words. "Best light, under budget, ready March" — never a sentence with a verb chain, never a paragraph.
+- ai.confidence: a short readout, e.g. "94% match", "High confidence".
+- ai.chips: 2-4 supporting tags, 2-4 words each.
+The rationale must be specific to this business and defensible — a prospect will read it and judge whether the software actually understands their trade.
+
 Respond with ONLY this JSON shape, no markdown fences, no commentary:
 
 {
@@ -45,7 +70,10 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "secondary_panel": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]},
       "chart": {"title": "<2-4 words>", "labels": ["<short>"], "values": [0], "metric_label": "<2-3 words>"},
       "activity": [{"name": "<name>", "action": "<short action>", "time": "<short>"}],
-      "style": {"archetype": "<archetype id>", "density": "normal", "palette_description": "<short phrase>"}
+      "style": {"archetype": "<archetype id>", "density": "normal", "palette_description": "<short phrase>"},
+      "hero": {"subject": "<5-12 concrete words>", "treatment": "<one of the six>", "caption": "<max 4 words>", "placement": "center"},
+      "concept": {"kind": "<dashboard|selector|configurator|explorer|assistant>", "steps": [{"label": "<2-3 words>", "options": ["<short>"], "selected": "<short>"}], "detail": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]}, "primary_action": "<2-3 words>", "secondary_action": "<2-3 words>"},
+      "ai": {"headline": "<max 5 words>", "rationale": "<max 8 words>", "confidence": "<short>", "chips": ["<2-4 words>"]}
     }
   ]
 }

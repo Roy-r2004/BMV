@@ -24,6 +24,22 @@ from app.ui_spec import UIDemoSpec
 
 BRIEFS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "briefs")
 
+
+def briefs_dir() -> str:
+    """Which frozen set to read. Overridable so a new ui_spec prompt version
+    can be frozen into its OWN directory instead of overwriting the old one:
+    the previous set is the control arm of every before/after comparison, and
+    a comparison whose control was overwritten by the change being measured
+    is not a comparison. Set GOLDEN_BRIEFS_DIR (absolute, or relative to the
+    service root) to point at another set.
+    """
+    override = os.environ.get("GOLDEN_BRIEFS_DIR", "").strip()
+    if not override:
+        return BRIEFS_DIR
+    if os.path.isabs(override):
+        return override
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), override)
+
 # The three briefs the W1 bake-off runs on — deliberately three DIFFERENT
 # archetypes, so a model that happens to be good at one layout shape can't
 # win the whole matrix on that strength alone.
@@ -31,14 +47,15 @@ BAKEOFF_BRIEF_IDS = ("dental", "law", "retail")
 
 
 def brief_ids() -> list[str]:
-    if not os.path.isdir(BRIEFS_DIR):
+    d = briefs_dir()
+    if not os.path.isdir(d):
         return []
-    return sorted(f[: -len(".json")] for f in os.listdir(BRIEFS_DIR) if f.endswith(".json"))
+    return sorted(f[: -len(".json")] for f in os.listdir(d) if f.endswith(".json"))
 
 
 def load_brief(brief_id: str) -> dict:
     """Returns the frozen bundle with `screens` parsed into UIDemoSpec objects."""
-    path = os.path.join(BRIEFS_DIR, f"{brief_id}.json")
+    path = os.path.join(briefs_dir(), f"{brief_id}.json")
     with open(path, encoding="utf-8") as f:
         bundle = json.load(f)
     bundle["screens"] = [UIDemoSpec.model_validate(s) for s in bundle["screens"]]

@@ -22,7 +22,7 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from golden import BRIEFS_DIR
+from golden import briefs_dir
 from golden.intake import INTAKE_FIXTURES
 
 
@@ -62,12 +62,12 @@ def main() -> None:
     from app.models import Request
     from app.pipeline import ui_spec
 
-    os.makedirs(BRIEFS_DIR, exist_ok=True)
+    os.makedirs(briefs_dir(), exist_ok=True)
     wanted = args.only or sorted(INTAKE_FIXTURES)
 
     todo = []
     for bid in wanted:
-        path = os.path.join(BRIEFS_DIR, f"{bid}.json")
+        path = os.path.join(briefs_dir(), f"{bid}.json")
         if os.path.exists(path) and not args.force:
             print(f"  {bid}: already frozen -> {path} (pass --force to rebuild)")
             continue
@@ -122,7 +122,7 @@ def main() -> None:
             },
             "screens": [json.loads(s.model_dump_json()) for s in specs],
         }
-        path = os.path.join(BRIEFS_DIR, f"{bid}.json")
+        path = os.path.join(briefs_dir(), f"{bid}.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(bundle, f, indent=2, ensure_ascii=False)
             f.write("\n")

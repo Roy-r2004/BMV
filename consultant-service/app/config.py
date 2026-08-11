@@ -134,6 +134,44 @@ class Settings:
     # deck's artifacts, and the reason the image model is never asked for a
     # device mockup (it garbles the UI text it just got right).
     ENABLE_PRESENTATION_COMPOSITING: bool = _env_bool("ENABLE_PRESENTATION_COMPOSITING", True)
+    # ── Session 32: the cinematic register ───────────────────────────────
+    # Where the BMV mark goes. "footer" grows the canvas by a thin strip
+    # BELOW the interface and puts the mark there; "corner" is the original
+    # behaviour, pasting it over the bottom-right of the screenshot.
+    #
+    # This is not a cosmetic preference. The corner mark forced the image
+    # prompt to reserve ~12%x17% of the canvas, and that reservation is the
+    # single cause named by every losing comparison in session 31 (W2 art
+    # packs 0-2, W5 design sheet, one W1 cell) — anything that makes the
+    # model fill the canvas more confidently pushes content under the mark.
+    # It also mis-fires today: in both session-31 anchors the logo sits on
+    # top of the AI card and clips its status text.
+    # See docs/evidence/session31/art-packs-ab.md.
+    WATERMARK_STYLE: str = _env_or("WATERMARK_STYLE", "footer")
+    # The design register the image prompt asks for.
+    #   "light"     — the original Linear/Stripe/Ramp light interface.
+    #   "cinematic" — deep single-hue ground, one luminous accent, a
+    #                 photoreal hero asset, display typography.
+    # "light" is kept reachable ONLY so the funded A/B has something to
+    # compare against; it is not a fallback path and nothing selects it
+    # automatically.
+    IMAGE_REGISTER: str = _env_or("IMAGE_REGISTER", "cinematic")
+    # A rendered, industry-specific centerpiece inside the app's content
+    # area (the tower render in a property configurator, the machine in a
+    # plant monitor). Plays to what image models are actually good at —
+    # photoreal rendering — instead of spending the whole canvas on the
+    # small dense text they are worst at.
+    ENABLE_HERO_ASSET: bool = _env_bool("ENABLE_HERO_ASSET", True)
+    # Let a screen be a TOOL (selector / configurator / explorer) rather
+    # than always a metrics dashboard. Without this the spec has no field
+    # in which "choose a block, then a floor, then a unit" can be said, so
+    # no prompt can produce it.
+    ENABLE_TOOL_SCREENS: bool = _env_bool("ENABLE_TOOL_SCREENS", True)
+    # Promote AI from a log card ("AI Workstream", three rows) to a
+    # first-class module carrying a recommendation, its reasoning and a
+    # confidence read. Nobody says "wow" at a log.
+    ENABLE_AI_LAYER: bool = _env_bool("ENABLE_AI_LAYER", True)
+
     # W5 experiment: generate a design-system style board first and condition
     # every screen on it, instead of letting follow-ups inherit whatever the
     # anchor happened to do. Costs one extra image per request. Default off

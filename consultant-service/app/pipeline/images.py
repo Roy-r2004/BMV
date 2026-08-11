@@ -50,16 +50,53 @@ def _bmv_logo() -> Image.Image | None:
     return Image.open(settings.BMV_LOGO_PATH).convert("RGBA")
 
 
-def _apply_bmv_watermark(image_bytes: bytes) -> bytes:
-    """Composites the real BMV logo into the bottom-right corner — more
-    reliable than asking the image model to draw legible small text (we've
-    seen it garble URLs/labels at that scale). No-op if the logo file isn't
-    present, so this never breaks image generation.
-    """
-    logo = _bmv_logo()
-    if logo is None:
-        return image_bytes
+def _mean_edge_color(base: Image.Image) -> tuple[int, int, int]:
+    """Average colour of the interface's bottom edge — the footer strip is
+    tinted from it so the bar reads as part of the same object rather than
+    a black rectangle stapled underneath."""
+    band = base.convert("RGB").crop((0, max(0, base.height - 4), base.width, base.height))
+    pixels = list(band.getdata()) or [(20, 20, 20)]
+    n = len(pixels)
+    return tuple(sum(p[i] for p in pixels) // n for i in range(3))  # type: ignore[return-value]
 
+
+def _footer_watermark(image_bytes: bytes, logo: Image.Image) -> bytes:
+    """Grows the canvas by a thin strip BELOW the interface and puts the mark
+    there. The rendered UI is never covered, which is the whole point: the
+    corner variant needed the image prompt to keep a 12%x17% block of canvas
+    empty, and that reservation lost three separate comparisons in session 31
+    (see docs/evidence/session31/art-packs-ab.md). Costs ~5% of height."""
+    base = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+    # 6%, not 5%: at 5% of a 1408x806 anchor the mark lands at ~24px and reads
+    # as a speck on the strip. Checked by looking at it, not by arithmetic.
+    strip_h = max(28, round(base.height * 0.06))
+
+    r, g, b = _mean_edge_color(base)
+    strip_color = tuple(max(10, round(c * 0.18)) for c in (r, g, b))
+
+    canvas = Image.new("RGBA", (base.width, base.height + strip_h), (*strip_color, 255))
+    canvas.paste(base, (0, 0))
+    # Hairline separator so the strip has an edge instead of bleeding into a
+    # dark interface — visible in both registers, invisible as a "border".
+    hairline = Image.new("RGBA", (base.width, 1), (255, 255, 255, 38))
+    canvas.alpha_composite(hairline, (0, base.height))
+
+    pad = max(2, strip_h // 8)
+    mark_size = max(6, min(strip_h - 2 * pad, base.width - 2))
+    mark = logo.resize((mark_size, mark_size), Image.LANCZOS)
+    x = max(0, base.width - mark_size - max(pad, round(base.width * 0.015)))
+    y = base.height + (strip_h - mark_size) // 2
+    canvas.paste(mark, (x, y), mark)
+
+    out = io.BytesIO()
+    canvas.save(out, format="PNG")
+    return out.getvalue()
+
+
+def _corner_watermark(image_bytes: bytes, logo: Image.Image) -> bytes:
+    """The original mark, pasted over the bottom-right of the interface.
+    Retained so the footer change can be compared against it and rolled back
+    from one env var — not because anything selects it."""
     base = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     mark_size = max(48, min(120, round(base.width * 0.07)))
     padding = round(base.width * 0.02)
@@ -69,6 +106,24 @@ def _apply_bmv_watermark(image_bytes: bytes) -> bytes:
     out = io.BytesIO()
     base.save(out, format="PNG")
     return out.getvalue()
+
+
+def _apply_bmv_watermark(image_bytes: bytes) -> bytes:
+    """Composites the real BMV logo onto an image — more reliable than asking
+    the image model to draw legible small text (we've seen it garble
+    URLs/labels at that scale). No-op if the logo file isn't present, so this
+    never breaks image generation.
+
+    EVERY byte written under UPLOADS_DIR goes through here; the directory is
+    statically served, so an unmarked file is an unbranded full-quality demo
+    at a guessable URL. Pinned by tests/test_images_hardening.py.
+    """
+    logo = _bmv_logo()
+    if logo is None:
+        return image_bytes
+    if settings.WATERMARK_STYLE == "corner":
+        return _corner_watermark(image_bytes, logo)
+    return _footer_watermark(image_bytes, logo)
 
 
 def _decodable(image_bytes: bytes) -> bool:
