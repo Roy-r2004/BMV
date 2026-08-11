@@ -56,6 +56,29 @@ decides per archetype. Plausible outcome worth designing for: *per-role
 tiering* — pro-class model for the anchor, flash-class for follow-up
 screens conditioned on the anchor — halving cost with little visible loss.
 
+## Status after session 31 (2026-08-11)
+
+| | | |
+|---|---|---|
+| W0 Hardening | **DONE** | `29c28ef` |
+| W1 Bake-off | **DONE** | pro anchor + flash follow-ups, per archetype; gpt-5.4 eliminated |
+| W2 Art packs | **BUILT, NOT ADOPTED** | lost the A/B 0-2; ships behind `ENABLE_ART_PACKS=false` |
+| W3 Text truth | **DONE, ON** | 10/10 golden screens passed |
+| W4 Compositing | **DONE, ON** | hero + 2 detail crops per screen; deck rebuilt on them |
+| W5 Design sheet | **BUILT, NOT ADOPTED** | lost the swap-tested pairwise; `USE_DESIGN_SHEET=false` |
+| W6 Delivery polish | **DONE** | `/admin` cost view, composites in `/preview` |
+| W7 Phase-2 bridge | **NOT STARTED** | gated on the owner's sign-off |
+
+**Phase 1 is not declared shippable.** DoD line 2 fails on measurement and
+line 3 is waiting on the owner's eye — see
+`docs/evidence/session31/dod-assessment.md` and the sheets in
+`docs/evidence/session31/sign-off/`.
+
+The single highest-value next change, from three experiments that all lost
+the same way: brand the raw screenshot with a footer strip rather than a
+corner mark, so the prompt no longer has to reserve the bottom-right
+corner — then re-run W2 and W5, which are built and one env var away.
+
 ## Workstreams
 
 **W0 — Hardening. DONE** (`29c28ef`): watermark on every byte under
