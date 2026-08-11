@@ -4,9 +4,28 @@ Everything in session 32 is built and pinned but **unmeasured**. This is the
 sequence that measures it, written now so the funded session spends its money
 on generation rather than on deciding what to generate.
 
-Rates are measured, from BMV's own `ai_usage_events` (2026-08-11):
-`gemini-3-pro-image` **$0.145/image**, `gemini-3.1-flash-image` **$0.070**.
-Text calls are ~$0.008 per brief.
+Every figure below is derived from session 31's own per-cell ledger
+(`docs/evidence/session31/bakeoff/results.json`), not estimated:
+`gemini-3-pro-image` **$0.145/image**, `gemini-3.1-flash-image` **$0.070**,
+a QA judgement **$0.001**, a swap-tested pairwise **~$0.02**, and a
+text-only brief re-freeze **~$0.01**.
+
+For scale: session 31 ran **21 cells and 66 images** — the entire bake-off
+matrix, both experiments and the full golden set — for **$8.55**. This run is
+a fraction of that, because the models and the tiering are already settled and
+only the register is in question.
+
+| step | what it answers | cost |
+|---|---|---|
+| 1 | do the new spec fields get filled sensibly? | **$0.05** |
+| 2 | **is the new look actually better?** | **$1.82** |
+| 3 | is it the hero, the flow, or the register doing the work? | $0.60 |
+| 4 | the five sheets for your eye | $2.35 |
+| 5 | do W2/W5 win now the corner is free? | $1.25 |
+| | **everything** | **$6.07** |
+
+**Steps 1 and 2 are the run.** $1.87 answers the only question that matters,
+and if the answer is no, steps 3–5 never happen.
 
 ## Before anything: bracket the ledger
 
@@ -18,7 +37,7 @@ docker run --rm -v "$PWD:/repo" -w /repo/consultant-service --entrypoint sh bmv-
 The key is shared — attribute only the delta from BMV's own ledger, never the
 OpenRouter balance.
 
-## Step 1 — re-freeze the golden briefs under ui-spec-v2  (~$0.05)
+## Step 1 — re-freeze the golden briefs under ui-spec-v2  ($0.05)
 
 The frozen set carries no `hero`, `concept` or `ai`; without this step the new
 fields are all empty and the run measures the register alone.
@@ -40,10 +59,10 @@ unvalidated. Specifically check —
 - is `ai.rationale` ≤ 8 words and defensible for that trade?
 
 If those come back weak, fix `ui_spec.j2` and re-freeze. That is $0.05 a go
-and it gates everything downstream — a $20 image run on bad specs measures
-nothing.
+and it gates everything downstream — image spend on bad specs measures
+nothing, however small.
 
-## Step 2 — the register A/B  (~$3.50)
+## Step 2 — the register A/B  ($1.82: 12 pro images, 3 swap-tested pairwise)
 
 Three briefs, two conditions, anchor only (`--screens 1`), 2 candidates each.
 The judge stays fixed. Register is the only thing that varies.
@@ -67,7 +86,8 @@ Note the control pairs `light` with `corner`: that is the *shipped* old
 pipeline, which is what the owner is actually comparing against. It does mean
 this cell varies two things at once. If the cinematic arm wins, a third cell
 (`--register light --watermark footer`) separates "the dark register won" from
-"freeing the corner won" — worth $1.20 only if the answer changes a decision.
+"freeing the corner won" — $0.87, worth it only if the answer changes a
+decision.
 
 Then, swap-tested pairwise. Both sides ran on the same anchor model, so
 `--a`/`--b` are the same model and the *labels* are what distinguish them:
@@ -83,7 +103,7 @@ python scripts/pairwise_run.py \
 both built, both looked right, and both lost — this is the whole reason the
 light register is still in the tree.
 
-## Step 3 — hero and tool screens, isolated  (~$2.20)
+## Step 3 — hero and tool screens, isolated  ($0.60)
 
 Only if step 2 adopts. These are separate claims and cost little to separate:
 
@@ -99,7 +119,7 @@ the UI text into garbling. That failure would show up as a text-gate rejection,
 not as a low aesthetic score — check `text_truth` in the saved metadata, not
 just `qa_score`.
 
-## Step 4 — full golden set + owner sheets  (~$8)
+## Step 4 — full golden set + owner sheets  ($2.35)
 
 Five briefs, 2 screens, tiered pro anchor + flash follow-ups, the shipping
 configuration:
@@ -116,7 +136,7 @@ python scripts/side_by_side.py --old-label light --new-label cinematic \
 
 Then **stop for the owner's eye**. The pairwise criterion is theirs.
 
-## Step 5 — re-run the two experiments the corner defeated  (~$4)
+## Step 5 — re-run the two experiments the corner defeated  ($1.25)
 
 W2 art packs and W5 design sheet are built, versioned and pinned, and both
 lost specifically to corner clipping. With the corner free they deserve one

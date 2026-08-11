@@ -93,6 +93,10 @@ stage produces.
 
 ## The funded run, pre-scripted
 
-See [`funded-run.md`](funded-run.md). Roughly $18–24 at measured rates for the
-full comparison; ~$6 for the cheap version that just answers "is the new look
-better".
+See [`funded-run.md`](funded-run.md). **$1.87** answers "is the new look
+better"; **$6.07** runs everything including the five owner sheets and the
+W2/W5 re-runs the freed corner makes worth retrying.
+
+Both figures are derived from session 31's per-cell ledger, not estimated —
+that session ran 21 cells and 66 images for $8.55, and this run needs far less
+because the models and the tiering are already settled.
