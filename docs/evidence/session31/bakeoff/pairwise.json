@@ -1,0 +1,141 @@
+[
+  {
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "screen": "dashboard",
+    "a": "google/gemini-3-pro-image",
+    "b": "google/gemini-3.1-flash-image",
+    "a_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image/images/1/dashboard_0.png",
+    "b_image": "scripts/out/bakeoff/dental/google_gemini-3.1-flash-image/images/1/dashboard_0.png",
+    "ran_at": "2026-08-11T16:33:50",
+    "winner": "tie",
+    "consistent": false,
+    "forward_pick": "google/gemini-3.1-flash-image",
+    "reverse_pick": "google/gemini-3-pro-image",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "Image A has clipped, truncated text in the AI Workstream panel encroaching on the logo corner, while Image B's content is fully legible and cleanly composed.",
+        "a_defects": [
+          "AI Workstream status text cut off ('In P...', 'status: ...')",
+          "Text runs into reserved logo corner",
+          "Slightly denser, less breathable layout"
+        ],
+        "b_defects": [
+          "Recall Opportunities text sits close to logo corner but remains legible",
+          "Cursor icon overlapping appointment row is a minor visual noise"
+        ]
+      },
+      {
+        "order": "google/gemini-3.1-flash-image first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "B avoids the stray cursor artifact and hidden recall date seen in A, and its top KPI-card row plus full-width chart reads as a more coherent, premium wide dashboard.",
+        "a_defects": [
+          "Random hand/cursor icon floating over the Upcoming Appointments row (rendering artifact)",
+          "Logo circle clips the Sophia Rodriguez recall badge/date, hiding data",
+          "Narrow left-column KPI stack feels cramped versus a top-row summary"
+        ],
+        "b_defects": [
+          "Logo circle truncates AI Workstream status text on two rows ('In P...', 'status: ...')",
+          "Slightly more visual crowding in the bottom-right corner near the logo"
+        ]
+      }
+    ]
+  },
+  {
+    "brief": "law",
+    "archetype": "crm-dashboard",
+    "screen": "dashboard",
+    "a": "google/gemini-3-pro-image",
+    "b": "google/gemini-3.1-flash-image",
+    "a_image": "scripts/out/bakeoff/law/google_gemini-3-pro-image/images/4/dashboard_0.png",
+    "b_image": "scripts/out/bakeoff/law/google_gemini-3.1-flash-image/images/3/dashboard_0.png",
+    "ran_at": "2026-08-11T16:34:41",
+    "winner": "google/gemini-3-pro-image",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image",
+    "reverse_pick": "google/gemini-3-pro-image",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "Image A preserves clean, accurate chart data and single nav structure, while Image B has a duplicated Settings/Help menu, a garbled tooltip ('Thurso: 8'), and an axis scale mismatched to the plotted values.",
+        "a_defects": [
+          "Recent Leads column text ('Phone', 'Website') clipped by bottom-right logo overlay"
+        ],
+        "b_defects": [
+          "Duplicate Settings and Help nav items in sidebar",
+          "Tooltip reads 'Thurso: 8' instead of 'Thursday: 8'",
+          "Y-axis max shows 18 though plotted values top out at 8, causing scale/label confusion"
+        ]
+      },
+      {
+        "order": "google/gemini-3.1-flash-image first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "A duplicates the entire Settings/Help navigation block (a glaring structural bug), whereas B's only flaw is minor text clipping behind the logo, making B read as the more polished, trustworthy product.",
+        "a_defects": [
+          "Duplicated 'Settings' and 'Help' nav items appear twice in sidebar",
+          "Tooltip text garbled as 'Thursoi 8' instead of a clean label",
+          "Status badges awkwardly separated from 'status:' text in AI Workstream list"
+        ],
+        "b_defects": [
+          "Recent Leads column text ('Phone', 'Website') clipped by the bottom-right logo corner",
+          "Slightly less dense sidebar labeling compared to A"
+        ]
+      }
+    ]
+  },
+  {
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "screen": "analytics",
+    "a": "google/gemini-3-pro-image",
+    "b": "google/gemini-3.1-flash-image",
+    "a_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image/images/6/analytics_0.png",
+    "b_image": "scripts/out/bakeoff/retail/google_gemini-3.1-flash-image/images/5/analytics_0.png",
+    "ran_at": "2026-08-11T16:35:00",
+    "winner": "google/gemini-3-pro-image",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image",
+    "reverse_pick": "google/gemini-3-pro-image",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "B's AI Workstream panel content is clipped/cut off and encroaches on the reserved bottom-right logo corner, while A's layout is fully intact with no overlapping content.",
+        "a_defects": [
+          "Duplicate 'Settings' not present but minor unused whitespace at bottom left",
+          "Chart labels slightly crowded near peak callout"
+        ],
+        "b_defects": [
+          "AI Workstream panel text truncated ('Forecasted S...', 'status:' cut off)",
+          "Bottom-right BMV logo overlaps/encroaches on AI Workstream card",
+          "Duplicate Settings nav item listed twice",
+          "Daily Sales Trend loses y-axis granularity labels (missing 850/920/780 etc. data points)"
+        ]
+      },
+      {
+        "order": "google/gemini-3.1-flash-image first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "Image B has fully readable, uncut content (AI Workstream statuses visible) and a coherent data-labeled chart, while Image A clips key status text and the bottom-right logo overlaps/obscures workstream content.",
+        "a_defects": [
+          "AI Workstream items truncated ('status: Que...', 'Forecasted S')",
+          "Logo badge overlaps and obscures list text in bottom-right",
+          "Chart lacks data labels/axis title, less legible",
+          "Duplicate 'Settings' entry in sidebar (top nav icon list + bottom)"
+        ],
+        "b_defects": [
+          "Slightly denser layout with less whitespace",
+          "Cursor icon artifact visible on Dark Matter row"
+        ]
+      }
+    ]
+  }
+]

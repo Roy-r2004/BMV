@@ -37,7 +37,33 @@ class Settings:
     # measured bake-off (see docs/evidence/session31/images-bakeoff.md);
     # anything absent falls back to IMAGE_MODEL, so an archetype nobody has
     # measured behaves exactly as before.
-    ARCHETYPE_IMAGE_MODELS: dict[str, dict[str, str]] = {}
+    #
+    # Measured 2026-08-11, W1 bake-off (docs/evidence/session31/images-bakeoff.md).
+    # Same answer on all three archetypes measured, so the entries are
+    # identical — kept per-archetype anyway because that is the axis a
+    # future measurement will disagree on, and a shared constant would
+    # quietly hide the disagreement:
+    #   anchor   = gemini-3-pro-image. Won the swap-tested pairwise on crm
+    #              and analytics, tied on operations, and matched or beat
+    #              flash's anchor QA everywhere (8.7 / 8.7 / 8.7 vs
+    #              8.7 / 7.9 / 8.7). gpt-5.4-image-2 was eliminated: it
+    #              renders SQUARE, took 354s, and scored lowest.
+    #   followup = gemini-3.1-flash-image. Follow-ups copy a design they
+    #              are handed as a reference image rather than inventing
+    #              one, which is the cheaper job — and all-pro costs $0.72
+    #              for a 3-screen request, over the $0.60 DoD line, while
+    #              this tiering measured $0.583 at 175s.
+    # HONEST LIMIT: the pro-anchor + flash-follow-up combination was
+    # measured end-to-end on operations-dashboard only. crm and analytics
+    # inherit it by extrapolation from their all-flash follow-up scores
+    # (8.7 and 7.0), not from a tiering run of their own.
+    ARCHETYPE_IMAGE_MODELS: dict[str, dict[str, str]] = {
+        "operations-dashboard": {"anchor": "google/gemini-3-pro-image", "followup": "google/gemini-3.1-flash-image"},
+        "crm-dashboard": {"anchor": "google/gemini-3-pro-image", "followup": "google/gemini-3.1-flash-image"},
+        "analytics-dashboard": {"anchor": "google/gemini-3-pro-image", "followup": "google/gemini-3.1-flash-image"},
+        # scheduling-dashboard and pipeline-dashboard are unmeasured — no
+        # golden brief landed on them — so they fall back to IMAGE_MODEL.
+    }
     # Operator-level escape hatches (env), used by bake-off runs and by
     # incident response — they outrank the measured table on purpose.
     IMAGE_MODEL_ANCHOR: str = _env_or("IMAGE_MODEL_ANCHOR", "")
@@ -76,6 +102,13 @@ class Settings:
     ENABLE_VISION_QA: bool = _env_bool("ENABLE_VISION_QA", True)
     QA_MODEL: str = _env_or("QA_MODEL", _env_or("ANALYSIS_MODEL", "google/gemini-2.5-flash"))
     QA_MIN_SCORE: float = float(_env_or("QA_MIN_SCORE", "7"))
+    # The pairwise judge ("which of these two is better") is a separate
+    # instrument from the per-image scorer and may need more capability:
+    # comparing two dense screenshots is harder than scoring one. Kept as
+    # its own setting so it can be strengthened WITHOUT ever varying the
+    # per-image judge — the rule is that judge and generator never change
+    # together, not that one model must do both jobs.
+    PAIRWISE_JUDGE_MODEL: str = _env_or("PAIRWISE_JUDGE_MODEL", _env_or("QA_MODEL", "google/gemini-2.5-flash"))
     # At most ONE extra attempt per screen when no candidate is approved —
     # never an open-ended regeneration loop.
     MAX_REGENERATIONS: int = int(_env_or("MAX_REGENERATIONS", "1"))
