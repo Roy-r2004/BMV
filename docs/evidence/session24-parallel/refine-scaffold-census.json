@@ -1,0 +1,2661 @@
+{
+ "method": "see module docstring",
+ "marker": {
+  "corpus_runs": 87,
+  "runs_with_stored_record": 67,
+  "total_pages": 631,
+  "pages_with_marker": 275,
+  "marker_share_pct": 43.6,
+  "slot_filled_pages_that_kept_the_marker": 195,
+  "kept_marker_routed_pipeline_accepted": 195,
+  "kept_marker_unrouted_never_inspected": 0,
+  "runs_affected_kept": [
+   17,
+   19,
+   20,
+   22,
+   37,
+   38,
+   39,
+   40,
+   41,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   62,
+   64,
+   65,
+   66,
+   67,
+   68,
+   69,
+   70,
+   71,
+   73,
+   75,
+   76,
+   77,
+   78,
+   79,
+   80,
+   81,
+   82,
+   83,
+   84,
+   85,
+   86,
+   87,
+   88,
+   91,
+   93,
+   95,
+   96,
+   97,
+   98,
+   103,
+   104,
+   105,
+   106,
+   107,
+   108,
+   109,
+   111,
+   112,
+   122,
+   124,
+   125,
+   129,
+   141,
+   142,
+   144,
+   145
+  ],
+  "reported_fallback_without_marker": 0,
+  "runs_affected_ghost": [],
+  "kept_detail": [
+   {
+    "request": 17,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 19,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 19,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 19,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 20,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 20,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 20,
+    "page": "src/pages/GalleryPage.tsx"
+   },
+   {
+    "request": 20,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 22,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 22,
+    "page": "src/pages/GalleryPage.tsx"
+   },
+   {
+    "request": 22,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 37,
+    "page": "src/pages/AboutArtistPage.tsx"
+   },
+   {
+    "request": 37,
+    "page": "src/pages/GalleryHomePage.tsx"
+   },
+   {
+    "request": 37,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 38,
+    "page": "src/pages/AboutJeannePage.tsx"
+   },
+   {
+    "request": 38,
+    "page": "src/pages/AdminLoginPage.tsx"
+   },
+   {
+    "request": 38,
+    "page": "src/pages/GalleryHomePage.tsx"
+   },
+   {
+    "request": 38,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 38,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 39,
+    "page": "src/pages/AboutUsPage.tsx"
+   },
+   {
+    "request": 39,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 39,
+    "page": "src/pages/ProductDetailPage.tsx"
+   },
+   {
+    "request": 40,
+    "page": "src/pages/GalleryHomePage.tsx"
+   },
+   {
+    "request": 40,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 41,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 43,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 44,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 44,
+    "page": "src/pages/GalleryHomePage.tsx"
+   },
+   {
+    "request": 44,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 44,
+    "page": "src/pages/PrivacyPolicyPage.tsx"
+   },
+   {
+    "request": 44,
+    "page": "src/pages/TermsOfServicePage.tsx"
+   },
+   {
+    "request": 45,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 45,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 46,
+    "page": "src/pages/ContactPage.tsx"
+   },
+   {
+    "request": 47,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 47,
+    "page": "src/pages/ContactPage.tsx"
+   },
+   {
+    "request": 47,
+    "page": "src/pages/GalleryPage.tsx"
+   },
+   {
+    "request": 47,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 47,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 48,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 48,
+    "page": "src/pages/ContactPage.tsx"
+   },
+   {
+    "request": 48,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 62,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 62,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 62,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 62,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 64,
+    "page": "src/pages/AboutJeannePage.tsx"
+   },
+   {
+    "request": 64,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 64,
+    "page": "src/pages/GalleryHomePage.tsx"
+   },
+   {
+    "request": 64,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 64,
+    "page": "src/pages/PaintingDetailOnePage.tsx"
+   },
+   {
+    "request": 65,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 65,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 65,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 66,
+    "page": "src/pages/AboutArtistPage.tsx"
+   },
+   {
+    "request": 66,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 66,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 67,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 67,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 67,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 68,
+    "page": "src/pages/AboutArtistPage.tsx"
+   },
+   {
+    "request": 68,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 68,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 68,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 69,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 69,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 69,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 70,
+    "page": "src/pages/ArtistPage.tsx"
+   },
+   {
+    "request": 71,
+    "page": "src/pages/AboutArtistPage.tsx"
+   },
+   {
+    "request": 71,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 71,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 73,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 73,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 73,
+    "page": "src/pages/PaintingDetailPage.tsx"
+   },
+   {
+    "request": 75,
+    "page": "src/pages/AboutUsPage.tsx"
+   },
+   {
+    "request": 75,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 75,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 76,
+    "page": "src/pages/AboutUsPage.tsx"
+   },
+   {
+    "request": 76,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 77,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 77,
+    "page": "src/pages/OurStoryPage.tsx"
+   },
+   {
+    "request": 77,
+    "page": "src/pages/PrivateDiningPage.tsx"
+   },
+   {
+    "request": 78,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 78,
+    "page": "src/pages/ConnectClarifyPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/ActivitiesPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/AmenitiesPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/AvailabilityBookingPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/GuestAccountDashboardPage.tsx"
+   },
+   {
+    "request": 79,
+    "page": "src/pages/KingSuiteDetailPage.tsx"
+   },
+   {
+    "request": 80,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 80,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 80,
+    "page": "src/pages/PrivateDiningPage.tsx"
+   },
+   {
+    "request": 80,
+    "page": "src/pages/ReservationsPage.tsx"
+   },
+   {
+    "request": 81,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/BookingFormPage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/CanoeTripsPage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/RestaurantPage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 82,
+    "page": "src/pages/SaunaPage.tsx"
+   },
+   {
+    "request": 83,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 83,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 83,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 83,
+    "page": "src/pages/PrivateEventsPage.tsx"
+   },
+   {
+    "request": 84,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 84,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 85,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 85,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 85,
+    "page": "src/pages/BookingFlowPage.tsx"
+   },
+   {
+    "request": 85,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 85,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 86,
+    "page": "src/pages/AboutPage.tsx"
+   },
+   {
+    "request": 86,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 86,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 87,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 87,
+    "page": "src/pages/ConnectPage.tsx"
+   },
+   {
+    "request": 87,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/AvailabilityPage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/CanoeTripsPage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/RestaurantPage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 88,
+    "page": "src/pages/SaunaPage.tsx"
+   },
+   {
+    "request": 91,
+    "page": "src/pages/AboutUsPage.tsx"
+   },
+   {
+    "request": 91,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 91,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 91,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 93,
+    "page": "src/pages/BookPage.tsx"
+   },
+   {
+    "request": 93,
+    "page": "src/pages/ClearAlignersFormPage.tsx"
+   },
+   {
+    "request": 93,
+    "page": "src/pages/ConciergeLandingPage.tsx"
+   },
+   {
+    "request": 93,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 95,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 95,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 95,
+    "page": "src/pages/ReservationsPage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/AvailabilityBookingPage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/FindYourStayPage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/RestaurantPage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 96,
+    "page": "src/pages/SaunaPage.tsx"
+   },
+   {
+    "request": 97,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 97,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 97,
+    "page": "src/pages/OurStoryPage.tsx"
+   },
+   {
+    "request": 97,
+    "page": "src/pages/PrivateDinnersPage.tsx"
+   },
+   {
+    "request": 97,
+    "page": "src/pages/ReservationsPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/BookingAddonsPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/BookingDatesPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/BookingPaymentPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/BookingSummaryPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/DiningPage.tsx"
+   },
+   {
+    "request": 98,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 103,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 103,
+    "page": "src/pages/OurStoryPage.tsx"
+   },
+   {
+    "request": 103,
+    "page": "src/pages/PrivateEventsPage.tsx"
+   },
+   {
+    "request": 103,
+    "page": "src/pages/ReservationsPage.tsx"
+   },
+   {
+    "request": 104,
+    "page": "src/pages/ActivitiesPage.tsx"
+   },
+   {
+    "request": 104,
+    "page": "src/pages/BookingFlowPage.tsx"
+   },
+   {
+    "request": 104,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 105,
+    "page": "src/pages/OurStoryPage.tsx"
+   },
+   {
+    "request": 105,
+    "page": "src/pages/ReservationsPage.tsx"
+   },
+   {
+    "request": 106,
+    "page": "src/pages/AvailabilityPage.tsx"
+   },
+   {
+    "request": 106,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 106,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 107,
+    "page": "src/pages/BackRoomPage.tsx"
+   },
+   {
+    "request": 107,
+    "page": "src/pages/ReservePage.tsx"
+   },
+   {
+    "request": 108,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 108,
+    "page": "src/pages/PostBookingItineraryPage.tsx"
+   },
+   {
+    "request": 109,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 109,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 109,
+    "page": "src/pages/PrivateDiningPage.tsx"
+   },
+   {
+    "request": 111,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 111,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 112,
+    "page": "src/pages/BackRoomPage.tsx"
+   },
+   {
+    "request": 112,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 112,
+    "page": "src/pages/ReservePage.tsx"
+   },
+   {
+    "request": 122,
+    "page": "src/pages/ArtworkDetailPage.tsx"
+   },
+   {
+    "request": 122,
+    "page": "src/pages/PrivateDiningPage.tsx"
+   },
+   {
+    "request": 122,
+    "page": "src/pages/WineListPage.tsx"
+   },
+   {
+    "request": 124,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 124,
+    "page": "src/pages/PrivateDiningPage.tsx"
+   },
+   {
+    "request": 125,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 129,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 129,
+    "page": "src/pages/PrivateEventsPage.tsx"
+   },
+   {
+    "request": 141,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 142,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 142,
+    "page": "src/pages/RoomDetailPage.tsx"
+   },
+   {
+    "request": 144,
+    "page": "src/pages/RecordsPage.tsx"
+   },
+   {
+    "request": 145,
+    "page": "src/pages/HomePage.tsx"
+   },
+   {
+    "request": 145,
+    "page": "src/pages/ReservationsPage.tsx"
+   }
+  ],
+  "ghost_detail": []
+ },
+ "refine": {
+  "reports_total": 41,
+  "reports_judged": 31,
+  "reports_with_refine_fired": [
+   39,
+   41,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   50,
+   62,
+   65,
+   66,
+   67,
+   68,
+   69,
+   70,
+   71,
+   73,
+   78,
+   79,
+   86,
+   87,
+   93
+  ],
+  "p_refine_given_judged_pct": 74.2,
+  "telemetry_scoped_era_runs": 74,
+  "telemetry_scoped_era_span": [
+   72,
+   145
+  ],
+  "telemetry_refine_runs": [
+   72,
+   73,
+   76,
+   77,
+   78,
+   79,
+   80,
+   81,
+   86,
+   91,
+   95,
+   96,
+   97,
+   98,
+   110,
+   111,
+   112,
+   125,
+   135,
+   140,
+   141,
+   142,
+   144
+  ],
+  "p_refine_scoped_era_pct": 31.1,
+  "refine_rows": 136
+ },
+ "per_run": [
+  {
+   "request": 2,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 3,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 4,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 5,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 6,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/ContactPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 11,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 13,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 14,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 16,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 17,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 19,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/role-artist/AiFeaturesPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 20,
+   "pages": 4,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 22,
+   "pages": 4,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 32,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 33,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 34,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 36,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/ContactPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/admin/DashboardPage.tsx",
+    "src/pages/admin/EditAboutPage.tsx",
+    "src/pages/admin/EditArtworkPage.tsx",
+    "src/pages/admin/ManageArtworksPage.tsx"
+   ],
+   "marker_not_reported": [],
+   "reported_no_marker": [],
+   "kept_marker_routed": [],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 37,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 38,
+   "pages": 10,
+   "marker_pages": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/AdminLoginPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/admin/AdminAboutPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/AdminLoginPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/AdminLoginPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 39,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ProductDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ProductDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ProductDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 40,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/AdminEditAboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 41,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/SettingsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 42,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 43,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 44,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivacyPolicyPage.tsx",
+    "src/pages/TermsOfServicePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/About.tsx",
+    "src/pages/GalleryHome.tsx",
+    "src/pages/admin/AboutEdit.tsx",
+    "src/pages/ArtworkDetail.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivacyPolicyPage.tsx",
+    "src/pages/TermsOfServicePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivacyPolicyPage.tsx",
+    "src/pages/TermsOfServicePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 45,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 46,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ContactPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ContactPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ContactPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 47,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 48,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 50,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 60,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 61,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/ContactPage.tsx",
+    "src/pages/GalleryPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 62,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 64,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailOnePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/AboutJeanne.tsx",
+    "src/pages/GalleryHome.tsx",
+    "src/pages/PaintingDetailOne.tsx",
+    "src/pages/admin/AdminAddPainting.tsx",
+    "src/pages/admin/AdminEditPainting.tsx",
+    "src/pages/admin/AdminManagePages.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailOnePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutJeannePage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/GalleryHomePage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailOnePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 65,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 66,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 67,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 68,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 69,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 70,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/ArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/SettingsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/ArtistPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtistPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 71,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutArtistPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 72,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 73,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PaintingDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 75,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 76,
+   "pages": 10,
+   "marker_pages": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/manager/SettingsPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 77,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/AdminSettingsPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 78,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ConnectClarifyPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ConnectClarifyPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ConnectClarifyPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 79,
+   "pages": 14,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ActivitiesPage.tsx",
+    "src/pages/AmenitiesPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityBookingPage.tsx",
+    "src/pages/GuestAccountDashboardPage.tsx",
+    "src/pages/KingSuiteDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ActivitiesPage.tsx",
+    "src/pages/AmenitiesPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityBookingPage.tsx",
+    "src/pages/GuestAccountDashboardPage.tsx",
+    "src/pages/KingSuiteDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ActivitiesPage.tsx",
+    "src/pages/AmenitiesPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityBookingPage.tsx",
+    "src/pages/GuestAccountDashboardPage.tsx",
+    "src/pages/KingSuiteDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 80,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/SettingsPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 81,
+   "pages": 4,
+   "marker_pages": [
+    "src/pages/BookPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/BookPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BookPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 82,
+   "pages": 12,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingFormPage.tsx",
+    "src/pages/CanoeTripsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingFormPage.tsx",
+    "src/pages/CanoeTripsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingFormPage.tsx",
+    "src/pages/CanoeTripsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 83,
+   "pages": 11,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateEventsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateEventsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateEventsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 84,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/SettingsPage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BookPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 85,
+   "pages": 11,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingFlowPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingFlowPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingFlowPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 86,
+   "pages": 9,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 87,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ConnectPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ConnectPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ConnectPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 88,
+   "pages": 13,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityPage.tsx",
+    "src/pages/CanoeTripsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityPage.tsx",
+    "src/pages/CanoeTripsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityPage.tsx",
+    "src/pages/CanoeTripsPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 91,
+   "pages": 12,
+   "marker_pages": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AboutUsPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 93,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ClearAlignersFormPage.tsx",
+    "src/pages/ConciergeLandingPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ClearAlignersFormPage.tsx",
+    "src/pages/ConciergeLandingPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BookPage.tsx",
+    "src/pages/ClearAlignersFormPage.tsx",
+    "src/pages/ConciergeLandingPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 94,
+   "pages": 10,
+   "marker_pages": [
+    "src/pages/AmenitiesPage.tsx",
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 95,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 96,
+   "pages": 14,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityBookingPage.tsx",
+    "src/pages/FindYourStayPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityBookingPage.tsx",
+    "src/pages/FindYourStayPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/AvailabilityBookingPage.tsx",
+    "src/pages/FindYourStayPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RestaurantPage.tsx",
+    "src/pages/RoomDetailPage.tsx",
+    "src/pages/SaunaPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 97,
+   "pages": 12,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateDinnersPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateDinnersPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateDinnersPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 98,
+   "pages": 15,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingAddonsPage.tsx",
+    "src/pages/BookingDatesPage.tsx",
+    "src/pages/BookingPaymentPage.tsx",
+    "src/pages/BookingSummaryPage.tsx",
+    "src/pages/DiningPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/HomePage.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingAddonsPage.tsx",
+    "src/pages/BookingDatesPage.tsx",
+    "src/pages/BookingPaymentPage.tsx",
+    "src/pages/BookingSummaryPage.tsx",
+    "src/pages/DiningPage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/BookingAddonsPage.tsx",
+    "src/pages/BookingDatesPage.tsx",
+    "src/pages/BookingPaymentPage.tsx",
+    "src/pages/BookingSummaryPage.tsx",
+    "src/pages/DiningPage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 101,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 102,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/AboutPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": null
+  },
+  {
+   "request": 103,
+   "pages": 10,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateEventsPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/Reservations.tsx",
+    "src/pages/OurStory.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateEventsPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx",
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/PrivateEventsPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 104,
+   "pages": 10,
+   "marker_pages": [
+    "src/pages/ActivitiesPage.tsx",
+    "src/pages/BookingFlowPage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/BookingFlow.tsx",
+    "src/pages/admin/AdminBookingsList.tsx",
+    "src/pages/admin/AdminBookingsListPage.tsx",
+    "src/pages/admin/AdminContent.tsx",
+    "src/pages/admin/AdminDashboard.tsx",
+    "src/pages/admin/AdminRoomDetail.tsx",
+    "src/pages/admin/AdminRoomsList.tsx",
+    "src/pages/admin/AdminRoomsListPage.tsx",
+    "src/pages/RoomDetail.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/ActivitiesPage.tsx",
+    "src/pages/BookingFlowPage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ActivitiesPage.tsx",
+    "src/pages/BookingFlowPage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 105,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/OurStoryPage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 106,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/AvailabilityPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/AvailabilityPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/AvailabilityPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 107,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/BackRoomPage.tsx",
+    "src/pages/ReservePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/BackRoomPage.tsx",
+    "src/pages/ReservePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BackRoomPage.tsx",
+    "src/pages/ReservePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 108,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PostBookingItineraryPage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/ExperiencesAddOns.tsx",
+    "src/pages/PostBookingItinerary.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PostBookingItineraryPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PostBookingItineraryPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 109,
+   "pages": 8,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 110,
+   "pages": 5,
+   "marker_pages": [],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [],
+   "reported_no_marker": [],
+   "kept_marker_routed": [],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 111,
+   "pages": 4,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 112,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/BackRoomPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservePage.tsx"
+   ],
+   "stored_fallback_pages": [
+    "src/pages/owner/ChefDashboardPage.tsx",
+    "src/pages/owner/ChefDashboard.tsx"
+   ],
+   "marker_not_reported": [
+    "src/pages/BackRoomPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/BackRoomPage.tsx",
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 122,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/WineListPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/WineListPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/ArtworkDetailPage.tsx",
+    "src/pages/PrivateDiningPage.tsx",
+    "src/pages/WineListPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 124,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateDiningPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 125,
+   "pages": 4,
+   "marker_pages": [
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 129,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateEventsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateEventsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx",
+    "src/pages/PrivateEventsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 132,
+   "pages": 6,
+   "marker_pages": [],
+   "stored_fallback_pages": [
+    "src/pages/role-lodge-manager/AiFeaturesPage.tsx"
+   ],
+   "marker_not_reported": [],
+   "reported_no_marker": [],
+   "kept_marker_routed": [],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 135,
+   "pages": 2,
+   "marker_pages": [],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [],
+   "reported_no_marker": [],
+   "kept_marker_routed": [],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 140,
+   "pages": 2,
+   "marker_pages": [],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [],
+   "reported_no_marker": [],
+   "kept_marker_routed": [],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 141,
+   "pages": 6,
+   "marker_pages": [
+    "src/pages/HomePage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 142,
+   "pages": 5,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx",
+    "src/pages/RoomDetailPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 144,
+   "pages": 4,
+   "marker_pages": [
+    "src/pages/RecordsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/RecordsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/RecordsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  },
+  {
+   "request": 145,
+   "pages": 7,
+   "marker_pages": [
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "stored_fallback_pages": [],
+   "marker_not_reported": [
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "reported_no_marker": [],
+   "kept_marker_routed": [
+    "src/pages/HomePage.tsx",
+    "src/pages/ReservationsPage.tsx"
+   ],
+   "kept_marker_unrouted": []
+  }
+ ]
+}

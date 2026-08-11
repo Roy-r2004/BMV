@@ -64,9 +64,18 @@ log = get_logger("SafetyGuards")
 #: a dead link into a red build.
 _UNLINKABLE_TAGS = frozenset({"a", "Button", "NavLink"})
 
-#: `href="/x"`, `href={"/x"}`, `href={`/x/${id}`}`, `"href": "/x"`, `href: '/x'`.
+#: `href="/x"`, `href={"/x"}`, `href={`/x/${id}`}`, `"href": "/x"`, `href: '/x'`,
+#: and every `*Href` the writers actually use — `primaryHref`, `secondaryHref`.
+#: This guard walks `src/data/mock.ts` like every other file and still missed
+#: the seed's call-to-action band, because `href` was anchored behind
+#: `(?<![\w-])` and `primaryHref` has a word character in front of it. Session
+#: 27 shipped three apps whose CTA buttons pointed at `/reserve`, `/order`,
+#: `/shop`, `/alerts` and `/gallery` — none of them declared, none repaired,
+#: none reported. Kept byte-identical to the sweep's `_LINK_KEYS` in
+#: `capabilities/journey.py`: a repair that cannot see what the gate reports is
+#: the shape of that whole defect.
 _HREF_RE = re.compile(
-    r"""(?P<key>(?<![\w-])["']?(?:href|defaultPath)["']?)"""
+    r"""(?P<key>(?<![\w-])["']?(?:\w*[Hh]ref|defaultPath)["']?)"""
     r"""(?P<mid>\s*[:=]\s*\{?\s*)"""
     r"""(?P<quote>["'`])(?P<value>/[^"'`]*)(?P=quote)"""
     r"""(?P<close>\s*\}?)"""
@@ -194,9 +203,21 @@ def _owning_tag(source: str, at: int) -> str | None:
     return match.group(1) if match else None
 
 
-def repair_file_dead_links(source: str, served: set[str]) -> tuple[str, dict[str, int]]:
-    """Repair every dead href in one file. Pure — no IO, so it is testable."""
+def repair_file_dead_links(
+    source: str, served: set[str], *, fallback: str = "/"
+) -> tuple[str, dict[str, int]]:
+    """Repair every dead href in one file. Pure — no IO, so it is testable.
+
+    ``fallback`` is where rung 4 sends a standalone object value it cannot
+    retarget, unlink or drop. It defaults to `/` — the behaviour this had when
+    every such value was a marketing CTA on a page that also had a nav. The
+    caller passes the app's declared conversion route instead where one exists:
+    a "Get started" button belongs on the booking page or the catalogue, and
+    grounding it to home is the catch-all disguise this module's own docstring
+    argues against.
+    """
     counts = {"retargeted": 0, "unlinked": 0, "dropped": 0, "homed": 0}
+    ground = fallback if fallback and _route_matches(fallback, served) else "/"
     edits: list[tuple[int, int, str]] = []
     spans = _bracket_spans(source)
 
@@ -229,7 +250,7 @@ def repair_file_dead_links(source: str, served: set[str]) -> tuple[str, dict[str
             continue
 
         start, end = match.span("value")
-        edits.append((start, end, "/"))
+        edits.append((start, end, ground))
         counts["homed"] += 1
 
     if not edits:
@@ -262,7 +283,17 @@ def repair_dead_links(
     if not served:
         return []
 
+    from app.application.preview_app.catalogue_contract.scaffold import (
+        booking_route,
+        catalog_route,
+    )
     from app.application.preview_app.protected_paths import is_template_owned_path
+
+    # Where a call to action belongs when its own target does not exist: the page
+    # this app converts on. Resolved from the route table like every other target
+    # in the pipeline, so a bike shop's CTA lands on `/service/book` and a
+    # gallery's on `/gallery` rather than both on the home page.
+    conversion = booking_route(architect) or catalog_route(architect) or "/"
 
     actions: list[str] = []
     totals = {"retargeted": 0, "unlinked": 0, "dropped": 0, "homed": 0}
@@ -279,7 +310,7 @@ def repair_dead_links(
             source = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        repaired, counts = repair_file_dead_links(source, served)
+        repaired, counts = repair_file_dead_links(source, served, fallback=conversion)
         if repaired == source:
             continue
         try:

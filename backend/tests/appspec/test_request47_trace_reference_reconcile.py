@@ -611,13 +611,15 @@ def test_retry_context_carries_compact_correction(
 
 
 def test_appspec_prompt_revision_records_the_authoring_change() -> None:
-    # 2026-08-07.2: R4 rung 2 — the ops-kind page floor (8b), rendered for ops
-    # faces only and derived from the ship gate's own constant. Previously
-    # 2026-08-07.1 for sessions 18-19's reject shapes (exactly-one initial
-    # state, per-kind assertion references, declare-before-cite, the minItems
-    # floor outside traceability, trace-or-defer). The stamp rides every
-    # revision's provenance, so reject rates are queryable per prompt revision.
-    assert settings.APPSPEC_PROMPT_REVISION == "2026-08-07.2"
+    # 2026-08-07.3: request 143's empty-tuple reject class — 9a (no stateless
+    # pages, no placeholder objects, the mined Page1 shape), the repair
+    # prompt's anti-collapse line (143 rev 1 returned one acceptance test in
+    # place of a 6-page spec), and the schema-repair prompt's constructive
+    # stateless-page fix (7a). Previously 2026-08-07.2 for R4's ops floor
+    # (8b) and 2026-08-07.1 for sessions 18-19's reject shapes. The stamp
+    # rides every revision's provenance, so reject rates are queryable per
+    # prompt revision.
+    assert settings.APPSPEC_PROMPT_REVISION == "2026-08-07.3"
 
 
 def test_authoring_prompt_forbids_empty_trace_arrays() -> None:

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.application.prompts import PromptTemplate
 from app.application.pipelines._shared import get_request
+from app.application.services.ai_context import ai_call
 from app.core.config import settings
 from app.domain.interfaces.ai_provider import AIProvider
 from app.domain.interfaces.template_renderer import TemplateRenderer
@@ -50,7 +51,10 @@ def generate_reference_analysis(
         description=meta.get("description", ""),
         visible_text_snippet=meta.get("visible_text_snippet", ""),
     )
-    result = ai_provider.ask_chat(settings.TEXT_MODEL, [{"role": "user", "content": prompt}])
+    with ai_call(stage="analyze", writer="reference_url_analysis"):
+        result = ai_provider.ask_chat(
+            settings.TEXT_MODEL, [{"role": "user", "content": prompt}]
+        )
     req.screenshot_analysis = result
     req.updated_at = datetime.utcnow()
     db.commit()
@@ -68,7 +72,10 @@ def analyze_screenshot(
         return "No image file available for analysis."
 
     prompt = template_renderer.render(PromptTemplate.SCREENSHOT_ANALYSIS)
-    result = ai_provider.ask_vision(settings.VISION_MODEL, prompt, req.reference_file_path)
+    with ai_call(stage="analyze", writer="screenshot_analysis"):
+        result = ai_provider.ask_vision(
+            settings.VISION_MODEL, prompt, req.reference_file_path
+        )
     req.screenshot_analysis = result
     req.updated_at = datetime.utcnow()
     db.commit()

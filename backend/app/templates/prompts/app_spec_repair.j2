@@ -33,11 +33,27 @@ REPAIR RULES:
 1. Fix every schema, reference-integrity, state/action/transition, journey,
    evidence, acceptance-test, and traceability error in the deterministic report.
    The recurring codes have exact fixes:
-   - `state_assertion_state_required`: add the missing `state_id` to that
-     state-kind assertion (a state on the asserted page), or change its kind.
+   - `state_assertion_state_required`: the assertion names a state the spec does
+     not declare. Bind it to a state already on the asserted page if one means
+     the same thing; otherwise DECLARE the missing state — add it to `states`
+     with `"initial": false`, list its id in that page's `state_ids`, and either
+     mark it `"terminal": true` or give it an outgoing transition, plus one
+     transition INTO it from a state on the same page so it is reachable. Do not
+     bind to a state that means something else ("booking form displayed" is not
+     "booking confirmed"). Changing the assertion's kind or removing it is the
+     last resort.
    - `missing_reference`: the cited ID does not exist — either declare the
      missing object in its top-level collection (for example add the cited
      EVIDENCE-* item to `evidence`) or stop citing it.
+   - `visible_assertion_evidence_required`: the assertion claims something is
+     visible but names no proof. Bind `evidence_id` to an evidence item already
+     on the assertion's page that shows the same surface; otherwise DECLARE the
+     missing evidence — add an item to `evidence` with that `page_id`, a `kind`
+     matching what is shown, `capability_ids` naming a capability on that page,
+     and list its id in the page's `evidence_ids`. The evidence describes a
+     surface the page already renders; it is proof, not new product behavior.
+     Re-emitting the assertion with `evidence_id: null` again is a dead run,
+     not a repair. Removing the assertion is the last resort.
    - `page_initial_state_count`: keep EXACTLY ONE `"initial": true` state per
      page's `state_ids`, set every sibling to `"initial": false`, and make each
      state's `page_id` match the one page listing it.
@@ -61,6 +77,9 @@ REPAIR RULES:
 8. Rebuild complete proof chains for required outcomes: requirement -> capability
    -> page/journey -> evidence -> acceptance test -> traceability.
 9. Return the entire AppSpec. Never return a JSON Patch, partial object, comments,
-   markdown fences, or explanation.
+   markdown fences, or explanation. Returning one sub-object (a single
+   acceptance test, page, or state) in place of the spec, or emptying `pages` /
+   `states` that the rejected candidate populated, is a collapse, not a repair —
+   every object the report does not fault must survive verbatim in your output.
 
 Return the complete repaired AppSpec JSON object only.

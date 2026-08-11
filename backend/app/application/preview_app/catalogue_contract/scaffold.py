@@ -120,8 +120,11 @@ def has_listing_face_component(content: str) -> bool:
 
 
 _DEFAULT_CATALOG_BASE = "/gallery"
-#: Declared booking route for booking_service apps (see product_kind._booking_pages).
-_BOOKING_ROUTE = "/book"
+#: The CTA a page emits when the route it would have linked to is not declared.
+#: A missing button beats a dead one: `#inquire` is an in-page anchor, so the
+#: worst case is a no-op scroll rather than a click that falls through to the
+#: catch-all route and lands the visitor back on the home page.
+_NO_ROUTE_CTA = '{ label: "Send a message", href: "#inquire" }'
 
 
 def catalog_base_from_path(route_path: str = "", architect: dict | None = None) -> str:
@@ -137,23 +140,33 @@ def catalog_base_from_path(route_path: str = "", architect: dict | None = None) 
     collection" to a path that fell through to the catch-all — three blocking
     findings on an app whose links all otherwise worked. When the derived base is
     not a declared route, the declared listing wins.
+
+    "The declared listing" is resolved by skeleton before it is resolved by name.
+    The name list below only knows the words a catalogue usually goes by, and
+    request 148's browse face is `/bikes` while 150's is `/catalogue` — neither is
+    in it. Both fell through to the `/gallery` default, so every card the home
+    page rendered linked into a route those apps do not have.
     """
     raw = str(route_path or "").strip()
     base = raw.split("/:")[0].split("/{")[0].rstrip("/")
-    if not base:
-        return _DEFAULT_CATALOG_BASE
     declared = {
         str(r.get("path") or "").rstrip("/")
         for r in ((architect or {}).get("routes") or [])
         if isinstance(r, dict)
     }
-    if not declared or base in declared:
+    if base and (not declared or base in declared):
         return base
+    if browse := catalog_route(architect):
+        return browse
     listing = sorted(
         p for p in declared
         if p and ":" not in p and _LISTING_BASE_RE.match(p + "/")
     )
-    return listing[0] if listing else base
+    if listing:
+        return listing[0]
+    # No path of its own to derive from — a home page's card grid — so fall back
+    # to wherever this app's detail routes actually live.
+    return base or catalogue_detail_base(architect) or _DEFAULT_CATALOG_BASE
 
 
 #: Browse-route names a catalogue listing goes by.
@@ -162,6 +175,118 @@ _LISTING_BASE_RE = re.compile(
     r"paintings|pieces|artworks|listings)(/|$)",
     re.I,
 )
+
+
+def _surface_route_path(route: object) -> str:
+    """Declared path of a visitor-facing, non-param route — `""` when it is neither.
+
+    Ops routes are excluded because a public CTA must never hand the visitor an
+    owner console, and param routes because `/bikes/:id` is a shape, not a place
+    a button can point at.
+    """
+    if not isinstance(route, dict):
+        return ""
+    path = str(route.get("path") or "").strip()
+    if not path.startswith("/"):
+        return ""
+    if str(route.get("surface") or "").lower() == "ops" or _is_ops_path(path):
+        return ""
+    if re.search(r"/:\w+", path) or re.search(r"/\{[^}]+\}", path):
+        return ""
+    return path.rstrip("/") or "/"
+
+
+def booking_route(architect: dict | None) -> str | None:
+    """Where "book a visit" goes — the route the architect declared for it.
+
+    Resolved by **skeleton, never by name**. The scaffold used to write the
+    literal `/book` into every booking CTA it emitted, which is right only for
+    the apps whose architect happened to choose that word: request 148 named its
+    booking page `/service/book` and 150 named it `/hire/reserve`, so every
+    "Book a visit" button on those two apps pointed at a path the route table
+    does not contain and the catch-all sent the click home.
+
+    The naming freedom is wanted — the architect describes *this* business, and
+    a bike workshop's booking page is not a clinic's. What was missing is that
+    the emitters never read the table back. Exactly one route per app carries
+    `skeleton_id == "public-booking"` (verified across requests 146–151), so the
+    table already answers this question; this is the reading of it.
+
+    Returns ``None`` when the app declares no booking page at all — request 151
+    is an ops console with no public face, and inventing `/book` for it would
+    manufacture the very dead link this function exists to remove.
+    """
+    for route in (architect or {}).get("routes") or []:
+        if not isinstance(route, dict):
+            continue
+        if str(route.get("skeleton_id") or "") != "public-booking":
+            continue
+        if path := _surface_route_path(route):
+            return path
+    return None
+
+
+def _contact_route(architect: dict | None) -> str | None:
+    """The app's contact face, resolved the way the utility compositor names it.
+
+    Imported late: `utility_compositor` imports this module back, and the two
+    have to agree on what a contact page is or a CTA points at a route the
+    compositor gave a different layout.
+    """
+    from app.application.preview_app.utility_compositor import utility_route
+
+    return utility_route(architect, "contact")
+
+
+def declares_path(architect: dict | None, path: str) -> bool:
+    """Whether the app declares this exact route.
+
+    The narrowest of the resolvers, and the right one for an ops console's own
+    chrome: `/invoices` and `/ticket` are the accounting and trading blueprints'
+    own page ids, not a concept another name could stand in for. Either the route
+    is there or the button has nowhere to go.
+    """
+    wanted = str(path or "").rstrip("/") or "/"
+    return any(
+        isinstance(route, dict)
+        and (str(route.get("path") or "").rstrip("/") or "/") == wanted
+        for route in (architect or {}).get("routes") or []
+    )
+
+
+def _ops_header_actions(architect: dict | None, label: str, href: str) -> str:
+    """The ops PageHeader's action row, minus any button with nowhere to go.
+
+    The AI hub is a pipeline constant and always present. The second action is a
+    route the ops blueprint may or may not have seeded — an app whose console
+    never got `/invoices` shipped a "New invoice" button that fell through
+    `path="*"` to the home page, which on an ops console is not even a page the
+    visitor was on. An anchor (`#queue`) is in-page and always fine.
+    """
+    hub = '{ label: "AI features", href: "/ai-features", variant: "secondary" }'
+    if href.startswith("#") or declares_path(architect, href):
+        return f' actions={{[{hub}, {{ label: {_js(label)}, href: {_js(href)} }}]}}'
+    return f" actions={{[{hub}]}}"
+
+
+def catalog_route(architect: dict | None) -> str | None:
+    """Where "view collection" goes — the declared browse face, by skeleton first.
+
+    Same defect, same shape as `booking_route`: the literal `/gallery` is right
+    for a painter and wrong for request 148's `/bikes` and 150's `/catalogue`.
+    The declared `public-catalog` route wins; a browse-named route is the
+    fallback for thin contracts that never assigned skeletons.
+    """
+    routes = list((architect or {}).get("routes") or [])
+    for route in routes:
+        if isinstance(route, dict) and str(route.get("skeleton_id") or "") == "public-catalog":
+            if path := _surface_route_path(route):
+                return path
+    for route in routes:
+        path = _surface_route_path(route)
+        if path and path != "/" and _LISTING_BASE_RE.match(path + "/"):
+            return path
+    return None
 
 
 # Slots that give a page somewhere for its journey to end.
@@ -350,14 +475,27 @@ def _is_accounting_domain(*parts: str) -> bool:
     return sum(1 for hint in _ACCOUNTING_HINTS if hint in blob) >= 1
 
 
-def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, str]:
+def _non_home_hero_ctas(
+    skeleton_id: str,
+    brand: str,
+    title: str,
+    architect: dict | None = None,
+) -> tuple[str, str]:
     """Return (primaryCta jsx attrs fragment without wrappers, subcopy).
 
     Storefront catalog/detail must not invent /book-appointment.
-    Booking faces keep a real /book target that matches product_kind routes.
+    Booking faces link the *declared* booking route — `booking_route` reads it
+    out of the route table, because the literal `/book` this used to emit was a
+    dead link on every app whose architect named that page something else.
     """
     sk = (skeleton_id or "").lower()
     blob = f"{brand} {title} {sk}".lower()
+    book_href = booking_route(architect)
+    book_cta = (
+        f'{{ label: "Book a visit", href: {_js(book_href)} }}'
+        if book_href
+        else _NO_ROUTE_CTA
+    )
     # The skeleton is stronger evidence than the brand name. A booking or service
     # face must never take the storefront branch: a gallery-flavoured brand on a
     # public-booking page emitted a "View collection" CTA to /gallery, which a
@@ -378,7 +516,7 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
             f"{title} — pick a time that works. This page is not the homepage story."
         )
         return (
-            'primaryCta={{ label: "Book a visit", href: "/book" }} '
+            f"primaryCta={{{book_cta}}} "
             'secondaryCta={{ label: "Back home", href: "/" }}',
             sub,
         )
@@ -412,7 +550,14 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
             # renders id="inquire" in this page's own inquire slot.
             primary = '{ label: "Inquire about this piece", href: "#inquire" }'
         else:
-            primary = '{ label: "View collection", href: "/gallery" }'
+            # The declared browse face, not the word "gallery". 148's is `/bikes`
+            # and 150's is `/catalogue`; both got a dead "View collection".
+            browse_href = catalog_route(architect)
+            primary = (
+                f'{{ label: "View collection", href: {_js(browse_href)} }}'
+                if browse_href
+                else _NO_ROUTE_CTA
+            )
         secondary = '{ label: "Back home", href: "/" }'
         return (
             f"primaryCta={{{primary}}} secondaryCta={{{secondary}}}",
@@ -422,7 +567,7 @@ def _non_home_hero_ctas(skeleton_id: str, brand: str, title: str) -> tuple[str, 
     sub = _js(
         f"{title} — browse what’s here, then book. This page is not the homepage story."
     )
-    primary = '{ label: "Book a visit", href: "/book" }'
+    primary = book_cta
     secondary = '{ label: "Back home", href: "/" }'
     return (
         f"primaryCta={{{primary}}} secondaryCta={{{secondary}}}",
@@ -574,6 +719,7 @@ def _safe_slot_jsx(
     skeleton_id: str = "",
     item_bound: bool = False,
     detail_base: str = _DEFAULT_CATALOG_BASE,
+    architect: dict | None = None,
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
@@ -635,7 +781,19 @@ def _safe_slot_jsx(
 
     # CatalogGrid derives every card's link from detailBase + item id, so the
     # browse → detail hop cannot be dropped by codegen.
+    #
+    # The `products` and `showcase` slots read it too. They used to write the
+    # literal `/gallery/${…}` while this — already derived, already in scope, and
+    # used correctly by the adjacent `catalog` slot six lines down — sat unused,
+    # so on request 148 every card on a `/bikes` page linked into a `/gallery`
+    # the route table does not contain.
     catalog_detail_base = detail_base or _DEFAULT_CATALOG_BASE
+    # Where "Get started" goes when the seed does not say. `/contact#inquire` was
+    # the literal, and `/contact` is a route plenty of apps do not declare — the
+    # fragment made it look like an anchor and it is a route link with an anchor
+    # on the end. Resolve the contact face; with none, fall back to the bare
+    # anchor, which at worst scrolls nowhere.
+    cta_ask_href = f"{_contact_route(architect)}#inquire" if _contact_route(architect) else "#inquire"
     catalog_item_noun = "pieces" if gallery else "items"
     # "Contact for Purchase" is about *a piece*, so it belongs on the detail
     # page. A gallery's standalone /contact page also fields commissions, studio
@@ -661,7 +819,7 @@ def _safe_slot_jsx(
             'imageSrc={images.hero} imageAlt="" />'
         )
     else:
-        cta_attrs, sub_js = _non_home_hero_ctas(skeleton_id, brand, title)
+        cta_attrs, sub_js = _non_home_hero_ctas(skeleton_id, brand, title, architect)
         hero_jsx = (
             f'<MarketingHero brandName={{{brand_js}}} '
             f'headline={{{title_js}}} '
@@ -686,7 +844,7 @@ def _safe_slot_jsx(
             'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
             'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
-            'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
+            f'href: `{catalog_detail_base}/${{encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}}` '
             '}))} />'
         ),
         "showcase": (
@@ -696,7 +854,7 @@ def _safe_slot_jsx(
             'imageSrc: [images.item1, images.item2, images.item3, images.item4, '
             'images.item5, images.item6, images.item7, images.item8][index % 8], imageAlt: item.title, '
             f'badge: String((item as any).badge || (item as any).category || {showcase_badge_fb}), '
-            'href: `/gallery/${encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}` '
+            f'href: `{catalog_detail_base}/${{encodeURIComponent(String((item as any).id || (item as any).slug || index + 1))}}` '
             '}))} />'
         ),
         # Browse face: every item rendered and linked, not a three-card mosaic.
@@ -731,8 +889,10 @@ def _safe_slot_jsx(
         "cta": (
             f'<CTABand heading={{seed.cta?.heading ?? {cta_heading_fb}}} '
             f'description={{seed.cta?.description ?? {cta_desc_fb}}} '
-            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", href: seed.cta?.primaryHref ?? "/contact#inquire" }} '
-            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", href: seed.cta?.secondaryHref ?? "/contact#inquire" }} />'
+            'primaryCta={{ label: seed.cta?.primaryLabel ?? "Get started", '
+            f'href: seed.cta?.primaryHref ?? {_js(cta_ask_href)} }}}} '
+            'secondaryCta={{ label: seed.cta?.secondaryLabel ?? "Talk to us", '
+            f'href: seed.cta?.secondaryHref ?? {_js(cta_ask_href)} }}}} />'
         ),
         "footer": (
             f'<BrandFooter brandName={{{brand_js}}} '
@@ -821,12 +981,9 @@ def _safe_slot_jsx(
             + _d("Books · live", "Markets open · live marks", "Live")
             + "</span>}"
             + _d(
-                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "New invoice", href: "/invoices" }]}',
-                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "New ticket", href: "/ticket" }]}',
-                ' actions={[{ label: "AI features", href: "/ai-features", variant: "secondary" }, '
-                '{ label: "Check in", href: "#queue" }]}',
+                _ops_header_actions(architect, "New invoice", "/invoices"),
+                _ops_header_actions(architect, "New ticket", "/ticket"),
+                _ops_header_actions(architect, "Check in", "#queue"),
             )
             + " />"
         ),
@@ -1127,6 +1284,57 @@ def _is_schedule_listing_route(file_path: str, route: dict) -> bool:
     return any(hint in blob for hint in _SCHEDULE_HINTS)
 
 
+def _browse_leaf(route_path: str) -> str:
+    """Last non-param segment of a route — `/shop/items/:id` -> `items`."""
+    stripped = re.sub(r"/:\w+|/\{[^}]+\}", "", str(route_path or ""))
+    return stripped.rstrip("/").rsplit("/", 1)[-1].lower()
+
+
+def _is_public_face(route: dict) -> bool:
+    """A visitor-facing route: PublicShell, and not hanging under an ops prefix."""
+    return expected_shell(route) != "OpsShell" and not _is_ops_path(
+        str(route.get("path") or "")
+    )
+
+
+def schedule_face_required(file_path: str, route: dict) -> bool:
+    """Whether this route's page **must** render a `ScheduleRail`.
+
+    The single answer, for the generator, the gate and the repair alike.
+    `_is_schedule_listing_route` is only half the rule: it says "this route looks
+    like a classes/services listing", and the dispatcher in
+    `minimal_catalogue_page_scaffold` then overrides it in two cases. Those
+    overrides used to live at the call site, so only the generator applied them.
+
+    Requests 147 (Meridian Physiotherapy), 148 (Ridgeline Bike Works) and 150
+    (Copperline Hardware) were all withheld on `listing_not_schedule_rail`
+    against pages that had no business carrying a rail. Each architect had set
+    `page_intent`, so the generator correctly built a CatalogGrid listing — and
+    the gate, calling the bare predicate, failed the page for not being the thing
+    the pipeline had just decided it should not be. 147's was the run's only gate
+    issue. `repair.py` had drifted a third way, inlining `page_intent != "listing"`
+    at one of its two sites, so the repair loop rewrote the page with the same
+    dispatcher that would not emit a rail and then failed it again.
+
+    The two overrides, restated here so they cannot drift again:
+
+    - **`page_intent` wins.** An explicit intent is the architect's contract; the
+      keyword pickers exist only for legacy/thin contracts that left it blank.
+    - **A catalogue browse leaf wins, on a public face.** `/shop`, `/gallery` and
+      friends are CatalogGrid browse routes even when the keywords say schedule
+      (request 64). Ops routes keep the rail: `_directory_listing_scaffold`
+      builds a *public* face and the contract validator rejects it on an
+      OpsShell route, so the generator deliberately lets those fall through.
+    """
+    if not _is_schedule_listing_route(file_path, route):
+        return False
+    if str(route.get("page_intent") or "").strip().lower():
+        return False
+    if _browse_leaf(route.get("path") or "") in CATALOG_BROWSE_LEAVES:
+        return not _is_public_face(route)
+    return True
+
+
 def _is_directory_listing_route(file_path: str, route: dict) -> bool:
     """Doctor/provider/team directories get a people grid — not the homepage hero."""
     skeleton_id = str(route.get("skeleton_id") or "")
@@ -1159,12 +1367,27 @@ def _schedule_listing_scaffold(
     page_id: str,
     action_ids: list[str],
     evidence_ids: list[str],
+    architect: dict | None = None,
 ) -> str:
     brand_js = _js(brand)
     title_js = _js(title)
     base = (listing_path or "/classes").rstrip("/") or "/classes"
     base_js = _js(base)
-    book_js = _js(_BOOKING_ROUTE)
+    # The declared booking route, not the word "book". An app that declares no
+    # booking page keeps its visitor on this page's own rail rather than being
+    # handed a path the router will not match.
+    book_path = booking_route(architect)
+    book_js = _js(book_path or "#classes-list")
+    item_href = (
+        "`${BOOK_PATH}?service=${encodeURIComponent(String(s.id || i + 1))}`"
+        if book_path
+        else "BOOK_PATH"
+    )
+    # "Contact" only when there is a contact page; otherwise the rail itself is
+    # the second option, and it is on this page.
+    contact_path = _contact_route(architect)
+    schedule_contact_label = _js("Contact" if contact_path else "Browse schedule")
+    schedule_contact_href = _js(contact_path or "#classes-list")
     appspec_attrs = f" data-appspec-page={_js(page_id)}" if page_id else ""
     span_lines: list[str] = []
     for action_id in action_ids:
@@ -1198,9 +1421,9 @@ export default function {component}() {{
     level: String(s.level || 'All Levels'),
     day: String(s.day || ''),
     status: String(s.status || 'Open'),
-    // /book is the declared booking route; a query keeps the service without
-    // inventing a /services/:id route the app does not have.
-    href: `${{BOOK_PATH}}?service=${{encodeURIComponent(String(s.id || i + 1))}}`,
+    // BOOK_PATH is this app's declared booking route; a query keeps the service
+    // without inventing a /services/:id route the app does not have.
+    href: {item_href},
   }}));
 
   return (
@@ -1225,7 +1448,7 @@ export default function {component}() {{
         heading="Not sure which session fits?"
         description="Browse the schedule, or get in touch and we will help you pick a time."
         primaryCta={{{{ label: "Book a time", href: {book_js} }}}}
-        secondaryCta={{{{ label: "Contact", href: "/contact" }}}}
+        secondaryCta={{{{ label: {schedule_contact_label}, href: {schedule_contact_href} }}}}
       />
       <BrandFooter brandName={{{brand_js}}} description="Clear schedules. Real bookings. Brand-first pages." />
       </div>
@@ -1313,16 +1536,31 @@ def _directory_listing_scaffold(
     # storefront's cards each carry their own detail link.
     booking_face = (skeleton_id or "").lower() in {"public-service", "public-booking"}
     storefront_listing = not people_directory
+    # The booking hop is this page's whole funnel, so it has to land on the route
+    # the architect actually declared for it — `/service/book` on request 148,
+    # `/hire/reserve` on 150. When no booking page is declared the CTA becomes an
+    # in-page ask rather than a click that lands the visitor back home.
+    book_path = booking_route(architect)
+    book_cta = (
+        f'{{ label: "Book a visit", href: {_js(book_path)} }}'
+        if book_path
+        else _NO_ROUTE_CTA
+    )
+    contact_href = _contact_route(architect)
     if people_directory:
-        cta_primary = '{ label: "Book a visit", href: "/book" }'
-        cta_secondary = '{ label: "Contact", href: "/contact" }'
+        cta_primary = book_cta
+        cta_secondary = (
+            f'{{ label: "Contact", href: {_js(contact_href)} }}'
+            if contact_href
+            else '{ label: "Back home", href: "/" }'
+        )
         footer_desc = "Real providers. Clear booking. Not another homepage clone."
         page_desc = "Browse providers, specialties, and availability — then book the right visit."
         showcase_desc = "Each card opens a provider profile. Book when you are ready."
         cta_heading = "Ready to schedule?"
         cta_desc = "Pick a time online — same team you just reviewed."
     elif booking_face:
-        cta_primary = '{ label: "Book a visit", href: "/book" }'
+        cta_primary = book_cta
         cta_secondary = '{ label: "Back home", href: "/" }'
         footer_desc = f"{brand} — clear options, real availability."
         page_desc = "Browse what is offered, then pick a time that works."
@@ -1356,8 +1594,11 @@ def _directory_listing_scaffold(
     # A service listing has no per-item detail route — the funnel goes straight to
     # booking — so numbering its cards into `/services/:id` would point every one of
     # them at a path the planner never declared.
+    # An app that declares no booking page has nowhere for these cards to go, so
+    # they hold the visitor on the grid (`#catalog` is the anchor CatalogGrid
+    # renders below) rather than pointing at a `/book` it never declared.
     item_href = (
-        _js(_BOOKING_ROUTE)
+        _js(book_path or "#catalog")
         if booking_face
         else f"`{base}/${{String(s.slug || s.id || i + 1)}}`"
     )
@@ -1466,6 +1707,7 @@ def minimal_catalogue_page_scaffold(
             content={},
             brand_name=brand,
             workspace_type=early_wtype,
+            architect=architect,
         )
     # Product Face Contract: page_intent wins over industry/path keywords — but
     # NOT over surface. `_directory_listing_scaffold` builds a *public* face
@@ -1475,9 +1717,7 @@ def minimal_catalogue_page_scaffold(
     # it could not contain. An ops listing falls through to the generic scaffold
     # below, which builds the shell and slots its own skeleton declares.
     intent = str(route.get("page_intent") or "").strip().lower()
-    public_face = expected_shell(route) != "OpsShell" and not _is_ops_path(
-        str(route.get("path") or "")
-    )
+    public_face = _is_public_face(route)
     route_path = str(route.get("path") or "")
     # Param routes are item detail (or nested record) faces — never a directory
     # listing. Request 50's CollectionDetail at `/gallery/:collectionId` had
@@ -1487,24 +1727,17 @@ def minimal_catalogue_page_scaffold(
         re.search(r"/:\w+", route_path) or re.search(r"/\{[^}]+\}", route_path)
     )
     skeleton_hint = str(route.get("skeleton_id") or "")
-    browse_leaf = (
-        re.sub(r"/:\w+|/\{[^}]+\}", "", route_path).rstrip("/").rsplit("/", 1)[-1].lower()
-    )
+    browse_leaf = _browse_leaf(route_path)
     # Gallery/shop browse routes must always be CatalogGrid faces — even when the
     # architect left page_intent empty or assigned public-home. Request 64's
     # /gallery shipped ProductShowcase (3-card cap) and failed journey_browse_caps.
     force_catalog_browse = browse_leaf in CATALOG_BROWSE_LEAVES
     # A classes/services listing is a schedule face, not a product grid — it
     # needs times and prices, and its funnel goes to /book, not to a per-item
-    # detail route it never declares. `skeleton_hint == "public-catalog"` is new
-    # in this branch and it swallowed every salon `/services` page on the way
-    # past. Scoped to `not intent` so it restores exactly the routes the
-    # keyword picker below used to reach, and nothing more.
-    schedule_face = (
-        not intent
-        and not force_catalog_browse
-        and _is_schedule_listing_route(file_path, route)
-    )
+    # detail route it never declares. The `page_intent` and browse-leaf overrides
+    # that used to be spelled out here now live in `schedule_face_required`, so
+    # the gate and the repair resolve this the same way the generator does.
+    schedule_face = schedule_face_required(file_path, route)
     if (
         public_face
         and not has_route_param
@@ -1542,7 +1775,7 @@ def minimal_catalogue_page_scaffold(
             skeleton_id=str(route.get("skeleton_id") or ""),
             architect=architect,
         )
-    if not intent and _is_schedule_listing_route(file_path, route):
+    if schedule_face:
         return _schedule_listing_scaffold(
             component=component,
             brand=brand,
@@ -1551,6 +1784,7 @@ def minimal_catalogue_page_scaffold(
             page_id=page_id,
             action_ids=action_ids,
             evidence_ids=evidence_ids,
+            architect=architect,
         )
     skeleton_id = str(route["skeleton_id"])
     shell = expected_shell(route)
@@ -1575,7 +1809,13 @@ def minimal_catalogue_page_scaffold(
         if slot_component and slot_component not in components:
             components.append(slot_component)
     path = str(route.get("path") or "")
-    detail_base = catalog_base_from_path(path, architect)
+    # A catalogue face derives its base from its own path — `/gallery/:id` hangs
+    # off `/gallery`, and a browse page is its own base. Every other page has no
+    # claim on one and must read the table: a booking page carrying a `showcase`
+    # slot numbered its cards into `/service/book/:_`, which is a route no app
+    # declares, and before that into the `/gallery` default, which is worse.
+    own_base = path if skeleton_id in {"public-catalog", "public-detail"} else ""
+    detail_base = catalog_base_from_path(own_base, architect)
     slot_lines = "\n".join(
         "    {slot}: (\n      {jsx}\n    ),".format(
             slot=slot,
@@ -1586,6 +1826,7 @@ def minimal_catalogue_page_scaffold(
                 skeleton_id=skeleton_id,
                 item_bound=detail_bound,
                 detail_base=detail_base,
+                architect=architect,
             ),
         )
         for slot in slots
@@ -1603,6 +1844,7 @@ def minimal_catalogue_page_scaffold(
             skeleton_id=skeleton_id,
             item_bound=detail_bound,
             detail_base=detail_base,
+            architect=architect,
         )
         for slot in slots
     )

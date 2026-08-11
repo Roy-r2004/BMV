@@ -529,7 +529,9 @@ def _scaffold_booking(workspace: Path, architect: dict[str, Any]) -> None:
         target = workspace / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
-            minimal_catalogue_page_scaffold(rel, route, brand_name=BOOKING_BRAND),
+            minimal_catalogue_page_scaffold(
+                rel, route, brand_name=BOOKING_BRAND, architect=architect
+            ),
             encoding="utf-8",
         )
 
@@ -542,18 +544,18 @@ def test_booking_face_never_takes_the_storefront_cta(tmp_path: Path) -> None:
     (/, /services, /book) does not contain — a dead link produced by the brand,
     not by the model.
     """
-    route = {
-        "path": "/book",
-        "component_file": "src/pages/BookPage.tsx",
-        "surface": "public",
-        "skeleton_id": "public-booking",
-        "title": "Book",
-        "section_slots": ["hero", "booking", "footer"],
-    }
+    architect = _booking_architect()
+    route = next(r for r in architect["routes"] if r["path"] == "/book")
     tsx = minimal_catalogue_page_scaffold(
-        "src/pages/BookPage.tsx", route, brand_name="Jeanne Kassab Art Studio"
+        "src/pages/BookPage.tsx",
+        route,
+        brand_name="Jeanne Kassab Art Studio",
+        architect=architect,
     )
     assert "/gallery" not in tsx
+    # This app declares `/book`, so that is what the booking CTA resolves to —
+    # the literal and the resolved answer agree here, which is the point of
+    # keeping it as the control alongside the renamed-route cases.
     assert 'href: "/book"' in tsx
 
 

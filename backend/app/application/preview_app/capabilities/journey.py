@@ -50,9 +50,22 @@ _PARAM_READ_RE = re.compile(r"\buseParams\s*[<(]")
 #: later, and a false withhold is worse than a late warning.
 _CONDITIONAL_ROUTES = frozenset({"/ai-features"})
 
+#: Owner-surface namespaces. A served path under one of these is not a public
+#: detail route, and `App.tsx` carries no `surface` field to ask instead.
+_OPS_PATH_PREFIXES = ("/admin", "/owner", "/ops", "/staff", "/member", "/desk")
+
 #: Link-bearing keys. `defaultPath` is a role's landing route — a dead one drops
 #: the visitor on the catch-all exactly like a dead nav item does.
-_LINK_KEYS = "href|defaultPath"
+#:
+#: `\w*` in front of `href` because the writers do not only write `href`. The
+#: seed's call-to-action band carries `primaryHref` and `secondaryHref`, and the
+#: mock writer fills them with paths it invents: `/reserve` and `/order` on
+#: request 153, `/shop` and `/alerts` on 156, and — on a hardware store — the
+#: literal `/gallery` on 157. Six dead targets across three apps, every one
+#: reported as zero, because the old pattern anchored `href` behind
+#: `(?<![\w-])` and `primaryHref` has a word character in front of it. The
+#: quoted-key arm could not match either: `"primaryHref"` is not `["']?href`.
+_LINK_KEYS = r"\w*[Hh]ref|defaultPath"
 #: href values in emitted TSX **and** in the JSON-shaped props the writers emit.
 #:
 #: The key may be quoted. Request 71's `InquiryConfirmationPage.tsx:24` carried
@@ -90,8 +103,18 @@ class JourneyHop:
     #: "browse" | "detail" | "terminal"
     kind: str
     #: Declared route path pattern this hop lives on, e.g. "/gallery/:id".
+    #:
+    #: A *hint*, and only that. The architect names routes for the business, so
+    #: `/gallery` is `/bikes` on request 148 and `/book` is `/hire/reserve` on 150.
     path_hint: str
     label: str
+    #: The skeleton the architect assigns to the page serving this hop. This is
+    #: the rename-proof half of the pair: `_find_route` tries the hint first, then
+    #: this, and only then falls back to first-segment matching. `/hire/reserve`
+    #: shares no stem with `/book`, which is exactly how 150's terminal hop
+    #: resolved to nothing and reported `journey_next_hop_missing` against a
+    #: booking page the app had.
+    skeleton_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -212,17 +235,22 @@ JOURNEYS: dict[str, Journey] = {
         product_kind="storefront",
         terminal_capability="inquiry",
         hops=(
-            JourneyHop("browse", "browse", "/gallery", "Browse the collection"),
-            JourneyHop("detail", "detail", "/gallery/:id", "Open one item"),
-            JourneyHop("inquire", "terminal", "/gallery/:id", "Ask about it"),
+            JourneyHop("browse", "browse", "/gallery", "Browse the collection",
+                       skeleton_id="public-catalog"),
+            JourneyHop("detail", "detail", "/gallery/:id", "Open one item",
+                       skeleton_id="public-detail"),
+            JourneyHop("inquire", "terminal", "/gallery/:id", "Ask about it",
+                       skeleton_id="public-detail"),
         ),
     ),
     "booking_service": Journey(
         product_kind="booking_service",
         terminal_capability="booking",
         hops=(
-            JourneyHop("browse", "browse", "/services", "Browse services"),
-            JourneyHop("book", "terminal", "/book", "Book a time"),
+            JourneyHop("browse", "browse", "/services", "Browse services",
+                       skeleton_id="public-service"),
+            JourneyHop("book", "terminal", "/book", "Book a time",
+                       skeleton_id="public-booking"),
         ),
     ),
 }
@@ -333,15 +361,35 @@ def _find_route(
 ) -> dict[str, Any] | None:
     """Locate the route serving a hop.
 
-    Prefers an exact path match on the hint, then any public route whose shape
-    fits (param vs non-param) and whose first segment matches. Generated apps
-    rename routes freely — ``/works`` for ``/gallery`` — so shape beats literal.
+    Exact path match on the hint, then the hop's declared skeleton, then any
+    public route whose shape fits (param vs non-param) and whose first segment
+    matches. Generated apps rename routes freely — ``/works`` for ``/gallery`` —
+    so shape beats literal.
+
+    The skeleton pass sits *before* the stem pass because the stem pass only
+    tolerates renames that keep the first segment. ``/hire/reserve`` shares none
+    with ``/book``, so request 150's terminal hop resolved to nothing and the walk
+    reported the booking page missing on an app that had one. Stem matching stays
+    as the fallback: a thin contract with no ``skeleton_id`` on any route still
+    resolves exactly as it did.
     """
     routes = [r for r in _routes(architect) if _surface(r) != "ops"]
     hint = _norm(hop.path_hint)
     for route in routes:
         if _norm(str(route.get("path") or "")) == hint:
             return route
+    if hop.skeleton_id:
+        # Shape still has to agree: a `public-detail` route with no param in it
+        # cannot serve the detail hop, and resolving to it would report a page
+        # for not reading a route param it has no business reading.
+        by_skeleton = [
+            r
+            for r in routes
+            if str(r.get("skeleton_id") or "") == hop.skeleton_id
+            and _is_param_path(str(r.get("path") or "")) is want_param
+        ]
+        if by_skeleton:
+            return by_skeleton[0]
     stem = hint.strip("/").split("/")[0]
     candidates = [
         r
@@ -391,9 +439,55 @@ def internal_href_prefixes(source: str) -> list[str]:
     return [match.group("base") for match in _TEMPLATE_BASE_RE.finditer(source or "")]
 
 
-#: One interpolated segment, normalised to a route param so a template link can
-#: be matched against the route table by the same rule as a literal one.
-_INTERPOLATION_RE = re.compile(r"\$\{[^}]*\}")
+#: Stands in for one whole `${…}` group while a template link is split into
+#: segments. A control character, so it can never collide with source text.
+_INTERPOLATION_MARK = "\x00"
+
+
+def _mask_interpolations(raw: str) -> str:
+    """Replace every balanced ``${…}`` group with a single `_INTERPOLATION_MARK`.
+
+    Splitting the raw href on "/" *before* masking is what requests 146 and 148
+    died on. An interpolation is arbitrary JavaScript and may contain slashes of
+    its own — a regex literal is the common case::
+
+        `/gallery/${item.title.toLowerCase().replace(/\\s+/g, '-')}`
+
+    The old code split first, so the `/` inside `/\\s+/g` opened two extra
+    segments and the link resolved to ``/gallery/:_/\\s+/g, '-'))}`` — which
+    matches nothing, and both runs were withheld for a dead link that worked.
+    The bakery declared `/gallery/:id` and the bike shop `/bikes/:id`; masking
+    first, both resolve to `/gallery/:_` and `/bikes/:_` and match.
+
+    Depth-counted rather than regex-matched because interpolations nest:
+    ``${items.map(i => ({ id: i.id }))}`` is one group, and `\\$\\{[^}]*\\}`
+    stops at the first inner `}`. An unterminated group consumes the rest of the
+    string — a truncated template has no further segments worth trusting.
+
+    Braces inside a *string literal* within the interpolation (``${x.replace("}",
+    "")}``) would still miscount. Nothing the generator emits does that, and the
+    failure mode is the pre-existing one — an over-long shape that fails to
+    match — not a link silently declared healthy.
+    """
+    out: list[str] = []
+    i = 0
+    end = len(raw)
+    while i < end:
+        if not raw.startswith("${", i):
+            out.append(raw[i])
+            i += 1
+            continue
+        depth = 1
+        j = i + 2
+        while j < end and depth:
+            if raw[j] == "{":
+                depth += 1
+            elif raw[j] == "}":
+                depth -= 1
+            j += 1
+        out.append(_INTERPOLATION_MARK)
+        i = j
+    return "".join(out)
 
 
 def internal_href_templates(source: str) -> list[str]:
@@ -412,11 +506,18 @@ def internal_href_templates(source: str) -> list[str]:
     """
     out: list[str] = []
     for match in _TEMPLATE_HREF_RE.finditer(source or ""):
-        raw = match.group("value").split("#", 1)[0].split("?", 1)[0]
+        raw = match.group("value")
         if "${" not in raw:
             continue  # a plain literal in backticks — `internal_hrefs` has it
+        # Mask before *any* splitting: see `_mask_interpolations` for why the
+        # reverse order withheld two working previews. The fragment and query
+        # strip is cut the same way — `${…}` is opaque JavaScript that may hold a
+        # "#" or a "?" as readily as it holds a "/", and truncating there loses
+        # the rest of the path.
+        masked = _mask_interpolations(raw).split("#", 1)[0].split("?", 1)[0]
         segments = [
-            ":_" if "${" in seg else seg for seg in raw.strip("/").split("/")
+            ":_" if _INTERPOLATION_MARK in seg else seg
+            for seg in masked.strip("/").split("/")
         ]
         out.append(_norm("/".join(segments)))
     return out
@@ -940,6 +1041,21 @@ def _check_browse(
             for r in _routes(architect)
             if _is_param_path(str(r.get("path") or "")) and _surface(r) != "ops"
         ]
+        # …plus the ones only the router has. `assemble.py` mints `listing/:id`
+        # for a detail page the architect declared at a sibling slug — request
+        # 148's `/bikes/v2` becomes `/bikes/:id` in `App.tsx` and nowhere else.
+        # Reading the architect alone reports "items cannot be opened" on an app
+        # whose router opens them, which is the same architect-versus-served split
+        # `served_route_paths` exists to close and which every other check here
+        # already answers against. Latent until this pass: the hop it fires on
+        # could not resolve before, so nothing reached this line.
+        param_routes += [
+            p
+            for p in sorted(declared)
+            if _is_param_path(p)
+            and p not in param_routes
+            and not p.startswith(_OPS_PATH_PREFIXES)
+        ]
         if not param_routes:
             report.add(
                 "journey_no_detail_route",
@@ -953,7 +1069,17 @@ def _check_browse(
         detail_bases = {p.split("/:")[0].split("/{")[0] or "/" for p in param_routes}
     else:
         # Terminal next hop: rows must reach it, and it must exist.
-        target = _norm(next_hop.path_hint)
+        #
+        # Resolved through `_find_route` rather than compared as a literal. This
+        # line is the one that produced 150's `journey_next_hop_missing`: it held
+        # the hint `/book` against a route table whose booking page is
+        # `/hire/reserve`, so the check reported the funnel broken and the rows
+        # were then measured against a path nothing on the page could point at.
+        # The hint stays as the fallback for contracts that resolve to nothing.
+        found = _find_route(
+            architect, next_hop, want_param=_is_param_path(next_hop.path_hint)
+        )
+        target = _norm(str(found.get("path") or "")) if found else _norm(next_hop.path_hint)
         if not _route_matches(target, declared):
             report.add(
                 "journey_next_hop_missing",

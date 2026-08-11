@@ -7,6 +7,7 @@ import { useMotionSafe } from '../motion/presets';
 import { KitImage } from '../lib/KitImage';
 import {
   currentRecipeId,
+  HERO_VARIANTS,
   recipeDisplayClass,
   recipeHeroVariant,
   type HeroVariant,
@@ -27,7 +28,7 @@ export interface MarketingCta {
  * Recipe owns home/marketing heroes. `item` always wins — artwork/detail pages
  * must open painting-first and must not inherit a brand-billboard recipe hero.
  */
-export type MarketingHeroVariant = HeroVariant | 'split' | 'item';
+export type MarketingHeroVariant = HeroVariant | 'item';
 
 export interface MarketingHeroProps {
   brandName: string;
@@ -91,9 +92,12 @@ function MarketingHeroBody({
 }: Omit<MarketingHeroProps, 'children'>) {
   const safe = useMotionSafe();
   const recipeId = currentRecipeId();
-  // Recipe owns marketing heroes; item-detail must stay painting-first.
+  // A valid caller-supplied variant is honoured (3.1 — the kit used to
+  // discard everything but 'item'); the recipe's hero is the default.
   const resolved: MarketingHeroVariant =
-    variantProp === 'item' ? 'item' : recipeHeroVariant(recipeId);
+    variantProp && (variantProp === 'item' || (HERO_VARIANTS as readonly string[]).includes(variantProp))
+      ? variantProp
+      : recipeHeroVariant(recipeId);
   const display = recipeDisplayClass(recipeId);
   // `null` is the page suppressing the CTA; `undefined` is no opinion, which
   // still gets the default so a scaffold hero is never a dead end.

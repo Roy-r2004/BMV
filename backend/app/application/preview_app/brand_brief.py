@@ -250,10 +250,21 @@ def brief_prompt_block(brief: dict[str, Any] | None) -> str:
     )
 
 
+#: Names that are not names. `Brand` was the only one rejected here, and request
+#: 156 shipped "Ready for Business?" on Ridgeline Bike Works because
+#: `page_experience.design_manifest` mints `brand_name: "Business"` when the plan
+#: has no concept name — a second placeholder, spelled differently, that every
+#: filter written for the first one waved through. Compared casefolded so
+#: `business` and `Business` cannot diverge.
+PREVIEW_BRAND_PLACEHOLDERS = frozenset(
+    {"brand", "business", "company", "your brand", "your business", "the business"}
+)
+
+
 def _preview_brand_candidate(value: Any) -> str:
-    """Nonempty real name only — literal ``Brand`` is treated as unknown."""
+    """Nonempty real name only — a placeholder is treated as unknown."""
     text = str(value or "").strip()
-    if not text or text == "Brand":
+    if not text or text.casefold() in PREVIEW_BRAND_PLACEHOLDERS:
         return ""
     return text
 
@@ -301,6 +312,7 @@ def resolve_preview_brand_name(
 
 
 __all__ = [
+    "PREVIEW_BRAND_PLACEHOLDERS",
     "apply_brief_to_plan",
     "brief_prompt_block",
     "build_brand_brief",

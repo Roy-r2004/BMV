@@ -1,10 +1,21 @@
 import * as React from 'react';
 import { motion, useReducedMotion, type Transition, type Variants } from 'motion/react';
 
+import { motionIdentity } from '../../lib/motion-identity';
 import { cn } from '../lib/cn';
 import { AnimeReveal, AnimeStagger, AnimeStaggerItem } from './AnimeChrome';
 
-const easeOut: Transition['ease'] = [0.22, 1, 0.36, 1];
+/**
+ * 3.10 wiring: the recipe's motion identity drives every variant below. The
+ * accessor's fallback equals the kit's legacy constants (ease [0.22,1,0.36,1],
+ * 90ms, 18px), and each value scales as a ratio off that base — so a bare or
+ * unknown recipe renders exactly the pre-3.10 motion, while the six authored
+ * families each move at their own temperament.
+ */
+const identity = motionIdentity();
+const easeOut: Transition['ease'] = identity.ease;
+const travel = (Number.parseFloat(identity.travel) || 18) / 18;
+const tempo = Math.min(1.4, Math.max(0.45, identity.staggerMs / 90));
 
 export function useMotionSafe(): boolean {
   const reduced = useReducedMotion();
@@ -12,38 +23,42 @@ export function useMotionSafe(): boolean {
 }
 
 export const heroEntrance: Variants = {
-  hidden: { opacity: 0, y: 26, filter: 'blur(8px)' },
+  hidden: { opacity: 0, y: 26 * travel, filter: 'blur(8px)' },
   visible: (i: number = 0) => ({
     opacity: 1,
     y: 0,
     filter: 'blur(0px)',
-    transition: { duration: 0.85, delay: 0.05 + i * 0.12, ease: easeOut },
+    transition: {
+      duration: 0.85 * tempo,
+      delay: 0.05 + i * (identity.staggerMs / 750),
+      ease: easeOut,
+    },
   }),
 };
 
 export const sectionReveal: Variants = {
-  hidden: { opacity: 0, y: 32 },
+  hidden: { opacity: 0, y: 32 * travel },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, ease: easeOut },
+    transition: { duration: 0.7 * tempo, ease: easeOut },
   },
 };
 
 export const staggerContainer: Variants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.09, delayChildren: 0.08 },
+    transition: { staggerChildren: identity.staggerMs / 1000, delayChildren: 0.08 },
   },
 };
 
 export const staggerItem: Variants = {
-  hidden: { opacity: 0, y: 18, scale: 0.98 },
+  hidden: { opacity: 0, y: 18 * travel, scale: 0.98 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.5, ease: easeOut },
+    transition: { duration: 0.5 * tempo, ease: easeOut },
   },
 };
 

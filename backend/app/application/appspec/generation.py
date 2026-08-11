@@ -21,6 +21,7 @@ from app.application.appspec.schema_repair import repair_app_spec_schema_candida
 from app.application.appspec.coverage import (
     AppSpecCoverageError,
     AppSpecCoverageReview,
+    AppSpecCoverageTransportError,
     coverage_requires_repair,
     coverage_retry_instruction,
     review_app_spec_coverage,
@@ -38,7 +39,11 @@ from app.application.appspec.fallback import (
     build_fallback_app_spec,
     build_fallback_coverage_payload,
 )
-from app.domain.appspec.sanitize.heal import heal_app_spec_payload
+from app.domain.appspec.sanitize.heal import (
+    drop_unbindable_state_assertions,
+    restore_dropped_trace_links,
+    heal_app_spec_payload,
+)
 from app.domain.appspec.sanitize.pipeline import sanitize_app_spec_payload
 from app.domain.appspec.sanitize.preparse_normalize import (
     normalize_app_spec_preparse,
@@ -223,13 +228,39 @@ class _StageLimitedAIProvider:
         with self._lock:
             self.calls_used += 1
 
+    def _refund(self) -> None:
+        """Give back the unit `_acquire` spent on an ask that raised.
+
+        An errored $0 call (transport cut, provider raise) bought no answer;
+        request 143's error-cut authoring attempt spent budget for nothing.
+        The transport re-ask ladders bound retry COUNT on their own — the call
+        budget's job is to bound answered asks.
+        """
+
+        from app.application.services.request_deadline import current_deadline
+
+        deadline = current_deadline()
+        if deadline is not None:
+            deadline.refund_stage_call("appspec")
+        with self._lock:
+            if self.calls_used > 0:
+                self.calls_used -= 1
+
     def ask_chat(self, model: str, messages: list[dict], **kwargs: Any) -> str:
         self._acquire()
-        return self.provider.ask_chat(model, messages, **kwargs)
+        try:
+            return self.provider.ask_chat(model, messages, **kwargs)
+        except Exception:
+            self._refund()
+            raise
 
     def ask_vision(self, model: str, prompt: str, image_path: str) -> str:
         self._acquire()
-        return self.provider.ask_vision(model, prompt, image_path)
+        try:
+            return self.provider.ask_vision(model, prompt, image_path)
+        except Exception:
+            self._refund()
+            raise
 
     def is_available(self) -> bool:
         checker = getattr(self.provider, "is_available", None)
@@ -296,6 +327,62 @@ def _format_validation_failure(prefix: str, validation_payload: Mapping[str, Any
     if not parts:
         return prefix
     return f"{prefix} ({'; '.join(parts)})"
+
+
+def _issue_identity_signature(validation_payload: Mapping[str, Any]) -> str:
+    """Canonical identity of a validator error set: sorted (code, path, message).
+
+    Severity/ctx noise is excluded on purpose: two reports that reject the same
+    paths for the same codes with the same messages are the same verdict, and a
+    repair whose output reproduces its input's verdict has repaired nothing —
+    re-asking on it is the R2 verbatim-retry defect inside the repair loop
+    (request 143 revs 4-5; request 138's repair repeated its parent's error at
+    the identical path). Any change to the set — one error fixed, one added —
+    is progress and never matches.
+    """
+
+    triples = sorted(
+        (
+            str(issue.get("code") or ""),
+            str(issue.get("path") or ""),
+            str(issue.get("message") or ""),
+        )
+        for issue in (validation_payload.get("issues") or [])
+        if isinstance(issue, Mapping)
+    )
+    return json.dumps(triples, ensure_ascii=False)
+
+
+def _repair_collapsed_spec(
+    parent_payload: Mapping[str, Any] | None,
+    child_payload: Mapping[str, Any] | None,
+) -> bool:
+    """True when a repair emptied `pages`/`states` its parent populated.
+
+    Request 143 rev 1: the ai_appspec_repair call replaced a 6-page authored
+    spec with a 503-byte fragment — one acceptance-test object, empty `pages`
+    and `states` — and three revisions died reconciling nothing. Both
+    collections carry min_length=1, so an output in this shape can never
+    validate; rejecting it deterministically is pure fail-closed (the taught
+    anti-collapse line is the model-facing half, this guard is the code half —
+    owner-ruled, session 24). A shrink that keeps the collections populated is
+    never a collapse: repairs legitimately drop faulted objects.
+    """
+
+    if not isinstance(parent_payload, Mapping) or not isinstance(
+        child_payload, Mapping
+    ):
+        return False
+    for key in ("pages", "states"):
+        parent_items = parent_payload.get(key)
+        if (
+            isinstance(parent_items, (list, tuple))
+            and parent_items
+            and not child_payload.get(key)
+        ):
+            return True
+    return False
+
 
 def _coverage_payload(
     review: AppSpecCoverageReview | None,
@@ -401,6 +488,32 @@ def _heal_candidate(
         parent_payload_sha256=payload_sha256(candidate.payload),
     )
     return _sanitize_candidate(healed, source_snapshot), actions
+
+
+def _salvage_unbindable_state_assertions(
+    candidate: AppSpecCandidate | None,
+    validation_payload: Mapping[str, Any],
+) -> tuple[AppSpecCandidate | None, list[str]]:
+    """Drop state assertions naming a state the spec never declared, then re-sanitize.
+
+    Bounded to the one terminal branch that would otherwise discard the run. See
+    `drop_unbindable_state_assertions` for why this is not a heal and must not run
+    ahead of the model's repair pass.
+    """
+    if candidate is None:
+        return None, []
+    payload, actions = drop_unbindable_state_assertions(
+        candidate.payload, validation_payload
+    )
+    if not actions:
+        return candidate, []
+    salvaged = _clone_candidate(
+        candidate,
+        payload,
+        repair_type="state_assertion_salvage",
+        parent_payload_sha256=payload_sha256(candidate.payload),
+    )
+    return salvaged, actions
 
 
 def _graph_repair_candidate(
@@ -838,6 +951,10 @@ def ensure_approved_app_spec(
     coverage_payload = _coverage_payload(None)
     repairs = 0
     deterministic_heals = 0
+    # Bounded to one: the salvage removes an unrepairable claim, so a second
+    # firing would mean the first changed nothing that mattered.
+    state_assertion_salvages = 0
+    terminal_salvages = 0
     heal_actions: list[str] = []
     graph_repairs = 0
     graph_repair_audit: dict[str, Any] = {}
@@ -851,6 +968,10 @@ def ensure_approved_app_spec(
     attempt_number = 0
     persisted_schema_payload_hashes: set[str] = set()
     trace_reference_audit: dict[str, Any] = {}
+    # Set at each AI repair dispatch to the signature of the error set that
+    # repair was asked to fix; compared exactly once against the next
+    # iteration's fresh set. Deterministic rungs never set it.
+    last_ai_repair_error_signature: str | None = None
 
     def _sanitize_tracked(
         pending: AppSpecCandidate | None,
@@ -1082,7 +1203,62 @@ def ensure_approved_app_spec(
                 revision_record=rejected,
             )
 
+        def _terminal_salvage_pass() -> bool:
+            """One full deterministic pass before a paid run is discarded.
+
+            Every rung in the loop is individually capped (heals, graph, trace,
+            schema, AI repairs), so a run can reach a fatal exit with a
+            mechanical issue a rung would have fixed if its budget had not been
+            spent on an earlier shape of the document. This is the last-resort
+            generalization of fix B's salvage: run the code-driven heals and the
+            unbindable-assertion drops once more, uncapped, at the exact point
+            the alternative is losing the run. Scope is untouched by
+            construction — heals wire references and strip rejected shapes, the
+            salvage removes only unprovable proof claims, and neither can
+            delete a requirement, page, or capability. True if it changed the
+            candidate (the loop revalidates; anything still failing dies
+            exactly as before).
+            """
+            nonlocal candidate, spec, validation, terminal_salvages
+            if terminal_salvages >= 1 or candidate is None or not candidate.payload:
+                return False
+            terminal_salvages += 1
+            healed_payload, heal_acts = heal_app_spec_payload(
+                candidate.payload, validation_payload
+            )
+            salvaged_payload, drop_acts = drop_unbindable_state_assertions(
+                healed_payload, validation_payload
+            )
+            # Progress is a changed document, not a non-empty action list —
+            # some heals emit audit actions (integrity hashes, diagnostics)
+            # without touching the payload, and a no-op pass must not buy a
+            # revalidation loop.
+            if salvaged_payload == candidate.payload:
+                return False
+            if not heal_acts and not drop_acts:
+                return False
+            heal_actions.extend(heal_acts + drop_acts)
+            candidate = _sanitize_tracked(
+                _clone_candidate(
+                    candidate,
+                    salvaged_payload,
+                    repair_type="terminal_salvage",
+                    parent_payload_sha256=payload_sha256(candidate.payload),
+                ),
+                source_snapshot,
+            )
+            spec = None
+            validation = None
+            log.info(
+                "AppSpec terminal salvage for request %s: %s",
+                request_id,
+                ", ".join((heal_acts + drop_acts)[:8]),
+            )
+            return True
+
         while True:
+            awaited_repair_signature = last_ai_repair_error_signature
+            last_ai_repair_error_signature = None
             parse_issue: dict[str, Any] | None = None
             if candidate is not None and candidate.payload:
                 try:
@@ -1172,6 +1348,54 @@ def ensure_approved_app_spec(
                             before_sha256=candidate.parent_payload_sha256 or None,
                             after_sha256=sha,
                         )
+
+                # 0a-bis) A repair that reproduces its parent's identical
+                # validator error set has repaired nothing — every remaining
+                # rung already had its chance at this exact set, so spending
+                # further budget re-asks the same question (R2). Fail now,
+                # with the artifact persisted above.
+                if (
+                    awaited_repair_signature is not None
+                    and _issue_identity_signature(validation_payload)
+                    == awaited_repair_signature
+                ):
+                    # Before throwing a paid run away: an assertion naming a
+                    # state the spec never declared is the one issue the model
+                    # cannot repair by rewriting what is there — it has to add an
+                    # entity, and until the repair prompt said so it kept
+                    # re-emitting the same `state_id: null`. That is how requests
+                    # 149, 154 and 155 died. Once, and only here, drop the claim
+                    # the spec cannot express rather than lose the whole run;
+                    # anything else in the set still fails closed.
+                    salvaged, salvage_actions = (
+                        _salvage_unbindable_state_assertions(
+                            candidate, validation_payload
+                        )
+                        if state_assertion_salvages < 1
+                        else (candidate, [])
+                    )
+                    if salvage_actions:
+                        state_assertion_salvages += 1
+                        heal_actions.extend(salvage_actions)
+                        candidate = salvaged
+                        awaited_repair_signature = None
+                        spec = None
+                        validation = None
+                        log.info(
+                            "AppSpec salvage for request %s: %s",
+                            request_id,
+                            ", ".join(salvage_actions[:8]),
+                        )
+                        continue
+                    if _terminal_salvage_pass():
+                        continue
+                    log.info(
+                        "AppSpec repair reproduced its parent's validator "
+                        "error set for request %s — failing closed instead "
+                        "of spending further repairs",
+                        request_id,
+                    )
+                    return _fallback("repair_reproduced_parent_errors")
 
                 # Empty authoring payload cannot be repaired meaningfully.
                 if candidate is not None and not candidate.payload:
@@ -1382,6 +1606,9 @@ def ensure_approved_app_spec(
                     and candidate.payload
                 ):
                     schema_ai_repairs += 1
+                    last_ai_repair_error_signature = _issue_identity_signature(
+                        validation_payload
+                    )
                     parent_sha = payload_sha256(candidate.payload)
                     parent_row_id = graph_repair_source_revision_id
                     try:
@@ -1409,7 +1636,19 @@ def ensure_approved_app_spec(
                             exc,
                         )
                         return _fallback("deterministic_validation_failed")
-                    candidate = _sanitize_tracked(repaired, source_snapshot)
+                    repaired_candidate = _sanitize_tracked(repaired, source_snapshot)
+                    if _repair_collapsed_spec(
+                        candidate.payload,
+                        repaired_candidate.payload if repaired_candidate else None,
+                    ):
+                        log.info(
+                            "AppSpec schema repair collapsed the spec for "
+                            "request %s (pages/states emptied) — keeping the "
+                            "parent and failing closed",
+                            request_id,
+                        )
+                        return _fallback("repair_collapsed_parent_spec")
+                    candidate = repaired_candidate
                     _record_lineage(
                         {
                             "repair_type": "ai_schema_repair",
@@ -1439,6 +1678,8 @@ def ensure_approved_app_spec(
 
                 # Schema failures fail closed once the schema-repair attempts are spent.
                 if has_schema_parse and schema_ai_repairs >= settings.APPSPEC_MAX_SCHEMA_REPAIR_ATTEMPTS:
+                    if _terminal_salvage_pass():
+                        continue
                     return _fallback("deterministic_validation_failed")
 
                 # 3) AI repair — at most once after graph-membership failures.
@@ -1456,8 +1697,12 @@ def ensure_approved_app_spec(
                     ai_budget = 0
                 if repairs < ai_budget and candidate is not None:
                     repairs += 1
+                    last_ai_repair_error_signature = _issue_identity_signature(
+                        validation_payload
+                    )
                     pre_ai_errors = list(validation_payload.get("issues") or [])
-                    candidate = _sanitize_tracked(
+                    parent_payload_before_repair = candidate.payload
+                    repaired_candidate = _sanitize_tracked(
                         repair_app_spec_candidate(
                             source_snapshot=source_snapshot,
                             derived_context=derived_context,
@@ -1470,6 +1715,43 @@ def ensure_approved_app_spec(
                         ),
                         source_snapshot,
                     )
+                    if _repair_collapsed_spec(
+                        parent_payload_before_repair,
+                        repaired_candidate.payload if repaired_candidate else None,
+                    ):
+                        log.info(
+                            "AppSpec repair collapsed the spec for request %s "
+                            "(pages/states emptied) — keeping the parent and "
+                            "failing closed",
+                            request_id,
+                        )
+                        return _fallback("repair_collapsed_parent_spec")
+                    # Whole-document re-emission's one measured cost: silently
+                    # dropping an object it was never asked to touch. Restore
+                    # any trace row whose whole proof chain still resolves in
+                    # the repaired document (request 130's death class).
+                    if repaired_candidate is not None:
+                        restored_payload, restored = restore_dropped_trace_links(
+                            parent_payload_before_repair,
+                            repaired_candidate.payload,
+                        )
+                        if restored:
+                            heal_actions.extend(restored)
+                            repaired_candidate = _clone_candidate(
+                                repaired_candidate,
+                                restored_payload,
+                                repair_type="trace_attrition_restore",
+                                parent_payload_sha256=payload_sha256(
+                                    repaired_candidate.payload
+                                ),
+                            )
+                            log.info(
+                                "AppSpec repair dropped unfaulted trace rows for "
+                                "request %s; restored: %s",
+                                request_id,
+                                ", ".join(restored[:8]),
+                            )
+                    candidate = repaired_candidate
                     graph_repair_audit = {
                         **graph_repair_audit,
                         "ai_repair": {
@@ -1487,7 +1769,11 @@ def ensure_approved_app_spec(
                     validation = None
                     continue
 
-                # 4) Safety-net fallback — only when explicitly enabled.
+                # 4) One deterministic pass before losing the run, then the
+                # safety-net fallback — which is only taken when explicitly
+                # enabled; with fallback disabled this is the death line.
+                if _terminal_salvage_pass():
+                    continue
                 return _fallback("deterministic_validation_failed")
 
             # Final reference-integrity pass before acceptance. Reconstruct
@@ -1547,7 +1833,18 @@ def ensure_approved_app_spec(
                 # the malformation byte-for-byte, so the retry is VARIED — a
                 # compact corrective instruction naming the first failure — and
                 # its telemetry attempt is bumped so the two coverage rows stay
-                # distinguishable. A second failure fails closed below.
+                # distinguishable. A second failure fails closed below — except
+                # the one case R1 carves out: when BOTH asks were cut in
+                # transit (correlated weather at this site, the run-139 shape),
+                # ONE ask goes to the cross-provider fallback model at
+                # telemetry attempt 3 before failing closed. Malformation never
+                # reaches that rung — a quality failure never takes a model
+                # fallback — and a mixed sequence (one quality failure, one
+                # cut) fails closed too: the rung needs transport proven
+                # correlated, not merely present.
+                first_was_transport = isinstance(
+                    coverage_error, AppSpecCoverageTransportError
+                )
                 try:
                     coverage = review_app_spec_coverage(
                         source_snapshot=source_snapshot,
@@ -1560,6 +1857,29 @@ def ensure_approved_app_spec(
                             coverage_error
                         ),
                     )
+                except AppSpecCoverageTransportError as second_cut:
+                    if not first_was_transport:
+                        return _fallback("coverage_review_transport")
+                    log.info(
+                        "AppSpec coverage review cut twice in transit for "
+                        "request %s — one ask on the cross-provider rung (%s)",
+                        request_id,
+                        settings.APPSPEC_TRANSPORT_FALLBACK_MODEL,
+                    )
+                    try:
+                        coverage = review_app_spec_coverage(
+                            source_snapshot=source_snapshot,
+                            app_spec=spec,
+                            ai_provider=provider,
+                            template_renderer=template_renderer,
+                            model=settings.APPSPEC_TRANSPORT_FALLBACK_MODEL,
+                            attempt=3,
+                            corrective_instruction=coverage_retry_instruction(
+                                second_cut
+                            ),
+                        )
+                    except AppSpecCoverageError:
+                        return _fallback("coverage_review_transport")
                 except AppSpecCoverageError:
                     return _fallback("coverage_review_malformed")
             coverage_payload = _coverage_payload(
@@ -1617,7 +1937,8 @@ def ensure_approved_app_spec(
 
             if repairs < settings.APPSPEC_MAX_REPAIR_ATTEMPTS and _appspec_may_call_model():
                 repairs += 1
-                candidate = _sanitize_tracked(
+                parent_payload_before_repair = spec.model_dump(mode="json")
+                repaired_candidate = _sanitize_tracked(
                     repair_app_spec_candidate(
                         source_snapshot=source_snapshot,
                         derived_context=derived_context,
@@ -1630,6 +1951,18 @@ def ensure_approved_app_spec(
                     ),
                     source_snapshot,
                 )
+                if _repair_collapsed_spec(
+                    parent_payload_before_repair,
+                    repaired_candidate.payload if repaired_candidate else None,
+                ):
+                    log.info(
+                        "AppSpec coverage repair collapsed the spec for "
+                        "request %s (pages/states emptied) — keeping the "
+                        "parent and failing closed",
+                        request_id,
+                    )
+                    return _fallback("repair_collapsed_parent_spec")
+                candidate = repaired_candidate
                 spec = None
                 validation = None
                 coverage = None

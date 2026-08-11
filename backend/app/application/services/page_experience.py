@@ -521,7 +521,12 @@ def build_design_manifest(
 
     return {
         "accent": accent,
-        "brand_name": plan.get("concept_name", "Business"),
+        # Empty, not "Business". A placeholder here is indistinguishable from a
+        # real name to every reader downstream, and `_brand_name_from_manifest`
+        # returned it verbatim — request 156 shipped "Ready for Business?" on a
+        # page belonging to Ridgeline Bike Works. An empty string lets the brand
+        # resolver fall through to the candidates that know the answer.
+        "brand_name": plan.get("concept_name") or "",
         "design_system": ds,
         "services": [],
     }

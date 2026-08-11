@@ -81,16 +81,56 @@ def _js(value: Any) -> str:
     return json.dumps("" if value is None else value, ensure_ascii=False)
 
 
+def utility_route(architect: dict | None, workspace_type: str) -> str | None:
+    """The route this app serves a given utility face on — `/checkout`, `/contact`…
+
+    Same rule as `booking_route` and `catalog_route`: resolve from the route
+    table, never write the word. The utility flows were the last emitters holding
+    literals, and each one is only right for an app that happens to use that
+    name — a cart's "Checkout" button went to `/checkout` on every app, including
+    the ones whose checkout is `/pay` and the ones that have none at all.
+
+    The kind is inferred with the same function the compositor uses to decide
+    what a page *is*, so "which route is the checkout" and "which layout does this
+    route get" cannot disagree.
+    """
+    for route in (architect or {}).get("routes") or []:
+        if not isinstance(route, dict):
+            continue
+        path = str(route.get("path") or "").strip()
+        if not path.startswith("/"):
+            continue
+        if str(route.get("surface") or "").lower() == "ops":
+            continue
+        if re.search(r"/:\w+", path) or re.search(r"/\{[^}]+\}", path):
+            continue
+        inferred = infer_utility_workspace_type(
+            path,
+            str(route.get("title") or ""),
+            str(route.get("page_type") or ""),
+        )
+        if inferred == workspace_type:
+            return path.rstrip("/") or "/"
+    return None
+
+
 def default_utility_content(
     workspace_type: str,
     *,
     brand_name: str,
     title: str,
     path: str = "",
+    architect: dict | None = None,
 ) -> dict[str, Any]:
     """Deterministic fallback content when AI JSON is missing/invalid."""
     brand = brand_name or "Brand"
     page_title = title or workspace_type.title()
+    # Where each flow hands off, when the app declares somewhere to hand off to.
+    # `/` is the honest answer otherwise: the home page is the one route every
+    # app has, and a button that goes home beats one that goes nowhere.
+    checkout_href = utility_route(architect, "checkout") or "/"
+    tracking_href = utility_route(architect, "tracking") or "/"
+    contact_href = utility_route(architect, "contact") or "/"
     if workspace_type == "cart":
         return {
             "header": {
@@ -120,7 +160,7 @@ def default_utility_content(
                     {"label": "Shipping", "value": "12"},
                     {"label": "Total", "value": "190"},
                 ],
-                "primary_cta": {"label": "Checkout", "href": "/checkout"},
+                "primary_cta": {"label": "Checkout", "href": checkout_href},
             },
             "footer": {
                 "description": f"{brand} — clear checkout, real inventory, no surprises."
@@ -148,7 +188,7 @@ def default_utility_content(
                     {"label": "Delivery", "value": "12"},
                     {"label": "Total due", "value": "190"},
                 ],
-                "primary_cta": {"label": "Place order", "href": "/order-tracking"},
+                "primary_cta": {"label": "Place order", "href": tracking_href},
             },
             "footer": {"description": f"Secure checkout powered by {brand}."},
         }
@@ -272,7 +312,7 @@ def default_utility_content(
                         "title": "Get help",
                         "description": "Questions? Reach out anytime.",
                         "cta_label": "Contact",
-                        "cta_href": "/contact",
+                        "cta_href": contact_href,
                     },
                 ]
             },
@@ -304,10 +344,15 @@ def normalize_utility_content(
     brand_name: str,
     title: str,
     path: str = "",
+    architect: dict | None = None,
 ) -> dict[str, Any]:
     """Merge AI JSON onto defaults; coerce types so the compositor never crashes."""
     base = default_utility_content(
-        workspace_type, brand_name=brand_name, title=title, path=path
+        workspace_type,
+        brand_name=brand_name,
+        title=title,
+        path=path,
+        architect=architect,
     )
     data = raw if isinstance(raw, dict) else {}
 
@@ -623,6 +668,7 @@ def compose_utility_page_tsx(
     content: dict[str, Any],
     brand_name: str,
     workspace_type: str | None = None,
+    architect: dict | None = None,
 ) -> str:
     """Emit a catalogue-valid public-utility page from normalized content."""
     stem = (file_path or "UtilityPage").replace("\\", "/").split("/")[-1].rsplit(".", 1)[0]
@@ -641,6 +687,7 @@ def compose_utility_page_tsx(
     normalized = normalize_utility_content(
         content,
         wtype,
+        architect=architect,
         brand_name=brand_name or "Brand",
         title=title,
         path=path,

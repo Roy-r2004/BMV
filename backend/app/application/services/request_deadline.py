@@ -215,6 +215,19 @@ class RequestDeadline:
         with self._lock:
             return self._stage_calls.get(stage, 0)
 
+    def refund_stage_call(self, stage: str) -> None:
+        """Return one consumed call for an ask the provider never answered.
+
+        The budget bounds how often the stage ASKS AND HEARS BACK — an errored
+        $0 call (transport cut, provider raise) bought nothing, and counting it
+        turns a provider hiccup into a spent repair rung. Refund only pairs
+        with a consume that already happened; the floor stays at zero.
+        """
+        with self._lock:
+            used = self._stage_calls.get(stage, 0)
+            if used > 0:
+                self._stage_calls[stage] = used - 1
+
     def record_degradation(self, stage: str, reason: str) -> None:
         entry = Degradation(stage=stage, reason=reason, elapsed_seconds=self.elapsed())
         with self._lock:

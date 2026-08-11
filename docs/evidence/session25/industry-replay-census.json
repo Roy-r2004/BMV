@@ -1,0 +1,1397 @@
+{
+  "question": "Do stored industry strings resolve to the right pack family through the real pick_template_id?",
+  "date": "2026-08-07",
+  "corpus": {
+    "rows": 116,
+    "distinct_industries": 12
+  },
+  "packs_loaded": 27,
+  "demo_in_context_window_rows": 0,
+  "mapping": {
+    "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)": [
+      "art-gallery-portfolio-home"
+    ],
+    "Fine art gallery · original oil paintings · artist portfolio": [
+      "art-gallery-portfolio-home"
+    ],
+    "fine art gallery": [
+      "art-gallery-portfolio-home"
+    ],
+    "Art": [
+      "art-gallery-portfolio-home"
+    ],
+    "restaurant": [
+      "restaurant-cafe-home",
+      "staff-floor-ops"
+    ],
+    "hotel": [
+      "hotel-hospitality-home"
+    ],
+    "dental clinic": [
+      "clinic-dental-home",
+      "clinic-front-desk-ops"
+    ],
+    "logistics": [
+      "inventory-catalog-ops"
+    ],
+    "fitness": [
+      "fitness-studio-home"
+    ],
+    "florist": [
+      "retail-store-home"
+    ],
+    "Restaurants & Food Service — ERP SaaS": [
+      "inventory-catalog-ops",
+      "restaurant-cafe-home",
+      "saas-accounting",
+      "staff-floor-ops"
+    ],
+    "Handmade ceramics studio and online shop": [
+      "pottery-craft-studio",
+      "retail-store-home"
+    ]
+  },
+  "totals": {
+    "hit": 93,
+    "miss": 19,
+    "wrong_family": 4,
+    "wrong_family_neutral_ops": 4
+  },
+  "miss_diagnosis": [
+    {
+      "industry": "hotel",
+      "surface": "public",
+      "industry_only_pick": null,
+      "tag_overlaps": [
+        {
+          "pack": "hotel-hospitality-home",
+          "overlap": [
+            "hotel"
+          ],
+          "all_below_len_gate": true
+        }
+      ]
+    }
+  ],
+  "per_industry": [
+    {
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "n": 35,
+      "hit": 35,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "art-gallery-portfolio-home": 35
+      },
+      "surfaces": {
+        "public": 35
+      }
+    },
+    {
+      "industry": "restaurant",
+      "n": 32,
+      "hit": 32,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "restaurant-cafe-home": 32
+      },
+      "surfaces": {
+        "public": 32
+      }
+    },
+    {
+      "industry": "hotel",
+      "n": 25,
+      "hit": 6,
+      "miss": 19,
+      "wrong_family": 0,
+      "picks": {
+        "None": 19,
+        "hotel-hospitality-home": 6
+      },
+      "surfaces": {
+        "public": 25
+      }
+    },
+    {
+      "industry": "dental clinic",
+      "n": 8,
+      "hit": 8,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "clinic-dental-home": 8
+      },
+      "surfaces": {
+        "public": 8
+      }
+    },
+    {
+      "industry": "Fine art gallery · original oil paintings · artist portfolio",
+      "n": 3,
+      "hit": 3,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "art-gallery-portfolio-home": 3
+      },
+      "surfaces": {
+        "public": 3
+      }
+    },
+    {
+      "industry": "logistics",
+      "n": 3,
+      "hit": 0,
+      "miss": 0,
+      "wrong_family": 3,
+      "picks": {
+        "owner-kpi-dashboard": 3
+      },
+      "surfaces": {
+        "ops": 3
+      }
+    },
+    {
+      "industry": "Art",
+      "n": 2,
+      "hit": 2,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "art-gallery-portfolio-home": 2
+      },
+      "surfaces": {
+        "public": 2
+      }
+    },
+    {
+      "industry": "fine art gallery",
+      "n": 2,
+      "hit": 2,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "art-gallery-portfolio-home": 2
+      },
+      "surfaces": {
+        "public": 2
+      }
+    },
+    {
+      "industry": "fitness",
+      "n": 2,
+      "hit": 2,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "fitness-studio-home": 2
+      },
+      "surfaces": {
+        "public": 2
+      }
+    },
+    {
+      "industry": "florist",
+      "n": 2,
+      "hit": 2,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "retail-store-home": 2
+      },
+      "surfaces": {
+        "public": 2
+      }
+    },
+    {
+      "industry": "Handmade ceramics studio and online shop",
+      "n": 1,
+      "hit": 1,
+      "miss": 0,
+      "wrong_family": 0,
+      "picks": {
+        "pottery-craft-studio": 1
+      },
+      "surfaces": {
+        "public": 1
+      }
+    },
+    {
+      "industry": "Restaurants & Food Service — ERP SaaS",
+      "n": 1,
+      "hit": 0,
+      "miss": 0,
+      "wrong_family": 1,
+      "picks": {
+        "owner-kpi-dashboard": 1
+      },
+      "surfaces": {
+        "ops": 1
+      }
+    }
+  ],
+  "per_request": [
+    {
+      "id": 1,
+      "industry": "Restaurants & Food Service — ERP SaaS",
+      "kind": "saas_workspace",
+      "surface": "ops",
+      "pick": "owner-kpi-dashboard",
+      "verdict": "WRONG-FAMILY",
+      "neutral_ops_pack": true,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 8,
+      "industry": "Art",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 17,
+      "industry": "Art",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 18,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "leads-crm-list"
+    },
+    {
+      "id": 19,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "leads-crm-list"
+    },
+    {
+      "id": 20,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "leads-crm-list"
+    },
+    {
+      "id": 21,
+      "industry": "fine art gallery",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 22,
+      "industry": "fine art gallery",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 23,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 24,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 25,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 26,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 27,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 28,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 29,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 30,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 31,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 32,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 33,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 34,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 35,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 36,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 37,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 38,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 39,
+      "industry": "Handmade ceramics studio and online shop",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "pottery-craft-studio",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 40,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 41,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 42,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 43,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 44,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 45,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 46,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 47,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 48,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 60,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 62,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 63,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 64,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 65,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 69,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 70,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 71,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 72,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 73,
+      "industry": "Fine art gallery · original oil paintings · artist portfolio (gallery/portfolio)",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "art-gallery-portfolio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 74,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 75,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 76,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 77,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 78,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 79,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 80,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 81,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 82,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 83,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 84,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 85,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 86,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 87,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 88,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 89,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 90,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 91,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 92,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 93,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 94,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 95,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 96,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 97,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 98,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 99,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 100,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 101,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 102,
+      "industry": "dental clinic",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "clinic-dental-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "clinic-front-desk-ops"
+    },
+    {
+      "id": 103,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 104,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 105,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 106,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 107,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 108,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 109,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 110,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 111,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 112,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 113,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 114,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 115,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 116,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 117,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 118,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 119,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "hotel-hospitality-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 120,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 121,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "hotel-hospitality-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 122,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 123,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "hotel-hospitality-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 124,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 125,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "hotel-hospitality-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 126,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 127,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 128,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 129,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 130,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "hotel-hospitality-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 131,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "hotel-hospitality-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 132,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 133,
+      "industry": "florist",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "retail-store-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 134,
+      "industry": "fitness",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "fitness-studio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 135,
+      "industry": "logistics",
+      "kind": "internal_ops",
+      "surface": "ops",
+      "pick": "owner-kpi-dashboard",
+      "verdict": "WRONG-FAMILY",
+      "neutral_ops_pack": true,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 136,
+      "industry": "florist",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "retail-store-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 137,
+      "industry": "fitness",
+      "kind": "booking_service",
+      "surface": "public",
+      "pick": "fitness-studio-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 138,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 139,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 140,
+      "industry": "logistics",
+      "kind": "internal_ops",
+      "surface": "ops",
+      "pick": "owner-kpi-dashboard",
+      "verdict": "WRONG-FAMILY",
+      "neutral_ops_pack": true,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 141,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 142,
+      "industry": "hotel",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": null,
+      "verdict": "MISS",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "owner-kpi-dashboard"
+    },
+    {
+      "id": 143,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    },
+    {
+      "id": 144,
+      "industry": "logistics",
+      "kind": "internal_ops",
+      "surface": "ops",
+      "pick": "owner-kpi-dashboard",
+      "verdict": "WRONG-FAMILY",
+      "neutral_ops_pack": true,
+      "ops_gapfill_pick": null
+    },
+    {
+      "id": 145,
+      "industry": "restaurant",
+      "kind": "storefront",
+      "surface": "public",
+      "pick": "restaurant-cafe-home",
+      "verdict": "HIT",
+      "neutral_ops_pack": false,
+      "ops_gapfill_pick": "staff-floor-ops"
+    }
+  ]
+}

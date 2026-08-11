@@ -34,6 +34,14 @@ RULES:
    behavior just to satisfy the schema.
 6. Set `schema_version` exactly to `{{ schema_version }}`.
 7. Never emit an empty array for a field with minItems=1.
+7a. When a page's `state_ids` is empty ("Tuple should have at least 1 item"),
+   that page is stateless: author its default state — a real `STATE-*` id with
+   `"initial": true` and `page_id` naming that page — add it to the top-level
+   `states` array, and reference it in the page's `state_ids`. This is the one
+   sanctioned addition for this error class; it is the page's resting
+   condition, not new product behavior. Never resend the page unchanged and
+   never use a placeholder object (`"id": "Page1"`, `"state_ids": []` is a
+   rejection, not a repair).
 8. Omit optional trace fields (for example `journey_ids`) when no journey proof
    exists. Do not keep `"journey_ids": []` unless the schema default requires it.
 9. Required trace fields (`capability_ids`, `page_ids`, `evidence_ids`,

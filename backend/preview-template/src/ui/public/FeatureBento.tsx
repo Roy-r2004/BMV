@@ -2,7 +2,12 @@ import * as React from 'react';
 
 import { MotionReveal, MotionStagger, MotionStaggerItem, useMotionSafe } from '../motion';
 import { cn } from '../lib/cn';
-import { currentRecipeId, recipeFeatureVariant } from '../../lib/recipe';
+import {
+  currentRecipeId,
+  FEATURE_VARIANTS,
+  recipeFeatureVariant,
+  type FeatureVariant,
+} from '../../lib/recipe';
 import { KitImage } from '../lib/KitImage';
 
 export interface FeatureBentoItem {
@@ -48,11 +53,15 @@ function FeatureBentoBody({
   heading,
   imagePool,
   items: itemsProp = [],
-  variant: _variant,
+  variant: variantProp,
 }: Omit<FeatureBentoProps, 'children'>) {
   const safe = useMotionSafe();
-  // Recipe owns feature composition — ignore AI-passed variants.
-  const resolved = recipeFeatureVariant(currentRecipeId());
+  // A valid caller-supplied variant is honoured (3.1 — this prop used to be
+  // destructured into a discard); the recipe's composition is the default.
+  const resolved: FeatureVariant =
+    variantProp && (FEATURE_VARIANTS as readonly string[]).includes(variantProp)
+      ? variantProp
+      : recipeFeatureVariant(currentRecipeId());
   const pool = Array.isArray(imagePool) ? imagePool.filter(Boolean) : [];
   const items = (Array.isArray(itemsProp) ? itemsProp : []).map((item, index) => ({
     ...item,

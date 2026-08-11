@@ -282,7 +282,7 @@
           "product",
           "editorial",
           "atelier",
-          "split"
+          "item"
         ]
       }
     },
@@ -488,6 +488,232 @@
         "children"
       ],
       "optionalProps": [
+        "className"
+      ]
+    },
+    {
+      "name": "AnimatedShinyText",
+      "surface": "public",
+      "path": "effects/AnimatedShinyText.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "className",
+        "shimmerWidth"
+      ]
+    },
+    {
+      "name": "WordRotate",
+      "surface": "public",
+      "path": "effects/WordRotate.tsx",
+      "requiredProps": [
+        "words"
+      ],
+      "optionalProps": [
+        "className",
+        "duration"
+      ]
+    },
+    {
+      "name": "Ripple",
+      "surface": "public",
+      "path": "effects/Ripple.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "className",
+        "mainCircleSize",
+        "mainCircleOpacity",
+        "numCircles"
+      ]
+    },
+    {
+      "name": "NumberTicker",
+      "surface": "public",
+      "path": "effects/NumberTicker.tsx",
+      "requiredProps": [
+        "value"
+      ],
+      "optionalProps": [
+        "startValue",
+        "direction",
+        "delay",
+        "decimalPlaces",
+        "className"
+      ]
+    },
+    {
+      "name": "VelocityScroll",
+      "surface": "public",
+      "path": "effects/VelocityScroll.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "baseVelocity",
+        "className"
+      ]
+    },
+    {
+      "name": "AuroraText",
+      "surface": "public",
+      "path": "effects/AuroraText.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "colors",
+        "speed",
+        "className"
+      ]
+    },
+    {
+      "name": "DotPattern",
+      "surface": "public",
+      "path": "effects/DotPattern.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "width",
+        "height",
+        "cr",
+        "glow",
+        "className"
+      ]
+    },
+    {
+      "name": "AvatarCircles",
+      "surface": "public",
+      "path": "effects/AvatarCircles.tsx",
+      "requiredProps": [
+        "avatarUrls"
+      ],
+      "optionalProps": [
+        "numPeople",
+        "className"
+      ]
+    },
+    {
+      "name": "TextReveal",
+      "surface": "public",
+      "path": "effects/TextReveal.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "className"
+      ]
+    },
+    {
+      "name": "AnimatedList",
+      "surface": "public",
+      "path": "effects/AnimatedList.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "delay",
+        "className"
+      ]
+    },
+    {
+      "name": "Marquee",
+      "surface": "public",
+      "path": "effects/Marquee.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "duration",
+        "reverse",
+        "pauseOnHover",
+        "gap",
+        "className"
+      ]
+    },
+    {
+      "name": "MagicCard",
+      "surface": "public",
+      "path": "effects/MagicCard.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "gradientSize",
+        "className"
+      ]
+    },
+    {
+      "name": "FlickeringGrid",
+      "surface": "public",
+      "path": "effects/FlickeringGrid.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "squareSize",
+        "gridGap",
+        "flickerChance",
+        "color",
+        "maxOpacity",
+        "className"
+      ]
+    },
+    {
+      "name": "Lens",
+      "surface": "public",
+      "path": "effects/Lens.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "zoomFactor",
+        "lensSize",
+        "ariaLabel",
+        "className"
+      ]
+    },
+    {
+      "name": "ShimmerButton",
+      "surface": "public",
+      "path": "effects/ShimmerButton.tsx",
+      "requiredProps": [
+        "children"
+      ],
+      "optionalProps": [
+        "shimmerDuration",
+        "className"
+      ]
+    },
+    {
+      "name": "AnimatedGridPattern",
+      "surface": "public",
+      "path": "effects/AnimatedGridPattern.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "width",
+        "height",
+        "numSquares",
+        "maxOpacity",
+        "duration",
+        "className"
+      ]
+    },
+    {
+      "name": "ScrollProgress",
+      "surface": "public",
+      "path": "effects/ScrollProgress.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "className"
+      ]
+    },
+    {
+      "name": "ProgressiveBlur",
+      "surface": "public",
+      "path": "effects/ProgressiveBlur.tsx",
+      "requiredProps": [],
+      "optionalProps": [
+        "height",
+        "position",
+        "blurLevels",
         "className"
       ]
     },
@@ -863,7 +1089,7 @@
           "product",
           "editorial",
           "atelier",
-          "split"
+          "item"
         ],
         "FeatureBento": [
           "bento",
@@ -932,8 +1158,7 @@
           "cinematic",
           "compact",
           "product",
-          "atelier",
-          "split"
+          "atelier"
         ],
         "FeatureBento": [
           "grid",
@@ -1002,8 +1227,7 @@
           "atelier",
           "service",
           "editorial",
-          "compact",
-          "split"
+          "compact"
         ],
         "FeatureBento": [
           "alternating",
@@ -1080,8 +1304,7 @@
           "compact",
           "editorial",
           "product",
-          "atelier",
-          "split"
+          "atelier"
         ],
         "FeatureBento": [
           "grid",
@@ -1194,7 +1417,6 @@
       ],
       "supportedVariants": {
         "MarketingHero": [
-          "split",
           "editorial"
         ],
         "FeatureBento": [

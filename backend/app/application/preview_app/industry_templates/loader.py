@@ -23,6 +23,18 @@ _WEAK_INDUSTRY_TOKENS = frozenset(
         "home",
         "shop",
         "store",
+        # Same word as "shop" and "store", and it cost request 160 its identity.
+        # A bike workshop declaring "Bicycle retail, service and workshop"
+        # matched `fashion-retail-storefront` on **"retail" alone** — the only
+        # pack that matched at all — and shipped "The rack is live" and "Shop
+        # the new drop before sizes thin out." At six characters it cleared
+        # `_MIN_DISTINCTIVE_TOKEN_LEN`, so one declared category word chose a
+        # whole visual identity. With it weak, that brief matches nothing and
+        # falls to recipe-only, which this function's own docstring already
+        # calls the better answer. Fashion still matches on fashion, apparel,
+        # boutique and clothing.
+        "retail",
+        "retailer",
         "service",
         "services",
         "business",
@@ -52,6 +64,10 @@ _NEGATED_CLAUSE_RE = re.compile(
 
 @lru_cache(maxsize=1)
 def load_templates() -> dict[str, dict[str, Any]]:
+    from app.application.preview_app.industry_templates.compatible_recipes import (
+        compatible_recipes_for,
+    )
+
     out: dict[str, dict[str, Any]] = {}
     if not _PACKS_DIR.is_dir():
         return out
@@ -63,6 +79,12 @@ def load_templates() -> dict[str, dict[str, Any]]:
         tid = str(data.get("id") or path.stem).strip()
         if not tid:
             continue
+        # Stage A / 3.2 (session-26 ruling): every loaded pack carries its
+        # compatible recipe set. STAMPED from the one keyed map, never
+        # authored in the pack JSON — the derivation rule lives beside the
+        # data exactly once (compatible_recipes.py), and a pack the map does
+        # not know gets an empty tuple, which the map-corpus pin red-exits.
+        data["compatible_recipes"] = list(compatible_recipes_for(tid))
         out[tid] = data
     return out
 
@@ -146,3 +168,53 @@ def get_template(template_id: str | None) -> dict[str, Any] | None:
     if not template_id:
         return None
     return load_templates().get(template_id)
+
+
+#: A pack sentence must be at least this long before shipping it verbatim counts
+#: as a defect. Short leaves are structure, not voice — "bold", "Popular",
+#: "60 min" — and a business may legitimately write them. Sentences are what the
+#: owner ruled must be written for the business.
+_PACK_SENTENCE_MIN_CHARS = 16
+
+
+@lru_cache(maxsize=1)
+def pack_literal_sentences() -> frozenset[str]:
+    """Every sentence the packs would ship if nobody replaced it.
+
+    Owner ruling 2026-08-09: **a pack carries structure and slot choices; every
+    sentence is written for the business.** Request 160, a bike workshop, shipped
+    `packs/fashion-retail-storefront.json` lines 60-64 unedited — *"The rack is
+    live"*, *"Shop the new drop before sizes thin out"*, *"Restock alerts"* —
+    and request 158, a bakery doing pre-orders, shipped
+    `restaurant-cafe-home.json`'s *"Hold a table — or join the walk-in list with
+    a real wait time."* Neither is a dead link or a contract violation, so no
+    gate saw them.
+
+    This is the set the gate compares against, by **exact leaf**, never
+    substring: a pack sentence is distinctive enough that an identical string in
+    a shipped app came from the pack. Anything shorter than
+    `_PACK_SENTENCE_MIN_CHARS`, or without a space, is structure rather than
+    voice and is excluded — as are hrefs and anchors, which are the route
+    literals' problem and are already repaired elsewhere.
+    """
+
+    def _walk(node: Any, out: set[str]) -> None:
+        if isinstance(node, dict):
+            for value in node.values():
+                _walk(value, out)
+        elif isinstance(node, list):
+            for value in node:
+                _walk(value, out)
+        elif isinstance(node, str):
+            text = node.strip()
+            if (
+                len(text) >= _PACK_SENTENCE_MIN_CHARS
+                and " " in text
+                and not text.startswith(("/", "#", "http"))
+            ):
+                out.add(text)
+
+    sentences: set[str] = set()
+    for pack in load_templates().values():
+        _walk(pack.get("mock_seed"), sentences)
+    return frozenset(sentences)

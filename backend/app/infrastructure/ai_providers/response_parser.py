@@ -398,9 +398,28 @@ def _message_text(message: Any) -> tuple[str | None, bool]:
     return None, False
 
 
-def _looks_like_refusal(finish_reason: str, error_message: str) -> bool:
-    blob = f"{finish_reason} {error_message}".lower()
-    return any(hint in blob for hint in _REFUSAL_HINTS)
+def _looks_like_refusal(finish_reason: str) -> bool:
+    """Whether the *provider* says it refused — read off `finish_reason` only.
+
+    This used to take the assistant's own output text as well, under the
+    parameter name `error_message`, and scan it for `_REFUSAL_HINTS`. So any
+    answer that merely used the word *safety* was classified
+    `provider_content_refused`, `retryable=False`, and the ladder above it
+    correctly declined to re-ask a refusal — killing the run.
+
+    Requests 152 and 159, both Copperline Hardware, both today, both dead at the
+    blueprint stage 11 seconds in. A hardware store that hires out tools has
+    every reason to write "safety" into its own business summary, and the
+    pipeline read the business back to itself and called it a moderation event.
+    Across the 138 stored blueprints the scan never fired once, which is why it
+    survived: it is not a check that mostly works, it is a check that had never
+    been exercised until a brief happened to say the word.
+
+    The content side of a genuine refusal is already covered, and covered
+    properly: `_message_text` returns `refused=True` when the provider populates
+    the OpenAI `refusal` field, and the caller tests that first.
+    """
+    return any(hint in (finish_reason or "").lower() for hint in _REFUSAL_HINTS)
 
 
 def _failure_result(
@@ -700,7 +719,7 @@ def parse_openai_compatible_chat_response(
     prompt_t, completion_t, total_t, cost = _usage_from_openai(body)
     request_id = str(body.get("id") or "")
 
-    if refused or _looks_like_refusal(finish_reason, text or ""):
+    if refused or _looks_like_refusal(finish_reason):
         return _failure_result(
             provider=provider,
             model=model,

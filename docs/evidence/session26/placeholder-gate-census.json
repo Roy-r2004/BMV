@@ -1,0 +1,96 @@
+{
+ "corpus_runs": 87,
+ "shipped_predicate": {
+  "runs_firing": [
+   "33",
+   "68",
+   "71",
+   "73",
+   "78",
+   "81",
+   "93"
+  ],
+  "run_count": 7,
+  "hits": {
+   "33": [
+    "[Painting Title]"
+   ],
+   "68": [
+    "[Owner Name]",
+    "[Painter's Name]"
+   ],
+   "71": [
+    "[Artist Name]"
+   ],
+   "73": [
+    "[Customer Name]",
+    "[Painting Title]"
+   ],
+   "78": [
+    "[Next available slot]"
+   ],
+   "81": [
+    "[Patient Name]"
+   ],
+   "93": [
+    "[Phone Number]"
+   ]
+  }
+ },
+ "specified_predicate": {
+  "runs_firing": [
+   "19",
+   "34",
+   "37",
+   "39",
+   "43",
+   "135",
+   "140"
+  ],
+  "run_count": 7,
+  "hits": {
+   "19": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "34": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "37": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "39": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "43": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "135": [
+    "Everyday essential",
+    "Guest favorite"
+   ],
+   "140": [
+    "Everyday essential",
+    "Guest favorite"
+   ]
+  }
+ },
+ "specified_predicate_unguarded": {
+  "run_count": 87,
+  "note": "bare match, no `Brand` co-occurrence guard \u2014 matches routes and generic CTAs, retained only to show what the guard removes"
+ },
+ "runs_the_shipped_gate_would_miss": [
+  "19",
+  "34",
+  "37",
+  "39",
+  "43",
+  "135",
+  "140"
+ ],
+ "verdict": "FAILED"
+}

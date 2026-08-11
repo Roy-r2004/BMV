@@ -820,6 +820,37 @@ def _feature_already_bound(payload: Mapping[str, Any], feature: Mapping[str, Any
     return False
 
 
+def _normalized_route(value: Any) -> str:
+    text = str(value or "").strip().casefold()
+    return text.rstrip("/") or "/"
+
+
+def _stranded_ai_requirement_ids(payload: Mapping[str, Any]) -> list[str]:
+    """Injector-sourced requirements that no traceability link accounts for.
+
+    The binder used to treat "the requirement exists" as "the feature is
+    bound". A model repair re-emits the whole document and may keep the
+    requirement while dropping its traceability row — request 130 died with
+    `REQ-AI-SMART-PRICING-INSIGHTS` present, must-priority, and untraced,
+    because the guard could not see that only part of the binding survived.
+    """
+    traced = {
+        str(link.get("requirement_id") or "").casefold()
+        for link in (payload.get("traceability") or [])
+        if isinstance(link, Mapping)
+    }
+    stranded: list[str] = []
+    marker = AI_FEATURE_SOURCE_REF.casefold()
+    for req in payload.get("requirements") or []:
+        if not isinstance(req, Mapping):
+            continue
+        rid = str(req.get("id") or "")
+        refs = [str(r).casefold() for r in (req.get("source_refs") or [])]
+        if rid and marker in refs and rid.casefold() not in traced:
+            stranded.append(rid)
+    return stranded
+
+
 def bind_ai_features_to_app_spec(
     payload: Mapping[str, Any],
     features: list[Mapping[str, Any]],
@@ -836,10 +867,15 @@ def bind_ai_features_to_app_spec(
 
     sanitized = copy.deepcopy(dict(payload))
     pending = [f for f in features if not _feature_already_bound(sanitized, f)]
-    if not pending and any(
-        str(p.get("id") or "").casefold() == PAGE_AI_HUB_ID.casefold()
-        for p in (sanitized.get("pages") or [])
-        if isinstance(p, Mapping)
+    if (
+        not pending
+        and not _stranded_ai_requirement_ids(sanitized)
+        and any(
+            str(p.get("id") or "").casefold() == PAGE_AI_HUB_ID.casefold()
+            or _normalized_route(p.get("route")) == _normalized_route(PAGE_AI_HUB_ROUTE)
+            for p in (sanitized.get("pages") or [])
+            if isinstance(p, Mapping)
+        )
     ):
         return sanitized
 
@@ -877,6 +913,23 @@ def bind_ai_features_to_app_spec(
         None,
     )
     if hub is None:
+        # Adopt a model-authored hub that already owns the route. The guard
+        # used to be "is *this id* already present", which cannot see the hub
+        # the model wrote under its own name — request 136 died on
+        # `duplicate_route` because the model had `PAGE-AI-FEATURES-HUB` at
+        # `/ai-features` and the binder appended a second page at the same
+        # route. Same defect shape as the 62cb26d initial-state fix: guard by
+        # what the spec expresses, not by the literal the binder would mint.
+        hub = next(
+            (
+                p
+                for p in pages
+                if _normalized_route(p.get("route"))
+                == _normalized_route(PAGE_AI_HUB_ROUTE)
+            ),
+            None,
+        )
+    if hub is None:
         hub = {
             "id": PAGE_AI_HUB_ID,
             "name": "AI features",
@@ -896,6 +949,8 @@ def bind_ai_features_to_app_spec(
         pages.append(hub)
         id_index.add(PAGE_AI_HUB_ID.casefold())
         sanitized["pages"] = pages
+    # An adopted hub keeps the model's page id; every wire below must use it.
+    hub_id = str(hub.get("id") or PAGE_AI_HUB_ID)
 
     requirements = [r for r in (sanitized.get("requirements") or []) if isinstance(r, dict)]
     capabilities = [c for c in (sanitized.get("capabilities") or []) if isinstance(c, dict)]
@@ -917,14 +972,50 @@ def bind_ai_features_to_app_spec(
     ]
 
     state_id = "STATE-AI-HUB-READY"
+    # A model may write this exact id on a *different* page; wiring assertions
+    # to it would then be `assertion_state_page_mismatch` — the pipeline
+    # arguing with itself again. Mint a sibling id instead of colliding.
+    foreign_owner = next(
+        (
+            s
+            for s in states
+            if str(s.get("id") or "").casefold() == state_id.casefold()
+            and str(s.get("page_id") or "") != hub_id
+        ),
+        None,
+    )
+    if foreign_owner is not None:
+        suffix = 2
+        while f"{state_id}-{suffix}".casefold() in id_index:
+            suffix += 1
+        state_id = f"{state_id}-{suffix}"
     if state_id.casefold() not in id_index:
+        # `initial` only when the page does not already have one. The guard used
+        # to be "is *this id* already present", which cannot see a state the
+        # model wrote under a different name — and the model routinely writes
+        # one, because a page with content has an initial state by definition.
+        #
+        # Requests 137, 138 and 139 died on the identical message:
+        # *"Page 'PAGE-AI-FEATURES' must contain exactly one initial state;
+        # found 2."* Both were `initial: true` — `STATE-AI-FEATURES-LOADED`
+        # from the model and this one from us. **The pipeline injected the
+        # second initial state and then failed the run for having two**, on a
+        # page the pipeline itself requires. Three runs, one hardcoded literal.
+        hub_existing = {
+            str(sid).casefold() for sid in (hub.get("state_ids") or [])
+        }
+        page_already_has_initial = any(
+            str(s.get("id") or "").casefold() in hub_existing and s.get("initial")
+            for s in states
+            if isinstance(s, dict)
+        )
         states.append(
             {
                 "id": state_id,
-                "page_id": PAGE_AI_HUB_ID,
+                "page_id": hub_id,
                 "name": "Ready",
                 "description": "AI feature hub is ready for customers and operators.",
-                "initial": True,
+                "initial": not page_already_has_initial,
                 # Content hub has no interaction graph — treat ready as terminal.
                 "terminal": True,
                 "evidence_ids": [],
@@ -970,7 +1061,7 @@ def bind_ai_features_to_app_spec(
         evidence.append(
             {
                 "id": ev_id,
-                "page_id": PAGE_AI_HUB_ID,
+                "page_id": hub_id,
                 "name": f"{name} surface",
                 "description": (
                     f"Interactive AI feature '{name}' is visible with data-ai-feature='{fid}'."
@@ -992,7 +1083,7 @@ def bind_ai_features_to_app_spec(
                     {
                         "kind": "visible",
                         "description": f"AI feature '{name}' is visible on the hub.",
-                        "page_id": PAGE_AI_HUB_ID,
+                        "page_id": hub_id,
                         "state_id": state_id,
                         "evidence_id": ev_id,
                         "expected": fid,
@@ -1018,12 +1109,124 @@ def bind_ai_features_to_app_spec(
             {
                 "requirement_id": req_id,
                 "capability_ids": [cap_id],
-                "page_ids": [PAGE_AI_HUB_ID],
+                "page_ids": [hub_id],
                 "evidence_ids": [ev_id],
                 "journey_ids": [],
                 "acceptance_test_ids": [test_id],
             }
         )
+
+    # Re-trace stranded injector requirements. A model repair re-emits the
+    # whole document and may drop any piece of a previous binding while keeping
+    # the requirement; "already bound" then skips the feature forever and the
+    # run dies on `requirement_unaccounted_for` (request 130). Rebuild only the
+    # missing pieces, reusing whatever survived.
+    traced_ids = {
+        str(t.get("requirement_id") or "").casefold() for t in traceability
+    }
+    marker = AI_FEATURE_SOURCE_REF.casefold()
+    for req in requirements:
+        rid = str(req.get("id") or "")
+        refs = [str(r).casefold() for r in (req.get("source_refs") or [])]
+        if not rid or marker not in refs or rid.casefold() in traced_ids:
+            continue
+        name = str(req.get("title") or rid)
+        cap = next(
+            (
+                c
+                for c in capabilities
+                if rid in [str(x) for x in (c.get("requirement_ids") or [])]
+            ),
+            None,
+        )
+        if cap is None:
+            cap = {
+                "id": _unique_id("CAP-AI", id_index, rid),
+                "name": name[:240],
+                "description": str(req.get("description") or name)[:4000],
+                "requirement_ids": [rid],
+                "role_ids": [role_id],
+                "entity_ids": [],
+            }
+            capabilities.append(cap)
+        cap_id = str(cap.get("id") or "")
+        ev = next(
+            (
+                e
+                for e in evidence
+                if str(e.get("page_id") or "") == hub_id
+                and cap_id in [str(x) for x in (e.get("capability_ids") or [])]
+            ),
+            None,
+        )
+        if ev is None:
+            ev = {
+                "id": _unique_id("EVIDENCE-AI", id_index, rid),
+                "page_id": hub_id,
+                "name": f"{name} surface"[:240],
+                "description": (
+                    f"Interactive AI feature '{name}' is visible on the hub."
+                )[:4000],
+                "kind": "status",
+                "capability_ids": [cap_id],
+            }
+            evidence.append(ev)
+        ev_id = str(ev.get("id") or "")
+        test = next(
+            (
+                t
+                for t in acceptance_tests
+                if rid in [str(x) for x in (t.get("requirement_ids") or [])]
+            ),
+            None,
+        )
+        if test is None:
+            test = {
+                "id": _unique_id("TEST-AI", id_index, rid),
+                "name": f"{name} is visible"[:240],
+                "description": (
+                    f"Prove the planned AI feature '{name}' is visible on the AI hub page."
+                )[:4000],
+                "requirement_ids": [rid],
+                "journey_id": None,
+                "assertions": [
+                    {
+                        "kind": "visible",
+                        "description": f"AI feature '{name}' is visible on the hub.",
+                        "page_id": hub_id,
+                        "state_id": state_id,
+                        "evidence_id": ev_id,
+                        "expected": name[:240],
+                    }
+                ],
+            }
+            acceptance_tests.append(test)
+        test_id = str(test.get("id") or "")
+        hub_caps = list(hub.get("capability_ids") or [])
+        if cap_id not in hub_caps:
+            hub_caps.append(cap_id)
+        hub["capability_ids"] = hub_caps
+        hub_ev = list(hub.get("evidence_ids") or [])
+        if ev_id not in hub_ev:
+            hub_ev.append(ev_id)
+        hub["evidence_ids"] = hub_ev
+        for st in states:
+            if str(st.get("id") or "") == state_id:
+                st_ev = list(st.get("evidence_ids") or [])
+                if ev_id not in st_ev:
+                    st_ev.append(ev_id)
+                st["evidence_ids"] = st_ev
+        traceability.append(
+            {
+                "requirement_id": rid,
+                "capability_ids": [cap_id],
+                "page_ids": [hub_id],
+                "evidence_ids": [ev_id],
+                "journey_ids": [],
+                "acceptance_test_ids": [test_id],
+            }
+        )
+        traced_ids.add(rid.casefold())
 
     # Ensure hub purpose mentions all feature names for coverage reviewers.
     names = [str(f.get("name") or "") for f in features if f.get("name")]

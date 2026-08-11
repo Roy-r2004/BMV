@@ -33,6 +33,15 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "editorial",
         "feature_variant": "alternating",
+        # Motion identity (3.10): the recipe's temperament as animation values.
+        # Delivered through SiteSpec.design; consumed by the kit's effects.
+        "motion": {
+            "identity": "editorial-calm",
+            "ease": [0.22, 1.0, 0.36, 1.0],
+            "stagger_ms": 110,
+            "travel": "18px",
+            "reveal": "fade-up",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "default",
@@ -95,6 +104,14 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        # Ops restraint by design: fast, calm, instant (owner's rule).
+        "motion": {
+            "identity": "ops-utility",
+            "ease": [0.4, 0.0, 0.2, 1.0],
+            "stagger_ms": 45,
+            "travel": "8px",
+            "reveal": "fade",
+        },
         "chrome": {
             "shell": "solid",
             "nav": "minimal",
@@ -153,6 +170,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        "motion": {
+            "identity": "ops-ledger-paper",
+            "ease": [0.4, 0.0, 0.2, 1.0],
+            "stagger_ms": 55,
+            "travel": "10px",
+            "reveal": "fade",
+        },
         "chrome": {
             "shell": "solid",
             "nav": "minimal",
@@ -210,6 +234,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "compact",
         "feature_variant": "grid",
+        "motion": {
+            "identity": "ops-floor-instant",
+            "ease": [0.4, 0.0, 0.2, 1.0],
+            "stagger_ms": 35,
+            "travel": "6px",
+            "reveal": "fade",
+        },
         "chrome": {
             "shell": "solid",
             "nav": "minimal",
@@ -265,6 +296,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "service",
         "feature_variant": "bento",
+        "motion": {
+            "identity": "warm-rise",
+            "ease": [0.34, 1.3, 0.64, 1.0],
+            "stagger_ms": 90,
+            "travel": "16px",
+            "reveal": "rise",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "default",
@@ -325,6 +363,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "product",
         "feature_variant": "bento",
+        "motion": {
+            "identity": "retail-punch",
+            "ease": [0.85, 0.0, 0.15, 1.0],
+            "stagger_ms": 60,
+            "travel": "26px",
+            "reveal": "slide-up",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "minimal",
@@ -382,6 +427,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         },
         "hero_variant": "cinematic",
         "feature_variant": "alternating",
+        "motion": {
+            "identity": "nocturne-drift",
+            "ease": [0.16, 1.0, 0.3, 1.0],
+            "stagger_ms": 130,
+            "travel": "22px",
+            "reveal": "blur-fade",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "stacked",
@@ -439,6 +491,13 @@ RECIPES: dict[str, dict[str, Any]] = {
         # Unique silhouette — must NOT share `product` with bold-retail.
         "hero_variant": "atelier",
         "feature_variant": "alternating",
+        "motion": {
+            "identity": "craft-settle",
+            "ease": [0.25, 1.0, 0.5, 1.0],
+            "stagger_ms": 100,
+            "travel": "14px",
+            "reveal": "fade-up",
+        },
         "chrome": {
             "shell": "immersive",
             "nav": "default",
@@ -525,9 +584,18 @@ def pick_recipe_id(
                 scores[recipe_id] += 2
     best = max(scores.values())
     if best <= 0:
-        # Deterministic rotation so consecutive businesses don't all look identical.
-        order = list(RECIPES.keys())
-        return order[(seed or 0) % len(order)]
+        # Deterministic rotation so consecutive businesses don't all look
+        # identical — over the REACHABLE set (Stage A / 3.2, session-26
+        # ruling). Public kinds null app-hub brief recipes downstream
+        # (plan_phase), so a fallback slot spent on dense-ops* was a slot the
+        # run could never keep; ops kinds override the brief recipe entirely.
+        # The keyword path above is untouched — the downstream null-out stays
+        # the guard for keyword false-hits.
+        from app.application.preview_app.industry_templates.compatible_recipes import (
+            MARKETING_RECIPE_IDS,
+        )
+
+        return MARKETING_RECIPE_IDS[(seed or 0) % len(MARKETING_RECIPE_IDS)]
     winners = [recipe_id for recipe_id, score in scores.items() if score == best]
     if len(winners) == 1:
         return winners[0]
@@ -553,20 +621,14 @@ def apply_recipe_to_plan(
     )
     recipe = get_recipe(chosen)
     design = dict(updated.get("design_system") or {})
-    fonts = recipe["fonts"]
     tokens = recipe["tokens"]
-    brand_locked = bool(design.get("brand_locked"))
     design["recipe_id"] = recipe["id"]
     design["hub_variant"] = recipe["hub_variant"]
-    # Recipe owns composition; a locked brand brief owns palette + type.
-    if not brand_locked:
-        design["font_family"] = fonts["sans"].split(",")[0].strip().strip('"')
-        design["display_font_family"] = fonts["display"].split(",")[0].strip().strip('"')
-        design["font_import_url"] = (
-            "https://fonts.googleapis.com/css2?family="
-            + fonts["import"]
-            + "&display=swap"
-        )
+    # Recipe owns composition; the brand brief owns palette + type (its
+    # typography is the brief-time recipe's font pair, brand_brief.py:100-104).
+    # The direct font writes that used to sit here were dead on every
+    # production run — brand_locked is always True by this point (session-25
+    # inventory §4) — and Stage A deleted the losing lane.
     design["border_radius"] = tokens["radius_ui"]
     design["style_keywords"] = recipe["label"]
     design["hero_variant"] = recipe["hero_variant"]
@@ -705,18 +767,6 @@ def apply_recipe_to_architect(architect: dict[str, Any], plan: dict[str, Any]) -
         direction = f"{direction} {template_line}".strip()
     updated["design_direction"] = direction
     return updated
-
-
-def recipe_font_import_css(recipe: dict[str, Any]) -> str:
-    fonts = recipe.get("fonts") or {}
-    family = fonts.get("import")
-    if not family:
-        return ""
-    return (
-        '@import url("https://fonts.googleapis.com/css2?family='
-        + family
-        + '&display=swap");\n'
-    )
 
 
 _HEX_RE = re.compile(r"^#?[0-9a-fA-F]{3,8}$")

@@ -12,7 +12,9 @@ The rule under test is deliberately not an industry keyword. A gap-fill may add 
 page only when the app has no route that already serves it, where "serves it"
 means the same path or the same resolved page contract; and a detail page is
 added only when the listing it belongs to is served and has no detail child of
-its own. Measured over the 47 stored route tables before it shipped
+its own — **hung off whatever that listing is actually called**, which is the
+half that was missing until session 27. Measured over the 47 stored route tables
+before it shipped
 (`scripts/measure/gallery_gapfill_census.py`): 22 runs change, and **no brief
 ends without a catalogue page or without a detail page** — every art gallery
 keeps both.
@@ -84,11 +86,22 @@ def test_a_restaurant_with_a_menu_is_not_missing_a_catalogue() -> None:
     paths = _apply(routes, _storefront(), plan)
     assert "/gallery" not in paths
     assert "/gallery/:id" not in paths
-    assert paths == ["/", "/menu", "/reservations"]
+    # The detail page goes to `/menu/:id`, not away. It used to be dropped
+    # entirely, because the gap-fill looked for a literal `/gallery` to hang it
+    # off and this app calls its catalogue `/menu` — so the trattoria shipped a
+    # dish grid whose every card fell through `path="*"` to the home page. What
+    # the rule forbids is a *second* catalogue, not a way into the first.
+    assert paths == ["/", "/menu", "/reservations", "/menu/:id"]
 
 
 def test_the_detail_literal_goes_with_the_catalogue_literal() -> None:
-    """`ArtworkDetailPage.tsx` is only reachable from `/gallery`, so it goes too."""
+    """`ArtworkDetailPage.tsx` is a gallery's file name, and this is a trattoria.
+
+    The page survives — the menu needs a way in — but neither its blueprint path
+    nor its blueprint naming does. "Artwork" is the page title, so it reaches the
+    nav label and the page header; a detail page hung off a renamed listing takes
+    that listing's name instead.
+    """
     routes = [
         _route("/", "home", "HomePage.tsx"),
         _route("/menu", "menu", "MenuPage.tsx"),
@@ -101,6 +114,119 @@ def test_the_detail_literal_goes_with_the_catalogue_literal() -> None:
     components = {str(f.get("path") or "") for f in architect["files_to_generate"]}
     assert "src/pages/ArtworkDetailPage.tsx" not in components
     assert "src/pages/GalleryPage.tsx" not in components
+    assert "src/pages/MenuDetailPage.tsx" in components
+    detail = next(r for r in architect["routes"] if r["path"] == "/menu/:id")
+    assert detail["title"] == "Menu detail"
+    assert "Artwork" not in detail["title"]
+
+
+# --- the renamed catalogue: session 27's two withheld runs --------------------
+
+
+#: The route tables requests 156 and 153 actually got, trimmed to what the
+#: gap-fill reads. Both shipped a `public-catalog` grid and **no param route at
+#: all** — every card fell through `path="*"` to the home page, and the journey
+#: gate said `journey_no_detail_route` on both. Neither catalogue is called
+#: `/gallery`, which is the entire reason the detail page was skipped.
+WITHHELD_TABLES = {
+    "156 Ridgeline Bike Works": (
+        [
+            _route("/", "home", "HomePage.tsx", skeleton_id="public-home"),
+            _route("/bikes", "bike-range", "BikeRangePage.tsx", skeleton_id="public-catalog"),
+            _route(
+                "/service-booking", "service-booking", "ServiceBookingPage.tsx",
+                skeleton_id="public-booking",
+            ),
+        ],
+        "/bikes/:id",
+    ),
+    "153 Kestrel & Fern Bakehouse": (
+        [
+            _route("/", "home", "HomePage.tsx", skeleton_id="public-home"),
+            _route(
+                "/celebration-cakes", "celebration-cakes", "CelebrationCakesPage.tsx",
+                skeleton_id="public-catalog",
+            ),
+            _route("/checkout", "checkout", "CheckoutPage.tsx", skeleton_id="public-utility"),
+        ],
+        "/celebration-cakes/:id",
+    ),
+}
+
+
+def test_a_renamed_catalogue_still_gets_a_way_into_it() -> None:
+    """The defect, against both real tables: a grid with nothing behind it."""
+    for label, (routes, expected) in WITHHELD_TABLES.items():
+        paths = _apply(routes, _storefront())
+        assert expected in paths, f"{label}: no detail route was added ({paths})"
+        assert "/gallery" not in paths, label
+        assert "/gallery/:id" not in paths, label
+
+
+def test_the_detail_page_is_named_after_the_listing_it_serves() -> None:
+    """`Artwork` / `ArtworkDetailPage.tsx` on a bike shop is visible nonsense.
+
+    The title reaches the nav label and the page header, so it is not an internal
+    detail — it is copy the customer reads.
+    """
+    routes, _ = WITHHELD_TABLES["156 Ridgeline Bike Works"]
+    architect = apply_product_kind_to_architect(
+        {"routes": [dict(r) for r in routes], "files_to_generate": []}, _storefront()
+    )
+    detail = next(r for r in architect["routes"] if r["path"] == "/bikes/:id")
+    assert detail["title"] == "Bike Range detail"
+    assert detail["component_file"] == "src/pages/BikeRangeDetailPage.tsx"
+    assert detail["skeleton_id"] == "public-detail"
+
+
+def test_a_catalogue_that_is_only_a_param_route_hosts_nothing() -> None:
+    """The `None` branch, and it is reachable.
+
+    An app whose only `public-catalog` route is `/collection/:id` satisfies the
+    browse page's served-kind test — so `/gallery` is not added — and offers the
+    detail page nothing to hang off: it *is* a detail page. Accepting it as the
+    host mints `/collection/:id/:id`, whose two segments bind the same param name
+    so React Router keeps only the last; treating "no host" as an empty path mints
+    a root-level `/:id` that matches every single-segment URL in the app. Both are
+    worse than the missing page.
+    """
+    routes = [
+        _route("/", "home", "HomePage.tsx", skeleton_id="public-home"),
+        _route(
+            "/collection/:id", "collection-detail", "CollectionDetailPage.tsx",
+            skeleton_id="public-catalog",
+        ),
+        _route("/about", "about", "AboutPage.tsx", skeleton_id="public-home"),
+    ]
+    paths = _apply(routes, _storefront())
+    assert "/gallery" not in paths
+    assert "/gallery/:id" not in paths
+    assert "/collection/:id/:id" not in paths
+    assert "/:id" not in paths
+    assert paths == ["/", "/collection/:id", "/about"]
+
+
+def test_the_home_route_is_never_a_listing_to_hang_a_detail_page_off() -> None:
+    """A one-page storefront whose `/` is the catalogue mints `//:id` otherwise."""
+    routes = [
+        _route("/", "shop", "ShopPage.tsx", skeleton_id="public-catalog"),
+        _route("/about", "about", "AboutPage.tsx", skeleton_id="public-home"),
+        _route("/contact", "contact", "ContactPage.tsx", skeleton_id="public-utility"),
+    ]
+    paths = _apply(routes, _storefront())
+    assert not any(p.startswith("//") for p in paths), paths
+    assert "/:id" not in paths
+
+
+def test_a_booking_app_gets_no_detail_page_because_its_blueprint_has_none() -> None:
+    """The funnel goes /services → /book; there is no per-item route to invent."""
+    routes = [
+        _route("/", "home", "HomePage.tsx", skeleton_id="public-home"),
+        _route("/services", "services", "ServicesPage.tsx", skeleton_id="public-service"),
+        _route("/book", "book", "BookPage.tsx", skeleton_id="public-booking"),
+    ]
+    paths = _apply(routes, _booking())
+    assert not any(":" in p for p in paths), paths
 
 
 # --- the boundary: a gallery must not lose its gallery ------------------------

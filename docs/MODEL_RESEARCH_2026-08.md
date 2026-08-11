@@ -384,3 +384,17 @@ answer faces the identical syntactic + contract judge; telemetry rows are attemp
 Startup warns (never crashes) if either fallback slot shares a provider prefix with its
 primary (R7, generalized). No model verdict changed this session; weather probes on
 gemini-2.5-flash were healthy (2× `stop`, ~1,050 completion tokens, 5-7 s).
+
+### Session-23 note — prompt revision 2026-08-07.3, run 145, and the dry-key confound
+
+No model verdict changed. gemini-2.5-flash under the new revision (the empty-tuple
+taught lines): authoring 36.6 s / $0.027 / `stop`, deterministically valid on the first
+candidate — zero schema-parse issues, zero heals, no empty tuples or placeholder ids —
+one semantic-coverage repair (35.1 s, healthy), accepted rev-1 coverage 98. Weather
+probes healthy (2× `stop`, ~1.3k completion tokens, 6-7 s). deepseek-v4-pro slot_fill:
+6/7 usable; the seventh was an HTTP 408 at the 120 s ask ceiling — classified, and the
+cross-provider rung correctly runway-gated (98.3 s left; 0 attempt-3 rows all-time).
+**Ignore run 145's tail in any model read: critic 5/5 and fix_agent 6/6 (glm-5.2:nitro)
+failed `transport` at $0/0 ms because the SHARED KEY EXHAUSTED mid-run (380.148/380) —
+credit wall, not provider weather.** The key must be topped up before any further
+funded observation; BMV's own session spend was $0.245, fully attributed.

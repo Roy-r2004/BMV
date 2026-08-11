@@ -60,7 +60,17 @@ def test_sync_mock_images_rewrites_hallucinated_unsplash(tmp_path: Path) -> None
         "card3": "https://images.unsplash.com/photo-1482160549825-59d1b23cb208?w=700&q=80&fit=crop&auto=format",
         "ambient": "https://images.unsplash.com/photo-1549490349-8643362247b5?w=900&q=80&fit=crop&auto=format",
     }
-    actions = sync_mock_images(workspace, good)
+    # The dead-CTA rewrite aims at the route this app declared for booking, so
+    # the fixture has to declare one. This app's is `/book`, which makes it the
+    # control for the renamed-route case in
+    # `test_booking_route_resolution.py::test_sync_mock_images_rewrites_dead_ctas_to_the_declared_route`.
+    architect = {
+        "routes": [
+            {"path": "/", "surface": "public", "skeleton_id": "public-home"},
+            {"path": "/book", "surface": "public", "skeleton_id": "public-booking"},
+        ]
+    }
+    actions = sync_mock_images(workspace, good, architect=architect)
     assert "images" in actions
     text = (workspace / "src/data/mock.ts").read_text(encoding="utf-8")
     assert "photo-1579738541097" not in text

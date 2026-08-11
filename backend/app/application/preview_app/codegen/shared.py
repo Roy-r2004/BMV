@@ -234,9 +234,15 @@ def _catalogue_retry_context(
     )
 
 def _brand_name_from_manifest(manifest: dict) -> str:
-    brand = manifest.get("brand")
-    if isinstance(brand, dict) and brand.get("name"):
-        return str(brand["name"])
-    if manifest.get("brand_name"):
-        return str(manifest["brand_name"])
-    return "Brand"
+    """The brand a page is written for, or the placeholder every guard knows.
+
+    Reads the manifest through `resolve_preview_brand_name` rather than by hand,
+    so the "this is not a name" list is one list. Reading it by hand is how
+    request 156's `ServiceBookingPage.tsx` came out addressed to "Business":
+    `design_manifest` had put that word in `manifest["brand_name"]` and this
+    returned it, while the placeholder filter one module over rejected only
+    `Brand`.
+    """
+    from app.application.preview_app.brand_brief import resolve_preview_brand_name
+
+    return resolve_preview_brand_name(manifest=manifest) or "Brand"

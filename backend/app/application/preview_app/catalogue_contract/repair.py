@@ -13,7 +13,8 @@ from app.application.preview_app.catalogue_contract.item_source import (
 from app.application.preview_app.catalogue_contract.scaffold import (
     _SLOT_COMPONENT,
     _is_directory_listing_route,
-    _is_schedule_listing_route,
+    catalog_base_from_path,
+    schedule_face_required,
     _paint_first_detail_slots,
     _safe_slot_jsx,
     has_listing_face_component,
@@ -228,11 +229,116 @@ def repair_skeleton_composer_invocation(
     return repaired, True
 
 
+_CONSTANT_BINDING_FIXABLE = frozenset(
+    {
+        "detail inquire CTA (#inquire)",
+        "catalogue item photo pool (images.item*)",
+        "catalogue lifestyle imageSrc (card/hero)",
+    }
+)
+
+#: Codes the SAME near-miss href fires alongside the primary defect — a CTA
+#: broken to `#contact` also trips the dead-hash check, and the detail face's
+#: InquiryPanel allowance is keyed on the inquire anchor. They ride the gate
+#: (never trigger it alone); the re-validate-clean requirement below is what
+#: keeps a genuinely broken import on the strict path.
+_CONSTANT_BINDING_DERIVED = frozenset(
+    {
+        "dead hash CTA (#details/#contact)",
+        "forbidden @/ui component:InquiryPanel",
+    }
+)
+
+_INQUIRE_NEAR_MISS_HREF_RE = re.compile(
+    r"""href:\s*(['"])(?:/contact#inquire|#contact|#details|/contact(?:-us)?)\1"""
+)
+
+_IMAGE_POOL_REGION_RE = re.compile(
+    r"(?:imageSrc:\s*\[[^\]]*\]|PAINTING_IMAGES\s*=\s*\[[^\]]*\])",
+    re.DOTALL,
+)
+
+#: card/hero → item rebinding for lifestyle photo pools. card* maps onto the
+#: front of the item pool, hero* onto the middle — deterministic, bounded by
+#: the item1…item8 members mock.ts declares for exactly this purpose.
+_LIFESTYLE_TO_ITEM = {
+    "card": "item1",
+    "card2": "item2",
+    "card3": "item3",
+    "hero": "item4",
+    "hero2": "item5",
+    "hero3": "item6",
+}
+
+
+def _rebind_lifestyle_image_pools(content: str) -> str:
+    """Rewrite `images.card/hero` to the item pool INSIDE image-array regions only.
+
+    A hero section legitimately reading `images.hero` elsewhere on the page must
+    keep it — the defect is lifestyle photography in the per-item pool
+    (request 62 shipped people-in-museums on every gallery card), so only
+    `imageSrc: […]` arrays and `PAINTING_IMAGES = […]` declarations rebind.
+    """
+
+    def _rebind_region(match: re.Match[str]) -> str:
+        return re.sub(
+            r"images\.(card|hero)(\d*)\b",
+            lambda m: "images."
+            + _LIFESTYLE_TO_ITEM.get(m.group(1) + m.group(2), "item1"),
+            match.group(0),
+        )
+
+    return _IMAGE_POOL_REGION_RE.sub(_rebind_region, content)
+
+
+def repair_constant_binding_defects(content: str, route: dict) -> tuple[str, bool]:
+    """Coerce compile-time-constant contract defects instead of rebuilding.
+
+    R3 (owner-ruled, session 24): `detail inquire CTA (#inquire)` ALONE
+    discarded two whole authored pages to the generic scaffold (session 18's
+    ArtworkDetailPage and RoomDetailPage, both at attempt 2/2, two retry asks
+    burned) and the image-pool pair discarded a HomePage with no retry — for
+    fields whose correct values are known constants. The aced8e7 split applied
+    here: coerce the constant, keep faces/skeleton/imports/slots exactly as
+    strict as before. Applies ONLY when every blocking error is in the fixable
+    set, rewrites only recognizable near-miss shapes, and re-validates — a page
+    it cannot prove clean takes the existing path unchanged.
+    """
+
+    errors = blocking_contract_errors(validate_catalogue_page_content(content, route))
+    fixable = _CONSTANT_BINDING_FIXABLE | _CONSTANT_BINDING_DERIVED
+    if not errors or any(error not in fixable for error in errors):
+        return content, False
+    # No explicit primary-defect clause: each codemod branch below keys on its
+    # own primary code, so derived codes alone leave the page byte-identical
+    # and the `repaired == content` check refuses the heal (pinned by test).
+    repaired = content
+    if "detail inquire CTA (#inquire)" in errors:
+        repaired = _INQUIRE_NEAR_MISS_HREF_RE.sub(
+            "href: '#inquire'", repaired, count=1
+        )
+    if {
+        "catalogue item photo pool (images.item*)",
+        "catalogue lifestyle imageSrc (card/hero)",
+    } & set(errors):
+        repaired = _rebind_lifestyle_image_pools(repaired)
+    if repaired == content:
+        return content, False
+    if blocking_contract_errors(validate_catalogue_page_content(repaired, route)):
+        return content, False
+    logger.info(
+        "Catalogue page healed by constant-binding repair route=%s",
+        route.get("path"),
+    )
+    return repaired, True
+
+
 def repair_missing_catalogue_slots(
     content: str,
     route: dict,
     *,
     brand_name: str | None = None,
+    architect: dict | None = None,
 ) -> tuple[str, bool]:
     """Inject deterministic JSX for missing required slots into an AI page.
 
@@ -256,14 +362,30 @@ def repair_missing_catalogue_slots(
     brand = brand_name or "Brand"
     title = str(route.get("title") or "Overview")
     skeleton_id = str(route.get("skeleton_id") or "")
+    # The same base `minimal_catalogue_page_scaffold` derives. Left unpassed, an
+    # injected catalogue slot fell back to the `/gallery` default, so a page the
+    # repair loop touched came out with card links the generator would never have
+    # written — and only on the repair path, which is the hardest place to see it.
+    detail_base = catalog_base_from_path(str(route.get("path") or ""), architect)
     ordered_missing = [
         slot for slot in assigned_non_shell_slots(route) if slot in missing
     ]
     if set(ordered_missing) != missing:
         return content, False
+
+    def _slot_jsx(slot: str) -> str:
+        return _safe_slot_jsx(
+            slot,
+            brand,
+            title,
+            skeleton_id=skeleton_id,
+            detail_base=detail_base,
+            architect=architect,
+        )
+
     try:
         injected = "".join(
-            f"\n    {slot}: (\n      {_safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)}\n    ),"
+            f"\n    {slot}: (\n      {_slot_jsx(slot)}\n    ),"
             for slot in ordered_missing
         )
     except ValueError:
@@ -294,10 +416,7 @@ def repair_missing_catalogue_slots(
     if needed:
         repaired = _ensure_ui_import_names(repaired, needed)
 
-    injected_jsx = "".join(
-        _safe_slot_jsx(slot, brand, title, skeleton_id=skeleton_id)
-        for slot in ordered_missing
-    )
+    injected_jsx = "".join(_slot_jsx(slot) for slot in ordered_missing)
     # Every identifier an injected slot reads out of the mock must be imported,
     # not just `images`.
     repaired = _ensure_mock_import_names(
@@ -418,6 +537,7 @@ def enforce_catalogue_page_contract(
                         content={},
                         brand_name=brand_name or "Brand",
                         workspace_type=wtype,
+                        architect=architect,
                     ),
                     True,
                 )
@@ -440,7 +560,7 @@ def enforce_catalogue_page_contract(
         re.search(r"/:\w+", route_path) or re.search(r"/\{[^}]+\}", route_path)
     )
     if (
-        _is_schedule_listing_route(file_path, route)
+        schedule_face_required(file_path, route)
         and "ScheduleRail" not in (content or "")
         and not has_route_param
     ):
@@ -504,12 +624,12 @@ def enforce_catalogue_page_contract(
         or _DIRECTORY_FACE_MARKER not in (content or "")
         or lifestyle_catalogue
     ):
-        # Schedule listings (keyword, no intent) still use ScheduleRail — skip those.
-        if (
-            str(route.get("page_intent") or "").strip().lower() != "listing"
-            and _is_schedule_listing_route(file_path, route)
-            and not lifestyle_catalogue
-        ):
+        # Schedule listings still use ScheduleRail — skip those, or the rewrite
+        # below replaces a legitimate rail with a CatalogGrid. This site used to
+        # inline `page_intent != "listing"`, a third variant of the rule the gate
+        # and the generator each spelled differently; it now asks the one
+        # function, so the repair restores exactly the face the generator builds.
+        if schedule_face_required(file_path, route) and not lifestyle_catalogue:
             pass
         else:
             return (
@@ -527,7 +647,7 @@ def enforce_catalogue_page_contract(
         ):
             return (
                 minimal_catalogue_page_scaffold(
-                    file_path, route, brand_name=brand_name
+                    file_path, route, brand_name=brand_name, architect=architect
                 ),
                 True,
             )
@@ -556,10 +676,16 @@ def enforce_catalogue_page_contract(
         content = lock_recipe_section_order(repaired, route)
         if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
             return content, False
+    repaired, healed = repair_constant_binding_defects(content, route)
+    if healed:
+        content = lock_recipe_section_order(repaired, route)
+        if not blocking_contract_errors(validate_catalogue_page_content(content, route)):
+            return content, False
     repaired, healed = repair_missing_catalogue_slots(
         content,
         route,
         brand_name=brand_name,
+        architect=architect,
     )
     if healed:
         return lock_recipe_section_order(repaired, route), False
@@ -568,6 +694,7 @@ def enforce_catalogue_page_contract(
             file_path,
             route,
             brand_name=brand_name,
+            architect=architect,
         ),
         True,
     )

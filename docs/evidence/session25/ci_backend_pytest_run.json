@@ -1,0 +1,31 @@
+{
+  "question": "DoD 9 CI half: does the backend pytest suite run green in GitHub Actions using the documented docker invocation?",
+  "answer": "green",
+  "run": {
+    "id": 31217828938,
+    "url": "https://github.com/Roy-r2004/BMV/actions/runs/31217828938",
+    "workflow": ".github/workflows/backend-pytest.yml",
+    "branch": "ci/pytest-job",
+    "head_sha": "5eee8a6f676ecef82f70ca33e576e29bdbf12d63",
+    "conclusion": "success",
+    "run_started_at": "2026-08-07T20:54:00Z",
+    "job_completed_at": "2026-08-07T20:56:56Z",
+    "job_duration_seconds": 174
+  },
+  "pytest_summary_line": "2058 passed, 1 skipped, 1 warning in 94.07s (0:01:34)",
+  "counts": { "passed": 2058, "skipped": 1, "failed": 0, "warnings": 1 },
+  "matches_local_baseline": true,
+  "step_durations_seconds": {
+    "checkout": 2,
+    "build_api_image_cold_no_cache": 61,
+    "npm_ci_template_in_image": 5,
+    "run_pytest_incl_pip_install": 103
+  },
+  "notes": [
+    "Image built cold from Dockerfile.api (no CACHED layers in the build log); 61 s on a hosted runner made layer caching unnecessary.",
+    "npm ci for backend/preview-template ran inside the image (its own Node 22.14) so the catalogue typecheck test runs instead of skipping on the fresh checkout; CI skip count (1) matches the local baseline exactly.",
+    "The pytest step is the documented invocation from docs/KNOWN_TEST_FAILURES.md verbatim, image tag aside: pip install -q pytest (image ships no pytest) and -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template (overrides the image's baked path).",
+    "Only backend-pytest triggered on the branch push; preview-template-tests restricts push to main.",
+    "Verified via the GitHub REST API (gh CLI is not installed on this machine); raw job log archived as ci_backend_pytest_run.txt."
+  ]
+}

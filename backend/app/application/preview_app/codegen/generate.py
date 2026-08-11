@@ -317,6 +317,7 @@ def _generate_utility_composed_file(
     manifest: dict,
     ai_provider: AIProvider,
     template_renderer: TemplateRenderer,
+    architect: dict | None = None,
 ) -> str:
     """Content-JSON → deterministic TSX for public-utility pages."""
     brand_name = _brand_name_from_manifest(manifest)
@@ -357,7 +358,8 @@ def _generate_utility_composed_file(
 
     if not content_payload:
         content_payload = default_utility_content(
-            workspace_type, brand_name=brand_name, title=title, path=path
+            workspace_type, brand_name=brand_name, title=title, path=path,
+            architect=architect,
         )
     else:
         content_payload = normalize_utility_content(
@@ -366,6 +368,7 @@ def _generate_utility_composed_file(
             brand_name=brand_name,
             title=title,
             path=path,
+            architect=architect,
         )
 
     composed = compose_utility_page_tsx(
@@ -374,6 +377,7 @@ def _generate_utility_composed_file(
         content=content_payload,
         brand_name=brand_name,
         workspace_type=workspace_type,
+        architect=architect,
     )
 
     composed, replaced = enforce_catalogue_page_contract(
@@ -389,10 +393,12 @@ def _generate_utility_composed_file(
             file_path=file_path,
             route={**route, "path": path, "title": title, "skeleton_id": "public-utility"},
             content=default_utility_content(
-                workspace_type, brand_name=brand_name, title=title, path=path
+                workspace_type, brand_name=brand_name, title=title, path=path,
+                architect=architect,
             ),
             brand_name=brand_name,
             workspace_type=workspace_type,
+            architect=architect,
         )
 
     # AppSpec hooks are additive — never a reason to skip the compositor.
@@ -742,6 +748,7 @@ def generate_file(
             manifest=manifest,
             ai_provider=ai_provider,
             template_renderer=template_renderer,
+            architect=architect,
         )
 
     # Scaffold-first: catalogue pages compile from a deterministic template; AI

@@ -1,0 +1,51 @@
+name: backend-pytest
+
+# DoD 9. Same reasoning as preview-template-tests.yml: no test may leave pytest
+# until this job is green, so it runs without a `paths:` filter — a filtered job
+# reports "skipped", not "green", and cannot serve as a required check.
+#
+# Unlike the vitest job, `push` is unrestricted (not `branches: [main]`): the
+# backend suite must be provable green on a working branch before any PR
+# exists. A branch that later opens a PR gets a duplicate push+PR run; that
+# cost is accepted.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # CI has no local bmv-local-api image. Build it exactly the way docker
+      # compose does — context '.', dockerfile Dockerfile.api — under a
+      # CI-only tag. A plain build (no layer cache) is deliberate; the image
+      # bakes Node 22.14, Playwright chromium, and the template's npm ci.
+      - name: Build the API image
+        run: docker build -f Dockerfile.api -t bmv-api-ci .
+
+      # A fresh checkout has no backend/preview-template/node_modules (it is
+      # gitignored), and per docs/KNOWN_TEST_FAILURES.md the catalogue
+      # typecheck test SKIPS on an incomplete install — silently shrinking
+      # coverage. Install with the image's own Node so versions match
+      # production; the pytest run below then sees a complete template.
+      - name: Install the template's dependencies (so the catalogue typecheck runs, not skips)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo/backend/preview-template \
+            --entrypoint sh bmv-api-ci -c 'npm ci --no-audit --no-fund'
+
+      # The documented invocation from docs/KNOWN_TEST_FAILURES.md, verbatim
+      # except for the image tag. Both halves are load-bearing:
+      # - pytest is not in the image; it is installed per run;
+      # - PREVIEW_TEMPLATE_DIR must override the image's baked
+      #   /app/backend/preview-template, or the tests read the template baked
+      #   into the image while the checkout's edits sit unread under /repo.
+      # pytest's own exit code fails this step on any red test.
+      - name: Run pytest
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo/backend \
+            -e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template \
+            --entrypoint sh bmv-api-ci \
+            -c 'pip install -q pytest; python -m pytest tests/ -q'

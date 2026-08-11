@@ -18,6 +18,9 @@ from app.application.preview_app.catalogue_contract import (
     minimal_catalogue_page_scaffold,
     validate_catalogue_page_content,
 )
+from app.application.preview_app.catalogue_contract.validate import (
+    blocking_contract_errors,
+)
 from app.application.preview_app.protected_paths import (
     has_catalogue_routes,
     is_template_owned_path,
@@ -460,7 +463,16 @@ def write_safe_stub(
             brand_name=brand_name,
             architect=architect,
         )
-        errors = validate_catalogue_page_content(content, route or {})
+        # `blocking_contract_errors`, not the raw list — this function's own
+        # docstring promises it "can never fail to build", and request 163 is
+        # what that promise was worth: it died at 88 % on
+        # `invalid variant:MarketingHero.variant=item`, a **cosmetic** mismatch
+        # already named in `_TOLERATED_ERROR_PREFIXES`. The tolerated/blocking
+        # split exists precisely so a last-resort stub is not killed by one, and
+        # this call site was the one place that ignored it.
+        errors = blocking_contract_errors(
+            validate_catalogue_page_content(content, route or {})
+        )
         if errors:
             raise ValueError(
                 f"{path}: generated catalogue fallback violated contract: "

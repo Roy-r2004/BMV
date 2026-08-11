@@ -136,6 +136,59 @@ def _heal_schema_version(payload: dict[str, Any]) -> list[str]:
     return []
 
 
+_ID_COLLECTIONS = (
+    "requirements",
+    "capabilities",
+    "pages",
+    "states",
+    "actions",
+    "transitions",
+    "evidence",
+    "journeys",
+    "acceptance_tests",
+    "entities",
+    "assumptions",
+    "open_questions",
+    "deferred_scope",
+)
+
+
+def _heal_exact_duplicate_objects(payload: dict[str, Any]) -> list[str]:
+    """Drop the later of two byte-identical objects sharing one id.
+
+    The only mechanically safe slice of `duplicate_global_id`: when the two
+    objects are deep-equal, the second is a re-emission, not a conflict, and
+    dropping it deletes nothing. Two *different* objects under one id need a
+    merge only the model can judge — those stay with the repair, exactly as
+    the graph repair's `NON_REPAIRABLE_WITHOUT_INVENTION` ruling says.
+    """
+    applied: list[str] = []
+    for key in _ID_COLLECTIONS:
+        items = payload.get(key)
+        if not isinstance(items, list):
+            continue
+        seen: dict[str, Any] = {}
+        kept: list[Any] = []
+        changed = False
+        for item in items:
+            item_id = (
+                str(item.get("id") or "").casefold()
+                if isinstance(item, Mapping)
+                else ""
+            )
+            if item_id and item_id in seen:
+                if seen[item_id] == item:
+                    applied.append(f"drop_exact_duplicate:{key}:{item.get('id')}")
+                    changed = True
+                    continue
+            elif item_id:
+                seen[item_id] = item
+            kept.append(item)
+        if changed:
+            payload[key] = kept
+    return applied
+
+
 def _heal_tier1_primary_journey(payload: dict[str, Any]) -> list[str]:
     """Close the common gap between AppSpec validation and Tier 1 proof selection.
 
@@ -308,6 +361,198 @@ def _heal_tier1_primary_journey(payload: dict[str, Any]) -> list[str]:
     return applied
 
 
+def restore_dropped_trace_links(
+    parent_payload: Mapping[str, Any],
+    repaired_payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Re-attach traceability rows a whole-document repair silently dropped.
+
+    Request 130: a repair re-emitted the document, kept the requirement, and
+    dropped its traceability row — nothing had faulted that row, the model was
+    never asked to touch it, and the run died on `requirement_unaccounted_for`
+    three repairs later. Whole-document re-emission's one measured cost is this
+    attrition of unfaulted objects.
+
+    Restoration is strictly proven, per row, against the *repaired* document:
+
+    - the repaired document has NO trace row for that requirement (so this can
+      never fight a duplicate-link fix, which leaves one row), and
+    - the requirement still exists, and
+    - every id the row cites still resolves, and
+    - the row is consistent by the validator's own trace rules: each cited
+      capability claims the requirement, each cited page shares a capability
+      with the row, each cited evidence sits on a cited page with a cited
+      capability, each cited test names the requirement.
+
+    A row failing any check is left dropped — the repair may have meant it.
+    """
+    parent_traces = [
+        t for t in (parent_payload.get("traceability") or []) if isinstance(t, Mapping)
+    ]
+    if not parent_traces:
+        return dict(repaired_payload), []
+
+    repaired = copy.deepcopy(dict(repaired_payload))
+    traced = {
+        str(t.get("requirement_id") or "").casefold()
+        for t in (repaired.get("traceability") or [])
+        if isinstance(t, Mapping)
+    }
+
+    def _by_id(key: str) -> dict[str, Mapping[str, Any]]:
+        return {
+            str(item.get("id") or ""): item
+            for item in (repaired.get(key) or [])
+            if isinstance(item, Mapping) and item.get("id")
+        }
+
+    requirements = _by_id("requirements")
+    capabilities = _by_id("capabilities")
+    pages = _by_id("pages")
+    evidence = _by_id("evidence")
+    journeys = _by_id("journeys")
+    tests = _by_id("acceptance_tests")
+
+    applied: list[str] = []
+    for row in parent_traces:
+        req_id = str(row.get("requirement_id") or "")
+        if not req_id or req_id.casefold() in traced:
+            continue
+        if req_id not in requirements:
+            continue
+        cap_ids = [str(x) for x in (row.get("capability_ids") or [])]
+        page_ids = [str(x) for x in (row.get("page_ids") or [])]
+        ev_ids = [str(x) for x in (row.get("evidence_ids") or [])]
+        journey_ids = [str(x) for x in (row.get("journey_ids") or [])]
+        test_ids = [str(x) for x in (row.get("acceptance_test_ids") or [])]
+        if not all(c in capabilities for c in cap_ids):
+            continue
+        if not all(p in pages for p in page_ids):
+            continue
+        if not all(e in evidence for e in ev_ids):
+            continue
+        if not all(j in journeys for j in journey_ids):
+            continue
+        if not all(t in tests for t in test_ids):
+            continue
+        if not all(
+            req_id in [str(r) for r in (capabilities[c].get("requirement_ids") or [])]
+            for c in cap_ids
+        ):
+            continue
+        cap_set = set(cap_ids)
+        if not all(
+            cap_set
+            & {str(c) for c in (pages[p].get("capability_ids") or [])}
+            for p in page_ids
+        ):
+            continue
+        if not all(
+            str(evidence[e].get("page_id") or "") in page_ids
+            and cap_set & {str(c) for c in (evidence[e].get("capability_ids") or [])}
+            for e in ev_ids
+        ):
+            continue
+        if not all(
+            req_id in [str(r) for r in (tests[t].get("requirement_ids") or [])]
+            for t in test_ids
+        ):
+            continue
+        rows = [
+            t for t in (repaired.get("traceability") or []) if isinstance(t, Mapping)
+        ]
+        rows.append(copy.deepcopy(dict(row)))
+        repaired["traceability"] = rows
+        traced.add(req_id.casefold())
+        applied.append(f"restore_dropped_trace_link:{req_id}")
+    return repaired, applied
+
+
+def drop_unbindable_state_assertions(
+    payload: Mapping[str, Any],
+    validation_payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Last-resort salvage for unbindable assertions. Returns (payload, actions).
+
+    A `kind: "state"` assertion with `state_id: null` is the model saying "I want
+    to assert a state here and I did not declare one". Requests 154 and 155 both
+    died on it and 149 before them — *"the hire booking is confirmed"* against a
+    page whose only state is *"hire booking form displayed"*, *"the bike gallery
+    is in a filtered state"* against a page that declares only *"loaded"*. The
+    state is missing, not the field, so nothing can be bound.
+
+    `visible_assertion_evidence_required` is the same dead end one field over:
+    request 138's repair reproduced all four *"A visible assertion requires
+    evidence_id"* issues byte-identically, because the claimed surface had no
+    evidence object to bind and the prompt taught no legal move. Both codes
+    anchor `("acceptance_tests", i, "assertions", j, <field>)`, and the salvage
+    for both is the one always-safe action: remove the claim the spec cannot
+    prove.
+
+    **This is deliberately not a heal.** It must never run before the model's
+    repair pass: declaring the missing state is the right fix and only the model
+    can write it coherently (the state needs a page listing, a non-initial flag,
+    an outgoing transition and reachability from an initial state — mint any of
+    those wrong and one blocking code becomes three). The repair prompt now says
+    so explicitly. This runs only at the point the pipeline would otherwise throw
+    the whole paid run away, and it does the one thing that is always safe:
+    removes the claim the spec cannot express. `assertions` has `min_length=1`,
+    so a test's last assertion is never dropped — such a spec is genuinely
+    unrepairable and still fails closed.
+    """
+    salvageable = {
+        "state_assertion_state_required": "drop_unbindable_state_assertion",
+        "visible_assertion_evidence_required": "drop_unprovable_visible_assertion",
+    }
+    targets: dict[tuple[int, int], str] = {}
+    for issue in validation_payload.get("issues") or []:
+        if not isinstance(issue, Mapping):
+            continue
+        label = salvageable.get(str(issue.get("code") or ""))
+        if label is None:
+            continue
+        parts = _path_parts(issue.get("path"))
+        # ("acceptance_tests", i, "assertions", j, "state_id"|"evidence_id")
+        if len(parts) < 4 or str(parts[0]) != "acceptance_tests":
+            continue
+        if str(parts[2]) != "assertions":
+            continue
+        try:
+            targets.setdefault((int(parts[1]), int(parts[3])), label)
+        except (TypeError, ValueError):
+            continue
+    if not targets:
+        return dict(payload), []
+
+    healed = copy.deepcopy(dict(payload))
+    tests = healed.get("acceptance_tests")
+    if not isinstance(tests, list):
+        return dict(payload), []
+    applied: list[str] = []
+    # Descending, so an earlier drop cannot shift a later index.
+    for test_index, assertion_index in sorted(targets, reverse=True):
+        if test_index < 0 or test_index >= len(tests):
+            continue
+        test = tests[test_index]
+        if not isinstance(test, dict):
+            continue
+        assertions = test.get("assertions")
+        if not isinstance(assertions, list) or len(assertions) <= 1:
+            continue
+        if assertion_index < 0 or assertion_index >= len(assertions):
+            continue
+        dropped = assertions.pop(assertion_index)
+        description = ""
+        if isinstance(dropped, Mapping):
+            description = str(dropped.get("description") or "")
+        applied.append(
+            f"{targets[(test_index, assertion_index)]}:{test.get('id')}:{description[:60]}"
+        )
+    if not applied:
+        return dict(payload), []
+    return healed, applied
+
+
 def heal_app_spec_payload(
     payload: Mapping[str, Any],
     validation_payload: Mapping[str, Any],
@@ -347,6 +592,9 @@ def heal_app_spec_payload(
             applied.extend(_heal_schema_version(healed))
         elif code == "tier1_primary_journey_incomplete":
             applied.extend(_heal_tier1_primary_journey(healed))
+
+    if issue_codes & {"duplicate_global_id", "duplicate_id"}:
+        applied.extend(_heal_exact_duplicate_objects(healed))
 
     if "missing_reference" in issue_codes:
         healed, integrity = reconcile_reference_integrity(healed)
@@ -388,4 +636,8 @@ def heal_app_spec_payload(
     return healed, applied
 
 
-__all__ = ["heal_app_spec_payload"]
+__all__ = [
+    "drop_unbindable_state_assertions",
+    "heal_app_spec_payload",
+    "restore_dropped_trace_links",
+]

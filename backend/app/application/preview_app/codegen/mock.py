@@ -144,9 +144,19 @@ def _typescript_candidate_defines(
         return False
     return result.returncode == 0 and result.stdout == "ok"
 
+#: `export { x } from './y'` — an import wearing an export's clothes, and the
+#: only re-export form left once bare `import` is rejected below. Matched on the
+#: source rather than the token stream because a *data key* called `from` is
+#: ordinary in a seed (`{ from: '2026-01-01', to: '2026-01-31' }`) and a token
+#: rule could not tell the two apart.
+_REEXPORT_RE = re.compile(r"^\s*export\b[^\n;]*\bfrom\s+['\"]", re.MULTILINE)
+
+
 def _valid_synthesized_mock_source(content: str, needed: list[str]) -> bool:
     """Fail closed unless a safe candidate parses and defines every needed export."""
     if not content.strip() or looks_truncated_source(content):
+        return False
+    if _REEXPORT_RE.search(content):
         return False
     tokens = _source_tokens(content)
     if not tokens:
@@ -154,20 +164,21 @@ def _valid_synthesized_mock_source(content: str, needed: list[str]) -> bool:
     for index, token in enumerate(tokens):
         if token == "require":
             return False
-        if token == "import" and index + 1 < len(tokens):
-            if tokens[index + 1] == "(":
-                return False
-            if (
-                index + 2 < len(tokens)
-                and re.match(r"^[A-Za-z_$][\w$]*$", tokens[index + 1])
-                and tokens[index + 2] == "="
-            ):
-                return False
-            if (
-                tokens[index + 1].startswith("\0http://")
-                or tokens[index + 1].startswith("\0https://")
-            ):
-                return False
+        # ANY import, not three exotic shapes of one. The prompt's first rule is
+        # "Plain data module — NO imports", and this checked for dynamic
+        # `import(`, aliased `import x =`, and URL specifiers while waving
+        # through the ordinary one. Request 163's seed opened with
+        # `import { Role } from './types';`, a file the workspace does not have:
+        # it passed here, then **`vite` failed with `Could not resolve
+        # './types'`**, the repairs failed with it, and the nuclear stabilizer
+        # replaced the model's whole catalogue with the plumbing mock. All three
+        # runs of the 162-164 trio shipped generic content for this one reason.
+        #
+        # Rejecting it here is the cheap end: the caller falls to the next model
+        # in the chain, which is what the failover is for. Accepting it costs a
+        # build, a repair ladder, and the catalogue.
+        if token == "import":
+            return False
         if (
             token == "from"
             and index + 1 < len(tokens)
@@ -175,6 +186,118 @@ def _valid_synthesized_mock_source(content: str, needed: list[str]) -> bool:
         ):
             return False
     return _typescript_candidate_defines(content, needed)
+
+#: Wall clock a failover link needs before it is worth starting. The one seed
+#: ask that succeeded across requests 146-161 took **63.9 s**, so a link handed
+#: less than this cannot finish the work even if the model is healthy — starting
+#: it would spend the run's remaining time to arrive at the same plumbing mock,
+#: later. Deliberately measured rather than round.
+_SEED_FAILOVER_FLOOR_SECONDS = 70.0
+
+
+def _seed_model_chain() -> list[str]:
+    """Which models the seed may ask, primary first, each id only once.
+
+    `SEED_MODEL` leads because this ask is long-output work and the models
+    differ by a factor of three in what they will actually finish — see the
+    measurement in `config.py`. The page writer's model follows it rather than
+    leading it, which is the whole content of the owner's 2026-08-09 ruling.
+
+    Deduped for the reason `call_architect` documents: when two settings resolve
+    to the same id, "fail over" means asking the identical model twice and
+    paying twice for the same answer.
+    """
+    return list(
+        dict.fromkeys(
+            m
+            for m in (
+                settings.SEED_MODEL,
+                settings.PREVIEW_APP_MODEL,
+                settings.ARCHITECT_MODEL,
+            )
+            if m
+        )
+    )
+
+
+def _synthesize_mock_source(
+    ai_provider: AIProvider, prompt: str, needed: list[str]
+) -> str | None:
+    """Ask each model in turn for a `mock.ts`; `None` when none of them delivers.
+
+    **The seed was the one content-critical stage with no failover, and it was
+    failing 87 % of the time.** Measured over the 57 stored `seed` asks: under
+    `google/gemini-2.5-flash` (requests 72-98) it returned usable output on 19 of
+    23 asks at a 27.0 s mean; under `deepseek/deepseek-v4-pro` (101 onward) it
+    returned usable output on **4 of 31**, mean 66.1 s. In the two most recent
+    trios it is **1 of 11** — the other ten are `provider_timeout` with
+    `output_chars = 0`, six of them riding the 120 s ask cap to the millisecond.
+
+    Nothing broke visibly, because the failure is silent by design: the caller
+    keeps the plumbing mock. That is why a hardware store shipped *"Member
+    aftercare"*, *"Follow-up visit"*, *"the owner hub's no-show risk view"* and
+    `client_names: [… "Client 7", "Client 8"]` — the Brand-default seed with the
+    business name pasted through it. Every catalogue defect filed against the
+    writers since request 101 has been read off runs where **the writer never
+    answered at all**.
+
+    Each link is its own logical ask, numbered, for the reason the architect
+    chain states: collapsing them into one row is how a model that reliably
+    fails keeps looking free. A link is only started when `ask_budget_seconds()`
+    leaves room to finish it, so the chain cannot spend a deadline it has
+    already lost — past the deadline the budget is 0.0 and the loop stops
+    without making a call.
+
+    Model *order* is deliberately left to settings and is not decided here. On
+    the measured numbers the primary is the weakest link in the chain, which is
+    a configuration question for the owner, not something to bury in a retry.
+    """
+    from app.application.services.request_deadline import (
+        ask_budget_seconds,
+        record_degradation,
+    )
+
+    chain = _seed_model_chain()
+    provider_failed = False
+    for attempt, model in enumerate(chain, start=1):
+        if attempt > 1 and ask_budget_seconds() < _SEED_FAILOVER_FLOOR_SECONDS:
+            cg_log.warning(
+                "    mock synthesis: no time for %s — keeping the plumbing mock", model
+            )
+            record_degradation("codegen", "mock_synthesis_failover_out_of_time")
+            return None
+        try:
+            with ai_call("seed", writer="mock_synthesize", attempt=attempt) as call:
+                raw = ai_provider.ask_chat(
+                    model, [{"role": "user", "content": prompt}], max_tokens=14000
+                )
+                content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
+                if _valid_synthesized_mock_source(content, needed):
+                    call.mark_usable()
+                    return content
+                call.unusable(UNUSABLE_REJECTED)
+        except Exception as exc:
+            provider_failed = True
+            cg_log.warning(
+                "    mock synthesis failed on %s (%s: %s)",
+                model,
+                type(exc).__name__,
+                exc,
+            )
+
+    # An unusable *answer* is not an outage. Every model was reached, every ask
+    # was adjudicated, and the rejection is already on those rows; recording a
+    # degradation as well would make "the provider never answered" and "the
+    # provider answered badly" indistinguishable in the one field that exists to
+    # tell them apart. Only a link that raised earns the marker.
+    if provider_failed:
+        record_degradation("codegen", "mock_synthesis_failed_plumbing_mock_kept")
+    cg_log.warning(
+        "    mock synthesis produced nothing on %d model(s) — keeping the plumbing mock",
+        len(chain),
+    )
+    return None
+
 
 def synthesize_mock_data(
     workspace: Path,
@@ -226,23 +349,8 @@ def synthesize_mock_data(
     # either way and the catch belongs outside the `with`, not inside it. The
     # function's own contract already says False means "mock.ts was not
     # rewritten" — this is that answer, with a record beside it.
-    try:
-        with ai_call("seed", writer="mock_synthesize", attempt=1) as call:
-            raw = ai_provider.ask_chat(settings.PREVIEW_APP_MODEL, [{"role": "user", "content": prompt}], max_tokens=14000)
-            content, _ = fix_unescaped_apostrophes(_strip_fences(raw))
-            valid = _valid_synthesized_mock_source(content, needed)
-            call.adjudicate(valid, reason=UNUSABLE_REJECTED)
-            if not valid:
-                return False
-    except Exception as exc:
-        from app.application.services.request_deadline import record_degradation
-
-        record_degradation("codegen", "mock_synthesis_failed_plumbing_mock_kept")
-        cg_log.warning(
-            "    mock synthesis failed (%s: %s) — keeping the plumbing mock",
-            type(exc).__name__,
-            exc,
-        )
+    content = _synthesize_mock_source(ai_provider, prompt, needed)
+    if content is None:
         return False
     # The model is handed the whole slot map and tends to restate part of it
     # alongside its own named keys. Request 66 emitted `item4`…`item8` twice and

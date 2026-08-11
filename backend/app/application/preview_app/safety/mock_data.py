@@ -597,6 +597,48 @@ def _ts_cta(cta: dict) -> str:
     return f"{{ label: '{_ts_label(cta)}', href: '{_ts_label(cta, key='href')}' }}"
 
 
+def _seed_items_block(mock: str, brand: str) -> str:
+    """`seed.items`, borrowed from the catalogue this app already has.
+
+    **This guard used to manufacture the content its own gate rejects.** When
+    `seed.items` was missing it wrote three literals — `'{brand} signature'`,
+    `'Everyday essential'`, `'Guest favorite'` — and the last two are exactly
+    the strings `placeholder_content_shipped` fails a run for. Request 162 is
+    the proof: the seed model answered (3,311 tokens, a real bakery catalogue
+    in `products`), the writer said nothing generic, and the run was **withheld
+    at 574 s for two titles the pipeline wrote itself, after the model, into a
+    key the model had not used.**
+
+    The app's real catalogue is in the same file, so this reads it. Only when
+    there is nothing to borrow does it fall back, and then to the brand's own
+    name rather than to a string the gate is going to reject — a stub that
+    fails the gate is not a stub, it is a delayed failure.
+    """
+    from app.application.preview_app.catalogue_contract.photo_binding import (
+        catalogue_item_titles,
+    )
+
+    def _escape(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("'", "\\'")
+
+    borrowed = [t for t in catalogue_item_titles(mock) if t][:3]
+    if borrowed:
+        rows = "".join(
+            f"    {{ title: '{_escape(title)}', description: 'From the "
+            f"{brand} range.' }},\n"
+            for title in borrowed
+        )
+        return "items: [\n" + rows + "  ]"
+
+    return (
+        "items: [\n"
+        f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
+        f"    {{ title: '{brand} selection', description: 'Chosen by the {brand} counter.' }},\n"
+        f"    {{ title: '{brand} regular', description: 'The one people come back to {brand} for.' }},\n"
+        "  ]"
+    )
+
+
 def ensure_seed_scaffold_fields(
     mock: str, brand_name: str = "Brand", architect: dict | None = None
 ) -> str:
@@ -635,13 +677,7 @@ def ensure_seed_scaffold_fields(
             f"    secondaryCta: {_ts_cta(secondary_cta)},\n"
             "  }"
         ),
-        "items": (
-            "items: [\n"
-            f"    {{ title: '{brand} signature', description: 'A dependable starting point at {brand}.' }},\n"
-            "    { title: 'Everyday essential', description: 'Built for daily use.' },\n"
-            f"    {{ title: 'Guest favorite', description: 'The one people come back to {brand} for.' }},\n"
-            "  ]"
-        ),
+        "items": _seed_items_block(mock, brand),
         "features": (
             "features: [\n"
             f"    {{ title: 'What {brand} is known for', description: 'Concrete offerings guests can book without guessing.' }},\n"
@@ -818,6 +854,74 @@ _BRAND_POISON_SIMPLE = 'brandName={"Brand"}'
 _BRAND_POISON_SIMPLE_ALT = "brandName={'Brand'}"
 
 
+def scrub_placeholder_brand(source: str, brand: str) -> tuple[str, int]:
+    """Put the real brand back into copy the scaffold wrote for a placeholder.
+
+    Returns `(source, replacements)`.
+
+    The old scrub matched one shape of one word — `brandName={"Brand"}` — and
+    request 156 shipped three sentences addressed to "Business": *"Ready for
+    Business?"*, *"Tell Business what you need — clear options, real next
+    steps."*, *"Business — clear choices and real bookings."* Those are the
+    scaffold's brand-bound fallbacks doing exactly what they were written to do,
+    with a placeholder handed to them, and they reached the customer only because
+    `slot_fill` took an HTTP 408 on that page and never replaced them.
+
+    Bounded on purpose. It rewrites the placeholder **only where the scaffold
+    itself puts the brand** — the `brandName` attribute, and inside a quoted
+    string that also carries one of the fallback phrases. A bare `\\bBusiness\\b`
+    sweep over a page would rewrite "business hours" and "small business owners",
+    which is a worse defect than the one being fixed.
+    """
+    from app.application.preview_app.brand_brief import PREVIEW_BRAND_PLACEHOLDERS
+
+    real = (brand or "").strip()
+    if not real or real.casefold() in PREVIEW_BRAND_PLACEHOLDERS:
+        return source, 0
+    words = "|".join(
+        re.escape(word)
+        for word in sorted(PREVIEW_BRAND_PLACEHOLDERS, key=len, reverse=True)
+    )
+    replaced = 0
+
+    def _swap(match: re.Match[str]) -> str:
+        nonlocal replaced
+        replaced += 1
+        return match.group(0).replace(match.group("name"), real)
+
+    # 1) The brand attribute, in every quoting the scaffold and the writers emit.
+    attr = re.compile(
+        rf"""brandName\s*=\s*\{{?\s*(?P<q>["'])(?P<name>{words})(?P=q)\s*\}}?""",
+        re.IGNORECASE,
+    )
+    source = attr.sub(_swap, source)
+
+    # 2) A quoted string that is one of the scaffold's brand-bound fallbacks.
+    #    The phrase is what makes it safe: prose about businesses does not say
+    #    "Ready for X?" with the placeholder standing where a name goes.
+    phrases = (
+        rf"Ready for (?P<name>{words})\?",
+        rf"Tell (?P<name>{words}) what you need",
+        rf"(?P<name>{words}) — clear choices and real bookings",
+        rf"(?P<name>{words}) — original works, shown plainly",
+        rf"What (?P<name>{words}) offers",
+        rf"From (?P<name>{words})",
+        rf"(?P<name>{words}) picks",
+        rf"How (?P<name>{words}) works",
+        rf"Guests of (?P<name>{words})",
+        rf"Why (?P<name>{words})",
+        rf"(?P<name>{words}) in focus",
+        rf"what makes (?P<name>{words}) distinct",
+        rf"(?P<name>{words}) results",
+        rf"(?P<name>{words}) highlight",
+        rf"Ask (?P<name>{words}) a question",
+        rf"Work with (?P<name>{words})",
+    )
+    for phrase in phrases:
+        source = re.compile(phrase, re.IGNORECASE).sub(_swap, source)
+    return source, replaced
+
+
 def dedupe_object_literal_keys(source: str, export_name: str) -> str:
     """Drop earlier duplicates of a key in a top-level ``export const X = {…};``.
 
@@ -862,12 +966,24 @@ def dedupe_object_literal_keys(source: str, export_name: str) -> str:
     return source[: match.start(2)] + rebuilt + source[match.end(2) :]
 
 
-def sync_mock_images(workspace, images: dict | None, brand_name: str | None = None) -> list[str]:
+def sync_mock_images(
+    workspace,
+    images: dict | None,
+    brand_name: str | None = None,
+    architect: dict | None = None,
+) -> list[str]:
     """Force ``export const images`` to the pipeline slot map (stops AI photo-ID 404s).
 
     Also rewrites stray Unsplash URLs elsewhere in mock.ts / pages that are not in the
     curated/pipeline set — polish often invents ``photo-…`` IDs that 404.
+
+    ``architect`` is read for one thing: the booking route the dead-CTA rewrite
+    below aims at. This guard is the last thing to touch a page before the build,
+    so a literal target here would re-manufacture the dead `/book` link on every
+    app whose booking page is named something else, undoing the resolution the
+    scaffold just did.
     """
+    from app.application.preview_app.catalogue_contract.scaffold import booking_route
     from app.application.services.industry_images import (
         curated_library_urls,
         curated_photo_ids,
@@ -950,11 +1066,17 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         )
         mock = rebound
 
-    # Dead booking CTAs — map to canonical /book (App.tsx also aliases these paths).
+    # Dead booking CTAs — map to the route this app declared for booking. A
+    # rewrite to the literal `/book` swapped one dead link for another on
+    # request 148 (`/service/book`) and 150 (`/hire/reserve`); with no booking
+    # route declared there is nothing to aim at, so the dead href is left for the
+    # journey repair rather than being pointed somewhere equally unreachable.
+    book_target = booking_route(architect)
     rewritten = mock
-    for dead in _DEAD_BOOK_HREFS:
-        if dead in rewritten:
-            rewritten = rewritten.replace(dead, "/book")
+    if book_target:
+        for dead in _DEAD_BOOK_HREFS:
+            if dead in rewritten:
+                rewritten = rewritten.replace(dead, book_target)
     if rewritten != mock:
         actions.append("book-href")
         mock = rewritten
@@ -986,9 +1108,10 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         original = text
         pidx = [0]
         text = _UNSPLASH_URL_RE.sub(lambda m: _replace_url(m, index=pidx), text)
-        for dead in _DEAD_BOOK_HREFS:
-            if dead in text:
-                text = text.replace(dead, "/book")
+        if book_target:
+            for dead in _DEAD_BOOK_HREFS:
+                if dead in text:
+                    text = text.replace(dead, book_target)
         if _BRAND_POISON_SIMPLE in text:
             text = text.replace(_BRAND_POISON_SIMPLE, f"brandName={{{brand_js}}}")
         if _BRAND_POISON_SIMPLE_ALT in text:
@@ -996,6 +1119,13 @@ def sync_mock_images(workspace, images: dict | None, brand_name: str | None = No
         # Also catch JSX string form brandName="Brand"
         text = re.sub(r'brandName="Brand"', f"brandName={{{brand_js}}}", text)
         text = re.sub(r"brandName='Brand'", f"brandName={{{brand_js}}}", text)
+        # …and every other placeholder, including the ones that reached the copy
+        # rather than the attribute.
+        text, swapped = scrub_placeholder_brand(text, brand)
+        if swapped:
+            guard_log.info(
+                "placeholder brand replaced in %s (%s occurrence(s))", rel, swapped
+            )
         if text != original:
             write_file(workspace, rel, text)
             page_actions += 1

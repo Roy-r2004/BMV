@@ -1,6 +1,1224 @@
-# Session handoff — four R-rows land, and the ladder's first live test SHIPS the dispatch desk (2026-08-07, session 22)
+# Session handoff — Stage A landed on its branch, all gates green; the trio is still waiting on the top-up (2026-08-09, session 30)
 
-Successor to session 21's handoff (below in this file). Process notes, not product docs.
+Newest block first. Process notes, not product docs. The H1 tracks the **latest** session; earlier
+titles survive as their own `##` blocks below (this line had been left naming session 23 while
+24, 25 and 24-parallel landed underneath it — if you add a block, move this line too).
+
+**If you are picking this up, read the session 30 block first.** Phase 3 Stage A (A1-A4) is
+complete on branch `phase3-stage-a` with every gate green — and NOT merged: the merge gate is
+the validation trio's readout, and the trio never launched because the shared OpenRouter key
+stayed overdrawn (−$0.063 at every probe, 19:02→20:04). **Next session: top up ≥ $5, run the
+trio per `docs/evidence/session29/TRIO_LAUNCH_RUNBOOK.md` on frozen main, file the readout,
+then merge the branch if the readout is clean for the fixed classes.**
+
+---
+
+## Session 30 (2026-08-09 — Stage A on `phase3-stage-a`: 5 commits, every gate green, $0; trio still blocked on money)
+
+Evidence: `docs/evidence/session30/` — `stage-a1-single-resolution.md`,
+`stage-a2-enum-broken.md`, `stage-a3-compatible-recipes-consumed.md`,
+`stage-a4-provenance-guards.md`, `silhouette_snapshot.py` + `silhouette-before.json`,
+four sweep scripts (`mutate_session30_a[1-4].py`).
+
+### The trio (Job 1) — blocked all session
+
+Balance probed at 19:02, between every A-item, and at close: **−$0.063482, unchanged** — the
+top-up never landed, and the runbook's abort criterion held (do not launch). Zero model spend
+this session. The generator on main is untouched; the npm lockfile fingerprint is untouched
+(A4 adds files but no dependencies), so the trio's clock rows stay valid. **The branch must NOT
+be merged before the trio runs on frozen main** — launch sequence and readout order are in the
+session-29 runbook, unchanged.
+
+### Stage A (Job 2) — A1-A4 landed, in order, on `phase3-stage-a`
+
+| commit | item | gates |
+|---|---|---|
+| `842c02f` | Silhouette gate BEFORE baseline — 17 cases (8 recipes × prod chain + bare fallback + default), index.css AND recipe-id.ts hashed | baseline itself documents the sameness defect: six marketing recipes → ONE identical index.css on the prod chain (`0abb9482…`) |
+| `89d81b8` | **A1** — `resolve_site_design` (new `site_design.py`) settles the three-system fight once; `write_index_css` renders it; `src/lib/site-design.ts` emitted per workspace + emitter-pinned template default; DELETED: `merge_overlay_into_recipe`, overlay font lane (6 dead mood pairs), recipe-direct fonts, `recipe_font_import_css` | silhouette 17/17 byte-identical; suite 2,346/1/0 (every count named); sweep 14/0; new cross-language pin: resolved variants == recipe.ts maps, all 8 recipes |
+| `4202abe` | **A2** — six maps become defaults (accessors consume SITE_DESIGN, family+validity guarded); MarketingHero honours every accepted variant ("the rest", per the HEAD verification); FeatureBento honours its variant; **'split' DELETED at all 12 sites** (ruling: no signed design exists, Stage A adds no looks; catalogue REGENERATED via `ui_registry --write`) | tsc 0; silhouette 17/17; suite 2,354/1/0; sweep 9/0; equivalent ds-vs-recipe source mutant proved with 8/8 data |
+| `81b360d` | **A3** — loader stamps `compatible_recipes` onto every pack from the one keyed map (packs never author it — pinned); `pick_recipe_id` fallback rotates `MARKETING_RECIPE_IDS` (seeds 1-3 were unpickable for public kinds and shipped dead-recipe fonts); keyword path + fail-closed hint pairing untouched | silhouette 17/17; suite 2,361/1/0; sweep 5/0; 3 equivalent classes recorded with reasons |
+| `a42b4fe` | **A4** — `PROVENANCE.json` ([]) + `provenance.py` (allowlist w/ exactly one non-plain entry; full-sha pin; **React Bits bright line + Aceternity gate mechanized fail-closed**; frozen 26-name dep baseline + delta guard) + `ATTRIBUTIONS.md` pinned byte-for-byte to its generator | guards 16/16 each able to fire; sweep 10/0; suite **2,378/1/0**; silhouette 17/17 |
+
+Suite walk, every count explained by collect-only diff: 2,337/1 baseline → 2,346 (A1: +8 tests
++1 collection param, 1 rename) → 2,354 (A2: +7+1) → 2,361 (A3: +6+1) → 2,378 (A4: +16+1).
+Total sweep: **38 mutations / 0 survivors** across four scripts.
+
+### Two facts the next session should not rediscover
+
+1. The silhouette tool (`silhouette_snapshot.py`) is the Stage-B/D regression gate too — run
+   it before and after any template change; `silhouette-before.json` is the frozen baseline.
+2. Docker-on-macOS mount staleness: a container started immediately after a host write can see
+   a truncated file (observed once — SyntaxError on a host-valid file; retry read true bytes).
+   Parse on the host before debugging "corruption" inside a container.
+
+### DoD 10 streak
+
+Unchanged at 0 runs — starts with the first funded run after `2ded6fa`; the trio is runs 1-3
+when it launches. Owner rulings on N / distinct-business spread / stress briefs still pending.
+
+### Addendum (same night) — Stage B opened on the same branch, trio still protected
+
+Owner directed Stage B to start ahead of the trio ("trio tomorrow"). Two commits, same gates
+discipline, and the trio's preconditions are intact: **no dependency entered (npm fingerprint
+frozen), index.css byte-identical (silhouette 17/17 at every step), main untouched, tree clean.**
+
+- **`35bb7dc` (B1)** — foundry loop live end-to-end: AnimatedShinyText, WordRotate, Ripple mined
+  from Magic UI at pinned `5543371f` (MIT verified at that sha), rewritten onto tokens,
+  registered + catalogue regen + barrel + provenance rows + ATTRIBUTIONS regen. BorderBeam and
+  BlurFade deliberately NOT mined — kit twins (AccentBeam / MotionReveal own those niches).
+  4 foundry coherence pins. Suite 2,383/1/0.
+- **`25a2479` (B2 + 3.10 data half)** — **motion identity per recipe**: authored in
+  `design_recipes.RECIPES`, resolved through SiteSpec.design (v1.1), consumed via guarded
+  `motionIdentity()`. Pinned: six distinct family identities; every ops stagger < every
+  marketing stagger (owner's restraint rule as an assertion). Five more primitives:
+  NumberTicker, VelocityScroll (native-scroll velocity marquee, no Lenis), AuroraText,
+  DotPattern (seeded delays — new pin: effects may never call Math.random), AvatarCircles.
+  Suite **2,385/1/0**; sweeps this session now **45/0** across five scripts.
+  Wiring `presets.tsx`/`anime.ts` onto the identity (changes every page's entrance motion)
+  is deferred to post-trio WITH the screenshot/critic loop.
+- **(B3)** — six more primitives at the same pin, foundry ledger now **14 rows**: TextReveal
+  (currentColor-mix scroll manifesto), AnimatedList (arrivals ride `motionIdentity()` — ops
+  ticks, retail pops), Marquee (config-keyframes → frame loop; new pin: effects may never
+  smuggle `@keyframes`/`animation-*:`), MagicCard (brand→accent border sweep, no next-themes),
+  FlickeringGrid (index+tick hash, replay of missed ticks — deterministic at any frame rate),
+  Lens (radius token, reduced motion = plain image). HeroVideoDialog deliberately NOT mined —
+  generated sites have no real video assets to feed it. Suite **2,385/1/0** (+0: the pin
+  strengthens an existing test), sweep **8/0** (`mutate_session30_b3.py`), session **53/0**.
+  Silhouette 17/17 after every step. Evidence: `stage-b-batch3-foundry.md`.
+
+- **(3.10 wiring, `b335a1c`)** — owner said "finish them": both motion engines (presets.tsx +
+  anime.ts/AnimeChrome) now derive every timing constant from `motionIdentity()` as ratios off
+  the legacy base (18px/90ms == pinned DEFAULT_IDENTITY) — bare recipes compute exactly the
+  old motion; the six families move at their temperament. Anime ease gated on
+  `motionIsAuthored()`; tempo clamped [0.45, 1.4]. Suite **2,392/1/0** (+7 accounted),
+  sweep 7/0. Reveal-SHAPE switching (blur/slide per `reveal`) stays post-trio with the critic.
+- **(B4)** — last Lenis-free primitives, ledger **18 rows**: ShimmerButton (standalone — the
+  core/Button graft was REJECTED: ops keeps a chrome-free Button), AnimatedGridPattern
+  (id+cycle hash scatter), ScrollProgress (native scroll, brand→accent), ProgressiveBlur.
+  Suite 2,392/1/0 (+0), sweep 6/0. **Session sweeps: 66/0 across eight scripts.**
+
+### 2026-08-10 — the trio ran, the branch merged, Stage A/B validated live ($1.296)
+
+**`phase3-stage-a` is MERGED into `main`** (fast-forward, 45 commits). Gate was
+"upstream deaths from the session-29 fixed classes = 0" and the trio delivered exactly that.
+
+- **Trio 167–169 from frozen `main`:** 167 Copperline Hardware `ready`, 168 Ridgeline Bike Works
+  `ready`, 169 Kestrel & Fern Bakehouse `withheld` (`pack_copy_shipped`). **0 upstream deaths** —
+  best trio to date. Walls 553–575 s. Per-item photo binding validated (one Pexels query per
+  item — run 165's exact failure). Session-29 markers did NOT fire and are **live-unproven**, not
+  proven: all three briefs are `needs_ai:no`. Next trio needs a `needs_ai:yes` brief.
+- **Run 170 post-merge:** Lantern & Ash → recipe `nocturne`, 558 s, `ready`. Confirms in the
+  shipped workspace: `site-design.ts` present, v1.1, `nocturne-drift` with its authored ease,
+  both engines consuming `motionIdentity`, 19 effect files present — **and 0 pages using any of
+  them.** DoD 10 streak now **4 runs: 3 ready, 1 withheld, 0 deaths.**
+- **Cost from `ai_usage_events`, not the balance:** $0.920532 + $0.375736 = **$1.296268** (135
+  calls) against a $3 owner cap. The balance fell far more because the shared key has another
+  consumer — measured at $3.26/30 min *before* launch while this session spent $0. Attribute
+  from the ledger; no leak alarm.
+- **Offline before launch:** suite **2,393/1/0**, silhouette 17/17, tsc 0, build clean, and all
+  eight sweeps re-run. That re-run caught a real regression — A4's P7 went kill → SURVIVED
+  because Stage B's rows displaced the empty-manifest branch from `ATTRIBUTIONS.md`. Pinned
+  directly (`ea49e1e`); **sweeps back to 66/0**.
+
+**Three defects now on the books (none caused by the branch):**
+1. **Foundry reachability** — all 18 primitives are registered/exported/manifested/attributed but
+   **0 of 15 skeletons list them in `allowedComponents`**, so codegen can never emit one and the
+   validator would reject it. Proven empirically by run 170. `recipe_personalities` in the
+   manifest is consumed by nothing. Fix shape (owner call, Stage C/D adjacent): per-skeleton
+   allow-lists keyed on those personality tags, NOT a blanket append. See
+   `session30/foundry-reachability-gap.md`.
+2. **Industry-pack copy ships verbatim** — withheld 169 correctly (29 sentences of *restaurant*
+   copy in a bakery's `mock.ts`).
+3. **The same leak passed `ready` in 167** — a hardware store carrying "AI-guided consult",
+   "Member aftercare", "Follow-up visit". The gate is threshold-shaped (sentence count); the
+   defect is categorical. Demo-matches-the-business leaking through a threshold.
+
+**Session-30 late additions (post-B4):** (a) **trio pre-flight** — every runbook precondition as
+one GO/NO-GO: `python3 docs/evidence/session30/preflight_trio.py` (from main, where the file is
+absent from the tree: `git show phase3-stage-a:docs/evidence/session30/preflight_trio.py |
+python3 -`); validated tonight — NO-GO on exactly branch/tree/balance, as expected. (b) **motion
+boards for Stage C** — `python3 docs/evidence/session30/build_motion_boards.py` builds all eight
+recipes on the frozen gate brief (zero AI, zero deps) into gitignored `boards/`; serve with
+`cd boards && python3 -m http.server 8930`. Same brand, eight temperaments; the cover page states
+honestly that the six marketing recipes still share one stylesheet (the Stage-D target). (c) merge
+dry-run: `phase3-stage-a` is a clean fast-forward from main (12 ahead, 0 behind).
+
+**Tomorrow, first moves, in order:** (0) pre-flight (above) until GO; (1) top up ≥ $5;
+(2) `git checkout main` — the tree sits
+on `phase3-stage-a` and the trio must run the frozen build; (3) runbook exactly
+(`session29/TRIO_LAUNCH_RUNBOOK.md`): probe → cheap confirm → restart `bmv-api` + behaviour
+probe → quiet host (rag-mvp containers too) → launch → bracket; (4) readout, file evidence,
+DoD 10 runs 1-3; (5) merge `phase3-stage-a` iff deaths from fixed classes = 0; (6) back on the
+branch — Stage B remainder is now ONLY: Lenis (clocks banked) → reveal-shape switching under
+the screenshot/critic loop → 3.11 perf gate (CDP tracing, built after Lenis so it measures the
+real scroll engine). Then Stage C owner sign-offs (static bones, motion boards, 3-scene pilot)
+gate Stage D.
+
+---
+
+## Session 29 (2026-08-09 — the AppSpec review: 12 deaths, two mechanisms, five fixes, $0)
+
+Evidence: `docs/evidence/session29/` — `appspec-deaths-129-166.md` (every death root-caused, three
+kickoff corrections), `validator-rule-audit.md` (all 39 fired codes: heal / repair / fatal),
+`repair-shape-recommendation.md` (the design answer, measured), `mutate_session29_fixes.py`
+(19 killed / 0 survived).
+
+### The finding that reframes the review
+
+**Nine of the twelve deaths trace to two mechanisms, and neither is the repair loop:** the AI-hub
+binder writing state the validator then rejects (130, 136, 137, 139), and an error with no legal
+move meeting a whole-document repair (131, 138, 149, 154, 155). The other three: a fragment
+mistaken for the document (143), a coverage reviewer malformation (133) and a transport double-cut
+(134) — the last two already fixed by ladders that landed after those runs died.
+
+### Three kickoff claims corrected on the evidence
+
+1. **`trace_evidence_mismatch` was never an open killer.** The four "failures" are
+   `pre_trace_evidence_repair` *audit rows* — the deterministic trace repair (live since `dff8bb4`,
+   2026-07-27) healed all four at zero model cost; 3 of 4 accepted on the next revision. The
+   *source* was ours: synthetic surface evidence minted with `capability_ids[:1]`. Now carries the
+   page's whole list.
+2. **The "schema_repair collapse" was garbage-in, not attention collapse.** 143's extraction
+   accepted a **414-char nested fragment of a 31,303-char response** (`ok: true`, method
+   "repaired") and the 473-token "collapse" was the model echoing the prompt's anti-example
+   skeleton after being told to repair a 198-char fragment. The anti-collapse prompt line was never
+   failing. Fix: `_is_fragment_extraction` — ≥2k raw chars and under half recovered → fail closed
+   to the re-ask class.
+3. **Transport was already closed** — every zero-token death predates the
+   `_candidate_ask_with_transport_reask` ladder (2026-08-07 18:04).
+
+### The five fixes (each: tests + sweep, 19 mutations / 0 survivors total)
+
+| # | defect | fix |
+|---|---|---|
+| 1 | 136: binder appended a second `/ai-features` page → `duplicate_route` | hub **adopted by route**, all wiring uses the adopted page id |
+| 2 | 130: repair dropped an injected requirement's trace; "already bound" = "requirement exists" | binder **re-traces stranded `customer_input.ai_features` requirements** after every candidate pass, reusing surviving pieces |
+| 3 | 129-family: surface evidence carried one page capability | synthetic surface evidence carries **every** page capability |
+| 4 | 143: fragment accepted as document | **fragment guard** in `authoring_parser.py`, both recovery paths |
+| 5 | 138: `visible_assertion_evidence_required` reproduced byte-identically, no legal move | taught fix in `app_spec_repair.j2` + last-resort **salvage** (same rung as fix B); the old test asserting the code was "genuinely repairable" now records 138's contradiction |
+
+Plus the owner-approved imagery item: **per-item photo queries** (`item_photos_by_title` — one
+search per *distinct* item subject, capped at 16, industry word riding along; own-query photos
+dominate cross-matches; pooled search stays as fallback). 165's cake-gallery-full-of-bread is the
+regression fixture.
+
+### The design answer (kickoff step 3)
+
+**Keep whole-document repair; keep hardening the rungs around it.** Measured convergence: of 24
+accepted runs since 129 — 54 % zero repairs, 83 % ≤1, the whole 158-166 tail zero. Deaths died
+with repair budget remaining, of no-legal-move errors and pipeline-inflicted state — **patches
+would have saved none of them**, and zero length-truncated repairs since 129 means the grammar
+risk patches add buys nothing measured. Watch item: repair attrition of unfaulted objects (130's
+dropped trace row — once in 36 requests; countermeasure designed, not built).
+
+### Fix B status — honest, not proven-live
+
+All four `state_assertion_state_required` deaths predate fix B by hours; zero occurrences since.
+Test-proven (fixtures are 154/155's rejected payloads verbatim). **Only a funded run that trips
+the code proves it live** — the check is heal_actions/prompt-escape, never
+`repair_reproduced_parent_errors`.
+
+### Part 2 — the hardening pass (same day): no run dies while a deterministic, scope-safe action could save it
+
+Evidence: `docs/evidence/session29/failure-surface-hardening.md` — the whole failure surface,
+stage by stage, with what was built, what was ruled fatal-by-design, and what was deliberately
+not built. Four mechanisms landed (sweep `mutate_hardening.py`: **10 killed / 0 survived**):
+
+1. **Terminal salvage pass** — at every deterministic fatal exit (schema attempts spent, repairs
+   spent or deadline-zeroed, identical-error stop), the code-driven heals and unbindable-assertion
+   drops run once more, uncapped, and the loop revalidates. Progress = a *changed document*.
+   Scope-safe by construction; anything still failing dies exactly as before. This converts the
+   deadline-stopped death (138's shape) into a ship when the leftovers are mechanical.
+2. **Attrition guard** — a repair that drops a trace row it was never asked to touch (130's class)
+   gets it restored, but only when the whole proof chain still resolves in the repaired document.
+3. **Exact-duplicate heal** — byte-identical re-emissions dropped; conflicting objects stay a
+   model merge.
+4. **Binder state-id collision** — a model-authored `STATE-AI-HUB-READY` elsewhere gets a minted
+   sibling on the hub instead of a collision.
+
+Integration tests drive the real loop with scripted providers: the deadline-shaped run that used
+to die now accepts with the salvage in `heal_actions`; the unsalvageable run still dies with the
+identical reason. The honest boundary is written in the evidence file: a paid-model stage can
+always be starved by weather or the clock — what is now guaranteed is that no run dies while a
+deterministic, scope-preserving action remains, and no deterministic action ever degrades scope.
+
+### The 10/10 target now has an owner: Phase 2 DoD 10
+
+Added 2026-08-09 at the owner's ask. **Zero upstream deaths over N consecutive funded runs
+(proposed N=10), withholds tracked separately with a gate code each — never counted as failures.**
+Scoring rules are in the row (final-revision `terminal_reason`, whole tail, no sampled windows).
+Three owner decisions arm it: N, whether the streak must span distinct businesses (recommended
+≥ 6), and whether stress briefs count. The streak starts at the first funded run after `2ded6fa`.
+Phase 1 explicitly does not own ship rate — its DoD is ready-or-failed under 600 s.
+
+### Phase 3 prep — done in the top-up window, $0, generator untouched
+
+Four documents, all committed: **`docs/PHASE3_STAGE_A_PLAN.md`** (A1-A4 in landing order; hard
+rule: Stage A works on a branch and merges only after the validation trio runs on the frozen
+build), **`docs/PHASE3_LICENSE_POLICY.md`** (MIT-per-file-at-commit, provenance manifest schema,
+source verdicts), **`evidence/session29/phase3-stage-a-verification.md`** (every session-25
+inventory claim re-checked on HEAD — resolution files byte-identical, five drifts pinned:
+`'split'` is at SIX registry sites not three, plan_phase null-out is 130-133, MarketingHero
+already honours `'item'`), and **`evidence/session29/phase3-foundry-shortlist.md`** (36
+candidates). **License rulings (owner, 2026-08-09): React Bits ADMITTED** — its license
+explicitly permits distribution "as part of an application, website, or product", which is
+exactly what generated sites are; the bright line recorded in the policy is that the template's
+mined components must never be published as a standalone kit. **Aceternity stays gated** — its
+defect is no findable license text at all, which no ruling can cure. Stage B mining set:
+Magic UI's 20 + React Bits' picks (~26-30 total, roadmap target met from verified sources).
+
+### Spend the first money here — preflight is DONE, follow the runbook
+
+**`docs/evidence/session29/TRIO_LAUNCH_RUNBOOK.md`** — every check executed green on 2026-08-09
+(live config, keys, npm cache warm, refimg staged, readout dry-run verified on 163/165/166,
+photo-search wall-clock budget landed). Top up → one cheap confirm call → restart `bmv-api` +
+behaviour probe → quiet host → `session27/launch_trio.py`. **Known blind spot: all three briefs
+are `needs_ai: no`, so the binder fixes cannot fire this trio and absent markers are expected.**
+
+The three briefs (`session28/launch_duo.py` + `session27/launch_trio.py`), simultaneous start.
+Read, in order: (1) `mock.ts` catalogue survival (`check_catalogue_survival.py`, not ship rate);
+(2) per-item binding — `item_photos_by_title` queries in the log, cake titles bound to cake
+photographs on 165's brief; (3) any AppSpec death at all — there should be none from the fixed
+classes; (4) fix B's marker if any run trips it. Balance before/after (shared key — bracket it).
+
+---
+
+## Session 28 (2026-08-09 — Phase 1's last reads, $0, and the defect they turned up)
+
+**Read this block second.** Its headline finding stands: `mock_synthesize` had been failing 87 %
+of the time since request 101, so **no catalogue-content judgement against workspaces 101-161 is
+evidence about the code that runs now.**
+
+No generation was launched and no money was spent. Everything below is `ai_usage_events`, the
+`requests` table, and the 98 stored workspaces. Evidence:
+`docs/evidence/session28/phase1-offline-reads.md`.
+
+### The finding
+
+**`mock_synthesize` was the one content-critical stage with no model failover, and it had been
+failing 87 % of the time since request 101.**
+
+    google/gemini-2.5-flash   requests 72-98    19 of 23 usable   mean 27.0 s
+    deepseek/deepseek-v4-pro  requests 101+      4 of 31 usable   mean 66.1 s
+    the last two trios (146-161)                 1 of 11 usable
+
+Ten of those eleven are `provider_timeout` with `output_chars = 0`; six rode the 120 s ask cap to
+the millisecond. The stage spends ~91 s of every run and delivers nothing on ten runs in eleven.
+
+It was invisible because the fallback is quiet by design — the caller keeps the plumbing mock,
+which is the Brand-default seed with the business name pasted through it. Request 161, **a hardware
+store**, therefore shipped `"Copperline Hardware Signature"`, `"Member aftercare"`,
+`"Follow-up visit"`, *"the owner hub's no-show risk view"*, and `client_names: [… "Client 7",
+"Client 8"]`. That is the wellness/booking default on an ironmonger, and it is the *demo matches the
+business* problem at its root.
+
+Fixed in `be7ae70`: a deduped model chain, each link its own numbered ask, a link only started when
+`ask_budget_seconds()` leaves room to finish it (floor 70 s — the one ask that ever succeeded took
+63.9 s), so the chain cannot spend a deadline already lost or push a run through the 600 s cap.
+**Model *order* is left to settings on purpose** — the primary is the weakest link in its own chain,
+which is a ruling, not a retry policy. 10 mutations / 0 survivors; one equivalent mutant recorded
+rather than chased. Suite **2,245 passed / 1 skipped**.
+
+### Phase 1 after the reads
+
+| row | outcome |
+|---|---|
+| `appspec` ask ceiling | **MET** — 37 asks, all with a writer at last, max 47.3 s against 120 s |
+| 120 s ceiling overall | **HOLDS** — 24 capped asks, largest overshoot **21 ms**; the `_CANCEL_GRACE` fix confirmed live |
+| p50 ≤ 560 s floor | **MET at 559.0 s** over eight simultaneous-start runs — the re-base session 26 asked for turned out to be unnecessary |
+| ≤ 600 s | **8 of 8** across three trios, worst 577 s |
+| `degraded:` marker | still populated on every run |
+| `slot_fill` discard | **measured, not closed** — 179.6 s/run, 47.8 %, and **two thirds of it is transport**, not rejections |
+| `placeholder_content_shipped` | **still open, and a third family found** — see below |
+| 1.8's empty-industry clause | **MET, 15 of 15** — every blank-`industry` request in the database derives a real trade (all resolve to `art`, including 66-68, the runs the guard was written for). Never scored until now |
+| 1.13's appspec bound | **still production-unproven, with 14 more runs saying so** — live ceiling 8, worst run 7 calls (150), reservation never engaged |
+
+**Open engineering in Phase 1: none.** What is left is one funded row and three owner rulings.
+
+### The placeholder row has a third family, and a trap worth copying
+
+`SHIPPED` 7 of 98 (none since 93) · `SPECIFIED` 7 of 98 (none since 140) · **`BRAND` 21 of 98
+(none since 156)**. The third is fix D's — *"Ready for Business?"* — and it lives in page TSX, which
+the shipped gate structurally cannot read. The census now measures it with production's own
+`scrub_placeholder_brand`.
+
+**The trap:** the first cut scanned all of `src/` and fired on 91 of 98 with an identical signature
+every time. Those were the template's own `brandName = 'Brand'` **default parameters**, copied
+verbatim into every workspace and overridden at every call site. Counting them would have repeated
+this census's original sin exactly — the unguarded SPECIFIED set that fired on 87 of 87 and meant
+nothing. It is reported as `template_default_runs` rather than dropped.
+
+Denominator: 147 requests across **22 distinct businesses** now, but the clean tail across all three
+predicates is **four runs, three businesses**. The row wants twenty.
+
+### The owner ruled, and all four are executed
+
+Evidence: `docs/evidence/session28/four-rulings.md`. Suite **2,280 / 1 skipped**; four sweeps,
+42 mutations, **0 behavioural survivors**.
+
+1. **The seed gets its own model** (`b2c1ba9`). `SEED_MODEL` defaults to `google/gemini-2.5-flash`
+   and leads the chain. The obvious default would have been wrong: `TEXT_MODEL` is
+   `gemini-3-flash-preview`, the fastest model in the corpus and one that **has never returned more
+   than 4,522 tokens here** against a seed that needs 10k+ — it would have truncated instead of
+   timing out. Chain is now gemini-2.5-flash → deepseek → haiku.
+2. **Packs carry structure only** (`eab4ef2`, `f11b9d2`). The mechanism was that
+   `write_plumbing_mock` writes pack copy into `mock.ts` and the seed prompt then hands that file
+   back to the writer as *"CURRENT mock.ts"* — the pack's sentences were being presented as the
+   current draft. The prompt now says what that block is, and a new gate row `pack_copy_shipped`
+   fails any run that ships a pack sentence verbatim. **The selector too:** request 160 matched
+   `fashion-retail-storefront` on the single token *"retail"*, which at six characters cleared the
+   distinctive-token bar; `"retail"` and `"retailer"` are now weak like `"shop"` and `"store"`, and
+   that brief falls to recipe-only.
+3. **Imagery, the whole thing** (`e5002a3`). Pool 8 → **24**, sized from the corpus (13 of 18 stored
+   catalogues exceed 8; request 65 showed every picture twice) and still one request. And
+   correspondence, which was impossible by construction: photographs are now chosen **after** the
+   seed names the items, by scoring the index's own `alt` text against each title, greedy over the
+   best remaining pair.
+4. **The placeholder row is re-scoped** (`d72142c`) and scores **3 of 20 distinct businesses**.
+
+### The trio ran — 162-164, $0.979, 1 of 3 ready, and it found the thing underneath
+
+Evidence: `docs/evidence/session28/trio-162-164.md`. Same three briefs as 27b, simultaneous start.
+
+**The seed fix works, unambiguously**: 3 of 3 usable on the first attempt, `gemini-2.5-flash`,
+15.7 / 24.3 / 33.3 s, against **1 of 11 at a 91 s mean**. `pack_copy_shipped` fired zero times. 164
+shipped **24 item slots with 24 distinct URLs** — no repeated photographs — and the binding logged
+`12 catalogue photo(s) bound to their items`.
+
+**And every shipped app still carries the Brand-default wellness seed** — *"AI-guided consult"*,
+*"Member aftercare"* — on a bakery, a hardware store and a bike shop. Both facts are true, and one
+line explains them:
+
+    src/data/mock.ts:1   import { Role } from './types';
+
+The prompt says *"Plain data module — NO imports"*. The validator checked dynamic `import(`, aliased
+`import x =` and URL specifiers, and waved through the ordinary one. So the model wrote a real
+catalogue **and** an import of a file that does not exist; `vite` failed on it; the repair ladder
+failed with it; and `build_phase`'s nuclear stabilizer rewrote `mock.ts` with the plumbing mock,
+discarding the catalogue. 162 was then withheld for the plumbing mock's *own* placeholders and 163
+died inside the stub writer. **One defect produced all three outcomes.**
+
+Four fixes in `cff858e`, all pre-existing: the import; `MarketingHero`'s `item` variant, which the
+component has a branch for and the registry denied; `write_safe_stub` raising on a cosmetic error
+despite promising it "can never fail to build"; and `ensure_seed_scaffold_fields` writing
+`'Everyday essential'` / `'Guest favorite'` — **the pipeline manufacturing the content its own gate
+rejects.** 8 mutations, 0 survivors. Suite **2,290 / 1 skipped**.
+
+### The duo validated all four — 165/166, $0.667, and 166 shipped where 163 crashed
+
+Evidence: `docs/evidence/session28/duo-165-166.md`.
+
+| | before | now |
+|---|---|---|
+| 166 Copperline | 163 **crashed** in the stub writer at 88 % | **ready**, 559 s, 28 real titles, **no Brand-default residue at all** |
+| 165 Bakehouse | 162 withheld: `placeholder_content_shipped` ×2 | withheld: `visual_defect_severe` ×3, 32 real titles |
+
+**Zero imports** in either `mock.ts`; `Everyday essential` / `Guest favorite` **gone**; journey walked
+and **0 dead links** on both. All four fixes confirmed live.
+
+**165's new failure is a better failure.** The visual critic: *"the 'Cake Gallery' is populated
+entirely with photographs of everyday bakery items (loaves of bread)"*. The binding fired (`8
+catalogue photo(s) bound`) and bound the wrong pictures — it ranks a pool searched for the
+*business*, so a bakery's pool is bread and every cake title matched bread. Session 26 filed this
+defect as *invisible to every gate we have*; **it is now visible to one.** The remaining step is the
+one already designed: query the index with the item's own words instead of ranking a business-level
+pool.
+
+**One correction, carried on the file that was wrong.** `trio-162-164.md` claimed all three trio
+runs shipped generic content for the import reason. Wrong by two runs — 163 had 30 real titles, 164
+had 42, and only 163 went nuclear. The check read a 900-character window instead of counting. The
+corrected method is `check_catalogue_survival.py`: count distinct titles **and** look for plumbing
+markers separately, because both can be true at once.
+
+### Spend the first money here, and read the right number
+
+**The four fixes above have not been through a run.** $0.843562 left, which is less than a trio.
+Run the same three briefs and check **whether `mock.ts` still holds the model's catalogue at the
+end** — `grep -c '"title"' src/data/mock.ts` against the seed's `completion_tokens` — not the ship
+rate. 27b was 3 of 3 with a plumbing seed in every app; this trio was 1 of 3 and said so. **Ship
+rate alone would have called last night a success and tonight a regression, and been wrong twice.**
+
+### Process notes
+
+- **Read a suspect check in `ai_usage_events` by `finish_reason`, never by run outcomes.** This
+  session opened by finding fix F had misfired 27 times across 14 requests rather than twice; the
+  same query shape then found the seed. A retry ladder hides a misclassifier; a quiet deterministic
+  fallback hides a dead stage.
+- **The pipeline has two silent fallbacks left by design** (plumbing mock, scaffold slot-fill). Both
+  are correct as behaviour. Both need a counter the gate can see, or the next dead writer takes
+  another sixty requests to notice.
+- `docker cp` a measurement script into `bmv-api` before running it — it imports production modules
+  and the workspaces live on that container's volume.
+
+---
+
+## Session 27b (2026-08-08 — every finding from 27a fixed, and the trio came back 3 of 3)
+
+**Spend $0.716111** on the second trio; **$1.616407 for the session**, 10 launches, $1.823 left.
+Suite **2,233 passed / 1 skipped / 0 failed** (was 2,153 at the end of 27a).
+
+Six fixes, each gated on a green suite and a mutation sweep — **32 mutations, 0 behavioural
+survivors**. Three sweeps needed a second pass and every first-pass survivor was a fixture
+defect, which is now five sessions out of five.
+
+| | commit | what it was |
+|---|---|---|
+| **A** planner | `72b6566` | `_inject_blueprint_routes` skipped `/gallery/:id` unless the literal `/gallery` was declared, so an app whose catalogue is `/bikes` shipped a grid with **no detail route at all**. The browse guard four lines above already resolved by *kind*; only the detail child read the literal. |
+| **B** appspec | `31fe604` | The repair prompt gave the model no legal move for `state_assertion_state_required` — "a state on the asserted page", when the state it meant did not exist. Prompt escape (declare it, like `missing_reference` always allowed) + a bounded salvage where the run would otherwise be discarded. |
+| **C** links | `76f0767` | `primaryHref` was invisible to **both** the gate's sweep and the dead-link repair — `(?<![\w-])` before `href`. Six dead CTA targets across three apps, all reported as zero. |
+| **D** brand | `d9d4d51` | "Business" was a second placeholder no filter knew about, and it reached customer-visible copy. |
+| **E** literals | `2502043` | The last five — `/contact`, `/checkout`, `/order-tracking`, `/invoices`, `/ticket`. |
+| **F** provider | `95eb3bf` | The refusal detector scanned the **model's own output** for "safety" and killed the run. |
+
+### The trio: 3 of 3 `ready`, 0 gate issues, 0 dead links
+
+| id | business | mode | wall | gate | dead links | journey |
+|---|---|---|---|---|---|---|
+| 158 | Kestrel & Fern Bakehouse | plain | 563 s | 0 | 0 | browse · detail · inquire |
+| 160 | Ridgeline Bike Works | file | 554 s | 0 | 0 | browse · detail · inquire |
+| 161 | Copperline Hardware | plain | 557 s | 0 | 0 | browse · book |
+
+Session 26's same three briefs: 1, 4 and 3 gate issues, 1, 3 and 2 dead links, Ridgeline's
+whole journey absent, Copperline's booking page reported missing. Fix A is visible in the route
+tables — `/celebration-cakes/:id` and `/bikes/:id`, titled after their listings rather than
+"Artwork" — and fix C in the seed, where the CTA hrefs are now declared routes.
+
+### Fix F is the one worth reading
+
+Request 159 died 11 s in with the model's own business summary as the error message.
+`_looks_like_refusal(finish_reason, error_message)` was being handed the **assistant's output
+text** and scanning it for `content_filter|refusal|refused|safety|moderation`. A hardware store
+that hires out tools writes "safety" into its own description, so the pipeline read the business
+back to itself, called it `provider_content_refused`, `retryable=False`, and the ladder correctly
+declined to re-ask a refusal. **Across all 138 stored blueprints the scan had never matched
+once** — not a check that mostly worked, a check nothing had exercised until a brief said the
+word, and then it took the same brief out twice (152 and 159). Now reads `finish_reason` only.
+
+### The open finding — needs a ruling, not a patch
+
+**Industry packs ship literal copy, and the selector put the wrong pack on a bike shop.**
+
+    160 Ridgeline Bike Works  "The rack is live" · "Shop the new drop before sizes thin out."
+                              · "Restock alerts"
+                              -> packs/fashion-retail-storefront.json:60-64, unedited
+    158 Kestrel & Fern        "Hungry tonight?" · "Hold a table — or join the walk-in list"
+                              -> packs/restaurant-cafe-home.json:60, unedited
+
+No dead link, no contract violation, so no gate sees it. Two questions, both design:
+should a pack carry sentences at all rather than structure, and why does a bike *workshop*
+resolve to fashion-retail? Deliberately not patched — patching it blind buries the finding.
+
+### One premise the corpus disproved
+
+Request 161 declares **two** `public-catalog` routes (`/catalogue` and `/hire`) — coherent for a
+hardware store with a hire counter. The kickoff's "at most one `public-catalog`" is not a rule.
+Nothing broke (`catalog_route` takes the first declared match, deterministically, and 161 shipped
+clean), and the test that asserted the premise now records the contradiction instead of the
+guarantee. One `public-booking` per app still holds and is still checked.
+
+### Process notes
+
+- **Prove the fix is loaded, do not just restart.** Import the new symbols out of the running
+  container and assert their *behaviour* — `_looks_like_refusal('stop') is False` is the check
+  that matters, not that the function imports.
+- **`app.domain.appspec` ↔ `app.application.appspec` is a pre-existing import cycle**, verified
+  against `72b6566`. Production enters through the application package so it never fires there;
+  a test or script importing the domain module first must do the same. Left alone — fixing it
+  means moving `canonical_json` out of the application layer.
+
+Evidence: `docs/evidence/session27/fix-everything-158-161.md`.
+
+---
+
+## Session 27a (2026-08-08 — a route literal may define a route; it may never reference one)
+
+**Spend $0.900297.** Six launches to land three runs. Balance bracketed:
+381.560541831 → 382.460838476, **$2.539 left**. Suite **2,153 passed / 1 skipped / 0 failed**.
+
+Three commits, each gated on a green suite and a mutation sweep with zero survivors:
+
+- **`50d12c2` (2a) — booking and browse CTAs resolve from the route table.** The scaffold wrote
+  the literals `/book` and `/gallery` into every CTA it emitted. Right for the apps whose
+  architect happened to pick those words; a dead link for 148 (`/service/book`), 150
+  (`/hire/reserve`) and 146 (`/cakes/order`). `booking_route` / `catalog_route` resolve by
+  **skeleton, never by name**. When an app declares no booking page — 151 is an ops console — the
+  CTA becomes `#inquire` rather than a fabricated `/book`: a missing button beats a dead one.
+  The trap that would have undone it was `safety/mock_data.py::sync_mock_images`, the last guard
+  before the build, rewriting dead booking CTAs to the literal.
+- **`f742ef7` (2b) — catalogue cards hang off the declared browse route, plus the lint.**
+  `products` and `showcase` emitted `` `/gallery/${…}` `` while `catalog_detail_base` sat unused
+  six lines up. `catalog_base_from_path` also resolved "the declared listing" by *name*, from a
+  vocabulary that knows `gallery`/`shop` and not `/bikes`. `test_route_literal_census.py` reads
+  the emitters' own source and fails on any route literal in emitted-href position that is not on
+  a six-entry allowlist with a reason beside it; it catches both slot reversions with every
+  behavioural test in the tree deleted.
+- **`e153fc0` (2c) — journey hops resolve by skeleton.** `/hire/reserve` shares no first segment
+  with `/book`, so 150's terminal hop resolved to nothing and reported the booking page missing
+  on an app that had one; `/bikes` shares none with `/gallery`, so 148 lost all three hops and
+  **nothing about that funnel was ever checked**. Each hop now carries its skeleton, tried between
+  the exact-hint pass and the stem pass — order matters, so a `/book/faq` policy page no longer
+  outranks the booking page. One extra fix rode along because this pass made it reachable:
+  `journey_no_detail_route` read the architect for param routes while every other check answers
+  against the table `App.tsx` serves, and `assemble.py` mints `listing/:id` into the router only.
+
+### The trio: every route literal is gone from the output
+
+Same three briefs as session 26, `file` run handed **the exact image 148 was given**.
+
+| brief | s26 | s27 |
+|---|---|---|
+| Kestrel & Fern Bakehouse | 146 failed · 1 gate issue · **1 dead link** | 153 failed · 1 gate issue · **0** |
+| Ridgeline Bike Works | 148 failed · 4 gate issues · **3 dead links** · whole journey absent | 156 failed · **1** · **0** |
+| Copperline Hardware | 150 failed · 3 gate issues · **2 dead links** · `next_hop_missing` | 157 **ready** · **0** · **0** |
+
+**Six dead-link occurrences became zero.** No `/book` and no `/gallery` in any of the three
+generated apps. The architects named their faces `/celebration-cakes`, `/bikes`,
+`/service-booking`, `/catalogue`, `/hire/book/itemid` — not one would have matched the old
+literals. Clock 553 / 552 / 554 s.
+
+**Honest ship rate: 1 of 3**, not the 3 of 3 the kickoff projected. The projection assumed the
+route literals were the last thing standing; for Copperline they were.
+
+### The one thing to pick up next, root cause already located
+
+Both remaining failures are the **same** finding, and it is true — read off the shipped routers,
+neither app declares a param route or gets one minted:
+
+    journey_no_detail_route: no detail route is declared, so items cannot be opened
+    153 /celebration-cakes    156 /bikes
+
+**It is this session's rule again, one layer up.**
+`product_kind._inject_blueprint_routes` (`product_kind.py:1188`) skips the `/gallery/:id`
+blueprint unless the literal `/gallery` is already in the table. 156's catalogue is `/bikes`, so
+the parent lookup misses and the detail page is never added. A route literal *referencing* a
+route, surviving in the planner. Same fix shape: resolve the detail blueprint's parent against
+the route wearing `skeleton_id == "public-catalog"` and hang the param off that path. **Not
+attempted** — a fourth pipeline change with planner blast radius, found at the last step of a
+four-step brief, deserves its own gate.
+
+### Two findings nobody was looking for
+
+- **`seed.cta.primaryHref` is an unvalidated route literal and the sweep is structurally blind to
+  it.** The mock writer invents paths — 153 `/reserve`+`/order`, 156 `/shop`+`/alerts`, 157
+  `/gallery` (on a hardware store). Six dead targets, and `dead_link_occurrences` is **0** on all
+  three: `_HREF_LITERAL_RE` (`capabilities/journey.py:60`) has `(?<![\w-])` before `href`, so
+  `primaryHref` can never match. Widening the key to `\w*[Hh]ref` finds all six.
+- **Brand poison reached seed copy.** 156's `mock.ts` says `"Ready for Business?"`.
+  `sync_mock_images` scrubs `brandName={"Brand"}` in pages, not brand fallbacks inside `seed`.
+
+### The upstream tax — three of six launches never reached the preview pipeline
+
+- **`state_assertion_state_required` killed 2 of 6.** Requests **90, 116, 131, 149, 154, 155** —
+  three of those six are today, against 3 of 52 across requests 100-151. Entirely inside
+  `appspec/generation.py`, untouched by this work, and now the single largest cost of landing a
+  trio. Budget accordingly or fix it.
+- **Blueprint returned prose — first occurrence in the archive.** 152 died 11 s in with a
+  `ProviderGenerationError` whose body is the model's own markdown design document.
+  `_is_blueprint_transport_cut` correctly classifies it as a real error, so the ladder fails
+  closed on attempt 1 rather than burning two more asks. 0 of 52 in requests 100-151.
+
+### Process notes
+
+- **`requests.status` is not the run verdict.** It stays `new` when the pipeline *completes* and
+  becomes `failed` only when it raises. The verdict is `generated_pages -> preview_app -> status`.
+  Polling the wrong column makes a finished run look like it is still running — it cost two
+  ten-minute waits. Confirmed against 146-151 as well.
+- **A past run's reference image is recoverable.** `requests.reference_file_path` →
+  `bmv-api:/app/data/uploads/…`; `docker cp` it out and a `file`-mode run repeats with identical
+  input.
+- **Every fix got a mutation sweep, and the survivors were fixtures both times.** 2c's first pass
+  left two: nothing distinguished skeleton-first from stem-first, and nothing had an ops param
+  route. The lesson from session 26 held exactly — a survivor has meant a fixture defect every
+  single time, not a weak fix.
+- **The launcher must run inside the `bmv-local-api` image** (`--network host`); the host python
+  has no `requests`.
+
+Evidence: `docs/evidence/session27/trio-152-157.md`, `docs/evidence/session27/launch_trio.py`.
+
+---
+
+## Session 26 (2026-08-08 — the p50 ruling lands, and row 7 gets looked at)
+
+**Spend $0.** No generation, no model call. The OpenRouter key was probed first and is
+**dry: 380.154 of 385, ≈ $4.85 left ≈ 11 generations** — so this was another offline block,
+and the funded trio is still not launched.
+
+### The two owner rulings
+
+**Row 3 — p50, RULED (C).** Take (A), and carve out the two terms Phase 2 does not remove.
+The ≤ 500 s p50 leaves Phase 1 and is **not** restated in Phase 2, because Phase 2 DoD 6
+already carries a stricter one (≤ 420 s / p95 ≤ 540 s, by convolution) — so (A) turned out
+to be a deletion, not a move, which is worth knowing before someone re-adds it. Carved back
+into Phase 1 as rows in their own right: **seed `mock_synthesize`** (97.3 s p50, ONE serial
+call, hits 120.0 s to the millisecond on 3 of 8 runs — it is capped, not slow) and
+**`slot_fill`'s discarded output** (147.7 s/run on duo 1, the largest recoverable number in
+the pipeline). Neither is per-page fan-out, so the spec flip would have left both standing —
+~245 s of p50 that plain (A) would have parked by accident. 1.13's bound is **kept on its own
+merits** and credited with nothing it has not produced. Phase 1's vacated slot gets a
+**≤ 560 s no-regression floor**, scored from measured wall clock only (DoD 6's ruling: never
+from convolution — it overstates p95 by +191.9 s under a deadline).
+
+**Row 7 — scored at last, and it PASSES: 12 of 12 on request 73.** The row had stood open
+since request 70 on *"73's cards were not scored card-by-card"*, and no session had looked at
+the pictures. Fetched the eight `item*` Pexels URLs out of the stored `mock.ts` and looked at
+all eight: every one is a painting on canvas. 1.9's binding fix holds — no card wraps onto
+`card1/2/3`, the role images ranked last precisely because they show people, which is what put
+the easel photo captioned "Oil on Linen" on request 70. Row restated from "11 of 11" (request
+70's item count, not a principle) to **every card in the catalogue**.
+
+### Two NEW open rows the score turned up — both filed, neither fixed
+
+- **The photographs cannot depict the items, structurally.** 73's twelve works are titled
+  *Whispers of the Forest*, *Coastal Serenity*, *River's Edge*… — representational landscapes
+  to a one. All eight photos are **non-representational abstracts**, several macro crops of
+  paint surface. Right artifact type, wrong artifact. `item_pool_query(industry)`
+  (`industry_images.py:511-527`) builds its query from **the industry string alone** and
+  `_search_pexels` takes `per_page=8, page=1` — the pool is fetched **before any item exists**,
+  so correspondence is impossible by construction and no query tuning reaches it. Invisible to
+  every gate: the vision critic has a wrong-*subject* check (it blocked request 41 for showing
+  people painting) and cannot have a wrong-*work* check without knowing what the work looks
+  like. Fixing it is a capability with a per-run network cost — same shape as the `og_image`
+  extractor that was written down and not built. **Owner ruling wanted.**
+- **The pool is 8 and most catalogues are bigger.** `i % 8`, and a census over the 18 stored
+  workspaces with a slugged catalogue says **13 declare more items than the pool**. Request 65
+  is 16 items over 8 photos — every picture twice; 73 and 88 are 12 items with 4 repeats each.
+  The pool size is not a considered number, it is `per_page=8`. A repeat still shows the
+  artifact type so it does **not** fail row 7 — but for a gallery selling *originals*, two works
+  sharing a photograph contradicts the product. **Ruling wanted:** bigger pool (a second Pexels
+  page is nearly free) or a cap on declared items.
+
+### Two DoD rows were stale and are corrected
+
+Both had been understating Phase 1. **Suite green** read *1,288 / 1 failed*; it is
+**2,075 / 1 / 0** since the 0.8 merge gate. **Vitest CI green on main** read *"main has never
+run them"*; 1.10 recorded the owner watching run #11 go green 39/39 in **session 15** and this
+row was never updated — ten sessions of the DoD table being wrong in our own disfavour. Worth a
+standing habit: when a numbered item closes, grep the DoD table for its row in the same commit.
+
+### Process notes
+
+- **The sandbox has no outbound network.** `curl` to Pexels times out (exit 28, HTTP 000).
+  The api container does have it — that is how it fetched the images originally. Fetch there,
+  `docker cp` out. Cost ~4 min of dead ends before checking.
+- **Stored workspaces are a real corpus and nobody was using them.** 89 preview apps on the
+  volume, 18 with a slugged catalogue. Row 7 had been waiting on a funded run for a question
+  answerable offline for $0. Ask what is already on disk before pricing a generation.
+- **The eight most recent runs (129-145) have no slugged items array at all** — 145's seed
+  degraded to the plumbing mock (4 items, no slug, no image, no price). The newest workspace
+  with a real catalogue is **95**. If the trio is meant to re-score row 7, one of its three
+  briefs must be a catalogue business or the row gets no sample.
+
+Evidence: `docs/evidence/session26/catalogue-card-score-73.md`.
+
+### The offline half of Phase 1, finished this block ($0)
+
+Owner asked to close out everything in Phase 1 that does not need money. Two items, both
+done, and **both changed their row's verdict rather than confirming it**.
+
+**`placeholder_content_shipped` — measured over all 87 stored workspaces, and the row is
+not closable at all.** New `scripts/measure/placeholder_gate_census.py` (`--check` red-exits
+on drift; proven exit 1 under tamper, exit 0 clean). Three findings, one known:
+(1) **7 of 87 workspaces fire** — `[Painting Title]`, `[Owner Name]`, `[Artist Name]`,
+`[Patient Name]`, `[Phone Number]`… — **none since request 93**, but the clean tail is
+28 workspaces of only **6 distinct businesses** (Osteria Vinci 25 runs, Cedar Point Lodge
+19), so it is 28 runs and not 28 samples. (2) **The gate is narrower than item 1.8
+specified**: 1.8 said build it on `early_brand_placeholder_strings()` /
+`early_brand_placeholder_item_titles()`; the shipped gate calls **neither**, and scored with
+`product_face`'s own guard those helpers fire on a **non-overlapping** 7 runs
+(`Everyday essential` / `Guest favorite`) — **including 135 and 140, inside the "clean"
+tail.** A live placeholder class the gate cannot see. (3) **The denominator was never
+reachable**: the row wants 20 businesses; the database holds **131 requests across 16
+distinct business names**. No trio closes this row; 20 distinct businesses is ~$8.40, more
+than the whole balance. **Re-scope it or fund it deliberately.**
+
+**1.11 — re-measured, and the recommendation is DO NOT WRITE CODE.** `tail.py 129 132 135
+140 141 142 144 145`. (First: the roadmap's *"tail.py cannot see it without being
+parameterized"* is **stale** — it takes explicit run ids and refuses void trio 6 by name.)
+Tail is **145.0 s over 8 runs — 3.0 s AI (2 %), 142.0 s non-AI (98 %)**, mean **18.1 s/run**
+vs the baseline's 42.4 s and 33 % AI. So **the AI half of the row's premise is dead**
+(bounding every tail AI call recovers 3.0 s total) and **`RESERVE_SECONDS = 60` is now
+over-sized, ~3× the mean tail** — the row was filed when the reserve was smaller than what
+ran inside it. **But all eight runs recorded `contention: 0.0` on both locks**, so this is
+serial evidence only, and the mechanism that actually broke the row was `_SESSION_LOCK`
+queueing (trio 2: 16.9 / 35.9 / 16.7 s; request 78's whole overrun *was* the block).
+**Re-scoped from "bound the reserve" to "prove it holds under real concurrency" and folded
+into the concurrency trio** — the lock-wait bound for that mechanism already landed and has
+never fired because nothing has ever contended. Tail stays inside the reserve → **1.11
+closes with zero new code**.
+
+**Suite after: 2,075 passed / 1 skipped / 0 failed** via the documented `docker run`
+invocation from `docs/KNOWN_TEST_FAILURES.md` (note: it needs the `bmv-local-api` image
+**and** `-e PREVIEW_TEMPLATE_DIR=/repo/backend/preview-template`; a plain
+`docker run python:3.12-slim` has no pytest and no template override).
+
+Evidence: `docs/evidence/session26/placeholder-gate-census.{md,json}`,
+`docs/evidence/session26/tail-rescope-1.11.md`.
+
+### The trios ran — 146-151, $1.407, and the clock row is MET
+
+**Six runs, two trios, `$0.234` a run** (the roadmap has been pricing ~$0.42). Balance
+bracketed: 380.153877615 → 381.560541831, **$3.44 left**. Six **new** businesses on purpose —
+the database held 131 requests across 16 names, **nine of them art galleries**.
+
+**The thing that made these different: simultaneous start.** `POST /api/requests` returns
+immediately and runs the pipeline on a background thread, so three POSTs from three threads
+land together — **measured spread 0.002 s**. Twelve prior runs used a 60 s stagger and
+recorded `contention: 0.0` *every single time*; they never collided, so every earlier
+"concurrent" trio was a second clean clock. **Never use the stagger again.**
+
+| run | business | mode | status | wall s | lock wait | gate issues |
+|---|---|---|---|---|---|---|
+| 146 | Kestrel & Fern Bakehouse | plain | failed | 570 | **5.7** | 1 |
+| 147 | Meridian Physiotherapy | url | failed | 556 | 0.0 | 1 |
+| 148 | Ridgeline Bike Works | file | failed | **577** | **17.8** | 4 |
+| 149 | Halcyon Sound Studio | url | failed @ **60 s** | — | — | — |
+| 150 | Copperline Hardware | plain | failed | 564 | **5.4** | 3 |
+| 151 | Vantage Freight Desk | file | **ready** | 553 | 0.0 | **0** |
+
+- **≤ 600 s row MET** — 5 of 5 timed runs, across two trios, satisfying "clear it twice",
+  and **under the first non-zero contention ever recorded**. Request 148 blocked 17.8 s on
+  the lock and still finished 23 s inside the cap.
+- **1.11 CLOSED with zero new code.** Worst lock wait 17.8 s against a 60 s reserve. The
+  reserve holds under real contention — which is exactly the proof the re-scope asked for.
+  Two prior attempts wrote code against a target that had already moved; the third wrote a
+  measurement.
+- **Ship rate 1 of 6, and *which* one shipped is the finding.** 151 is the **`internal_ops`
+  dispatch console** — the kind session 15's classifier work made reachable, and which **0 of
+  47 stored kind_contexts** had ever been. First live outing, zero gate issues. **All five
+  public-facing briefs failed** on `journey_dead_link_offpath` and `listing_not_schedule_rail`
+  (neither is the dead-link class repaired to 31 → 0). This is the first time the pipeline
+  was asked for six businesses it had never seen, and it shipped one.
+- **149 is the R2 early-stop working in production, first time ever observed.** It did NOT
+  overrun — it failed at 60 s: *"AppSpec repair reproduced its parent's validator error set
+  — failing closed instead of spending further repairs."* Session 24 landed that offline and
+  it had never fired live. The underlying error is `state_assertion_state_required`, i.e. the
+  **`state_ids` backfill** already on the open list — it now has a live reproduction.
+  **Trap for the next person: 149 stored no `preview_app` at all, so a poller waiting on
+  `elapsed_seconds` waits forever.** Read request-level `status` too.
+- **The ≤ 560 s floor must be RE-BASED, not scored.** p50 came in at 564 s, but the 558.7 s
+  baseline was eight runs at `contention: 0.0` — serial. Concurrency costs 5-18 s. Comparing
+  them is comparing two experiments.
+
+Both trios ran the **pre-fix** gate (`UVICORN_RELOAD=false`, so the process held the code
+loaded at container start). Deliberate: "clears it twice" requires identical code.
+
+Evidence: `docs/evidence/session26/trios-146-151.md`, launcher archived beside it.
+
+### Is Phase 1 done? Nearly — one row, and it is not about the pipeline
+
+**Code-complete, not proven.** Twelve of thirteen numbered items landed; **1.11 is the only open
+engineering** (and needs re-scoping first — the tail is 255 s non-AI vs 127 s AI, so the original
+target moved). Everything else outstanding is *evidence*: the ≤ 600 s second clean trio, the
+concurrency half (**contention 0.0 s on every trio ever run — never actually tested**), the new
+≤ 560 s floor, the `appspec` ask ceiling, the two carved-out terms, Q8. One row needs no run at
+all: `placeholder_content_shipped` = 0 is authoring work, the gate itself is correct.
+
+**Sequencing risk, flagged for whoever starts Phase 3.** Phase 3 changes the generator. After that,
+Phase 1's 558.7 s measured p50 and ≤ 600 s cap are **unattributable** — a regression could be either
+phase. The trio is **~$1.26 of the $4.85 left**. Cheapest moment to spend it is *before* Stage A
+touches the pipeline. Full standing table: the new *"Phase 1 — where it actually stands"* block at
+the head of the Phase 1 DoD section in the roadmap.
+
+### Note for the parallel lane (Phase 3) — one file, two authors
+
+This session and the Phase 3 lane both edited **`docs/PREVIEW_ROADMAP.md`**, and both wrote into
+**`docs/evidence/session26/`**. The house pathspec rule does not separate them: pathspecs separate
+*files*, and this was one file with two sets of hunks (mine at 334/569/980/1395-1447/2114-2168/2860,
+the Phase 3 lane's REVISED PLAN at 2573 and the two DoD bullets at 2770). They were committed
+together, deliberately, with both lanes named in the message — not swept up silently. **Generalise
+it: when two sessions share a document rather than a directory, `git add <file>` is the same hazard
+as `git add -A`.** Check `git diff` hunk-by-hunk for authorship before committing a shared doc.
+
+**Stale-number warning for the Phase 3 kickoff.** A draft session-27 brief carried *"suite green at
+or above the 1,288 baseline"* — that is the stale DoD row corrected this session. **The real
+baseline is 2,075 / 1 / 0.** A session holding 1,288 could drop ~780 tests and still call itself
+green.
+
+**Still needing the owner:** the key top-up (the trio is ~$1.26 of the $4.85), the two new
+imagery rulings above, plus the standing six-site R2 early-stop, 0.1 length-gate, 3.7
+gate-placement and DoD 6 p95 rulings.
+
+---
+
+## Session 25 (2026-08-07 night into 08-08, third offline block — the measurement backlog clears in one fan-out)
+
+**Key probed FIRST: 380.154 / 380 — dry, no top-up**, so this ran the offline block, not
+the funded session-24 backlog. All five backlog items closed, plus DoD 6 (the "if time
+remains" item). One deliberate re-order, reason recorded: the DoD 9 CI job launched FIRST
+(its feedback loop is GitHub-Actions wall-clock and it shares no files with anything
+else); everything else ran beside it concurrently — all nine deliverables are mutually
+independent and collision-safe on disjoint paths.
+
+### THE TALLY
+
+| | |
+|---|---|
+| **Spend** | **$0** (one free key probe; zero model calls, zero generations) |
+| **Suite** | **2,064 passed / 1 skipped / 0 failed** (+6 vs session 24: the five 3.2 map pins + the collection guard's auto case for the new file — proven by a collected-id diff against `c5249dc`, not assumed; the archive-baseline collects 2,012 because untracked corpora and `node_modules` parametrize 47+ cases, worth remembering) |
+| **CI (DoD 9)** | `backend-pytest.yml` **proven green on the branch push before landing**: run 31217828938, `2058 passed, 1 skipped` in 94.07 s, job 174 s, skip count matching local exactly. Branch `ci/pytest-job` kept as the proof record |
+| **R2** | **Row CLOSED except six FILED verbatim sites.** 50-row audit (26 DIFFERENT-ASK / 6 TRANSPORT-EXEMPT / 6 VERBATIM / 12 NO-RETRY), every VERBATIM + two spot-checks independently adversarially re-verified — all CONFIRMED. Table in the roadmap under the R-table; full table + raw sweep archived session25 |
+| **THE silhouette number (3.7 baseline)** | 753 stored pages → 209 distinct silhouettes (top 6.0 %), **but home pages collapse to top = 21.1 %, catalogue 24.2 %, plan-time home 72.6 % — and palette `#0f766e` covers 54 of 58 sites, recipe `editorial` 47 of 58** |
+| **Phase 0** | 0.1 ANSWERED (80 % hit / 16 % miss / 3 % wrong-family — thesis HOLDS; every miss is the `hotel` length-gate, ruling filed); 0.5 ANSWERED (92.6 % public — Phase 3 spends public-first); 0.9 ANSWERED (residue ZERO — `115375f` had already closed it unmarked) |
+| **DoD 6** | Convolved pipeline p50 **554.3 s** (measured 558.7), both ~55-59 s over the parked ≤500 s target; convolved p95 overstates +191.9 s (deadline-induced negative correlation) — p95 must be scored from measured wall clock. Codegen 141.5 s p50 dominates; seed is one serial 97.3 s call riding the 120 s cap |
+
+### What landed on main this block
+
+CI workflow + its evidence; `compatible_recipes.py` (inert data, imported by nothing) +
+census + 5 pins; six census scripts under `scripts/measure/` (industry_replay,
+product_kind, script_style_tests, silhouette, compatible_recipes, latency_convolution);
+16 evidence files under `docs/evidence/session25/`; roadmap rows updated with the numbers
+inline. **No behavioral change anywhere** — the block was measurement + CI by design.
+
+### FILED, not fixed — and why
+
+- **The six R2 VERBATIM sites are ONE defect shape** (no-progress quality retries re-ask
+  byte-identical: `generate.py:914`, `critic.py:322`, `fix_agent.py:396`,
+  `workspace_patch.py:90`, `build_phase.py:373`, `chat_rebuild.py:416`). Deliberately
+  FILED rather than fixing one of six at midnight: the fix is one generalized design
+  decision (appspec's `repair_reproduced_parent_errors` is the in-repo precedent shape),
+  every behavioral R-item so far got an owner ruling first, and a sibling session shared
+  the working tree (below). Each landing is its own mutation-pinned sweep.
+- **Chain dedup gap** (planner / plan_validation / plan_expansion vary model-only with no
+  dedup guard — an equal-model config silently makes them verbatim): small R7-shaped
+  guard when ruled.
+- **0.1's length-gate ruling** (declared exact-tag tokens vs `_MIN_DISTINCTIVE_TOKEN_LEN`),
+  **3.7's gate placement** (post-codegen, or the architect artifact carries
+  palette/overlay), **3.2's three dead packs + ops split-recipe-stamp observation**,
+  **DoD 6's p95 scoring rule** — all in the roadmap with evidence pointers.
+- **For the teammate's branch (template lane, untouched):** craft palette hard-code at
+  `preview-template/src/index.css:297-304` (+ the nocturne j2-only sync drift) — waits on
+  the 3.5 de-hard-coding ruling; j2 halves are backend-lane.
+
+### Process notes
+
+- **A PARALLEL session worked the same checkout during this block** (its artifacts:
+  `refine_scaffold_census.py`, `revision_instruction_census.py`,
+  `docs/evidence/session24-parallel/`, a visual-critique tarball — the 0.2/0.4 lane;
+  none of it touched or committed by this block; commits here used explicit pathspecs
+  only). Two sessions share one index — `git add -A` is how one session ships the
+  other's half-done work. Don't.
+- The fan-out itself: 14 subagents (9 deliverables + 5 adversarial verifiers), ~19 min
+  wall-clock, every census script red-exits on corpus drift so a rerun can't silently
+  measure the wrong thing.
+- `gh` is NOT installed on this machine; the CI agent proved the run via the GitHub REST
+  API instead. The `docker compose exec` pytest trap held (suite via `docker run` with its
+  pip-install half, per the standing rule).
+
+**Still needing the owner:** the key top-up (funded backlog: R5's run-beside, the freeform
+rung, the slot_fill rejection-count read), the six-site R2 early-stop ruling, the 0.1
+length-gate ruling, the 3.7 gate-placement ruling, the DoD 6 p95 scoring ruling.
+
+---
+
+## Session 24-parallel (same night, the concurrent second lane — 0.2, 0.4, the residue, and 0.8 held)
+
+**Spend $0** (no model calls; DB reads and archives only). Ran beside session 25 in the
+same checkout under an explicit non-conflict agreement: disjoint files only, no
+roadmap/HANDOFF edits until session 25 landed (this page and the ANSWERED rows were folded
+in after its close-out, from `docs/evidence/session24-parallel/ROADMAP_DELTAS.md`), no
+retry-site code, no `.github`, no template files, surgical pathspec-only commits, own git
+worktree for the one code change.
+
+- **0.4 ANSWERED** — the last open 2.6 gate. 48.9 % of the critic's asks content-key
+  expressible by a floor rubric (49.6 % severe); the 58-atom hand audit errs 10-to-2
+  toward MORE content → ~60 % true share; 68.6 % under pages-as-data. Both 2.6 gates now
+  point the same way: spec-level content actor, BLOCK stays for the structural third.
+  Corpus caveat stated in the row: `revision_instructions` is never persisted — the 41
+  stored critique reports (37-122) carry the asks, capped 6/page; **no run after 122 has
+  a report** (the critic never ran on 129-145 — pairs directly with the parked R5 tail
+  ruling).
+- **0.2 ANSWERED** — refine fires on 74.2 % of judged critic runs (31.1 % of scoped-era
+  runs). And the marker half found the bigger fact: **the scaffold literal survives
+  slot-fill on 275 of 631 pages (43.6 %); 195 of them routed, inspected and ACCEPTED by
+  finalize's substantive predicate; 0 ghosts.** `fallback_pages` is honest; the LITERAL
+  is dead today — retire every literal-marker reading.
+- **Phase 0's "also land here" residue: all four verified closed, no code** (0 request_id
+  NULLs across the current era's 1,009 rows; `usable` supersedes `success`; duration logs
+  present; mkdtemp cleaned). Numbers under the Phase 0 table.
+- **0.8 IMPLEMENTED and MERGED** (`89e7687`, merged to main as `ac54c7f`, 2026-08-08):
+  prose chars per routed page with the DoD-2 census's exact predicate, drift-pinned
+  against the census script by test; stored beside `fallback_pages`; failure = recorded
+  `unmeasured`, never an absent key. 10 tests, **9 mutations / 0 survivors first pass**
+  (`scripts/cli/mutate_content_density.py`). **Merge gate run and green: full suite via
+  the documented docker run on the merged tree — 2,075 passed / 1 skipped in 59.8 s.**
+
+Tools: `revision_instruction_census.py`, `refine_scaffold_census.py` — both `--check`
+red-exit against their archived JSON, proven red under tamper. Evidence:
+`docs/evidence/session24-parallel/` + `docs/evidence/visual-critique-reports.tar.gz` (the
+41 reports rescued from the api volume before the next cleanup could take them).
+
+---
+
+## Session 23 post-close addendum 2 (same night — the owner ruled, the offline trio landed)
+
+**The owner ruled "land what you can land, no runs tonight" on the decision brief; three
+of the five open rulings were offline-implementable and all three LANDED** (R5 and the
+freeform rung stay parked — both need a funded run beside them). Suite **2,058 / 1 / 0**
+(+26). Three sweeps, **4 + 6 + 5 mutations / 0 survivors** (the collapse and blueprint
+sweeps first-pass; R3's one survivor exposed a provably-dead gate clause, which was
+REMOVED rather than decorated with a theater mutation). R6's driver re-anchored to the
+new blueprint ladder and re-run 6/6.
+
+1. **R3 coercion (`6f9541f`)** — `repair_constant_binding_defects`: the inquire-CTA
+   href and the lifestyle image-pool rebind heal deterministically when they (plus the
+   two codes the same near-miss href derives) are the WHOLE blocking set, re-validated
+   clean or refused. Wired in the enforce chain — which is also the slot_fill judge's
+   predicate, so the discard AND the burned retries stop together. Strict set
+   untouched; the rebind is region-scoped (a legitimate `images.hero` outside an
+   imageSrc array survives). The freeform-loop integration was deliberately NOT landed
+   (the evidence's burned retries were slot_fill's; an extra seam would have been an
+   unpinned mutation surface).
+2. **The collapse guard (`67062ff`)** — `_repair_collapsed_spec` at ALL THREE AI-repair
+   sites (validation, coverage, schema): a repair output that empties `pages`/`states`
+   its parent populated is rejected — parent kept, fail closed,
+   `repair_collapsed_parent_spec`. Populated shrink is never a collapse. Test-fixture
+   lore worth keeping: an empty required trace beside an unambiguous canonical is
+   deterministically reconciled (smoke26) and never reaches the AI rung — the
+   schema-site fixture uses an invalid surface ENUM instead.
+3. **The blueprint transport ladder (`62b7dd6`)** — the survey's mandatory-naked-ask
+   row closed: classify (retryable raise / empty-cut = transport; refusal propagates;
+   a non-empty answer is NEVER re-asked — no quality judge, quality never falls back),
+   one bounded same-model re-ask, ONE ask on `BLUEPRINT_TRANSPORT_FALLBACK_MODEL`
+   (default haiku, cross-provider from TEXT_MODEL, R7 sibling warning added), then
+   fail closed as before. Attempts 1/2/3 under `writer=mvp_blueprint`.
+
+Spend this block: $0. Still needing the owner: the key top-up, R5's run-beside
+implementation, the freeform rung (both queued for the first funded session).
+
+## Session 23 post-close addendum (same day, offline block — the key stayed dry)
+
+**R1's row CLOSED except live reads (`dde5460`): coverage_review got its rung** —
+classify first (`AppSpecCoverageTransportError` at both transport sites), varied
+attempt-2 stays the bounded same-model re-ask, only two CORRELATED cuts buy one ask
+on the fallback slot at attempt 3; malformation never reaches the rung; reasons split
+honestly (`coverage_review_transport` vs `_malformed`). R7's warning scans
+`APPSPEC_COVERAGE_MODEL` too (driver re-anchored — the preview sibling had made three
+anchors ambiguous — and the coverage slot pinned as an eighth mutation). **7 + 8
+mutations / 0 survivors** (one first-pass survivor exposed the unpinned
+retryable-raise site; the catching fixture was completed — a `ProviderGenerationResult`
+missing required fields raises TypeError, which `_ask_appspec_chat`'s response-format
+compat catch silently converts into a re-ask: worth remembering when faking that
+class). **And the R1 ask-site survey is DONE** — table in the roadmap. Every ask site
+is now RUNG / CHAIN / FLOOR / BY-DESIGN except two FILED rows: **codegen `freeform`**
+(same-model retries → scaffold — the exact 1.12(b) shape that justified slot_fill's
+rung, 3 transport failures on record) and **blueprint `mvp_blueprint`** (the only
+MANDATORY naked ask left — no retry, no floor; 0 failures on record). Suite
+**2,032 / 1 / 0**. Spend this block: $0 (offline; one free credits probe — key still
+380.15/380).
+
+## Session 23, in one page
+
+**The flagship trio landed — reshaped twice by what 143's artifact actually says — R6
+closed both halves, the R3 audit produced its table, and the one funded run SHIPPED
+rev-1 under the new prompt while the SHARED KEY EXHAUSTED mid-run.** Suite
+**2,026 / 1 / 0** (+14). Two sweeps: **11 + 6 mutations / 0 survivors, both first
+pass**. Evidence: `docs/evidence/session23/`.
+
+### THE TALLY (ships beside accepts, always)
+
+| | |
+|---|---|
+| **Ships / attempts** | **1 / 1** (**145 ✓ ready ~568 s, gate PASSED**, 29.4 s past soft deadline, inside the cap) |
+| **Spec accepts / rejects** | **1 accept** (145 rev-1, coverage 98, prompt rev **2026-08-07.3** — authoring deterministically valid, zero schema-parse issues, one semantic-coverage repair). **New rev-1 count: 1** |
+| **Transport-dead runs** | **0** — slot_fill's one 408 was classified and the cross-provider rung correctly runway-gated (R1's designed fail-closed, read live); the tail's $0/0 ms transport cluster was the KEY exhausting, not weather |
+| Spend | **BMV $0.245** (145, 29 calls) + ~$0.02 probes; brackets 375.332 → 377.884 (pre-launch) → **380.148 of 380 (post-run)**. **KEY EXHAUSTED — the shared key's other project burned ~$4.5 during this one session; no funded runs until topped up** |
+
+### The trio (`772ac82`) — and the three evidence corrections that reshaped it
+
+1. **(b) moved to `app_spec_schema_repair.j2`** — the minItems/too_short class is a
+   pydantic parse failure owned exclusively by the schema-repair rung; once schema
+   attempts are spent the loop goes straight to `_fallback`. `app_spec_repair.j2`
+   NEVER sees the class — the handoff's named target would have been dead code (the
+   exact R2 catalogue-contract lesson). Landed as rule **7a**: the constructive
+   stateless-page fix (author the default state, `initial:true`, add to `states`,
+   reference it; never resend unchanged; never placeholder ids).
+2. **143's revs 1-3 were never authored that way** — the authored spec had 6 pages and
+   ONE error (`page_initial_state_count` on PAGE-AI-FEATURES); the `ai_appspec_repair`
+   call REPLACED it with a 503-byte fragment (a single acceptance-test object).
+   `app_spec_repair.j2` rule 9 now teaches the mined collapse shape: a sub-object or
+   emptied `pages`/`states` is a collapse, not a repair; unfaulted objects survive
+   verbatim. Authoring got rule **9a** (no stateless page, real `PAGE-*`/`STATE-*`
+   ids, `{"id": "Page1", "state_ids": []}` as the mined Invalid exemplar).
+3. **Rev 5 made NO new AI call** — identical `schema_diagnostics` including
+   `completed_at` and `raw_response_sha256`; it was the terminal re-persistence of
+   rev 4. So the early stop saves nothing on 143's exact trace; its payoff is run
+   138's shape (a PAID identical repeat on the general path, 3 attempts live). Landed
+   as the **identical-error-set early stop**: signature = sorted (code, path,
+   message) triples, armed only at the two AI repair dispatches, compared exactly
+   once at the next validation; identical ⇒ `_fallback("repair_reproduced_parent_errors")`.
+   Any change to the set is progress. Coverage re-entry deliberately excluded.
+   6 tests, 11 mutations / 0 survivors first pass.
+   **Fixture lesson worth keeping: an empty `pages[0].state_ids` BESIDE a populated
+   `states` array is deterministically reconciled from the siblings and never reaches
+   the AI rung — 143 failed precisely because its states existed nowhere.**
+
+### R6 — DONE both halves (`f9fc60c`)
+
+Census: analyze (2/2 rows), blueprint (24/24), demo (7/7) were the ONLY stages whose
+every row carried the `record_usage` fallback (`writer IS NULL AND attempt=1 AND
+stage=purpose`) — no `ai_call` scope existed at their ask sites. Now scoped:
+`reference_url_analysis`, `screenshot_analysis`, `mvp_blueprint`,
+`preview_extraction`, `visual_demo`. And the refund: `_StageLimitedAIProvider` gives
+back the budget unit for an ask the provider never answered (143's error-cut
+authoring attempt had spent `APPSPEC_MAX_CALLS` for nothing) — answered asks spend
+for good, floor at zero, both the deadline tally and the instance count refunded.
+7 tests, 6 mutations / 0 survivors first pass.
+
+### R3 — the audit table is in the roadmap (offline, NO code)
+
+Architect JSON and design_manifest have **no decorative strictness to relax** (0
+`unparseable` / 0 `rejected` rows ever; every stored failure was provider transport/
+truncation — design_manifest's lever, if any, is its 1,500-token cap). The class
+lives in slot_fill's catalogue contract, which already tolerates `invalid prop:` /
+`invalid variant:`. **The actionable finding: `detail inquire CTA (#inquire)`
+(validate.py:238) fired ALONE 4 times — ArtworkDetailPage and RoomDetailPage each
+discarded to scaffold at attempt 2/2 for one CTA href whose correct value is a
+compile-time constant.** Second candidate: the image-pool pair (validate.py:251,256).
+Both need the owner's ruling before any coercion lands (R3 boundary).
+
+### Run 145 — the ship, the live R1 read, and the honest confound
+
+Osteria (143's payload byte-verbatim incl. reference_url). Weather CLEAR (2× stop,
+6-7 s). Spec: authoring 36.6 s healthy → coverage review → one semantic-coverage
+repair → accepted **rev-1 coverage 98**, `prompt_revision: 2026-08-07.3` in
+provenance, calls 4, no heals. Codegen: slot_fill 6/7 usable; ReservationsPage
+attempt-1 transport-cut (HTTP 408 at the 120 s ask ceiling) → **classified, and the
+cross-provider rung correctly RUNWAY-GATED** (`slot_fill_transport_fallback_skipped_
+low_runway`, 98.3 s remaining) — R1's designed fail-closed, read live; 0 attempt-3
+rows all-time. **Contract rejections: 0 (second consecutive run)** — the R2 slot_fill
+translation is still unread live, for the good reason. design_manifest: 1/1 healthy
+(planning serial 30.9 s). Ready ~568 s, gate PASSED. **CONFOUND: critic 5/5 and
+fix_agent 6/6 died transport at $0/0 ms exactly when the key crossed 380 — credit
+exhaustion, NOT the R5 starvation pattern; this run's tail is unreadable against the
+R5 table.**
+
+### What I got wrong in session 23
+
+- **My status poll watched `requests.status` for `done`** — shipped runs stay `new`
+  (144 and 142 did too); the 10-minute cap fired on a run that had already shipped.
+  The ship signal is the pipeline log / preview record, not that column.
+- **My first schema-rung early-stop fixture used `pages[0].state_ids: []` beside a
+  populated `states` array** — the deterministic reconciler fixed it and the AI rung
+  never fired. The fixture now uses rev 3's true shape (`pages: []`). The failure was
+  informative: it is exactly why 143 (states nowhere) could not be healed.
+
+### State of the repo (session 23 close)
+
+- **main: `772ac82` (trio) → `f9fc60c` (R6) + docs — pushed.** Suite **2,026 / 1 / 0**
+  (documented command). New drivers, both 0-survivor first pass:
+  `mutate_empty_tuple_reject_class.py` (11), `mutate_r6_telemetry_budget.py` (6).
+- **Credits: the key is EXHAUSTED (380.148 of 380).** BMV's session spend: $0.245 +
+  ~$0.02 probes, fully telemetry-attributed. The other project burned ~$4.5 across
+  this session including ~$2 during the run's ten minutes. **No weather probes, no
+  funded runs, until the owner tops up or rotates the key.**
+- **Running config verified from the recreated process at close:** prompt revision
+  **2026-08-07.3**; TEXT=gemini-3-flash-preview, FIX+QUALITY_FIX=glm-5.2:nitro,
+  PREVIEW_APP=deepseek-v4-pro + fallback haiku-4.5, ARCHITECT/CRITIC=haiku-4.5,
+  APPSPEC on + gemini-2.5-flash ×3 + fallback haiku. (`backend/.env` untouched all
+  session; the session-open cosmetic drift — the container predating the
+  PREVIEW_APP_TRANSPORT_FALLBACK_MODEL line — was erased by the mid-session recreate.)
+
+### The next step (ordered)
+
+1. **Top up or rotate the shared key** — nothing funded moves without it. Then the
+   still-unbound live reads ride the next healthy run free: the R2 contract-retry
+   translation (needs a run WITH contract rejections), attempt-3 slot_fill rows, and
+   a CLEAN tail read against the R5 table (145's was confounded by the dry key).
+2. **The R3 ruling**: coerce the `detail inquire CTA (#inquire)` href (and optionally
+   the image-pool pair) per the audit table, mutation-pinned so leniency never
+   reaches the face/skeleton/import set — or rule the strictness intended.
+3. **R5's ruling** — the measured table has been ready since session 22; one owner
+   word implements `TAIL_RESERVE_SECONDS = 150`.
+4. **R1's remainder**: `coverage_review`'s one-shot is still same-model; the
+   single-provider ask-site survey.
+5. **FILED, new (proof archived in 143's artifact + this session's mining): a
+   repair-output collapse guard** — deterministically REJECT an AI repair whose
+   output empties `pages`/`states` that its parent populated (keep the parent, spend
+   nothing further), the code half of the anti-collapse taught line. Fail-closed,
+   invents nothing; needs a ruling only on whether teaching alone suffices first.
+
+## Next session's prompt, ready to paste (session 24)
+
+```
+Read HANDOFF.md first — "Session 23, in one page" and THE TALLY. Then the roadmap's
+session-23 callout AND the R-table's session-23 status block. Don't re-derive any of it.
+
+main is PUSHED through dde5460 (+ docs commits on top). Suite 2,032 / 1 / 0.
+
+THE KEY IS EXHAUSTED — 380.148 of 380 at session-23 close, drained by the shared key's
+other project (~$4.5 in one session; BMV's own spend was $0.245 + probes, fully
+attributed). PROBE CREDITS FIRST. If I have not topped up or rotated the key by the
+time you read this, this is an OFFLINE-ONLY session: no weather probes, no runs, and
+that is fine — the backlog below has offline items. Never launch on a key without at
+least $1.00 of verified headroom AND my top-up confirmed in this prompt or the repo.
+
+Running config verified from the process at close: prompt revision 2026-08-07.3, TEXT
+gemini-3-flash-preview, FIX+QUALITY_FIX glm-5.2:nitro, PREVIEW_APP deepseek-v4-pro +
+fallback haiku-4.5, ARCHITECT/CRITIC haiku-4.5, APPSPEC on + gemini-2.5-flash ×3 +
+fallback haiku.
+
+MY BUDGET: $0 until the key is topped up; if it is, $5 CAP, same rules as ever (probe
+first, bracket every run, 10-minute cap monitored, one run per landed change). Time box
+3 HOURS; reserve the last 20 minutes for close-out. LOCAL only.
+
+THIS SESSION RUNS ON YOUR JUDGMENT — same standing authority as session 23 (reorder
+with recorded reasons; chase what stored evidence proves; the PARKED list, the
+NON-NEGOTIABLEs, fail-closed over clever, and the honest tally are absolute).
+
+THE BACKLOG (my order — yours to re-order with reasons):
+
+1. IF THE KEY IS FUNDED — the unbound live reads, free on the next healthy run beside
+   whatever you land: the R2 contract-retry translation (needs a run WITH slot_fill
+   contract rejections — two straight runs had zero), any attempt-3 slot_fill row, and
+   a CLEAN tail read against the R5 table (145's tail was confounded by the dry key —
+   do NOT count it).
+2. R1'S REMAINDER — DONE post-close, same day (`dde5460` + the survey table in the
+   roadmap; see the addendum above "Session 23, in one page"). What replaced it: the
+   survey's two FILED rows — codegen `freeform` (rung candidate, wants a run beside
+   it) and blueprint `mvp_blueprint` (mandatory naked ask; small bounded-retry + rung,
+   offline-provable) — both need my look before you land them.
+3. THE COLLAPSE GUARD — only with my ruling (it is FILED, next-step item 5): the
+   deterministic rejection of a repair output that empties pages/states its parent
+   populated. If I rule "teach-only first", it stays filed until a live repeat.
+4. R3's COERCION — only with my ruling on the audit table (inquire-CTA first, the
+   image-pool pair second), mutation-pinned so leniency never reaches the
+   face/skeleton/import set.
+5. R5 — only with my ruling: TAIL_RESERVE_SECONDS = 150 per the measured table.
+
+Standing rulings so you never wait: R4 DONE (never lower OPS_MIN_NON_HUB_PAGES=4); the
+ship-gate ops floor firing again is a NEW bug; retries must differ (R2); fallbacks are
+classify-first + bounded + cross-provider (R1); leniency never reaches decision-carrying
+fields (R3); quality failures never take a model fallback. The identical-error-set
+early stop is live — if a run terminates repair_reproduced_parent_errors, that is the
+system working; mine the artifact, don't relaunch blind.
+
+WEATHER GATE (only if funded): two long json_object probes on the spec model (~$0.06),
+probe-parse as tolerant as the pipeline's. LAUNCH: POST /api/requests (never /api/v1),
+multipart, industry always set, host port 8001. The requests.status column stays "new"
+on shipped runs — the ship signal is the pipeline log / preview record, never that
+column.
+
+STANDING TALLY: ships vs attempts AND accepts vs rejects, every reject classified from
+telemetry before any relaunch. A transport-classified dead run at any appspec ask site
+is a NEW bug. Rev-1 count under 2026-08-07.3 stands at 1 — keep counting honestly.
+
+PARKED (touch only with my ruling): ARCHITECT_MODEL, the <=500 s p50 DoD row, R5's
+behavioral half (item 5), the R3 coercions (item 4), the collapse guard (item 3),
+schema-level conditional assertion requirements, relaxing the AppSpec schema, the
+October spec-slot migration.
+
+NON-NEGOTIABLE: pipeline never previews; every fix mutation-proven from in-memory
+backup, one sweep at a time, red for the FILED reason; suite via docker run WITH its
+pip install half; recreate never restart; config from the running process; archive logs
+the moment each run finishes; no code edits while a generation is in flight (sweeps
+count); absolute paths; 10-minute cap.
+
+BEFORE YOU FINISH (the reserved 20 min): .env in the state the evidence supports and
+verified from the running process; R-table statuses updated; HANDOFF/MODEL_RESEARCH
+updated with real numbers including the ships-vs-attempts line; push; next prompt
+written; tell me plainly what each run cost, what landed, what you chose to reorder
+and why, and what's left.
+```
 
 ---
 
@@ -1039,7 +2257,9 @@ What remains classifier-adjacent is only the live data point a funded run adds.
 Unchanged (`capability_ids` unread by `_search_text`).
 
 ### 5. p50 is 563-570 s against a ≤ 500 s DoD
-Unchanged; recommendation (A); owner ruling pending; the row is not moved.
+**RULED 2026-08-08 as (C) — see the session 26 block at the top of this file.** The row leaves
+Phase 1; seed's cap-riding call and `slot_fill`'s discarded output are carved back in as Phase 1
+rows; 1.13's bound is kept on its own merits. Superseded here; do not read this section as open.
 
 ### 6. `slot_fill` rejects 25 of 42 fills and the distribution is still unmeasured
 Needs item 1's log dump.

@@ -48,3 +48,6 @@ bmv-core/
 # Local preview QA artifacts (screenshots, tsc output)
 .preview-qa/
 docs/maverick-qa/
+
+# Motion boards — regenerable local builds (docs/evidence/session30/build_motion_boards.py)
+boards/

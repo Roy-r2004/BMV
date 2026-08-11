@@ -1,0 +1,489 @@
+{
+ "method": "md5-ordered first 60 atoms, hand-labeled by group; C=content-key, S=structural, X=neither",
+ "scoreable": 58,
+ "agreement": 46,
+ "structural_that_should_be_content": 10,
+ "content_that_should_be_structural": 2,
+ "rows": [
+  {
+   "i": 0,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'From Jeanne Kassab Art' section displays two artwork images from a gallery, which is appropriate for the business, but the surrounding design is clunky and the 'Available' label is awkwardly placed. This feels more like a product showcase than a detailed biography section."
+  },
+  {
+   "i": 1,
+   "rubric_category": "imagery_content",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The image in the Hero section is a generic painting, not clearly identifiable as an 'oil painting' or related to 'abstract landscapes' or 'layered oils' in a way that distinguishes Jeanne Kassab's specific style. The brief implies an 'art-first oil painting imagery' where the artwork is the star, and this image feels somewhat arbitrary."
+  },
+  {
+   "i": 2,
+   "rubric_category": "page_identity",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The design is generic and looks like a marketing landing page or a feature overview, not a secure, functional login interface as specified in the page purpose."
+  },
+  {
+   "i": 3,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The header navigation includes an item 'AI features' which is unexpected for a public-facing art gallery website, especially this business which has N/A for AI needs in its context. This looks like agency pitch text or internal feature descriptions leaking to the client-facing UI."
+  },
+  {
+   "i": 4,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The 'Our Reservation Process' section describes Step 1 as 'Browse Our Menu' but the current page is for reservations. This step should ideally be integrated into the booking flow if relevant, or the section should be more aligned with booking steps."
+  },
+  {
+   "i": 5,
+   "rubric_category": "slot_contract",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'What Collectors and Designers Say' section appears to be a `TestimonialRail` component which was an optional slot, but was not explicitly assigned for this page according to the compact catalogue contract provided. While not a hard fail, its presence suggests a deviation from the strict slot assignment."
+  },
+  {
+   "i": 6,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The hero section's headline 'Collection / Atelier Sorel' is redundant, as 'Collection' is already the page title in the navigation and 'Atelier Sorel' is in the site header. It feels like a template rather than a bespoke art gallery experience."
+  },
+  {
+   "i": 7,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The assigned `spotlight` slot is missing."
+  },
+  {
+   "i": 8,
+   "rubric_category": "content_data",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The 'Featured Works' section implies three items ('item1', 'item2', 'item3') based on the brief for an 'editorial mosaic', but only two distinct paintings are visually present. There is placeholder text for a third (`Verdant Echoes`) but no corresponding image."
+  },
+  {
+   "i": 9,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'Why Galerie Aubert' section (assigned to `features` slot) has an unstyled appearance. It shows three cards without the specified subtle icon, `font-display` title, or the `card` background, `radius_ui` rounded corners, and subtle `shadow` as described in the brief. This makes the section look generic and not aligned with the 'Warm paper' design overlay."
+  },
+  {
+   "i": 10,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The `showcase` slot is implemented as a generic grid of images and text, but the compact catalogue contract explicitly requires the `showcase` slot to be a `CatalogGrid` component. The current implementation does not leverage the specified `CatalogGrid` component, which implies missing functionality like filtering, `detailBase`, and `itemNoun`."
+  },
+  {
+   "i": 11,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The Hero section's headline 'Jeanne Kassab Art' is overly prominent, repeating the brand name in a way that feels redundant given the top-left logo. The brief requested 'About Jeanne Kassab' as the page title in `font-display`, which is currently relegated to a sub-headline."
+  },
+  {
+   "i": 12,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The page is missing the detailed gallery contact information (address, phone number, and operating hours) explicitly required by the brief in the CTA section. The form is for 'Arranging a Visit' and there is no general 'Contact Us' form."
+  },
+  {
+   "i": 13,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The '5-Star Google Reviews' credential in the 'trust' section has truncated text, cutting off the last word or two of the description."
+  },
+  {
+   "i": 14,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The hero section's sub-headline is 'Original Oil Paintings by Jeanne Kassab' and a longer description, but the brief specified 'Abstract Landscapes & Layered Oils'. The displayed text does not match the sample data."
+  },
+  {
+   "i": 15,
+   "rubric_category": "rendering",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The image grid for artworks 'Indigo Dream' and 'Verdant Memory' are completely blank. This indicates unrendered images or missing content where paintings should be displayed."
+  },
+  {
+   "i": 16,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The filters section is severely underdeveloped. The brief specified dropdowns/sliders for 'Size Range', 'Year', and a 'Sort By' dropdown, along with checkboxes for 'Availability' and a 'Search Bar'. The visible page only has category-based filter tags."
+  },
+  {
+   "i": 17,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'Trust You Can Verify' section uses small, understated text and appears to contain two cards ('Experienced Dentists', 'Modern Clinic'). The description for 'Modern Clinic' is cut off. This section feels sparse and could be more impactful."
+  },
+  {
+   "i": 18,
+   "rubric_category": "content_data",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The 'Pizza Diavola' description is missing its price."
+  },
+  {
+   "i": 19,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The 'What Our Patients Say' section displays only two testimonials, making the implied 'carousel' (indicated by the large whitespace above 'Mark T.'s quote) feel sparse. There's also no clear indication that these are part of a carousel or if more testimonials exist."
+  },
+  {
+   "i": 20,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'View All Paintings' and 'Inquire via WhatsApp' buttons in the final CTA section are too close to each other. They would benefit from clearer visual separation or a more distinct primary/secondary button hierarchy."
+  },
+  {
+   "i": 21,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The 'features' section ('How the work is made') uses placeholders like '02 / 03' and '01' with generic descriptions, and a grey box with 'Sized for real walls' and more generic text. This section is not populated with concrete details about Jeanne's artistic process or specific features related to her work."
+  },
+  {
+   "i": 22,
+   "rubric_category": "page_identity",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The navigation bar includes 'AI features' which is agency pitch copy and contradicts the requirement to never show 'demo', 'showcase' or 'Start your plan' copy. This is a client-facing demo, not an agency pitch page."
+  },
+  {
+   "i": 23,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The footer is minimal as requested, but the navigation links ('Home', 'Services', 'About Us', 'Chat', 'Dashboard') are completely inappropriate for an emergency page where focus should be solely on the emergency. The presence of 'About' in the main navigation (top right) is also redundant."
+  },
+  {
+   "i": 24,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'hero' slot, which should feature the painting's title ('Whispers of Dawn') and a large image of the artwork, is entirely missing."
+  },
+  {
+   "i": 25,
+   "rubric_category": "content_data",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The `credentials` strip is present but the items are generic descriptions ('Showcased in various galleries and collections', 'Mastering the depth and luminosity of oil mediums') instead of concrete, specific details as implied by 'Exhibited Artist' and 'Oil Painting Specialist'. The design of the CredentialStrip also seems to lack the 'soft glass' effect described in the Design Direction."
+  },
+  {
+   "i": 26,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'Process' section, detailing 'Book Online', 'Receive Confirmation', 'Visit Us', and 'Stay Connected', is missing. This was a required slot in the assigned plan."
+  },
+  {
+   "i": 27,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The 'WhatsApp for Artwork Inquiries' card includes a disclaimer 'For questions about specific paintings (availability, dimensions, pricing), please use the 'Inquire via WhatsApp' button directly on the painting's detail page. This is the fastest way to get a response regarding a piece.' This text directly contradicts the explicit instruction in the page purpose to include a 'WhatsApp Direct Link: A prominent link/button 'Message on WhatsApp' that directs to a pre-filled WhatsApp chat...but for general inquiries (e.g., 'Hello Jeanne, I have a general inquiry about your art.').'"
+  },
+  {
+   "i": 28,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The 'Discover Jeanne Kassab Art' title in the header area feels more like a public-facing description than an admin-specific one. It should simply be 'Dashboard'."
+  },
+  {
+   "i": 29,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The page implements a 'Back to the collection' button, which is useful, but the prompt specified two distinct inquiry CTAs: 'Inquire About This Piece' and 'Arrange Studio Visit'. Currently, 'Contact for Purchase' is present, and no 'Arrange Studio Visit' button is visible. However, the subsequent 'Contact for Purchase' form addresses the inquiry need, so the spirit is met, albeit with slightly different wording and button count."
+  },
+  {
+   "i": 30,
+   "rubric_category": "imagery_content",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "SEVERE: The image under 'Detailed Artwork Information' shows a hand manipulating a calculator on top of a paper with 'SALES VOLUME' written on it, again, not an original oil painting or a detailed view of art."
+  },
+  {
+   "i": 31,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The footer contains duplicate and conflicting copyright information: '© 2024 Galerie Aubert. All rights reserved.' and '© 2026 Galerie Aubert'."
+  },
+  {
+   "i": 32,
+   "rubric_category": "page_identity",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The page was intended to be an 'About the Artist' page according to the brief, but the current layout presents a generic marketing landing page, featuring 'How the work is made', 'Available works', and 'Collector notes' sections instead of focusing on the artist's biography and journey."
+  },
+  {
+   "i": 33,
+   "rubric_category": "unclassified",
+   "rubric_group": "X",
+   "human_group": "S",
+   "agree": false,
+   "atom": "The main content area presents three cards (Open WhatsApp Chat, Need to ask a specific treatment question?, Emergency Dental Care) rather than focusing solely on the WhatsApp redirect as specified for the `workspace` slot."
+  },
+  {
+   "i": 34,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The `filters` slot is missing the `FilterBar` component as required by the `ops-list` skeleton."
+  },
+  {
+   "i": 35,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The `credentials` slot (CredentialStrip component) is missing. This required slot is defined in the `public-detail` skeleton but is not visible on the page."
+  },
+  {
+   "i": 36,
+   "rubric_category": "imagery_content",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The 'inquire' section is present but it's an 'InquiryPanel' asking to 'Ask Northgate Dental Studio a question' about 'This piece' (referring to the image), which is completely wrong for an emergency page. It should offer a 'Contact Us' or 'Call Now' button, with specific instructions for emergencies."
+  },
+  {
+   "i": 37,
+   "rubric_category": "content_data",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The 'Selected Works' section only shows two paintings ('Evening Haze' and 'Coastal Whispers'), but the brief requested 'three distinct paintings' (e.g., 'Golden Hour', 'Whispering Pines', 'Urban Glow')."
+  },
+  {
+   "i": 38,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The `cta` section, represented by 'Next Move: Discover the Story Behind Each Stroke', includes 'Follow My Journey on Instagram' and 'Inquire About a Commission'. This is a good implementation of the `cta` slot, but its position after the testimonials and before the footer results in a double prompt for action after the content about the artist, which is slightly repetitive given the 'View the Gallery' and 'Connect with Jeanne' CTAs in the hero. The brief for this `cta` section suggested linking to Instagram, which is met, but the overall placement could be smoother."
+  },
+  {
+   "i": 39,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The header navigation includes 'Login' and 'Get started' buttons, which contradict the 'Editorial storefront / portfolio, not an ops ledger' and 'never 'We'll build', 'demo', 'showcase', or 'Start your plan'' directives. The 'Get started' button is also present twice on the page."
+  },
+  {
+   "i": 40,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The page is missing the required `credentials` slot, which was intended to showcase awards or certifications relevant to the restaurant."
+  },
+  {
+   "i": 41,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The `filters` section is missing. The brief explicitly called for filters for 'Medium', 'Size', or 'Availability'. There are no visible filter options on the page."
+  },
+  {
+   "i": 42,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The page has a public-facing navigation bar at the top with items like 'Vinci', 'Gallery', 'Weekly Menu', 'Our Story', 'Private Dining', and 'View collection'. This is incorrect for an admin login page, which should be streamlined for secure access and not include public storefront navigation."
+  },
+  {
+   "i": 43,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The 'Credentials' section (rich biography, influences, exhibitions, personal statement, portrait image) is entirely missing. The current visible sections are 'Studio Record' and 'How the work is made', which do not fulfill this requirement."
+  },
+  {
+   "i": 44,
+   "rubric_category": "page_identity",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The current display is a login form, which is intended for an 'Admin Login' page. However, the assigned skeleton is `ops-dashboard`, which has a purpose of 'Soft SaaS operations overview: main column (header, KPIs, chart, work list) + activity rail.' The login form does not fulfill the requirements of an ops-dashboard skeleton, nor are there any dashboard elements visible."
+  },
+  {
+   "i": 45,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The 'What comes next' section's primary CTA 'Browse the collection' is redundant, as the user is already on the collection page. The 'Back home' CTA is also not ideal for a primary call to action on a collection page."
+  },
+  {
+   "i": 46,
+   "rubric_category": "imagery_content",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "SEVERE: The hero image clearly shows a beautifully plated dessert or appetizer, which is appropriate for a restaurant. However, the accompanying text refers to 'This piece', 'Inquire about this piece', and 'Back to the collection', which are terms typically used in an art gallery or e-commerce store for individual items, not a restaurant's private dining room."
+  },
+  {
+   "i": 47,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "SEVERE: The hero image shows an artist painting in a studio, which is not an abstract landscape oil painting as described in the brief for the hero section ('Full-width, high-resolution image of a prominent abstract landscape painting (e.g., 'Coastal Embrace')'). This is a mismatch in subject matter for the art-first gallery concept."
+  },
+  {
+   "i": 48,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The 'hero' section is missing the required title 'Our Story: A Legacy of Adirondack Hospitality' and instead displays 'This piece'."
+  },
+  {
+   "i": 49,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The screenshot displays marketing copy ('A clear next step from Northgate Dental Studio — warm, specific, and ready when you are.', 'Live', 'AI features', 'Check in') which should not be present on a live product page for the client."
+  },
+  {
+   "i": 50,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The section labeled 'NEXT MOVE Ready for Jeanne Kassab Art? Tell Jeanne Kassab Art what you need — clear options, real next steps.' with 'Get started' and 'Talk to us' buttons reads like agency pitch text or a sales page for the MVP, not content for the art gallery's own contact page. This is a direct violation of the 'The live app must speak as the business product itself... never 'We'll build', 'demo', 'showcase', or 'Start your plan'.' instruction."
+  },
+  {
+   "i": 51,
+   "rubric_category": "meta_note",
+   "rubric_group": "X",
+   "human_group": "X",
+   "agree": true,
+   "atom": "The prompt asks for a 'subtle overlay with 'View Details' on hover'. This cannot be verified from a static screenshot, but it's an important interactive element to check in a live demo."
+  },
+  {
+   "i": 52,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "S",
+   "agree": false,
+   "atom": "The page includes two separate footers, one with 'Atelier Sorel | Fine Art Gallery' and one with just 'Atelier Sorel © 2026 Atelier Sorel' which is redundant and breaks the visual consistency."
+  },
+  {
+   "i": 53,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The navigation in the header shows 'Contact Us' as the active page, but the main CTA is for 'Arrange a Visit', suggesting a specific interaction rather than a general inquiry as the page purpose implies."
+  },
+  {
+   "i": 54,
+   "rubric_category": "styling_layout",
+   "rubric_group": "S",
+   "human_group": "S",
+   "agree": true,
+   "atom": "The KPI cards use a generic growth icon (a line chart) rather than something more relevant or distinct for each metric (e.g., an envelope for new inquiries, a painting icon for available works, a dollar sign or sold tag for sold pieces). While not a hard fail, it makes the design feel less bespoke."
+  },
+  {
+   "i": 55,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The CTA section combines a form with text about 'Visit Our Gallery' but lacks the clear presentation of contact details (address, phone, hours) as a separate, distinct block, making it appear as if only visits can be arranged through this page."
+  },
+  {
+   "i": 56,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The subcopy in the hero section is also generic marketing copy instead of a brief overview of the artist's journey and style as specified in the brief for the Hero section."
+  },
+  {
+   "i": 57,
+   "rubric_category": "missing_section",
+   "rubric_group": "S",
+   "human_group": "C",
+   "agree": false,
+   "atom": "The 'Call to Action' section has a heading 'Interested in a piece?' and a subtext, but the primary CTA button text 'Inquire About an Artwork' is missing. Instead, there are two buttons 'Browse the collection' and 'Back home' which are redundant given the context."
+  },
+  {
+   "i": 58,
+   "rubric_category": "content_copy",
+   "rubric_group": "C",
+   "human_group": "S",
+   "agree": false,
+   "atom": "There are two footers present. One states '© 2024 Maison Vaillant. All rights reserved.' and another below it that says '© 2026 Maison Vaillant', which is inconsistent and redundant."
+  },
+  {
+   "i": 59,
+   "rubric_category": "nav_links",
+   "rubric_group": "C",
+   "human_group": "C",
+   "agree": true,
+   "atom": "The secondary CTA in the hero section, 'Back home', is present but should not be the primary action for this specific page."
+  }
+ ]
+}
