@@ -43,6 +43,25 @@ _SHADOW_BLUR_RATIO = 0.022
 _SHADOW_OFFSET_RATIO = 0.012
 
 
+def variant_url(file_path: str, variant: str, uploads_dir: str) -> str | None:
+    """`/uploads/images/7/dashboard_0.png` + "hero" -> the composite's URL,
+    or None when it isn't on disk.
+
+    The naming convention lives here, with the code that writes the files,
+    so the deck exporter and the API can't drift from it independently.
+    """
+    marker = "/uploads/"
+    if marker not in file_path:
+        return None
+    rel = file_path.split(marker, 1)[1]
+    directory, name = os.path.split(rel)
+    stem = name[: -len("_0.png")] if name.endswith("_0.png") else os.path.splitext(name)[0]
+    candidate = os.path.join(directory, f"{stem}_{variant}.png")
+    if not os.path.isfile(os.path.join(uploads_dir, candidate)):
+        return None
+    return f"/uploads/{candidate}"
+
+
 def _rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
     mask = Image.new("L", size, 0)
     ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (size[0] - 1, size[1] - 1)], radius=radius, fill=255)

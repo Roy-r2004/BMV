@@ -19,6 +19,7 @@ from pptx.util import Emu, Inches, Pt
 
 from app.config import settings
 from app.models import Request
+from app.pipeline import compositing
 from app.pipeline._shared import employees_with_ids
 
 SLIDE_W = Inches(13.333)
@@ -54,15 +55,12 @@ def _presentation_variant(file_path: str, variant: str) -> str | None:
     """The W4 composite beside a screenshot — `<slug>_0.png` -> `<slug>_hero.png`.
 
     Returns None when compositing was off or the file predates it, so the
-    deck falls back to the raw screenshot rather than losing a slide.
+    deck falls back to the raw screenshot rather than losing a slide. The
+    naming convention itself lives in compositing, next to the code that
+    writes the files.
     """
-    raw = _abs_image_path(file_path)
-    if raw is None:
-        return None
-    directory, name = os.path.split(raw)
-    stem = name.rsplit("_0.png", 1)[0] if name.endswith("_0.png") else os.path.splitext(name)[0]
-    candidate = os.path.join(directory, f"{stem}_{variant}.png")
-    return candidate if os.path.isfile(candidate) else None
+    url = compositing.variant_url(file_path, variant, settings.UPLOADS_DIR)
+    return _abs_image_path(url) if url else None
 
 
 def _place_image_contain(slide, img_path: str, left, top, width, height):

@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Request
-from app.pipeline import export_pptx, orchestrator
+from app.models import AiUsageEvent, Request
+from app.pipeline import compositing, export_pptx, orchestrator
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
@@ -104,6 +104,16 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
             "role_label": img.role_label,
             "image_url": img.file_path,
             "variant": img.variant,
+            # W4 composites when they exist. Null rather than absent, and
+            # never a guessed URL: a broken <img> in a lead's preview is
+            # worse than no hero shot.
+            "hero_url": compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR),
+            "detail_urls": [
+                url for url in (
+                    compositing.variant_url(img.file_path, "detail_1", settings.UPLOADS_DIR),
+                    compositing.variant_url(img.file_path, "detail_2", settings.UPLOADS_DIR),
+                ) if url
+            ],
         }
         for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
     ]
@@ -129,6 +139,76 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         "main_problem": req.main_problem,
         "reference_url": req.reference_url,
         "what_you_like": req.what_you_like,
+    }
+
+
+@router.get("/{request_id}/admin")
+def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
+    """Operator view of one request: what it cost, on which models, and how
+    each screen scored.
+
+    Deliberately its own endpoint rather than a block on /preview — that
+    payload is what a lead sees, and the money must never be one careless
+    frontend change away from being rendered on it.
+
+    Cost comes from this service's own ai_usage_events rows, never from the
+    OpenRouter key balance: the key is shared, so a balance delta is not
+    this request's cost.
+    """
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    events = db.query(AiUsageEvent).filter(AiUsageEvent.request_id == request_id).all()
+
+    def _bucket(rows: list[AiUsageEvent]) -> dict:
+        return {
+            "calls": len(rows),
+            "failed": sum(1 for e in rows if not e.success),
+            "cost_usd": round(sum(e.cost_usd or 0 for e in rows), 5),
+        }
+
+    by_purpose = {p: _bucket([e for e in events if e.purpose == p]) for p in sorted({e.purpose for e in events})}
+    by_model = {m: _bucket([e for e in events if e.model == m]) for m in sorted({e.model for e in events})}
+    image_events = [e for e in events if e.purpose == "image" and e.success]
+
+    return {
+        "id": req.id,
+        "business_name": req.business_name,
+        "status": req.status,
+        "is_generating": req.is_generating,
+        "cost": {
+            # The single number an operator actually wants, plus the
+            # breakdown that explains it. Rounded to 5dp because a flash
+            # QA call is ~$0.001 and rounding to cents would show $0.00.
+            "total_usd": round(sum(e.cost_usd or 0 for e in events), 5),
+            "images_usd": round(sum(e.cost_usd or 0 for e in image_events), 5),
+            "images_generated": len(image_events),
+            "cost_per_image_usd": (
+                round(sum(e.cost_usd or 0 for e in image_events) / len(image_events), 5)
+                if image_events else None
+            ),
+            "by_purpose": by_purpose,
+            "by_model": by_model,
+            # Calls that were made and billed but produced nothing usable —
+            # the number that tells an operator a cost rise is waste rather
+            # than volume.
+            "failed_calls": sum(1 for e in events if not e.success),
+        },
+        "screens": [
+            {
+                "role_id": img.role_id,
+                "role_label": img.role_label,
+                "model": img.model,
+                "composition_variant": img.composition_variant,
+                "prompt_version": img.prompt_version,
+                "qa_score": img.qa_score,
+                "qa_issues": json.loads(img.qa_issues) if img.qa_issues else [],
+                "image_url": img.file_path,
+                "hero_url": compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR),
+            }
+            for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
+        ],
     }
 
 
