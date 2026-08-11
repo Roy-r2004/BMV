@@ -15,6 +15,9 @@ enough to stop that instead.
 3. [`defect-sweep.md`](defect-sweep.md) — the per-screen record: what was
    found on each of the fifteen, after every claim was put to a verifier
    told to refute it.
+4. [`next-session-prompt.md`](next-session-prompt.md) — the brief for the next
+   session, ordered by how much credibility each flaw costs per pound of
+   engineering.
 
 ## The three things worth knowing
 
