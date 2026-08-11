@@ -362,5 +362,50 @@
         ]
       }
     ]
+  },
+  {
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "screen": "dashboard",
+    "a": "google/gemini-3-pro-image[sheet]",
+    "b": "google/gemini-3-pro-image[final]",
+    "a_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__sheet/images/18/dashboard_0.png",
+    "b_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__final/images/17/dashboard_0.png",
+    "ran_at": "2026-08-11T17:54:33",
+    "winner": "google/gemini-3-pro-image[final]",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image[final]",
+    "reverse_pick": "google/gemini-3-pro-image[final]",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image[sheet] first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "Image A truncates the AI Workstream status text ('In Progr\u2026') and clutters the logo corner, while B renders all content cleanly with fuller, more polished chart annotations and layout.",
+        "a_defects": [
+          "Status text 'In Progress' truncated to 'In Progr' in AI Workstream panel",
+          "AI Workstream panel edges crowd the bottom-right logo",
+          "Chart lacks explicit data-point values beyond axis gridlines, relying on coincidental date/value overlap"
+        ],
+        "b_defects": [
+          "Peak tooltip shows only 'Thursday' without the corresponding value, losing some data clarity",
+          "No visible y-axis scale, making chart values slightly less precise"
+        ]
+      },
+      {
+        "order": "google/gemini-3-pro-image[final] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "Image B truncates the AI Workstream status text (\"In Progr\u2026\") and crowds content near the logo, while Image A renders every module fully and cleanly.",
+        "a_defects": [
+          "minor: metrics cards slightly disconnected from header rhythm"
+        ],
+        "b_defects": [
+          "clipped text 'status: In Progr' in AI Workstream panel",
+          "content sits closer to reserved logo corner",
+          "y-axis numeric scale on chart feels arbitrary/inconsistent with data points"
+        ]
+      }
+    ]
   }
 ]

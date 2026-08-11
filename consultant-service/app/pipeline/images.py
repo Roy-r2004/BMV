@@ -398,6 +398,15 @@ def _save_selected(
     return row
 
 
+def _save_design_sheet(request_id: int, image_bytes: bytes) -> None:
+    """The style board lands beside the screens, watermarked like every
+    other byte under UPLOADS_DIR (it is statically served)."""
+    out_dir = os.path.join(settings.UPLOADS_DIR, "images", str(request_id))
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "design_sheet.png"), "wb") as f:
+        f.write(_apply_bmv_watermark(image_bytes))
+
+
 def generate_demo_screens(
     db: Session,
     request_id: int,
@@ -406,6 +415,7 @@ def generate_demo_screens(
     anchor_reference_images: list[bytes] | None = None,
     anchor_model: str | None = None,
     followup_model: str | None = None,
+    use_design_sheet: bool | None = None,
 ) -> list[GeneratedImage]:
     """anchor_reference_images: optional EXTERNAL style-reference image(s)
     attached to the anchor call itself (not the usual follow-up-screen
@@ -418,9 +428,16 @@ def generate_demo_screens(
     invents the design from scratch, the follow-ups copy a design they're
     handed as a reference image — which is exactly what makes tiering
     (pro-class anchor, flash-class follow-ups) plausible. Both default to
-    the per-archetype config default, so an ordinary request is unchanged."""
+    the per-archetype config default, so an ordinary request is unchanged.
+
+    use_design_sheet (W5): generate a design-system style board first and
+    condition EVERY screen on it, including the anchor, instead of letting
+    follow-ups inherit whatever the anchor happened to do. Costs one extra
+    image; off unless the experiment says otherwise."""
     anchor_model = anchor_model or settings.anchor_model_for(archetype_id)
     followup_model = followup_model or settings.followup_model_for(archetype_id)
+    if use_design_sheet is None:
+        use_design_sheet = settings.USE_DESIGN_SHEET
     req = db.get(Request, request_id)
     if req is None:
         raise ValueError(f"Request {request_id} not found")
@@ -428,6 +445,36 @@ def generate_demo_screens(
         return []
 
     saved: list[GeneratedImage] = []
+
+    # ── W5: the design sheet, generated before any screen ─────────────────
+    # A failure here must not cost the request its screenshots, so it
+    # degrades to the ordinary anchor-as-reference path.
+    if use_design_sheet and not anchor_reference_images:
+        sheet = _generate_candidates(
+            [{
+                "prompt": prompt_builder.build_design_sheet_prompt(ui_specs[0], archetype_id),
+                "variant_id": "design-sheet",
+                "model": anchor_model,
+            }],
+            None,
+        )[0]
+        cand_model = sheet.get("model") or settings.IMAGE_MODEL
+        log_usage(
+            db, request_id,
+            provider="openrouter", model=cand_model, purpose="image",
+            usage=sheet.get("usage"), image_count=1,
+            success=sheet.get("error") is None,
+            error=str(sheet["error"])[:500] if sheet.get("error") else None,
+        )
+        if sheet.get("error") is None:
+            anchor_reference_images = [sheet["image_bytes"]]
+            _save_design_sheet(request_id, sheet["image_bytes"])
+            logger.info("design sheet generated and attached to every screen: request=%s", request_id)
+        else:
+            logger.warning(
+                "design sheet failed, falling back to anchor-as-reference: request=%s error=%s",
+                request_id, sheet["error"],
+            )
 
     # ── Anchor screen: distinct composition variants, not re-rolls ────────
     # DASHBOARD_CANDIDATES is the cost knob the module docstring promises
@@ -465,8 +512,15 @@ def generate_demo_screens(
         )
     )
 
-    # ── Follow-up screens: anchor attached as the style reference ─────────
-    anchor_reference = [anchor_selected["image_bytes"]] if settings.USE_REFERENCE_IMAGES else None
+    # ── Follow-up screens: anchor (or the design sheet) as the reference ──
+    # Under W5 every screen shares the sheet as its ancestor, so a follow-up
+    # is not copying a screen that may itself have gone wrong.
+    if not settings.USE_REFERENCE_IMAGES:
+        anchor_reference = None
+    elif use_design_sheet and anchor_reference_images:
+        anchor_reference = anchor_reference_images
+    else:
+        anchor_reference = [anchor_selected["image_bytes"]]
     for spec in ui_specs[1:]:
         standalone_prompt = prompt_builder.build_dashboard_image_prompt(spec, archetype_id=archetype_id)
         if settings.USE_REFERENCE_IMAGES:

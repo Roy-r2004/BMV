@@ -113,6 +113,7 @@ def main() -> None:
     parser.add_argument("--secondary", type=int, help="override SECONDARY_CANDIDATES for this cell")
     parser.add_argument("--label", default="", help="name this condition (e.g. nopack) so an A/B pair does not collide")
     parser.add_argument("--no-art-packs", action="store_true", help="W2 A/B control: run with ENABLE_ART_PACKS off")
+    parser.add_argument("--design-sheet", action="store_true", help="W5: generate a style board first and condition every screen on it")
     parser.add_argument("--force", action="store_true", help="re-run a cell that already has a result")
     parser.add_argument("--report", action="store_true", help="print the matrix so far and exit")
     args = parser.parse_args()
@@ -178,6 +179,7 @@ def main() -> None:
     saved = images_stage.generate_demo_screens(
         db, req.id, bundle["archetype"], specs,
         anchor_model=anchor_model, followup_model=followup_model,
+        use_design_sheet=args.design_sheet or None,
     )
     wall = time.monotonic() - started
 
@@ -198,6 +200,7 @@ def main() -> None:
         "key": key,
         "label": label,
         "art_packs": settings.ENABLE_ART_PACKS,
+        "design_sheet": bool(args.design_sheet),
         "brief": args.brief,
         "archetype": bundle["archetype"],
         "anchor_model": anchor_model,

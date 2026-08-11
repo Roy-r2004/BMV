@@ -60,18 +60,27 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", str(text)).strip().lower()
 
 
-def _closest_misspelling(target: str, rendered: list[str]) -> str | None:
+def _closest_misspelling(target: str, rendered: list[str], explained: set[str]) -> str | None:
     """The rendered string that looks like a misspelling of `target`, or None.
 
-    A substring relationship is NOT a misspelling. "SmileBright Dental" and
-    a wordmark rendered "SmileBright" score 0.76 similar, over the cutoff —
-    but nothing there is spelled wrong, the name is simply shorter on
-    screen. Reporting that as a misspelling would reject a correct screen
-    every time a business name and its product name share a prefix, which
-    is most of them.
+    Two things are deliberately NOT misspellings:
+
+    A substring relationship. "SmileBright Dental" and a wordmark rendered
+    "SmileBright" score 0.76 similar, over the cutoff — but nothing is
+    spelled wrong, the name is simply shorter on screen, and business names
+    share a prefix with their product names most of the time.
+
+    A string that is already accounted for by a DIFFERENT expected value.
+    Measured on the golden set 2026-08-11: the salon screen renders the
+    product wordmark "Lumière Studio OS", which scores similar enough to
+    the business name "Lumière Hair Studio" to be reported as a misspelling
+    of it. Nothing was wrong with that screen; the gate spent a
+    regeneration on it and the request cost 60% more than its siblings.
+    Text that correctly renders one required string cannot simultaneously
+    be a corruption of another.
     """
     for match in difflib.get_close_matches(target, rendered, n=3, cutoff=_MISSPELLING_RATIO):
-        if match in target or target in match:
+        if match in target or target in match or match in explained:
             continue
         return match
     return None
@@ -104,10 +113,25 @@ def check(spec: UIDemoSpec, transcript: list[str]) -> dict:
     # transcriber returns each rendered LINE, not each logical string.
     flat = " ".join(rendered)
 
+    required = required_strings(spec)
+
+    # Rendered entries that already account for some required string. Built
+    # before any diagnosis, because whether a line is "explained" does not
+    # depend on which field is being checked at the time.
+    explained: set[str] = set()
+    for values in required.values():
+        for expected in values:
+            target = _normalize(expected)
+            if not target:
+                continue
+            for entry in rendered:
+                if re.search(rf"(?<!\w){re.escape(target)}(?!\w)", entry):
+                    explained.add(entry)
+
     failures: list[dict] = []
     absent: list[dict] = []
     checked = 0
-    for field, expected_values in required_strings(spec).items():
+    for field, expected_values in required.items():
         for expected in expected_values:
             target = _normalize(expected)
             if not target:
@@ -121,7 +145,7 @@ def check(spec: UIDemoSpec, transcript: list[str]) -> dict:
             # give the containment without the free pass.
             if re.search(rf"(?<!\w){re.escape(target)}(?!\w)", flat):
                 continue
-            closest = _closest_misspelling(target, rendered)
+            closest = _closest_misspelling(target, rendered, explained)
             entry = {
                 "field": field,
                 "expected": expected,

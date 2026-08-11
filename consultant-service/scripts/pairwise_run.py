@@ -69,10 +69,13 @@ def main() -> None:
         spec = bundle["screens"][0]
 
         def pick(model: str, label: str) -> dict | None:
+            # Anchor model + condition label only. The follow-up model is
+            # not part of the identity of the ANCHOR being compared, and
+            # requiring it to match excluded every tiered cell.
             matches = [
                 c for c in cells
                 if c["brief"] == brief_id and c["anchor_model"] == model
-                and c["followup_model"] == model and c.get("label", "") == label
+                and c.get("label", "") == label
             ]
             return matches[-1] if matches else None
 

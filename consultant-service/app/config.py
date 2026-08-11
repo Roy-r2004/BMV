@@ -134,6 +134,11 @@ class Settings:
     # deck's artifacts, and the reason the image model is never asked for a
     # device mockup (it garbles the UI text it just got right).
     ENABLE_PRESENTATION_COMPOSITING: bool = _env_bool("ENABLE_PRESENTATION_COMPOSITING", True)
+    # W5 experiment: generate a design-system style board first and condition
+    # every screen on it, instead of letting follow-ups inherit whatever the
+    # anchor happened to do. Costs one extra image per request. Default off
+    # until the experiment wins — see docs/evidence/session31/.
+    USE_DESIGN_SHEET: bool = _env_bool("USE_DESIGN_SHEET", False)
     # At most ONE extra attempt per screen when no candidate is approved —
     # never an open-ended regeneration loop.
     MAX_REGENERATIONS: int = int(_env_or("MAX_REGENERATIONS", "1"))

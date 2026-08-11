@@ -687,5 +687,470 @@
         "google/gemini-3-pro-image": 2
       }
     }
+  },
+  {
+    "key": "dental|google/gemini-3-pro-image|google/gemini-3.1-flash-image|deck",
+    "label": "deck",
+    "art_packs": false,
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 16,
+    "out_dir": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__deck",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:29:27",
+    "wall_s": 57.8,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.7,
+        "qa_issues": [],
+        "file_path": "/uploads/images/16/dashboard_0.png"
+      },
+      {
+        "role_id": "schedule",
+        "screen_type": "schedule",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 8.1,
+        "qa_issues": [
+          "minor text alignment in 'vs yesterday' labels",
+          "some cards appear to have slightly more padding on bottom than top"
+        ],
+        "file_path": "/uploads/images/16/schedule_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.21856,
+      "cost_images": 0.21284,
+      "cost_qa": 0.00188,
+      "image_calls_ok": 2,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.1423,
+        "google/gemini-3.1-flash-image": 0.07054
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 1,
+        "google/gemini-3.1-flash-image": 1
+      }
+    }
+  },
+  {
+    "key": "dental|google/gemini-3-pro-image|google/gemini-3.1-flash-image|final",
+    "label": "final",
+    "art_packs": false,
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 17,
+    "out_dir": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__final",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:40:39",
+    "wall_s": 67.3,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.1,
+        "qa_issues": [
+          "The AI Workstream and Recall Opportunities cards feel a bit visually flat compared to the top KPI cards and the main chart, lacking the same depth or subtle shadows, which diminishes overall premium feel slightly.",
+          "The 'Appointments' dropdown in the 'Weekly Appointments' chart header feels a bit generic and could be more visually integrated or stylized to match the rest of the premium design.",
+          "The small green and red percentage indicators on the KPI cards are a little tiny and could have slightly more emphasis while still maintaining subtlety.",
+          "The bottom section of the 'Upcoming Appointments' list (Dr. Nguyen's line) is slightly cut off at the bottom of the card, a minor layout integrity issue."
+        ],
+        "file_path": "/uploads/images/17/dashboard_0.png"
+      },
+      {
+        "role_id": "schedule",
+        "screen_type": "schedule",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 8.0,
+        "qa_issues": [
+          "minor typo in 'Wiliam Johnson' (should be 'William')",
+          "inconsistent time formatting for '1:00 AM' in 'Full Clinic Schedule' (should be '1:00 PM' or similar consistent schedule)",
+          "conflicting times in 'Dr. Carter's Schedule': '10:00 AM' appears twice with different patients; '12:00 AM' and subsequent times seem out of order or unrealistic for a practice schedule",
+          "the AI Workstream status 'Done' uses a slightly different green color than the 'Confirmed' badges, which is a minor inconsistency in color palette usage.",
+          "The 'AI Workstream' appears to be a general activity log, not an 'AI-activity panel' that's specifically doing the same job twice; however, its presence in this specific 'Schedule' screen is a bit unusual. It doesn't break the rules, but could be seen as less directly relevant than other modules."
+        ],
+        "file_path": "/uploads/images/17/schedule_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.22419,
+      "cost_images": 0.21724,
+      "cost_qa": 0.0027,
+      "image_calls_ok": 2,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.14705,
+        "google/gemini-3.1-flash-image": 0.07019
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 1,
+        "google/gemini-3.1-flash-image": 1
+      }
+    }
+  },
+  {
+    "key": "dental|google/gemini-3-pro-image|google/gemini-3.1-flash-image|sheet",
+    "label": "sheet",
+    "art_packs": false,
+    "design_sheet": true,
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 18,
+    "out_dir": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__sheet",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:51:48",
+    "wall_s": 102.8,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.1,
+        "qa_issues": [
+          "Some text in the 'Weekly Appointments' chart is clipped/cut off (e.g., 'Mon 15' cut off at the bottom, labels on y-axis).",
+          "The x-axis labels in 'Weekly Appointments' are not uniformly distributed below their corresponding points, leading to slight visual misalignment (e.g., 'Wed 17' below Thu 20, 'Fri 16' below Sat 8)."
+        ],
+        "file_path": "/uploads/images/18/dashboard_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.29073,
+      "cost_images": 0.28778,
+      "cost_qa": 0.00115,
+      "image_calls_ok": 2,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.28778
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2
+      }
+    }
+  },
+  {
+    "key": "dental|google/gemini-3-pro-image|google/gemini-3.1-flash-image|golden",
+    "label": "golden",
+    "art_packs": false,
+    "design_sheet": false,
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 19,
+    "out_dir": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__golden",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:56:52",
+    "wall_s": 81.6,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      2,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.7,
+        "qa_issues": [
+          "Chart x-axis labels (days of week) are a bit small and light, making them less prominent than the dates below.",
+          "The 'Peak: 20' tooltip in the weekly appointments chart feels slightly basic visually.",
+          "The bottom right logo corner is empty; a subtle brand element there might enhance perceived value, though not strictly required.",
+          "The 'AI Workstream' statuses use generic status colors (green, yellow, grey) that don't particularly stand out visually, though they are clear."
+        ],
+        "file_path": "/uploads/images/19/dashboard_0.png"
+      },
+      {
+        "role_id": "schedule",
+        "screen_type": "schedule",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 8.5,
+        "qa_issues": [],
+        "file_path": "/uploads/images/19/schedule_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.36715,
+      "cost_images": 0.35839,
+      "cost_qa": 0.00319,
+      "image_calls_ok": 3,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.28993,
+        "google/gemini-3.1-flash-image": 0.06845
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2,
+        "google/gemini-3.1-flash-image": 1
+      }
+    }
+  },
+  {
+    "key": "law|google/gemini-3-pro-image|google/gemini-3.1-flash-image|golden",
+    "label": "golden",
+    "art_packs": false,
+    "design_sheet": false,
+    "brief": "law",
+    "archetype": "crm-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 20,
+    "out_dir": "scripts/out/bakeoff/law/google_gemini-3-pro-image__golden",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:57:57",
+    "wall_s": 64.1,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      2,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.1,
+        "qa_issues": [
+          "AI-related anwities should be 'AI-related activities' or 'AI-related anxieties' depending on context, 'anwities' is a misspelling.",
+          "The overall design, while clean and professional, leans slightly towards a common admin template aesthetic without a truly unique design language that screams 'bespoke $50K+'."
+        ],
+        "file_path": "/uploads/images/20/dashboard_0.png"
+      },
+      {
+        "role_id": "pipeline",
+        "screen_type": "pipeline",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 7.5,
+        "qa_issues": [
+          "Small typo: 'aniwities' instead of 'activities' in AI Workstream panel.",
+          "Small typo: 'Queueu' instead of 'Queued' in AI Workstream panel."
+        ],
+        "file_path": "/uploads/images/20/pipeline_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.36581,
+      "cost_images": 0.35667,
+      "cost_qa": 0.00369,
+      "image_calls_ok": 3,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.28572,
+        "google/gemini-3.1-flash-image": 0.07096
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2,
+        "google/gemini-3.1-flash-image": 1
+      }
+    }
+  },
+  {
+    "key": "retail|google/gemini-3-pro-image|google/gemini-3.1-flash-image|golden",
+    "label": "golden",
+    "art_packs": false,
+    "design_sheet": false,
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 21,
+    "out_dir": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__golden",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:59:41",
+    "wall_s": 103.7,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      2,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "analytics",
+        "screen_type": "analytics",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "command-center",
+        "qa_score": 9.2,
+        "qa_issues": [
+          "Peak label on chart shows '$1,300', but the chart value is closer to 1,200 (visually misaligned)."
+        ],
+        "file_path": "/uploads/images/21/analytics_0.png"
+      },
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 8.1,
+        "qa_issues": [
+          "The main navigation on the left has slightly small text and icons, making it feel a little less substantial than the rest of the UI. Could benefit from a slightly larger type scale and more substantial icon sizing for better visual presence."
+        ],
+        "file_path": "/uploads/images/21/dashboard_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.44428,
+      "cost_images": 0.43327,
+      "cost_qa": 0.00405,
+      "image_calls_ok": 4,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.29483,
+        "google/gemini-3.1-flash-image": 0.13844
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2,
+        "google/gemini-3.1-flash-image": 2
+      }
+    }
+  },
+  {
+    "key": "salon|google/gemini-3-pro-image|google/gemini-3.1-flash-image|golden",
+    "label": "golden",
+    "art_packs": false,
+    "design_sheet": false,
+    "brief": "salon",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 22,
+    "out_dir": "scripts/out/bakeoff/salon/google_gemini-3-pro-image__golden",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T18:01:46",
+    "wall_s": 124.7,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      2,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "command-center",
+        "qa_score": 9.2,
+        "qa_issues": [
+          "text-truth: \"Lumi\u00e8re Hair Studio\" rendered as \"lumi\u00e8re studio os\""
+        ],
+        "file_path": "/uploads/images/22/dashboard_0.png"
+      },
+      {
+        "role_id": "schedule",
+        "screen_type": "schedule",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 8.7,
+        "qa_issues": [
+          "Minor inconsistencies in color shades (e.g., green checkmark in 'Open' vs. green text for percentage up)",
+          "The 'ONLY ONE' label on 'AI Workstream' feels slightly off in placement and typography compared to the rest of the clean design",
+          "text-truth: \"Lumi\u00e8re Hair Studio\" rendered as \"lumi\u00e8re studio os\""
+        ],
+        "file_path": "/uploads/images/22/schedule_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.58716,
+      "cost_images": 0.57341,
+      "cost_qa": 0.00485,
+      "image_calls_ok": 5,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.4347,
+        "google/gemini-3.1-flash-image": 0.13871
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 3,
+        "google/gemini-3.1-flash-image": 2
+      }
+    }
+  },
+  {
+    "key": "hedgefund|google/gemini-3-pro-image|google/gemini-3.1-flash-image|golden",
+    "label": "golden",
+    "art_packs": false,
+    "design_sheet": false,
+    "brief": "hedgefund",
+    "archetype": "analytics-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3.1-flash-image",
+    "request_id": 23,
+    "out_dir": "scripts/out/bakeoff/hedgefund/google_gemini-3-pro-image__golden",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T18:02:59",
+    "wall_s": 72.8,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      2,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "analytics",
+        "screen_type": "analytics",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "command-center",
+        "qa_score": 9.2,
+        "qa_issues": [],
+        "file_path": "/uploads/images/23/analytics_0.png"
+      },
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3.1-flash-image",
+        "composition_variant": null,
+        "qa_score": 8.7,
+        "qa_issues": [],
+        "file_path": "/uploads/images/23/dashboard_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.36825,
+      "cost_images": 0.35963,
+      "cost_qa": 0.00282,
+      "image_calls_ok": 3,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.29119,
+        "google/gemini-3.1-flash-image": 0.06843
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2,
+        "google/gemini-3.1-flash-image": 1
+      }
+    }
   }
 ]

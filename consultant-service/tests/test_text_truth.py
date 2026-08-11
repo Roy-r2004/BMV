@@ -315,3 +315,27 @@ def test_unknown_text_truth_outranks_known_bad_in_the_fallback(dental_spec):
         )
 
     assert selected["verdict"]["score"] == 8.0
+
+
+def test_the_product_wordmark_is_not_a_misspelling_of_the_business_name(dental_spec):
+    """Measured on the golden set 2026-08-11: the salon screen renders
+    "Lumière Studio OS" (its product name, correctly), which scores similar
+    enough to the business name "Lumière Hair Studio" to be reported as a
+    misspelling of it. The gate spent a regeneration on a correct screen and
+    that request cost 60% more than its siblings."""
+    dental_spec.business.name = "Lumière Hair Studio"
+    dental_spec.product.name = "Lumière Studio OS"
+    transcript = ["Lumière Studio OS", *dental_spec.navigation]
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is True
+    assert [a["expected"] for a in result["absent"]] == ["Lumière Hair Studio"]
+
+
+def test_a_genuine_misspelling_still_fails_when_other_strings_are_fine(dental_spec):
+    """The guard above must not become a blanket amnesty."""
+    transcript = ["Smilebrite Dental", dental_spec.product.name, *dental_spec.navigation]
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is False
+    assert result["failures"][0]["closest"] == "smilebrite dental"

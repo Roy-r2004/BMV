@@ -328,6 +328,48 @@ Every visible string above is the EXACT text to render — short labels, names a
 {_DESIGN_CONSTRAINTS}{_art_direction(spec, archetype_id)}"""
 
 
+DESIGN_SHEET_PROMPT_VERSION = "design-sheet-v1"
+
+
+def build_design_sheet_prompt(spec: UIDemoSpec, archetype_id: str | None = None) -> str:
+    """W5 experiment: a style board generated BEFORE any screen, then
+    attached as the reference for every screen including the anchor.
+
+    The theory being tested: today's consistency comes from the anchor, so
+    every follow-up inherits whatever the anchor happened to do — including
+    its mistakes — and the anchor itself has no reference at all. A design
+    sheet gives all screens one common ancestor that contains no layout to
+    copy, only a vocabulary.
+
+    Deliberately NOT a screenshot: it is components on a plain background.
+    Handing a model a finished screen as its reference is what makes it
+    clone that screen; handing it swatches and a button leaves the layout
+    to the screen prompt.
+    """
+    return f"""TASK
+
+Create a design-system style board for {spec.business.name}, a {spec.business.industry or "local business"} — the one-page reference sheet a product-design studio pins up before building screens. This is NOT an application screen and must contain no dashboard, no sidebar and no page layout.
+
+Lay out, on a plain very-light-grey background, clearly separated and generously spaced:
+
+1. A row of colour swatches as rounded rectangles: the primary brand colour, a darker shade of it, a very pale tint of it, and three small neutral swatches (near-white surface, hairline grey, near-black text).
+2. A type scale specimen: one large number in the style KPI values will use ({spec.kpis[0].value if spec.kpis else "1,284"}), one section heading ("{spec.kpis[0].label if spec.kpis else "Revenue"}"), one body line, one small caption line — each rendered once, showing weight and size contrast.
+3. Two example cards, empty of data except a short title and one number, showing the exact corner radius, border and shadow every card in this product will use.
+4. One small chart fragment — a short line or three bars — showing the data-visualisation styling: stroke weight, gradient fill, gridline colour.
+5. Three status pills reading exactly "Done", "In Progress" and "Queued".
+
+BRANDING
+
+Business name: {spec.business.name}
+Primary brand colour: {spec.business.primary_color or "#2563EB"}{f" (secondary: {spec.business.secondary_color})" if spec.business.secondary_color else ""}
+
+The mood is light, restrained and premium — the visual language of Linear, Stripe and Ramp. No dark theme, no neon, no glassmorphism, no 3D shapes, no photographs, no mockups of devices.
+
+OUTPUT
+
+A flat, straight-on style board filling the canvas. Label nothing except the strings named above."""
+
+
 def build_continuation_prompt(spec: UIDemoSpec, anchor_screen_title: str, archetype_id: str | None = None) -> str:
     """Follow-up screen prompt (version: screen-continuation-v1). Sent WITH the
     selected anchor screenshot attached as a reference image so every screen
