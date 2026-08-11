@@ -161,12 +161,28 @@ the strategic glue; it costs one mapping module plus tests.
 ## What "astonishing" means (the DoD)
 
 1. **Brand-critical text accuracy 100%** on shipped screens (W3 gate).
-2. Every shipped screen QA ≥ 8/10; anchors ≥ 9 on ≥ 4 of 5 golden briefs.
+2. **No shipped screen scores below 8/10 on the fixed QA judge, and none
+   carries a structural defect** — a duplicated panel, clipped or truncated
+   content, a blank or unlabelled control, prompt scaffolding rendered as UI,
+   or a garbled axis/label.
 3. Pairwise: new pipeline beats today's output on ≥ 4 of 5 briefs
    (judge + owner eye — final call is the owner's, like Stage C).
 4. Cost ≤ **$0.60/request** at pro-anchor + flash-follow-up tiering;
    wall ≤ 3 min.
 5. Zero unbranded bytes reachable under `/uploads` (pinned, W0).
+
+*Line 2 was amended by the owner on 2026-08-11.* It previously read "Every
+shipped screen QA ≥ 8/10; anchors ≥ 9 on ≥ 4 of 5 golden briefs". The ≥9
+threshold was retired because the instrument that measures it was shown not
+to track quality: the fixed QA judge scored **9.2** for a retail screen
+carrying two panels both titled "Inventory Status" and a chart axis reading
+"Low / Misit / High / High", and **8.7** for the retail screen the owner
+picked as the best output of the run. It also gave exactly 9.2 to four
+materially different conditions of the same brief. The ≥8 floor is kept — it
+is live, has passed in both measured sessions, and would catch a real
+collapse — and the anchor threshold is replaced by a defect list, which is
+what the judge is demonstrably reliable at. See
+`docs/evidence/session32/results.md`.
 
 ## Sequencing
 

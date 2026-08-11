@@ -150,12 +150,25 @@ the W7 section of `ROADMAP.md`.
 | # | line | state entering this session |
 |---|---|---|
 | 1 | brand-critical text 100% | **holds** — 8/8 on the last measured set; re-verify on JOB 3 |
-| 2 | every screen ≥8, anchors ≥9 on ≥4 of 5 | **unproven** — the judge is saturated; report scores but do not treat them as the criterion |
+| 2 | no screen below 8, and no structural defect | **amended 2026-08-11** — the ≥9 anchor threshold was retired by the owner as anti-correlated with quality; verify the new form on JOB 3 |
 | 3 | beats the old default, owner's eye final | **PASSES** — owner signed off on the session-32 sheets |
 | 4 | ≤$0.60/request, ≤3 min | **holds** — $0.45 after JOB 2; confirm on the JOB 3 full run |
 | 5 | zero unbranded bytes under /uploads | **holds**, pinned |
 
-Line 2 is the one to think hardest about. The instrument that measures it has
-been shown unreliable. Either find a defensible way to assess it, or state in
-the DoD assessment that the line cannot be measured as written and say what
-you would replace it with — do not quietly pass it on saturated scores.
+**Line 2 was rewritten by the owner on 2026-08-11** and now reads: *no shipped
+screen scores below 8/10 on the fixed QA judge, and none carries a structural
+defect — a duplicated panel, clipped or truncated content, a blank or
+unlabelled control, prompt scaffolding rendered as UI, or a garbled
+axis/label.*
+
+The old form required anchors ≥9 on 4 of 5 briefs. It was retired because the
+judge that measures it does not track quality: it scored 9.2 for the retail v2
+screen (two panels both titled "Inventory Status", axis labels reading "Low /
+Misit / High / High") and 8.7 for the screen the owner chose as the best of
+the run.
+
+Assessing the new form is a LOOKING task, not a scoring task. Open every
+shipped screen from JOB 3 and check the defect list by eye. The judge's issue
+lists are a useful starting point — its structural findings have held up under
+inspection every time — but the verdict comes from the image, and a claimed
+misspelling is verified by zooming in, never taken on trust.
