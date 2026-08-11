@@ -1,0 +1,410 @@
+{
+  "id": "retail",
+  "label": "Northgate Coffee Roasters — Coffee Roastery & E-commerce",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Northgate Coffee Roasters",
+    "business_description": "Specialty coffee roastery with one café and a growing online subscription business. Wholesale accounts with 12 local cafés. Nobody has time to watch which blends are selling, and reorder decisions are made from gut feel.",
+    "industry": "Coffee Roastery & E-commerce",
+    "consult_result": {
+      "consulting_summary": "An AI merchandiser that watches sales and subscription churn daily, forecasts roast volumes and flags reorders before a blend runs out."
+    },
+    "plan_result": {
+      "concept_name": "Northgate Roast Intelligence",
+      "visual_theme": {
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534",
+        "mood": "warm, crafted, confident"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v1"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Sales",
+        "Wholesale",
+        "Roasts",
+        "Orders",
+        "Customers",
+        "Settings"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Sales Performance Overview",
+      "kpis": [
+        {
+          "label": "Total Sales",
+          "value": "$5,210",
+          "delta": "+15% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription MRR",
+          "value": "$2,850",
+          "delta": "+8% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Online Orders",
+          "value": "88",
+          "delta": "+12 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Wholesale Orders",
+          "value": "5",
+          "delta": "+1 vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Selling Blends",
+        "rows": [
+          {
+            "Blend": "Sunrise Roast",
+            "Units": "120",
+            "Revenue": "$1,440"
+          },
+          {
+            "Blend": "Ethiopian Yirgacheffe",
+            "Units": "85",
+            "Revenue": "$1,275"
+          },
+          {
+            "Blend": "Dark Matter",
+            "Units": "70",
+            "Revenue": "$980"
+          },
+          {
+            "Blend": "Decaf Delight",
+            "Units": "45",
+            "Revenue": "$540"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Subscription Churn Risk",
+        "rows": [
+          {
+            "Customer": "Anna Johnson",
+            "Blend": "Sunrise Roast",
+            "Risk": "High"
+          },
+          {
+            "Customer": "Michael Chen",
+            "Blend": "Ethiopian",
+            "Risk": "Medium"
+          },
+          {
+            "Customer": "Olivia Davis",
+            "Blend": "Dark Matter",
+            "Risk": "Low"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Daily Sales Trend",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          850.0,
+          920.0,
+          780.0,
+          1050.0,
+          1100.0,
+          1300.0,
+          950.0
+        ],
+        "metric_label": "Sales ($)"
+      },
+      "activity": [
+        {
+          "name": "AI System",
+          "action": "Flagged Low Stock: Dark Matter",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Sarah",
+          "action": "Viewed Roast Schedule",
+          "time": "15 min ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Forecasted Sunrise Roast need",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "Warm, earthy tones with natural accents"
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Sales",
+        "Wholesale",
+        "Roasts",
+        "Orders",
+        "Customers",
+        "Settings"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Operational Snapshot",
+      "kpis": [
+        {
+          "label": "Upcoming Roasts",
+          "value": "3",
+          "delta": "+1 today",
+          "trend": "up"
+        },
+        {
+          "label": "Low Stock Alerts",
+          "value": "2",
+          "delta": "No change",
+          "trend": "neutral"
+        },
+        {
+          "label": "Pending Wholesale",
+          "value": "4",
+          "delta": "+1 new",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Pauses",
+          "value": "1",
+          "delta": "No change",
+          "trend": "neutral"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recommended Reorders",
+        "rows": [
+          {
+            "Blend": "Dark Matter",
+            "Current Stock": "15 kg",
+            "Forecast": "3 days",
+            "Action": "Roast 20 kg"
+          },
+          {
+            "Blend": "Decaf Delight",
+            "Current Stock": "10 kg",
+            "Forecast": "4 days",
+            "Action": "Roast 15 kg"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Wholesale Account Alerts",
+        "rows": [
+          {
+            "Account": "Brew Haven Café",
+            "Status": "Order overdue",
+            "Last Order": "12 days ago"
+          },
+          {
+            "Account": "Daily Grind",
+            "Status": "Subscription due",
+            "Next Order": "Today"
+          },
+          {
+            "Account": "The Bean Scene",
+            "Status": "New blend inquiry",
+            "Contact": "Ella"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "AI System",
+          "action": "Generated roast plan",
+          "time": "1 min ago"
+        },
+        {
+          "name": "David (Wholesale)",
+          "action": "Updated Brew Haven status",
+          "time": "10 min ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Notified of subscription churn risk",
+          "time": "30 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "Warm, earthy tones with natural accents"
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Sales",
+        "Wholesale",
+        "Roasts",
+        "Orders",
+        "Customers",
+        "Settings"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Customer Insights",
+      "kpis": [
+        {
+          "label": "New Subscribers",
+          "value": "7",
+          "delta": "+2 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Active Subscribers",
+          "value": "115",
+          "delta": "+5 vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Churn Rate",
+          "value": "4.2%",
+          "delta": "-0.5% vs last month",
+          "trend": "down"
+        },
+        {
+          "label": "Avg Order Value",
+          "value": "$35.80",
+          "delta": "+$1.10",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "High Value Subscribers",
+        "rows": [
+          {
+            "Name": "Eleanor Vance",
+            "Subscription": "Sunrise, Dark Matter",
+            "Value": "$1200"
+          },
+          {
+            "Name": "Marcus Thorne",
+            "Subscription": "Ethiopian Yirgacheffe",
+            "Value": "$950"
+          },
+          {
+            "Name": "Chloe Kim",
+            "Subscription": "Decaf Delight",
+            "Value": "$880"
+          },
+          {
+            "Name": "Liam O'Connell",
+            "Subscription": "Roaster's Choice",
+            "Value": "$720"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Wholesale Clients",
+        "rows": [
+          {
+            "Client": "Brew Haven Café",
+            "Contact": "Jessica",
+            "Last Order": "12 days ago"
+          },
+          {
+            "Client": "Daily Grind",
+            "Contact": "Mark",
+            "Last Order": "2 days ago"
+          },
+          {
+            "Client": "The Bean Scene",
+            "Contact": "Ella",
+            "Last Order": "5 days ago"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "AI System",
+          "action": "Identified Eleanor Vance as VIP",
+          "time": "1 min ago"
+        },
+        {
+          "name": "Sarah",
+          "action": "Updated Chloe Kim's subscription",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Marcus Thorne",
+          "action": "Rated Ethiopian Yirgacheffe",
+          "time": "45 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "Warm, earthy tones with natural accents"
+      }
+    }
+  ]
+}

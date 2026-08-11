@@ -1,0 +1,469 @@
+{
+  "id": "hedgefund",
+  "label": "Meridian Capital Partners — Hedge Fund / Asset Management",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Meridian Capital Partners",
+    "business_description": "Boutique long/short equity hedge fund managing $180M for institutional and high-net-worth clients, 6 analysts. Investor reporting and portfolio risk monitoring are manual and slow.",
+    "industry": "Hedge Fund / Asset Management",
+    "consult_result": {
+      "consulting_summary": "An AI analyst that monitors portfolio risk in real time, drafts investor updates and flags exposure limits before they're breached."
+    },
+    "plan_result": {
+      "concept_name": "Meridian Intelligence",
+      "visual_theme": {
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227",
+        "mood": "authoritative, precise, institutional"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v1"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI analyst for risk & reporting",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Risk",
+        "Reporting",
+        "Positions",
+        "Settings"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Portfolio Performance Overview",
+      "kpis": [
+        {
+          "label": "YTD Return",
+          "value": "8.7%",
+          "delta": "+0.3% today",
+          "trend": "up"
+        },
+        {
+          "label": "VaR (99%)",
+          "value": "$2.5M",
+          "delta": "-5% WoW",
+          "trend": "down"
+        },
+        {
+          "label": "AUM",
+          "value": "$182.1M",
+          "delta": "+$2.1M MoM",
+          "trend": "up"
+        },
+        {
+          "label": "Active Positions",
+          "value": "78",
+          "delta": "+2 since yesterday",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Holdings",
+        "rows": [
+          {
+            "Ticker": "MSFT",
+            "Weight": "6.2%",
+            "Return": "+1.8%"
+          },
+          {
+            "Ticker": "AMZN",
+            "Weight": "5.9%",
+            "Return": "+2.1%"
+          },
+          {
+            "Ticker": "GOOGL",
+            "Weight": "5.1%",
+            "Return": "+1.5%"
+          },
+          {
+            "Ticker": "JPM",
+            "Weight": "4.5%",
+            "Return": "+0.9%"
+          },
+          {
+            "Ticker": "TSLA",
+            "Weight": "3.8%",
+            "Return": "-0.5%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recent Activities",
+        "rows": [
+          {
+            "Time": "9:32 AM",
+            "Activity": "Risk alert generated"
+          },
+          {
+            "Time": "9:15 AM",
+            "Activity": "Report drafted for Q3"
+          },
+          {
+            "Time": "8:50 AM",
+            "Activity": "Exposure limit flagged"
+          },
+          {
+            "Time": "8:30 AM",
+            "Activity": "Portfolio rebalanced"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Returns",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Mon",
+          "Tue"
+        ],
+        "values": [
+          0.1,
+          0.2,
+          -0.1,
+          0.3,
+          0.1,
+          0.2,
+          0.3
+        ],
+        "metric_label": "Daily Return"
+      },
+      "activity": [
+        {
+          "name": "Sophia R.",
+          "action": "Generated Q3 report",
+          "time": "10:10 AM"
+        },
+        {
+          "name": "Michael S.",
+          "action": "Reviewed risk exposure",
+          "time": "9:45 AM"
+        },
+        {
+          "name": "Meridian AI",
+          "action": "Alert: Sector concentration",
+          "time": "9:32 AM"
+        },
+        {
+          "name": "David",
+          "action": "Approved Q2 investor update",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI analyst for risk & reporting",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Risk",
+        "Reporting",
+        "Positions",
+        "Settings"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Real-time Portfolio Overview",
+      "kpis": [
+        {
+          "label": "Daily P&L",
+          "value": "+$185k",
+          "delta": "+0.12% today",
+          "trend": "up"
+        },
+        {
+          "label": "Cash Balance",
+          "value": "$14.3M",
+          "delta": "+0.5% WoW",
+          "trend": "up"
+        },
+        {
+          "label": "Leverage Ratio",
+          "value": "1.8x",
+          "delta": "Stable",
+          "trend": "neutral"
+        },
+        {
+          "label": "Risk Alerts",
+          "value": "1 Open",
+          "delta": "Reviewed 1",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Pending Actions",
+        "rows": [
+          {
+            "Action": "Review MSFT exposure",
+            "Urgency": "High",
+            "Due": "Today"
+          },
+          {
+            "Action": "Draft monthly update",
+            "Urgency": "Medium",
+            "Due": "Oct 31"
+          },
+          {
+            "Action": "Check GOOGL liquidity",
+            "Urgency": "Low",
+            "Due": "Nov 5"
+          },
+          {
+            "Action": "Confirm Q3 investor call",
+            "Urgency": "High",
+            "Due": "Tomorrow"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Market Movers",
+        "rows": [
+          {
+            "Ticker": "NVDA",
+            "Change": "+3.5%",
+            "Impact": "Moderate"
+          },
+          {
+            "Ticker": "TSLA",
+            "Change": "-1.2%",
+            "Impact": "Low"
+          },
+          {
+            "Ticker": "ADBE",
+            "Change": "+2.8%",
+            "Impact": "Moderate"
+          },
+          {
+            "Ticker": "NFLX",
+            "Change": "+0.7%",
+            "Impact": "Low"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Meridian AI",
+          "action": "Generated new risk report",
+          "time": "10:35 AM"
+        },
+        {
+          "name": "Sophia R.",
+          "action": "Updated client contact",
+          "time": "10:20 AM"
+        },
+        {
+          "name": "Michael S.",
+          "action": "Closed 'Sector Overweight'",
+          "time": "9:55 AM"
+        },
+        {
+          "name": "David",
+          "action": "Viewed new investor draft",
+          "time": "9:05 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI analyst for risk & reporting",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Risk",
+        "Reporting",
+        "Positions",
+        "Settings"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Client Reporting & Insights",
+      "kpis": [
+        {
+          "label": "Clients Active",
+          "value": "35",
+          "delta": "+1 this month",
+          "trend": "up"
+        },
+        {
+          "label": "HNW Clients",
+          "value": "22",
+          "delta": "Stable",
+          "trend": "neutral"
+        },
+        {
+          "label": "Reporting Status",
+          "value": "95% Complete",
+          "delta": "+5% today",
+          "trend": "up"
+        },
+        {
+          "label": "Avg. AUM/Client",
+          "value": "$5.2M",
+          "delta": "+1.5% YoY",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Client Portfolio Summaries",
+        "rows": [
+          {
+            "Client": "Greenleaf Endowment",
+            "AUM": "$45.2M",
+            "Return": "9.1%"
+          },
+          {
+            "Client": "Chen Family Office",
+            "AUM": "$38.5M",
+            "Return": "8.8%"
+          },
+          {
+            "Client": "Smith Wealth Mgmt",
+            "AUM": "$29.1M",
+            "Return": "9.3%"
+          },
+          {
+            "Client": "Quantum Innovations",
+            "AUM": "$18.7M",
+            "Return": "8.5%"
+          },
+          {
+            "Client": "Horizon Fund",
+            "AUM": "$15.6M",
+            "Return": "9.0%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Reporting Drafts",
+        "rows": [
+          {
+            "Client": "Greenleaf Endowment",
+            "Status": "Ready for Review",
+            "Last Update": "10/25"
+          },
+          {
+            "Client": "Chen Family Office",
+            "Status": "Drafting",
+            "Last Update": "10/24"
+          },
+          {
+            "Client": "Smith Wealth Mgmt",
+            "Status": "Approved",
+            "Last Update": "10/23"
+          },
+          {
+            "Client": "Quantum Innovations",
+            "Status": "Ready for Review",
+            "Last Update": "10/25"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Client Inflows",
+        "labels": [
+          "Wk 1",
+          "Wk 2",
+          "Wk 3",
+          "Wk 4",
+          "Wk 5",
+          "Wk 6",
+          "Wk 7"
+        ],
+        "values": [
+          0.5,
+          0.8,
+          0.3,
+          1.2,
+          0.7,
+          0.9,
+          0.6
+        ],
+        "metric_label": "Net Inflow ($M)"
+      },
+      "activity": [
+        {
+          "name": "Meridian AI",
+          "action": "Drafted report for Greenleaf",
+          "time": "10:45 AM"
+        },
+        {
+          "name": "Sophia R.",
+          "action": "Updated HNW client profiles",
+          "time": "10:30 AM"
+        },
+        {
+          "name": "David",
+          "action": "Reviewed Quantum Innovations",
+          "time": "9:15 AM"
+        },
+        {
+          "name": "Michael S.",
+          "action": "Added new client 'Alpha Corp'",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      }
+    }
+  ]
+}

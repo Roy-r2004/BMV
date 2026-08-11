@@ -1,0 +1,457 @@
+{
+  "id": "hvac",
+  "label": "Summit Air Heating & Cooling — HVAC Services",
+  "archetype": "operations-dashboard",
+  "intake": {
+    "business_name": "Summit Air Heating & Cooling",
+    "business_description": "Residential HVAC company with 6 technicians. Installs, repairs, seasonal maintenance plans. Loses jobs to slow estimate follow-up and messy dispatching.",
+    "industry": "HVAC Services",
+    "consult_result": {
+      "consulting_summary": "An AI dispatcher that books jobs, routes technicians and chases open estimates before they go cold."
+    },
+    "plan_result": {
+      "concept_name": "Summit Dispatch",
+      "visual_theme": {
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e",
+        "mood": "practical, dependable"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v1"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Summit Air Heating & Cooling",
+        "industry": "HVAC Services",
+        "location": null,
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e"
+      },
+      "product": {
+        "name": "Summit Dispatch",
+        "purpose": "AI dispatcher for HVAC",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Estimates",
+        "Customers",
+        "Reports"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Today's HVAC Operations Summary",
+      "kpis": [
+        {
+          "label": "Open Jobs",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Revenue Today",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Estimates Open",
+          "value": "7",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Techs On Duty",
+          "value": "6",
+          "delta": "0 vs yesterday",
+          "trend": "neutral"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Jobs",
+        "rows": [
+          {
+            "Time": "8:00 AM",
+            "Customer": "Liam Chen",
+            "Service": "Furnace Repair"
+          },
+          {
+            "Time": "9:30 AM",
+            "Customer": "Olivia Davis",
+            "Service": "AC Tune-up"
+          },
+          {
+            "Time": "11:00 AM",
+            "Customer": "Noah Garcia",
+            "Service": "New Thermostat"
+          },
+          {
+            "Time": "1:00 PM",
+            "Customer": "Emma Rodriguez",
+            "Service": "Duct Cleaning"
+          },
+          {
+            "Time": "2:30 PM",
+            "Customer": "William Jones",
+            "Service": "Heat Pump Check"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Pending Estimates",
+        "rows": [
+          {
+            "Customer": "Sophia Miller",
+            "Value": "$2,100",
+            "Days Open": "2"
+          },
+          {
+            "Customer": "James Wilson",
+            "Value": "$950",
+            "Days Open": "4"
+          },
+          {
+            "Customer": "Ava Brown",
+            "Value": "$3,500",
+            "Days Open": "1"
+          },
+          {
+            "Customer": "Lucas Taylor",
+            "Value": "$1,400",
+            "Days Open": "3"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Jobs This Week",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri"
+        ],
+        "values": [
+          12.0,
+          15.0,
+          10.0,
+          18.0,
+          14.0
+        ],
+        "metric_label": "Total Jobs"
+      },
+      "activity": [
+        {
+          "name": "AI Dispatch",
+          "action": "Scheduled Noah Garcia",
+          "time": "7:45 AM"
+        },
+        {
+          "name": "Sarah",
+          "action": "Approved Sophia Miller estimate",
+          "time": "7:30 AM"
+        },
+        {
+          "name": "Tech Dispatch",
+          "action": "Routes updated for Mike",
+          "time": "7:00 AM"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "modern interface, warm accents"
+      }
+    },
+    {
+      "business": {
+        "name": "Summit Air Heating & Cooling",
+        "industry": "HVAC Services",
+        "location": null,
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e"
+      },
+      "product": {
+        "name": "Summit Dispatch",
+        "purpose": "AI dispatcher for HVAC",
+        "screen_type": "schedule"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Estimates",
+        "Customers",
+        "Reports"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Today's Dispatch Schedule",
+      "kpis": [
+        {
+          "label": "Total Jobs",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Available Techs",
+          "value": "0",
+          "delta": "-1 for an hour",
+          "trend": "down"
+        },
+        {
+          "label": "Unassigned Jobs",
+          "value": "1",
+          "delta": "0 vs yesterday",
+          "trend": "neutral"
+        },
+        {
+          "label": "Maintenance Plan",
+          "value": "5",
+          "delta": "+1 this morning",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Technician Calendar",
+        "rows": [
+          {
+            "Tech": "Mike (Truck 1)",
+            "8 AM": "Liam Chen",
+            "11 AM": "Olivia Davis",
+            "2 PM": "William Jones"
+          },
+          {
+            "Tech": "Jessica (Truck 2)",
+            "8 AM": "Noah Garcia",
+            "11 AM": "Emma Rodriguez",
+            "2 PM": "Jacob Lee"
+          },
+          {
+            "Tech": "David (Truck 3)",
+            "8 AM": "Isabella Hall",
+            "11 AM": "Mia White",
+            "2 PM": "Ethan Clark"
+          },
+          {
+            "Tech": "Emily (Truck 4)",
+            "8 AM": "Sophia Lewis",
+            "11 AM": "Daniel Young",
+            "2 PM": "Chloe King"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Unassigned Jobs",
+        "rows": [
+          {
+            "Customer": "Henry Scott",
+            "Service": "Furnace noise",
+            "Priority": "High"
+          },
+          {
+            "Customer": "Harper Green",
+            "Service": "AC check",
+            "Priority": "Medium"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Tech Load Avg.",
+        "labels": [
+          "Mike",
+          "Jessica",
+          "David",
+          "Emily",
+          "Chris",
+          "Sarah T"
+        ],
+        "values": [
+          4.0,
+          3.0,
+          4.0,
+          3.0,
+          2.0,
+          2.0
+        ],
+        "metric_label": "Jobs per Day"
+      },
+      "activity": [
+        {
+          "name": "AI Dispatch",
+          "action": "Assigned Henry Scott",
+          "time": "7:50 AM"
+        },
+        {
+          "name": "Jessica",
+          "action": "Completed Emma Rodriguez",
+          "time": "12:15 PM"
+        },
+        {
+          "name": "Customer",
+          "action": "Requested AC quote",
+          "time": "8:30 AM"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "modern interface, warm accents"
+      }
+    },
+    {
+      "business": {
+        "name": "Summit Air Heating & Cooling",
+        "industry": "HVAC Services",
+        "location": null,
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e"
+      },
+      "product": {
+        "name": "Summit Dispatch",
+        "purpose": "AI dispatcher for HVAC",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Estimates",
+        "Customers",
+        "Reports"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Weekly Performance Overview",
+      "kpis": [
+        {
+          "label": "Conversion Rate",
+          "value": "65%",
+          "delta": "+5% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Average Job Value",
+          "value": "$780",
+          "delta": "+$50 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Maintenance Plans",
+          "value": "12",
+          "delta": "+2 this week",
+          "trend": "up"
+        },
+        {
+          "label": "Service Calls",
+          "value": "55",
+          "delta": "-3 vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Tech Performance",
+        "rows": [
+          {
+            "Tech": "Mike",
+            "Jobs": "18",
+            "Revenue": "$14,500",
+            "Conversion": "72%"
+          },
+          {
+            "Tech": "Jessica",
+            "Jobs": "15",
+            "Revenue": "$11,200",
+            "Conversion": "68%"
+          },
+          {
+            "Tech": "David",
+            "Jobs": "16",
+            "Revenue": "$12,800",
+            "Conversion": "65%"
+          },
+          {
+            "Tech": "Emily",
+            "Jobs": "14",
+            "Revenue": "$10,100",
+            "Conversion": "60%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Estimate Status",
+        "rows": [
+          {
+            "Status": "Converted",
+            "Count": "18",
+            "Value": "$21,500"
+          },
+          {
+            "Status": "Pending",
+            "Count": "7",
+            "Value": "$9,800"
+          },
+          {
+            "Status": "Lost",
+            "Count": "2",
+            "Value": "$1,500"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Estimates",
+        "labels": [
+          "Week 1",
+          "Week 2",
+          "Week 3",
+          "Week 4",
+          "This Week"
+        ],
+        "values": [
+          8.0,
+          10.0,
+          9.0,
+          12.0,
+          7.0
+        ],
+        "metric_label": "Estimates Created"
+      },
+      "activity": [
+        {
+          "name": "System",
+          "action": "Generated weekly report",
+          "time": "6:00 AM"
+        },
+        {
+          "name": "AI Dispatch",
+          "action": "Notified Sarah on low conversion",
+          "time": "8:15 AM"
+        },
+        {
+          "name": "Sarah",
+          "action": "Reviewed estimate follow-ups",
+          "time": "9:00 AM"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "modern interface, warm accents"
+      }
+    }
+  ]
+}

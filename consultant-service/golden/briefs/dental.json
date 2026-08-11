@@ -1,0 +1,458 @@
+{
+  "id": "dental",
+  "label": "SmileBright Dental — Dental Clinic",
+  "archetype": "operations-dashboard",
+  "intake": {
+    "business_name": "SmileBright Dental",
+    "business_description": "Family dental clinic with 3 dentists and 2 hygienists. Cleanings, crowns, implants, Invisalign. Struggles with no-shows and slow recall of lapsed patients.",
+    "industry": "Dental Clinic",
+    "consult_result": {
+      "consulting_summary": "An AI front-desk that fills the schedule, chases no-shows and recalls lapsed patients automatically."
+    },
+    "plan_result": {
+      "concept_name": "SmileBright Operations",
+      "visual_theme": {
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8",
+        "mood": "clean, clinical, trustworthy"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v1"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "SmileBright Dental",
+        "industry": "Dental Clinic",
+        "location": null,
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8"
+      },
+      "product": {
+        "name": "SmileBright Operations",
+        "purpose": "AI front-desk automation",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Dr. Carter",
+        "role": "Owner Dentist"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Patients",
+        "Recall",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Dr. Carter",
+      "subheading": "Your practice at a glance",
+      "kpis": [
+        {
+          "label": "Appointments Today",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Confirmed Patients",
+          "value": "16",
+          "delta": "+10% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "No-Show Rate",
+          "value": "6.2%",
+          "delta": "-1.5% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Revenue Forecast",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Appointments",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Patient": "Sarah Chen",
+            "Service": "Cleaning",
+            "Dentist": "Dr. Carter"
+          },
+          {
+            "Time": "9:30 AM",
+            "Patient": "Michael Lee",
+            "Service": "Crown Prep",
+            "Dentist": "Dr. Davis"
+          },
+          {
+            "Time": "10:00 AM",
+            "Patient": "Emily White",
+            "Service": "Invisalign Check",
+            "Dentist": "Dr. Nguyen"
+          },
+          {
+            "Time": "10:15 AM",
+            "Patient": "David Brown",
+            "Service": "Deep Cleaning",
+            "Dentist": "Hygienist A"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recall Opportunities",
+        "rows": [
+          {
+            "Patient": "Olivia Garcia",
+            "Due": "3 months overdue",
+            "Service": "Cleaning",
+            "Last Visit": "Jan 23"
+          },
+          {
+            "Patient": "William Johnson",
+            "Due": "6 months overdue",
+            "Service": "Check-up",
+            "Last Visit": "Oct 22"
+          },
+          {
+            "Patient": "Sophia Rodriguez",
+            "Due": "2 months overdue",
+            "Service": "Implant Follow-up",
+            "Last Visit": "Feb 23"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Appointments",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "values": [
+          15.0,
+          18.0,
+          17.0,
+          20.0,
+          16.0,
+          8.0
+        ],
+        "metric_label": "Appointments"
+      },
+      "activity": [
+        {
+          "name": "AI System",
+          "action": "Confirmed Michael Lee",
+          "time": "5 min ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Recalled Olivia Garcia",
+          "time": "15 min ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Filled 3:00 PM slot",
+          "time": "30 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, teal accents"
+      }
+    },
+    {
+      "business": {
+        "name": "SmileBright Dental",
+        "industry": "Dental Clinic",
+        "location": null,
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8"
+      },
+      "product": {
+        "name": "SmileBright Operations",
+        "purpose": "AI front-desk automation",
+        "screen_type": "schedule"
+      },
+      "user": {
+        "name": "Dr. Carter",
+        "role": "Owner Dentist"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Patients",
+        "Recall",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Dr. Carter",
+      "subheading": "Today's practice schedule",
+      "kpis": [
+        {
+          "label": "Total Appointments",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Open Slots",
+          "value": "3",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "No-Shows Today",
+          "value": "0",
+          "delta": "0 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Recalled Today",
+          "value": "2",
+          "delta": "+1 vs yesterday",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Dr. Carter's Schedule",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Patient": "Sarah Chen",
+            "Service": "Cleaning",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "10:00 AM",
+            "Patient": "Emily White",
+            "Service": "Invisalign Check",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "11:00 AM",
+            "Patient": "Jessica Taylor",
+            "Service": "Crown Delivery",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "1:00 PM",
+            "Patient": "Robert Davis",
+            "Service": "New Patient Exam",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "2:00 PM",
+            "Patient": "Linda Miller",
+            "Service": "Filling",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "3:00 PM",
+            "Patient": "Richard Wilson",
+            "Service": "Cleaning",
+            "Status": "Confirmed"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Full Clinic Schedule",
+        "rows": [
+          {
+            "Time": "9:30 AM",
+            "Patient": "Michael Lee",
+            "Dentist": "Dr. Davis",
+            "Service": "Crown Prep"
+          },
+          {
+            "Time": "10:15 AM",
+            "Patient": "David Brown",
+            "Dentist": "Hygienist A",
+            "Service": "Deep Cleaning"
+          },
+          {
+            "Time": "11:30 AM",
+            "Patient": "Susan Clark",
+            "Dentist": "Dr. Nguyen",
+            "Service": "Implant Consult"
+          },
+          {
+            "Time": "1:45 PM",
+            "Patient": "Paul Green",
+            "Dentist": "Hygienist B",
+            "Service": "Cleaning"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "AI System",
+          "action": "Filled 3 PM slot",
+          "time": "30 min ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Sent reminder to 5 patients",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Auto-recalled 2 patients",
+          "time": "2 hours ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, teal accents"
+      }
+    },
+    {
+      "business": {
+        "name": "SmileBright Dental",
+        "industry": "Dental Clinic",
+        "location": null,
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8"
+      },
+      "product": {
+        "name": "SmileBright Operations",
+        "purpose": "AI front-desk automation",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Dr. Carter",
+        "role": "Owner Dentist"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Patients",
+        "Recall",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Dr. Carter",
+      "subheading": "Performance insights and trends",
+      "kpis": [
+        {
+          "label": "Avg. Daily Appointments",
+          "value": "17.2",
+          "delta": "+1.1 vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "No-Show Rate",
+          "value": "5.8%",
+          "delta": "-2.1% vs last month",
+          "trend": "down"
+        },
+        {
+          "label": "Recall Success Rate",
+          "value": "78%",
+          "delta": "+5% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "New Patients This Month",
+          "value": "14",
+          "delta": "+3 vs last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Patient Recall Status",
+        "rows": [
+          {
+            "Status": "Overdue (AI actions)",
+            "Count": "32",
+            "Value": "$9,600"
+          },
+          {
+            "Status": "Due Soon (AI reminders)",
+            "Count": "45",
+            "Value": "$13,500"
+          },
+          {
+            "Status": "Recalled (Booked)",
+            "Count": "28",
+            "Value": "$8,400"
+          },
+          {
+            "Status": "No Contact (Manual review)",
+            "Count": "12",
+            "Value": "$3,600"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "No-Show Trends",
+        "rows": [
+          {
+            "Month": "Jan",
+            "Rate": "8.5%",
+            "Recovered": "6"
+          },
+          {
+            "Month": "Feb",
+            "Rate": "7.2%",
+            "Recovered": "8"
+          },
+          {
+            "Month": "Mar",
+            "Rate": "5.8%",
+            "Recovered": "10"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Monthly Revenue",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar"
+        ],
+        "values": [
+          45000.0,
+          52000.0,
+          58000.0
+        ],
+        "metric_label": "Revenue"
+      },
+      "activity": [
+        {
+          "name": "AI System",
+          "action": "Identified 5 high-value recall",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Updated no-show forecast",
+          "time": "2 hours ago"
+        },
+        {
+          "name": "AI System",
+          "action": "Generated weekly report",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, teal accents"
+      }
+    }
+  ]
+}
