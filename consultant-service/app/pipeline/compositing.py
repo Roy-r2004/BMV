@@ -180,16 +180,30 @@ def _framed(
     return canvas.convert("RGB")
 
 
-def _crop_regions(size: tuple[int, int]) -> list[tuple[str, tuple[int, int, int, int]]]:
-    """Fixed geometric crops, both taken to the RIGHT of the sidebar.
+def _crop_regions(size: tuple[int, int], nav_edge: str = "left") -> list[tuple[str, tuple[int, int, int, int]]]:
+    """Fixed geometric crops that start on the far side of the navigation.
 
     `detail_1` is the metric band under the header — the KPI row on every
     archetype. `detail_2` is the main content block below it, where the hero
-    chart or primary panel sits. Both deliberately exclude the sidebar: a
+    chart or primary panel sits. Both deliberately exclude the navigation: a
     "detail" that includes the nav is just a smaller copy of the hero, which
     is exactly how the first rendered deck looked.
+
+    `nav_edge` is which edge the navigation is on, and it is not cosmetic.
+    The crops used to assume a left sidebar unconditionally. Tool screens
+    put navigation across the TOP and have no sidebar at all, so on request
+    68's anchor the 15% left inset cut through the content instead of past
+    a sidebar: detail_1 shipped reading "morning, Marco" and "SERVICE",
+    with "Good" and "SELECT" sliced off at the frame edge. Truncated words
+    in a deck slide are the thing the DoD's defect list names.
     """
     width, height = size
+    if nav_edge == "top":
+        # Nothing to clear on the left; the bar to clear is above.
+        return [
+            ("detail_1", (round(width * 0.02), round(height * 0.11), width, round(height * 0.42))),
+            ("detail_2", (round(width * 0.02), round(height * 0.36), round(width * 0.75), round(height * 0.90))),
+        ]
     return [
         ("detail_1", (round(width * 0.15), round(height * 0.05), width, round(height * 0.36))),
         ("detail_2", (round(width * 0.15), round(height * 0.30), round(width * 0.80), round(height * 0.86))),
@@ -203,6 +217,7 @@ def compose_presentation(
     secondary_color: str | None = None,
     logo_path: str | None = None,
     detail_crops: int = 2,
+    nav_edge: str = "left",
 ) -> dict[str, bytes]:
     """Returns {"hero": png, "detail_1": png, "detail_2": png} — PNG bytes.
 
@@ -229,7 +244,7 @@ def compose_presentation(
 
     out["hero"] = _encode(_framed(shot, palette, logo))
 
-    for name, box in _crop_regions(shot.size)[: max(0, detail_crops)]:
+    for name, box in _crop_regions(shot.size, nav_edge)[: max(0, detail_crops)]:
         crop = shot.convert("RGB").crop(box)
         if crop.width < 40 or crop.height < 40:
             continue

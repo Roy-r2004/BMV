@@ -69,6 +69,28 @@ class Settings:
     IMAGE_MODEL_ANCHOR: str = _env_or("IMAGE_MODEL_ANCHOR", "")
     IMAGE_MODEL_FOLLOWUP: str = _env_or("IMAGE_MODEL_FOLLOWUP", "")
 
+    # What a follow-up screen runs on when its archetype has no measured
+    # entry above. Added 2026-08-11 because the old chain fell through to
+    # IMAGE_MODEL, which is pro-class — so a request landing on
+    # scheduling-dashboard or pipeline-dashboard (both real, both selectable
+    # by the public intake, neither covered by any golden brief) ran
+    # pro-class on all four calls and projected at $0.68, over the $0.60 DoD
+    # line. Nothing said so, because every measurement this project has ever
+    # taken was on one of the three archetypes that DO have entries.
+    #
+    # This is an EXTRAPOLATION, deliberately kept out of the measured table
+    # above so the table stays "measured cells only". What is measured is
+    # that follow-ups are a different, cheaper job — they copy a design
+    # handed to them as a reference image rather than inventing one — and
+    # that finding came back identical on all three archetypes tested. What
+    # is NOT measured is this model on these two archetypes.
+    #
+    # Set to empty to restore the old behaviour (follow-ups on IMAGE_MODEL).
+    # To force one model on both roles, use IMAGE_MODEL_ANCHOR /
+    # IMAGE_MODEL_FOLLOWUP — they outrank this, and setting IMAGE_MODEL
+    # alone no longer does it.
+    FOLLOWUP_MODEL_FALLBACK: str = _env_or("FOLLOWUP_MODEL_FALLBACK", "google/gemini-3.1-flash-image")
+
     def anchor_model_for(self, archetype_id: str | None) -> str:
         return (
             self.IMAGE_MODEL_ANCHOR
@@ -80,6 +102,7 @@ class Settings:
         return (
             self.IMAGE_MODEL_FOLLOWUP
             or self.ARCHETYPE_IMAGE_MODELS.get(archetype_id or "", {}).get("followup")
+            or self.FOLLOWUP_MODEL_FALLBACK
             or self.IMAGE_MODEL
         )
 
@@ -96,7 +119,18 @@ class Settings:
     # Candidates generated for the anchor screen; the vision judge picks the
     # best. More candidates = better anchor = better whole set, since every
     # follow-up screen inherits the anchor's look via reference image.
-    DASHBOARD_CANDIDATES: int = int(_env_or("DASHBOARD_CANDIDATES", "3"))
+    #
+    # 2, not 3, since 2026-08-11. The anchor is the expensive screen — it runs
+    # on the pro-class model at a measured $0.14578 a call — so this knob moves
+    # a request's cost more than anything else in this file. At 3 the projected
+    # request lands at ~$0.60, exactly ON the DoD ceiling with no headroom for
+    # the one regeneration MAX_REGENERATIONS allows; at 2 it lands at ~$0.45.
+    # The third candidate was also the weakest lever available: composition
+    # variants are ranked by a judge that scored four materially different
+    # conditions at exactly 9.2 (docs/evidence/session32/results.md), so
+    # "the judge picked the best of 3" is not a claim this project can support.
+    # Pinned by tests/test_cost_model.py.
+    DASHBOARD_CANDIDATES: int = int(_env_or("DASHBOARD_CANDIDATES", "2"))
     SECONDARY_CANDIDATES: int = int(_env_or("SECONDARY_CANDIDATES", "1"))
     # Vision-model QA over every candidate (cheap flash call per image).
     ENABLE_VISION_QA: bool = _env_bool("ENABLE_VISION_QA", True)
@@ -186,6 +220,11 @@ class Settings:
     # Money-safety valve on the open intake endpoint: how many requests may
     # be generating simultaneously before new submissions get a 429.
     MAX_CONCURRENT_GENERATIONS: int = int(_env_or("MAX_CONCURRENT_GENERATIONS", "3"))
+
+    # INFO, because the pipeline's INFO lines are the run's only narrative:
+    # per-candidate score, winning composition variant, model, and the
+    # text-truth rejections. Set to WARNING for a quiet console.
+    LOG_LEVEL: str = _env_or("LOG_LEVEL", "INFO").upper()
 
     DATABASE_URL: str = _env_or("DATABASE_URL", "sqlite:///./consultant.db")
     PORT: int = int(_env_or("PORT", "8002"))

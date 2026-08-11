@@ -115,7 +115,7 @@ _OUTPUT_BLOCK = """
 
 OUTPUT
 
-A full-bleed desktop application screenshot filling the entire canvas edge to edge. No device frame, no browser chrome, no drop shadow around the app, no background visible behind it."""
+A full-bleed desktop application screenshot filling the entire canvas edge to edge. The topmost row of pixels already belongs to the application itself — its own header or navigation starts at the very top of the canvas, with nothing at all above it. No device frame, no browser chrome, no drop shadow around the app, no background visible behind it."""
 
 
 _CINEMATIC_REGISTER = """DESIGN CONSTRAINTS
@@ -336,14 +336,30 @@ def is_tool_screen(spec: UIDemoSpec) -> bool:
     return settings.ENABLE_TOOL_SCREENS and spec.concept.is_tool
 
 
-def _nav_block(spec: UIDemoSpec) -> str:
+def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     """Sidebar for dashboards, top bar for tools. A selection flow wants its
     full width — the reference screens that do this well (property
     configurators, catalogue explorers) all put navigation across the top and
-    spend the reclaimed left edge on the hero."""
+    spend the reclaimed left edge on the hero.
+
+    On a CONTINUATION screen the placement is not restated, because the
+    anchor already decided it and the anchor is attached to the call. Stating
+    it again is how request 68 shipped a screen carrying BOTH: its anchor was
+    a tool screen (top bar), its follow-up was a dashboard, and the prompt
+    told the model in the same breath to "preserve the navigation exactly as
+    the attached image places it" and to draw a "left sidebar". It drew both,
+    with the same items in each — the duplicated-navigation defect on DoD
+    line 2's list. Navigation placement is a property of the PRODUCT, decided
+    once by the anchor, not a property of each screen.
+    """
     if not spec.navigation:
         return ""
-    if is_tool_screen(spec):
+    if continuation:
+        placement = (
+            "Navigation items — placed exactly where the attached image places them, in one navigation "
+            "region and no other, with the current screen marked active"
+        )
+    elif is_tool_screen(spec):
         placement = (
             "Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the "
             "far left, these items spaced across the middle, a single accented action button at the right; "
@@ -416,13 +432,14 @@ def _steps_block(spec: UIDemoSpec) -> str:
     if concept.detail and concept.detail.rows:
         lines.append(_panel_block("The panel the selection resolves to; its heading is the title below", concept.detail))
         lines.append("")
+    # Prose, not "LABEL: value" — same reason as the intelligence module.
     if concept.primary_action:
         lines.append(
-            f'PRIMARY ACTION BUTTON: "{concept.primary_action}" — the single most prominent accented '
+            f'The main button reads "{concept.primary_action}" and is the single most prominent accented '
             "element on the screen."
         )
     if concept.secondary_action:
-        lines.append(f'SECONDARY ACTION BUTTON: "{concept.secondary_action}" — quieter, outlined, beneath it.')
+        lines.append(f'A quieter outlined button beneath it reads "{concept.secondary_action}".')
     return "\n".join(lines).rstrip()
 
 
@@ -448,36 +465,47 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     ai = spec.ai
     if not settings.ENABLE_AI_LAYER or not ai.present:
         return ""
+    # Every string here is quoted and introduced by prose rather than by a
+    # "Label: value" line. Request 68's analytics screen rendered the literal
+    # text "Reasoning line: Historical patterns suggest resource need" — the
+    # prompt's own field label drawn as UI, which is the same defect 227a6e3
+    # removed from the hero, chart, KPI and navigation blocks and missed
+    # here. A colon-prefixed label sitting immediately before the exact
+    # string to render is indistinguishable, to the model, from a caption it
+    # is being asked to draw. Asking it not to does not work; that was tried
+    # in session 32 and the leaks came from the run carrying the instruction.
     lines = [
         "The intelligence module — the ONLY AI element on this screen, given real size and premium treatment. "
         "It states an opinion the software has formed; it is NOT a log, a feed, a task queue or a list of events.",
         "",
-        f"Headline: {ai.headline}",
+        f'It says, large and in the accent: "{ai.headline}"',
     ]
     if ai.rationale:
-        lines.append(f"Reasoning line: {ai.rationale}")
+        lines.append(f'Beneath that, one short quieter line reading: "{ai.rationale}"')
     if ai.confidence:
-        lines.append(f"Confidence readout: {ai.confidence}")
+        lines.append(f'Its confidence reads: "{ai.confidence}"')
     if ai.chips:
-        lines.append("Small supporting pills, rendered with no heading above them: " + " · ".join(ai.chips[:4]))
+        lines.append(
+            "Below those, small outlined pills, with nothing written above them: "
+            + " · ".join(f'"{chip}"' for chip in ai.chips[:4])
+        )
     lines.append("")
     lines.append(
-        "Render the headline large and in the accent, the reasoning as one short quieter line beneath it, and "
-        "the confidence as a small precise readout — a compact meter, ring or percentage, not a decorative "
-        "gauge. Any chips are small outlined pills. A viewer should see at a glance that the software reached "
-        "a conclusion and can say why."
+        "Render the confidence as a small precise readout — a compact meter, ring or percentage, not a "
+        "decorative gauge. A viewer should see at a glance that the software reached a conclusion and can "
+        "say why. Only the quoted strings appear; the words describing them do not."
     )
     return "\n".join(lines)
 
 
-def _content_sections(spec: UIDemoSpec) -> str:
+def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     sections = [
         f"The screen to draw:\n\n{spec.screen_title}",
     ]
     header_lines = [line for line in (spec.greeting, spec.subheading) if line]
     if header_lines:
         sections.append("Page header text:\n\n" + "\n".join(header_lines))
-    nav = _nav_block(spec)
+    nav = _nav_block(spec, continuation=continuation)
     if nav:
         sections.append(nav)
 
@@ -688,7 +716,7 @@ Preserve the exact same application design:
 - {_continuation_register_line()}
 - Only the main content area changes, to the content below.
 
-{_content_sections(spec)}
+{_content_sections(spec, continuation=True)}
 
 Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
 

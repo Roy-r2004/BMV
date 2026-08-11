@@ -72,6 +72,13 @@ class GeneratedImage(Base):
     prompt_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     qa_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     qa_issues: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The W3 gate's verdict for the SHIPPED candidate, as JSON. On disk in the
+    # per-screen metadata file since session 31; on the row since session 33,
+    # because the operator view is where "did this screen spell the client's
+    # name right" has to be answerable, and an operator does not read
+    # uploads/images/<id>/*.json. Null for rows written before the column
+    # existed, and for runs with the gate off — neither means "passed".
+    text_truth_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -86,6 +93,12 @@ class AiUsageEvent(Base):
     provider: Mapped[str] = mapped_column(String(50))
     model: Mapped[str] = mapped_column(String(200))
     purpose: Mapped[str] = mapped_column(String(100))
+    # Which screen this call was spent on (GeneratedImage.role_id), when the
+    # call belongs to one. Null for the text stages, which are per-request.
+    # Without it a request's cost is one number and "which screen burned it"
+    # is unanswerable — and the regeneration tail, the thing that actually
+    # moves a request from $0.46 to $0.53, is invisible.
+    screen: Mapped[str | None] = mapped_column(String(100), nullable=True)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     image_count: Mapped[int | None] = mapped_column(Integer, nullable=True)

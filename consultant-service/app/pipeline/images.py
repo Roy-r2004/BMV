@@ -237,6 +237,7 @@ def _render_screen(
                 db, request_id,
                 provider="openrouter", model=cand_model, purpose="image",
                 image_count=1, success=False, error=str(cand["error"])[:500],
+                screen=spec.screen_slug,
             )
             logger.warning(
                 "candidate failed: request=%s screen=%s attempt=%s variant=%s model=%s error=%s",
@@ -252,11 +253,13 @@ def _render_screen(
                 provider="openrouter", model=cand_model, purpose="image",
                 image_count=1, success=False,
                 error=f"reference attempt failed, retried without: {str(cand['dropped_reference_error'])[:400]}",
+                screen=spec.screen_slug,
             )
         log_usage(
             db, request_id,
             provider="openrouter", model=cand_model, purpose="image",
             usage=cand.get("usage"), image_count=1, success=True,
+            screen=spec.screen_slug,
         )
         cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
         # Attempt numbers double as candidate FILENAMES in _save_selected, so
@@ -308,12 +311,14 @@ def _render_screen(
                     db, request_id,
                     provider="openrouter", model=cand_model, purpose="image",
                     image_count=1, success=False, error=str(cand["error"])[:500],
+                    screen=spec.screen_slug,
                 )
                 continue
             log_usage(
                 db, request_id,
                 provider="openrouter", model=cand_model, purpose="image",
                 usage=cand.get("usage"), image_count=1, success=True,
+                screen=spec.screen_slug,
             )
             cand["verdict"] = qa.review_image(db, request_id, cand["image_bytes"], spec)
             cand["attempt"] = len(scored)
@@ -353,6 +358,7 @@ def _save_selected(
     selected: dict,
     all_candidates: list[dict],
     prompt_version: str,
+    nav_edge: str = "left",
 ) -> GeneratedImage:
     out_dir = os.path.join(settings.UPLOADS_DIR, "images", str(request_id))
     os.makedirs(out_dir, exist_ok=True)
@@ -376,6 +382,7 @@ def _save_selected(
                 primary_color=spec.business.primary_color,
                 secondary_color=spec.business.secondary_color,
                 logo_path=settings.BMV_LOGO_PATH,
+                nav_edge=nav_edge,
             ).items():
                 composite_name = f"{spec.screen_slug}_{variant}.png"
                 with open(os.path.join(out_dir, composite_name), "wb") as f:
@@ -447,6 +454,10 @@ def _save_selected(
         prompt_version=saved_prompt_version,
         qa_score=selected["verdict"]["score"],
         qa_issues=json.dumps(selected["verdict"]["issues"]),
+        text_truth_json=(
+            json.dumps(selected["verdict"]["text_truth"])
+            if selected["verdict"].get("text_truth") is not None else None
+        ),
     )
     db.add(row)
     db.commit()
@@ -520,6 +531,7 @@ def generate_demo_screens(
             usage=sheet.get("usage"), image_count=1,
             success=sheet.get("error") is None,
             error=str(sheet["error"])[:500] if sheet.get("error") else None,
+            screen="design_sheet",
         )
         if sheet.get("error") is None:
             anchor_reference_images = [sheet["image_bytes"]]
@@ -561,9 +573,14 @@ def generate_demo_screens(
     if anchor_selected is None:
         logger.error("anchor screen produced no usable image: request=%s", request_id)
         return []
+    # Where the navigation sits is decided once, by the anchor, and every
+    # follow-up inherits it from the anchor image. The detail crops have to
+    # follow the same decision or they crop past a sidebar that is not there.
+    nav_edge = "top" if prompt_builder.is_tool_screen(anchor_spec) else "left"
     saved.append(
         _save_selected(
             db, request_id, anchor_spec, archetype_id, anchor_selected, anchor_pool, anchor_version,
+            nav_edge=nav_edge,
         )
     )
 
@@ -596,6 +613,6 @@ def generate_demo_screens(
         if selected is None:
             logger.warning("screen produced no usable image, skipping: request=%s screen=%s", request_id, spec.screen_slug)
             continue
-        saved.append(_save_selected(db, request_id, spec, archetype_id, selected, pool, version))
+        saved.append(_save_selected(db, request_id, spec, archetype_id, selected, pool, version, nav_edge=nav_edge))
 
     return saved

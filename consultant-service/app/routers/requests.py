@@ -172,6 +172,22 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
     by_model = {m: _bucket([e for e in events if e.model == m]) for m in sorted({e.model for e in events})}
     image_events = [e for e in events if e.purpose == "image" and e.success]
 
+    def _screen_cost(role_id: str) -> dict:
+        """What this one screen cost, from the rows tagged with it. A screen
+        that took its allowed regeneration is twice the price of one that
+        did not, and that difference is the whole reason an operator opens
+        this view. Rows written before the `screen` column existed are
+        untagged, so an old request reports zeros here rather than a wrong
+        split — absent, not invented."""
+        rows = [e for e in events if e.screen == role_id]
+        images = [e for e in rows if e.purpose == "image"]
+        return {
+            "total_usd": round(sum(e.cost_usd or 0 for e in rows), 5),
+            "images_usd": round(sum(e.cost_usd or 0 for e in images if e.success), 5),
+            "image_calls": sum(1 for e in images if e.success),
+            "failed_image_calls": sum(1 for e in images if not e.success),
+        }
+
     return {
         "id": req.id,
         "business_name": req.business_name,
@@ -204,6 +220,12 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
                 "prompt_version": img.prompt_version,
                 "qa_score": img.qa_score,
                 "qa_issues": json.loads(img.qa_issues) if img.qa_issues else [],
+                # The W3 gate's verdict for the shipped screen. `null` means
+                # the gate did not run or predates the column — it does NOT
+                # mean the screen passed, and an operator reading this must
+                # be able to tell those apart.
+                "text_truth": json.loads(img.text_truth_json) if img.text_truth_json else None,
+                "cost": _screen_cost(img.role_id),
                 "image_url": img.file_path,
                 "hero_url": compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR),
             }

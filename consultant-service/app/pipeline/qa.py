@@ -39,7 +39,7 @@ JUDGE_PROMPT_VERSION = "image-quality-judge-v1"
 TRANSCRIPTION_PROMPT_VERSION = "image-text-transcription-v1"
 
 
-def transcribe(db: Session, request_id: int, image_bytes: bytes) -> list[str] | None:
+def transcribe(db: Session, request_id: int, image_bytes: bytes, screen: str | None = None) -> list[str] | None:
     """Every string visible in the image, as rendered. None when the call or
     parse failed — the caller must treat that as "unknown", never as "no
     text found", which would fail every brand-critical string at once."""
@@ -63,14 +63,14 @@ def transcribe(db: Session, request_id: int, image_bytes: bytes) -> list[str] | 
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.QA_MODEL, purpose="image_text",
-            usage=body.get("usage"), success=True,
+            usage=body.get("usage"), success=True, screen=screen,
         )
         return [str(t) for t in (parsed.get("text") or [])]
     except Exception as exc:
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.QA_MODEL, purpose="image_text",
-            success=False, error=str(exc)[:480],
+            success=False, error=str(exc)[:480], screen=screen,
         )
         logger.warning("text transcription failed open: request=%s error=%s", request_id, exc)
         return None
@@ -89,7 +89,7 @@ def _apply_text_truth_gate(db: Session, request_id: int, image_bytes: bytes, spe
     if not (settings.ENABLE_VISION_QA and settings.ENABLE_TEXT_TRUTH_GATE):
         return verdict
 
-    transcript = transcribe(db, request_id, image_bytes)
+    transcript = transcribe(db, request_id, image_bytes, spec.screen_slug)
     if transcript is None:
         verdict["text_truth"] = {"passed": None, "reason": "transcription unavailable"}
         return verdict
@@ -160,7 +160,7 @@ def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoS
             log_usage(
                 db, request_id,
                 provider="openrouter", model=settings.QA_MODEL, purpose="image_qa",
-                usage=body.get("usage"), success=True,
+                usage=body.get("usage"), success=True, screen=spec.screen_slug,
             )
             return _apply_text_truth_gate(db, request_id, image_bytes, spec, verdict)
         except Exception as exc:
@@ -169,7 +169,7 @@ def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoS
     log_usage(
         db, request_id,
         provider="openrouter", model=settings.QA_MODEL, purpose="image_qa",
-        success=False, error=f"failed after retry: {str(last_exc)[:480]}",
+        success=False, error=f"failed after retry: {str(last_exc)[:480]}", screen=spec.screen_slug,
     )
     logger.warning("image QA failed open after retry: request=%s error=%s", request_id, last_exc)
     # Still gated: the aesthetic judge being down is no reason to ship the

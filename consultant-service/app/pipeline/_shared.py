@@ -112,6 +112,7 @@ def log_usage(
     image_count: int | None = None,
     success: bool = True,
     error: str | None = None,
+    screen: str | None = None,
 ) -> None:
     usage = usage or {}
     event = AiUsageEvent(
@@ -119,6 +120,7 @@ def log_usage(
         provider=provider,
         model=model,
         purpose=purpose,
+        screen=screen,
         prompt_tokens=usage.get("prompt_tokens"),
         completion_tokens=usage.get("completion_tokens"),
         image_count=image_count,

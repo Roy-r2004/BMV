@@ -272,13 +272,20 @@ def test_default_run_still_resolves_to_the_configured_image_model(dental_spec):
 
 # ── config resolution ────────────────────────────────────────────────────
 
-def test_unmeasured_archetype_falls_back_to_image_model():
+def test_unmeasured_archetype_falls_back_to_image_model_for_the_anchor():
+    """The ANCHOR still falls through to IMAGE_MODEL. The follow-up no longer
+    does — it takes FOLLOWUP_MODEL_FALLBACK, because pro-class on all four
+    calls put an unmeasured archetype at $0.68, over the DoD line
+    (tests/test_cost_model.py). Emptying the fallback restores the old chain."""
     with patch.object(settings, "ARCHETYPE_IMAGE_MODELS", {}), \
          patch.object(settings, "IMAGE_MODEL_ANCHOR", ""), \
          patch.object(settings, "IMAGE_MODEL_FOLLOWUP", ""), \
          patch.object(settings, "IMAGE_MODEL", "configured/default"):
         assert settings.anchor_model_for("crm-dashboard") == "configured/default"
-        assert settings.followup_model_for(None) == "configured/default"
+        assert settings.followup_model_for(None) == settings.FOLLOWUP_MODEL_FALLBACK
+
+        with patch.object(settings, "FOLLOWUP_MODEL_FALLBACK", ""):
+            assert settings.followup_model_for(None) == "configured/default"
 
 
 def test_measured_archetype_table_is_used_and_env_override_outranks_it():
