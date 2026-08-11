@@ -15,10 +15,31 @@ paragraphs garble. Everything the builders emit as visible UI text comes
 from spec fields the ui_spec stage is instructed to keep short.
 """
 
+from app.config import settings
+from app.pipeline import art_packs
 from app.ui_spec import UIDemoSpec
 
 DASHBOARD_IMAGE_PROMPT_VERSION = "dashboard-image-v1"
 SCREEN_CONTINUATION_PROMPT_VERSION = "screen-continuation-v1"
+
+
+def _art_direction(spec: UIDemoSpec, archetype_id: str | None) -> str:
+    """The W2 art-direction pack section, or "" when packs are off or the
+    archetype has none — an unpacked archetype must render byte-identically
+    to how it renders today, so the A/B measures the pack and nothing else."""
+    if not settings.ENABLE_ART_PACKS:
+        return ""
+    section = art_packs.build_art_direction(spec, archetype_id or spec.style.archetype)
+    return f"\n\n{section}" if section else ""
+
+
+def prompt_version(base: str, spec: UIDemoSpec, archetype_id: str | None = None) -> str:
+    """Records in the saved metadata whether a pack was actually applied —
+    not whether the flag was on. A screenshot whose provenance says "+pack"
+    must have had one."""
+    if _art_direction(spec, archetype_id):
+        return f"{base}+{art_packs.ART_PACK_VERSION}"
+    return base
 
 # Composition-variant experiment (composition-variant-v1): instead of 3
 # re-rolls of the identical anchor prompt (sampling noise), each anchor
@@ -270,12 +291,18 @@ def _branding_block(spec: UIDemoSpec) -> str:
     return "\n".join(lines)
 
 
-def build_dashboard_image_prompt(spec: UIDemoSpec, composition: dict | None = None) -> str:
+def build_dashboard_image_prompt(
+    spec: UIDemoSpec, composition: dict | None = None, archetype_id: str | None = None,
+) -> str:
     """The anchor-screen prompt (version: dashboard-image-v1). `composition`
     (an entry from COMPOSITION_VARIANTS) layers a distinct art-direction
     directive on top of the same data/branding/design constraints — used by
     the composition-variant experiment; normal calls omit it and get the
-    prompt exactly as before."""
+    prompt exactly as before.
+
+    The W2 art-direction pack (typography, spacing, chart treatment and an
+    exact derived palette for this archetype) is appended after the generic
+    design constraints, so the specific instruction is the last thing read."""
     density = "compact, information-dense" if spec.style.density == "compact" else "comfortable but realistic"
     composition_directive = f"\n\n{composition['directive']}" if composition else ""
     return f"""TASK
@@ -298,10 +325,10 @@ Every visible string above is the EXACT text to render — short labels, names a
 
 {_branding_block(spec)}
 
-{_DESIGN_CONSTRAINTS}"""
+{_DESIGN_CONSTRAINTS}{_art_direction(spec, archetype_id)}"""
 
 
-def build_continuation_prompt(spec: UIDemoSpec, anchor_screen_title: str) -> str:
+def build_continuation_prompt(spec: UIDemoSpec, anchor_screen_title: str, archetype_id: str | None = None) -> str:
     """Follow-up screen prompt (version: screen-continuation-v1). Sent WITH the
     selected anchor screenshot attached as a reference image so every screen
     looks like the same product."""
@@ -319,4 +346,4 @@ Preserve the exact same application design:
 
 Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own.
 
-{_DESIGN_CONSTRAINTS}"""
+{_DESIGN_CONSTRAINTS}{_art_direction(spec, archetype_id)}"""

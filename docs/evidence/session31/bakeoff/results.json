@@ -502,5 +502,190 @@
         "google/gemini-3.1-flash-image": 2
       }
     }
+  },
+  {
+    "key": "dental|google/gemini-3-pro-image|google/gemini-3-pro-image|nopack",
+    "label": "nopack",
+    "art_packs": false,
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3-pro-image",
+    "request_id": 10,
+    "out_dir": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__nopack",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:04:40",
+    "wall_s": 36.8,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 7.5,
+        "qa_issues": [
+          "Some text in the 'Upcoming Appointments' table is clipped in the doctor's name column, specifically 'Dr. Nguyen' is cut off.",
+          "The 'Weekly Appointments' chart's x-axis labels ('Mon 15', 'Tue 18', etc.) are misaligned under the data points.",
+          "The 'Weekly Appointments' chart's y-axis label ('Appointments') is slightly misaligned with the axis ticks.",
+          "The 'AI Workstream' module feels slightly generic, and the 'Filled' status icon is a simple pause button which lacks clarity.",
+          "The general spacing in some areas, particularly between the top KPI cards and the main chart, could be more deliberate for enhanced visual breathing room."
+        ],
+        "file_path": "/uploads/images/10/dashboard_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.14695,
+      "cost_images": 0.14362,
+      "cost_qa": 0.0013,
+      "image_calls_ok": 1,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.14362
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 1
+      }
+    }
+  },
+  {
+    "key": "retail|google/gemini-3-pro-image|google/gemini-3-pro-image|nopack",
+    "label": "nopack",
+    "art_packs": false,
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3-pro-image",
+    "request_id": 12,
+    "out_dir": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__nopack",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:07:00",
+    "wall_s": 86.1,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "analytics",
+        "screen_type": "analytics",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.7,
+        "qa_issues": [
+          "text-truth: \"Northgate Coffee Roasters\" rendered as \"northgate roast\""
+        ],
+        "file_path": "/uploads/images/12/analytics_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.2942,
+      "cost_images": 0.28915,
+      "cost_qa": 0.00177,
+      "image_calls_ok": 2,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.28915
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2
+      }
+    }
+  },
+  {
+    "key": "retail|google/gemini-3-pro-image|google/gemini-3-pro-image|pack",
+    "label": "pack",
+    "art_packs": true,
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3-pro-image",
+    "request_id": 14,
+    "out_dir": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__pack",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:18:30",
+    "wall_s": 198.9,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "analytics",
+        "screen_type": "analytics",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 9.1,
+        "qa_issues": [
+          "minor misalignment in 'Top Selling Blends' values column"
+        ],
+        "file_path": "/uploads/images/14/analytics_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.31412,
+      "cost_images": 0.30803,
+      "cost_qa": 0.00185,
+      "image_calls_ok": 2,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.30803
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2
+      }
+    }
+  },
+  {
+    "key": "dental|google/gemini-3-pro-image|google/gemini-3-pro-image|pack",
+    "label": "pack",
+    "art_packs": true,
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "anchor_model": "google/gemini-3-pro-image",
+    "followup_model": "google/gemini-3-pro-image",
+    "request_id": 15,
+    "out_dir": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__pack",
+    "database_url": "sqlite:////repo/consultant-service/consultant.db",
+    "ran_at": "2026-08-11T17:20:16",
+    "wall_s": 104.8,
+    "judge_model": "google/gemini-2.5-flash",
+    "candidates": [
+      1,
+      1
+    ],
+    "screens": [
+      {
+        "role_id": "dashboard",
+        "screen_type": "dashboard",
+        "model": "google/gemini-3-pro-image",
+        "composition_variant": "hero-intelligence",
+        "qa_score": 8.5,
+        "qa_issues": [
+          "No explicit units for 'Appointments' on the Y-axis of the Weekly Appointments chart (though implied by numerical scale).",
+          "Date format inconsistency in 'Recall Opportunities' (Jan 23, Oct 22, Feb 23) where '23' appears for January but '22' appears for October \u2013 implies a year but isn't explicitly stated or consistently formatted."
+        ],
+        "file_path": "/uploads/images/15/dashboard_0.png"
+      }
+    ],
+    "ledger": {
+      "cost_total": 0.29912,
+      "cost_images": 0.29302,
+      "cost_qa": 0.00272,
+      "image_calls_ok": 2,
+      "image_calls_failed": 0,
+      "per_model_image_cost": {
+        "google/gemini-3-pro-image": 0.29302
+      },
+      "per_model_image_calls": {
+        "google/gemini-3-pro-image": 2
+      }
+    }
   }
 ]

@@ -137,5 +137,230 @@
         ]
       }
     ]
+  },
+  {
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "screen": "dashboard",
+    "a": "google/gemini-3-pro-image[pack]",
+    "b": "google/gemini-3-pro-image[nopack]",
+    "a_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__pack/images/9/dashboard_0.png",
+    "b_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__nopack/images/10/dashboard_0.png",
+    "ran_at": "2026-08-11T17:07:51",
+    "winner": "tie",
+    "consistent": false,
+    "forward_pick": "google/gemini-3-pro-image[pack]",
+    "reverse_pick": "google/gemini-3-pro-image[nopack]",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image[pack] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "B's Upcoming Appointments table has jumbled, overlapping columns (labels run together like 'Cleaning Dr. Carter') while A keeps that table cleanly aligned and readable",
+        "a_defects": [
+          "Chart y-axis labeling slightly uneven spacing",
+          "Logo corner slightly crowds last recall row text"
+        ],
+        "b_defects": [
+          "Upcoming Appointments rows have collapsed/overlapping columns making them hard to read",
+          "Slightly more cramped three-column bottom row layout"
+        ]
+      },
+      {
+        "order": "google/gemini-3-pro-image[nopack] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "B clutters the chart with redundant floating value labels overlapping the axis scale and clips the last recall date ('23' instead of 'Feb 23') near the logo, while A keeps the chart clean with a single clear peak callout and no encroachment.",
+        "a_defects": [
+          "Slightly less number-dense chart (no per-point value labels)"
+        ],
+        "b_defects": [
+          "Chart shows duplicate/conflicting numeric labels (15,18,17,16 vs axis 0-20) causing clutter",
+          "Recall Opportunities last row date is truncated to '23' instead of 'Feb 23', encroaching near logo corner",
+          "Slightly busier layout with less breathing room around AI Workstream panel"
+        ]
+      }
+    ]
+  },
+  {
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "screen": "analytics",
+    "a": "google/gemini-3-pro-image[pack]",
+    "b": "google/gemini-3-pro-image[nopack]",
+    "a_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__pack/images/11/analytics_0.png",
+    "b_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__nopack/images/12/analytics_0.png",
+    "ran_at": "2026-08-11T17:08:31",
+    "winner": "google/gemini-3-pro-image[nopack]",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image[nopack]",
+    "reverse_pick": "google/gemini-3-pro-image[nopack]",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image[pack] first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "A displays a nonsensical stray hex-code string ('#059669') twice as if it were real data, a glaring broken-UI artifact that outweighs B's minor logo-corner overlap on one risk badge.",
+        "a_defects": [
+          "Bogus '#059669' hex code shown as a badge on Total Sales card",
+          "Same '#059669' string repeated in AI Workstream feed, looks like a rendering leak",
+          "Chart x-axis labels stack day+value awkwardly, less premium typography"
+        ],
+        "b_defects": [
+          "'Medium' risk badge for Michael Chen is clipped/overlapped by the bottom-right logo",
+          "Sidebar has unused dead space below Settings"
+        ]
+      },
+      {
+        "order": "google/gemini-3-pro-image[nopack] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "Image B has garbled AI Workstream text with weird '#059669' and 'status: In Progress' duplicated labels bleeding into cards, showing broken data fidelity and craft issues absent in A.",
+        "a_defects": [
+          "Subscription Churn Risk 'Medium' badge slightly clipped by logo circle"
+        ],
+        "b_defects": [
+          "AI Workstream entries show garbled duplicated status text and stray '#059669' hex-like label",
+          "Total Sales card shows odd '#059669' green pill duplicating the +15% badge",
+          "Churn risk 'Medium' badge overlaps risk column awkwardly"
+        ]
+      }
+    ]
+  },
+  {
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "screen": "analytics",
+    "a": "google/gemini-3-pro-image[pack]",
+    "b": "google/gemini-3-pro-image[nopack]",
+    "a_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__pack/images/13/analytics_0.png",
+    "b_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__nopack/images/12/analytics_0.png",
+    "ran_at": "2026-08-11T17:12:42",
+    "winner": "google/gemini-3-pro-image[nopack]",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image[nopack]",
+    "reverse_pick": "google/gemini-3-pro-image[nopack]",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image[pack] first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "Both spell brand names correctly, but B has cleaner chart data labels matching the line points and the Risk level/logo overlap issue is milder, giving better structural integrity and craft overall.",
+        "a_defects": [
+          "Data labels on trend chart overlap and appear jumbled (850, 950, 600 out of clear sequence)",
+          "Risk level badge '#DC2626' shows raw color code instead of a label",
+          "Second risk badge text is fully obscured by logo circle",
+          "Y-axis max (1300) doesn't align with gridline scale increments"
+        ],
+        "b_defects": [
+          "Risk level badge 'Medium' partially obscured by logo circle",
+          "Slight dead space at bottom left under sidebar"
+        ]
+      },
+      {
+        "order": "google/gemini-3-pro-image[nopack] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "B has a garbled y-axis (duplicate 850/950 labels, odd 600/250 scale) and a literal hex code '#DC2626' rendered as text in the churn risk table, whereas A's chart axis and table data are coherent.",
+        "a_defects": [
+          "Churn risk table's third row risk level obscured by logo corner"
+        ],
+        "b_defects": [
+          "Y-axis labels garbled/non-monotonic (1300,1250,1000,950,600,250,0 with stray 850/950 mid-chart)",
+          "Literal hex code '#DC2626' shown as risk level text instead of a label",
+          "Second churn risk row's risk level clipped by logo corner",
+          "Slightly less full-bleed dashboard feel with extra whitespace at top-left"
+        ]
+      }
+    ]
+  },
+  {
+    "brief": "retail",
+    "archetype": "analytics-dashboard",
+    "screen": "analytics",
+    "a": "google/gemini-3-pro-image[pack]",
+    "b": "google/gemini-3-pro-image[nopack]",
+    "a_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__pack/images/14/analytics_0.png",
+    "b_image": "scripts/out/bakeoff/retail/google_gemini-3-pro-image__nopack/images/12/analytics_0.png",
+    "ran_at": "2026-08-11T17:20:51",
+    "winner": "google/gemini-3-pro-image[nopack]",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image[nopack]",
+    "reverse_pick": "google/gemini-3-pro-image[nopack]",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image[pack] first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "B renders a properly scaled, axis-labeled trend chart and fills the wide canvas with balanced panels, while A's chart lacks a y-axis scale and leaves dead space with a workstream row text truncated by the logo.",
+        "a_defects": [
+          "AI Workstream 'status: Queued' text clipped/cut off behind logo circle",
+          "Trend chart has no y-axis scale, just floating numbers",
+          "Noticeable empty dead space at bottom of canvas",
+          "Redundant peak callout duplicating axis label"
+        ],
+        "b_defects": [
+          "Subscription Churn Risk 'Medium' risk badge partially obscured by logo circle",
+          "Slightly denser card layout with less breathing room"
+        ]
+      },
+      {
+        "order": "google/gemini-3-pro-image[nopack] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "B's AI Workstream panel text is clipped behind the bottom-right logo and its chart duplicates every data value (once near the line, once on the axis), while A keeps all panels clear of the logo and shows each data point once.",
+        "a_defects": [
+          "Slightly more whitespace at bottom of sidebar",
+          "Minor: chart peak label styling is basic"
+        ],
+        "b_defects": [
+          "AI Workstream card text truncated/covered by logo circle",
+          "Daily Sales Trend chart shows duplicate value labels for same days (e.g., 850, 920 etc. appear twice)",
+          "Tighter, more cramped card spacing overall"
+        ]
+      }
+    ]
+  },
+  {
+    "brief": "dental",
+    "archetype": "operations-dashboard",
+    "screen": "dashboard",
+    "a": "google/gemini-3-pro-image[pack]",
+    "b": "google/gemini-3-pro-image[nopack]",
+    "a_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__pack/images/15/dashboard_0.png",
+    "b_image": "scripts/out/bakeoff/dental/google_gemini-3-pro-image__nopack/images/10/dashboard_0.png",
+    "ran_at": "2026-08-11T17:21:12",
+    "winner": "google/gemini-3-pro-image[nopack]",
+    "consistent": true,
+    "forward_pick": "google/gemini-3-pro-image[nopack]",
+    "reverse_pick": "google/gemini-3-pro-image[nopack]",
+    "runs": [
+      {
+        "order": "google/gemini-3-pro-image[pack] first",
+        "winner": "B",
+        "margin": "clear",
+        "why": "Image A's AI Workstream panel text is clipped by the bottom-right logo, while Image B keeps all content clear of the logo and fully legible.",
+        "a_defects": [
+          "'In Progress' status text cut off by logo overlap in AI Workstream panel",
+          "Chart callout 'Thu 20' is less informative than a data-value callout"
+        ],
+        "b_defects": [
+          "Chart callout 'Peak: 20 Appointments' slightly redundant with axis labels",
+          "Greeting text less visually prominent than A's larger heading"
+        ]
+      },
+      {
+        "order": "google/gemini-3-pro-image[nopack] first",
+        "winner": "A",
+        "margin": "clear",
+        "why": "Image B's 'In Progress' status badge in the AI Workstream panel is clipped behind the bottom-right logo, violating structural integrity, while A keeps all content clear of that reserved corner.",
+        "a_defects": [
+          "Minor: appointment row avatars are small circular icons rather than photos, but no real defects observed"
+        ],
+        "b_defects": [
+          "AI Workstream 'In Progress' badge is cut off/obscured by the logo in the bottom-right corner"
+        ]
+      }
+    ]
   }
 ]

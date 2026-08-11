@@ -115,6 +115,20 @@ class Settings:
     # auto-reject at any aesthetic score. One extra cheap vision call per
     # candidate (~$0.001).
     ENABLE_TEXT_TRUTH_GATE: bool = _env_bool("ENABLE_TEXT_TRUTH_GATE", True)
+    # W2 art-direction packs: a per-archetype design system (type pairing,
+    # density, chart treatment, color stance) appended to the image prompt.
+    #
+    # DEFAULT OFF — the A/B did not win. Measured 2026-08-11 on two
+    # archetypes, swap-tested pairwise: 0 wins, 2 losses, and all four
+    # judged runs named the same cause — the pack's denser, fuller layout
+    # pushes content into the bottom-right corner reserved for the
+    # composited logo, which is a structural defect that outweighs the
+    # craft it does add. (Per-image QA scores went the other way, 9.1/8.5
+    # with the pack vs 8.7/7.5 without; pairwise is the better instrument
+    # and it says no.) Turn on only after W4 changes where the watermark
+    # lives and the comparison is re-run.
+    # See docs/evidence/session31/art-packs-ab.md.
+    ENABLE_ART_PACKS: bool = _env_bool("ENABLE_ART_PACKS", False)
     # At most ONE extra attempt per screen when no candidate is approved —
     # never an open-ended regeneration loop.
     MAX_REGENERATIONS: int = int(_env_or("MAX_REGENERATIONS", "1"))

@@ -35,7 +35,10 @@ def test_dashboard_prompt_handles_missing_optionals():
     )
     prompt = prompt_builder.build_dashboard_image_prompt(spec)
     assert "Bare Minimum LLC" in prompt
-    assert "CHART" not in prompt
+    # No chart DATA block, and no art-pack chart instruction either — a
+    # chartless screen must not be invited to invent one.
+    assert "CHART — this is the screen's HERO element" not in prompt
+    assert "CHART TREATMENT" not in prompt
     assert "SECONDARY PANEL" not in prompt
     assert "ACTIVITY" not in prompt
     assert "None" not in prompt  # no leaked nulls

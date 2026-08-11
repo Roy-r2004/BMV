@@ -56,8 +56,12 @@ def _save_results(rows: list[dict]) -> None:
         f.write("\n")
 
 
-def _cell_key(brief_id: str, anchor_model: str, followup_model: str) -> str:
-    return f"{brief_id}|{anchor_model}|{followup_model}"
+def _cell_key(brief_id: str, anchor_model: str, followup_model: str, label: str = "") -> str:
+    """`label` names a non-default CONDITION (e.g. "nopack"), so an A/B pair
+    can share a brief and a model without colliding. Empty label keeps the
+    key identical to the pre-A/B format, so earlier cells stay addressable."""
+    key = f"{brief_id}|{anchor_model}|{followup_model}"
+    return f"{key}|{label}" if label else key
 
 
 def _ledger_for_request(db, request_id: int) -> dict:
@@ -107,6 +111,8 @@ def main() -> None:
     parser.add_argument("--screens", type=int, help="limit to the first N screens (cheap probes)")
     parser.add_argument("--candidates", type=int, help="override DASHBOARD_CANDIDATES for this cell")
     parser.add_argument("--secondary", type=int, help="override SECONDARY_CANDIDATES for this cell")
+    parser.add_argument("--label", default="", help="name this condition (e.g. nopack) so an A/B pair does not collide")
+    parser.add_argument("--no-art-packs", action="store_true", help="W2 A/B control: run with ENABLE_ART_PACKS off")
     parser.add_argument("--force", action="store_true", help="re-run a cell that already has a result")
     parser.add_argument("--report", action="store_true", help="print the matrix so far and exit")
     args = parser.parse_args()
@@ -123,7 +129,8 @@ def main() -> None:
     if not anchor_model:
         parser.error("pass --model, or --anchor-model and --followup-model")
 
-    key = _cell_key(args.brief, anchor_model, followup_model)
+    label = args.label or ("nopack" if args.no_art_packs else "")
+    key = _cell_key(args.brief, anchor_model, followup_model, label)
     if not args.force and any(r["key"] == key for r in rows):
         print(f"cell already run: {key} (pass --force to re-run)")
         return
@@ -136,8 +143,12 @@ def main() -> None:
     bundle = golden.load_brief(args.brief)
     specs = bundle["screens"][: args.screens] if args.screens else bundle["screens"]
 
-    cell_dir = os.path.join(OUT_DIR, args.brief, anchor_model.replace("/", "_"))
+    cell_dir = os.path.join(
+        OUT_DIR, args.brief, anchor_model.replace("/", "_") + (f"__{label}" if label else ""),
+    )
     settings.UPLOADS_DIR = cell_dir
+    if args.no_art_packs:
+        settings.ENABLE_ART_PACKS = False
     if args.candidates:
         settings.DASHBOARD_CANDIDATES = args.candidates
     if args.secondary:
@@ -185,6 +196,8 @@ def main() -> None:
     ledger = _ledger_for_request(db, req.id)
     row = {
         "key": key,
+        "label": label,
+        "art_packs": settings.ENABLE_ART_PACKS,
         "brief": args.brief,
         "archetype": bundle["archetype"],
         "anchor_model": anchor_model,

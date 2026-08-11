@@ -414,15 +414,19 @@ def generate_demo_screens(
     ]
     anchor_prompts = [
         {
-            "prompt": prompt_builder.build_dashboard_image_prompt(anchor_spec, composition=variant),
+            "prompt": prompt_builder.build_dashboard_image_prompt(
+                anchor_spec, composition=variant, archetype_id=archetype_id,
+            ),
             "variant_id": variant["id"],
             "model": anchor_model,
         }
         for variant in anchor_variants
     ]
+    anchor_version = prompt_builder.prompt_version(
+        prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION, anchor_spec, archetype_id,
+    )
     anchor_selected, anchor_pool = _render_screen(
-        db, request_id, anchor_spec, anchor_prompts,
-        prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION,
+        db, request_id, anchor_spec, anchor_prompts, anchor_version,
         reference_images=anchor_reference_images,
     )
     if anchor_selected is None:
@@ -430,21 +434,21 @@ def generate_demo_screens(
         return []
     saved.append(
         _save_selected(
-            db, request_id, anchor_spec, archetype_id, anchor_selected, anchor_pool,
-            prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION,
+            db, request_id, anchor_spec, archetype_id, anchor_selected, anchor_pool, anchor_version,
         )
     )
 
     # ── Follow-up screens: anchor attached as the style reference ─────────
     anchor_reference = [anchor_selected["image_bytes"]] if settings.USE_REFERENCE_IMAGES else None
     for spec in ui_specs[1:]:
-        standalone_prompt = prompt_builder.build_dashboard_image_prompt(spec)
+        standalone_prompt = prompt_builder.build_dashboard_image_prompt(spec, archetype_id=archetype_id)
         if settings.USE_REFERENCE_IMAGES:
-            prompt = prompt_builder.build_continuation_prompt(spec, anchor_spec.screen_title)
-            version = prompt_builder.SCREEN_CONTINUATION_PROMPT_VERSION
+            prompt = prompt_builder.build_continuation_prompt(spec, anchor_spec.screen_title, archetype_id)
+            base_version = prompt_builder.SCREEN_CONTINUATION_PROMPT_VERSION
         else:
             prompt = standalone_prompt
-            version = prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION
+            base_version = prompt_builder.DASHBOARD_IMAGE_PROMPT_VERSION
+        version = prompt_builder.prompt_version(base_version, spec, archetype_id)
         prompts = [
             {"prompt": prompt, "variant_id": None, "model": followup_model}
             for _ in range(settings.SECONDARY_CANDIDATES)
