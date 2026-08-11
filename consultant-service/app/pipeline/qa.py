@@ -212,8 +212,23 @@ def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoS
                 # bool("false") is True — a judge that emits string booleans must
                 # not silently approve everything (found in review).
                 approved = approved.strip().lower() == "true"
+            score = float(parsed["score"]) if parsed.get("score") is not None else None
+            # The threshold is enforced HERE, not by the judge. QA_MIN_SCORE
+            # was only ever interpolated into the judge's prompt and the
+            # judge's own `approved` boolean was taken at face value — so
+            # raising the number changed the wording of a request and nothing
+            # about what shipped. Found 2026-08-12 when the owner raised the
+            # gate to 8 and a candidate scoring 7.9 was still approved.
+            #
+            # Same principle the text-truth gate already follows: a rule the
+            # product depends on is decided in code, where it cannot be
+            # talked out of a difference. A missing score keeps the judge's
+            # verdict, which preserves the module's fail-open contract — a
+            # judge that returned no number must not reject every candidate.
+            if score is not None and score < settings.QA_MIN_SCORE:
+                approved = False
             verdict = {
-                "score": float(parsed["score"]) if parsed.get("score") is not None else None,
+                "score": score,
                 "issues": [str(i) for i in (parsed.get("issues") or [])][:10],
                 "approved": bool(approved),
             }

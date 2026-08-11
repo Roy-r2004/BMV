@@ -129,19 +129,27 @@ single-screen briefs.
 | Cost knob | **DONE** | `DASHBOARD_CANDIDATES` 3 -> 2; `cost_model.py` evaluates DoD line 4 for $0 |
 | Pairwise instrument | **KEPT** | the v2 rubric passes both the known pair and the order swap. Two models had failed v1 identically |
 | DoD line 1 | **FAILS** | a shipped nav label reads "Cilents"; the gate passed it |
-| DoD line 2 | **FAILS** | 4 of 15 screens below 8; **13 of 15 carry a listed defect**, including both that scored 9.2 |
+| DoD line 2 | **FAILS** | 4 of 15 screens below 8 (gate raised to 8 and now enforced in code); **13 of 15 carry a listed defect**, including both that scored 9.2 |
 
 Full assessment: `docs/evidence/session33/dod-assessment.md`. Findings and
 spend: `docs/evidence/session33/results.md`.
 
 **The two things the next session has to decide.**
 
-1. `QA_MIN_SCORE` is **7**, and DoD line 2's floor is **8**. The pipeline has
-   never been configured to enforce the number it is judged against; sessions
-   31 and 32 passed that clause by luck. Raising it costs roughly one extra
-   image on 20% of screens and still does not guarantee the floor, because the
-   best-effort path ships the highest scorer when nothing is approved. That is
-   an owner's call, not a tuning decision.
+1. ~~`QA_MIN_SCORE` is 7 and DoD line 2's floor is 8.~~ **Decided 2026-08-12:
+   the gate goes to 8.** The pipeline had never been configured to enforce the
+   number it is judged against; sessions 31 and 32 passed that clause by luck.
+   Raising it costs roughly one extra image per request (~$0.10, expected
+   ~$0.55) and still does not guarantee the floor, because the best-effort
+   path ships the highest scorer when nothing is approved.
+
+   Acting on the decision found a second bug: `QA_MIN_SCORE` was only ever
+   interpolated into the judge's PROMPT, and the judge's own `approved`
+   boolean was taken at face value. Raising the number would have changed the
+   wording of a request and nothing about what shipped — a candidate scoring
+   7.9 was still approved. The threshold is compared in code now, the same
+   way text truth already was, and `tests/test_qa_and_selection.py` pins the
+   gate against `DOD_MIN_SHIPPED_SCORE` so the two cannot drift apart again.
 2. The defect clause needs an instrument. The per-image judge cannot be it —
    it scored 9.2 twice for screens carrying duplicated panels and invented
    panel titles. The swap-tested **pairwise** judge now can: across four runs

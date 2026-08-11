@@ -69,12 +69,20 @@ to the number the DoD is judged against. Sessions 31 and 32 passed this clause
 by luck — every screen happened to land at 8 or above — not by construction.
 Only 2 of 20 candidates this run fell below 7; 7 of 20 fell below 8.
 
-I have not changed the threshold. Raising it to 8 would reject 7 of 20
-candidates instead of 2, buy one more regeneration per affected screen, and
-still not guarantee the floor — the best-effort path ships the highest scorer
-when nothing is approved. It is a real option with a measured cost and an
-unmeasured benefit, and it is the owner's call, not a change to slip in at the
-end of a session.
+**Raised to 8 on the owner's decision, 2026-08-12.** From the 20 candidates
+of this run: at 7 the gate rejected 2, at 8 it would have rejected 7 — about
+one extra image per request, ~$0.10, expected cost ~$0.55. It still does not
+guarantee the floor, because the best-effort path ships the highest scorer
+when nothing is approved; it buys another roll of the dice, not certainty.
+
+Acting on that decision exposed a second, larger bug. `QA_MIN_SCORE` was only
+ever interpolated into the judge's *prompt*, and the judge's own `approved`
+boolean was taken at face value — so raising the number would have changed
+the wording of a request and nothing about what shipped. A candidate scoring
+7.9 with `approved: true` was still approved. **The pipeline could not have
+enforced this line at any threshold.** The comparison happens in code now, the
+same way text truth already did, and the gate is pinned against the DoD
+constant so the two cannot silently diverge again.
 
 **The defect clause.** All fifteen screens were inspected — nine of them read
 at full size by me, and all fifteen by an independent per-screen sweep whose
@@ -185,9 +193,10 @@ backdrop clear of the interface. See
 
 1. **Line 1** — reproduce a rendered misspelling and show the magnified-band
    gate catching it. Until then the fix is a hypothesis with a mechanism.
-2. **Line 2, the score clause** — an owner's decision on `QA_MIN_SCORE`.
-   Raising it to 8 makes the pipeline enforce the number it is judged
-   against, at roughly one extra image on 20% of screens.
+2. **Line 2, the score clause** — done. The gate is 8 and enforced in code.
+   Unmeasured: whether the extra regeneration actually lifts a 7.5 above 8,
+   or just spends $0.10 to ship the same screen. One golden-set re-run
+   answers it.
 3. **Line 2, the defect clause** — the harder one. The per-image judge cannot
    be the instrument; it scored 9.2 twice for screens carrying duplicated
    panels and invented titles. The swap-tested pairwise judge **can** —

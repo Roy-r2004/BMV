@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
+from app.config import settings
 from app.pipeline import images, qa
 
 _buf = io.BytesIO()
@@ -174,3 +175,62 @@ def test_save_selected_persists_composition_variant(dental_spec, tmp_path):
     metadata = json.loads((tmp_path / "images" / "1" / "dashboard_0.json").read_text())
     assert metadata["composition_variant"] == "hero-intelligence"
     assert metadata["candidates"][0]["variant"] == "hero-intelligence"
+
+
+# ── the gate and the standard it is judged against (session 33) ──────────
+
+# DoD line 2, consultant-service/ROADMAP.md: "No shipped screen scores below
+# 8/10 on the fixed QA judge". Written here as a constant because the whole
+# point of these two tests is that the number in the roadmap and the number
+# the pipeline enforces must be the same number.
+DOD_MIN_SHIPPED_SCORE = 8.0
+
+
+def test_the_approval_gate_enforces_the_score_the_dod_is_judged_against():
+    """Until 2026-08-12 the gate accepted 7 while the DoD demanded 8. Nothing
+    said so, and sessions 31 and 32 passed that clause by luck — every screen
+    happened to land at 8 or above. Session 33's golden set shipped four
+    screens between 7.5 and 7.9 and the clause failed."""
+    assert settings.QA_MIN_SCORE >= DOD_MIN_SHIPPED_SCORE, (
+        f"the gate approves screens at {settings.QA_MIN_SCORE} but the DoD "
+        f"forbids shipping below {DOD_MIN_SHIPPED_SCORE} — one of the two is wrong"
+    )
+
+
+def test_a_candidate_under_the_dod_floor_is_not_approved(dental_spec):
+    """The gate as behaviour, not as a number: a 7.9 was shippable before this
+    change and must not be now."""
+    body = {"choices": [{"message": {"content": '{"score": 7.9, "issues": [], "approved": true}'}}], "usage": {}}
+
+    with patch.object(qa.provider, "chat", return_value=body), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa, "log_usage"):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert verdict["score"] == 7.9
+    assert not verdict["approved"], "a screen below the DoD floor was approved"
+
+
+def test_a_missing_score_keeps_the_judges_own_verdict(dental_spec):
+    """Fail-open contract: a judge that returned no number must not reject
+    every candidate a request has."""
+    body = {"choices": [{"message": {"content": '{"issues": [], "approved": true}'}}], "usage": {}}
+
+    with patch.object(qa.provider, "chat", return_value=body), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa, "log_usage"):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert verdict["score"] is None and verdict["approved"]
+
+
+def test_the_code_gate_only_ever_subtracts(dental_spec):
+    """A judge that says no is not overruled by a high score."""
+    body = {"choices": [{"message": {"content": '{"score": 9.4, "issues": ["x"], "approved": false}'}}], "usage": {}}
+
+    with patch.object(qa.provider, "chat", return_value=body), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa, "log_usage"):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert not verdict["approved"]

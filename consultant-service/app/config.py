@@ -135,7 +135,25 @@ class Settings:
     # Vision-model QA over every candidate (cheap flash call per image).
     ENABLE_VISION_QA: bool = _env_bool("ENABLE_VISION_QA", True)
     QA_MODEL: str = _env_or("QA_MODEL", _env_or("ANALYSIS_MODEL", "google/gemini-2.5-flash"))
-    QA_MIN_SCORE: float = float(_env_or("QA_MIN_SCORE", "7"))
+    # 8, not 7, since 2026-08-12 — owner's decision, and it closes a gap that
+    # had been open the whole time: DoD line 2 says "no shipped screen scores
+    # below 8" and this gate accepted 7. The pipeline had never been
+    # configured to enforce the number it is judged against, and sessions 31
+    # and 32 passed that clause by luck rather than by construction (session
+    # 33's golden set shipped four screens between 7.5 and 7.9).
+    #
+    # Measured consequence, from the 20 candidates of that run: at 7 the gate
+    # rejected 2, at 8 it would have rejected 7 — so roughly one extra image
+    # per request, about $0.10. Nominal projection is unchanged because a
+    # regeneration only fires when nothing was approved; the EXPECTED cost
+    # rises to ~$0.55 and the worst case is unchanged at $0.75.
+    #
+    # It still does not GUARANTEE the floor: when no candidate is approved,
+    # _render_screen ships the best of a bad set rather than failing the
+    # request. Raising the gate buys another roll of the dice, not certainty.
+    # tests/test_qa_and_selection.py pins this against DOD_MIN_SHIPPED_SCORE
+    # so the two can never drift apart silently again.
+    QA_MIN_SCORE: float = float(_env_or("QA_MIN_SCORE", "8"))
     # The pairwise judge ("which of these two is better") is a separate
     # instrument from the per-image scorer and may need more capability:
     # comparing two dense screenshots is harder than scoring one. Kept as
