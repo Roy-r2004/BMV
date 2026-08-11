@@ -206,7 +206,7 @@ def _design_constraints() -> str:
 
 
 def _kpi_block(spec: UIDemoSpec) -> str:
-    lines = ["KPI CARDS", ""]
+    lines = ["Metric cards:", ""]
     for kpi in spec.kpis[:4]:
         entry = f"{kpi.label}\n{kpi.value}"
         if kpi.delta:
@@ -261,7 +261,7 @@ def _chart_block(spec: UIDemoSpec) -> str:
     )
 
     return (
-        "CHART — this is the screen's HERO element, the single most visually crafted thing on it\n\n"
+        "The chart — this is the screen's hero element, the single most visually crafted thing on it:\n\n"
         f"{chart.title}\n" + "\n".join(pairs) + f"\nY-axis unit: {chart.metric_label}" + annotation_text + guidance
     )
 
@@ -345,12 +345,12 @@ def _nav_block(spec: UIDemoSpec) -> str:
         return ""
     if is_tool_screen(spec):
         placement = (
-            "NAVIGATION (a horizontal bar across the very top of the screen: the product wordmark at the "
+            "Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the "
             "far left, these items spaced across the middle, a single accented action button at the right; "
             "mark the current screen active)"
         )
     else:
-        placement = "NAVIGATION (left sidebar, top to bottom; mark the current screen active)"
+        placement = "Navigation items (left sidebar, top to bottom; mark the current screen active)"
     return f"{placement}\n\n" + "\n".join(spec.navigation[:8])
 
 
@@ -370,7 +370,7 @@ def _hero_block(spec: UIDemoSpec) -> str:
     }.get(hero.placement, "centred in the content area, with interface on both sides")
 
     lines = [
-        "HERO ASSET — the visual centerpiece, rendered INSIDE the application's content area",
+        "The visual centerpiece of this screen, rendered INSIDE the application's content area:",
         "",
         f"Subject: {hero.subject}",
     ]
@@ -388,7 +388,8 @@ def _hero_block(spec: UIDemoSpec) -> str:
     lines.append(
         "It is an IMAGE, not an illustration: correct perspective, real materials, real light. No diagram, no "
         "wireframe, no line drawing, no clip art, no 3D-render-of-a-concept. It carries no text of its own "
-        "beyond the caption above. It must be the actual thing this business sells or works on — never a "
+        "beyond the caption above, and no cursor, toolbar, slider, crop handle or other image-editing control anywhere "
+        "on or near it. It must be the actual thing this business sells or works on — never a "
         "generic stock scene, never an abstract stand-in."
     )
     return "\n".join(lines)
@@ -398,10 +399,10 @@ def _steps_block(spec: UIDemoSpec) -> str:
     """The selection flow that makes a screen a tool instead of an overview."""
     concept = spec.concept
     lines = [
-        f"SELECTION FLOW — this screen is a {concept.kind}, not a metrics dashboard. Its structure IS the "
-        "flow below: numbered stages the user moves through left to right, each with a small letterspaced "
-        "uppercase step label. The chosen option in every stage is unmistakably marked with the accent; the "
-        "options not chosen stay legible but recede.",
+        f"The selection flow this screen is built around. It is a {concept.kind}, not a metrics dashboard, and "
+        "its structure IS the flow below: numbered stages the user moves through left to right, each with a "
+        "small letterspaced uppercase step label. The chosen option in every stage is unmistakably marked "
+        "with the accent; the options not chosen stay legible but recede.",
         "",
     ]
     for i, step in enumerate(concept.steps[:4], start=1):
@@ -432,7 +433,7 @@ def _header_stats_block(spec: UIDemoSpec) -> str:
     if not stats:
         return ""
     return (
-        "HEADER STATS (a compact row at the top-right of the page header — small uppercase labels under "
+        "Statistics for the page header (a compact row at its top-right — small uppercase labels under "
         "larger numerals, separated by thin vertical rules; NOT cards)\n\n" + "\n".join(stats)
     )
 
@@ -448,8 +449,8 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     if not settings.ENABLE_AI_LAYER or not ai.present:
         return ""
     lines = [
-        "AI MODULE — the ONLY AI element on this screen, given real size and premium treatment. It states "
-        "an opinion the software has formed; it is NOT a log, a feed, a task queue or a list of events.",
+        "The intelligence module — the ONLY AI element on this screen, given real size and premium treatment. "
+        "It states an opinion the software has formed; it is NOT a log, a feed, a task queue or a list of events.",
         "",
         f"Headline: {ai.headline}",
     ]
@@ -458,7 +459,7 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     if ai.confidence:
         lines.append(f"Confidence readout: {ai.confidence}")
     if ai.chips:
-        lines.append("Supporting chips: " + " · ".join(ai.chips[:4]))
+        lines.append("Small supporting pills, rendered with no heading above them: " + " · ".join(ai.chips[:4]))
     lines.append("")
     lines.append(
         "Render the headline large and in the accent, the reasoning as one short quieter line beneath it, and "
@@ -471,11 +472,11 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
 
 def _content_sections(spec: UIDemoSpec) -> str:
     sections = [
-        f"SCREEN\n\n{spec.screen_title}",
+        f"The screen to draw:\n\n{spec.screen_title}",
     ]
     header_lines = [line for line in (spec.greeting, spec.subheading) if line]
     if header_lines:
-        sections.append("HEADER\n\n" + "\n".join(header_lines))
+        sections.append("Page header text:\n\n" + "\n".join(header_lines))
     nav = _nav_block(spec)
     if nav:
         sections.append(nav)
@@ -503,9 +504,9 @@ def _content_sections(spec: UIDemoSpec) -> str:
     if hero:
         sections.append(hero)
     if spec.primary_panel.rows:
-        sections.append(_panel_block("PRIMARY PANEL", spec.primary_panel))
+        sections.append(_panel_block("Main list panel:", spec.primary_panel))
     if spec.secondary_panel and spec.secondary_panel.rows and not secondary_panel_is_merged_ai_task_list(spec):
-        sections.append(_panel_block("SECONDARY PANEL", spec.secondary_panel))
+        sections.append(_panel_block("Secondary list panel:", spec.secondary_panel))
     chart = _chart_block(spec)
     if chart:
         sections.append(chart)
@@ -520,7 +521,7 @@ def _content_sections(spec: UIDemoSpec) -> str:
 
 def _branding_block(spec: UIDemoSpec) -> str:
     lines = [
-        "BRANDING",
+        "Branding:",
         "",
         f"Business name: {spec.business.name}",
         f"Industry: {spec.business.industry}",
@@ -611,7 +612,7 @@ Layout density: {density}
 
 {_content_sections(spec)}
 
-Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The ALL-CAPS section headings above (SCREEN, HEADER, NAVIGATION, HERO ASSET, SELECTION FLOW, HEADER STATS, AI MODULE, KPI CARDS, PRIMARY PANEL, CHART) are instructions to you and must NEVER appear as visible text in the interface.
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
 
 {_branding_block(spec)}
 
@@ -689,6 +690,6 @@ Preserve the exact same application design:
 
 {_content_sections(spec)}
 
-Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The ALL-CAPS section headings above (SCREEN, HEADER, NAVIGATION, HERO ASSET, SELECTION FLOW, HEADER STATS, AI MODULE, KPI CARDS, PRIMARY PANEL, CHART) are instructions to you and must NEVER appear as visible text in the interface.
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
 
 {_design_constraints()}{_art_direction(spec, archetype_id)}"""

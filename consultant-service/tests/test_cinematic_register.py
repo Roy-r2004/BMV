@@ -215,19 +215,19 @@ def test_cinematic_branding_does_not_contradict_itself(dental_spec):
 
 def test_tool_screen_renders_the_selection_flow_not_a_dashboard():
     prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "SELECTION FLOW — this screen is a" in prompt
+    assert "The selection flow this screen is built around" in prompt
     assert "1. Select Block" in prompt
     assert "Block A · Block B · Block C" in prompt
     assert "Selected: Block A" in prompt
     assert "View Floor Plan" in prompt
     # The dashboard furniture must be gone, not merely deprioritised.
-    assert "KPI CARDS\n" not in prompt
-    assert "PRIMARY PANEL\n" not in prompt
+    assert "Metric cards:\n" not in prompt
+    assert "Main list panel:" not in prompt
 
 
 def test_tool_screen_demotes_kpis_to_a_header_strip():
     prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "HEADER STATS" in prompt
+    assert "Statistics for the page header" in prompt
     assert "3 Blocks" in prompt
     assert "NOT cards" in prompt
 
@@ -245,19 +245,19 @@ def test_dashboard_screens_keep_the_sidebar(dental_spec):
     """The tool path must not change screens that did not ask for it."""
     prompt = prompt_builder.build_dashboard_image_prompt(dental_spec)
     assert "left sidebar" in prompt
-    assert "SELECTION FLOW — this screen is a" not in prompt
+    assert "The selection flow this screen is built around" not in prompt
 
 
 def test_tool_screens_can_be_switched_off_wholesale():
     with patch.object(prompt_builder.settings, "ENABLE_TOOL_SCREENS", False):
         prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "SELECTION FLOW — this screen is a" not in prompt
+    assert "The selection flow this screen is built around" not in prompt
     assert "left sidebar" in prompt
 
 
 def test_hero_asset_is_asked_for_as_a_photograph_not_an_illustration():
     prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "HERO ASSET — the visual centerpiece" in prompt
+    assert "The visual centerpiece of this screen" in prompt
     assert "a 30-storey glass residential tower at dusk" in prompt
     assert "photoreal render" in prompt
     assert "It is an IMAGE, not an illustration" in prompt
@@ -267,12 +267,12 @@ def test_hero_asset_is_asked_for_as_a_photograph_not_an_illustration():
 def test_hero_asset_absent_when_the_spec_has_none(dental_spec):
     """A spec stage that returns nothing usable must degrade to a thinner
     screen, never to an invented stock scene."""
-    assert "HERO ASSET — the visual centerpiece" not in prompt_builder.build_dashboard_image_prompt(dental_spec)
+    assert "The visual centerpiece of this screen" not in prompt_builder.build_dashboard_image_prompt(dental_spec)
 
 
 def test_hero_asset_can_be_switched_off_wholesale():
     with patch.object(prompt_builder.settings, "ENABLE_HERO_ASSET", False):
-        assert "HERO ASSET — the visual centerpiece" not in prompt_builder.build_dashboard_image_prompt(_tool_spec())
+        assert "The visual centerpiece of this screen" not in prompt_builder.build_dashboard_image_prompt(_tool_spec())
 
 
 def test_ai_module_replaces_the_activity_log_rather_than_joining_it(dental_spec):
@@ -283,7 +283,7 @@ def test_ai_module_replaces_the_activity_log_rather_than_joining_it(dental_spec)
     spec.ai.headline = "Recommended: Tuesday"
     spec.ai.rationale = "Two cancellations, hygienist free"
     prompt = prompt_builder.build_dashboard_image_prompt(spec)
-    assert "AI MODULE — the ONLY AI element" in prompt
+    assert "The intelligence module — the ONLY AI element" in prompt
     assert "AI WORKSTREAM" not in prompt
     assert "Recommended: Tuesday" in prompt
 
@@ -297,7 +297,7 @@ def test_ai_module_can_be_switched_off_wholesale(dental_spec):
     spec.ai.headline = "Recommended: Tuesday"
     with patch.object(prompt_builder.settings, "ENABLE_AI_LAYER", False):
         prompt = prompt_builder.build_dashboard_image_prompt(spec)
-    assert "AI MODULE — the ONLY AI element" not in prompt
+    assert "The intelligence module — the ONLY AI element" not in prompt
     assert "AI WORKSTREAM" in prompt
 
 
@@ -373,8 +373,8 @@ def test_section_headings_are_marked_as_instructions_not_text(dental_spec):
         prompt_builder.build_dashboard_image_prompt(_tool_spec()),
         prompt_builder.build_continuation_prompt(dental_spec, "Dashboard"),
     ):
-        assert "must NEVER appear as visible text" in prompt
-        assert "SELECTION FLOW" in prompt  # named explicitly in the exclusion list
+        assert "are instructions to you, not labels" in prompt
+        assert "never draw a heading above an element" in prompt
 
 
 def test_result_panel_heading_does_not_look_like_a_ui_label():
