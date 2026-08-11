@@ -1,0 +1,560 @@
+{
+  "id": "retail",
+  "label": "Northgate Coffee Roasters — Coffee Roastery & E-commerce",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Northgate Coffee Roasters",
+    "business_description": "Specialty coffee roastery with one café and a growing online subscription business. Wholesale accounts with 12 local cafés. Nobody has time to watch which blends are selling, and reorder decisions are made from gut feel.",
+    "industry": "Coffee Roastery & E-commerce",
+    "consult_result": {
+      "consulting_summary": "An AI merchandiser that watches sales and subscription churn daily, forecasts roast volumes and flags reorders before a blend runs out."
+    },
+    "plan_result": {
+      "concept_name": "Northgate Roast Intelligence",
+      "visual_theme": {
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534",
+        "mood": "warm, crafted, confident"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v3"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Mark",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Roasts",
+        "Orders",
+        "Wholesale",
+        "Customers",
+        "Settings"
+      ],
+      "greeting": "Good morning, Mark",
+      "subheading": "Sales overview and trends",
+      "kpis": [
+        {
+          "label": "Total Sales",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Online Orders",
+          "value": "78",
+          "delta": "+8% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Churn",
+          "value": "1.2%",
+          "delta": "-0.3% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Wholesale Sales",
+          "value": "$1,920",
+          "delta": "+5% vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Selling Roasts",
+        "rows": [
+          {
+            "Blend": "Morning Glory",
+            "Units": "98",
+            "Revenue": "$1,617"
+          },
+          {
+            "Blend": "Dark Knight",
+            "Units": "72",
+            "Revenue": "$1,224"
+          },
+          {
+            "Blend": "Colombia Supremo",
+            "Units": "65",
+            "Revenue": "$1,072"
+          },
+          {
+            "Blend": "Espresso Blend",
+            "Units": "51",
+            "Revenue": "$816"
+          },
+          {
+            "Blend": "Sumatra Bold",
+            "Units": "44",
+            "Revenue": "$748"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Subscription Status",
+        "rows": [
+          {
+            "Plan": "Monthly Explorer",
+            "Active": "182",
+            "New": "12"
+          },
+          {
+            "Plan": "Bi-Weekly Roast",
+            "Active": "95",
+            "New": "6"
+          },
+          {
+            "Plan": "Weekly Espresso",
+            "Active": "48",
+            "New": "3"
+          },
+          {
+            "Plan": "Gift Subscriptions",
+            "Active": "31",
+            "New": "2"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Revenue",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          650.0,
+          720.0,
+          810.0,
+          780.0,
+          950.0,
+          680.0,
+          520.0
+        ],
+        "metric_label": "Revenue ($)"
+      },
+      "activity": [
+        {
+          "name": "Sarah J.",
+          "action": "New subscription",
+          "time": "10 min ago"
+        },
+        {
+          "name": "Bean Scene Cafe",
+          "action": "Wholesale order placed",
+          "time": "35 min ago"
+        },
+        {
+          "name": "David L.",
+          "action": "Order fulfilled",
+          "time": "1 hr ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, natural accents"
+      },
+      "hero": {
+        "subject": "Close-up of freshly roasted coffee beans cooling on a tray, rich brown",
+        "treatment": "product photograph",
+        "caption": "Fresh Roast",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "configurator",
+        "steps": [
+          {
+            "label": "Choose Origin",
+            "options": [
+              "Ethiopia Yirgacheffe",
+              "Colombia Supremo",
+              "Sumatra Mandheling",
+              "Brazil Cerrado",
+              "Guatemala Huehuetenango"
+            ],
+            "selected": "Colombia Supremo"
+          },
+          {
+            "label": "Select Roast",
+            "options": [
+              "Light",
+              "Medium",
+              "Dark",
+              "Espresso"
+            ],
+            "selected": "Medium"
+          },
+          {
+            "label": "Grind & Size",
+            "options": [
+              "Whole Bean 12oz",
+              "French Press 12oz",
+              "Drip 12oz",
+              "Espresso 12oz",
+              "Whole Bean 5lb"
+            ],
+            "selected": "Whole Bean 12oz"
+          }
+        ],
+        "detail": {
+          "title": "Colombia Supremo",
+          "rows": [
+            {
+              "Roast": "Medium"
+            },
+            {
+              "Grind": "Whole Bean"
+            },
+            {
+              "Size": "12 oz"
+            },
+            {
+              "Price": "$16.50"
+            },
+            {
+              "Stock": "1,200 lbs"
+            }
+          ]
+        },
+        "primary_action": "Add to Order",
+        "secondary_action": "Customize Further"
+      },
+      "ai": {
+        "title": "Roast Forecast",
+        "headline": "Increase Morning Glory roast",
+        "rationale": "High sales velocity, low stock alert",
+        "confidence": "92% confident",
+        "chips": [
+          "High Demand",
+          "Low Inventory",
+          "Profit Driver"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Mark",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Roasts",
+        "Orders",
+        "Wholesale",
+        "Customers",
+        "Settings"
+      ],
+      "greeting": "Welcome back, Mark",
+      "subheading": "Today's operational summary",
+      "kpis": [
+        {
+          "label": "Roasts Today",
+          "value": "3",
+          "delta": "+1 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Orders Ready",
+          "value": "18",
+          "delta": "-5 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Wholesale Shipments",
+          "value": "2",
+          "delta": "Same as yesterday",
+          "trend": "flat"
+        },
+        {
+          "label": "Active Subscriptions",
+          "value": "356",
+          "delta": "+4 today",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Roasts",
+        "rows": [
+          {
+            "Blend": "Morning Glory",
+            "Volume": "250 lbs",
+            "Time": "8:00 AM"
+          },
+          {
+            "Blend": "Dark Knight",
+            "Volume": "200 lbs",
+            "Time": "10:30 AM"
+          },
+          {
+            "Blend": "Espresso Blend",
+            "Volume": "150 lbs",
+            "Time": "1:00 PM"
+          },
+          {
+            "Blend": "Colombia Supremo",
+            "Volume": "100 lbs",
+            "Time": "3:30 PM"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Inventory Levels",
+        "rows": [
+          {
+            "Green Beans": "1,200 lbs",
+            "Next Del.": "2 days"
+          },
+          {
+            "Bags 12oz": "800 units",
+            "Next Del.": "5 days"
+          },
+          {
+            "Bags 5lb": "150 units",
+            "Next Del.": "5 days"
+          },
+          {
+            "Shipping Boxes": "300 units",
+            "Next Del.": "3 days"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Morning Glory",
+          "action": "Roasted 250 lbs",
+          "time": "Just now"
+        },
+        {
+          "name": "Order #4872",
+          "action": "Packed for shipping",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Coffee Corner",
+          "action": "Wholesale order picked",
+          "time": "45 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, natural accents"
+      },
+      "hero": {
+        "subject": "A skilled roaster carefully monitoring a large commercial coffee roaster machine, golden light",
+        "treatment": "cinematic still",
+        "caption": "Roasting Today",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Smart Reorder",
+        "headline": "Reorder green Ethiopia Yirgacheffe",
+        "rationale": "Projected out of stock in 4 days",
+        "confidence": "High confidence",
+        "chips": [
+          "Low Stock",
+          "High Demand",
+          "Supplier Lead"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "Mark",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Roasts",
+        "Orders",
+        "Wholesale",
+        "Customers",
+        "Settings"
+      ],
+      "greeting": "Hello, Mark",
+      "subheading": "Customer and subscription insights",
+      "kpis": [
+        {
+          "label": "New Customers",
+          "value": "12",
+          "delta": "+3 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Avg Order Value",
+          "value": "$38.50",
+          "delta": "+1.20 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Active Subscribers",
+          "value": "356",
+          "delta": "+4 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Wholesale Accounts",
+          "value": "12",
+          "delta": "No change",
+          "trend": "flat"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recent Subscriptions",
+        "rows": [
+          {
+            "Name": "Sarah Johnson",
+            "Plan": "Monthly Explorer",
+            "Start Date": "05/10/24"
+          },
+          {
+            "Name": "Michael Chen",
+            "Plan": "Bi-Weekly Roast",
+            "Start Date": "05/09/24"
+          },
+          {
+            "Name": "Emily Rodriguez",
+            "Plan": "Weekly Espresso",
+            "Start Date": "05/08/24"
+          },
+          {
+            "Name": "Daniel Lee",
+            "Plan": "Monthly Explorer",
+            "Start Date": "05/07/24"
+          },
+          {
+            "Name": "Jessica Brown",
+            "Plan": "Gift Sub.",
+            "Start Date": "05/06/24"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "High-Value Customers",
+        "rows": [
+          {
+            "Name": "Coffee Haven Cafe",
+            "Total Spend": "$8,100",
+            "Orders": "42"
+          },
+          {
+            "Name": "The Daily Grind",
+            "Total Spend": "$6,500",
+            "Orders": "35"
+          },
+          {
+            "Name": "Laura Smith",
+            "Total Spend": "$980",
+            "Orders": "18"
+          },
+          {
+            "Name": "John Davis",
+            "Total Spend": "$850",
+            "Orders": "15"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Sarah Johnson",
+          "action": "Subscribed to Monthly Explorer",
+          "time": "1 day ago"
+        },
+        {
+          "name": "Coffee Haven Cafe",
+          "action": "Placed new wholesale order",
+          "time": "2 days ago"
+        },
+        {
+          "name": "Emily Rodriguez",
+          "action": "Upgraded subscription",
+          "time": "3 days ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, natural accents"
+      },
+      "hero": {
+        "subject": "A barista preparing a pour-over coffee in a busy, warm-lit cafe, morning light",
+        "treatment": "cinematic still",
+        "caption": "Customers First",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Churn Risk",
+        "headline": "High churn risk for David Lee",
+        "rationale": "Skipped 2 orders, low engagement",
+        "confidence": "Medium confidence",
+        "chips": [
+          "Subscription",
+          "Low Engagement",
+          "Order Skip"
+        ]
+      }
+    }
+  ]
+}

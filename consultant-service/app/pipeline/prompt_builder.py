@@ -499,9 +499,15 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     # states an opinion the software has formed"). Removing the field labels
     # was not enough; the description itself was being read as a caption.
     #
-    # So the vacancy is closed rather than the behaviour forbidden: the
-    # headline is declared to be the module's topmost line, which is the
-    # same move that fixed the window chrome at the top of the canvas.
+    # So the vacancy is closed rather than the behaviour forbidden — in two
+    # stages. Session 33 declared the headline the topmost line and said
+    # "the module has no separate title"; the re-run invented new titles
+    # anyway, because a vacancy forbidden is still a vacancy. ui-spec-v3
+    # therefore gives the module a REAL title (spec.ai.title), a product
+    # label the spec stage writes, rendered as an exact string like every
+    # other label — nothing left to be guessed. Briefs frozen before v3
+    # have no title, and for them the block below is byte-identical to the
+    # session-33 wording, so briefs-v2 remains a valid control arm.
     # Bare strings on their own lines, the same shape the metric-card and
     # panel blocks use — and specifically NOT wrapped in quotation marks. The
     # first attempt at this rewrite quoted each value to delimit it, and the
@@ -509,13 +515,22 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     # «"Recommend Add-on: Deep Conditioning"», quotation marks included.
     # Anything placed around a string to mark it out is itself a candidate
     # for being drawn. The order is stated once, in prose, above.
-    intro = [
-        "One module on this screen is given real size and premium treatment. Its topmost line is the "
-        "headline below, set large and in the accent; the module has no separate title, and nothing "
-        "whatever is written above that headline.",
-    ]
-    order = ["the headline"]
-    values = [ai.headline]
+    if ai.title:
+        intro = [
+            "One module on this screen is given real size and premium treatment. Its topmost line is the "
+            "small module label below, set as a quiet kicker; the large accent headline sits directly "
+            "under it, and nothing whatever is written above the label.",
+        ]
+        order = ["the module label", "the headline"]
+        values = [ai.title, ai.headline]
+    else:
+        intro = [
+            "One module on this screen is given real size and premium treatment. Its topmost line is the "
+            "headline below, set large and in the accent; the module has no separate title, and nothing "
+            "whatever is written above that headline.",
+        ]
+        order = ["the headline"]
+        values = [ai.headline]
     if ai.rationale:
         order.append("one short, quieter line beneath it")
         values.append(ai.rationale)

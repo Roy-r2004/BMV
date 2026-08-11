@@ -1,0 +1,545 @@
+{
+  "id": "law",
+  "label": "Hartwell & Grey LLP — Law Firm",
+  "archetype": "crm-dashboard",
+  "intake": {
+    "business_name": "Hartwell & Grey LLP",
+    "business_description": "Boutique family-law firm, 4 attorneys. Consultations, mediation, litigation. New-lead intake is manual and follow-ups slip through the cracks.",
+    "industry": "Law Firm",
+    "consult_result": {
+      "consulting_summary": "An AI intake paralegal that qualifies leads, books consultations and keeps every matter's follow-ups on schedule."
+    },
+    "plan_result": {
+      "concept_name": "Hartwell Chambers",
+      "visual_theme": {
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b",
+        "mood": "authoritative, discreet"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v3"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Hartwell & Grey LLP",
+        "industry": "Law Firm",
+        "location": null,
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b"
+      },
+      "product": {
+        "name": "Hartwell Chambers",
+        "purpose": "AI lead qualification and scheduling",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Ms. Hartwell",
+        "role": "Founding Partner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Pipeline",
+        "Clients",
+        "Schedule",
+        "Analytics",
+        "Settings"
+      ],
+      "greeting": "Good morning, Ms. Hartwell",
+      "subheading": "Your daily overview",
+      "kpis": [
+        {
+          "label": "New Leads",
+          "value": "18",
+          "delta": "+25% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Consults Booked",
+          "value": "8",
+          "delta": "+1 today",
+          "trend": "up"
+        },
+        {
+          "label": "Open Matters",
+          "value": "52",
+          "delta": "-1 vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Avg. Case Value",
+          "value": "$12,500",
+          "delta": "+3% last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Today's Consults",
+        "rows": [
+          {
+            "Time": "9:30 AM",
+            "Client": "Sarah Chen",
+            "Type": "Divorce",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "11:00 AM",
+            "Client": "David Lee",
+            "Type": "Child Custody",
+            "Status": "Confirmed"
+          },
+          {
+            "Time": "2:00 PM",
+            "Client": "Maria Garcia",
+            "Type": "Spousal Support",
+            "Status": "Pending"
+          },
+          {
+            "Time": "3:30 PM",
+            "Client": "Robert Kim",
+            "Type": "Mediation",
+            "Status": "Confirmed"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Overdue Follow-ups",
+        "rows": [
+          {
+            "Client": "Emily White",
+            "Matter": "Prenuptial",
+            "Due": "Yesterday"
+          },
+          {
+            "Client": "John Smith",
+            "Matter": "Property Div.",
+            "Due": "2 days ago"
+          },
+          {
+            "Client": "Lisa Brown",
+            "Matter": "Child Support",
+            "Due": "Last week"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "AI Paralegal",
+          "action": "Booked consult for Robert Kim",
+          "time": "10 min ago"
+        },
+        {
+          "name": "AI Paralegal",
+          "action": "Qualified new lead: Anna Wu",
+          "time": "35 min ago"
+        },
+        {
+          "name": "Mr. Grey",
+          "action": "Updated Chen matter status",
+          "time": "1 hr ago"
+        }
+      ],
+      "style": {
+        "archetype": "crm-dashboard",
+        "density": "normal",
+        "palette_description": "professional dark blue interface with warm gold accents"
+      },
+      "hero": {
+        "subject": "Modern law office reception area, warm morning light, empty",
+        "treatment": "photoreal render",
+        "caption": "Hartwell & Grey",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Matter Type",
+            "options": [
+              "Divorce",
+              "Child Custody",
+              "Property Division",
+              "Spousal Support",
+              "Prenuptial",
+              "Mediation"
+            ],
+            "selected": "Divorce"
+          },
+          {
+            "label": "Select Attorney",
+            "options": [
+              "Ms. Hartwell",
+              "Mr. Grey",
+              "Ms. Chen",
+              "Mr. Davis"
+            ],
+            "selected": "Ms. Hartwell"
+          },
+          {
+            "label": "Select Slot",
+            "options": [
+              "Today 2 PM",
+              "Today 3 PM",
+              "Tomorrow 10 AM",
+              "Tomorrow 11 AM"
+            ],
+            "selected": "Today 3 PM"
+          }
+        ],
+        "detail": {
+          "title": "Consultation Details",
+          "rows": [
+            {
+              "Matter": "Divorce",
+              "Attorney": "Ms. Hartwell",
+              "Date": "2024-03-21",
+              "Time": "3:00 PM",
+              "Duration": "60 min",
+              "Fee": "$350"
+            }
+          ]
+        },
+        "primary_action": "Confirm Booking",
+        "secondary_action": "Reschedule"
+      },
+      "ai": {
+        "title": "Lead Prioritization",
+        "headline": "High-value lead: Anna Wu",
+        "rationale": "High income, complex asset profile, urgent need",
+        "confidence": "98% match",
+        "chips": [
+          "Divorce",
+          "High Net Worth",
+          "Urgent"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Hartwell & Grey LLP",
+        "industry": "Law Firm",
+        "location": null,
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b"
+      },
+      "product": {
+        "name": "Hartwell Chambers",
+        "purpose": "AI lead qualification and scheduling",
+        "screen_type": "pipeline"
+      },
+      "user": {
+        "name": "Ms. Hartwell",
+        "role": "Founding Partner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Pipeline",
+        "Clients",
+        "Schedule",
+        "Analytics",
+        "Settings"
+      ],
+      "greeting": "Good morning, Ms. Hartwell",
+      "subheading": "Manage your client matters",
+      "kpis": [
+        {
+          "label": "New Leads",
+          "value": "18",
+          "delta": "+25% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Consults Booked",
+          "value": "8",
+          "delta": "+1 today",
+          "trend": "up"
+        },
+        {
+          "label": "Open Matters",
+          "value": "52",
+          "delta": "-1 vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Avg. Case Value",
+          "value": "$12,500",
+          "delta": "+3% last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Lead Intake",
+        "rows": [
+          {
+            "Client": "Anna Wu",
+            "Type": "Divorce",
+            "Source": "Referral",
+            "Status": "New"
+          },
+          {
+            "Client": "Mark Davis",
+            "Type": "Child Custody",
+            "Source": "Web",
+            "Status": "Qualified"
+          },
+          {
+            "Client": "Olivia King",
+            "Type": "Prenuptial",
+            "Source": "Referral",
+            "Status": "Qualified"
+          },
+          {
+            "Client": "Paul Green",
+            "Type": "Spousal Support",
+            "Source": "Web",
+            "Status": "New"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Open Matters",
+        "rows": [
+          {
+            "Client": "Sarah Chen",
+            "Matter": "Divorce",
+            "Stage": "Discovery"
+          },
+          {
+            "Client": "David Lee",
+            "Matter": "Child Custody",
+            "Stage": "Mediation"
+          },
+          {
+            "Client": "Maria Garcia",
+            "Matter": "Spousal Support",
+            "Stage": "Litigation"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "AI Paralegal",
+          "action": "Moved Mark Davis to Qualified",
+          "time": "20 min ago"
+        },
+        {
+          "name": "AI Paralegal",
+          "action": "Generated new lead brief for Anna Wu",
+          "time": "45 min ago"
+        },
+        {
+          "name": "Ms. Chen",
+          "action": "Updated Sarah Chen matter notes",
+          "time": "2 hrs ago"
+        }
+      ],
+      "style": {
+        "archetype": "crm-dashboard",
+        "density": "normal",
+        "palette_description": "professional dark blue interface with warm gold accents"
+      },
+      "hero": {
+        "subject": "Leather-bound law books on a polished wooden shelf, soft light",
+        "treatment": "product photograph",
+        "caption": "Legal Research",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Next Best Action",
+        "headline": "Schedule Anna Wu consult",
+        "rationale": "High value lead, critical to book quickly",
+        "confidence": "High priority",
+        "chips": [
+          "New Lead",
+          "Book Consult",
+          "High Priority"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Hartwell & Grey LLP",
+        "industry": "Law Firm",
+        "location": null,
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b"
+      },
+      "product": {
+        "name": "Hartwell Chambers",
+        "purpose": "AI lead qualification and scheduling",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Ms. Hartwell",
+        "role": "Founding Partner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Pipeline",
+        "Clients",
+        "Schedule",
+        "Analytics",
+        "Settings"
+      ],
+      "greeting": "Good morning, Ms. Hartwell",
+      "subheading": "Performance insights",
+      "kpis": [
+        {
+          "label": "New Leads",
+          "value": "18",
+          "delta": "+25% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Consults Booked",
+          "value": "8",
+          "delta": "+1 today",
+          "trend": "up"
+        },
+        {
+          "label": "Open Matters",
+          "value": "52",
+          "delta": "-1 vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Avg. Case Value",
+          "value": "$12,500",
+          "delta": "+3% last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Lead Sources",
+        "rows": [
+          {
+            "Source": "Referral",
+            "Leads": "45",
+            "Conversion": "72%"
+          },
+          {
+            "Source": "Website",
+            "Leads": "32",
+            "Conversion": "58%"
+          },
+          {
+            "Source": "Social Media",
+            "Leads": "15",
+            "Conversion": "45%"
+          },
+          {
+            "Source": "Paid Ads",
+            "Leads": "8",
+            "Conversion": "65%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Matter Trends",
+        "rows": [
+          {
+            "Type": "Divorce",
+            "Cases": "22",
+            "Avg. Value": "$15k"
+          },
+          {
+            "Type": "Child Custody",
+            "Cases": "18",
+            "Avg. Value": "$10k"
+          },
+          {
+            "Type": "Property Div.",
+            "Cases": "10",
+            "Avg. Value": "$20k"
+          },
+          {
+            "Type": "Mediation",
+            "Cases": "7",
+            "Avg. Value": "$8k"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Consults Booked",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          3.0,
+          5.0,
+          4.0,
+          6.0,
+          2.0,
+          0.0,
+          1.0
+        ],
+        "metric_label": "Consults"
+      },
+      "activity": [
+        {
+          "name": "AI Paralegal",
+          "action": "Generated weekly analytics report",
+          "time": "Just now"
+        },
+        {
+          "name": "Mr. Grey",
+          "action": "Reviewed lead source data",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Ms. Chen",
+          "action": "Exported Q1 matter values",
+          "time": "3 hrs ago"
+        }
+      ],
+      "style": {
+        "archetype": "crm-dashboard",
+        "density": "normal",
+        "palette_description": "professional dark blue interface with warm gold accents"
+      },
+      "hero": {
+        "subject": "Gavel and legal scrolls on a dark wooden table, soft focused",
+        "treatment": "cinematic still",
+        "caption": "Justice Served",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Growth Opportunity",
+        "headline": "Increase social media leads",
+        "rationale": "High volume, lower conversion; needs targeting review",
+        "confidence": "Medium potential",
+        "chips": [
+          "Lead Gen",
+          "Social Media",
+          "Conversion Rate"
+        ]
+      }
+    }
+  ]
+}

@@ -147,8 +147,20 @@ class AiLayer(_Tolerant):
     Every string here is rendered as visible UI text, so every string here
     is short by construction; `rationale` is the one that wants to be a
     sentence and is the one most likely to garble.
+
+    `title` exists because its absence was a defect factory (JOB 5, session
+    34): six screens across the session-33 run drew a heading on this module
+    that nobody asked for — "HERO INTELLIGENCE", "ONLY AI INTELLIGENCE",
+    "PREMIUM AI INTELLIGENCE", "OPINION" — every one lifted from the prose
+    nearest the panel. Session 33 removed the specific phrases it could
+    find and the re-run invented new ones, because the panel had a VACANCY
+    and the model fills vacancies from context. A field the spec stage
+    fills with a real product label ("AI Insights", "Recommended Action")
+    leaves nothing to be guessed. Empty = the pre-v3 briefs — rendered
+    exactly as before, so briefs-v2 stays a valid control arm.
     """
 
+    title: str = ""        # "AI Insights" — 2-3 words, a label a real product ships
     headline: str = ""     # "Recommended: A-1803"
     rationale: str = ""    # <= 8 words
     confidence: str = ""   # "94% match"

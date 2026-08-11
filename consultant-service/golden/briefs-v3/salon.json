@@ -1,0 +1,577 @@
+{
+  "id": "salon",
+  "label": "Lumière Hair Studio — Hair Salon",
+  "archetype": "operations-dashboard",
+  "intake": {
+    "business_name": "Lumière Hair Studio",
+    "business_description": "Upscale hair salon with 5 stylists and a dedicated color specialist. Cuts, color, styling, bridal packages. Loses revenue to stylist double-booking and last-minute cancellations.",
+    "industry": "Hair Salon",
+    "consult_result": {
+      "consulting_summary": "An AI concierge that manages stylist schedules, fills cancellations instantly and upsells add-on services at booking."
+    },
+    "plan_result": {
+      "concept_name": "Lumière Studio OS",
+      "visual_theme": {
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26",
+        "mood": "elegant, warm, editorial"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v3"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Lumière Hair Studio",
+        "industry": "Hair Salon",
+        "location": null,
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26"
+      },
+      "product": {
+        "name": "Lumière Studio OS",
+        "purpose": "AI-driven salon management",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Genevieve",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Clients",
+        "Services",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Genevieve",
+      "subheading": "Today's Studio Overview",
+      "kpis": [
+        {
+          "label": "Appointments Today",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Projected Revenue",
+          "value": "$1,450",
+          "delta": "+8% vs avg",
+          "trend": "up"
+        },
+        {
+          "label": "Cancellations",
+          "value": "1",
+          "delta": "-50% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Add-on Sales",
+          "value": "$210",
+          "delta": "+15% vs yesterday",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Bookings",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Client": "Olivia Chen",
+            "Service": "Full Color",
+            "Stylist": "Emily"
+          },
+          {
+            "Time": "9:30 AM",
+            "Client": "Michael Lee",
+            "Service": "Men's Cut",
+            "Stylist": "David"
+          },
+          {
+            "Time": "10:30 AM",
+            "Client": "Sophia Garcia",
+            "Service": "Highlights",
+            "Stylist": "Chloe"
+          },
+          {
+            "Time": "11:00 AM",
+            "Client": "Liam Smith",
+            "Service": "Haircut",
+            "Stylist": "Ava"
+          },
+          {
+            "Time": "12:00 PM",
+            "Client": "Isabella Kim",
+            "Service": "Bridal Consult",
+            "Stylist": "Fiona"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Unscheduled Tasks",
+        "rows": [
+          {
+            "Task": "Order color stock",
+            "Due": "Today"
+          },
+          {
+            "Task": "Review stylist tips",
+            "Due": "EOD"
+          },
+          {
+            "Task": "Call new supplier",
+            "Due": "Tomorrow"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Bookings",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "values": [
+          15.0,
+          18.0,
+          22.0,
+          19.0,
+          25.0,
+          28.0
+        ],
+        "metric_label": "Appointments"
+      },
+      "activity": [
+        {
+          "name": "Lumière OS",
+          "action": "Filled 2:30 PM slot (Ava)",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Ava",
+          "action": "Checked in for shift",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Sophia Garcia",
+          "action": "Confirmed Highlights",
+          "time": "30 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, rose accents"
+      },
+      "hero": {
+        "subject": "A stylist blow-drying a client's freshly cut hair in a clean salon",
+        "treatment": "cinematic still",
+        "caption": "Morning Rush",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Service",
+            "options": [
+              "Haircut & Style",
+              "Full Color",
+              "Highlights/Balayage",
+              "Bridal Package",
+              "Deep Conditioning",
+              "Updo"
+            ],
+            "selected": "Haircut & Style"
+          },
+          {
+            "label": "Choose Stylist",
+            "options": [
+              "Ava",
+              "Ben",
+              "Chloe",
+              "David",
+              "Emily (Color)",
+              "Fiona"
+            ],
+            "selected": "Ava"
+          },
+          {
+            "label": "Pick Time",
+            "options": [
+              "9:00 AM",
+              "10:30 AM",
+              "1:00 PM",
+              "2:30 PM",
+              "4:00 PM"
+            ],
+            "selected": "10:30 AM"
+          }
+        ],
+        "detail": {
+          "title": "Selected Slot",
+          "rows": [
+            {
+              "Service": "Haircut & Style",
+              "Stylist": "Ava",
+              "Time": "10:30 AM",
+              "Price": "$75"
+            }
+          ]
+        },
+        "primary_action": "Book Now",
+        "secondary_action": "Add Service"
+      },
+      "ai": {
+        "title": "Smart Forecast",
+        "headline": "Upsell deep conditioning",
+        "rationale": "High likelihood for Ava's 11:00 AM client",
+        "confidence": "88% probable",
+        "chips": [
+          "Client history",
+          "Service type",
+          "Stylist preference"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Lumière Hair Studio",
+        "industry": "Hair Salon",
+        "location": null,
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26"
+      },
+      "product": {
+        "name": "Lumière Studio OS",
+        "purpose": "AI-driven salon management",
+        "screen_type": "schedule"
+      },
+      "user": {
+        "name": "Genevieve",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Clients",
+        "Services",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Genevieve",
+      "subheading": "Today's Stylist Schedule",
+      "kpis": [
+        {
+          "label": "Total Appointments",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Open Slots",
+          "value": "3",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Avg. Service Time",
+          "value": "65 min",
+          "delta": "+2 min vs avg",
+          "trend": "up"
+        },
+        {
+          "label": "Color Specialist Booked",
+          "value": "90%",
+          "delta": "+5% vs avg",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Stylist Availability",
+        "rows": [
+          {
+            "Stylist": "Ava",
+            "9 AM": "Smith, L.",
+            "10:30 AM": "OPEN",
+            "12 PM": "Jones, K."
+          },
+          {
+            "Stylist": "Ben",
+            "9 AM": "Miller, R.",
+            "10:30 AM": "Williams, S.",
+            "12 PM": "OPEN"
+          },
+          {
+            "Stylist": "Chloe",
+            "9 AM": "Garcia, S.",
+            "10:30 AM": "Davis, A.",
+            "12 PM": "Brown, T."
+          },
+          {
+            "Stylist": "David",
+            "9 AM": "Lee, M.",
+            "10:30 AM": "Wilson, J.",
+            "12 PM": "Moore, P."
+          },
+          {
+            "Stylist": "Emily (Color)",
+            "9 AM": "Chen, O.",
+            "10:30 AM": "Clark, C.",
+            "12 PM": "OPEN"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Upcoming Client Notes",
+        "rows": [
+          {
+            "Client": "Olivia Chen",
+            "Note": "Sensitive scalp, use specific product"
+          },
+          {
+            "Client": "Sophia Garcia",
+            "Note": "Consider slight trim with highlights"
+          },
+          {
+            "Client": "Liam Smith",
+            "Note": "Discuss new style options"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Daily Service Mix",
+        "labels": [
+          "Cuts",
+          "Color",
+          "Styling",
+          "Add-ons",
+          "Bridal"
+        ],
+        "values": [
+          8.0,
+          6.0,
+          2.0,
+          5.0,
+          1.0
+        ],
+        "metric_label": "Services"
+      },
+      "activity": [
+        {
+          "name": "Lumière OS",
+          "action": "Optimized Chloe's schedule",
+          "time": "10 min ago"
+        },
+        {
+          "name": "Ben",
+          "action": "Updated client profile",
+          "time": "20 min ago"
+        },
+        {
+          "name": "Emily",
+          "action": "Requested extra color",
+          "time": "45 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, rose accents"
+      },
+      "hero": {
+        "subject": "A client sitting under a hair dryer, reading a magazine in a modern salon",
+        "treatment": "product photograph",
+        "caption": "Relaxation Zone",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Opportunity",
+        "headline": "Fill Emily's 12 PM slot",
+        "rationale": "High demand for color specialist this afternoon",
+        "confidence": "92% likely",
+        "chips": [
+          "Color demand",
+          "Stylist capacity",
+          "Client waitlist"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Lumière Hair Studio",
+        "industry": "Hair Salon",
+        "location": null,
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26"
+      },
+      "product": {
+        "name": "Lumière Studio OS",
+        "purpose": "AI-driven salon management",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Genevieve",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Clients",
+        "Services",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Genevieve",
+      "subheading": "Performance Insights",
+      "kpis": [
+        {
+          "label": "Monthly Revenue",
+          "value": "$18,500",
+          "delta": "+12% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Client Retention",
+          "value": "85%",
+          "delta": "+3% vs last quarter",
+          "trend": "up"
+        },
+        {
+          "label": "Avg. Service Value",
+          "value": "$95",
+          "delta": "+5% vs YTD",
+          "trend": "up"
+        },
+        {
+          "label": "Online Bookings",
+          "value": "72%",
+          "delta": "+6% vs last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Performing Services",
+        "rows": [
+          {
+            "Service": "Full Color",
+            "Revenue": "$6,200",
+            "Bookings": "65"
+          },
+          {
+            "Service": "Highlights",
+            "Revenue": "$4,850",
+            "Bookings": "40"
+          },
+          {
+            "Service": "Haircut & Style",
+            "Revenue": "$3,100",
+            "Bookings": "70"
+          },
+          {
+            "Service": "Bridal Package",
+            "Revenue": "$2,500",
+            "Bookings": "5"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Stylist Performance",
+        "rows": [
+          {
+            "Stylist": "Emily (Color)",
+            "Revenue": "$7,100",
+            "Clients": "75"
+          },
+          {
+            "Stylist": "Chloe",
+            "Revenue": "$4,900",
+            "Clients": "90"
+          },
+          {
+            "Stylist": "Ava",
+            "Revenue": "$3,800",
+            "Clients": "80"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Revenue by Week",
+        "labels": [
+          "Wk 1",
+          "Wk 2",
+          "Wk 3",
+          "Wk 4"
+        ],
+        "values": [
+          4200.0,
+          4800.0,
+          5100.0,
+          4400.0
+        ],
+        "metric_label": "Revenue ($)"
+      },
+      "activity": [
+        {
+          "name": "Lumière OS",
+          "action": "Generated monthly report",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "Genevieve",
+          "action": "Exported client data",
+          "time": "2 hours ago"
+        },
+        {
+          "name": "Sophia Garcia",
+          "action": "Rated experience 5 stars",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, rose accents"
+      },
+      "hero": {
+        "subject": "A modern salon reception area with polished wood and soft lighting",
+        "treatment": "product photograph",
+        "caption": "Studio Entrance",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Growth Suggestion",
+        "headline": "Promote bridal packages",
+        "rationale": "High profitability, low current volume this quarter",
+        "confidence": "85% potential",
+        "chips": [
+          "Seasonal trend",
+          "High margin",
+          "Client demographics"
+        ]
+      }
+    }
+  ]
+}

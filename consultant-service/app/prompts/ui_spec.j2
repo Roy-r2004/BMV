@@ -1,4 +1,4 @@
-{# ui-spec-v2 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 adds hero / concept / ai. #}
+{# ui-spec-v3 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 added hero / concept / ai; v3 gives the ai module its own title, because an untitled panel is a vacancy the image model fills from whatever prose sits nearest (six invented headings on the session-33 set). #}
 You are a senior product designer at a SaaS company, preparing the demo content for a personalized product preview. Convert the business analysis below into structured UI content for {{ screen_count }} screens of ONE coherent software product. You are producing DATA ONLY — layout and style are handled elsewhere.
 
 BUSINESS
@@ -57,6 +57,7 @@ THE ANCHOR TOOL — filling in the choice you named above
 
 THE AI MODULE — what makes them say "this revolves around AI"
 Every screen gets an "ai": an opinion the software formed, not a log of what it did.
+- ai.title: the module's own label, 2-3 words, one a real product would print above an insight panel — "AI Insights", "Recommended Action", "Smart Forecast". Never a description of the panel's role in the layout, never the words "module", "hero", "intelligence layer" or "opinion".
 - ai.headline: the recommendation itself, at most 5 words, naming a real thing from THIS business.
 - ai.rationale: WHY, at most 8 words — never a sentence with a verb chain, never a paragraph.
 - ai.confidence: a short readout, e.g. "94% match", "High confidence".
@@ -91,7 +92,7 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "activity": [{"name": "<name>", "action": "<short action>", "time": "<short>"}],
       "style": {"archetype": "<archetype id>", "density": "normal", "palette_description": "<short phrase>"},
       "hero": {"subject": "<5-12 concrete words>", "treatment": "<one of the six>", "caption": "<max 4 words>", "placement": "center"},
-      "ai": {"headline": "<max 5 words>", "rationale": "<max 8 words>", "confidence": "<short>", "chips": ["<2-4 words>"]}
+      "ai": {"title": "<2-3 word product label>", "headline": "<max 5 words>", "rationale": "<max 8 words>", "confidence": "<short>", "chips": ["<2-4 words>"]}
     }
   ]
 }
