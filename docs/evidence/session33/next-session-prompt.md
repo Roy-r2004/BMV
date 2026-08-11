@@ -82,27 +82,9 @@ pixels and the class may simply go away — for near-zero engineering.
    pixels — this may not be free), re-check the $0.60 line with
    `cost_model.py`, and pin it.
 4. **If the model will not go bigger**, say so plainly and fall through to
-   JOB 3b below. Note that JOB 3's defect checker is NOT a fallback here: its
+   JOB 4 below. Note that JOB 3's defect checker is NOT a fallback here: its
    rubric forbids text claims, exactly as the pairwise rubric does, so it
    cannot see a misspelled label by design.
-
-## JOB 3b — Composite the navigation labels (only if JOB 1 fails)
-
-If the canvas cannot grow, the menu labels cannot be made legible by asking,
-and the class stops being fixable at the prompt layer. Then draw them:
-composite the wordmark and the nav items in PIL over the bar the model drew,
-from the exact strings in the spec.
-
-Narrower than it sounds, and the reason to do this one first if compositing
-happens at all: nav labels are short, in a known band, on a flat ground, and
-we already know the strings. The hard part is matching the model's own type
-treatment closely enough that the strip does not read as pasted on — so
-sample the drawn colour and cap height from the rendered bar rather than
-picking a font size in advance, and put it behind a flag so it can be turned
-off in one env var if it looks wrong.
-
-This is the same split as JOB 4 and W4 before it, applied to the strings that
-cost the most when they are wrong.
 
 **Do not skip to the clever fix without running this.** It is $0.40 and it
 either removes a whole class or tells you the class needs real work.
@@ -149,7 +131,25 @@ three times.
 Measure it honestly on the golden set: how many real defects caught, how many
 false rejections bought, what it did to wall clock and cost.
 
-## JOB 3c — Give the AI module a title of its own (~1 hour, $0 to build)
+## JOB 4 — Composite the navigation labels (only if JOB 1 fails)
+
+If the canvas cannot grow, the menu labels cannot be made legible by asking,
+and the class stops being fixable at the prompt layer. Then draw them:
+composite the wordmark and the nav items in PIL over the bar the model drew,
+from the exact strings in the spec.
+
+Narrower than it sounds, and the reason to do this one first if compositing
+happens at all: nav labels are short, in a known band, on a flat ground, and
+we already know the strings. The hard part is matching the model's own type
+treatment closely enough that the strip does not read as pasted on — so
+sample the drawn colour and cap height from the rendered bar rather than
+picking a font size in advance, and put it behind a flag so it can be turned
+off in one env var if it looks wrong.
+
+This is the same split as JOB 6 and W4 before it, applied to the strings that
+cost the most when they are wrong.
+
+## JOB 5 — Give the AI module a title of its own (~1 hour, $0 to build)
 
 Six screens across the run drew a heading on the intelligence module that
 nobody asked for: "HERO INTELLIGENCE", "ONLY AI INTELLIGENCE", "PREMIUM AI
@@ -167,7 +167,7 @@ be guessed. This needs the golden briefs re-frozen under a new `ui-spec-v3`
 directory — do NOT overwrite `briefs-v2`, it is the control arm for every
 comparison this session runs.
 
-## JOB 4 — Draw the charts in code (the structural one — only if 1–3 land)
+## JOB 6 — Draw the charts in code (the structural one — only if 1–5 land)
 
 Four screens have charts whose plotted points contradict their own axis: a
 marker sitting on the 2,000 line labelled 5,800, a scale stepping 10, 10, 20,
@@ -183,7 +183,7 @@ thing the owner has already approved. So — one archetype, one chart, side by
 side against the model-drawn version, and the owner's eye decides. Do not roll
 it out on five briefs before it has been looked at once.
 
-If JOBS 1–3 consume the session, **stop here and leave this for the next one**.
+If JOBS 1–5 consume the session, **stop here and leave this for the next one**.
 A half-built compositor that makes screens look cheap is worse than four
 charts with wrong axes.
 
@@ -242,8 +242,8 @@ Leave these; they are the "small issues" the owner named:
 
 | # | line | state |
 |---|---|---|
-| 1 | brand-critical text 100% | **FAILS** — "Cilents" shipped, the gate passed it. JOB 1 is the cheap shot at this |
-| 2 | no screen < 8, and no structural defect | **FAILS** on both clauses. Gate now 8 and enforced; JOBS 2–4 are the defect clause |
+| 1 | brand-critical text 100% | **FAILS** — "Cilents" shipped, the gate passed it. JOB 1 is the cheap shot at this, JOB 4 the fallback |
+| 2 | no screen < 8, and no structural defect | **FAILS** on both clauses. Gate now 8 and enforced; JOBS 2, 3, 5 and 6 are the defect clause |
 | 3 | beats the old default, owner's eye | **PASSES** — signed off 2026-08-11 |
 | 4 | ≤ $0.60/request, ≤ 3 min | **PASSES** — $0.5336, 2m48s. Every job this session spends against this line |
 | 5 | zero unbranded bytes under /uploads | **PASSES**, pinned |
@@ -263,6 +263,8 @@ Ceiling **$15**, ledger-attributed, the key is shared — bracket every funded
 step against `ai_usage_events` and attribute only the delta. Never read the
 account balance.
 
-Rough plan: JOB 1 ~$0.40, JOB 2 $0, JOB 3 ~$1, a full golden-set re-measure
-~$2.30. Budget image work at roughly 2× a single-pass estimate — session 32
-learned that the hard way and session 33 confirmed it.
+Rough plan: JOB 1 ~$0.40, JOB 2 $0, JOB 3 ~$1, JOB 5 $0 to build, a full
+golden-set re-measure ~$2.30. JOBS 4 and 6 cost nothing to build and are
+judged by looking, not by a funded run. Budget image work at roughly 2× a
+single-pass estimate — session 32 learned that the hard way and session 33
+confirmed it.
