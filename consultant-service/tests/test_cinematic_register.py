@@ -215,14 +215,14 @@ def test_cinematic_branding_does_not_contradict_itself(dental_spec):
 
 def test_tool_screen_renders_the_selection_flow_not_a_dashboard():
     prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "SELECTION FLOW" in prompt
+    assert "SELECTION FLOW — this screen is a" in prompt
     assert "1. Select Block" in prompt
     assert "Block A · Block B · Block C" in prompt
     assert "Selected: Block A" in prompt
     assert "View Floor Plan" in prompt
     # The dashboard furniture must be gone, not merely deprioritised.
-    assert "KPI CARDS" not in prompt
-    assert "PRIMARY PANEL" not in prompt
+    assert "KPI CARDS\n" not in prompt
+    assert "PRIMARY PANEL\n" not in prompt
 
 
 def test_tool_screen_demotes_kpis_to_a_header_strip():
@@ -245,19 +245,19 @@ def test_dashboard_screens_keep_the_sidebar(dental_spec):
     """The tool path must not change screens that did not ask for it."""
     prompt = prompt_builder.build_dashboard_image_prompt(dental_spec)
     assert "left sidebar" in prompt
-    assert "SELECTION FLOW" not in prompt
+    assert "SELECTION FLOW — this screen is a" not in prompt
 
 
 def test_tool_screens_can_be_switched_off_wholesale():
     with patch.object(prompt_builder.settings, "ENABLE_TOOL_SCREENS", False):
         prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "SELECTION FLOW" not in prompt
+    assert "SELECTION FLOW — this screen is a" not in prompt
     assert "left sidebar" in prompt
 
 
 def test_hero_asset_is_asked_for_as_a_photograph_not_an_illustration():
     prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
-    assert "HERO ASSET" in prompt
+    assert "HERO ASSET — the visual centerpiece" in prompt
     assert "a 30-storey glass residential tower at dusk" in prompt
     assert "photoreal render" in prompt
     assert "It is an IMAGE, not an illustration" in prompt
@@ -267,12 +267,12 @@ def test_hero_asset_is_asked_for_as_a_photograph_not_an_illustration():
 def test_hero_asset_absent_when_the_spec_has_none(dental_spec):
     """A spec stage that returns nothing usable must degrade to a thinner
     screen, never to an invented stock scene."""
-    assert "HERO ASSET" not in prompt_builder.build_dashboard_image_prompt(dental_spec)
+    assert "HERO ASSET — the visual centerpiece" not in prompt_builder.build_dashboard_image_prompt(dental_spec)
 
 
 def test_hero_asset_can_be_switched_off_wholesale():
     with patch.object(prompt_builder.settings, "ENABLE_HERO_ASSET", False):
-        assert "HERO ASSET" not in prompt_builder.build_dashboard_image_prompt(_tool_spec())
+        assert "HERO ASSET — the visual centerpiece" not in prompt_builder.build_dashboard_image_prompt(_tool_spec())
 
 
 def test_ai_module_replaces_the_activity_log_rather_than_joining_it(dental_spec):
@@ -283,7 +283,7 @@ def test_ai_module_replaces_the_activity_log_rather_than_joining_it(dental_spec)
     spec.ai.headline = "Recommended: Tuesday"
     spec.ai.rationale = "Two cancellations, hygienist free"
     prompt = prompt_builder.build_dashboard_image_prompt(spec)
-    assert "AI MODULE" in prompt
+    assert "AI MODULE — the ONLY AI element" in prompt
     assert "AI WORKSTREAM" not in prompt
     assert "Recommended: Tuesday" in prompt
 
@@ -297,7 +297,7 @@ def test_ai_module_can_be_switched_off_wholesale(dental_spec):
     spec.ai.headline = "Recommended: Tuesday"
     with patch.object(prompt_builder.settings, "ENABLE_AI_LAYER", False):
         prompt = prompt_builder.build_dashboard_image_prompt(spec)
-    assert "AI MODULE" not in prompt
+    assert "AI MODULE — the ONLY AI element" not in prompt
     assert "AI WORKSTREAM" in prompt
 
 
@@ -316,3 +316,69 @@ def test_prompt_version_records_what_was_sent_not_what_was_configured(dental_spe
     must describe the prompt, not the settings."""
     version = prompt_builder.prompt_version("dashboard-image-v2", dental_spec, "operations-dashboard")
     assert version == "dashboard-image-v2-cinematic"
+
+
+# ── 6. anchor_tool: a decision, not a default ─────────────────────────────
+
+
+def test_anchor_tool_promotes_the_anchor_to_a_selection_flow(dental_spec):
+    """Asked for as a per-screen `concept` field, the spec stage returned
+    "dashboard" for 6 of 6 businesses across two prompt revisions — the
+    archetype catalogue above it names a sequence of dashboards, so a
+    per-screen field reads as "which kind of dashboard". Hoisting it to a
+    required top-level key answered BEFORE the screens array took it to 6 of
+    6 tool anchors. This pins the mapping that makes that possible."""
+    from app.pipeline.ui_spec import _apply_anchor_tool
+
+    specs = [dental_spec.model_copy(deep=True), dental_spec.model_copy(deep=True)]
+    _apply_anchor_tool(specs, {
+        "kind": "selector",
+        "steps": [{"label": "Select Treatment", "options": ["Cleaning", "Crown"], "selected": "Cleaning"}],
+        "detail": {"title": "9:00 AM Slot", "rows": [{"Patient": "Maya Sharma"}]},
+        "primary_action": "Book Appointment",
+    })
+    assert specs[0].concept.is_tool
+    assert specs[0].concept.primary_action == "Book Appointment"
+    # Follow-ups inherit the anchor's look from a reference image; a second
+    # selection flow would describe a different screen, not the same one.
+    assert not specs[1].concept.is_tool
+
+
+def test_anchor_tool_without_steps_stays_a_dashboard(dental_spec):
+    """A kind with no steps is a claim, not a tool screen — and a SELECTION
+    FLOW section with no stages in it is worse than none."""
+    from app.pipeline.ui_spec import _apply_anchor_tool
+
+    specs = [dental_spec.model_copy(deep=True)]
+    _apply_anchor_tool(specs, {"kind": "selector", "steps": []})
+    assert not specs[0].concept.is_tool
+
+
+def test_anchor_tool_ignores_none_and_junk(dental_spec):
+    from app.pipeline.ui_spec import _apply_anchor_tool
+
+    step = [{"label": "Pick", "options": ["a"], "selected": "a"}]
+    for payload in (None, {}, "selector", {"kind": "none", "steps": step}, {"kind": "dashboard", "steps": step}):
+        specs = [dental_spec.model_copy(deep=True)]
+        _apply_anchor_tool(specs, payload)
+        assert not specs[0].concept.is_tool, f"junk accepted: {payload!r}"
+
+
+def test_section_headings_are_marked_as_instructions_not_text(dental_spec):
+    """The model renders ALL-CAPS prompt scaffolding as UI labels when it is
+    not told otherwise: a retail anchor came back with a panel literally
+    titled "RESULT PANEL", and an earlier corner-reserve instruction produced
+    a screen with the word "Logo" drawn in the corner."""
+    for prompt in (
+        prompt_builder.build_dashboard_image_prompt(_tool_spec()),
+        prompt_builder.build_continuation_prompt(dental_spec, "Dashboard"),
+    ):
+        assert "must NEVER appear as visible text" in prompt
+        assert "SELECTION FLOW" in prompt  # named explicitly in the exclusion list
+
+
+def test_result_panel_heading_does_not_look_like_a_ui_label():
+    """It leaked once. The panel already carries its own title from the spec."""
+    prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
+    assert "RESULT PANEL" not in prompt
+    assert "Block A · Level 18" in prompt

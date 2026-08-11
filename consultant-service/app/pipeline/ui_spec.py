@@ -18,7 +18,7 @@ from app.config import settings
 from app.models import Request
 from app.pipeline._shared import extract_json_from_text, log_usage
 from app.templating import render
-from app.ui_spec import ChartSpec, Kpi, Panel, UIDemoSpec
+from app.ui_spec import TOOL_CONCEPT_KINDS, ChartSpec, Kpi, Panel, ScreenConcept, UIDemoSpec
 
 logger = logging.getLogger("consultant.ui_spec")
 
@@ -84,6 +84,43 @@ def _fallback_specs(req: Request, plan_result: dict, screen_count: int) -> tuple
     return archetype_id, specs
 
 
+def _apply_anchor_tool(specs: list[UIDemoSpec], anchor_tool: dict | None) -> None:
+    """Map the top-level `anchor_tool` object onto the anchor screen's concept.
+
+    Why it is top-level in the prompt and mapped here, rather than a per-screen
+    `concept` field the model fills directly: asked for it per-screen, the model
+    returned "dashboard" for 6 of 6 businesses across two prompt revisions. The
+    archetype catalogue sits directly above and names a screen sequence of
+    dashboards, and a per-screen field inside that sequence reads as "which
+    kind of dashboard". Hoisting it to a required top-level key asked before
+    the screens array makes it a decision instead of a default.
+
+    Only the ANCHOR gets it — follow-up screens inherit the anchor's look from
+    a reference image, and a second selection flow in the same product would
+    describe a different screen, not the same one.
+    """
+    if not isinstance(anchor_tool, dict) or not specs:
+        return
+    kind = str(anchor_tool.get("kind") or "").strip().lower()
+    if kind not in TOOL_CONCEPT_KINDS:
+        return
+    steps = [s for s in (anchor_tool.get("steps") or []) if isinstance(s, dict) and s.get("label")]
+    if not steps:
+        # kind without steps is not a tool screen, it is a claim. is_tool
+        # requires both, so leaving concept empty degrades to a dashboard.
+        logger.info("anchor_tool kind=%s arrived without steps — anchor stays a dashboard", kind)
+        return
+    specs[0].concept = ScreenConcept.model_validate(
+        {
+            "kind": kind,
+            "steps": steps,
+            "detail": anchor_tool.get("detail"),
+            "primary_action": anchor_tool.get("primary_action") or "",
+            "secondary_action": anchor_tool.get("secondary_action") or "",
+        }
+    )
+
+
 def build_ui_specs(
     db: Session, request_id: int, consult_result: dict, plan_result: dict
 ) -> tuple[str, list[UIDemoSpec]]:
@@ -117,6 +154,8 @@ def build_ui_specs(
         specs = [UIDemoSpec.model_validate(s) for s in (parsed.get("screens") or [])][:screen_count]
         if not specs:
             raise ValueError("Model returned no screens")
+
+        _apply_anchor_tool(specs, parsed.get("anchor_tool"))
 
         # Coherence guards the image prompt depends on: identical navigation
         # across screens (anchor's wins) and the archetype id recorded on

@@ -125,9 +125,11 @@ The bar is not "looks like functional software" — plenty of dark admin themes 
 Use:
 - a deep, single-hue ground: near-black carrying one dominant colour drawn from the brand — not neutral charcoal, not pure black, and never more than one ground hue on the screen
 - exactly ONE luminous accent (a warm metallic, or the brightest tint of the brand hue), spent only on the active state, the primary action and the single most important number — its scarcity is what makes it read as expensive
-- real depth and light: a soft directional falloff across the ground, panels lifted by low-opacity elevation rather than hard borders, hairline strokes only where separation is genuinely needed, a gentle vignette at the outer edges
+- real depth and light: a soft directional falloff across the ground, panels lifted by low-opacity elevation rather than hard borders, hairline strokes only where separation is genuinely needed
 - two typographic voices in deliberate contrast: a display face with real character for the page title and hero numerals, against a small, letterspaced, uppercase sans for labels, steps and captions — that contrast does most of the work
-- generous negative space treated as luxury rather than emptiness: fewer elements, each given room, with the composition breathing at the outer margins
+- generous negative space treated as luxury rather than emptiness: FEWER elements, each given real room. Bare ground between elements is the point — never add a panel to fill a gap, and never repeat a panel you have already drawn. Restraint is the most expensive thing on the screen
+- the interface is the canvas: its own background reaches all four edges, with no margin, vignette or backdrop visible around it. That is about where the BACKGROUND ends, not about packing content — a screen with six elements and a lot of quiet ground still reaches the edges
+- text that survives being read: on a dark ground, small type loses legibility fast. Every visible label, chip and caption is large enough and high-contrast enough to be crisply legible, correctly spelled and never faint grey-on-grey. Prefer fewer, larger labels over many tiny ones; if a label cannot be rendered sharply at its size, make it bigger rather than dimmer
 - a strong asymmetric composition — one commanding focal element with supporting material arranged around it, never a uniform grid of equally-weighted cards
 - restrained, precise iconography: thin strokes, consistent weight, small
 - realistic UI states: one nav item active, one option visibly selected, one row subtly hovered
@@ -140,7 +142,11 @@ Avoid — this is the list that separates expensive dark software from the clich
 - a second accent colour, rainbow data series, or colour used anywhere hierarchy would do the job
 - illustration, concept art, or anything that reads as a design-portfolio mockup rather than shipped software
 - laptop, phone or browser mockup frames around the interface
+- the application floating as a rounded card, window or panel on a backdrop, with margin or vignette visible around it — there is no backdrop, the interface IS the canvas
 - lorem ipsum, placeholder data, or invented UI elements no real product would have
+- a blank button, empty swatch or unlabelled control — every element carries its own text
+- two panels carrying the same title, or the same information shown twice in different shapes
+- a dense grid of small cards; if the content listed above does not fill the screen, give what is there more room rather than inventing more of it
 - long sentences anywhere in the interface — every visible string is a label, a name, a number or a short phrase
 
 This screen is dark because software for a decision this considered is dark. It is not dark in order to look futuristic. If the first word a viewer reaches for is "sci-fi", it has failed; the first word should be "expensive".
@@ -407,7 +413,7 @@ def _steps_block(spec: UIDemoSpec) -> str:
         lines.append("")
 
     if concept.detail and concept.detail.rows:
-        lines.append(_panel_block("RESULT PANEL — what the selection above resolves to", concept.detail))
+        lines.append(_panel_block("The panel the selection resolves to; its heading is the title below", concept.detail))
         lines.append("")
     if concept.primary_action:
         lines.append(
@@ -605,7 +611,7 @@ Layout density: {density}
 
 {_content_sections(spec)}
 
-Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own.
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The ALL-CAPS section headings above (SCREEN, HEADER, NAVIGATION, HERO ASSET, SELECTION FLOW, HEADER STATS, AI MODULE, KPI CARDS, PRIMARY PANEL, CHART) are instructions to you and must NEVER appear as visible text in the interface.
 
 {_branding_block(spec)}
 
@@ -683,6 +689,6 @@ Preserve the exact same application design:
 
 {_content_sections(spec)}
 
-Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own.
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The ALL-CAPS section headings above (SCREEN, HEADER, NAVIGATION, HERO ASSET, SELECTION FLOW, HEADER STATS, AI MODULE, KPI CARDS, PRIMARY PANEL, CHART) are instructions to you and must NEVER appear as visible text in the interface.
 
 {_design_constraints()}{_art_direction(spec, archetype_id)}"""

@@ -16,8 +16,20 @@ Secondary color: {{ secondary_color }}
 ARCHETYPE CATALOG — pick the single best fit for this business:
 {{ archetype_catalog }}
 
+FIRST DECISION — what does someone CHOOSE in this business?
+Before anything else, answer this in your head: what is the multi-step choice a customer or a staff member makes here, where they narrow down from many options to one? Almost every business has one.
+  a hair salon: service -> stylist -> time slot
+  an HVAC contractor: system type -> capacity -> install date
+  a coffee roastery: origin -> roast level -> grind and bag size
+  a dental practice: treatment -> practitioner -> appointment slot
+  a property developer: block -> floor -> unit
+  a law firm: matter type -> attorney -> consultation slot
+  a hedge fund: strategy -> risk band -> allocation
+You answer this in the REQUIRED top-level "anchor_tool" object, which you must write BEFORE the screens array. Name the choice in words first ("choice_named"), then break it into steps. Only set kind to "none" if you genuinely cannot name a choice anyone makes in this business — that should be rare, and "the owner checks their numbers" is not a choice.
+The remaining screens stay dashboard-shaped and follow the archetype below.
+
 RULES FOR THE CONTENT
-- Choose ONE archetype, then produce exactly {{ screen_count }} screens following that archetype's screen sequence in order (first screen = the anchor dashboard the others visually follow).
+- Choose ONE archetype, then produce exactly {{ screen_count }} screens following that archetype's screen sequence in order. The archetype governs navigation, the follow-up screens and the visual family; the ANCHOR's own layout is governed by anchor_tool above.
 - All screens describe the SAME product on the SAME plausible business day: navigation identical on every screen (5-7 short one-word items that fit this business), same product name, same user.
 - The user is a plausible owner/manager persona for this business (e.g. "Dr. Carter", "Marco"), greeted by first name.
 - greeting: "Good morning, <name>" style, maximum 4 words. subheading: maximum 6 words. NEVER a long sentence — long text garbles when rendered.
@@ -36,26 +48,33 @@ Every screen gets a "hero": a real, photographable subject this business works o
 - hero.placement: "left", "right" or "center".
 - If this business genuinely has no photographable subject, set hero.subject to "" and it will be omitted. Prefer finding one.
 
-THE SCREEN CONCEPT — is this a dashboard, or a tool?
-A dashboard reports. A tool lets someone DO the thing they came to do, and it is far more impressive when the business has one obvious such decision: choosing a unit, configuring an order, booking a slot, exploring a catalogue.
-- concept.kind: one of dashboard, selector, configurator, explorer, assistant.
-- Make the ANCHOR screen a tool (selector/configurator/explorer) whenever this business has a real multi-step choice a customer or staff member makes. Otherwise "dashboard".
-- concept.steps: 2-3 stages, each {"label": "<2-3 words, e.g. Select Block>", "options": ["<3-6 short options>"], "selected": "<one of them>"}. Real options from this business — actual unit types, actual service tiers, actual product lines.
-- concept.detail: the panel the selection resolves to — title plus 4-6 short rows (e.g. the available units on the chosen floor, with size and price).
-- concept.primary_action / secondary_action: 2-3 words each, e.g. "View Floor Plan" / "Explore Units".
-- On a screen where concept.kind is "dashboard", omit steps/detail/actions.
+THE ANCHOR TOOL — filling in the choice you named above
+- anchor_tool.choice_named: the choice in plain words, e.g. "a client picks a service, then a stylist, then a time".
+- anchor_tool.kind: "selector" (choosing from fixed options), "configurator" (assembling something to order), "explorer" (browsing a catalogue), or "none".
+- anchor_tool.steps: 2-3 stages, each {"label": "<2-3 words, imperative, e.g. Select Stylist>", "options": ["<3-6 short options>"], "selected": "<one of them>"}. The options must be REAL for this business — actual service names, actual product lines, actual staff names, actual capacities. Never "Option A".
+- anchor_tool.detail: the panel the selection resolves to — title plus 4-6 short rows, each row the concrete thing being chosen with 2-3 attributes (e.g. the available 2pm slots with stylist and price; the units on the chosen floor with size and price).
+- anchor_tool.primary_action / secondary_action: 2-3 words each, the button that commits the choice and a quieter alternative — e.g. "Book This Slot" / "See Other Times".
 
 THE AI MODULE — what makes them say "this revolves around AI"
 Every screen gets an "ai": an opinion the software formed, not a log of what it did.
-- ai.headline: the recommendation itself, at most 5 words. "Recommended: Unit A-1803", "Reorder Ethiopian Friday".
-- ai.rationale: WHY, at most 8 words. "Best light, under budget, ready March" — never a sentence with a verb chain, never a paragraph.
+- ai.headline: the recommendation itself, at most 5 words, naming a real thing from THIS business.
+- ai.rationale: WHY, at most 8 words — never a sentence with a verb chain, never a paragraph.
 - ai.confidence: a short readout, e.g. "94% match", "High confidence".
-- ai.chips: 2-4 supporting tags, 2-4 words each.
+- ai.chips: 2-4 supporting tags, 2-4 words each. Every chip must be about THIS business — a chip that would make no sense to this owner is worse than no chip.
+Use no example strings from this prompt as literal output: every value must come from this business. (A previous run copied a caption straight out of an example here.)
 The rationale must be specific to this business and defensible — a prospect will read it and judge whether the software actually understands their trade.
 
 Respond with ONLY this JSON shape, no markdown fences, no commentary:
 
 {
+  "anchor_tool": {
+    "choice_named": "<the multi-step choice in this business, in plain words>",
+    "kind": "<selector|configurator|explorer|none>",
+    "steps": [{"label": "<2-3 words>", "options": ["<short>"], "selected": "<short>"}],
+    "detail": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]},
+    "primary_action": "<2-3 words>",
+    "secondary_action": "<2-3 words>"
+  },
   "archetype": "<archetype id>",
   "screens": [
     {
@@ -72,7 +91,6 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "activity": [{"name": "<name>", "action": "<short action>", "time": "<short>"}],
       "style": {"archetype": "<archetype id>", "density": "normal", "palette_description": "<short phrase>"},
       "hero": {"subject": "<5-12 concrete words>", "treatment": "<one of the six>", "caption": "<max 4 words>", "placement": "center"},
-      "concept": {"kind": "<dashboard|selector|configurator|explorer|assistant>", "steps": [{"label": "<2-3 words>", "options": ["<short>"], "selected": "<short>"}], "detail": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]}, "primary_action": "<2-3 words>", "secondary_action": "<2-3 words>"},
       "ai": {"headline": "<max 5 words>", "rationale": "<max 8 words>", "confidence": "<short>", "chips": ["<2-4 words>"]}
     }
   ]

@@ -1,0 +1,544 @@
+{
+  "id": "retail",
+  "label": "Northgate Coffee Roasters — Coffee Roastery & E-commerce",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Northgate Coffee Roasters",
+    "business_description": "Specialty coffee roastery with one café and a growing online subscription business. Wholesale accounts with 12 local cafés. Nobody has time to watch which blends are selling, and reorder decisions are made from gut feel.",
+    "industry": "Coffee Roastery & E-commerce",
+    "consult_result": {
+      "consulting_summary": "An AI merchandiser that watches sales and subscription churn daily, forecasts roast volumes and flags reorders before a blend runs out."
+    },
+    "plan_result": {
+      "concept_name": "Northgate Roast Intelligence",
+      "visual_theme": {
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534",
+        "mood": "warm, crafted, confident"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v2"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "Forecasts sales, flags reorders",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Customers",
+        "Inventory",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Marco",
+      "subheading": "Sales Overview",
+      "kpis": [
+        {
+          "label": "Weekly Revenue",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Growth",
+          "value": "6.2%",
+          "delta": "+1.1% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "New Wholesale",
+          "value": "2",
+          "delta": "+1 vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Roast Volume",
+          "value": "180 lbs",
+          "delta": "+8% vs yesterday",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Blends by Sales",
+        "rows": [
+          {
+            "Blend": "House Blend",
+            "Units": "120",
+            "Revenue": "$1,798",
+            "Change": "+15%"
+          },
+          {
+            "Blend": "Espresso Forte",
+            "Units": "85",
+            "Revenue": "$1,350",
+            "Change": "+10%"
+          },
+          {
+            "Blend": "Sumatra Mandheling",
+            "Units": "60",
+            "Revenue": "$950",
+            "Change": "-5%"
+          },
+          {
+            "Blend": "Decaf Colombia",
+            "Units": "45",
+            "Revenue": "$675",
+            "Change": "+20%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Subscription Churn Risk",
+        "rows": [
+          {
+            "Customer": "Anna Johnson",
+            "Blend": "Decaf Colombia",
+            "Last Order": "35 days ago"
+          },
+          {
+            "Customer": "Paul Davis",
+            "Blend": "Sumatra Mandheling",
+            "Last Order": "28 days ago"
+          },
+          {
+            "Customer": "Maria Lopez",
+            "Blend": "Espresso Forte",
+            "Last Order": "22 days ago"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Daily Sales Trend",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          650.0,
+          710.0,
+          680.0,
+          750.0,
+          820.0,
+          910.0,
+          780.0
+        ],
+        "metric_label": "Revenue ($)"
+      },
+      "activity": [
+        {
+          "name": "System",
+          "action": "Generated roast forecast",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Sarah Chen",
+          "action": "Updated wholesale order for The Grind",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "Marco",
+          "action": "Reviewed House Blend sales",
+          "time": "2 hours ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, light interface"
+      },
+      "hero": {
+        "subject": "Green coffee beans cascading into a roasting machine, early morning light",
+        "treatment": "cinematic still",
+        "caption": "Roasting Floor",
+        "placement": "right"
+      },
+      "concept": {
+        "kind": "configurator",
+        "steps": [
+          {
+            "label": "Select Blend",
+            "options": [
+              "House Blend",
+              "Decaf Colombia",
+              "Sumatra Mandheling",
+              "Ethiopia Yirgacheffe",
+              "Espresso Forte"
+            ],
+            "selected": "House Blend"
+          },
+          {
+            "label": "Choose Roast",
+            "options": [
+              "Light Roast",
+              "Medium Roast",
+              "Dark Roast"
+            ],
+            "selected": "Medium Roast"
+          },
+          {
+            "label": "Configure Bag",
+            "options": [
+              "Whole Bean 12oz",
+              "Ground 12oz",
+              "Whole Bean 5lb",
+              "Ground 5lb"
+            ],
+            "selected": "Whole Bean 12oz"
+          }
+        ],
+        "detail": {
+          "title": "House Blend 12oz",
+          "rows": [
+            {
+              "Roast": "Medium",
+              "Yield": "240 bags",
+              "Price": "$14.99",
+              "Stock": "450 units"
+            },
+            {
+              "Origin": "Brazil, Colombia",
+              "Notes": "Chocolate, Caramel",
+              "Last Roast": "2 days ago",
+              "Forecast": "+15% next week"
+            }
+          ]
+        },
+        "primary_action": "Add to Queue",
+        "secondary_action": "View Full Details"
+      },
+      "ai": {
+        "headline": "Forecast House Blend reorder",
+        "rationale": "High sales velocity, low current stock.",
+        "confidence": "98% confident",
+        "chips": [
+          "High Demand",
+          "Stock Alert",
+          "House Blend"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "Forecasts sales, flags reorders",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Customers",
+        "Inventory",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Marco",
+      "subheading": "Today's Operational Overview",
+      "kpis": [
+        {
+          "label": "Active Subscriptions",
+          "value": "245",
+          "delta": "+5 since yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Wholesale Orders",
+          "value": "3",
+          "delta": "0 vs yesterday",
+          "trend": "flat"
+        },
+        {
+          "label": "Roasts Scheduled",
+          "value": "6",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Low Stock Alerts",
+          "value": "2",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Roast Schedule",
+        "rows": [
+          {
+            "Blend": "House Blend",
+            "Quantity": "100 lbs",
+            "Time": "9:00 AM",
+            "Status": "Planned"
+          },
+          {
+            "Blend": "Espresso Forte",
+            "Quantity": "75 lbs",
+            "Time": "11:00 AM",
+            "Status": "Planned"
+          },
+          {
+            "Blend": "Decaf Colombia",
+            "Quantity": "40 lbs",
+            "Time": "1:00 PM",
+            "Status": "Planned"
+          },
+          {
+            "Blend": "Sumatra Mandheling",
+            "Quantity": "60 lbs",
+            "Time": "3:00 PM",
+            "Status": "Planned"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Pending Wholesale Orders",
+        "rows": [
+          {
+            "Account": "The Grind Café",
+            "Blend": "House Blend 5lb",
+            "Quantity": "10",
+            "Status": "New"
+          },
+          {
+            "Account": "Brew & Bloom",
+            "Blend": "Ethiopia Yirgacheffe 12oz",
+            "Quantity": "20",
+            "Status": "Packaging"
+          },
+          {
+            "Account": "Corner Bistro",
+            "Blend": "Espresso Forte 5lb",
+            "Quantity": "5",
+            "Status": "Confirmed"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "System",
+          "action": "Updated subscription deliveries",
+          "time": "10 min ago"
+        },
+        {
+          "name": "Marco",
+          "action": "Confirmed today's roast list",
+          "time": "30 min ago"
+        },
+        {
+          "name": "Olivia",
+          "action": "Processed 2 new online orders",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, light interface"
+      },
+      "hero": {
+        "subject": "Artisan barista pouring latte art in Northgate Coffee Roasters café, soft morning light",
+        "treatment": "product photograph",
+        "caption": "Northgate Café",
+        "placement": "left"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "headline": "Recommend roast for Ethiopia",
+        "rationale": "Increasing online sales, low current stock.",
+        "confidence": "92% confident",
+        "chips": [
+          "E-commerce Growth",
+          "Inventory Gap"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "Forecasts sales, flags reorders",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Customers",
+        "Inventory",
+        "Reports",
+        "Settings"
+      ],
+      "greeting": "Good morning, Marco",
+      "subheading": "Customer & Subscription Insights",
+      "kpis": [
+        {
+          "label": "Customer LTV",
+          "value": "$320",
+          "delta": "+2% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Average Order Value",
+          "value": "$38.50",
+          "delta": "+1.5% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Churn Rate",
+          "value": "1.8%",
+          "delta": "-0.3% vs last month",
+          "trend": "down"
+        },
+        {
+          "label": "New Subscribers",
+          "value": "18",
+          "delta": "+5 vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recent Subscribers",
+        "rows": [
+          {
+            "Name": "David Green",
+            "Plan": "Weekly",
+            "Blend": "House Blend",
+            "Date": "2 days ago"
+          },
+          {
+            "Name": "Sarah Lee",
+            "Plan": "Bi-Weekly",
+            "Blend": "Espresso Forte",
+            "Date": "3 days ago"
+          },
+          {
+            "Name": "Michael Wong",
+            "Plan": "Monthly",
+            "Blend": "Sumatra Mandheling",
+            "Date": "4 days ago"
+          },
+          {
+            "Name": "Jessica Chen",
+            "Plan": "Weekly",
+            "Blend": "Decaf Colombia",
+            "Date": "5 days ago"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Wholesale Accounts",
+        "rows": [
+          {
+            "Account": "The Daily Grind",
+            "Contact": "Emily White",
+            "Last Order": "1 week ago"
+          },
+          {
+            "Account": "Coffee Nook",
+            "Contact": "James Brown",
+            "Last Order": "2 weeks ago"
+          },
+          {
+            "Account": "Urban Sip",
+            "Contact": "Lisa Miller",
+            "Last Order": "3 weeks ago"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Sarah Lee",
+          "action": "Changed subscription to bi-weekly",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "David Green",
+          "action": "New weekly subscription",
+          "time": "2 hours ago"
+        },
+        {
+          "name": "System",
+          "action": "Identified potential churn risk",
+          "time": "3 hours ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, light interface"
+      },
+      "hero": {
+        "subject": "Several colorful coffee bags, Northgate Coffee Roasters branding, on a wooden shelf",
+        "treatment": "product photograph",
+        "caption": "Our Signature Blends",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "headline": "Offer loyalty discount to John Smith",
+        "rationale": "High past order value, decreased recent activity.",
+        "confidence": "85% confident",
+        "chips": [
+          "Retention",
+          "Lapsed Customer"
+        ]
+      }
+    }
+  ]
+}

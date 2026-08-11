@@ -1,0 +1,553 @@
+{
+  "id": "hedgefund",
+  "label": "Meridian Capital Partners — Hedge Fund / Asset Management",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Meridian Capital Partners",
+    "business_description": "Boutique long/short equity hedge fund managing $180M for institutional and high-net-worth clients, 6 analysts. Investor reporting and portfolio risk monitoring are manual and slow.",
+    "industry": "Hedge Fund / Asset Management",
+    "consult_result": {
+      "consulting_summary": "An AI analyst that monitors portfolio risk in real time, drafts investor updates and flags exposure limits before they're breached."
+    },
+    "plan_result": {
+      "concept_name": "Meridian Intelligence",
+      "visual_theme": {
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227",
+        "mood": "authoritative, precise, institutional"
+      }
+    }
+  },
+  "frozen_on": "2026-08-11",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v2"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered risk and reporting",
+        "screen_type": "Analytics Overview"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Clients",
+        "Portfolio",
+        "Reports",
+        "Alerts"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Portfolio Risk & Performance",
+      "kpis": [
+        {
+          "label": "Fund NAV",
+          "value": "$182.5M",
+          "delta": "+0.3% today",
+          "trend": "up"
+        },
+        {
+          "label": "YTD Performance",
+          "value": "7.8%",
+          "delta": "+0.5% vs peer",
+          "trend": "up"
+        },
+        {
+          "label": "VaR (99%, 1D)",
+          "value": "$2.1M",
+          "delta": "-0.1M vs week",
+          "trend": "down"
+        },
+        {
+          "label": "Active Breaches",
+          "value": "1",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Risks",
+        "rows": [
+          {
+            "Risk": "FX Exposure USD/JPY",
+            "Impact": "High",
+            "Status": "Alert"
+          },
+          {
+            "Risk": "Single Stock Concentration",
+            "Impact": "Medium",
+            "Status": "Warning"
+          },
+          {
+            "Risk": "Interest Rate Sensitivity",
+            "Impact": "Medium",
+            "Status": "Monitor"
+          },
+          {
+            "Risk": "Liquidity Mismatch",
+            "Impact": "Low",
+            "Status": "Stable"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Client Segments",
+        "rows": [
+          {
+            "Segment": "Institutions",
+            "AUM": "$120M",
+            "Exposure": "65%"
+          },
+          {
+            "Segment": "HNW",
+            "AUM": "$62.5M",
+            "Exposure": "35%"
+          },
+          {
+            "Segment": "New Onboard",
+            "AUM": "$1.2M",
+            "Exposure": "1%"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Portfolio Volatility",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri"
+        ],
+        "values": [
+          1.8,
+          1.9,
+          1.7,
+          2.0,
+          2.1
+        ],
+        "metric_label": "Daily %"
+      },
+      "activity": [
+        {
+          "name": "AI Analyst",
+          "action": "Generated daily risk brief",
+          "time": "7:15 AM"
+        },
+        {
+          "name": "Samantha Lee",
+          "action": "Reviewed daily P&L",
+          "time": "7:30 AM"
+        },
+        {
+          "name": "David",
+          "action": "Acknowledged FX alert",
+          "time": "7:45 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A panoramic view of a bustling city financial district at dawn",
+        "treatment": "photoreal render",
+        "caption": "New York City",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Strategy",
+            "options": [
+              "Global Equity Long/Short",
+              "Emerging Markets",
+              "Systematic Macro",
+              "Fixed Income Arbitrage"
+            ],
+            "selected": "Global Equity Long/Short"
+          },
+          {
+            "label": "Define Risk Band",
+            "options": [
+              "Conservative",
+              "Moderate",
+              "Growth",
+              "Aggressive"
+            ],
+            "selected": "Moderate"
+          },
+          {
+            "label": "Set Allocation",
+            "options": [
+              "Small Cap Focus",
+              "Large Cap Focus",
+              "Blend"
+            ],
+            "selected": "Large Cap Focus"
+          }
+        ],
+        "detail": {
+          "title": "Strategy Details",
+          "rows": [
+            {
+              "Strategy": "Global Equity Long/Short",
+              "Risk Profile": "Moderate",
+              "Target Alpha": "8-10%"
+            },
+            {
+              "Manager": "A. Chen",
+              "Last Review": "03/15/2024",
+              "Capacity": "$500M"
+            },
+            {
+              "Market Cap Focus": "Large Cap",
+              "Regions": "Global Developed",
+              "Typical Hold": "90-180 Days"
+            }
+          ]
+        },
+        "primary_action": "Confirm Strategy",
+        "secondary_action": "Adjust Parameters"
+      },
+      "ai": {
+        "headline": "Recommend USD/JPY hedge",
+        "rationale": "Breaching 2% FX limit by 0.25%",
+        "confidence": "High",
+        "chips": [
+          "FX Spot",
+          "Risk Limit",
+          "Yield Curve"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered risk and reporting",
+        "screen_type": "Performance Dashboard"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Clients",
+        "Portfolio",
+        "Reports",
+        "Alerts"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Key Portfolio Metrics",
+      "kpis": [
+        {
+          "label": "Total AUM",
+          "value": "$183M",
+          "delta": "+$1.2M MoM",
+          "trend": "up"
+        },
+        {
+          "label": "Monthly Return",
+          "value": "1.5%",
+          "delta": "+0.2% vs target",
+          "trend": "up"
+        },
+        {
+          "label": "Sharpe Ratio",
+          "value": "1.8",
+          "delta": "+0.1 vs Q1",
+          "trend": "up"
+        },
+        {
+          "label": "Top Holdings",
+          "value": "5",
+          "delta": "No change",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Performers",
+        "rows": [
+          {
+            "Asset": "TSLA",
+            "Weight": "4.2%",
+            "Return": "+8.1%"
+          },
+          {
+            "Asset": "NVDA",
+            "Weight": "3.8%",
+            "Return": "+7.5%"
+          },
+          {
+            "Asset": "AMZN",
+            "Weight": "3.5%",
+            "Return": "+6.9%"
+          },
+          {
+            "Asset": "MSFT",
+            "Weight": "3.1%",
+            "Return": "+5.2%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recent Trades",
+        "rows": [
+          {
+            "Ticker": "GOOGL",
+            "Action": "Buy",
+            "Amount": "$500k"
+          },
+          {
+            "Ticker": "JPM",
+            "Action": "Sell",
+            "Amount": "$300k"
+          },
+          {
+            "Ticker": "KO",
+            "Action": "Buy",
+            "Amount": "$250k"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Monthly Performance",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May"
+        ],
+        "values": [
+          1.2,
+          0.8,
+          1.1,
+          1.4,
+          1.5
+        ],
+        "metric_label": "Return %"
+      },
+      "activity": [
+        {
+          "name": "AI Analyst",
+          "action": "Drafted Q2 performance review",
+          "time": "10:00 AM"
+        },
+        {
+          "name": "David",
+          "action": "Approved GOOGL trade",
+          "time": "10:30 AM"
+        },
+        {
+          "name": "Fund Ops",
+          "action": "Confirmed client deposit",
+          "time": "11:00 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A high-resolution image of a trading desk with multiple screens displaying financial charts",
+        "treatment": "cinematic still",
+        "caption": "Live Markets",
+        "placement": "right"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "headline": "Upgrade AMZN holding",
+        "rationale": "Consistently outperforming sector peers",
+        "confidence": "92% match",
+        "chips": [
+          "Growth Stock",
+          "Sector Alpha",
+          "Price Momentum"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered risk and reporting",
+        "screen_type": "Clients Overview"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Clients",
+        "Portfolio",
+        "Reports",
+        "Alerts"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Client Reporting & Insights",
+      "kpis": [
+        {
+          "label": "Total Clients",
+          "value": "28",
+          "delta": "+2 last month",
+          "trend": "up"
+        },
+        {
+          "label": "Avg AUM/Client",
+          "value": "$6.5M",
+          "delta": "+$0.1M QoQ",
+          "trend": "up"
+        },
+        {
+          "label": "Reports Due",
+          "value": "3",
+          "delta": "No change",
+          "trend": "down"
+        },
+        {
+          "label": "New Inquiries",
+          "value": "1",
+          "delta": "+1 this week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Reports",
+        "rows": [
+          {
+            "Client": "Greenwood Trust",
+            "Type": "Quarterly",
+            "Due": "06/30"
+          },
+          {
+            "Client": "Willowbrook Corp.",
+            "Type": "Monthly",
+            "Due": "07/05"
+          },
+          {
+            "Client": "Harris Family Office",
+            "Type": "Semi-Annual",
+            "Due": "07/15"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Client Segments",
+        "rows": [
+          {
+            "Segment": "Institutions",
+            "Count": "8",
+            "AUM %": "65%"
+          },
+          {
+            "Segment": "HNW",
+            "Count": "20",
+            "AUM %": "35%"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Client AUM Growth",
+        "labels": [
+          "Q1 '23",
+          "Q2 '23",
+          "Q3 '23",
+          "Q4 '23",
+          "Q1 '24"
+        ],
+        "values": [
+          160.0,
+          165.0,
+          170.0,
+          175.0,
+          180.0
+        ],
+        "metric_label": "AUM $M"
+      },
+      "activity": [
+        {
+          "name": "AI Analyst",
+          "action": "Drafted Willowbrook Corp. report",
+          "time": "8:30 AM"
+        },
+        {
+          "name": "David",
+          "action": "Scheduled Greenwood Trust call",
+          "time": "9:00 AM"
+        },
+        {
+          "name": "Samantha Lee",
+          "action": "Updated client contact details",
+          "time": "11:30 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A modern, well-lit executive boardroom with a city view, empty chairs",
+        "treatment": "photoreal render",
+        "caption": "Client Engagement",
+        "placement": "left"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "headline": "Personalize Greenwood Trust report",
+        "rationale": "High-net-worth, prefers direct language",
+        "confidence": "95% match",
+        "chips": [
+          "HNW Segment",
+          "Customization",
+          "Engagement Score"
+        ]
+      }
+    }
+  ]
+}
