@@ -1,0 +1,317 @@
+"""Pins for W3 — the text-truth gate.
+
+The failures this exists for are real, from the W1 bake-off: one model
+rendered "Hartwell Chamers" for "Hartwell Chambers" and "Northgate Roast
+Inteligence" for "Intelligence", and the aesthetic judge scored both
+screens in the 8s while reporting the text as correct.
+
+Two halves are pinned separately: the pure diff (text_truth.check) and the
+wiring that turns a failed diff into a rejection the existing regeneration
+path acts on.
+"""
+
+import io
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from unittest.mock import patch
+
+from PIL import Image
+
+from app.pipeline import images as images_mod
+from app.pipeline import qa, text_truth
+
+_buf = io.BytesIO()
+Image.new("RGB", (4, 4), "white").save(_buf, format="PNG")
+VALID_PNG = _buf.getvalue()
+
+
+class _FakeDb:
+    def add(self, *_): ...
+    def commit(self): ...
+    def get(self, *_): return object()
+
+
+def _full_transcript(spec) -> list[str]:
+    return [spec.business.name, spec.product.name, *spec.navigation, "Appointments Today", "18"]
+
+
+# ── the diff ─────────────────────────────────────────────────────────────
+
+def test_exactly_rendered_strings_pass(dental_spec):
+    result = text_truth.check(dental_spec, _full_transcript(dental_spec))
+    assert result["passed"] is True
+    assert result["checked"] == 2 + len(dental_spec.navigation)
+
+
+def test_a_misspelled_product_name_fails_and_is_named(dental_spec):
+    transcript = _full_transcript(dental_spec)
+    transcript[1] = "SmileBright Operatons"
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is False
+    failure = next(f for f in result["failures"] if f["field"] == "product_name")
+    assert failure["kind"] == "misspelled"
+    assert failure["closest"] == "smilebright operatons"
+    assert 'rendered as "smilebright operatons"' in text_truth.describe(result)[0]
+
+
+def test_a_business_name_that_is_simply_absent_is_not_a_failure(dental_spec):
+    """Real product UIs show the product wordmark, not the client's company
+    name — no model in the bake-off rendered "Hartwell & Grey LLP" anywhere,
+    correctly. The rule is: if it appears, it must be right."""
+    transcript = [t for t in _full_transcript(dental_spec) if t != dental_spec.business.name]
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is True
+    assert [a["expected"] for a in result["absent"]] == [dental_spec.business.name]
+
+
+def test_a_misspelled_business_name_that_IS_rendered_fails(dental_spec):
+    transcript = _full_transcript(dental_spec)
+    transcript[0] = "SmileBrite Dental"
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is False
+    failure = next(f for f in result["failures"] if f["field"] == "business_name")
+    assert failure["kind"] == "misspelled"
+
+
+def test_a_missing_product_name_is_a_failure(dental_spec):
+    transcript = [t for t in _full_transcript(dental_spec) if t != dental_spec.product.name]
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is False
+    failure = next(f for f in result["failures"] if f["field"] == "product_name")
+    assert failure["kind"] == "missing"
+
+
+def test_a_wordmark_wrapped_across_two_lines_still_matches(dental_spec):
+    """Every model tested wraps the sidebar wordmark; a transcriber returns
+    the two LINES, not the logical string. Matching per-entry only called
+    four correct screens misspelled."""
+    transcript = ["SmileBright", "Operations", *dental_spec.navigation]
+
+    assert text_truth.check(dental_spec, transcript)["passed"] is True
+
+
+def test_case_and_spacing_differences_are_not_failures(dental_spec):
+    """A sidebar rendering "DASHBOARD" is styling, not a misspelling —
+    failing it would burn a regeneration on a correct screen."""
+    transcript = [
+        dental_spec.business.name.upper(),
+        "  " + dental_spec.product.name + " ",
+        *[label.upper() for label in dental_spec.navigation],
+    ]
+    assert text_truth.check(dental_spec, transcript)["passed"] is True
+
+
+def test_a_label_rendered_inside_a_longer_line_still_counts(dental_spec):
+    transcript = [
+        dental_spec.business.name,
+        dental_spec.product.name,
+        *[f"{label}  12" for label in dental_spec.navigation],
+    ]
+    assert text_truth.check(dental_spec, transcript)["passed"] is True
+
+
+def test_a_truncated_label_does_not_pass_as_its_longer_self(dental_spec):
+    """"Recal" sits inside "Recall" — a bare substring test would give a
+    dropped character a free pass in exactly the case this gate exists for."""
+    dental_spec.navigation = ["Dashboard", "Recall"]
+    transcript = [dental_spec.product.name, "Dashboard", "Recal"]
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is False
+    assert [f["expected"] for f in result["failures"]] == ["Recall"]
+
+
+def test_only_the_navigation_the_prompt_asked_for_is_checked(dental_spec):
+    """prompt_builder sends navigation[:8]; holding the screen to a 9th
+    label it was never given would be an unfixable permanent failure."""
+    dental_spec.navigation = [f"Item{i}" for i in range(12)]
+    transcript = [dental_spec.business.name, dental_spec.product.name, *dental_spec.navigation[:8]]
+
+    result = text_truth.check(dental_spec, transcript)
+    assert result["passed"] is True
+    assert result["checked"] == 10  # business + product + 8 nav
+
+
+def test_an_empty_transcript_fails_every_required_string(dental_spec):
+    result = text_truth.check(dental_spec, [])
+    assert result["passed"] is False
+    # Everything except the business name, whose absence is allowed.
+    assert len(result["failures"]) == result["checked"] - 1
+    assert len(result["absent"]) == 1
+
+
+# ── the wiring ───────────────────────────────────────────────────────────
+
+def _qa_response(content: str) -> dict:
+    return {"choices": [{"message": {"content": content}}], "usage": {"cost": 0.001}}
+
+
+def test_gate_rejects_a_high_scoring_but_misspelled_screen(dental_spec):
+    """The whole point: aesthetics never override the client's name."""
+    judged = _qa_response('{"score": 9.4, "issues": [], "approved": true}')
+    transcribed = _qa_response('{"text": ["SmileBright Dental", "SmileBright Operatons"], "uncertain": []}')
+
+    with patch.object(qa.provider, "chat", side_effect=[judged, transcribed]), \
+         patch.object(qa, "log_usage"), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert verdict["approved"] is False
+    assert verdict["score"] == 9.4, "the aesthetic score is reported honestly, not zeroed"
+    assert verdict["text_truth"]["passed"] is False
+    assert any("text-truth" in issue for issue in verdict["issues"])
+
+
+def test_gate_cannot_rescue_a_screen_the_judge_rejected(dental_spec):
+    judged = _qa_response('{"score": 3.0, "issues": ["garbled chart"], "approved": false}')
+    transcribed = _qa_response(
+        '{"text": ["SmileBright Dental", "SmileBright Operations", "Dashboard", "Schedule",'
+        ' "Patients", "Recall", "Reports", "Settings"], "uncertain": []}'
+    )
+
+    with patch.object(qa.provider, "chat", side_effect=[judged, transcribed]), \
+         patch.object(qa, "log_usage"), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert verdict["approved"] is False
+
+
+def test_a_transcription_outage_fails_open(dental_spec):
+    """An outage in the gate must not reject every candidate a request has."""
+    judged = _qa_response('{"score": 8.6, "issues": [], "approved": true}')
+
+    with patch.object(qa.provider, "chat", side_effect=[judged, RuntimeError("judge down")]), \
+         patch.object(qa, "log_usage"), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert verdict["approved"] is True
+    assert verdict["text_truth"]["passed"] is None
+
+
+def test_gate_still_runs_when_the_aesthetic_judge_is_down(dental_spec):
+    transcribed = _qa_response('{"text": ["SmileBright Dental", "Smilebrite Operations"], "uncertain": []}')
+
+    with patch.object(qa.provider, "chat", side_effect=[
+        RuntimeError("judge down"), RuntimeError("judge down"), transcribed,
+    ]), patch.object(qa, "log_usage"), patch.object(qa.time, "sleep"), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", True):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert verdict["score"] is None
+    assert verdict["approved"] is False, "a QA outage is no reason to ship a misspelled client name"
+
+
+def test_gate_can_be_disabled(dental_spec):
+    judged = _qa_response('{"score": 9.0, "issues": [], "approved": true}')
+    calls = []
+
+    def only_the_judge(*args, **kwargs):
+        calls.append(1)
+        return judged
+
+    with patch.object(qa.provider, "chat", side_effect=only_the_judge), \
+         patch.object(qa, "log_usage"), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+
+    assert calls == [1], "no transcription call when the gate is off"
+    assert verdict["approved"] is True
+    assert "text_truth" not in verdict
+
+
+# ── the regeneration path ────────────────────────────────────────────────
+
+def test_a_text_failure_triggers_the_regeneration(dental_spec):
+    """The gate reuses the existing "nothing approved" path — it does not
+    add a second, separate retry budget."""
+    generated = []
+
+    def fake_generate(prompts, reference_images, fallback_prompt=None):
+        generated.append(len(prompts))
+        return [
+            {"prompt": p["prompt"], "variant_id": p.get("variant_id"), "model": p.get("model"),
+             "image_bytes": VALID_PNG, "usage": None, "latency_s": 0.1, "error": None}
+            for p in prompts
+        ]
+
+    verdicts = iter([
+        {"score": 9.5, "issues": [], "approved": False, "text_truth": {"passed": False, "failures": []}},
+        {"score": 8.0, "issues": [], "approved": True, "text_truth": {"passed": True, "failures": []}},
+    ])
+
+    with patch.object(images_mod, "_generate_candidates", side_effect=fake_generate), \
+         patch.object(images_mod.qa, "review_image", side_effect=lambda *_: next(verdicts)), \
+         patch.object(images_mod, "log_usage"), \
+         patch.object(images_mod.settings, "MAX_REGENERATIONS", 1):
+        selected, scored = images_mod._render_screen(
+            _FakeDb(), 1, dental_spec,
+            [{"prompt": "p", "variant_id": "v0", "model": "m"}], "v1", reference_images=None,
+        )
+
+    assert generated == [1, 1], "exactly one regeneration, the existing budget"
+    assert selected["verdict"]["score"] == 8.0
+    assert selected["verdict"]["text_truth"]["passed"] is True
+
+
+def test_best_effort_prefers_correct_text_over_a_higher_score(dental_spec):
+    """When everything was rejected, a plainer screen that spells the
+    client's name right beats a prettier one that does not."""
+    def fake_generate(prompts, reference_images, fallback_prompt=None):
+        return [
+            {"prompt": p["prompt"], "variant_id": p.get("variant_id"), "model": p.get("model"),
+             "image_bytes": VALID_PNG, "usage": None, "latency_s": 0.1, "error": None}
+            for p in prompts
+        ]
+
+    verdicts = iter([
+        {"score": 9.6, "issues": [], "approved": False, "text_truth": {"passed": False, "failures": []}},
+        {"score": 7.1, "issues": [], "approved": False, "text_truth": {"passed": True, "failures": []}},
+        {"score": 9.9, "issues": [], "approved": False, "text_truth": {"passed": False, "failures": []}},
+    ])
+
+    with patch.object(images_mod, "_generate_candidates", side_effect=fake_generate), \
+         patch.object(images_mod.qa, "review_image", side_effect=lambda *_: next(verdicts)), \
+         patch.object(images_mod, "log_usage"), \
+         patch.object(images_mod.settings, "MAX_REGENERATIONS", 0):
+        selected, _ = images_mod._render_screen(
+            _FakeDb(), 1, dental_spec,
+            [{"prompt": f"p{i}", "variant_id": f"v{i}", "model": "m"} for i in range(3)],
+            "v1", reference_images=None,
+        )
+
+    assert selected["verdict"]["score"] == 7.1
+
+
+def test_unknown_text_truth_outranks_known_bad_in_the_fallback(dental_spec):
+    def fake_generate(prompts, reference_images, fallback_prompt=None):
+        return [
+            {"prompt": p["prompt"], "variant_id": p.get("variant_id"), "model": p.get("model"),
+             "image_bytes": VALID_PNG, "usage": None, "latency_s": 0.1, "error": None}
+            for p in prompts
+        ]
+
+    verdicts = iter([
+        {"score": 9.6, "issues": [], "approved": False, "text_truth": {"passed": False, "failures": []}},
+        {"score": 8.0, "issues": [], "approved": False, "text_truth": {"passed": None}},
+    ])
+
+    with patch.object(images_mod, "_generate_candidates", side_effect=fake_generate), \
+         patch.object(images_mod.qa, "review_image", side_effect=lambda *_: next(verdicts)), \
+         patch.object(images_mod, "log_usage"), \
+         patch.object(images_mod.settings, "MAX_REGENERATIONS", 0):
+        selected, _ = images_mod._render_screen(
+            _FakeDb(), 1, dental_spec,
+            [{"prompt": f"p{i}", "variant_id": f"v{i}", "model": "m"} for i in range(2)],
+            "v1", reference_images=None,
+        )
+
+    assert selected["verdict"]["score"] == 8.0

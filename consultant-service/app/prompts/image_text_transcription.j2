@@ -1,0 +1,20 @@
+{# image-text-transcription-v1 — reads back every string rendered in a screenshot.
+
+   Deliberately NOT part of the quality-judging prompt. A judge asked to
+   score beauty and verify spelling in one pass reliably says "text is
+   crisp and correct" about an image containing "Hartwell Chamers" — the
+   aesthetic verdict colors the reading. This call is given no rubric, no
+   business context beyond what it needs, and nothing to approve: it only
+   transcribes. The comparison against the spec happens in code, where it
+   cannot be talked out of a difference. #}
+Transcribe every piece of text visible in this screenshot of a software interface.
+
+Rules:
+- Copy each string EXACTLY as rendered, character for character. If a word looks misspelled, transcribe the misspelling — do not correct it. A misspelling is the single most important thing this transcription can capture.
+- Include: the sidebar/product wordmark, every navigation item, every heading, every card title, KPI labels and values, table headers and cell text, chart titles, axis labels and callouts, button and badge text, status pills.
+- Preserve the capitalization you see.
+- One string per array entry. Do not merge separate labels into one entry, and do not split a single label across entries.
+- If text is too small or blurred to read with confidence, transcribe your best reading and add it to `uncertain` as well.
+
+Respond with ONLY this JSON, no markdown fences:
+{"text": ["<string>", ...], "uncertain": ["<string>", ...]}

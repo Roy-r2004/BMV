@@ -266,12 +266,26 @@ def _render_screen(
         selected = _select_best(scored)
 
     if selected is None and scored:
-        # Nothing approved even after regeneration: ship the best-scoring
-        # candidate anyway. A weaker screenshot beats a failed request.
-        selected = max(scored, key=lambda c: c["verdict"]["score"] or 0)
+        # Nothing approved even after regeneration: ship the best candidate
+        # anyway. A weaker screenshot beats a failed request.
+        #
+        # Text truth outranks the aesthetic score here, and only here. When
+        # every candidate has been rejected, the choice is between a
+        # prettier screen carrying the client's name misspelled and a
+        # plainer one that spells it right — and the misspelling is the
+        # thing a prospect actually notices. Candidates whose transcription
+        # call failed (passed is None) rank between the two: unknown, not
+        # known-bad.
+        def _fallback_rank(cand: dict) -> tuple[int, float]:
+            passed = (cand["verdict"].get("text_truth") or {}).get("passed", None)
+            text_rank = {True: 2, None: 1, False: 0}[passed]
+            return text_rank, cand["verdict"]["score"] or 0
+
+        selected = max(scored, key=_fallback_rank)
         logger.warning(
-            "shipping unapproved best-effort candidate: request=%s screen=%s score=%s",
+            "shipping unapproved best-effort candidate: request=%s screen=%s score=%s text_truth=%s",
             request_id, spec.screen_slug, selected["verdict"]["score"],
+            (selected["verdict"].get("text_truth") or {}).get("passed"),
         )
     return selected, scored
 
@@ -318,12 +332,14 @@ def _save_selected(
         "prompt_version": saved_prompt_version,
         "qa_score": selected["verdict"]["score"],
         "qa_issues": selected["verdict"]["issues"],
+        "text_truth": selected["verdict"].get("text_truth"),
         "candidates": [
             {
                 "attempt": c["attempt"],
                 "variant": c.get("variant_id"),
                 "model": c.get("model") or settings.IMAGE_MODEL,
                 "qa_score": c["verdict"]["score"],
+                "text_truth_passed": (c["verdict"].get("text_truth") or {}).get("passed"),
                 "approved": c["verdict"]["approved"],
                 "latency_s": round(c["latency_s"], 1),
                 "selected": c is selected,

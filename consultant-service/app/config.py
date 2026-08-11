@@ -109,6 +109,12 @@ class Settings:
     # per-image judge — the rule is that judge and generator never change
     # together, not that one model must do both jobs.
     PAIRWISE_JUDGE_MODEL: str = _env_or("PAIRWISE_JUDGE_MODEL", _env_or("QA_MODEL", "google/gemini-2.5-flash"))
+    # W3 text-truth gate: transcribe what the image actually rendered and
+    # diff the brand-critical strings (business name, product name, nav
+    # labels) against the spec in code. A misspelled client name is an
+    # auto-reject at any aesthetic score. One extra cheap vision call per
+    # candidate (~$0.001).
+    ENABLE_TEXT_TRUTH_GATE: bool = _env_bool("ENABLE_TEXT_TRUTH_GATE", True)
     # At most ONE extra attempt per screen when no candidate is approved —
     # never an open-ended regeneration loop.
     MAX_REGENERATIONS: int = int(_env_or("MAX_REGENERATIONS", "1"))

@@ -25,9 +25,12 @@ def _chat_response(content: str) -> dict:
 
 
 def test_qa_parses_verdict(dental_spec):
+    # Gate off: this pins the judge's own parsing. What the W3 text-truth
+    # gate then adds to (and subtracts from) a verdict is pinned separately
+    # in test_text_truth.py.
     with patch.object(qa.provider, "chat", return_value=_chat_response(
         '{"score": 8.7, "issues": ["minor icon blur"], "approved": true}'
-    )), patch.object(qa, "log_usage"):
+    )), patch.object(qa, "log_usage"), patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False):
         verdict = qa.review_image(_FakeDb(), 1, b"png-bytes", dental_spec)
     assert verdict == {"score": 8.7, "issues": ["minor icon blur"], "approved": True}
 
@@ -88,7 +91,7 @@ def test_generate_candidates_retries_without_reference_on_failure():
 def test_qa_string_false_is_not_approval(dental_spec):
     with patch.object(qa.provider, "chat", return_value=_chat_response(
         '{"score": 3.0, "issues": ["garbled text"], "approved": "false"}'
-    )), patch.object(qa, "log_usage"):
+    )), patch.object(qa, "log_usage"), patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False):
         verdict = qa.review_image(_FakeDb(), 1, b"png-bytes", dental_spec)
     assert verdict["approved"] is False
 

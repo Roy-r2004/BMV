@@ -70,11 +70,24 @@ together). That judge produced specific, differentiated findings.
 | law | pro, then pro | **pro** |
 | retail | pro, then pro | **pro** |
 
-Findings the pairwise judge named, all independently visible in the images:
-flash duplicated the entire Settings/Help navigation block on law, garbled
-a chart tooltip ("Thurso: 8") and mismatched an axis scale; pro's dental
-anchor had text clipped behind the composited logo corner — which is why
-dental came out a tie, and is a compositing defect (W4), not a model one.
+Structural findings the pairwise judge named, all independently visible in
+the images: flash duplicated the entire Settings/Help navigation block on
+law, garbled a chart tooltip ("Thurso: 8") and mismatched an axis scale;
+pro's dental anchor had text clipped behind the composited logo corner —
+which is why dental came out a tie, and is a compositing defect (W4), not
+a model one.
+
+**Its text findings, however, were confabulated.** The judge reported
+"Hartwell Chamers" and "Northgate Roast Inteligence" as misspellings on
+two specific screenshots. Both are false: `law-anchor-gemini-3.1-flash.png`
+reads "Hartwell Chambers" and the retail anchor reads "Northgate / Roast
+Intelligence", correctly spelled and merely wrapped across two sidebar
+lines. Verified by eye and, afterwards, by transcription. So the pairwise
+judge is trustworthy on structure and untrustworthy on spelling — which is
+the entire argument for W3 doing that check by transcribe-and-diff in code
+rather than by asking a judge. No verdict in the table above turns on the
+false claims (both cells were decided by structural defects too), but any
+future comparison must not take a judge's spelling report at face value.
 
 ## Verdicts
 
