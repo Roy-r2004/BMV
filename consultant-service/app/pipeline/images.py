@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import GeneratedImage, Request
-from app.pipeline import prompt_builder, qa
+from app.pipeline import compositing, prompt_builder, qa
 from app.pipeline._shared import log_usage
 from app.ui_spec import UIDemoSpec
 
@@ -306,6 +306,32 @@ def _save_selected(
     with open(os.path.join(out_dir, file_name), "wb") as f:
         f.write(_apply_bmv_watermark(selected["image_bytes"]))
 
+    # W4 presentation composites, built from the RAW bytes: the compositor
+    # puts the BMV mark on its own backdrop, clear of the interface, so the
+    # hero shot is not carrying two logos (and not carrying one over a
+    # card). Still branded, so the "no unbranded bytes under /uploads"
+    # policy holds for these files too. Deterministic and free — a failure
+    # here must never cost a request its screenshot, so it is logged and
+    # swallowed.
+    composites: list[str] = []
+    if settings.ENABLE_PRESENTATION_COMPOSITING:
+        try:
+            for variant, data in compositing.compose_presentation(
+                selected["image_bytes"],
+                primary_color=spec.business.primary_color,
+                secondary_color=spec.business.secondary_color,
+                logo_path=settings.BMV_LOGO_PATH,
+            ).items():
+                composite_name = f"{spec.screen_slug}_{variant}.png"
+                with open(os.path.join(out_dir, composite_name), "wb") as f:
+                    f.write(data)
+                composites.append(composite_name)
+        except Exception as exc:
+            logger.warning(
+                "presentation compositing failed, shipping the screenshot alone: request=%s screen=%s error=%s",
+                request_id, spec.screen_slug, exc,
+            )
+
     # Non-selected candidates + per-image metadata go to disk (not the DB) —
     # enough to compare prompt/model/composition performance later without
     # bloating rows. Watermarked like the selected image: everything under
@@ -333,6 +359,7 @@ def _save_selected(
         "qa_score": selected["verdict"]["score"],
         "qa_issues": selected["verdict"]["issues"],
         "text_truth": selected["verdict"].get("text_truth"),
+        "composites": composites,
         "candidates": [
             {
                 "attempt": c["attempt"],

@@ -129,6 +129,11 @@ class Settings:
     # lives and the comparison is re-run.
     # See docs/evidence/session31/art-packs-ab.md.
     ENABLE_ART_PACKS: bool = _env_bool("ENABLE_ART_PACKS", False)
+    # W4 presentation compositing: browser chrome, shadow, brand backdrop
+    # and detail crops, all PIL. No model call, no cost, no variance — the
+    # deck's artifacts, and the reason the image model is never asked for a
+    # device mockup (it garbles the UI text it just got right).
+    ENABLE_PRESENTATION_COMPOSITING: bool = _env_bool("ENABLE_PRESENTATION_COMPOSITING", True)
     # At most ONE extra attempt per screen when no candidate is approved —
     # never an open-ended regeneration loop.
     MAX_REGENERATIONS: int = int(_env_or("MAX_REGENERATIONS", "1"))

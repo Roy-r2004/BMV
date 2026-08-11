@@ -50,6 +50,41 @@ def _abs_image_path(file_path: str) -> str | None:
     return abs_path if os.path.isfile(abs_path) else None
 
 
+def _presentation_variant(file_path: str, variant: str) -> str | None:
+    """The W4 composite beside a screenshot — `<slug>_0.png` -> `<slug>_hero.png`.
+
+    Returns None when compositing was off or the file predates it, so the
+    deck falls back to the raw screenshot rather than losing a slide.
+    """
+    raw = _abs_image_path(file_path)
+    if raw is None:
+        return None
+    directory, name = os.path.split(raw)
+    stem = name.rsplit("_0.png", 1)[0] if name.endswith("_0.png") else os.path.splitext(name)[0]
+    candidate = os.path.join(directory, f"{stem}_{variant}.png")
+    return candidate if os.path.isfile(candidate) else None
+
+
+def _place_image_contain(slide, img_path: str, left, top, width, height):
+    """Places an image entirely inside the box, centered, aspect preserved.
+
+    The counterpart to _place_image_cover, and the right choice for a W4
+    composite: that image is already a designed frame with its own margins
+    and shadow, so cropping it to fill a box cuts off the presentation the
+    compositor just built. Cover still applies to raw screenshots.
+    """
+    with Image.open(img_path) as im:
+        native_w, native_h = im.size
+    scale = min(width / native_w, height / native_h)
+    draw_w, draw_h = int(native_w * scale), int(native_h * scale)
+    return slide.shapes.add_picture(
+        img_path,
+        int(left + (width - draw_w) / 2),
+        int(top + (height - draw_h) / 2),
+        width=draw_w, height=draw_h,
+    )
+
+
 def _place_image_cover(slide, img_path: str, left, top, width, height) -> None:
     """Places an image filling exactly (left, top, width, height) with no
     distortion and no letterboxing — crops the longer axis, like CSS
@@ -225,6 +260,51 @@ def build_presentation(
         Inches(12.1), Inches(0.75), size=12, color=_MUTED, align=PP_ALIGN.LEFT,
     )
 
+    # ── One slide per product screen, built on the W4 composites ──────────
+    # These are the slides the deck exists for: the client seeing their own
+    # software, framed. They come before the AI-employee slides because the
+    # screenshot is what earns the rest of the reading.
+    for i, img in enumerate(images):
+        hero = _presentation_variant(img.file_path, "hero") or _abs_image_path(img.file_path)
+        if hero is None:
+            continue
+        slide = prs.slides.add_slide(blank)
+        _add_bg(slide, _LIGHT_BG)
+        _add_accent_bar(slide, primary, 0, 0, SLIDE_W)
+
+        _add_text(
+            slide, f"{concept.upper()}  ·  SCREEN {i + 1:02d}", MARGIN, Inches(0.45),
+            Inches(8), Inches(0.4), size=12, color=primary, bold=True,
+        )
+        _add_text(
+            slide, img.role_label or "Product screen", MARGIN, Inches(0.8),
+            Inches(9), Inches(0.6), size=24, color=_SLATE_DARK, bold=True,
+        )
+
+        details = [
+            p for p in (
+                _presentation_variant(img.file_path, "detail_1"),
+                _presentation_variant(img.file_path, "detail_2"),
+            ) if p
+        ]
+        if details:
+            # Hero left, the crops stacked right. Both columns start at the
+            # same y and end near the same y, so the slide reads as one
+            # block rather than a picture floating beside a caption — the
+            # first rendered deck had a postage stamp adrift in white.
+            _place_image_contain(slide, hero, MARGIN, Inches(1.55), Inches(8.5), Inches(5.4))
+            _add_text(
+                slide, "IN DETAIL", Inches(9.25), Inches(1.55), Inches(3.4), Inches(0.3),
+                size=11, color=_MUTED, bold=True,
+            )
+            top = Inches(1.95)
+            slot_h = Inches(2.45)
+            for detail in details[:2]:
+                _place_image_contain(slide, detail, Inches(9.25), top, Inches(3.5), slot_h)
+                top = top + slot_h + Inches(0.15)
+        else:
+            _place_image_contain(slide, hero, MARGIN, Inches(1.55), Inches(12.13), Inches(5.4))
+
     # ── One slide per AI employee ─────────────────────────────────────────
     for i, emp in enumerate(employees_with_ids(consult_result)):
         slide = prs.slides.add_slide(blank)
@@ -248,14 +328,37 @@ def build_presentation(
         # (dashboard/schedule/analytics), not per-employee — when there's no
         # employee-keyed image (the normal case since the screen pipeline),
         # cycle through the product screens across the employee slides.
-        pic_left, pic_top = Inches(7.1), Inches(0.9)
-        pic_w, pic_h = Inches(5.6), Inches(5.9)
+        # Sized to a composite's own proportions (about 3:2) instead of a
+        # tall box: contain inside a portrait box centers a wide image in the
+        # middle of it, which is how the first rendered deck ended up with a
+        # small screenshot adrift between two bands of white.
+        pic_left, pic_top = Inches(6.75), Inches(1.15)
+        pic_w, pic_h = Inches(6.0), Inches(4.3)
         emp_images = images_by_employee.get(emp.get("id", ""), [])
         if not emp_images and images:
             emp_images = [images[i % len(images)]]
-        img_path = _abs_image_path(emp_images[0].file_path) if emp_images else None
+        # Prefer the composite and CONTAIN it: cover-cropping a wide
+        # desktop screenshot into this tall box shows a vertical slice of
+        # the interface, and cropping a composite cuts off the frame the
+        # compositor just drew.
+        source = emp_images[0].file_path if emp_images else None
+        composite = _presentation_variant(source, "hero") if source else None
+        img_path = composite or (_abs_image_path(source) if source else None)
         if img_path:
-            _place_image_cover(slide, img_path, pic_left, pic_top, pic_w, pic_h)
+            if composite:
+                _place_image_contain(slide, img_path, pic_left, pic_top, pic_w, pic_h)
+            else:
+                _place_image_cover(slide, img_path, pic_left, pic_top, pic_w, pic_h)
+            _add_text(
+                slide,
+                f"{emp_images[0].role_label} — {concept}",
+                pic_left, pic_top + pic_h + Inches(0.1), pic_w, Inches(0.35),
+                size=11, color=_MUTED, align=PP_ALIGN.CENTER,
+            )
+            _add_text(
+                slide, f"Prepared for {req.business_name}", MARGIN, Inches(6.55),
+                Inches(6), Inches(0.4), size=11, color=_MUTED,
+            )
         else:
             from pptx.enum.shapes import MSO_SHAPE
 
