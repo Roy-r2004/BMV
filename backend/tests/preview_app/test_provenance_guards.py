@@ -206,6 +206,18 @@ def test_attributions_generator_renders_rows_deterministically() -> None:
     assert generate_attributions([]) != text
 
 
+def test_empty_manifest_still_states_the_no_vendored_code_claim() -> None:
+    """The empty-state sentence is a legal claim about the template, and it
+    stopped being pinned the moment Stage B's first row landed: it had been
+    guarded only by the committed `ATTRIBUTIONS.md` byte-comparison, which
+    now renders 18 rows and never reaches this branch. Found by re-running
+    the A4 sweep after Stage B (P7 went kill -> SURVIVED). Pin it directly."""
+    text = generate_attributions([])
+    assert (
+        "No third-party components are vendored in this template yet. Every"
+    ) in text
+
+
 if __name__ == "__main__":
     test_committed_manifest_validates_with_zero_problems()
     test_attributions_file_matches_the_generator()
