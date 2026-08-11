@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models import Request
 from app.pipeline import export_pptx, orchestrator
@@ -29,6 +30,16 @@ def create_request(
     whatsapp: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    # Every accepted request spends real AI money — cap how many can be
+    # generating at once so an unauthenticated burst can't drain the credit
+    # balance (found in review).
+    in_flight = db.query(Request).filter(Request.is_generating.is_(True)).count()
+    if in_flight >= settings.MAX_CONCURRENT_GENERATIONS:
+        raise HTTPException(
+            status_code=429,
+            detail="We're generating a lot of previews right now — please try again in a few minutes.",
+        )
+
     req = Request(
         business_name=business_name,
         business_description=business_description,

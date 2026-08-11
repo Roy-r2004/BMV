@@ -29,6 +29,31 @@ app.include_router(requests_router.router)
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    _fail_stranded_requests()
+
+
+def _fail_stranded_requests() -> None:
+    """Generation runs on a daemon thread — a process restart (including
+    uvicorn dev reloads) kills it silently, stranding requests at
+    is_generating=true forever. Sweep them into a clean failed state at
+    startup so the frontend shows a retryable failure instead of an
+    eternal spinner (found in review)."""
+    from app.database import SessionLocal
+    from app.models import Request
+
+    db = SessionLocal()
+    try:
+        stranded = db.query(Request).filter(Request.is_generating.is_(True)).all()
+        for req in stranded:
+            req.status = "failed"
+            req.is_failed = True
+            req.is_generating = False
+            req.stage = "failed"
+            req.stage_label = "Generation was interrupted by a service restart"
+        if stranded:
+            db.commit()
+    finally:
+        db.close()
 
 
 @app.get("/health")

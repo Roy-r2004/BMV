@@ -1,0 +1,53 @@
+{# ui-spec-v1 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. #}
+You are a senior product designer at a SaaS company, preparing the demo content for a personalized product preview. Convert the business analysis below into structured UI content for {{ screen_count }} screens of ONE coherent software product. You are producing DATA ONLY — layout and style are handled elsewhere.
+
+BUSINESS
+Name: {{ business_name }}
+Description: {{ business_description }}
+Industry: {{ industry }}
+{% if location %}Location: {{ location }}{% endif %}
+
+PRODUCT
+Concept name: {{ concept_name }}
+What it does for them: {{ consulting_summary }}
+Primary brand color: {{ primary_color }}
+Secondary color: {{ secondary_color }}
+
+ARCHETYPE CATALOG — pick the single best fit for this business:
+{{ archetype_catalog }}
+
+RULES FOR THE CONTENT
+- Choose ONE archetype, then produce exactly {{ screen_count }} screens following that archetype's screen sequence in order (first screen = the anchor dashboard the others visually follow).
+- All screens describe the SAME product on the SAME plausible business day: navigation identical on every screen (5-7 short one-word items that fit this business), same product name, same user.
+- The user is a plausible owner/manager persona for this business (e.g. "Dr. Carter", "Marco"), greeted by first name.
+- greeting: "Good morning, <name>" style, maximum 4 words. subheading: maximum 6 words. NEVER a long sentence — long text garbles when rendered.
+- Every label, panel row value, activity entry: SHORT. Names, 2-4 word labels, times, prices, counts. No sentences anywhere.
+- KPIs: exactly 4 for dashboard-type screens, business-specific and operational (what would this owner check every morning?). Values plausible for a business of this size — "18", "$4,850", "6.2%" — with a short delta like "+12% vs last week". Never imply the data is real: it is plausible fictional demo data.
+- primary_panel / secondary_panel rows: 4-6 rows each, keys short column names, values short strings. Use realistic, culturally plausible customer/patient/client first+last names and REAL service/item terminology for this exact industry — never "Item 1", never lorem ipsum.
+- chart (only where the archetype screen calls for one): 5-7 short labels (days/weeks) with plausible values and a 2-3 word metric_label.
+- activity: 3-4 entries, "<Name> — <short action>" style.
+- product.screen_type must be the archetype's screen_type for that screen. style.archetype = the chosen archetype id. style.density = "normal" (or "compact" only if this business is genuinely high-volume). style.palette_description = one short phrase, e.g. "light interface, teal accents".
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "archetype": "<archetype id>",
+  "screens": [
+    {
+      "business": {"name": "{{ business_name }}", "industry": "{{ industry }}", "location": null, "primary_color": "{{ primary_color }}", "secondary_color": "{{ secondary_color }}"},
+      "product": {"name": "{{ concept_name }}", "purpose": "<short phrase>", "screen_type": "<screen type>"},
+      "user": {"name": "<persona name>", "role": "<owner/manager role>"},
+      "navigation": ["<5-7 short items>"],
+      "greeting": "<max 4 words>",
+      "subheading": "<max 6 words>",
+      "kpis": [{"label": "<2-3 words>", "value": "<short>", "delta": "<short>", "trend": "up"}],
+      "primary_panel": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]},
+      "secondary_panel": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]},
+      "chart": {"title": "<2-4 words>", "labels": ["<short>"], "values": [0], "metric_label": "<2-3 words>"},
+      "activity": [{"name": "<name>", "action": "<short action>", "time": "<short>"}],
+      "style": {"archetype": "<archetype id>", "density": "normal", "palette_description": "<short phrase>"}
+    }
+  ]
+}
+
+Omit "chart" on screens whose archetype layout has no chart. Omit "secondary_panel" where the layout has none. Include every other field on every screen.

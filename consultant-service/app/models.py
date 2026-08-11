@@ -60,6 +60,19 @@ class GeneratedImage(Base):
     variant: Mapped[int] = mapped_column(Integer)
     file_path: Mapped[str] = mapped_column(String(500))
     prompt: Mapped[str] = mapped_column(Text)
+
+    # Demo-screenshot metadata — lets prompt/model performance be compared
+    # across versions later. All nullable: rows from the earlier per-employee
+    # image pipeline predate these.
+    screen_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    archetype: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    composition_variant: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    qa_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    qa_issues: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     request: Mapped[Request] = relationship(back_populates="images")

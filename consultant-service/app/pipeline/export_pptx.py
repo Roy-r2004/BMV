@@ -244,10 +244,15 @@ def build_presentation(
             size=14, color=_SLATE, line_spacing=1.3,
         )
 
-        # Image, right side
+        # Image, right side. Images are product screens of ONE product now
+        # (dashboard/schedule/analytics), not per-employee — when there's no
+        # employee-keyed image (the normal case since the screen pipeline),
+        # cycle through the product screens across the employee slides.
         pic_left, pic_top = Inches(7.1), Inches(0.9)
         pic_w, pic_h = Inches(5.6), Inches(5.9)
         emp_images = images_by_employee.get(emp.get("id", ""), [])
+        if not emp_images and images:
+            emp_images = [images[i % len(images)]]
         img_path = _abs_image_path(emp_images[0].file_path) if emp_images else None
         if img_path:
             _place_image_cover(slide, img_path, pic_left, pic_top, pic_w, pic_h)
@@ -282,7 +287,7 @@ def build_presentation(
         size=30, color=_WHITE, bold=True,
     )
 
-    employees = (consult_result.get("recommended_ai_employees") or [])[:3]
+    employees = (consult_result.get("recommended_ai_employees") or [])[:4]
     if employees:
         n = len(employees)
         col_w = Inches((12.133 - (n - 1) * 0.25) / n)

@@ -6,3 +6,9 @@ __pycache__/
 uploads/images/*
 !uploads/images/.gitkeep
 uploads/exports/
+
+# Ad-hoc bake-off/comparison images dropped at the service root during testing.
+compare_*.png
+
+# Generated spec/prompt dumps from scripts/demo_image_test.py test runs.
+scripts/out/

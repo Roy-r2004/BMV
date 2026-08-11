@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, image_prompts, images, plan
-from app.pipeline._shared import emit, employees_with_ids
+from app.pipeline import analyze, blueprint, consult, images, plan, ui_spec
+from app.pipeline._shared import emit
 
 
 def run(request_id: int) -> None:
@@ -15,6 +15,10 @@ def run(request_id: int) -> None:
     try:
         _run_inner(db, request_id)
     except Exception as exc:
+        # The exception may have come from a commit — the session is then in
+        # a failed state and every statement below would re-raise, leaving
+        # the request stuck at is_generating=true forever (found in review).
+        db.rollback()
         req = db.get(Request, request_id)
         if req is not None:
             req.status = "failed"
@@ -58,11 +62,11 @@ def _run_inner(db: Session, request_id: int) -> None:
     emit(db, request_id, "technical", "Writing your technical implementation plan...", 55)
     blueprint.write_technical_plan(db, request_id, consult_result, plan_result)
 
-    emit(db, request_id, "directing", "Directing your images...", 62)
-    prompts = image_prompts.craft_image_prompts(db, request_id, consult_result, plan_result)
+    emit(db, request_id, "directing", "Designing your product screens...", 62)
+    archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)
 
-    emit(db, request_id, "images", "Generating images for each AI employee...", 70)
-    saved_images = images.generate_images(db, request_id, employees_with_ids(consult_result), prompts)
+    emit(db, request_id, "images", "Rendering your product screenshots...", 70)
+    saved_images = images.generate_demo_screens(db, request_id, archetype_id, specs)
 
     if not saved_images:
         req = db.get(Request, request_id)
@@ -70,7 +74,7 @@ def _run_inner(db: Session, request_id: int) -> None:
         req.is_failed = True
         req.is_generating = False
         db.commit()
-        emit(db, request_id, "failed", "Image generation failed for every AI employee", 70)
+        emit(db, request_id, "failed", "Screenshot generation failed for every screen", 70)
         return
 
     req = db.get(Request, request_id)
