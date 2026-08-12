@@ -121,6 +121,44 @@ def _apply_anchor_tool(specs: list[UIDemoSpec], anchor_tool: dict | None) -> Non
     )
 
 
+_LEGAL_SUFFIXES = ("llp", "llc", "ltd", "inc", "gmbh", "plc", "pllc", "co")
+
+
+def _widen_truncated_brand(text: str, brand: str) -> str:
+    """"LexStream by Hartwell & Grey" + "Hartwell & Grey LLP" ->
+    "LexStream by Hartwell & Grey LLP". Fires only when the text embeds the
+    brand minus a trailing legal suffix — the one rewrite that cannot hit a
+    legitimate coinage. Everything fuzzier (the "Northgate Roastery" and
+    "Lumière Studio OS" paraphrase class) is constrained in ui_spec.j2 and
+    stays measured by the text-truth gate rather than rewritten here: a
+    rule loose enough to catch a paraphrase is loose enough to mangle a
+    real product name like "Northgate RoasterFlow AI"."""
+    if not text or not brand:
+        return text
+    tokens = brand.split()
+    if len(tokens) < 2 or tokens[-1].strip(".,").lower() not in _LEGAL_SUFFIXES:
+        return text
+    core = " ".join(tokens[:-1])
+    lowered, core_l, brand_l = text.lower(), core.lower(), brand.lower()
+    if brand_l in lowered or core_l not in lowered:
+        return text
+    start = lowered.index(core_l)
+    return text[:start] + brand + text[start + len(core):]
+
+
+def _apply_brand_string_invariant(specs: list[UIDemoSpec]) -> None:
+    """The text-truth gate demands the business's exact name; the image
+    model renders exactly the strings these specs order. Every recorded
+    shipped text-truth failure — "by hartwell & grey" (request 93),
+    "northgate roastery" (95, 12), "lumière studio os" (22) — was this
+    stage inventing a brand variant, i.e. the pipeline ordering one string
+    and judging another. The deterministic half of the fix lives here."""
+    for spec in specs:
+        spec.product.name = _widen_truncated_brand(spec.product.name, spec.business.name)
+        if spec.hero.caption:
+            spec.hero.caption = _widen_truncated_brand(spec.hero.caption, spec.business.name)
+
+
 def build_ui_specs(
     db: Session, request_id: int, consult_result: dict, plan_result: dict
 ) -> tuple[str, list[UIDemoSpec]]:
@@ -166,6 +204,8 @@ def build_ui_specs(
                 spec.navigation = specs[0].navigation
             if not spec.business.name:
                 spec.business.name = req.business_name or ""
+
+        _apply_brand_string_invariant(specs)
 
         log_usage(
             db, request_id,

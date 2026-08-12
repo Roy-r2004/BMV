@@ -293,3 +293,75 @@ def test_followup_screens_run_in_parallel_on_their_own_sessions(dental_spec):
     assert by_screen["analytics"] != id(caller_db)
     assert by_screen["patients"] != by_screen["analytics"], "follow-ups shared one session"
     assert by_screen["dashboard"] == id(caller_db), "the anchor stays on the caller's session"
+
+
+# ── self-refuting claims die in code, not at the verifier (session 36) ───
+# Request 84: the inspector claimed ticks 0, 15, 30, 45, 60, 75, 90 were
+# "not evenly stepped" and the verifier CONFIRMED it while its own reason
+# restated the even 15-step — an LLM cannot be trusted with arithmetic
+# about text it is quoting. The check is code now. Narrow on purpose:
+# "stepped" claims only, and a non-numeric tick like '6+' keeps the claim.
+
+def test_the_request_84_false_confirm_class_is_refuted_in_code():
+    assert defect_check._claim_refutes_itself(
+        "malformed_data_display",
+        "The y-axis tick values (0, 15, 30, 45, 60, 75, 90) are not evenly "
+        "stepped, despite being evenly spaced.",
+    )
+
+
+def test_a_genuinely_uneven_axis_still_reaches_the_verifier():
+    # Request 90's real defect: steps of 300/400/500/600/500.
+    assert not defect_check._claim_refutes_itself(
+        "malformed_data_display",
+        "The Y-axis tick values are unevenly stepped with the values 4800, "
+        "4500, 4100, 3600, 3000, 2500, which are not evenly spaced at even intervals.",
+    )
+    # Request 98's real defect: 800/2000/1000/1800.
+    assert not defect_check._claim_refutes_itself(
+        "malformed_data_display",
+        "The Y-axis tick labels are not evenly stepped at even spacing, "
+        "showing 18200, 19000, 21000, 22000, 23800 for visually equal steps.",
+    )
+
+
+def test_a_six_plus_tick_keeps_its_claim_even_though_the_numbers_look_even():
+    # Request 87: 0..5 then '6+' at the same visual interval — the values
+    # alone are an even unit step; the '+' is the defect.
+    assert not defect_check._claim_refutes_itself(
+        "malformed_data_display",
+        "The Y-axis has tick values 0, 1, 2, 3, 4, 5, followed by '6+' at "
+        "the same visual interval as the other single-unit steps, making "
+        "the axis unevenly stepped.",
+    )
+
+
+def test_geometry_claims_are_never_second_guessed_by_arithmetic():
+    # Request 87 analytics: misaligned markers — a claim about pixels, not
+    # about the quoted numbers; quoted values cannot refute it.
+    assert not defect_check._claim_refutes_itself(
+        "malformed_data_display",
+        "The data points are not consistently aligned with their tick marks; "
+        "the marker for Wk 1 is shifted left of the Wk 1 label at values 10, 20, 30.",
+    )
+
+
+def test_inspect_call_drops_the_self_refuting_claim_before_it_costs_a_verifier():
+    import json
+
+    body = {
+        "choices": [{"message": {"content": json.dumps({
+            "defects": [
+                {"kind": "malformed_data_display", "where": "y-axis",
+                 "what": "Tick values 0, 15, 30, 45, 60, 75, 90 are not evenly stepped."},
+                {"kind": "duplicated_panel", "where": "header",
+                 "what": "The Confirm button appears twice."},
+            ],
+        })}}],
+        "usage": {},
+    }
+    from app.ui_spec import UIDemoSpec
+    with patch.object(defect_check.provider, "chat", return_value=body):
+        result = defect_check.inspect_call(VALID_PNG, UIDemoSpec.model_validate({}))
+    kinds = [c["kind"] for c in result["claims"]]
+    assert kinds == ["duplicated_panel"], "the arithmetic-refuted claim must die before the verifier"

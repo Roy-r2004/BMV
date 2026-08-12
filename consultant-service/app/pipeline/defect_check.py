@@ -26,6 +26,7 @@ logged.
 
 import base64
 import logging
+import re
 
 from app.ai import provider
 from app.config import settings
@@ -52,6 +53,38 @@ VALID_KINDS = {
 
 def _data_uri(image_bytes: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(image_bytes).decode()
+
+
+_UNEVEN_STEPPED = re.compile(r"(?:not\s+evenly|unevenly|uneven)[\s\w]{0,12}\bstep", re.IGNORECASE)
+_NUMBER = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?")
+
+
+def _claim_refutes_itself(kind: str, what: str) -> bool:
+    """A malformed_data_display claim that quotes an axis's tick values and
+    calls them unevenly STEPPED, when the quoted values are in fact evenly
+    stepped, has refuted itself — and it cannot be left to the verifier: on
+    request 84 the inspector claimed 0, 15, 30, 45, 60, 75, 90 were "not
+    evenly stepped", and the verifier CONFIRMED the claim while its own
+    reason text restated the even 15-step. Arithmetic is checked here, in
+    code, where it is free and cannot confabulate.
+
+    Deliberately narrow: only "stepped" claims (a claim about the NUMBERS),
+    never "spaced"/"aligned" (claims about geometry, which quoted values
+    cannot refute), and never when a non-numeric tick like "6+" appears —
+    request 87's '6+' drawn at a unit interval is a real defect whose
+    values alone look even."""
+    if kind != "malformed_data_display" or not _UNEVEN_STEPPED.search(what):
+        return False
+    if re.search(r"\d\s*\+", what):
+        return False
+    values = [float(n.replace(",", "")) for n in _NUMBER.findall(what)]
+    if len(values) < 3:
+        return False
+    steps = [b - a for a, b in zip(values, values[1:])]
+    if any(s == 0 for s in steps):
+        return False
+    tolerance = 0.01 * max(abs(s) for s in steps)
+    return max(steps) - min(steps) <= tolerance
 
 
 def inspect_call(image_bytes: bytes, spec: UIDemoSpec) -> dict:
@@ -85,10 +118,14 @@ def inspect_call(image_bytes: bytes, spec: UIDemoSpec) -> dict:
             kind = str(item.get("kind", "")).strip()
             if kind not in VALID_KINDS:
                 continue  # off-rubric claims (including any text claim) die here
+            what = str(item.get("what", ""))[:300]
+            if _claim_refutes_itself(kind, what):
+                logger.info("dropping self-refuting defect claim: %s", what[:140])
+                continue
             claims.append({
                 "kind": kind,
                 "where": str(item.get("where", ""))[:300],
-                "what": str(item.get("what", ""))[:300],
+                "what": what,
             })
         return {"claims": claims, "usage": body.get("usage"), "error": None}
     except Exception as exc:

@@ -51,3 +51,49 @@ def test_spec_roundtrips_through_json():
     spec = UIDemoSpec.model_validate({"business": {"name": "Café Río"}})
     again = UIDemoSpec.model_validate(json.loads(spec.model_dump_json()))
     assert again.business.name == "Café Río"
+
+
+# ── brand strings carry the exact name the gate demands (session 36) ─────
+# Every recorded shipped text-truth failure was the ui_spec stage inventing
+# a brand variant the gate then rejected: "by hartwell & grey" for
+# "Hartwell & Grey LLP" (request 93), "northgate roastery" (95),
+# "lumière studio os" (22). The deterministic half — restoring a truncated
+# legal suffix — is pinned here; the paraphrase half is a template
+# constraint measured by the gate itself.
+
+from app.pipeline.ui_spec import _apply_brand_string_invariant, _widen_truncated_brand
+
+
+def test_a_truncated_legal_suffix_is_widened_to_the_exact_name():
+    assert _widen_truncated_brand(
+        "LexStream by Hartwell & Grey", "Hartwell & Grey LLP"
+    ) == "LexStream by Hartwell & Grey LLP"
+
+
+def test_widening_is_the_only_rewrite_that_fires():
+    # A paraphrase is not a truncation — rewriting it would need a rule
+    # loose enough to also mangle legitimate coinages, so it must pass
+    # through untouched (the template constraint owns this class).
+    assert _widen_truncated_brand(
+        "Northgate Roastery", "Northgate Coffee Roasters") == "Northgate Roastery"
+    # A real product coinage sharing the brand's first token stays intact.
+    assert _widen_truncated_brand(
+        "Northgate RoasterFlow AI", "Northgate Coffee Roasters") == "Northgate RoasterFlow AI"
+    # Already exact: untouched.
+    assert _widen_truncated_brand(
+        "LexStream by Hartwell & Grey LLP", "Hartwell & Grey LLP"
+    ) == "LexStream by Hartwell & Grey LLP"
+    # Brand without a legal suffix: nothing to widen.
+    assert _widen_truncated_brand(
+        "Lumière Studio OS", "Lumière Hair Studio") == "Lumière Studio OS"
+
+
+def test_the_invariant_reaches_both_renderable_brand_strings():
+    spec = UIDemoSpec.model_validate({
+        "business": {"name": "Hartwell & Grey LLP", "industry": "Law"},
+        "product": {"name": "LexStream by Hartwell & Grey"},
+        "hero": {"caption": "Hartwell & Grey"},
+    })
+    _apply_brand_string_invariant([spec])
+    assert spec.product.name == "LexStream by Hartwell & Grey LLP"
+    assert spec.hero.caption == "Hartwell & Grey LLP"
