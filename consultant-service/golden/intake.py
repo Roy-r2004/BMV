@@ -112,4 +112,28 @@ INTAKE_FIXTURES: dict[str, dict] = {
             "visual_theme": {"primary_color": "#7c3f21", "secondary_color": "#166534", "mood": "warm, crafted, confident"},
         },
     },
+    # Added session 38 with the assistant-console archetype: a business
+    # whose product IS the assistant. Every other fixture here has an AI
+    # employee working somewhere inside a dashboard; this one has nothing
+    # else, which is the case the catalogue could not previously express —
+    # measured live, request 110, where a chatbot brief came back as an
+    # operations dashboard with "Chatbot" as its fourth navigation item.
+    "assistant": {
+        "business_name": "Halden & Co",
+        "business_description": (
+            "Two-partner accountancy practice. Most of the day goes on the same questions from "
+            "clients — deadlines, what to send us, where their return is up to — and booking the "
+            "calls that follow. We want an assistant answering those and a record of every "
+            "conversation it handled."
+        ),
+        "industry": "Accountancy Practice",
+        "email": "test@example.com",
+        "consult_result": {
+            "consulting_summary": "An AI assistant that answers client questions around the clock, books the calls it cannot close, and hands you every conversation it had.",
+        },
+        "plan_result": {
+            "concept_name": "Halden Desk",
+            "visual_theme": {"primary_color": "#155e75", "secondary_color": "#b45309", "mood": "calm, precise, reassuring"},
+        },
+    },
 }

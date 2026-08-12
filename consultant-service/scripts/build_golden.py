@@ -76,6 +76,34 @@ def main() -> None:
     if not todo:
         print("nothing to build.")
         return
+
+    # A frozen set is a control arm, and a control arm has ONE prompt
+    # version in it. Overwriting a set is already guarded above; ADDING to
+    # one was not, and session 38 walked straight into it: a new intake
+    # fixture (`assistant`, for the assistant-console archetype) would have
+    # been frozen at ui-spec-v4 straight into golden/briefs, a set frozen
+    # at v1 — after which "the golden set" silently means two different
+    # things depending on which brief you load. Moving a whole set to a new
+    # version is a measurement decision with a price tag; it belongs in
+    # GOLDEN_BRIEFS_DIR pointing somewhere new, not in a default run.
+    existing_versions = set()
+    for name in sorted(os.listdir(briefs_dir())):
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(briefs_dir(), name), encoding="utf-8") as f:
+            existing_versions.add(json.load(f).get("frozen_by", {}).get("ui_spec_prompt_version"))
+    live_version = ui_spec.UI_SPEC_PROMPT_VERSION
+    stale = existing_versions - {live_version}
+    if stale and not args.force:
+        print(
+            f"REFUSING: {briefs_dir()} is frozen at {', '.join(sorted(map(str, stale)))} and the live "
+            f"stage is {live_version}. Freeze the new version into its own set instead:\n"
+            f"  GOLDEN_BRIEFS_DIR=golden/briefs-{live_version.rsplit('-', 1)[-1]} "
+            f"python scripts/build_golden.py\n"
+            f"(--force writes the mixed set anyway, and invalidates every comparison that cites it.)"
+        )
+        sys.exit(2)
+
     print(f"to build: {', '.join(todo)}  (model={settings.ANALYSIS_MODEL})")
     if args.dry_run:
         print("(dry run — no calls made)")
