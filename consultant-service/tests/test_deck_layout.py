@@ -6,8 +6,13 @@ d6e8959), and the reason they shipped is that "the picture is squashed" and
 "the box is four times taller than its text" are things you see rather than
 things that raise. These tests do not replace looking at it — session 33
 rebuilt the deck, exported all seven slides through Keynote and read them —
-but they hold the two specific proportions that looking found wrong, so the
+but they hold the specific proportions that looking found wrong, so the
 next regression is a red test rather than a slide.
+
+The three detail-crop pins were retired in session 35 when the owner removed
+the IN DETAIL column from both the deck and the result page — a test for a
+feature that no longer exists is not coverage. What replaced them is the new
+rule: one image per screen slide, given the width the column freed.
 
 Deliberately NOT pinned here: anything about how the deck looks that a
 number cannot express. That still requires
@@ -72,47 +77,53 @@ def _pictures(slide):
     return [s for s in slide.shapes if s.shape_type == 13]  # MSO_SHAPE_TYPE.PICTURE
 
 
+def _screen_slide(prs):
+    """The product-screen slide, found by what is ON it rather than by index.
+
+    It used to be `prs.slides[1]`. Adding a cover slide silently shifted
+    every one of these assertions onto the wrong slide, where they still
+    passed by finding nothing.
+    """
+    for slide in prs.slides:
+        text = " ".join(sh.text_frame.text for sh in slide.shapes if sh.has_text_frame)
+        if "SCREEN 01" in text and _pictures(slide):
+            return slide
+    raise AssertionError("no product-screen slide")
+
+
 def _employee_cards(slide):
     """The rounded cards, not the full-width accent bar — both are autoshapes."""
     return [s for s in slide.shapes if s.name.startswith("Rounded Rectangle")]
 
 
-def test_a_detail_crop_is_given_the_height_its_shape_needs(run_dir):
-    """The slots were a fixed 2.45" tall. A detail crop is a wide, thin band,
-    so at 3.5" wide it rendered under an inch and left 1.5" of its slot
-    empty — twice per slide, in a column labelled IN DETAIL containing two
-    thumbnails too small to show any detail."""
-    prs = _build([{"title": "AI Ops", "why": "short"}])
-    screen_slide = prs.slides[1]
-    details = sorted(_pictures(screen_slide), key=lambda p: p.top)[1:]
-    assert len(details) == 2
+def test_a_screen_slide_carries_exactly_one_image(run_dir):
+    """The owner's rule (session 35): the screenshot is the subject, and the
+    IN DETAIL column of two composite crops is gone from both the deck and
+    the result page. Two extra thumbnails competing with the screen is the
+    clutter this replaced."""
+    pictures = _pictures(_screen_slide(_build([{"title": "AI Ops", "why": "short"}])))
 
-    for picture, source_aspect in zip(details, (1317 / 358, 1007 / 522)):
-        assert picture.width == pytest.approx(Inches(3.5), rel=0.02)
-        assert picture.height == pytest.approx(picture.width / source_aspect, rel=0.02), (
-            "the placed crop does not have its own aspect ratio"
-        )
+    assert len(pictures) == 1, f"a screen slide should show one image, found {len(pictures)}"
 
 
-def test_the_detail_column_is_not_mostly_empty(run_dir):
-    """The measure that actually failed: how much of the column the crops
-    use. Two 2.45" slots holding 0.95" and 1.81" of image is 44% used."""
-    prs = _build([{"title": "AI Ops", "why": "short"}])
-    details = sorted(_pictures(prs.slides[1]), key=lambda p: p.top)[1:]
+def test_the_screen_takes_the_space_the_crop_column_freed(run_dir):
+    """Losing the crop column has to buy the screenshot that space — otherwise
+    the slide is just emptier.
 
-    span = max(p.top + p.height for p in details) - min(p.top for p in details)
-    used = sum(p.height for p in details)
-    assert used / span > 0.85, "the crops are stacked with more gap than image"
+    A 16:9-ish screenshot on a 7.5" slide with a header and a caption strip is
+    HEIGHT-limited, not width-limited, so "spans the slide" is the wrong
+    measure: it fills the vertical band it is given, and it is centred in the
+    width rather than parked in the left two thirds.
+    """
+    picture = _pictures(_screen_slide(_build([{"title": "AI Ops", "why": "short"}])))[0]
 
-
-def test_the_hero_is_still_the_dominant_image_on_the_slide(run_dir):
-    """Fixing the crops must not turn the detail column into the subject."""
-    pictures = sorted(
-        _pictures(_build([{"title": "A", "why": "b"}]).slides[1]),
-        key=lambda p: p.width * p.height, reverse=True,
+    assert picture.height >= Inches(4.4), "the screen no longer fills its band"
+    centre = picture.left + picture.width / 2
+    assert centre == pytest.approx(export_pptx.SLIDE_W / 2, abs=Inches(0.1)), (
+        "the screen is still offset for a two-column slide"
     )
-    hero, *details = pictures
-    assert all(hero.width * hero.height > 3 * d.width * d.height for d in details)
+    assert picture.left >= 0 and picture.left + picture.width <= export_pptx.SLIDE_W
+    assert picture.top + picture.height <= export_pptx.SLIDE_H
 
 
 def test_a_closing_card_is_sized_from_its_own_text(run_dir):
