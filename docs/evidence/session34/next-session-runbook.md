@@ -44,7 +44,10 @@ sh docs/evidence/session34/run_e2e_request.sh
 ```
 Everything is scripted: service container up, a fresh business
 ("Beacon Physiotherapy") through the public intake, progress polled with
-a stopwatch, cost read via /admin (the WAL trap), clean stop. The number
+a stopwatch, cost read via /admin (the WAL trap), clean stop. The same
+run can be watched through the new `/studio` page (frontend on 5173,
+`VITE_CONSULTANT_API_BASE_URL=http://localhost:8002`) — the script stays
+the measured instrument; the page is the customer's view of it. The number
 that matters: **wall ≤ 180s** on the parallel path with the defect check
 on. Bakeoff walls of 116–173s per brief (which include text stages'
 absence but also sequential-candidate QA) say it should fit; it is not

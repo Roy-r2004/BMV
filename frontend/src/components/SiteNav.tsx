@@ -8,6 +8,7 @@ import { scrollToTop } from '../utils/scroll';
 const LINKS = [
   { to: '/solutions', label: 'Solutions' },
   { to: '/demo', label: 'Demo' },
+  { to: '/studio', label: 'Studio' },
   { to: '/examples', label: 'Examples' },
   { to: '/about', label: 'About' },
 ];

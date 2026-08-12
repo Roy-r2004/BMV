@@ -8,6 +8,7 @@ import SolutionsPage from './routes/SolutionsPage';
 import SolutionDetailPage from './routes/SolutionDetailPage';
 import AboutPage from './routes/AboutPage';
 import SubmitPage from './routes/SubmitPage';
+import StudioPage from './routes/StudioPage';
 import ResultPreviewPage from './routes/ResultPreviewPage';
 import LoginPage from './routes/LoginPage';
 import SignupPage from './routes/SignupPage';
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/submit" element={<SubmitPage />} />
+          <Route path="/studio" element={<StudioPage />} />
           <Route path="/result/:id" element={<ResultPreviewPage />} />
           <Route path="/share/:id" element={<ResultPreviewPage />} />
           <Route path="/login" element={<LoginPage />} />
