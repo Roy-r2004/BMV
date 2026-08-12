@@ -2,10 +2,11 @@
 
     anchor screen: 3 DISTINCT composition-variant prompts (not re-rolls of
         one prompt) -> vision QA each -> select strongest approved ->
-        (max one regeneration, retrying the best-scoring variant) -> watermark -> save
+        (max one regeneration — bought only for a hard failure or a bad
+        screen, retrying the best-scoring variant) -> watermark -> save
     follow-up screens: same as before -> N re-rolls of one prompt (with the
         winning anchor attached as a style reference) -> vision QA -> select
-        -> (max one regeneration) -> watermark -> save
+        -> (same regeneration rule) -> watermark -> save
 
 Composition strategy is a first-class generation variable (not sampling
 noise): each anchor candidate gets a genuinely different art-direction
@@ -345,6 +346,61 @@ def _select_best(candidates: list[dict]) -> dict | None:
     return max(approved, key=lambda c: (c["verdict"]["score"] is not None, c["verdict"]["score"] or 0))
 
 
+def _fallback_rank(cand: dict) -> tuple[int, int, float]:
+    """Rank for the best-effort ship when nothing was approved — and, since
+    session 36, for deciding whether a regeneration is worth buying at all:
+    both questions are about the same candidate, the one that would ship.
+
+    Text truth outranks the aesthetic score here, and only here. When every
+    candidate has been rejected, the choice is between a prettier screen
+    carrying the client's name misspelled and a plainer one that spells it
+    right — and the misspelling is the thing a prospect actually notices.
+    Candidates whose transcription call failed (passed is None) rank
+    between the two: unknown, not known-bad.
+
+    Confirmed structural defects rank the same way, between text and
+    score: on the first funded run of the defect check (request 77,
+    session 34) the dashboard's regeneration produced a CLEAN 7.8 and
+    this rank shipped the 8.1 carrying a verifier-confirmed floating
+    backdrop instead. A prospect notices the defect, not the 0.3.
+    """
+    passed = (cand["verdict"].get("text_truth") or {}).get("passed", None)
+    text_rank = {True: 2, None: 1, False: 0}[passed]
+    clean_rank = 0 if (cand["verdict"].get("defects") or {}).get("confirmed") else 1
+    return text_rank, clean_rank, cand["verdict"]["score"] or 0
+
+
+def _needs_regeneration(scored: list[dict]) -> bool:
+    """Whether the single regeneration MAX_REGENERATIONS allows is worth
+    buying, judged on the candidate that would actually ship — the
+    _fallback_rank winner, the same candidate the best-effort path would
+    pick. That sameness is the whole argument: on a score-only miss the
+    re-roll changes nothing about what ships unless it happens to win
+    approval, so the money mostly buys a discarded image.
+
+    Fires on:
+      - every candidate errored: transient provider failures hit the
+        concurrent candidates together, and the spaced retry is the only
+        recovery a request has;
+      - the shippable candidate failed text-truth (passed is False —
+        unknown is not failure);
+      - the shippable candidate carries a verifier-confirmed defect;
+      - the shippable candidate is genuinely BAD — below
+        QA_REGEN_SCORE_FLOOR. Request 6's 6.5 re-rolled into a 7.9 that
+        shipped; requests 90 and 91 each paid ~$0.145 re-rolling a
+        marginal 7.9/7.8 and threw the result away.
+    """
+    if not scored:
+        return True
+    best = max(scored, key=_fallback_rank)
+    if (best["verdict"].get("text_truth") or {}).get("passed") is False:
+        return True
+    if (best["verdict"].get("defects") or {}).get("confirmed"):
+        return True
+    score = best["verdict"]["score"]
+    return score is not None and score < settings.QA_REGEN_SCORE_FLOOR
+
+
 def _render_screen(
     db: Session,
     request_id: int,
@@ -414,14 +470,15 @@ def _render_screen(
         scored.append(cand)
 
     selected = _select_best(scored)
-    # Regenerate when nothing was approved — INCLUDING when every candidate
-    # errored (scored empty): parallel candidates fail together on transient
-    # provider blips, and that's exactly when one spaced retry saves the
-    # request (found in review — the old `and scored` guard skipped it).
-    # The retry reuses whichever prompt scored best so far (or the first
-    # prompt if everything errored) rather than re-firing every variant —
-    # keeps the regeneration budget at exactly +1 image regardless of mode.
-    if selected is None and settings.MAX_REGENERATIONS > 0:
+    # Regenerate on a HARD failure or a genuinely bad screen — never on a
+    # marginal score (session 36, owner-approved knowing the consequence:
+    # between QA_REGEN_SCORE_FLOOR and QA_MIN_SCORE, DoD line 2's floor is
+    # a logged number, not a gate). _needs_regeneration carries the
+    # evidence. The retry reuses whichever prompt scored best so far (or
+    # the first prompt if everything errored) rather than re-firing every
+    # variant — keeps the regeneration budget at exactly +1 image
+    # regardless of mode.
+    if selected is None and settings.MAX_REGENERATIONS > 0 and _needs_regeneration(scored):
         if scored:
             retry_source = max(scored, key=lambda c: c["verdict"]["score"] or 0)
         else:
@@ -464,28 +521,10 @@ def _render_screen(
         selected = _select_best(scored)
 
     if selected is None and scored:
-        # Nothing approved even after regeneration: ship the best candidate
-        # anyway. A weaker screenshot beats a failed request.
-        #
-        # Text truth outranks the aesthetic score here, and only here. When
-        # every candidate has been rejected, the choice is between a
-        # prettier screen carrying the client's name misspelled and a
-        # plainer one that spells it right — and the misspelling is the
-        # thing a prospect actually notices. Candidates whose transcription
-        # call failed (passed is None) rank between the two: unknown, not
-        # known-bad.
-        #
-        # Confirmed structural defects rank the same way, between text and
-        # score: on the first funded run of the defect check (request 77,
-        # session 34) the dashboard's regeneration produced a CLEAN 7.8 and
-        # this rank shipped the 8.1 carrying a verifier-confirmed floating
-        # backdrop instead. A prospect notices the defect, not the 0.3.
-        def _fallback_rank(cand: dict) -> tuple[int, int, float]:
-            passed = (cand["verdict"].get("text_truth") or {}).get("passed", None)
-            text_rank = {True: 2, None: 1, False: 0}[passed]
-            clean_rank = 0 if (cand["verdict"].get("defects") or {}).get("confirmed") else 1
-            return text_rank, clean_rank, cand["verdict"]["score"] or 0
-
+        # Nothing approved — and either the regeneration wasn't worth
+        # buying, or it was bought and still failed: ship the best
+        # candidate anyway. A weaker screenshot beats a failed request.
+        # The ranking rationale lives on _fallback_rank.
         selected = max(scored, key=_fallback_rank)
         logger.warning(
             "shipping unapproved best-effort candidate: request=%s screen=%s score=%s text_truth=%s",

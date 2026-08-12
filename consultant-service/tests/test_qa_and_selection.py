@@ -177,6 +177,110 @@ def test_save_selected_persists_composition_variant(dental_spec, tmp_path):
     assert metadata["candidates"][0]["variant"] == "hero-intelligence"
 
 
+# ── regeneration fires on what a prospect would notice (session 36) ──────
+# The re-roll is judged on the candidate that would actually ship: hard
+# failures (text-truth, confirmed defect, all-errored) and genuinely bad
+# screens buy it; a marginal score does not, because on a score-only miss
+# the approval path and the best-effort fallback ship the same image.
+
+
+def _verdict(score, *, approved=False, text=True, defects=0):
+    return {
+        "score": score, "issues": [], "approved": approved,
+        "text_truth": {"passed": text},
+        "defects": {"confirmed": [{"kind": "malformed_data_display"}] * defects},
+    }
+
+
+def _reviews(*verdicts):
+    seq = iter(verdicts)
+
+    def fake_review(_db, _rid, _bytes, _spec):
+        return next(seq)
+
+    return fake_review
+
+
+def _run_one_screen(dental_spec, *verdicts):
+    calls = []
+
+    def fake_generate(prompt, **_):
+        calls.append(prompt)
+        return {"image_bytes": VALID_PNG, "usage": None}
+
+    with patch.object(images.provider, "generate_image", side_effect=fake_generate), \
+         patch.object(images.qa, "review_image", side_effect=_reviews(*verdicts)), \
+         patch.object(images, "log_usage"), \
+         patch.object(images.settings, "MAX_REGENERATIONS", 1):
+        selected, scored = images._render_screen(
+            _FakeDb(), 1, dental_spec, [{"prompt": "p", "variant_id": None}], "v1",
+            reference_images=None,
+        )
+    return calls, selected
+
+
+def test_a_marginal_score_only_miss_ships_without_buying_the_regeneration(dental_spec):
+    """Requests 90 and 91: a clean 7.9/7.8 re-rolled at ~$0.145 apiece and
+    both re-rolls were thrown away. A marginal miss must not buy an image."""
+    calls, selected = _run_one_screen(dental_spec, _verdict(7.8))
+    assert len(calls) == 1, "a marginal score-only miss bought a second image"
+    assert selected["verdict"]["score"] == 7.8
+
+
+def test_a_bad_screen_still_buys_the_regeneration(dental_spec):
+    """Request 6: a 6.5 re-rolled into a 7.9 that shipped. Below
+    QA_REGEN_SCORE_FLOOR the re-roll is still worth its money."""
+    calls, selected = _run_one_screen(dental_spec, _verdict(6.5), _verdict(7.9))
+    assert len(calls) == 2
+    assert selected["verdict"]["score"] == 7.9
+
+
+def test_a_text_truth_failure_buys_the_regeneration_at_any_score(dental_spec):
+    """Request 68: a 9.2 that misspelled the brand re-rolled into an 8.5
+    that spelled it right, and the 8.5 shipped."""
+    calls, selected = _run_one_screen(
+        dental_spec, _verdict(9.2, text=False), _verdict(8.5))
+    assert len(calls) == 2
+    assert selected["verdict"]["score"] == 8.5, "text truth outranks score in the fallback"
+
+
+def test_a_confirmed_defect_buys_the_regeneration(dental_spec):
+    calls, selected = _run_one_screen(
+        dental_spec, _verdict(8.5, defects=1), _verdict(8.0, approved=True))
+    assert len(calls) == 2
+    assert selected["verdict"]["score"] == 8.0
+
+
+def test_every_candidate_erroring_still_buys_the_spaced_retry(dental_spec):
+    """Concurrent candidates fail together on a provider blip; the spaced
+    retry is the only recovery a request has (found in review — an old
+    `and scored` guard skipped exactly this case)."""
+    attempts = []
+
+    def flaky_generate(prompt, **_):
+        attempts.append(prompt)
+        if len(attempts) == 1:
+            raise RuntimeError("provider blip")
+        return {"image_bytes": VALID_PNG, "usage": None}
+
+    with patch.object(images.provider, "generate_image", side_effect=flaky_generate), \
+         patch.object(images.qa, "review_image", side_effect=_reviews(_verdict(8.0, approved=True))), \
+         patch.object(images, "log_usage"), \
+         patch.object(images.settings, "MAX_REGENERATIONS", 1):
+        selected, _ = images._render_screen(
+            _FakeDb(), 1, dental_spec, [{"prompt": "p", "variant_id": None}], "v1",
+            reference_images=None,
+        )
+    assert len(attempts) == 2
+    assert selected is not None
+
+
+def test_the_regen_floor_sits_below_the_approval_floor():
+    """A regen floor above QA_MIN_SCORE would re-roll approved screens'
+    neighbours for no reason; the two must stay ordered."""
+    assert settings.QA_REGEN_SCORE_FLOOR <= settings.QA_MIN_SCORE
+
+
 # ── the gate and the standard it is judged against (session 33) ──────────
 
 # DoD line 2, consultant-service/ROADMAP.md: "No shipped screen scores below

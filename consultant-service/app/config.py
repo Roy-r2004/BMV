@@ -186,6 +186,20 @@ class Settings:
     # tests/test_qa_and_selection.py pins this against DOD_MIN_SHIPPED_SCORE
     # so the two can never drift apart silently again.
     QA_MIN_SCORE: float = float(_env_or("QA_MIN_SCORE", "8"))
+    # The regeneration's own floor (session 36): below QA_MIN_SCORE a
+    # candidate only buys the re-roll when it is BAD, not marginal. On a
+    # score-only miss the approval path and the best-effort fallback ship
+    # the same image, so the only thing a marginal re-roll can do is win an
+    # approval the shipped pixels don't need: requests 90 and 91 each spent
+    # ~$0.145 re-rolling a clean 7.9/7.8 and threw the result away, while
+    # the one recorded sub-7 case (request 6, a 6.5) re-rolled into a 7.9
+    # that shipped. Owner-approved 2026-08-12 knowing the consequence:
+    # between this floor and QA_MIN_SCORE, DoD line 2's "no screen below 8"
+    # is a logged number, not a gate — the same class of gap session 33
+    # closed in QA_MIN_SCORE, this time chosen deliberately, with the
+    # score-only tail priced at one discarded pro image per marginal
+    # anchor. tests/test_qa_and_selection.py pins the trigger set.
+    QA_REGEN_SCORE_FLOOR: float = float(_env_or("QA_REGEN_SCORE_FLOOR", "7"))
     # The pairwise judge ("which of these two is better") is a separate
     # instrument from the per-image scorer and may need more capability:
     # comparing two dense screenshots is harder than scoring one. Kept as
