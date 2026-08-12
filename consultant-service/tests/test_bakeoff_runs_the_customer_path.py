@@ -114,6 +114,22 @@ def test_a_full_cell_moves_through_the_states_the_route_drives(rig):
     assert row["concept_name"] == "SmileBright Operations"
 
 
+def test_a_full_cell_checkpoints_the_wal_so_the_studio_service_can_see_it(rig):
+    """The DB is shared across containers on a bind mount, where a
+    long-lived reader's WAL-index view goes stale: /studio/91 404'd in
+    session 36 while its row sat in the WAL. A cell hands its run over by
+    checkpointing on the way out — when bakeoff exits, the run must be in
+    the MAIN file, not only in a journal other processes may miss."""
+    rig("--brief", "dental", "--model", "google/gemini-3-pro-image", "--label", "ckpt")
+
+    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+    wal = db_path + "-wal"
+    assert (not os.path.exists(wal)) or os.path.getsize(wal) == 0, (
+        "bakeoff exited with frames still in the WAL — the studio service "
+        "may not see this run"
+    )
+
+
 def test_the_frozen_replay_still_exists_but_only_when_asked_for(rig):
     """Sessions 31-34 were all measured this way; a past cell stays checkable."""
     calls, row = rig("--brief", "dental", "--model", "google/gemini-3-pro-image",

@@ -338,6 +338,20 @@ def main() -> None:
     if ledger["image_calls_failed"]:
         print(f"  NOTE: {ledger['image_calls_failed']} image call(s) failed and were retried/regenerated")
 
+    # Hand the run over before exiting: this database is shared across
+    # containers on a bind mount, where a long-lived reader's WAL-index view
+    # goes stale — session 36 found /studio/91 returning 404 while the row
+    # sat in the WAL (the session-34 ledger trap, recurring on the read
+    # side). Checkpointing on the way out puts the run this cell just paid
+    # for in the MAIN file, not only in a journal other processes may miss.
+    if settings.DATABASE_URL.startswith("sqlite"):
+        from sqlalchemy import text as sql_text
+
+        busy, _log_frames, _ckpt_frames = db.execute(sql_text("PRAGMA wal_checkpoint(TRUNCATE)")).fetchone()
+        db.commit()
+        if busy:
+            print(f"  NOTE: WAL checkpoint contended — /studio/{req.id} may lag until the service reopens connections")
+
 
 if __name__ == "__main__":
     main()

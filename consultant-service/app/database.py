@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
@@ -8,7 +9,19 @@ _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 # locked" — this service has genuinely concurrent writers (request handlers +
 # the pipeline's background thread logging usage per candidate).
 connect_args = {"check_same_thread": False, "timeout": 15} if _is_sqlite else {}
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+# NullPool for SQLite: this database is shared across CONTAINERS over a bind
+# mount, where a long-lived connection's view of the WAL index goes stale —
+# an hour-old pooled connection in the studio service answered "Request not
+# found" for rows that two freshly-opened connections (one in the very same
+# container) could both read (session 36: /studio/91 and /92 404'd until the
+# service restarted; the session-34 ledger reads that "looked like nothing
+# was spent" were the same staleness). A fresh connection per checkout
+# re-maps the WAL index and always sees the current database; the ~1ms open
+# cost is nothing at this service's traffic.
+engine_kwargs: dict = {"connect_args": connect_args}
+if _is_sqlite:
+    engine_kwargs["poolclass"] = NullPool
+engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 if _is_sqlite:
