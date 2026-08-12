@@ -605,6 +605,11 @@ def _save_selected(
             json.dumps(selected["verdict"]["text_truth"])
             if selected["verdict"].get("text_truth") is not None else None
         ),
+        # The spec the shipped candidate was drawn from — see the column's
+        # comment. Stored whole rather than as a hand-picked slice: the
+        # result page projects what it needs, and a spec that outlives its
+        # render costs a few KB against never being able to reconstruct it.
+        spec_json=spec.model_dump_json(),
     )
     db.add(row)
     db.commit()

@@ -1,5 +1,7 @@
 import json
+import logging
 import threading
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import FileResponse
@@ -8,9 +10,13 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
-from app.pipeline import compositing, export_pptx, orchestrator
+from app.pipeline import compositing, export_pptx, orchestrator, screen_story
+
+logger = logging.getLogger("consultant.requests")
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
+
+
 
 
 @router.post("")
@@ -72,6 +78,10 @@ def get_progress(request_id: int, db: Session = Depends(get_db)):
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
     return {
+        # Carried so a run resumed from its own URL — a refresh, a bookmark,
+        # a link opened on a phone — can name the business it is designing
+        # for instead of falling back to "your business".
+        "business_name": req.business_name,
         "stage": req.stage,
         "label": req.stage_label,
         "pct": req.progress_pct,
@@ -79,6 +89,12 @@ def get_progress(request_id: int, db: Session = Depends(get_db)):
         "is_generating": req.is_generating,
         "is_failed": req.is_failed,
         "updated_at": req.updated_at.isoformat() if req.updated_at else None,
+        # How long this run has been going, computed HERE rather than from a
+        # timestamp the browser has to interpret. created_at is a naive
+        # utcnow(), which a browser parses as local time — a client-side
+        # subtraction would show a clock off by the viewer's UTC offset, and
+        # a customer watching a three-minute wait counts every second of it.
+        "elapsed_s": max(0, int((datetime.utcnow() - req.created_at).total_seconds())) if req.created_at else 0,
     }
 
 
@@ -114,6 +130,10 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
                     compositing.variant_url(img.file_path, "detail_2", settings.UPLOADS_DIR),
                 ) if url
             ],
+            # What this screen is and where the AI sits on it, read from the
+            # spec it was drawn from. Null on screens generated before the
+            # spec was persisted.
+            "story": screen_story.from_spec_json(img.spec_json, img.role_label or ""),
         }
         for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
     ]
@@ -130,6 +150,11 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         "technical_plan": req.technical_plan,
         "visual_demo": None,
         "generated_pages": {"attraction_images": attraction_images},
+        # Whether /export/pptx will actually produce a deck. It is exactly
+        # that route's own precondition, read from here so the result page can
+        # decide whether to offer the download instead of handing a customer a
+        # button that 400s.
+        "deck_available": bool(req.roles_json),
         "status": req.status,
         "is_generating": req.is_generating,
         "industry": req.industry,

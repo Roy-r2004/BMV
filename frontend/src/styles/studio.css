@@ -299,23 +299,6 @@
   display: block;
 }
 
-.studio-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.8rem;
-  color: #cbd5e1;
-  background: rgba(15, 23, 42, 0.5);
-}
-
-.studio-chip strong {
-  color: #a5f3fc;
-  font-weight: 600;
-}
-
 .studio-lightbox {
   border: none;
   padding: 0;
@@ -355,13 +338,412 @@
   border-color: #e2e8f0;
 }
 
+/* ── the keepsake: this run's permanent address ───────────────────────── */
+
+.studio-keepsafe {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1rem 1.15rem;
+}
+
+.studio-keepsafe--wide {
+  max-width: 46rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.studio-keepsafe-label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.studio-linkrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.65rem;
+}
+
+.studio-keepsafe:not(.studio-keepsafe--wide) .studio-linkrow {
+  justify-content: flex-start;
+}
+
+.studio-link {
+  flex: 1 1 16rem;
+  min-width: 0;
+  /* The URL is the product here — never let it wrap the layout out of shape. */
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: #a5f3fc;
+  background: rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+}
+
+.studio-ghost-btn {
+  flex: 0 0 auto;
+  display: inline-block;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-decoration: none;
+  background: none;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.studio-ghost-btn:hover {
+  border-color: #67e8f9;
+  color: #a5f3fc;
+}
+
+.studio-ghost-btn:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+
+/* ── the walkthrough: one full screen, then what it is ────────────────── */
+
+.studio-walkthrough {
+  display: flex;
+  flex-direction: column;
+  gap: 5rem;
+}
+
+.studio-screen-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.studio-screen-no {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #22d3ee;
+  font-variant-numeric: tabular-nums;
+  /* Holds the baseline against the heading beside it. */
+  flex: 0 0 auto;
+  padding-top: 0.15rem;
+}
+
+.studio-screen-head h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.studio-screen-head > div > p {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.studio-screen-open {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  color: #67e8f9;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.studio-screen-open:hover {
+  text-decoration: underline;
+}
+
+/* The one-sentence caption under a screen. Sits directly beneath the image
+   at a readable measure, because it is the line a client actually reads. */
+.studio-screen-desc {
+  margin: 1.1rem 0 0;
+  max-width: 46rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #cbd5e1;
+}
+
+.studio-notes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+  align-items: start;
+}
+
+.studio-note {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.8rem;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1.05rem 1.2rem;
+}
+
+.studio-note h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin: 0 0 0.75rem;
+}
+
+.studio-note p {
+  margin: 0 0 0.45rem;
+  font-size: 0.87rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.studio-note p:last-child {
+  margin-bottom: 0;
+}
+
+.studio-note-key {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.15rem;
+}
+
+/* The AI note is the one a client is looking for — it gets the accent. */
+.studio-note--ai {
+  border-color: rgba(34, 211, 238, 0.35);
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.07), rgba(15, 23, 42, 0)) ,
+    rgba(15, 23, 42, 0.5);
+}
+
+.studio-note--ai h3 {
+  color: #a5f3fc;
+}
+
+.studio-ai-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
+  flex: 0 0 auto;
+}
+
+.studio-ai-title {
+  font-weight: 600;
+  color: #f8fafc !important;
+}
+
+.studio-ai-headline {
+  color: #e2e8f0 !important;
+  font-size: 0.95rem !important;
+}
+
+.studio-ai-why {
+  color: #94a3b8 !important;
+}
+
+.studio-ai-conf {
+  font-size: 0.78rem !important;
+  letter-spacing: 0.04em;
+  color: #67e8f9 !important;
+}
+
+.studio-ai-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.studio-ai-chips span {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+}
+
+/* ── the AI employees ─────────────────────────────────────────────────── */
+
+.studio-aicards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.85rem;
+}
+
+.studio-aicard {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-left: 2px solid rgba(34, 211, 238, 0.65);
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1rem 1.1rem;
+}
+
+.studio-aicard h3 {
+  color: #a5f3fc;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0 0 0.4rem;
+}
+
+.studio-aicard p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+/* ── what it does / the blueprint ─────────────────────────────────────── */
+
+.studio-featurelist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.7rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.studio-featurelist li {
+  position: relative;
+  padding: 0.7rem 0.9rem 0.7rem 2rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.7rem;
+  background: rgba(15, 23, 42, 0.4);
+  color: #cbd5e1;
+  font-size: 0.87rem;
+  line-height: 1.5;
+}
+
+.studio-featurelist li::before {
+  content: "";
+  position: absolute;
+  left: 0.85rem;
+  top: 1.15rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #22d3ee;
+}
+
+.studio-details-block {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.9rem;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 1.1rem 1.35rem;
+}
+
+.studio-details-block summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  list-style: none;
+}
+
+.studio-details-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.studio-details-block summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: #67e8f9;
+  transition: transform 0.2s ease;
+}
+
+.studio-details-block[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.studio-details-block summary:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 4px;
+  border-radius: 0.4rem;
+}
+
+.studio-prose {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  max-width: 46rem;
+}
+
+.studio-prose h3 {
+  color: #f8fafc;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.studio-prose h3:first-child {
+  margin-top: 0;
+}
+
+.studio-prose p {
+  margin: 0 0 0.85rem;
+}
+
+.studio-prose ul {
+  margin: 0 0 0.85rem;
+  padding-left: 1.1rem;
+}
+
+.studio-prose li {
+  margin-bottom: 0.35rem;
+}
+
+/* ── opening a result URL ─────────────────────────────────────────────── */
+
+.studio-spinner {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.25);
+  border-top-color: #22d3ee;
+  animation: studio-spin 0.9s linear infinite;
+}
+
+@keyframes studio-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .studio-easel::after,
   .studio-stage-row[data-state="active"] .studio-stage-dot::after {
     animation: none;
   }
   .studio-shot,
-  .studio-cta {
+  .studio-cta,
+  .studio-ghost-btn {
     transition: none;
+  }
+  .studio-spinner {
+    animation-duration: 2.4s;
   }
 }

@@ -79,6 +79,16 @@ class GeneratedImage(Base):
     # uploads/images/<id>/*.json. Null for rows written before the column
     # existed, and for runs with the gate off — neither means "passed".
     text_truth_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The UIDemoSpec this screen was drawn FROM, as JSON. Until session 35 the
+    # spec was transient — built, rendered into a prompt, discarded — so
+    # nothing downstream could say what a finished screen contains. The
+    # customer's result page needs exactly that: the screen's own subheading,
+    # the metrics it tracks, and the AI module drawn on it. Every string here
+    # is one the image was asked to render, which is what makes the
+    # explanation under a screen checkable against the screen itself rather
+    # than prose invented about it. Null for rows written before the column
+    # existed — which means "we cannot say", never "this screen has no AI".
+    spec_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

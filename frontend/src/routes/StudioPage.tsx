@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
@@ -8,6 +9,9 @@ import {
   getStudioProgress,
   consultantAssetUrl,
   isAtCapacity,
+  isNotFound,
+  studioDeckUrl,
+  studioResultPath,
   type StudioPreview,
   type StudioProgress,
   type StudioScreen,
@@ -33,7 +37,9 @@ const RENDER_WHISPERS = [
   'Your navigation, your services, your customers — nothing generic…',
 ];
 
-type Act = 'intake' | 'building' | 'reveal' | 'failed';
+// 'loading' is the beat between opening a result URL and knowing what is at
+// the other end; 'missing' is an id that was never issued.
+type Act = 'intake' | 'loading' | 'building' | 'reveal' | 'failed' | 'missing';
 
 interface FieldErrors {
   business_name?: string;
@@ -41,6 +47,8 @@ interface FieldErrors {
   email?: string;
 }
 
+// Kept only as a bridge for someone who lands on bare /studio with a run
+// still going — the URL is the source of truth, this is the safety net.
 const RESUME_KEY = 'bmv_studio_request_id';
 
 function useElapsed(running: boolean, startedAt: number | null) {
@@ -55,10 +63,54 @@ function useElapsed(running: boolean, startedAt: number | null) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** The blueprint arrives as light markdown. Rendered as blocks rather than
+ *  through a markdown dependency: it is headings, bullets and paragraphs,
+ *  and dangerouslySetInnerHTML on model-authored prose is not a trade worth
+ *  making for three formatting rules. */
+function BlueprintProse({ text }: { text: string }) {
+  const blocks = useMemo(() => {
+    const out: Array<{ kind: 'h' | 'p'; text: string } | { kind: 'ul'; items: string[] }> = [];
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      const strip = (s: string) => s.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
+      if (/^#{1,6}\s/.test(line)) out.push({ kind: 'h', text: strip(line) });
+      else if (/^[-*•]\s/.test(line)) {
+        const item = strip(line.replace(/^[-*•]\s+/, ''));
+        const last = out[out.length - 1];
+        if (last && last.kind === 'ul') last.items.push(item);
+        else out.push({ kind: 'ul', items: [item] });
+      } else out.push({ kind: 'p', text: strip(line) });
+    }
+    return out;
+  }, [text]);
+
+  return (
+    <div className="studio-prose">
+      {blocks.map((b, i) =>
+        b.kind === 'h' ? (
+          <h3 key={i}>{b.text}</h3>
+        ) : b.kind === 'ul' ? (
+          <ul key={i}>
+            {b.items.map((item, j) => (
+              <li key={j}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p key={i}>{b.text}</p>
+        ),
+      )}
+    </div>
+  );
+}
+
 export default function StudioPage() {
   const reduceMotion = useReducedMotion();
-  const [act, setAct] = useState<Act>('intake');
-  const [requestId, setRequestId] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const { id: idParam } = useParams<{ id: string }>();
+  const routeId = idParam && /^\d+$/.test(idParam) ? Number(idParam) : null;
+
+  const [act, setAct] = useState<Act>(routeId == null ? 'intake' : 'loading');
   const [progress, setProgress] = useState<StudioProgress | null>(null);
   const [preview, setPreview] = useState<StudioPreview | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -66,6 +118,10 @@ export default function StudioPage() {
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
   const [whisper, setWhisper] = useState(0);
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Screens whose file did not load. A missing byte gets an honest tile
+  // instead of a browser's broken-image glyph.
+  const [brokenSrc, setBrokenSrc] = useState<Record<string, true>>({});
 
   const [form, setForm] = useState({
     business_name: '',
@@ -80,27 +136,95 @@ export default function StudioPage() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
 
-  // A refresh mid-generation resumes the run instead of losing it.
-  useEffect(() => {
-    // Dev-only design hook: /studio?preview=building renders the theater
-    // without a live run, so the act can be looked at without spending a
-    // generation. Compiled out of production builds.
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'building') {
-      setStartedAt(Date.now() - 74_000);
-      setProgress({
-        stage: 'images', label: 'Rendering your product screenshots...', pct: 70,
-        detail: 'screen 2 of 3', is_generating: true, is_failed: false, updated_at: null,
-      });
-      setAct('building');
-      return;
-    }
-    const stored = sessionStorage.getItem(RESUME_KEY);
-    if (stored) {
-      setRequestId(Number(stored));
-      setStartedAt(Date.now());
-      setAct('building');
+  const resultUrl = routeId != null ? `${window.location.origin}${studioResultPath(routeId)}` : null;
+
+  const showResult = useCallback(async (id: number) => {
+    try {
+      const data = await getStudioPreview(id);
+      setPreview(data);
+      setAct('reveal');
+    } catch (err) {
+      if (isNotFound(err)) setAct('missing');
+      else {
+        setFailureDetail('Your screens were generated, but the studio could not load them just now. Refreshing this page usually brings them back.');
+        setAct('failed');
+      }
     }
   }, []);
+
+  // Decide what a run's state means — used both on first load of a result URL
+  // and on every poll, so there is exactly one set of rules.
+  const applyProgress = useCallback(
+    (id: number, p: StudioProgress) => {
+      setProgress(p);
+      // The clock is the server's, re-based on every poll so it cannot drift
+      // and cannot be wrong on a run this tab did not start.
+      setStartedAt(Date.now() - (p.elapsed_s ?? 0) * 1000);
+      if (p.is_failed || p.stage === 'failed') {
+        sessionStorage.removeItem(RESUME_KEY);
+        setFailureDetail(p.detail ?? null);
+        setAct('failed');
+        return;
+      }
+      if (p.is_generating) {
+        sessionStorage.setItem(RESUME_KEY, String(id));
+        setAct('building');
+        return;
+      }
+      // Not generating and not failed: either finished, or a run that was
+      // abandoned before it ever started. showResult tells them apart by
+      // whether there is anything to show.
+      sessionStorage.removeItem(RESUME_KEY);
+      void showResult(id);
+    },
+    [showResult],
+  );
+
+  // A result URL is self-sufficient: it loads its own run, whatever state it
+  // is in. Bare /studio only redirects to a run this browser already started.
+  useEffect(() => {
+    if (routeId == null) {
+      // Dev-only design hook: /studio?preview=building renders the theater
+      // without a live run, so the act can be looked at without spending a
+      // generation. Compiled out of production builds.
+      if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'building') {
+        setStartedAt(Date.now() - 74_000);
+        setProgress({
+          business_name: 'Beacon Physiotherapy', stage: 'images',
+          label: 'Rendering your product screenshots...', pct: 70,
+          detail: 'screen 2 of 3', is_generating: true, is_failed: false,
+          updated_at: null, elapsed_s: 74,
+        });
+        setAct('building');
+        return;
+      }
+      const stored = sessionStorage.getItem(RESUME_KEY);
+      if (stored && /^\d+$/.test(stored)) navigate(studioResultPath(Number(stored)), { replace: true });
+      else setAct('intake');
+      return;
+    }
+
+    let cancelled = false;
+    setAct('loading');
+    getStudioProgress(routeId)
+      .then((p) => {
+        if (!cancelled) applyProgress(routeId, p);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (isNotFound(err)) {
+          // A stale bookmark should not keep redirecting us back to itself.
+          sessionStorage.removeItem(RESUME_KEY);
+          setAct('missing');
+        } else {
+          setFailureDetail('The studio is not reachable right now. Your run is safe — this page will show it as soon as the connection is back.');
+          setAct('failed');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId, navigate, applyProgress]);
 
   // Rotate the rendering-stage whispers.
   useEffect(() => {
@@ -109,46 +233,24 @@ export default function StudioPage() {
     return () => clearInterval(t);
   }, [act]);
 
-  const finishRun = useCallback(async (id: number, failed: boolean, detail?: string | null) => {
-    sessionStorage.removeItem(RESUME_KEY);
-    if (failed) {
-      setFailureDetail(detail ?? null);
-      setAct('failed');
-      return;
-    }
-    try {
-      const data = await getStudioPreview(id);
-      setPreview(data);
-      setAct('reveal');
-    } catch {
-      setFailureDetail('The screens were generated but could not be fetched — your email will still receive them.');
-      setAct('failed');
-    }
-  }, []);
-
   // Poll progress while building.
   useEffect(() => {
-    if (act !== 'building' || requestId == null) return;
+    if (act !== 'building' || routeId == null) return;
     let cancelled = false;
     const tick = async () => {
       try {
-        const p = await getStudioProgress(requestId);
-        if (cancelled) return;
-        setProgress(p);
-        if (p.is_failed) await finishRun(requestId, true, p.detail);
-        else if (!p.is_generating && (p.pct ?? 0) >= 100) await finishRun(requestId, false);
-        else if (!p.is_generating && p.stage === 'failed') await finishRun(requestId, true, p.detail);
+        const p = await getStudioProgress(routeId);
+        if (!cancelled) applyProgress(routeId, p);
       } catch {
         // transient poll failure: keep polling, the run continues server-side
       }
     };
-    tick();
     const t = setInterval(tick, 2500);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [act, requestId, finishRun]);
+  }, [act, routeId, applyProgress]);
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
@@ -156,7 +258,7 @@ export default function StudioPage() {
     if (form.business_description.trim().length < 30) {
       next.business_description = 'A couple of sentences — what you do, for whom, and what eats your day.';
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = 'A real address — the screens land here too.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = 'A real address, so we can reach you about it.';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -175,10 +277,9 @@ export default function StudioPage() {
         main_problem: form.main_problem.trim() || undefined,
       });
       sessionStorage.setItem(RESUME_KEY, String(id));
-      setRequestId(id);
-      setStartedAt(Date.now());
-      setProgress(null);
-      setAct('building');
+      // The run gets its address the moment it exists, not when it finishes —
+      // so a refresh, a closed laptop or a shared link all land somewhere.
+      navigate(studioResultPath(id));
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (err) {
       setSubmitError(
@@ -191,14 +292,26 @@ export default function StudioPage() {
     }
   };
 
-  const reset = () => {
+  const startOver = () => {
     sessionStorage.removeItem(RESUME_KEY);
-    setAct('intake');
-    setRequestId(null);
-    setProgress(null);
     setPreview(null);
+    setProgress(null);
     setStartedAt(null);
     setFailureDetail(null);
+    setAct('intake');
+    navigate('/studio');
+  };
+
+  const copyLink = async () => {
+    if (!resultUrl) return;
+    try {
+      await navigator.clipboard.writeText(resultUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2400);
+    } catch {
+      // Clipboard blocked (insecure origin, denied permission): the link is
+      // on screen and selectable, so there is nothing to apologise for.
+    }
   };
 
   const openLightbox = (src: string, alt: string) => {
@@ -223,7 +336,9 @@ export default function StudioPage() {
     [pct],
   );
 
-  const screens: StudioScreen[] = preview?.generated_pages.attraction_images ?? [];
+  const allScreens: StudioScreen[] = preview?.generated_pages.attraction_images ?? [];
+  const screens = allScreens.filter((s) => !brokenSrc[s.image_url]);
+  const buildingName = progress?.business_name || form.business_name.trim() || 'Your business';
   const fade = reduceMotion
     ? {}
     : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -12 } };
@@ -236,6 +351,15 @@ export default function StudioPage() {
       <main className="relative z-10 section-padding pt-28 pb-20">
         <div className="container-max max-w-6xl">
           <AnimatePresence mode="wait">
+            {act === 'loading' && (
+              <motion.section key="loading" {...fade} transition={{ duration: 0.3 }}>
+                <div className="max-w-xl mx-auto text-center py-24">
+                  <span className="studio-spinner" aria-hidden="true" />
+                  <p className="mt-6 text-slate-400">Opening your studio run…</p>
+                </div>
+              </motion.section>
+            )}
+
             {act === 'intake' && (
               <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
                 <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-start">
@@ -365,7 +489,7 @@ export default function StudioPage() {
                 <div className="max-w-3xl mx-auto text-center mb-10">
                   <p className="studio-kicker mb-4">Now designing</p>
                   <h1 className="studio-display text-3xl sm:text-4xl font-bold text-off-white">
-                    {form.business_name.trim() || 'Your business'} is in the studio
+                    {buildingName} is in the studio
                   </h1>
                   <p className="mt-3 text-slate-400">
                     {progress?.label ?? 'Warming up…'}
@@ -414,10 +538,20 @@ export default function StudioPage() {
                       </motion.p>
                     </AnimatePresence>
 
-                    <p className="studio-hint mt-2">
-                      Usually under three minutes. Leaving this page won't cancel the run — it will
-                      be here when you come back.
-                    </p>
+                    {resultUrl && (
+                      <div className="studio-keepsafe mt-6">
+                        <p className="studio-keepsafe-label">
+                          This page is your run. Close it, come back, open it on your phone — the
+                          address doesn't change.
+                        </p>
+                        <div className="studio-linkrow">
+                          <code className="studio-link">{resultUrl}</code>
+                          <button type="button" className="studio-ghost-btn" onClick={copyLink}>
+                            {copied ? 'Copied' : 'Copy link'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.section>
@@ -425,76 +559,205 @@ export default function StudioPage() {
 
             {act === 'reveal' && preview && (
               <motion.section key="reveal" {...fade} transition={{ duration: 0.5 }}>
-                <div className="max-w-3xl mx-auto text-center mb-12">
+                <div className="max-w-3xl mx-auto text-center mb-10">
                   <p className="studio-kicker mb-4">Fresh from the studio</p>
                   <h1 className="studio-display text-4xl sm:text-5xl font-bold text-off-white">
                     {preview.concept_name || `${preview.business_name} OS`}
                   </h1>
                   <p className="mt-4 text-slate-400 text-lg">
-                    Designed for {preview.business_name}. Click any screen to see it full size.
+                    Designed for {preview.business_name}
+                    {preview.industry ? ` · ${preview.industry}` : ''}.
+                    {screens.length > 0 ? ' Click any screen to see it full size.' : ''}
                   </p>
                 </div>
 
-                <div className="space-y-10">
-                  {screens.map((screen, i) => {
-                    const src = consultantAssetUrl(screen.hero_url ?? screen.image_url);
-                    const full = consultantAssetUrl(screen.image_url);
-                    if (!src || !full) return null;
-                    return (
-                      <motion.figure
-                        key={`${screen.role_id}-${screen.variant}`}
-                        className="m-0"
-                        initial={reduceMotion ? undefined : { opacity: 0, y: 34 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: reduceMotion ? 0 : 0.15 * i }}
-                      >
-                        <button
-                          type="button"
-                          className="studio-shot"
-                          onClick={() => openLightbox(full, screen.role_label)}
-                          aria-label={`Enlarge ${screen.role_label}`}
+                {/* The link comes first, before the customer scrolls into the
+                    screens and forgets the page has an address at all. */}
+                {resultUrl && (
+                  <div className="studio-keepsafe studio-keepsafe--wide mb-12">
+                    <div className="studio-linkrow">
+                      <code className="studio-link">{resultUrl}</code>
+                      <button type="button" className="studio-ghost-btn" onClick={copyLink}>
+                        {copied ? 'Copied' : 'Copy link'}
+                      </button>
+                      {preview.deck_available && (
+                        <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+                          Download the deck
+                        </a>
+                      )}
+                    </div>
+                    <p className="studio-keepsafe-label mt-3">
+                      Bookmark it. Your screens stay at this address — share it with anyone who
+                      should see them.
+                    </p>
+                  </div>
+                )}
+
+                {screens.length === 0 ? (
+                  <div className="studio-panel p-8 text-center max-w-xl mx-auto">
+                    <p className="text-slate-300 font-semibold">This run's screens aren't on file.</p>
+                    <p className="mt-3 text-slate-400 text-sm">
+                      The design work finished, but the image files can't be served right now.
+                      Start a fresh run and it will render again.
+                    </p>
+                    <button type="button" className="studio-cta mt-8 max-w-xs mx-auto" onClick={startOver}>
+                      Design my software
+                    </button>
+                  </div>
+                ) : (
+                  <div className="studio-walkthrough">
+                    {screens.map((screen, i) => {
+                      const src = consultantAssetUrl(screen.hero_url ?? screen.image_url);
+                      const full = consultantAssetUrl(screen.image_url);
+                      if (!src || !full) return null;
+                      const story = screen.story;
+                      return (
+                        <motion.section
+                          className="studio-screen"
+                          key={`${screen.role_id}-${screen.variant}`}
+                          initial={reduceMotion ? undefined : { opacity: 0, y: 34 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.6, delay: reduceMotion ? 0 : 0.12 * i }}
                         >
-                          <img src={src} alt={`${screen.role_label} screen`} loading={i > 0 ? 'lazy' : 'eager'} />
-                        </button>
-                        <figcaption className="mt-3 flex items-baseline justify-between gap-4">
-                          <span className="font-semibold text-slate-200">{screen.role_label}</span>
-                          <a
-                            className="text-sm text-logo-cyan hover:underline"
-                            href={full}
-                            target="_blank"
-                            rel="noreferrer"
+                          <header className="studio-screen-head">
+                            <span className="studio-screen-no">
+                              {String(i + 1).padStart(2, '0')}
+                            </span>
+                            <div>
+                              <h2>{screen.role_label}</h2>
+                              {story?.subheading && <p>{story.subheading}</p>}
+                            </div>
+                            <a
+                              className="studio-screen-open"
+                              href={full}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open full resolution
+                            </a>
+                          </header>
+
+                          <button
+                            type="button"
+                            className="studio-shot"
+                            onClick={() => openLightbox(full, screen.role_label)}
+                            aria-label={`Enlarge ${screen.role_label}`}
                           >
-                            Open full resolution
-                          </a>
-                        </figcaption>
-                      </motion.figure>
-                    );
-                  })}
-                </div>
+                            <img
+                              src={src}
+                              alt={`${screen.role_label} screen`}
+                              loading={i > 0 ? 'lazy' : 'eager'}
+                              onError={() => setBrokenSrc((b) => ({ ...b, [screen.image_url]: true }))}
+                            />
+                          </button>
+
+                          {/* Everything below is read from the spec this
+                              screen was drawn from, so a client can check
+                              each line against the picture above it. A screen
+                              with no stored spec simply gets no notes. */}
+                          {story?.description && (
+                            <p className="studio-screen-desc">{story.description}</p>
+                          )}
+
+                          {story && (story.tracks.length > 0 || story.ai) && (
+                            <div className="studio-notes">
+                              {story.tracks.length > 0 && (
+                                <div className="studio-note">
+                                  <h3>What it tracks</h3>
+                                  <p>{story.tracks.join(' · ')}</p>
+                                </div>
+                              )}
+
+                              {story.ai && (
+                                <div className="studio-note studio-note--ai">
+                                  <h3>
+                                    <span className="studio-ai-dot" aria-hidden="true" />
+                                    Where the AI works on this screen
+                                  </h3>
+                                  {story.ai.title && <p className="studio-ai-title">{story.ai.title}</p>}
+                                  <p className="studio-ai-headline">{story.ai.headline}</p>
+                                  {story.ai.rationale && (
+                                    <p className="studio-ai-why">{story.ai.rationale}</p>
+                                  )}
+                                  {story.ai.confidence && (
+                                    <p className="studio-ai-conf">{story.ai.confidence}</p>
+                                  )}
+                                  {story.ai.chips.length > 0 && (
+                                    <div className="studio-ai-chips">
+                                      {story.ai.chips.map((c) => (
+                                        <span key={c}>{c}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </motion.section>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {preview.ai_features.length > 0 && (
-                  <div className="mt-14">
+                  <div className="mt-16">
                     <h2 className="studio-display text-xl font-bold text-off-white mb-4">
                       The AI employees inside it
                     </h2>
-                    <div className="flex flex-wrap gap-3">
+                    {/* Cards, not chips: these descriptions are a sentence or
+                        two of real reasoning, and a pill full of prose reads
+                        like a bug. */}
+                    <div className="studio-aicards">
                       {preview.ai_features.map((f) => (
-                        <span className="studio-chip" key={f.id}>
-                          <strong>{f.name}</strong> {f.description}
-                        </span>
+                        <article className="studio-aicard" key={f.id}>
+                          <h3>{f.name}</h3>
+                          <p>{f.description}</p>
+                        </article>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <div className="mt-14 flex flex-wrap items-center gap-4">
-                  <button type="button" className="studio-cta max-w-xs" onClick={reset}>
-                    Design another
-                  </button>
-                  <p className="text-sm text-slate-400">
-                    A copy of everything is on its way to {form.email.trim() || 'your inbox'}.
-                  </p>
-                </div>
+                {preview.preview_features.length > 0 && (
+                  <div className="mt-14">
+                    <h2 className="studio-display text-xl font-bold text-off-white mb-4">
+                      What it does for you
+                    </h2>
+                    <ul className="studio-featurelist">
+                      {preview.preview_features.map((f) => (
+                        <li key={f}>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {preview.mvp_blueprint && (
+                  <details className="studio-details-block mt-14">
+                    <summary>
+                      <span className="studio-display text-xl font-bold text-off-white">
+                        Read the blueprint
+                      </span>
+                      <span className="studio-hint">
+                        What we'd build first, in plain words
+                      </span>
+                    </summary>
+                    <BlueprintProse text={preview.mvp_blueprint} />
+                  </details>
+                )}
+
+                {/* The empty-state panel above already offers its own way
+                    forward — a second CTA under it just reads as clutter. */}
+                {screens.length > 0 && (
+                  <div className="mt-16 flex flex-wrap items-center gap-4">
+                    <button type="button" className="studio-cta max-w-xs" onClick={startOver}>
+                      Design another
+                    </button>
+                    <p className="text-sm text-slate-400">
+                      Want this built for real? Reply to us from the address you gave — we already
+                      have the blueprint.
+                    </p>
+                  </div>
+                )}
               </motion.section>
             )}
 
@@ -508,8 +771,26 @@ export default function StudioPage() {
                   <p className="mt-4 text-slate-400">
                     {failureDetail || 'Something in the pipeline failed and the run was stopped. Nothing was charged to you, and trying again usually just works.'}
                   </p>
-                  <button type="button" className="studio-cta mt-8" onClick={reset}>
+                  <button type="button" className="studio-cta mt-8" onClick={startOver}>
                     Try again
+                  </button>
+                </div>
+              </motion.section>
+            )}
+
+            {act === 'missing' && (
+              <motion.section key="missing" {...fade} transition={{ duration: 0.45 }}>
+                <div className="max-w-xl mx-auto studio-panel p-8 text-center">
+                  <p className="studio-kicker mb-4">Nothing at this address</p>
+                  <h1 className="studio-display text-3xl font-bold text-off-white">
+                    We couldn't find that run
+                  </h1>
+                  <p className="mt-4 text-slate-400">
+                    The link may have a typo, or it may point at a studio run that no longer
+                    exists. Designing a fresh set takes about three minutes.
+                  </p>
+                  <button type="button" className="studio-cta mt-8" onClick={startOver}>
+                    Design my software
                   </button>
                 </div>
               </motion.section>

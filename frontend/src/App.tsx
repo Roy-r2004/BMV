@@ -35,6 +35,10 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/submit" element={<SubmitPage />} />
           <Route path="/studio" element={<StudioPage />} />
+          {/* The permanent address of one run. A generation costs real money;
+              the result it produces has to survive a refresh, a bookmark and
+              a forwarded link, not just the tab that started it. */}
+          <Route path="/studio/:id" element={<StudioPage />} />
           <Route path="/result/:id" element={<ResultPreviewPage />} />
           <Route path="/share/:id" element={<ResultPreviewPage />} />
           <Route path="/login" element={<LoginPage />} />
