@@ -15,7 +15,7 @@ ignored): a partially-filled spec from the LLM should degrade to a thinner
 screenshot, never fail the pipeline.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Tolerant(BaseModel):
@@ -58,6 +58,41 @@ class ChartSpec(_Tolerant):
     labels: list[str] = Field(default_factory=list)
     values: list[float] = Field(default_factory=list)
     metric_label: str = ""
+
+    @field_validator("values", mode="before")
+    @classmethod
+    def _only_plottable_numbers(cls, value):
+        """A chart the model drew wrong costs its own screen a chart. It
+        must not cost the request its entire spec.
+
+        Found live, 2026-08-12, on the investment classification probe: the
+        stage returned a multi-series chart — values[6] came back as
+        {"series1": 1.4, "series2": 6.9} — which failed list[float]
+        validation, and because the whole screens array is validated in one
+        pass, build_ui_specs caught the error and fell back to the generic
+        deterministic specs. A single bad data point turned a personalised
+        demo into one specific to nobody, for the whole request. The
+        pipeline already renders a chartless screen correctly (_chart_block
+        returns "" without labels), so dropping the series is a real
+        degradation path and losing the request is not.
+
+        Nothing is repaired or guessed here — a dict is not a number and
+        this does not try to pick one out of it. Mixed content drops the
+        series entirely rather than plotting the half that parsed, because
+        half a series against a full set of labels is a wrong chart rather
+        than a smaller one.
+        """
+        if not isinstance(value, list):
+            return []
+        cleaned = []
+        for entry in value:
+            if isinstance(entry, bool) or not isinstance(entry, (int, float, str)):
+                return []
+            try:
+                cleaned.append(float(entry))
+            except (TypeError, ValueError):
+                return []
+        return cleaned
 
 
 class ActivityItem(_Tolerant):
@@ -115,6 +150,19 @@ class ConceptStep(_Tolerant):
     selected: str = ""
 
 
+class ConceptTurn(_Tolerant):
+    """One message in a conversation — who spoke, and the words on screen.
+
+    `speaker` is "customer" or "assistant" and decides which side of the
+    thread the bubble sits on; anything else is treated as the customer,
+    because a bubble on the wrong side is a smaller lie than a dropped
+    message.
+    """
+
+    speaker: str = "customer"
+    text: str = ""
+
+
 class ScreenConcept(_Tolerant):
     """What KIND of screen this is, beyond a metrics overview.
 
@@ -123,10 +171,19 @@ class ScreenConcept(_Tolerant):
     came out as the same screen with different words in it. `kind` +
     `steps` let a screen be the thing a prospect actually pictures using —
     picking a unit, configuring an order, exploring a catalogue.
+
+    `turns` is the same idea for the one product whose subject is not a
+    choice at all. A business whose demo IS an AI assistant was, until
+    session 38, coerced into a dashboard with "Chatbot" as the fourth item
+    in its navigation (measured live, request 110) — the product it came to
+    see reduced to a menu entry. A conversation is not a selection flow and
+    cannot be described with steps and options, so it gets its own field
+    and its own prompt block.
     """
 
     kind: str = "dashboard"  # see CONCEPT_KINDS
     steps: list[ConceptStep] = Field(default_factory=list)
+    turns: list[ConceptTurn] = Field(default_factory=list)
     detail: Panel | None = None   # the panel the selection resolves to
     primary_action: str = ""      # "View Floor Plan"
     secondary_action: str = ""
@@ -135,9 +192,18 @@ class ScreenConcept(_Tolerant):
     def is_tool(self) -> bool:
         return self.kind in TOOL_CONCEPT_KINDS and bool(self.steps)
 
+    @property
+    def is_conversation(self) -> bool:
+        return self.kind == "assistant" and bool(self.turns)
+
 
 CONCEPT_KINDS = ("dashboard", "selector", "configurator", "explorer", "assistant")
-TOOL_CONCEPT_KINDS = ("selector", "configurator", "explorer", "assistant")
+# "assistant" is deliberately NOT here. A tool screen is a selection flow
+# rendered by _steps_block, and an assistant screen is a thread rendered by
+# _conversation_block — sharing the flag would send a conversation through
+# the steps layout, which is how it would have rendered before it had a
+# shape of its own.
+TOOL_CONCEPT_KINDS = ("selector", "configurator", "explorer")
 
 
 class AiLayer(_Tolerant):

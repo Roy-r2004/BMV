@@ -246,6 +246,30 @@ PACKS: dict[str, dict[str, str]] = {
             "as a thin accent-colored line across today's column."
         ),
     },
+    "assistant-console": {
+        "label": "Assistant",
+        "typography": (
+            "Inter throughout; message text 14-15px regular with generous 1.5 line height — this is "
+            "the only screen in the set whose subject is sentences, and it has to read like a real "
+            "conversation. Thread names 14px medium, timestamps 12px in the secondary text color, "
+            "KPI values 26-30px bold tabular in the strip above."
+        ),
+        "density": (
+            "Thread-first: the conversation column is the widest module and holds the centre, with "
+            "20px between bubbles, 14-16px bubble padding and a 16px radius rounded on three corners. "
+            "Everything else on the screen is quieter and narrower than it is."
+        ),
+        "chart": (
+            "No hero chart on the conversation screen; the volume story lives on the analytics screen "
+            "as a bar chart with rounded caps and horizontal gridlines only."
+        ),
+        "signature": (
+            "The assistant signature: the assistant's bubbles carry the accent and a small circular "
+            "avatar, the customer's stay in the surface color with no avatar, and one quiet 'read' or "
+            "delivered timestamp sits under the most recent bubble. The composer is a single rounded "
+            "input with an accented send button — never a multi-line form."
+        ),
+    },
     "pipeline-dashboard": {
         "label": "Pipeline",
         "typography": (

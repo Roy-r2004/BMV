@@ -107,6 +107,31 @@ ARCHETYPES: dict[str, dict] = {
             },
         ],
     },
+    "assistant-console": {
+        "label": "AI Assistant Console",
+        "when": (
+            "businesses whose product IS the assistant: chatbots, AI receptionists, support "
+            "copilots — where the conversation is the thing being shown, not a feature inside "
+            "something else"
+        ),
+        "screens": [
+            {
+                "screen_type": "conversations",
+                "layout": "thread list rail (name + last line + time), one open conversation as the hero, small KPI strip above",
+                "chart": None,
+            },
+            {
+                "screen_type": "analytics",
+                "layout": "bar chart of conversations handled per day, 3 KPI cards, top-intents breakdown table",
+                "chart": "bar",
+            },
+            {
+                "screen_type": "knowledge",
+                "layout": "knowledge-source list with short titles and status tags (primary), assistant settings rows (secondary), small KPI strip",
+                "chart": None,
+            },
+        ],
+    },
     "pipeline-dashboard": {
         "label": "Pipeline Dashboard",
         "when": (
@@ -134,6 +159,14 @@ ARCHETYPES: dict[str, dict] = {
 }
 
 DEFAULT_ARCHETYPE = "operations-dashboard"
+
+# The one archetype whose anchor is a conversation rather than a selection
+# flow. Named here so the ui_spec stage can enforce that pairing in code —
+# see _apply_anchor_tool: nearly every brief is sold an AI front-desk in
+# its consulting summary, so "assistant" is a kind any business could reach
+# for, and a salon whose anchor became a chat window instead of its booking
+# flow would be a worse demo rather than a more honest one.
+ASSISTANT_ARCHETYPE = "assistant-console"
 
 
 def get_archetype(archetype_id: str | None) -> tuple[str, dict]:

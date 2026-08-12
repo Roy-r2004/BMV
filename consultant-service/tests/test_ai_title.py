@@ -15,7 +15,9 @@ prompt above the headline; WITHOUT one the block renders the exact
 session-33 wording, so a v2 brief's prompt is unchanged by this feature.
 """
 
+import json
 import os
+import pathlib
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -57,10 +59,32 @@ def test_an_untitled_module_renders_the_session_33_wording_unchanged(dental_spec
     assert "quiet kicker" not in prompt
 
 
+def _version_number(version: str) -> int:
+    return int(version.rsplit("-v", 1)[1])
+
+
 def test_the_spec_stage_version_carries_the_field():
     """The frozen-brief bundles record the prompt version they were built
-    with; v3 is what says a brief HAS the field."""
-    assert UI_SPEC_PROMPT_VERSION == "ui-spec-v3"
+    with; v3 is what says a brief HAS the field.
+
+    Written as "v3 or later" rather than "== v3" because the template keeps
+    moving for unrelated reasons — v4 made the navigation length a default
+    that yields to a list the customer named — and an equality pin turns
+    every later change into a spurious failure here. What the field
+    actually needs is that no frozen bundle predates it and the live stage
+    never falls behind them.
+    """
+    assert _version_number(UI_SPEC_PROMPT_VERSION) >= 3
+
+    briefs = pathlib.Path(__file__).resolve().parents[1] / "golden" / "briefs-v3"
+    bundles = sorted(briefs.glob("*.json"))
+    assert bundles, "golden/briefs-v3 is empty — rebuild with scripts/build_golden.py"
+    for path in bundles:
+        frozen_at = json.loads(path.read_text())["frozen_by"]["ui_spec_prompt_version"]
+        assert _version_number(frozen_at) >= 3, f"{path.name} predates the ai.title field"
+        assert _version_number(frozen_at) <= _version_number(UI_SPEC_PROMPT_VERSION), (
+            f"{path.name} was frozen at {frozen_at}, ahead of the live stage"
+        )
 
 
 def test_the_title_survives_spec_validation():

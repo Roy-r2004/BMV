@@ -235,7 +235,11 @@ def _chart_block(spec: UIDemoSpec) -> str:
     existing values — not new spec fields — so the image model has concrete
     text to render as an annotation instead of inventing one itself."""
     chart = spec.chart
-    if chart is None or not chart.labels:
+    # Values as well as labels: ChartSpec drops a series it cannot plot
+    # (multi-series dicts, non-numbers) rather than failing the whole spec,
+    # and a chart section with labels and no numbers is an invitation to
+    # invent them — the same reason a chartless screen gets no chart block.
+    if chart is None or not chart.labels or not chart.values:
         return ""
     labels, values = chart.labels[:8], chart.values[:8]
     pairs = [f"{label} {value:g}" for label, value in zip(labels, values)]
@@ -343,6 +347,39 @@ def is_tool_screen(spec: UIDemoSpec) -> bool:
     return settings.ENABLE_TOOL_SCREENS and spec.concept.is_tool
 
 
+def active_nav_item(spec: UIDemoSpec) -> str | None:
+    """The navigation label this screen actually is, or None when the screen
+    has no item of its own.
+
+    Both prompts used to ask for "the current screen marked active"
+    unconditionally, and the follow-up prompt went further and named it:
+    "Only the active item changes, to {screen_title}". On request 107 the
+    navigation was the customer's own four items (Home, Gallery, About,
+    Contact) and the follow-up's title was "Schedule" — so the model was
+    told to activate an item that did not exist, and it did the only thing
+    that instruction allows: it added "Schedule" to the header. Six items
+    shipped where the customer had asked for four, and the text-truth gate
+    passed the screen, because a gate that checks the strings the spec
+    ordered cannot see one it never ordered.
+
+    It is not a rare shape. Every one of the six golden briefs has at least
+    one screen whose title is absent from its navigation, and 11 of the 21
+    screens shipped on requests 100-106 were in that state; sampled, they
+    variously invented an item or highlighted an unrelated one (101's
+    Analytics screen marks "Pipeline").
+
+    So the instruction is issued only when it is true. The rest of the
+    navigation contract — same items, same order — is unchanged and already
+    stated; no new ban is added here, because the defect was a
+    contradiction rather than a missing rule (the same lesson as the
+    duplicated-navigation fix in _nav_block).
+    """
+    title = (spec.screen_title or "").strip().lower()
+    if not title:
+        return None
+    return next((label for label in spec.navigation[:8] if label.strip().lower() == title), None)
+
+
 def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     """Sidebar for dashboards, top bar for tools. A selection flow wants its
     full width — the reference screens that do this well (property
@@ -361,10 +398,12 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     """
     if not spec.navigation:
         return ""
+    active = active_nav_item(spec)
     if continuation:
+        marked = f", with {active} marked active" if active else ""
         placement = (
             "Navigation items — placed exactly where the attached image places them, in one navigation "
-            "region and no other, with the current screen marked active"
+            f"region and no other{marked}"
         )
     elif is_tool_screen(spec):
         # The button at the right end is named, not described. Both retail
@@ -377,13 +416,14 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
         # is on DoD line 2's defect list and an invented one is worse.
         action = (spec.concept.primary_action or "").strip()
         button = f", and at the right end one accented button reading {action}" if action else ""
+        marked = f"; mark {active} active" if active else ""
         placement = (
             "Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the "
-            f"far left, these items spaced across the middle{button}; "
-            "mark the current screen active)"
+            f"far left, these items spaced across the middle{button}{marked})"
         )
     else:
-        placement = "Navigation items (left sidebar, top to bottom; mark the current screen active)"
+        marked = f"; mark {active} active" if active else ""
+        placement = f"Navigation items (left sidebar, top to bottom{marked})"
     return f"{placement}\n\n" + "\n".join(spec.navigation[:8])
 
 
@@ -457,6 +497,56 @@ def _steps_block(spec: UIDemoSpec) -> str:
         )
     if concept.secondary_action:
         lines.append(f'A quieter outlined button beneath it reads "{concept.secondary_action}".')
+    return "\n".join(lines).rstrip()
+
+
+def is_conversation_screen(spec: UIDemoSpec) -> bool:
+    """Gated exactly like is_tool_screen, so the whole shape can be switched
+    off and every spec renders as it did before it existed."""
+    return settings.ENABLE_TOOL_SCREENS and spec.concept.is_conversation
+
+
+def _conversation_block(spec: UIDemoSpec) -> str:
+    """The message thread that IS the product on an assistant console.
+
+    Written the same way as every other block here: each visible string is
+    named and quoted, and nothing that describes the layout is ever a
+    string. The two failure modes this shape invites are both known
+    classes. A bubble whose text the prompt describes rather than supplies
+    ("the customer asks about pricing") gets rendered as that description —
+    the scaffolding-renders-as-UI lesson. And an unlabelled composer row is
+    a blank control, which is on the defect inspector's list, so it either
+    carries the spec's own placeholder or is not asked for at all.
+    """
+    concept = spec.concept
+    lines = [
+        "The conversation this screen is built around. It is a live message thread, not a metrics "
+        "dashboard and not a numbered flow: the messages below run down the centre of the content "
+        "area in order, oldest at the top. Messages from the customer sit on the left in a plain "
+        "bubble; messages from the assistant sit on the right in a bubble carrying the accent, each "
+        "with a small assistant avatar. Every bubble holds ONLY the exact words given for it.",
+        "",
+    ]
+    for turn in concept.turns[:7]:
+        speaker = "Assistant" if str(turn.speaker).strip().lower() == "assistant" else "Customer"
+        lines.append(f"{speaker}: {turn.text}")
+    lines.append("")
+
+    if concept.detail and concept.detail.rows:
+        lines.append(_panel_block(
+            "A narrow context rail beside the thread; its heading is the title below", concept.detail,
+        ))
+        lines.append("")
+    if concept.primary_action:
+        lines.append(
+            f'Beneath the thread sits one message composer row: a single input with the placeholder '
+            f'"{concept.primary_action}" and a small accented send button at its right end. The '
+            "composer carries no other text."
+        )
+    if concept.secondary_action:
+        lines.append(
+            f'Above the composer sits one small outlined suggestion chip reading "{concept.secondary_action}".'
+        )
     return "\n".join(lines).rstrip()
 
 
@@ -563,6 +653,20 @@ def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
 
     tool = is_tool_screen(spec)
     ai_module = _ai_layer_block(spec)
+
+    if is_conversation_screen(spec):
+        # Same shape as the tool branch and for the same reason: the thread
+        # is the subject, so KPIs demote to a header strip and the
+        # chart/panel/activity layout does not apply. No hero either — the
+        # conversation IS the centrepiece, and a photograph beside it would
+        # compete with the one thing this screen exists to show.
+        stats = _header_stats_block(spec)
+        if stats:
+            sections.append(stats)
+        sections.append(_conversation_block(spec))
+        if ai_module:
+            sections.append(ai_module)
+        return "\n\n".join(sections)
 
     if tool:
         # A tool screen's subject is the flow and the hero; KPIs demote to a
@@ -758,12 +862,14 @@ def build_continuation_prompt(spec: UIDemoSpec, anchor_screen_title: str, archet
     """Follow-up screen prompt (version: screen-continuation-v1). Sent WITH the
     selected anchor screenshot attached as a reference image so every screen
     looks like the same product."""
+    active = active_nav_item(spec)
+    active_clause = f" Only the active item changes, to {active}." if active else ""
     return f"""TASK
 
 The attached image is the "{anchor_screen_title}" screen of {spec.product.name}, a production software application used by {spec.business.name} ({spec.business.industry}). Create the "{spec.screen_title}" screen of the EXACT SAME application.
 
 Preserve the exact same application design:
-- Preserve the navigation exactly as the attached image places it — same position, same wordmark, same items in the same order. Only the active item changes, to {spec.screen_title}.
+- Preserve the navigation exactly as the attached image places it — same position, same wordmark, same items in the same order.{active_clause}
 - Preserve the typography, colors, spacing, panel styling, borders, elevation and background treatment exactly.
 - {_continuation_register_line()}
 - Only the main content area changes, to the content below.

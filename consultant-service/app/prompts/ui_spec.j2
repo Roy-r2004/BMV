@@ -1,4 +1,4 @@
-{# ui-spec-v3 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 added hero / concept / ai; v3 gives the ai module its own title, because an untitled panel is a vacancy the image model fills from whatever prose sits nearest (six invented headings on the session-33 set). #}
+{# ui-spec-v4 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 added hero / concept / ai; v3 gives the ai module its own title, because an untitled panel is a vacancy the image model fills from whatever prose sits nearest (six invented headings on the session-33 set); v4 makes the navigation length a default that yields to a list the customer named, after request 107 asked for four items and had the "5-7" rule pad it to five. #}
 You are a senior product designer at a SaaS company, preparing the demo content for a personalized product preview. Convert the business analysis below into structured UI content for {{ screen_count }} screens of ONE coherent software product. You are producing DATA ONLY — layout and style are handled elsewhere.
 
 BUSINESS
@@ -26,11 +26,18 @@ Before anything else, answer this in your head: what is the multi-step choice a 
   a law firm: matter type -> attorney -> consultation slot
   a hedge fund: strategy -> risk band -> allocation
 You answer this in the REQUIRED top-level "anchor_tool" object, which you must write BEFORE the screens array. Name the choice in words first ("choice_named"), then break it into steps. Only set kind to "none" if you genuinely cannot name a choice anyone makes in this business — that should be rare, and "the owner checks their numbers" is not a choice.
+
+ONE EXCEPTION. If — and only if — you choose the assistant-console archetype, because this customer's product IS the assistant, then the anchor is a real conversation instead of a selection flow: set kind to "assistant" and fill "turns" instead of "steps". Every other archetype uses steps; a business that merely HAS an AI receptionist alongside its real work is not an assistant console, and its anchor is still the choice its customers make.
 The remaining screens stay dashboard-shaped and follow the archetype below.
 
 RULES FOR THE CONTENT
-- Choose ONE archetype, then produce exactly {{ screen_count }} screens following that archetype's screen sequence in order. The archetype governs navigation, the follow-up screens and the visual family; the ANCHOR's own layout is governed by anchor_tool above.
-- All screens describe the SAME product on the SAME plausible business day: navigation identical on every screen (5-7 short one-word items that fit this business), same product name, same user.
+- Choose ONE archetype, then produce exactly {{ screen_count }} screens following that archetype's screen sequence in order. The archetype governs {% if not explicit_navigation %}navigation, {% endif %}the follow-up screens and the visual family; the ANCHOR's own layout is governed by anchor_tool above.
+- All screens describe the SAME product on the SAME plausible business day: navigation identical on every screen, same product name, same user.
+{% if explicit_navigation -%}
+- The customer named their navigation. It is exactly these items, in this order: {{ explicit_navigation | join(", ") }}. Write "navigation" as that list on every screen — same items, same order, nothing added, nothing renamed, nothing dropped. If that is fewer items than this product would otherwise carry, it is the customer's decision and not an omission for you to correct. Everything else on the screens still follows the archetype.
+{% else -%}
+- navigation: 5-7 short one-word items that fit this business. That is a DEFAULT for when the customer has not said what they want in their own words — it is a range to fill naturally, never a quota to pad up to with generic items.
+{% endif -%}
 - Wherever any string names the business itself — a product name, a hero caption, a header — spell the business name EXACTLY as given under BUSINESS: never shortened, never a legal suffix dropped, never reworded into a variant brand. A product name may embed the exact name ("<product> by <exact business name>") or leave the business name out entirely; it must never contain an altered version of it.
 - The user is a plausible owner/manager persona for this business (e.g. "Dr. Carter", "Marco"), greeted by first name.
 - greeting: "Good morning, <name>" style, maximum 4 words. subheading: maximum 6 words. NEVER a long sentence — long text garbles when rendered.
@@ -51,10 +58,11 @@ Every screen gets a "hero": a real, photographable subject this business works o
 
 THE ANCHOR TOOL — filling in the choice you named above
 - anchor_tool.choice_named: the choice in plain words, e.g. "a client picks a service, then a stylist, then a time".
-- anchor_tool.kind: "selector" (choosing from fixed options), "configurator" (assembling something to order), "explorer" (browsing a catalogue), or "none".
-- anchor_tool.steps: 2-3 stages, each {"label": "<2-3 words, imperative, e.g. Select Stylist>", "options": ["<3-6 short options>"], "selected": "<one of them>"}. The options must be REAL for this business — actual service names, actual product lines, actual staff names, actual capacities. Never "Option A".
-- anchor_tool.detail: the panel the selection resolves to — title plus 4-6 short rows, each row the concrete thing being chosen with 2-3 attributes (e.g. the available 2pm slots with stylist and price; the units on the chosen floor with size and price).
-- anchor_tool.primary_action / secondary_action: 2-3 words each, the button that commits the choice and a quieter alternative — e.g. "Book This Slot" / "See Other Times".
+- anchor_tool.kind: "selector" (choosing from fixed options), "configurator" (assembling something to order), "explorer" (browsing a catalogue), "assistant" (assistant-console archetype ONLY — see the exception above), or "none".
+- anchor_tool.steps: 2-3 stages, each {"label": "<2-3 words, imperative, e.g. Select Stylist>", "options": ["<3-6 short options>"], "selected": "<one of them>"}. The options must be REAL for this business — actual service names, actual product lines, actual staff names, actual capacities. Never "Option A", and never a placeholder like "Guest Artist A" or "Stylist B": if you cannot name a real one, name fewer.
+- anchor_tool.turns (kind "assistant" only, INSTEAD of steps): 4-6 messages of one real conversation this assistant handles, alternating, oldest first, each {"speaker": "customer"|"assistant", "text": "<the exact words on screen>"}. Start with the customer. Keep each message to at most 14 words — these are rendered as chat bubbles and long text garbles. They must be about THIS business, naming its real services, prices or times, and the assistant's replies must be the kind a customer would be pleased to receive.
+- anchor_tool.detail: the panel the selection resolves to — title plus 4-6 short rows, each row the concrete thing being chosen with 2-3 attributes (e.g. the available 2pm slots with stylist and price; the units on the chosen floor with size and price). On an "assistant" anchor this is instead the context rail beside the thread: who the customer is and what the assistant knows about them.
+- anchor_tool.primary_action / secondary_action: 2-3 words each, the button that commits the choice and a quieter alternative — e.g. "Book This Slot" / "See Other Times". On an "assistant" anchor, primary_action is instead the message box's placeholder text (e.g. "Reply to Sarah") and secondary_action a suggested reply chip.
 
 THE AI MODULE — what makes them say "this revolves around AI"
 Every screen gets an "ai": an opinion the software formed, not a log of what it did.
@@ -71,8 +79,9 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
 {
   "anchor_tool": {
     "choice_named": "<the multi-step choice in this business, in plain words>",
-    "kind": "<selector|configurator|explorer|none>",
+    "kind": "<selector|configurator|explorer|assistant|none>",
     "steps": [{"label": "<2-3 words>", "options": ["<short>"], "selected": "<short>"}],
+    "turns": [{"speaker": "<customer|assistant>", "text": "<max 14 words>"}],
     "detail": {"title": "<2-3 words>", "rows": [{"<col>": "<short>"}]},
     "primary_action": "<2-3 words>",
     "secondary_action": "<2-3 words>"
@@ -83,7 +92,7 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "business": {"name": "{{ business_name }}", "industry": "{{ industry }}", "location": null, "primary_color": "{{ primary_color }}", "secondary_color": "{{ secondary_color }}"},
       "product": {"name": "{{ concept_name }}", "purpose": "<short phrase>", "screen_type": "<screen type>"},
       "user": {"name": "<persona name>", "role": "<owner/manager role>"},
-      "navigation": ["<5-7 short items>"],
+      "navigation": [{% if explicit_navigation %}{% for item in explicit_navigation %}"{{ item }}"{% if not loop.last %}, {% endif %}{% endfor %}{% else %}"<5-7 short items>"{% endif %}],
       "greeting": "<max 4 words>",
       "subheading": "<max 6 words>",
       "kpis": [{"label": "<2-3 words>", "value": "<short>", "delta": "<short>", "trend": "up"}],

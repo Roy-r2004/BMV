@@ -9,6 +9,7 @@ pipeline always has something to render.
 """
 
 import logging
+import re
 
 from sqlalchemy.orm import Session
 
@@ -18,14 +19,140 @@ from app.config import settings
 from app.models import Request
 from app.pipeline._shared import extract_json_from_text, log_usage
 from app.templating import render
+from app.archetypes import ASSISTANT_ARCHETYPE
 from app.ui_spec import TOOL_CONCEPT_KINDS, ChartSpec, Kpi, Panel, ScreenConcept, UIDemoSpec
 
 logger = logging.getLogger("consultant.ui_spec")
 
-UI_SPEC_PROMPT_VERSION = "ui-spec-v3"
+UI_SPEC_PROMPT_VERSION = "ui-spec-v4"
 
 
-def _fallback_specs(req: Request, plan_result: dict, screen_count: int) -> tuple[str, list[UIDemoSpec]]:
+# ── the customer's own navigation list ────────────────────────────────────
+# Request 107 asked, in as many words, for "a dashboard that contains home,
+# gallery, about, contact" and got a five-item header: ui_spec.j2's RULES
+# block called for "5-7 short one-word items", so the stage padded the
+# customer's four up to the template's floor with "Settings". An explicit
+# constraint lost to a default, silently — and silently is the word that
+# matters, because the text-truth gate reads spec.navigation as its ground
+# truth, so it dutifully checked the invented item and passed 7/7.
+#
+# The fix is two-layered on purpose. The template (ui_spec.j2) is TOLD the
+# list, so the rest of the spec stays coherent with it — screen names, the
+# anchor tool, the AI chips. And the list is then applied HERE, in code,
+# because a prompt is a request and this is a promise: whatever the model
+# returns, the navigation a customer named is the navigation that ships,
+# and therefore also the navigation the gate measures.
+#
+# Deliberately conservative. It fires only on a navigation cue word
+# followed by a run of at least three short label-shaped items, so the
+# dental brief's "Cleanings, crowns, implants, Invisalign" and the HVAC
+# brief's "with 6 technicians" cannot be mistaken for a header. Anything
+# phrased more loosely than this regex is left to the template's
+# instruction, which reads the same brief in full — a miss here degrades
+# to the old behaviour, it never invents a list.
+
+_NAV_CUES = re.compile(
+    r"\b(?:nav|navbar|navigation|menu|header|tab|tabs|page|pages|section|sections"
+    r"|link|links|contain|contains|containing|include|includes|including)\b",
+    re.IGNORECASE,
+)
+
+# Words that can sit between the cue and the first item ("contains the
+# following pages:", "with"). Every one of them is a word no real
+# navigation label would be on its own, which is what makes stripping them
+# safe.
+_NAV_FILLER = frozenset(
+    """a an and are as be been called contains containing exactly following for
+    has have having includes including is it items just like link links menu nav
+    navbar navigation named of only pages sections shows showing such tabs that
+    the these this those with""".split()
+)
+
+# 1-3 words, letters first, nothing long enough to be a sentence. The
+# leading-letter rule is what rejects "6 technicians" and "3 dentists".
+_NAV_ITEM = re.compile(r"^[A-Za-z][A-Za-z0-9&/'’.\-]*(?: [A-Za-z0-9&/'’.\-]+){0,2}$")
+
+_NAV_SPLIT = re.compile(r"\s*(?:,|\||\band\b)\s*", re.IGNORECASE)
+
+# Three, not two: below three items a comma-separated run is far more often
+# prose than a header, and early sessions found sparse navigation renders as
+# an empty-looking bar. Eight is where prompt_builder and text_truth already
+# slice the list, so honouring a ninth item would be a promise neither the
+# image prompt nor the gate could keep.
+_MIN_EXPLICIT_NAV = 3
+_MAX_EXPLICIT_NAV = 8
+
+
+def _nav_label(raw: str) -> str:
+    """Title-cases the words the customer typed in lower case and leaves
+    everything else alone — "home" -> "Home", but "FAQ" stays "FAQ"."""
+    return " ".join(word.capitalize() if word.islower() else word for word in raw.split())
+
+
+def _leading_nav_run(text: str) -> list[str]:
+    """The run of label-shaped items at the START of `text`, stopping at the
+    first thing that is not one. Starting-run rather than best-run: a list
+    the customer wrote reads left to right from the cue, and scanning for a
+    valid run anywhere in the sentence is how "everything I need, plus a
+    calendar" turns into navigation."""
+    items: list[str] = []
+    for part in _NAV_SPLIT.split(text):
+        candidate = part.strip().strip("\"'“”()[]:;.")
+        if not candidate or len(candidate) > 24 or not _NAV_ITEM.match(candidate):
+            break
+        items.append(candidate)
+    return items
+
+
+def extract_explicit_navigation(*texts: str | None) -> list[str] | None:
+    """The navigation items the customer named, in their order, or None.
+
+    Reads each intake field in turn and returns the first list it can read
+    with confidence. Case is normalised, duplicates dropped; nothing else
+    about the customer's wording is changed.
+    """
+    for text in texts:
+        if not text or not str(text).strip():
+            continue
+        for cue in _NAV_CUES.finditer(str(text)):
+            # One sentence only: a list does not survive a full stop.
+            tail = re.split(r"[.;\n?!]", str(text)[cue.end():], maxsplit=1)[0]
+            tail = tail.lstrip(" \t:=-–—([")
+            words = tail.split()
+            while words and words[0].strip(",:").lower() in _NAV_FILLER:
+                words.pop(0)
+            items = _leading_nav_run(" ".join(words))
+
+            seen: set[str] = set()
+            labels: list[str] = []
+            for item in items:
+                label = _nav_label(item)
+                if label.lower() in seen:
+                    continue
+                seen.add(label.lower())
+                labels.append(label)
+
+            if len(labels) >= _MIN_EXPLICIT_NAV:
+                if len(labels) > _MAX_EXPLICIT_NAV:
+                    logger.warning(
+                        "explicit navigation had %s items; honouring the first %s",
+                        len(labels), _MAX_EXPLICIT_NAV,
+                    )
+                return labels[:_MAX_EXPLICIT_NAV]
+    return None
+
+
+def _apply_explicit_navigation(specs: list[UIDemoSpec], explicit_nav: list[str] | None) -> None:
+    """The customer's list, on every screen, whatever the model returned."""
+    if not explicit_nav:
+        return
+    for spec in specs:
+        spec.navigation = list(explicit_nav)
+
+
+def _fallback_specs(
+    req: Request, plan_result: dict, screen_count: int, explicit_nav: list[str] | None = None
+) -> tuple[str, list[UIDemoSpec]]:
     """Generic-but-coherent specs used when the LLM output is unusable.
     Deliberately neutral wording that can't be wrong for any industry."""
     theme = plan_result.get("visual_theme") or {}
@@ -40,7 +167,11 @@ def _fallback_specs(req: Request, plan_result: dict, screen_count: int) -> tuple
             "secondary_color": theme.get("secondary_color"),
         },
         "user": {"name": "Alex", "role": "Owner"},
-        "navigation": ["Dashboard", "Schedule", "Customers", "Billing", "Analytics", "Settings"],
+        # The customer's list survives the fallback too: this path runs when
+        # the model failed, which is no reason to stop honouring something
+        # read out of the brief in code.
+        "navigation": list(explicit_nav) if explicit_nav
+        else ["Dashboard", "Schedule", "Customers", "Billing", "Analytics", "Settings"],
         "style": {"archetype": archetype_id, "density": "normal", "palette_description": "light interface, restrained accents"},
     }
     names = ["Sarah Mitchell", "James Lopez", "Emily Chen", "Daniel Wilson", "Maria Thompson"]
@@ -84,7 +215,7 @@ def _fallback_specs(req: Request, plan_result: dict, screen_count: int) -> tuple
     return archetype_id, specs
 
 
-def _apply_anchor_tool(specs: list[UIDemoSpec], anchor_tool: dict | None) -> None:
+def _apply_anchor_tool(specs: list[UIDemoSpec], anchor_tool: dict | None, archetype_id: str = "") -> None:
     """Map the top-level `anchor_tool` object onto the anchor screen's concept.
 
     Why it is top-level in the prompt and mapped here, rather than a per-screen
@@ -102,6 +233,38 @@ def _apply_anchor_tool(specs: list[UIDemoSpec], anchor_tool: dict | None) -> Non
     if not isinstance(anchor_tool, dict) or not specs:
         return
     kind = str(anchor_tool.get("kind") or "").strip().lower()
+
+    if kind == "assistant":
+        # The conversation shape belongs to ONE archetype, and the rule is
+        # enforced here rather than trusted to the prompt. Almost every
+        # business this pipeline sees is sold an AI front-desk in its
+        # consulting summary, so "assistant" is a kind any brief could
+        # reach for — and a salon whose anchor became a chat window instead
+        # of its booking flow would be a worse demo, not a more honest one.
+        if archetype_id != ASSISTANT_ARCHETYPE:
+            logger.info(
+                "anchor_tool kind=assistant on archetype=%s — not the console, anchor stays a dashboard",
+                archetype_id,
+            )
+            return
+        turns = [
+            t for t in (anchor_tool.get("turns") or [])
+            if isinstance(t, dict) and str(t.get("text") or "").strip()
+        ]
+        if len(turns) < 2:
+            logger.info("anchor_tool kind=assistant arrived with %s turns — anchor stays a dashboard", len(turns))
+            return
+        specs[0].concept = ScreenConcept.model_validate(
+            {
+                "kind": kind,
+                "turns": turns,
+                "detail": anchor_tool.get("detail"),
+                "primary_action": anchor_tool.get("primary_action") or "",
+                "secondary_action": anchor_tool.get("secondary_action") or "",
+            }
+        )
+        return
+
     if kind not in TOOL_CONCEPT_KINDS:
         return
     steps = [s for s in (anchor_tool.get("steps") or []) if isinstance(s, dict) and s.get("label")]
@@ -169,10 +332,19 @@ def build_ui_specs(
 
     screen_count = max(2, min(3, settings.DEMO_SCREEN_COUNT))
     theme = plan_result.get("visual_theme") or {}
+    explicit_nav = extract_explicit_navigation(
+        req.business_description, req.main_problem, req.desired_outcome, req.what_you_like
+    )
+    if explicit_nav:
+        logger.info(
+            "explicit navigation read from the intake: request=%s items=%s",
+            request_id, explicit_nav,
+        )
 
     try:
         prompt = render(
             "ui_spec.j2",
+            explicit_navigation=explicit_nav,
             business_name=req.business_name or "",
             business_description=req.business_description or "",
             industry=req.industry or "unspecified",
@@ -193,7 +365,7 @@ def build_ui_specs(
         if not specs:
             raise ValueError("Model returned no screens")
 
-        _apply_anchor_tool(specs, parsed.get("anchor_tool"))
+        _apply_anchor_tool(specs, parsed.get("anchor_tool"), archetype_id)
 
         # Coherence guards the image prompt depends on: identical navigation
         # across screens (anchor's wins) and the archetype id recorded on
@@ -205,6 +377,9 @@ def build_ui_specs(
             if not spec.business.name:
                 spec.business.name = req.business_name or ""
 
+        # After the coherence loop, not inside it: the customer's list is the
+        # last word on navigation, including over the anchor's.
+        _apply_explicit_navigation(specs, explicit_nav)
         _apply_brand_string_invariant(specs)
 
         log_usage(
@@ -224,4 +399,4 @@ def build_ui_specs(
             success=False, error=str(exc)[:500],
         )
         logger.warning("ui_spec fell back to deterministic specs: request=%s error=%s", request_id, exc)
-        return _fallback_specs(req, plan_result, screen_count)
+        return _fallback_specs(req, plan_result, screen_count, explicit_nav)
