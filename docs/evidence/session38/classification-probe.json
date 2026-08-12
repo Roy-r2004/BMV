@@ -1,0 +1,293 @@
+[
+  {
+    "probe": "investment",
+    "request_id": 109,
+    "business_name": "Ridgeline Capital",
+    "archetype": "analytics-dashboard",
+    "screens": [
+      "analytics",
+      "dashboard",
+      "customers"
+    ],
+    "navigation": [
+      "Dashboard",
+      "Portfolios",
+      "Performance",
+      "Risk",
+      "Clients",
+      "Reports"
+    ],
+    "concept_name": "RidgeVault AI",
+    "anchor_kind": "selector",
+    "anchor_choice": "Select Strategy",
+    "consulting_summary": "To elevate Ridgeline Capital, your AI-powered system should unify client portfolio management, performance tracking, and real-time risk assessment. This will automate tedious tasks, freeing you to sca",
+    "cost_usd": 0.01289,
+    "ran_at": "2026-08-12T18:40:41"
+  },
+  {
+    "probe": "chatbot",
+    "request_id": 110,
+    "business_name": "Halden & Co",
+    "archetype": "operations-dashboard",
+    "screens": [
+      "dashboard",
+      "schedule",
+      "analytics"
+    ],
+    "navigation": [
+      "Dashboard",
+      "Schedule",
+      "Clients",
+      "Chatbot",
+      "Reports"
+    ],
+    "concept_name": "Halden AI Assistant",
+    "anchor_kind": "selector",
+    "anchor_choice": "Select Service",
+    "consulting_summary": "Halden & Co. will significantly benefit from an AI chatbot designed to handle customer inquiries and streamline appointment booking. This solution will free up staff time from repetitive questions, en",
+    "cost_usd": 0.01162,
+    "ran_at": "2026-08-12T18:41:06"
+  },
+  {
+    "probe": "portfolio",
+    "request_id": 111,
+    "business_name": "Jeanne Art",
+    "archetype": "analytics-dashboard",
+    "screens": [
+      "analytics",
+      "dashboard",
+      "customers"
+    ],
+    "navigation": [
+      "Home",
+      "Gallery",
+      "About",
+      "Contact"
+    ],
+    "concept_name": "Jeanne's Canvas AI",
+    "anchor_kind": "explorer",
+    "anchor_choice": "Browse Collections",
+    "consulting_summary": "To effectively showcase your unique paintings and streamline customer interactions, Jeanne Art should implement an AI-powered platform. This will provide a professional online gallery, automate respon",
+    "cost_usd": 0.01015,
+    "ran_at": "2026-08-12T18:41:27"
+  },
+  {
+    "probe": "salon",
+    "request_id": 112,
+    "business_name": "Lumi\u00e8re Hair Studio",
+    "archetype": "operations-dashboard",
+    "screens": [
+      "dashboard",
+      "schedule",
+      "analytics"
+    ],
+    "navigation": [
+      "Dashboard",
+      "Schedule",
+      "Clients",
+      "Services",
+      "Team",
+      "Analytics"
+    ],
+    "concept_name": "Lumi\u00e8re Curator",
+    "anchor_kind": "selector",
+    "anchor_choice": "Select Service",
+    "consulting_summary": "To combat lost bookings and reclaim stylist time, your business needs an AI-powered version that centralizes client interactions. This system will enable 24/7 self-service booking, manage inquiries ef",
+    "cost_usd": 0.0125,
+    "ran_at": "2026-08-12T18:41:52"
+  },
+  {
+    "probe": "investment",
+    "request_id": 113,
+    "catalog": [
+      "analytics-dashboard",
+      "assistant-console",
+      "crm-dashboard",
+      "operations-dashboard",
+      "pipeline-dashboard",
+      "scheduling-dashboard"
+    ],
+    "business_name": "Ridgeline Capital",
+    "archetype": "operations-dashboard",
+    "screens": [
+      "dashboard",
+      "schedule",
+      "analytics"
+    ],
+    "navigation": [
+      "Dashboard",
+      "Schedule",
+      "Customers",
+      "Billing",
+      "Analytics",
+      "Settings"
+    ],
+    "concept_name": "Ridgeline Nexus",
+    "anchor_kind": "dashboard",
+    "anchor_choice": null,
+    "consulting_summary": "To address your critical pain points, Ridgeline Capital needs an AI-powered investment system that automates portfolio performance tracking, risk analysis, and report generation. This will free up sig",
+    "cost_usd": 0.00275,
+    "ran_at": "2026-08-12T18:54:01"
+  },
+  {
+    "probe": "chatbot",
+    "request_id": 114,
+    "catalog": [
+      "analytics-dashboard",
+      "assistant-console",
+      "crm-dashboard",
+      "operations-dashboard",
+      "pipeline-dashboard",
+      "scheduling-dashboard"
+    ],
+    "business_name": "Halden & Co",
+    "archetype": "assistant-console",
+    "screens": [
+      "conversations",
+      "analytics",
+      "knowledge"
+    ],
+    "navigation": [
+      "Conversations",
+      "Insights",
+      "Knowledge",
+      "Settings",
+      "Help"
+    ],
+    "concept_name": "Halden AI Concierge",
+    "anchor_kind": "assistant",
+    "anchor_choice": null,
+    "consulting_summary": "Halden & Co needs a 24/7 AI-powered solution to capture missed opportunities and free up staff, focusing on instant booking and information access. This will significantly increase appointment convers",
+    "cost_usd": 0.0121,
+    "ran_at": "2026-08-12T18:54:25"
+  },
+  {
+    "probe": "portfolio",
+    "request_id": 115,
+    "catalog": [
+      "analytics-dashboard",
+      "assistant-console",
+      "crm-dashboard",
+      "operations-dashboard",
+      "pipeline-dashboard",
+      "scheduling-dashboard"
+    ],
+    "business_name": "Jeanne Art",
+    "archetype": "analytics-dashboard",
+    "screens": [
+      "analytics",
+      "dashboard",
+      "customers"
+    ],
+    "navigation": [
+      "Home",
+      "Gallery",
+      "About",
+      "Contact"
+    ],
+    "concept_name": "Jeanne Artistry Canvas",
+    "anchor_kind": "explorer",
+    "anchor_choice": "Browse Collections",
+    "consulting_summary": "To effectively showcase your unique paintings and reach a broader audience, an AI-powered version of your business should include an intuitive online platform. This will not only centralize your artwo",
+    "cost_usd": 0.01088,
+    "ran_at": "2026-08-12T18:54:50"
+  },
+  {
+    "probe": "courses",
+    "request_id": 116,
+    "catalog": [
+      "analytics-dashboard",
+      "assistant-console",
+      "crm-dashboard",
+      "operations-dashboard",
+      "pipeline-dashboard",
+      "scheduling-dashboard"
+    ],
+    "business_name": "Northlight Studio School",
+    "archetype": "assistant-console",
+    "screens": [
+      "conversations",
+      "analytics",
+      "knowledge"
+    ],
+    "navigation": [
+      "Conversations",
+      "Analytics",
+      "Knowledge Base",
+      "Courses",
+      "Settings"
+    ],
+    "concept_name": "Northlight Atelier AI",
+    "anchor_kind": "assistant",
+    "anchor_choice": null,
+    "consulting_summary": "To streamline operations and boost enrollments, Northlight Studio School should implement an AI assistant capable of automating course inquiries and the initial enrollment process. This will free up y",
+    "cost_usd": 0.01261,
+    "ran_at": "2026-08-12T18:55:13"
+  },
+  {
+    "probe": "salon",
+    "request_id": 117,
+    "catalog": [
+      "analytics-dashboard",
+      "assistant-console",
+      "crm-dashboard",
+      "operations-dashboard",
+      "pipeline-dashboard",
+      "scheduling-dashboard"
+    ],
+    "business_name": "Lumi\u00e8re Hair Studio",
+    "archetype": "operations-dashboard",
+    "screens": [
+      "dashboard",
+      "schedule",
+      "analytics"
+    ],
+    "navigation": [
+      "Dashboard",
+      "Schedule",
+      "Clients",
+      "Services",
+      "Analytics",
+      "Settings"
+    ],
+    "concept_name": "Lumi\u00e8re Lumen",
+    "anchor_kind": "selector",
+    "anchor_choice": "Select Service",
+    "consulting_summary": "Lumi\u00e8re Hair Studio, to capture lost revenue and streamline operations, needs an AI-powered platform to automate client engagement and booking. This will ensure no booking opportunities are missed, fr",
+    "cost_usd": 0.01352,
+    "ran_at": "2026-08-12T18:55:40"
+  },
+  {
+    "probe": "investment",
+    "request_id": 118,
+    "catalog": [
+      "analytics-dashboard",
+      "assistant-console",
+      "crm-dashboard",
+      "operations-dashboard",
+      "pipeline-dashboard",
+      "scheduling-dashboard"
+    ],
+    "business_name": "Ridgeline Capital",
+    "archetype": "crm-dashboard",
+    "screens": [
+      "dashboard",
+      "pipeline",
+      "analytics"
+    ],
+    "navigation": [
+      "Dashboard",
+      "Clients",
+      "Portfolios",
+      "Performance",
+      "Reports",
+      "Settings"
+    ],
+    "concept_name": "Ridgeline Ascent",
+    "anchor_kind": "selector",
+    "anchor_choice": "Select Strategy",
+    "consulting_summary": "To streamline operations and enhance client service, Ridgeline Capital needs an AI-powered investment system. This system will automate portfolio tracking, risk analysis, and performance reporting, fr",
+    "cost_usd": 0.01354,
+    "ran_at": "2026-08-12T18:57:54"
+  }
+]
