@@ -571,6 +571,19 @@ export default function StudioPage() {
                   </p>
                 </div>
 
+                {/* What class of software this is, before the screens. A
+                    customer who pictured something else needs to read that
+                    here rather than work it out from three screenshots —
+                    and the sentence is composed server-side from strings
+                    already on their request, so it can be checked against
+                    the rest of the page. */}
+                {preview.what_this_is && (
+                  <div className="studio-panel studio-whatthisis max-w-3xl mx-auto mb-10 p-6">
+                    <p className="studio-kicker mb-3">What you're looking at</p>
+                    <p className="text-slate-300 leading-relaxed">{preview.what_this_is}</p>
+                  </div>
+                )}
+
                 {/* The link comes first, before the customer scrolls into the
                     screens and forgets the page has an address at all. */}
                 {resultUrl && (

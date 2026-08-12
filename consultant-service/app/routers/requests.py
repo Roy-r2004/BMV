@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
-from app.pipeline import compositing, export_pptx, orchestrator, screen_story
+from app.pipeline import compositing, export_pptx, orchestrator, screen_story, what_this_is
 
 logger = logging.getLogger("consultant.requests")
 
@@ -143,6 +143,12 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         "business_name": req.business_name,
         "business_fit_score": None,
         "concept_name": req.concept_name,
+        # What class of software this is, in the customer's own nouns. Null
+        # when the plan stage has not named a concept yet — the page then
+        # says nothing rather than something vague.
+        "what_this_is": what_this_is.build(
+            req.business_name, req.concept_name, req.business_description,
+        ),
         "preview_summary": req.consulting_analysis,
         "preview_features": recommendations.get("recommended_features", []),
         "ai_features": ai_features,

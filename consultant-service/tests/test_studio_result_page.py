@@ -168,3 +168,62 @@ def test_customer_facing_routes_404_for_an_id_that_was_never_issued(client):
     """The id now comes from a URL a customer can edit or mistype."""
     assert client.get("/api/requests/999999/preview").status_code == 404
     assert client.get("/api/requests/999999/progress").status_code == 404
+
+
+# ── the page says what it is showing (session 38) ────────────────────────
+# Request 107 asked to showcase paintings and got an operations dashboard.
+# The header failure had a fix; this is the half no archetype solves,
+# because for that customer the honest answer is "not the thing you
+# pictured". The page now says which class of software was designed, in
+# nouns already on the request — so a customer can check it against the
+# rest of the page, and so nothing here can hallucinate.
+
+from app.pipeline import what_this_is
+
+
+def test_the_result_page_names_the_class_of_software_it_is_showing(client):
+    request_id = _seed(concept_name="Beacon Motion")
+    body = client.get(f"/api/requests/{request_id}/preview").json()
+    assert "Beacon Motion is the software Beacon Physiotherapy would run day to day" in body["what_this_is"]
+
+
+def test_a_brief_that_asked_for_a_website_is_told_plainly_that_this_is_not_one():
+    paragraph = what_this_is.build(
+        "Jeanne Art",
+        "Jeanne Artistry Canvas",
+        "I wanna showcase my paitings, with a dashboard that contains home, gallery, about, contact",
+    )
+    assert "It is not your public website." in paragraph
+    assert "back-office tool" in paragraph
+    # ...and it still names the product and the business first.
+    assert paragraph.startswith("Jeanne Artistry Canvas is the software Jeanne Art would run")
+
+
+def test_a_brief_that_asked_for_exactly_this_is_not_lectured_about_websites():
+    paragraph = what_this_is.build(
+        "Beacon Physiotherapy",
+        "Beacon Motion",
+        "Physiotherapy clinic with six therapists. Bookings, insurance pre-approvals and no-shows.",
+    )
+    assert "public website" not in paragraph
+    assert "Beacon Motion is the software" in paragraph
+
+
+def test_the_paragraph_does_not_restate_what_the_rest_of_the_page_promises():
+    """The consulting summary is a paragraph of value proposition and the
+    page already carries it twice — the AI-employee cards and the feature
+    list. Pasting it in a third time made this a wall of text on the first
+    run it was tried against (request 108)."""
+    paragraph = what_this_is.build("Summit Air", "Summit Dispatch", "HVAC company.")
+    assert paragraph.count(".") == 1, "one sentence unless the website line applies"
+    assert "takes off your hands" not in paragraph
+
+
+def test_nothing_is_said_when_there_is_not_enough_on_file_to_say_it(client):
+    """Null means "we cannot say" — the page renders nothing rather than a
+    sentence with a hole in it."""
+    assert what_this_is.build("Jeanne Art", None) is None
+    assert what_this_is.build(None, "Some Product") is None
+    assert what_this_is.build("  ", "  ") is None
+    request_id = _seed(concept_name=None)
+    assert client.get(f"/api/requests/{request_id}/preview").json()["what_this_is"] is None

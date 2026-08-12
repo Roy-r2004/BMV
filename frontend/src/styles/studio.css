@@ -338,6 +338,15 @@
   border-color: #e2e8f0;
 }
 
+/* ── what class of software this is ───────────────────────────────────── */
+
+/* Set apart from the screens rather than dressed up: this paragraph is the
+   page telling a customer plainly what was designed for them, and it reads
+   as an aside only if it looks like one. */
+.studio-whatthisis {
+  border-left: 2px solid rgba(34, 211, 238, 0.45);
+}
+
 /* ── the keepsake: this run's permanent address ───────────────────────── */
 
 .studio-keepsafe {

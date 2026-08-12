@@ -84,6 +84,10 @@ export interface StudioPreview {
   id: number;
   business_name: string;
   concept_name: string | null;
+  /** What class of software this is, composed server-side from strings
+   *  already on the request. Null when the plan stage has not named a
+   *  concept yet — render nothing rather than something vague. */
+  what_this_is: string | null;
   preview_summary: string | null;
   /** Plain strings from the consult stage, not objects. */
   preview_features: string[];
