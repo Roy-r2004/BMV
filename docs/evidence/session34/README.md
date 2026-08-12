@@ -50,7 +50,13 @@ see [`next-session-runbook.md`](next-session-runbook.md).
 
 ## The full-set re-measure (4 of 5 briefs, control arm v2)
 
-[`fullset-results.md`](fullset-results.md) has the table. Headlines
+[`fullset-results.md`](fullset-results.md) has the table, and the proof
+sheet of every screen this session generated, annotated with the
+instruments' verdicts, is at
+https://claude.ai/code/artifact/9abc3d1c-e107-4705-b631-6d832347f6ea
+(rebuild: `aggregate_fullset.py` writes the numbers,
+`gallery_manifest.json` + the build script in the session scratchpad
+render the page). Headlines
 against session 33 on the same briefs:
 
 | | s33 | s34 |
