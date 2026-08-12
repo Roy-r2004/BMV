@@ -338,3 +338,48 @@ def test_the_code_gate_only_ever_subtracts(dental_spec):
         verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
 
     assert not verdict["approved"]
+
+
+# ── a failed-open defect check is unknown, not clean (request 107) ────────
+# A 429 killed the inspector on a candidate that visibly carried a
+# duplicated panel; the rank saw "no confirmed defects" and believed it
+# clean. Three states now: inspected-clean > unknown > confirmed.
+
+
+def _rank_cand(score, *, checked, confirmed=0):
+    return {"verdict": {
+        "score": score, "issues": [], "approved": False,
+        "text_truth": {"passed": True},
+        "defects": {"confirmed": [{"kind": "duplicated_panel"}] * confirmed, "checked": checked},
+    }}
+
+
+def test_inspected_clean_outranks_a_failed_open_check_regardless_of_score():
+    checked_75 = _rank_cand(7.5, checked=True)
+    unknown_90 = _rank_cand(9.0, checked=False)
+    assert images._fallback_rank(checked_75) > images._fallback_rank(unknown_90)
+
+
+def test_request_107s_unknown_still_outranks_the_confirmed_and_that_is_deliberate():
+    """The 6.8 whose inspector died still ships over the 8.7 with one
+    confirmed defect — unknown is not known-bad, the text rank's own
+    principle. The cure for 107's blind spot is inspector retry under
+    throttling, not a rank that punishes missing data harder than known
+    damage. What this change buys is that the blindness is recorded
+    (defects_checked in the metadata) and ranked below verified clean."""
+    unknown_68 = _rank_cand(6.8, checked=False)
+    confirmed_87 = _rank_cand(8.7, checked=True, confirmed=1)
+    assert images._fallback_rank(unknown_68) > images._fallback_rank(confirmed_87)
+
+
+def test_a_failed_open_inspector_is_recorded_as_unchecked_not_clean(dental_spec):
+    body = {"choices": [{"message": {"content": '{"score": 9.0, "issues": [], "approved": true}'}}], "usage": {}}
+    with patch.object(qa.provider, "chat", return_value=body), \
+         patch.object(qa.settings, "ENABLE_TEXT_TRUTH_GATE", False), \
+         patch.object(qa.settings, "ENABLE_DEFECT_CHECK", True), \
+         patch.object(qa.defect_check, "inspect_call",
+                      return_value={"claims": [], "usage": None, "error": "upstream 429"}), \
+         patch.object(qa, "log_usage"):
+        verdict = qa.review_image(_FakeDb(), 1, VALID_PNG, dental_spec)
+    assert verdict["defects"]["checked"] is False
+    assert verdict["defects"]["confirmed"] == []

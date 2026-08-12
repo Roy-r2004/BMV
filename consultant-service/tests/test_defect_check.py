@@ -121,7 +121,7 @@ def test_a_refuted_claim_rejects_nothing():
         verifier=_resp('{"verdict": "refuted", "reason": "the two cards differ in title and rows"}'),
     ))
     assert verdict["approved"] is True
-    assert verdict["defects"] == {"claims": 1, "confirmed": []}
+    assert verdict["defects"] == {"claims": 1, "confirmed": [], "checked": True}
 
 
 def test_a_clean_report_spends_no_verifier_calls():
@@ -133,7 +133,7 @@ def test_a_clean_report_spends_no_verifier_calls():
     )
     verdict = _review(fake)
     assert verdict["approved"] is True
-    assert verdict["defects"] == {"claims": 0, "confirmed": []}
+    assert verdict["defects"] == {"claims": 0, "confirmed": [], "checked": True}
 
 
 def test_off_rubric_and_text_claims_die_before_the_verifier():
@@ -165,7 +165,10 @@ def test_an_inspector_outage_fails_open():
         inspector=RuntimeError("inspector down"),
     ))
     assert verdict["approved"] is True
-    assert verdict["defects"] == {"claims": 0, "confirmed": []}
+    # Fails open for APPROVAL — but recorded as unchecked, not clean, so the
+    # fallback rank can no longer mistake blindness for cleanliness
+    # (request 107's duplicated panel shipped exactly that way).
+    assert verdict["defects"] == {"claims": 0, "confirmed": [], "checked": False}
 
 
 def test_the_check_only_subtracts_never_rescues():
@@ -241,7 +244,7 @@ def test_the_three_instruments_fire_concurrently():
     # fails the text gate; that behaviour has its own pin in
     # test_text_truth.py and is not this test's subject.)
     assert verdict["score"] == 9.0
-    assert verdict["defects"] == {"claims": 0, "confirmed": []}
+    assert verdict["defects"] == {"claims": 0, "confirmed": [], "checked": True}
 
 
 def test_followup_screens_run_in_parallel_on_their_own_sessions(dental_spec):

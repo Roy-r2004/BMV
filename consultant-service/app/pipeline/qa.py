@@ -346,6 +346,12 @@ def review_image(db: Session, request_id: int, image_bytes: bytes, spec: UIDemoS
         verdict["defects"] = {
             "claims": len(inspect_result["claims"]),
             "confirmed": confirmed,
+            # A fail-open inspector must be distinguishable from a clean
+            # pass downstream: on request 107 a 429 killed the inspector,
+            # the candidate recorded zero defects while visibly carrying a
+            # duplicated panel, and the fallback rank treated the blindness
+            # as cleanliness. claims==0 with an error is unknown, not clean.
+            "checked": inspect_result["error"] is None,
         }
         if confirmed:
             verdict["issues"] = (verdict.get("issues") or []) + [

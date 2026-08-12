@@ -363,10 +363,26 @@ def _fallback_rank(cand: dict) -> tuple[int, int, float]:
     session 34) the dashboard's regeneration produced a CLEAN 7.8 and
     this rank shipped the 8.1 carrying a verifier-confirmed floating
     backdrop instead. A prospect notices the defect, not the 0.3.
+
+    Defects rank three ways since request 107: a candidate whose defect
+    inspection FAILED OPEN (a 429 mid-throttle) looked identical to a
+    checked-clean one, and the rank shipped a 6.8 carrying an unverified
+    duplicated panel while believing it clean. Checked-clean now outranks
+    unknown, which still outranks confirmed — unknown is not known-bad,
+    the same principle the text rank has always used. On 107's exact pair
+    the unknown candidate still ships (that is deliberate); what changed
+    is that blindness is recorded and ranked below verified cleanliness
+    instead of silently equal to it.
     """
     passed = (cand["verdict"].get("text_truth") or {}).get("passed", None)
     text_rank = {True: 2, None: 1, False: 0}[passed]
-    clean_rank = 0 if (cand["verdict"].get("defects") or {}).get("confirmed") else 1
+    defects = cand["verdict"].get("defects")
+    if defects and defects.get("confirmed"):
+        clean_rank = 0
+    elif defects is None or not defects.get("checked", True):
+        clean_rank = 1  # unknown: the gate was off, or the inspector failed open
+    else:
+        clean_rank = 2  # inspected and clean
     return text_rank, clean_rank, cand["verdict"]["score"] or 0
 
 
@@ -615,6 +631,9 @@ def _save_selected(
                 "qa_score": c["verdict"]["score"],
                 "text_truth_passed": (c["verdict"].get("text_truth") or {}).get("passed"),
                 "defects_confirmed": len((c["verdict"].get("defects") or {}).get("confirmed", [])),
+                # None = gate off; False = inspector failed open (request
+                # 107's blind spot, invisible in this file until it wasn't).
+                "defects_checked": (c["verdict"].get("defects") or {}).get("checked"),
                 "approved": c["verdict"]["approved"],
                 "latency_s": round(c["latency_s"], 1),
                 "selected": c is selected,
