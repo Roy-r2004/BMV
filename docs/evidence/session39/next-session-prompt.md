@@ -1,10 +1,10 @@
-# Kickoff — the navigation answers now; go and look at it
+# Kickoff — the header can still lose the customer's word
 
 *Supersedes session 38's prompt. Its JOB 1 is closed — verifier v2's cost
-is measured and bounded. The two defects session 39 found on request 130
-are both fixed in `ui-spec-v5` and both await a funded run. The cost
-program remains closed. The chart tail is unchanged and still
-owner-gated.*
+is measured and bounded. Of the two defects session 39 found on request
+130, the hero-coherence fix is verified live on request 138 and the
+navigation fix is landed but inert on that brief. The cost program remains
+closed. The chart tail is unchanged and still owner-gated.*
 
 Read first, in this order:
 
@@ -45,35 +45,55 @@ back to the owner first. Generators may vary; instruments are held fixed
 while they do. That rule is what makes every number in these documents
 comparable across sessions.
 
-## JOB 1 — draw a screen under ui-spec-v5
+## JOB 1 — the header can still lose the customer's word
 
-Session 39 fixed both defects it found on request 130 and **neither has a
-funded image run behind it**. The deterministic halves are unit-tested and
-the prompt half is verified across seven briefs of real model output
-(`golden/briefs-v5`, 20 of 21 screens declaring a valid, unique
-`active_nav`) — but nothing has yet *drawn* a screen under v5.
+Request 138 rendered `Home | Analytics | About | Contact` on its Dashboard.
+The customer asked for Gallery. This is the highest-value open defect,
+because it defeats the fidelity work at the last step and **every gate
+passed it**:
 
-One run on request 130's brief (~$0.75 at that brief's observed rate)
-answers all of it at once:
+- `text_truth` checks whether each expected string is present ANYWHERE on
+  the screen. "Gallery" appears twice on that Dashboard ("GALLERY VIEWS",
+  "Gallery Showcase"), so the header could lose it and the gate still
+  passed, `checked: 6, failures: []`.
+- It is a substitution, not an addition, so the count is still four.
+- The anchor drew the header correctly; the *follow-up* corrupted it,
+  while being shown the anchor and told to place navigation exactly where
+  the attached image places it.
 
-- does the header now show a **different** item active on each screen, in
-  the pixels — Home on the overview, Gallery on the browser?
-- does the hero caption match its detail panel?
-- did adding a field to the spec prompt cost anything elsewhere? A new
-  instruction always has blast radius, and v5's is the first change to
-  that prompt since v4.
+The fix has been named since session 38 and is now clearly worth its
+price: **positional transcription**. Ask the transcriber not "is this
+string on the screen" but "read the items in the top navigation bar, left
+to right", then diff that list against `spec.navigation` in code. That is
+one extra cheap call per screen, it catches substitutions, additions,
+drops and reorderings in one move, and it is the only thing that can.
 
-Compare against 108 ($0.64505, 5 images, v1 verifier, dead nav) and 130
-($0.75268, 6 images, v2 verifier, dead nav). Same brief three times is as
-close to a controlled series as this pipeline gets.
+It is a new instrument, so it needs the owner's go, a labelled set and a
+before/after — but the labelled set is free: requests 107, 108, 130 and
+138 are already on disk with their specs, and the headers can be eyed.
 
-**Watch for one specific regression.** `active_nav` is chosen by the model
-and validated only for membership and uniqueness — not for being the
-*right* item. A screen marked Gallery that is plainly the customer list is
-a new failure mode, invisible to text-truth (the string is authorised) and
-to the defect inspector (it looks within a panel). Eyes on the images.
+## JOB 2 — make abstention explicit, not silent
 
-## JOB 2 — the judge, if the owner wants it touched
+`active_nav` shipped with "declaring nothing is honest" as its fallback.
+Request 138 falsified that. On the Customers screen — collectors, patrons,
+contact counts — the spec declared "" and the image model marked
+**Gallery** active anyway. Where the spec is silent the model fills the
+vacancy, the same mechanism as an untitled panel getting a heading
+invented for it.
+
+Two things to do, both cheap:
+
+1. When no screen-appropriate item exists, `prompt_builder` should say so
+   explicitly rather than omit the clause — the omission is what the model
+   is filling. Mind the blast radius: this is a new instruction, so it is
+   a prompt change with a funded run behind it, not a free edit.
+2. The model declined to declare on 2 of 3 screens of the gallery brief
+   even though the prompt's worked example is literally that brief's
+   mapping. It mapped confidently on 5 of 7 golden briefs, so the
+   instruction works in general and fails on this shape. Worth one look at
+   whether `screen_type` is anchoring it.
+
+## JOB 3 — the judge, if the owner wants it touched
 
 `image_quality_judge.j2` criterion 4 grades data-visualisation craft, and
 it docked 130/Analytics for reading "more like a marketing page" — on a
@@ -87,7 +107,7 @@ invalidates cross-session score comparisons wherever it applies. It needs
 the owner's explicit go, a labelled set, and a before/after. Do not touch
 it as a side effect of anything else.
 
-## JOB 3 — the chart tail (unchanged, owner-gated)
+## JOB 4 — the chart tail (unchanged, owner-gated)
 
 Both of request 119's console re-rolls were `malformed_data_display` on a
 chart: unevenly stepped Y-axis ticks at even spacing. Same finding as
@@ -112,9 +132,13 @@ spaced, so the tail is a tail and not a constant.
   recur on the same brief in 130. One run, one brief; the investment and
   schedule briefs that produced "Institutional Fund ABC" and "Client
   B/C/D/E/F" have not been re-run since the v4 rule landed.
-- **An honoured navigation still cannot catch an INVENTED item.** Both
-  known sources are cut off upstream, but a third would be silent.
-  Detecting extras needs positional transcription, which nothing has.
+- **The hero-coherence invariant is verified live** (request 138: the model
+  again captioned the wrong painting, `'Tuscan Sunset' -> 'Morning Mist'`,
+  and the caption, detail panel and picker all agreed in the pixels).
+- **v5 blast radius is unmeasured.** Request 138 scored 7.5/7.0/7.5 against
+  130's 8.1/8.0/8.7 on the same brief and config. One run each and image QA
+  is noisy, but it is the wrong direction after a prompt change and should
+  not be quoted as "no effect".
 - **Archetype selection is not deterministic.** No write-up should say a
   class "lands on X" from a single run.
 - **The scaffolding leak has not recurred.** 105's "Floating Labels" chip

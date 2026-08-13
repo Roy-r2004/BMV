@@ -243,6 +243,71 @@ are unit-tested and the prompt half is verified across seven briefs of real
 model output, but nothing has yet drawn a screen under v5. That is the
 first thing to spend on next.
 
+## Request 138 — the funded run under v5
+
+[/studio/138](http://localhost:5173/studio/138) — **$0.78697, 6 images**,
+same brief again. The service was restarted first: uvicorn runs without
+`--reload`, so the live process was still holding v4 and this run would
+otherwise have paid to test the old code.
+
+**The hero fix is verified end to end.** The bug reproduced — the model
+again captioned the hero with the wrong painting — and the invariant
+caught it before anything was drawn:
+
+    hero caption renamed to the screen's subject: 'Tuscan Sunset' -> 'Morning Mist'
+
+In the rendered Analytics screen the caption reads "Morning Mist", the
+detail panel reads "MORNING MIST", and the picker's selected row reads
+"MORNING MIST". On request 130 those three were three different paintings.
+The fix is load-bearing, not cosmetic.
+
+**The navigation fix was inert on this brief.** Only 1 of 3 screens
+declared an item (Dashboard → Home); Analytics and Customers declared "".
+The prompt gives "a screen browsing the catalogue for a header containing
+'Gallery' is Gallery" as its worked example and the model still declined
+to apply it to a screen whose `screen_type` is "analytics". The declared
+value that did exist was honoured, so the mechanism works; the model's
+willingness to use it does not survive contact with this brief.
+
+**Silence is not neutral — the assumption behind the design was wrong.**
+"Declaring nothing is honest" was the reasoning for letting a screen
+abstain. On the Customers screen, which declared "", the image model
+marked **Gallery** active — on a screen of collectors, patrons and contact
+counts. Where the spec says nothing the model does not leave the header
+alone; it fills the vacancy, exactly as an untitled panel gets a heading
+invented for it. Abstention needs to become an explicit instruction, not
+an absence.
+
+### The serious one: the honoured header lost the customer's word
+
+The Dashboard renders **`Home | Analytics | About | Contact`**. The
+customer asked for Gallery. It is not an extra item — the count is still
+four — it is a **substitution**, and every gate passed it:
+
+- `text_truth` returned `passed: true, checked: 6, failures: []`, because
+  it checks whether each expected string is present *anywhere* on the
+  screen, and "Gallery" is present twice on that Dashboard — "GALLERY
+  VIEWS" in the KPI strip and "Gallery Showcase" in Upcoming Exhibitions.
+  The header lost the word; the screen did not.
+- The spec-level coherence guard compares specs, not pixels, and all three
+  specs carry the identical four items.
+- A count check would not fire either.
+
+The anchor was Analytics and it drew the header correctly. The Dashboard
+is a *follow-up*, drawn with the anchor attached as a reference image and
+told "Navigation items — placed exactly where the attached image places
+them", and it still swapped one. Session 38 recorded this class as
+undetectable without positional transcription; session 39 shows it is
+worse than recorded, because a substitution hides behind any displaced
+word that happens to appear elsewhere on the screen.
+
+### Blast radius
+
+QA scores 7.5 / 7.0 / 7.5 (mean 7.33) against request 130's 8.1 / 8.0 /
+8.7 (mean 8.27), same brief, same config. One run against one run, and
+image QA is noisy, but it is the wrong direction after a prompt change and
+should not be quoted as "no effect". The image count was unchanged at 6.
+
 ## Cost accounting
 
 | item | cost |
@@ -252,9 +317,10 @@ first thing to spend on next.
 | verifier cost replay, 47 images / 76 claims / 2 arms | $0.18215 |
 | request 130, funded run | $0.75268 |
 | v5 golden set, 7 briefs, text stages only | $0.06590 |
-| **total** | **$4.82725** |
+| request 138, the v5 verification run | $0.78697 |
+| **total** | **$5.61422** |
 
-$0.17275 to the $5 stop, $1.17275 to the envelope.
+Past the $5 checkpoint (reported and authorised), $0.38578 to the envelope.
 
 ## Tests
 
