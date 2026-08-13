@@ -1,4 +1,4 @@
-# Kickoff — the header can still lose the customer's word
+# Kickoff — the demo can be a website now; go and draw one
 
 *Supersedes session 38's prompt. Its JOB 1 is closed — verifier v2's cost
 is measured and bounded. Of the two defects session 39 found on request
@@ -31,11 +31,15 @@ Read first, in this order:
   the DEFAULT set is still v1 because every evidence document before
   session 38 means v1 by "the golden set" and `--frozen-specs` replays it.
   Address a set explicitly: `GOLDEN_BRIEFS_DIR=golden/briefs-v5`.
-- **No public-site archetype** without a judge change first — and a judge
-  change is its own step with a before/after over a labelled set. Session
-  39 got fresh evidence for the original decision: the judge docked
-  130/Analytics for feeling "more like a marketing page", on a brief where
-  looking like a gallery is the *correct* answer.
+- **The public-site archetype exists** (session 39, owner's decision), and
+  the reasoning that blocked it in session 38 is retired: declining to
+  build a product because the measuring instrument rejects it is the wrong
+  dependency direction. It ships with its own rubric rather than a change
+  to the dashboard one, so no published score moved.
+- **The additive rule for surfaces.** Anything that existed before session
+  39 routes to `image_quality_judge.j2`, the same file. Moving
+  `conversation` onto its own rubric is available but is a score-moving
+  change and owes a before/after.
 
 ## The one thing to say back before instrument work
 
@@ -45,7 +49,49 @@ back to the owner first. Generators may vary; instruments are held fixed
 while they do. That rule is what makes every number in these documents
 comparable across sessions.
 
-## JOB 1 — the header can still lose the customer's word
+## JOB 1 — draw a public page. Nothing ever has.
+
+Session 39 built the surface mechanism (`app/surfaces.py`): a screen
+declares what CLASS of surface it is, and that routes both the prompt that
+draws it and the rubric that scores it. The `public-site` archetype is
+**home** (marketing) → **gallery** (catalog) → **manage** (back office),
+and the classifier picks it correctly for the owner's brief while leaving
+the salon control on its dashboard (probe, $0.02193, requests 139/140).
+
+**All of it is unproven in pixels.** No image has ever been generated on a
+public surface. Unit tests cover the routing and the prompt text; a text
+probe covers the classification; nothing covers whether the image model
+renders a credible landing page or whether the new rubric scores one
+sanely. One funded run on the gallery brief (~$0.75) is the first job and
+it answers:
+
+- does `_marketing_block` produce a landing page, or a dashboard with the
+  furniture stripped out and nothing put in its place?
+- does `_catalog_block` produce a real grid with captions and filters?
+- does `image_quality_judge_public.j2` score them in a sane range, or does
+  it reject correct pages? **A rejection costs a regeneration**, so a badly
+  calibrated public rubric spends money on every run.
+- is the third screen still recognisably the owner's back office?
+
+Report those scores flagged as public-surface — they are NOT comparable to
+the dashboard corpus (mean 8.228, sd 0.489), for the same reason console
+scores are not.
+
+**Two known loose ends to look for on that run.**
+
+1. `_apply_anchor_tool` still gives the anchor a selection flow ("explorer:
+   Select Collection" on request 139), but the anchor is now a landing page
+   and `_marketing_block` ignores `concept.steps`. Harmless — the surface
+   branch runs before every `is_tool_screen` check — but the spec carries a
+   flow that never renders, and the mechanism assumes the anchor is an app
+   screen.
+2. The model renames screens (`home-page` rather than `home`). Surface
+   routing is positional and indifferent, but `screen_title` becomes "Home
+   Page" while the customer's nav says "Home", so `active_nav_item`'s
+   title-match fallback cannot fire and the whole burden falls on the
+   declared `active_nav`.
+
+## JOB 2 — the header can still lose the customer's word
 
 Request 138 rendered `Home | Analytics | About | Contact` on its Dashboard.
 The customer asked for Gallery. This is the highest-value open defect,
@@ -72,7 +118,7 @@ It is a new instrument, so it needs the owner's go, a labelled set and a
 before/after — but the labelled set is free: requests 107, 108, 130 and
 138 are already on disk with their specs, and the headers can be eyed.
 
-## JOB 2 — make abstention explicit, not silent
+## JOB 3 — make abstention explicit, not silent
 
 `active_nav` shipped with "declaring nothing is honest" as its fallback.
 Request 138 falsified that. On the Customers screen — collectors, patrons,
@@ -93,7 +139,7 @@ Two things to do, both cheap:
    instruction works in general and fails on this shape. Worth one look at
    whether `screen_type` is anchoring it.
 
-## JOB 3 — the judge, if the owner wants it touched
+## JOB 4 — the judge, if the owner wants it touched
 
 `image_quality_judge.j2` criterion 4 grades data-visualisation craft, and
 it docked 130/Analytics for reading "more like a marketing page" — on a
@@ -107,7 +153,7 @@ invalidates cross-session score comparisons wherever it applies. It needs
 the owner's explicit go, a labelled set, and a before/after. Do not touch
 it as a side effect of anything else.
 
-## JOB 4 — the chart tail (unchanged, owner-gated)
+## JOB 5 — the chart tail (unchanged, owner-gated)
 
 Both of request 119's console re-rolls were `malformed_data_display` on a
 chart: unevenly stepped Y-axis ticks at even spacing. Same finding as

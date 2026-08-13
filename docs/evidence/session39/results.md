@@ -335,6 +335,96 @@ rendered header match `spec.navigation`, and does the hero caption match
 its detail panel. So v5's image-quality effect is **unmeasured and
 probably unmeasurable this way** — not "harmful", and not "neutral".
 
+## Surfaces — a public page is a different kind of screen, not a dashboard with different data
+
+The owner's reading of the last two sessions, and it is the right one: the
+fidelity work honoured the customer's four words **as text in a header**
+and kept generating three admin screens underneath. Cosmetic fidelity. The
+customer asked for home / gallery / about / contact — those are public
+pages — and got a back office wearing them, plus a paragraph on the result
+page explaining "It is not your public website".
+
+Session 38's reason for declining a public archetype was also backwards:
+it declined *because the judge auto-rejects "a marketing-page
+composition"*. That let a measuring instrument decide what product to
+build. The judge is ours; the customer's business is not.
+
+### The mechanism
+
+`app/surfaces.py`. A **surface** is what class of software surface a screen
+is, and it routes three things that used to be hard-coded: the prompt shape
+that draws it, the rubric that scores it, and what counts as a defect on
+it.
+
+| surface | drawn as | judged by |
+|---|---|---|
+| `back_office` | dashboards, schedules, pipelines | `image_quality_judge.j2` **unchanged** |
+| `conversation` | the assistant thread | `image_quality_judge.j2` **unchanged** |
+| `marketing` | full-bleed hero, one CTA, value points | `image_quality_judge_public.j2` |
+| `catalog` | grid of items with filters | `image_quality_judge_public.j2` |
+
+**The additive rule is what makes this safe.** Every surface that existed
+before routes to the same judge file, so no published score moves and the
+refactor owes no before/after. A test asserts a spec with no surface — every
+frozen golden bundle — renders a byte-identical prompt. Moving
+`conversation` onto its own rubric is a live option, and deliberately not
+taken: it is a score-moving change and owes its own measurement.
+
+**Routing is deterministic, not a second classifier call.** The archetype
+is already chosen by an LLM; each of its screens declares its surface, so
+the shape that DRAWS a screen and the rubric that SCORES it read one
+answer. A per-image classifier would be a second model re-deciding what the
+generator already knows, and every disagreement would be a screen judged by
+the wrong rubric, silently. Stamping is positional, which turned out to
+matter: the model named the screens `home-page` / `gallery-browser` /
+`visitor-analytics` rather than the archetype's `home` / `gallery` /
+`manage`, and positional routing is indifferent to that.
+
+### The archetype
+
+`public-site`: **home** (marketing) → **gallery** (catalog) → **manage**
+(back_office). Two screens the visitor sees, one the owner works in. All
+public would be a website mock-up with no software in it; all back-office
+is what request 138 already got wrong.
+
+### Verified
+
+Classification probe, $0.02193 — the decision that makes or breaks the
+whole thing:
+
+    portfolio  req=139  public-site           home-page -> gallery-browser -> visitor-analytics
+                        nav=['Home', 'Gallery', 'About', 'Contact']
+    salon      req=140  operations-dashboard  dashboard -> schedule -> analytics
+
+The owner's own brief routes to the new archetype on the first try, and the
+salon control does not move — a hair salon still gets its back office.
+
+**The prompt contradicted itself and the tests caught it.** The first
+rendering asked for "Navigation items (left sidebar...)" and named the
+sidebar again in the branding block, while the surface block two lines
+below said "no sidebar" — the pipeline issuing opposite instructions in one
+breath, the same defect class as the duplicated navigation and the double
+CTA. Fixed in `_nav_block`, `_branding` and `_task_line`, and pinned.
+
+Suite **435 passed**, from 414.
+
+### Not verified — and this is the whole caveat
+
+**No image has ever been drawn on a public surface.** Everything above is
+prompt text, routing and rubric, proven by unit tests and one text-stage
+probe. Whether the image model actually renders a credible landing page
+from `_marketing_block`, and whether `image_quality_judge_public.j2` scores
+it sanely, is unknown until a funded run. At $5.64 of a $6 envelope there
+was no room for one, and that run is the next session's first job.
+
+**One tension found and left.** `_apply_anchor_tool` gave request 139's
+anchor a selection flow ("explorer: Select Collection") — but the anchor is
+now a landing page, and `_marketing_block` ignores `concept.steps`
+entirely. Harmless today, because the surface branch runs before every
+`is_tool_screen` check. It does mean the spec carries a flow that never
+renders, and the anchor-tool mechanism still assumes the anchor is an app
+screen.
+
 ## Cost accounting
 
 | item | cost |
@@ -345,14 +435,15 @@ probably unmeasurable this way** — not "harmful", and not "neutral".
 | request 130, funded run | $0.75268 |
 | v5 golden set, 7 briefs, text stages only | $0.06590 |
 | request 138, the v5 verification run | $0.78697 |
-| **total** | **$5.61422** |
+| classification probe, portfolio + salon | $0.02193 |
+| **total** | **$5.63615** |
 
-Past the $5 checkpoint (reported and authorised), $0.38578 to the envelope.
+Past the $5 checkpoint (reported and authorised), $0.36385 to the envelope.
 
 ## Tests
 
 `docker exec -w /repo/consultant-service bmv-consultant python -m pytest -q`
-— **414 passed**, from a 368 baseline. Four
+— **435 passed**, from a 368 baseline. Four
 (`tests/test_verifier_cost_ab.py`) pin the two ways the cost harness fails
 silently: a mis-parsed `--requests` range measures the wrong corpus and
 reports a confident number about it, and a `TEMPLATE` constant that drifts
