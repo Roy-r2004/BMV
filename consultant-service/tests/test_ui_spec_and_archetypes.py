@@ -498,3 +498,42 @@ def test_an_already_coherent_caption_is_not_rewritten():
     })
     _apply_hero_subject_invariant(specs)
     assert specs[0].hero.caption == "Azure Embrace"
+
+
+# --- session 39: modal verbs between the cue and the first item ----------
+
+
+def test_a_modal_verb_does_not_get_glued_onto_the_first_nav_item():
+    """Found while writing the production intake guidance, before it reached
+    a client: "The navigation should be Home, Shop, ..." read back as
+    ['Should Be Home', 'Shop', ...] — the header would have rendered
+    "Should Be Home". "be" was already filler; "should" was not, so the
+    stripper stopped at it and the leading run swallowed both words.
+
+    Every phrasing here is one a customer would plausibly type."""
+    from app.pipeline.ui_spec import extract_explicit_navigation as extract
+
+    assert extract("The navigation should be Home, Shop, Lookbook, Contact") == [
+        "Home", "Shop", "Lookbook", "Contact",
+    ]
+    assert extract("The header must be Home, Menu, Bookings, Contact") == [
+        "Home", "Menu", "Bookings", "Contact",
+    ]
+    assert extract("The nav will be Home, Work, About, Contact") == [
+        "Home", "Work", "About", "Contact",
+    ]
+    assert extract("A site with pages that comprise Home, Studio, Press, Contact") == [
+        "Home", "Studio", "Press", "Contact",
+    ]
+
+
+def test_widening_the_filler_set_did_not_widen_what_counts_as_a_header():
+    """The guard that matters: this extractor must never mistake prose for a
+    navigation list. The salon brief's service list and a short "and" pair
+    both stay unread, exactly as before."""
+    from app.pipeline.ui_spec import extract_explicit_navigation as extract
+
+    assert extract("Hair salon with five stylists. Colour, cuts, treatments and extensions.") is None
+    assert extract("Build me a portfolio site with home and contact") is None, "two items is below the floor"
+    assert extract("I want a nice website for my bakery") is None
+    assert extract("HVAC contractor with 6 technicians") is None

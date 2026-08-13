@@ -62,10 +62,11 @@ _NAV_CUES = re.compile(
 # navigation label would be on its own, which is what makes stripping them
 # safe.
 _NAV_FILLER = frozenset(
-    """a an and are as be been called contains containing exactly following for
-    has have having includes including is it items just like link links menu nav
-    navbar navigation named of only pages sections shows showing such tabs that
-    the these this those with""".split()
+    """a an and are as be been called comprise comprised comprises consist consisting
+    consists contains containing could exactly following for has have having includes
+    including is it items just like link links made may menu might must nav navbar
+    navigation named of only pages sections shall should shows showing such tabs that
+    the these this those up want wants will with would""".split()
 )
 
 # 1-3 words, letters first, nothing long enough to be a sentence. The
