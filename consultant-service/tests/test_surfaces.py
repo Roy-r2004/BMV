@@ -301,7 +301,16 @@ def test_the_archetype_catalogue_offers_the_public_option_to_the_classifier():
     """The ui_spec stage can only pick what the catalogue describes."""
     catalog = archetypes.catalog_for_prompt()
     assert archetypes.PUBLIC_SITE_ARCHETYPE in catalog
-    assert "home -> gallery -> manage" in catalog
+    # Public screens are MARKED, because the stage that writes the words
+    # chooses the archetype and then has to know which screens a visitor
+    # reads. Request 141 had every public screen greeting the owner.
+    # The marker sits in its OWN clause. Request 143 fused it to the token
+    # and the model wrote "home [PUBLIC PAGE]" back as product.screen_type,
+    # so the studio page labelled the tab "Home [Public Page]".
+    assert "Screens: home -> gallery -> manage" in catalog
+    assert "a VISITOR sees: home, gallery" in catalog
+    assert "[PUBLIC PAGE]" not in catalog, "never fuse a marker to a screen_type token"
+    assert "dashboard -> schedule -> analytics" in catalog, "internal screens stay unmarked"
 
 
 @pytest.mark.parametrize("count", [2, 3])
@@ -429,3 +438,107 @@ def test_a_whole_new_business_shape_needs_no_new_code():
         mp.setattr(prompt_builder.settings, "ENABLE_ART_PACKS", True)
         packed = prompt_builder.build_dashboard_image_prompt(spec, archetype_id="restaurant-site")
         assert "Public Site pack" in packed, "inherited the surface's art pack"
+
+
+# ── what request 141 rendered wrong ──────────────────────────────────────
+
+def test_an_owner_greeting_never_becomes_a_public_headline():
+    """Request 141 drew "Good morning, Jeanne" as the hero headline of an
+    artist's landing page — the page addressing the artist. The prompt now
+    asks for a visitor-facing headline; this is the promise behind it."""
+    from app.pipeline.prompt_builder import public_headline
+
+    for greeting in ("Good morning, Jeanne", "good afternoon, Dana",
+                     "Welcome back, Jeanne", "Hi Jeanne", "Hello there"):
+        spec = _public_spec(surfaces.MARKETING, greeting=greeting)
+        assert public_headline(spec) == "Jeanne Art", greeting
+
+
+def test_a_visitor_facing_headline_is_kept_exactly():
+    from app.pipeline.prompt_builder import public_headline
+
+    spec = _public_spec(surfaces.MARKETING, greeting="Original oil on canvas")
+    assert public_headline(spec) == "Original oil on canvas"
+
+
+def test_a_public_page_carries_no_ai_module():
+    """_ai_layer_block describes a titled panel with a confidence ring, and
+    on request 141 the model drew it as a detached card floating on the
+    backdrop beside the page — on all three screens."""
+    from app.pipeline import prompt_builder
+
+    for surface in (surfaces.MARKETING, surfaces.CATALOG):
+        spec = _public_spec(surface, ai={
+            "title": "Audience Insight",
+            "headline": "Trending: Coastal Landscapes",
+            "rationale": "High engagement this week",
+            "confidence": "92% match",
+            "chips": ["Ocean views", "Warm colors"],
+        })
+        prompt = prompt_builder.build_dashboard_image_prompt(spec)
+        assert "Audience Insight" not in prompt, surface
+        assert "Trending: Coastal Landscapes" not in prompt, surface
+
+
+def test_a_back_office_page_still_carries_its_ai_module():
+    from app.pipeline import prompt_builder
+
+    spec = _dashboard_spec(ai={
+        "title": "AI Insights", "headline": "Draft reply to Olivia",
+        "rationale": "High interest", "confidence": "95%", "chips": ["High value"],
+    })
+    assert "Draft reply to Olivia" in prompt_builder.build_dashboard_image_prompt(spec)
+
+
+def test_the_public_task_line_never_names_a_browser():
+    """One word cost every screen in request 141: "as a visitor sees it in
+    their browser" produced a chromeless window floating on a backdrop, and
+    both follow-ups inherited that composition from the anchor."""
+    from app.pipeline import prompt_builder
+
+    opening = prompt_builder.build_dashboard_image_prompt(
+        _public_spec(surfaces.MARKETING)
+    ).split("BUSINESS")[0]
+    assert "browser" not in opening.lower()
+    assert "edge to edge" in opening
+    assert "not a window" in opening
+
+
+def test_a_bracketed_aside_never_survives_into_a_screen_type():
+    """Request 143: the catalogue's own marker came back as data and named
+    the image file, the role id and the studio tab. The catalogue no longer
+    fuses it; this is the promise behind that."""
+    for raw, expected in [
+        ("home [PUBLIC PAGE]", "home"),
+        ("gallery (public page)", "gallery"),
+        ("analytics", "analytics"),
+        ("dashboard  [visitor facing] ", "dashboard"),
+    ]:
+        spec = UIDemoSpec.model_validate({"product": {"screen_type": raw}})
+        assert spec.product.screen_type == expected, raw
+
+
+def test_stripping_never_empties_a_screen_type():
+    """A screen_type that is nothing but an aside keeps its raw value —
+    an empty identifier would name a file "_0.png"."""
+    spec = UIDemoSpec.model_validate({"product": {"screen_type": "[PUBLIC PAGE]"}})
+    assert spec.product.screen_type == "[PUBLIC PAGE]"
+
+
+def test_the_featured_catalogue_card_is_one_of_the_counted_cards():
+    """Request 143 asked for "EXACTLY 4 cards" and then for a featured card
+    as well; the model drew five and repeated "Mountain Retreat · Mixed
+    Media" to fill the fifth. A count and an extra cannot both be true."""
+    from app.pipeline import prompt_builder
+
+    spec = _public_spec(surfaces.CATALOG)
+    prompt = prompt_builder.build_dashboard_image_prompt(spec)
+    assert "EXACTLY 2 cards" in prompt
+    assert "the first card is drawn larger than the rest" in prompt
+    # One instruction, one list. Two paragraphs describing a card is two
+    # cards however the second is worded — requests 143 and 144 both
+    # repeated an item to fill the extra slot.
+    assert prompt.count("cards read exactly") == 1
+    assert "featured" not in prompt.split("BRANDING")[0].split("PUBLIC CATALOGUE")[1]
+    # The hero is dropped on a catalogue page: each card's image IS its item.
+    assert "an abstract oil painting in gallery light" not in prompt

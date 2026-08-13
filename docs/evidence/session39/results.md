@@ -425,6 +425,102 @@ entirely. Harmless today, because the surface branch runs before every
 renders, and the anchor-tool mechanism still assumes the anchor is an app
 screen.
 
+## The goal, reached — [/studio/147](http://localhost:5173/studio/147)
+
+The owner's reading of the whole programme, in their words: *"if the user
+requested a webpage to display his painting it should generate a home page
+for the clients that open the web, and one for the gallery that displays
+the paintings, and one backoffice for analytics and painting management."*
+
+That now happens. Seven funded runs on the owner's own verbatim intake,
+each one fixing what the last one showed:
+
+| run | Home | Gallery | Manage | cost | what it exposed |
+|---|---|---|---|---|---|
+| 141 | 4.5 | 5.0 | 7.3 | $0.79219 | content was still owner-facing on every screen |
+| 142 | 9.0 | 8.1 | 8.1 | $0.62760 | worked; gallery grid clipped at the canvas edge |
+| 143 | 9.2 | 7.5 | 9.2 | $0.73632 | `[PUBLIC PAGE]` marker leaked into `screen_type` |
+| 144 | 8.5 | 7.8 | 8.0 | $0.63713 | featured card counted twice, item repeated |
+| 145 | 8.1 | 8.0 | 9.2 | $0.52290 | nav split ignored — two older rules contradicted it |
+| 146 | 8.1 | 7.5 | 7.8 | $0.63514 | nav split ignored again |
+| 147 | 8.7 | 7.5 | 9.2 | $0.64260 | nav split ignored a third time |
+
+Runs 142-147 all clear the corpus mean of 8.228. Run 147's mean is 8.47.
+
+### What run 141 proved, and it was the whole lesson
+
+Surfaces routed correctly on the very first attempt — Home marked Home,
+Gallery marked Gallery, the dead navigation of request 138 simply gone,
+because the screens ARE the nav items now. And the run still scored 4.5.
+
+Every screen greeted **"Good morning, Jeanne"** — an artist's public
+landing page addressing the artist — and the featured strip captioned
+paintings with buyer names, "Sarah Chen · Coastal Serenity", because it was
+filled from a customer list. The rendering knew it was a public page. The
+rubric knew. **The stage writing the words did not.** Surfaces had been
+wired into how a screen is drawn and how it is judged, and not into what is
+asked for. Four fixes closed it:
+
+- `catalog_for_prompt()` now tells the model which screens a VISITOR sees,
+  and `ui_spec.j2` says what public content is: a headline addressed to a
+  stranger, proof points rather than operations metrics, panel rows that
+  are the things on offer rather than the people who enquired.
+- `public_headline()` is the promise behind that request — an owner
+  greeting that still arrives is dropped, and the business's own name is a
+  headline that cannot be wrong.
+- No AI module on a public page. `_ai_layer_block` describes a titled panel
+  with a confidence ring, and the model drew it as a detached card floating
+  beside the page on all three screens.
+- The task line no longer says **"as a visitor sees it in their browser"**.
+  One word: a browser was named, the OUTPUT block forbids browser chrome,
+  and the model resolved it as a chromeless window floating on a backdrop —
+  which both follow-ups then inherited from the anchor, because inheriting
+  the anchor's composition is exactly what a continuation prompt asks for.
+
+### Three defects the runs found in my own prompt text
+
+**A marker became data.** `home [PUBLIC PAGE]` was written straight into
+`product.screen_type`, naming the image file, the role id and the studio
+tab. The catalogue no longer fuses a marker to a token, and `ProductInfo`
+strips a trailing bracketed aside as the promise behind it.
+
+**A count and an extra cannot both be true.** The catalogue block asked for
+"EXACTLY 4 cards" and then, in the next breath, for a featured card as
+well. Runs 143 and 144 both drew a fifth and repeated an item to fill it —
+"Mountain Retreat · Mixed Media", then "Golden Sunset · Oil Landscapes".
+Two paragraphs describing a card is two cards however the second is worded,
+so the emphasis is folded into the single list instruction.
+
+**The grid ran off the canvas.** Given four captions and no count, the
+model padded to eight and the bottom row was sliced by the edge. A stated
+count fixed it in one run.
+
+### The one thing three runs could not fix
+
+The back-office screen still carries the **website's** menu — Home,
+Gallery, About, Contact — on a screen of enquiry counts and revenue charts.
+It is none of those, so `active_nav` is correctly empty, and the model
+highlights "Home" anyway.
+
+Three separate attempts failed:
+
+1. an explicit "no navigation item is marked active on this screen" clause,
+   in all four nav branches (run 144 highlighted Home regardless);
+2. `_apply_explicit_navigation` scoped to public surfaces only, plus a
+   prompt rule giving the owner's screen its own admin sections (run 145 —
+   the model wrote the public menu there itself);
+3. removing the two older rules that contradicted it, "navigation identical
+   on every screen" and "write that list on every screen", and replacing
+   the hard-coded list in the JSON shape with a per-screen placeholder
+   (runs 146 and 147 — unchanged).
+
+**Three prompt attempts is enough to call it: this cannot be bought with an
+instruction.** It needs the same treatment the navigation-honouring fix
+itself got in session 38 — a promise in code rather than a request in a
+prompt. That is specified and deliberately NOT landed here: it rewrites
+navigation, every prompt change this session had a side effect the previous
+run did not predict, and there is no budget left to verify it in pixels.
+
 ## Cost accounting
 
 | item | cost |
@@ -436,9 +532,16 @@ screen.
 | v5 golden set, 7 briefs, text stages only | $0.06590 |
 | request 138, the v5 verification run | $0.78697 |
 | classification probe, portfolio + salon | $0.02193 |
-| **total** | **$5.63615** |
+| **subtotal, first envelope** | **$5.63615** |
 
-Past the $5 checkpoint (reported and authorised), $0.36385 to the envelope.
+Second envelope, $5, for reaching the owner's goal:
+
+| item | cost |
+|---|---|
+| requests 141-147, seven runs on the owner's brief | $4.59388 |
+| **total** | **$4.59388** of $5 |
+
+
 
 ## Tests
 

@@ -250,10 +250,35 @@ def screen_surfaces(archetype_id: str | None, screen_count: int) -> list[str]:
     ]
 
 
+def has_public_screens(archetype_id: str | None) -> bool:
+    _, arch = get_archetype(archetype_id)
+    return any(surfaces.is_public(s.get("surface")) for s in arch["screens"])
+
+
 def catalog_for_prompt() -> str:
-    """Short, LLM-readable catalog used by ui_spec.j2 for archetype selection."""
+    """Short, LLM-readable catalog used by ui_spec.j2 for archetype selection.
+
+    Public screens are marked. The ui_spec stage chooses the archetype, so
+    it cannot be told the surfaces up front — but once it has chosen, it has
+    to know which screens a VISITOR sees, because the content differs
+    completely. Request 141 is why: every screen of the public-site
+    archetype came back greeting the owner ("Good morning, Jeanne") and the
+    landing page's featured strip was filled from a customer list, so its
+    artwork captions read "Sarah Chen · Coastal Serenity". The rendering and
+    the rubric knew it was a public page; the stage writing the words did
+    not."""
     lines = []
     for aid, arch in ARCHETYPES.items():
         screens = " -> ".join(s["screen_type"] for s in arch["screens"])
-        lines.append(f"- {aid}: best for {arch['when']}. Screens: {screens}")
+        line = f"- {aid}: best for {arch['when']}. Screens: {screens}"
+        # The marker sits in its own clause, never fused to a screen_type
+        # token. Request 143 rendered it as "home [PUBLIC PAGE]" written
+        # straight into product.screen_type, so the studio page labelled the
+        # tab "Home [Public Page]" — scaffolding becoming data, the same
+        # mechanism as every rendered-prompt-vocabulary leak this pipeline
+        # has had.
+        public = [s["screen_type"] for s in arch["screens"] if surfaces.is_public(s.get("surface"))]
+        if public:
+            line += f". Of these, a VISITOR sees: {', '.join(public)}"
+        lines.append(line)
     return "\n".join(lines)

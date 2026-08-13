@@ -15,6 +15,8 @@ ignored): a partially-filled spec from the LLM should degrade to a thinner
 screenshot, never fail the pipeline.
 """
 
+import re
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -34,6 +36,22 @@ class ProductInfo(_Tolerant):
     name: str = ""
     purpose: str = ""
     screen_type: str = "dashboard"
+
+    @field_validator("screen_type", mode="before")
+    @classmethod
+    def _strip_annotations(cls, value):
+        """Drop any bracketed aside the model copied out of the prompt.
+
+        Request 143 returned screen_type "home [PUBLIC PAGE]" — the
+        archetype catalogue's own marker written back as data, which then
+        named the image file, the role id and the tab on the studio page.
+        The catalogue no longer fuses the marker to the token; this is the
+        promise behind that request, because a screen_type is an identifier
+        and an identifier with an aside in it is not one."""
+        if isinstance(value, str):
+            cleaned = re.sub(r"\s*[\[(][^\])]*[\])]\s*$", "", value).strip()
+            return cleaned or value
+        return value
 
 
 class UserInfo(_Tolerant):

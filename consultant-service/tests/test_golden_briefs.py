@@ -191,11 +191,31 @@ def test_the_v5_set_covers_every_intake_fixture():
     )
 
 
-@pytest.mark.parametrize("brief_id", V5_IDS)
-def test_a_v5_brief_was_frozen_at_the_live_prompt_version(brief_id):
+def test_every_frozen_set_was_frozen_at_the_version_its_directory_claims():
+    """Generalised in session 39 after the third version bump in a row broke
+    a hand-written per-version test. A set named briefs-vN must contain only
+    bundles frozen at ui-spec-vN — that equality is what makes it a control
+    arm — and no set may be frozen AHEAD of the live stage, which would mean
+    a bundle was written by a prompt the code no longer has."""
     from app.pipeline.ui_spec import UI_SPEC_PROMPT_VERSION
 
-    assert _v5(brief_id)["frozen_by"]["ui_spec_prompt_version"] == UI_SPEC_PROMPT_VERSION
+    root = pathlib.Path(__file__).resolve().parents[1] / "golden"
+    found = {}
+    for directory in sorted(root.glob("briefs-v*")):
+        version = f"ui-spec-{directory.name.split('-')[-1]}"
+        bundles = sorted(directory.glob("*.json"))
+        assert bundles, f"{directory.name} is empty"
+        for path in bundles:
+            frozen = json.loads(path.read_text())["frozen_by"]["ui_spec_prompt_version"]
+            assert frozen == version, f"{path.name} in {directory.name} says {frozen}"
+        assert version <= UI_SPEC_PROMPT_VERSION, f"{directory.name} leads the live stage"
+        found[version] = len(bundles)
+    assert found, "no versioned golden set on disk"
+
+
+@pytest.mark.parametrize("brief_id", V5_IDS)
+def test_a_v5_brief_was_frozen_at_v5(brief_id):
+    assert _v5(brief_id)["frozen_by"]["ui_spec_prompt_version"] == "ui-spec-v5"
 
 
 @pytest.mark.parametrize("brief_id", V5_IDS)

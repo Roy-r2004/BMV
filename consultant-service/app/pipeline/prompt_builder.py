@@ -25,6 +25,7 @@ paragraphs garble. Everything the builders emit as visible UI text comes
 from spec fields the ui_spec stage is instructed to keep short.
 """
 
+import re
 from collections.abc import Callable
 
 from app import surfaces
@@ -418,7 +419,18 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
         return ""
     active = active_nav_item(spec)
     if continuation:
-        marked = f", with {active} marked active" if active else ""
+        # "no item is marked" rather than silence. Session 38 measured 11 of
+        # 21 screens with no matching nav item and found they "variously
+        # invented an item or highlighted an unrelated one"; request 142's
+        # Manage screen highlighted Home, a page it is not. Leaving the
+        # clause out does not leave the header alone — the bar gets drawn
+        # either way, so the omission is a vacancy the model fills. Closing
+        # it positively is the pattern that has worked for every other
+        # vacancy in this file.
+        marked = (
+            f", with {active} marked active" if active
+            else ", and no navigation item is marked active on this screen"
+        )
         placement = (
             "Navigation items — placed exactly where the attached image places them, in one navigation "
             f"region and no other{marked}"
@@ -431,7 +443,10 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
         # the failure mode the duplicated-navigation and double-CTA fixes
         # were both about. The art pack describes the same bar, so the two
         # now agree.
-        marked = f"; mark {active} active" if active else ""
+        marked = (
+            f"; mark {active} active" if active
+            else "; no item is marked active on this screen"
+        )
         placement = (
             "Navigation items (a thin horizontal website header across the very top, over the hero: "
             f"the wordmark at the far left, these items spaced to the right{marked})"
@@ -458,13 +473,19 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
         # a named one turned out to order the CTA twice. Asking for no
         # top-bar button at all satisfies both: nothing to leave unlabelled,
         # nothing to duplicate.
-        marked = f"; mark {active} active" if active else ""
+        marked = (
+            f"; mark {active} active" if active
+            else "; no item is marked active on this screen"
+        )
         placement = (
             "Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the "
             f"far left, these items spaced across the middle{marked})"
         )
     else:
-        marked = f"; mark {active} active" if active else ""
+        marked = (
+            f"; mark {active} active" if active
+            else "; no item is marked active on this screen"
+        )
         placement = f"Navigation items (left sidebar, top to bottom{marked})"
     return f"{placement}\n\n" + "\n".join(spec.navigation[:8])
 
@@ -682,6 +703,29 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     return "\n".join(intro) + "\n\n" + "\n".join(values) + "\n\n" + tail
 
 
+_OPERATOR_GREETING = re.compile(
+    r"^\s*(good\s+(morning|afternoon|evening)|welcome\s+back|hi|hello|hey)\b",
+    re.IGNORECASE,
+)
+
+
+def public_headline(spec: UIDemoSpec) -> str:
+    """The hero headline for a public page — never the owner's greeting.
+
+    `greeting` is written for a logged-in dashboard, and on request 141 all
+    three public screens rendered "Good morning, Jeanne" as their headline:
+    the landing page of an artist's website addressing the artist. The
+    ui_spec prompt now asks for a visitor-facing headline on public screens,
+    but a prompt is a request and this is the promise — a greeting that
+    still arrives addressed to the owner is dropped rather than drawn, and
+    the business's own name is a headline that can never be wrong.
+    """
+    greeting = (spec.greeting or "").strip()
+    if greeting and not _OPERATOR_GREETING.match(greeting):
+        return greeting
+    return spec.business.name or spec.product.name
+
+
 def _marketing_block(spec: UIDemoSpec) -> str:
     """A public landing page: the screen a visitor lands on.
 
@@ -709,7 +753,7 @@ def _marketing_block(spec: UIDemoSpec) -> str:
         if spec.hero.treatment:
             lines.append(f"Treatment: {spec.hero.treatment}")
         lines.append("")
-    headline = spec.greeting or spec.product.name
+    headline = public_headline(spec)
     lines.append(f"Over the hero, the headline reads exactly: {headline}")
     if spec.subheading:
         lines.append(f"Directly beneath it, one supporting line reading exactly: {spec.subheading}")
@@ -760,26 +804,34 @@ def _catalog_items(spec: UIDemoSpec) -> list[str]:
 
 def _catalog_block(spec: UIDemoSpec) -> str:
     """A public catalogue page: the grid a visitor browses."""
+    # Six, not eight, and the count stated. Request 142's gallery was given
+    # four captions and drew roughly eight cards, overflowing the canvas so
+    # the bottom row was sliced off by the edge — a clipping defect the
+    # model produced by padding a list it was not told the length of. A
+    # countable instruction is the fix that has worked everywhere else in
+    # this file.
+    items = _catalog_items(spec)[:6] or [spec.product.name]
     lines = [
         "This screen is a PUBLIC CATALOGUE PAGE of the website — a visitor browsing "
         "what is on offer, not an admin tool. No KPI cards, no chart, no data table.",
         "",
-        "A grid of cards fills the content area, each card a single image with its "
-        "caption printed beneath it. The cards read exactly:",
+        f"A grid of EXACTLY {len(items)} cards fills the content area — no more and no "
+        "fewer, and no card's caption repeated on a second card. Each card is a single "
+        "image of that item with its caption printed beneath it, and the first card is "
+        "drawn larger than the rest. Every card and every caption is fully visible "
+        "inside the canvas; the grid must end well clear of the bottom edge rather than "
+        "running past it. The cards read exactly:",
     ]
-    items = _catalog_items(spec)
-    if items:
-        lines.extend(items[:8])
-    else:
-        lines.append(spec.product.name)
-    if spec.hero.present:
-        lines.append("")
-        lines.append(
-            f"One card is larger than the rest and visibly featured. Its image subject: "
-            f"{spec.hero.subject}"
-        )
-        if spec.hero.caption:
-            lines.append(f"Its caption reads exactly: {spec.hero.caption}")
+    lines.extend(items)
+    # No separate "featured card" paragraph. Two paragraphs describing a
+    # card is two cards, however the second one is worded: request 143
+    # repeated "Mountain Retreat · Mixed Media" to fill a fifth slot, and
+    # 144 repeated "Golden Sunset · Oil Landscapes" even after the sentence
+    # was rewritten to say "not an additional one". The emphasis is folded
+    # into the single list instruction above instead, where there is
+    # nothing for it to be counted separately from. The hero is dropped
+    # entirely on a catalogue page — each card's image IS its item, so a
+    # separate hero subject only ever described a seventh thing.
 
     filters = [step for step in spec.concept.steps if step.options]
     if filters:
@@ -839,9 +891,14 @@ def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     # renderer is now a test failure instead of a wrong screen.
     renderer = SURFACE_RENDERERS.get(surfaces.resolve(spec.surface))
     if renderer is not None:
+        # No AI module on a public page. _ai_layer_block describes "AI as a
+        # first-class module" — a titled panel with a confidence ring and
+        # chips — and on request 141 the image model drew it exactly that
+        # way: a detached card floating on the backdrop beside the page,
+        # on all three screens. A visitor does not see the business's
+        # internal intelligence, and the block has no composition for a
+        # page that is not a dashboard.
         sections.append(renderer(spec))
-        if ai_module:
-            sections.append(ai_module)
         return "\n\n".join(sections)
 
     if is_conversation_screen(spec):
@@ -943,13 +1000,23 @@ def _task_line(spec: UIDemoSpec) -> str:
         # back toward the dashboard the rest of this branch is trying to
         # avoid. The quality references change with it: naming Linear and
         # Ramp asks for app chrome on a page that must not have any.
+        # "as a visitor sees it in their browser" is what request 141's
+        # anchor obeyed: it drew the page as a chromeless window floating on
+        # a backdrop, because a browser was named and the OUTPUT block
+        # forbids browser chrome. Both follow-ups then inherited that
+        # composition from the anchor, so one word in this sentence cost
+        # every screen in the run. Name the page, never the thing it is
+        # viewed in.
         return (
-            f"Create a realistic desktop screenshot of the PUBLIC WEBSITE of {spec.business.name}, "
-            f"a {industry} — the page as a visitor sees it in their browser, not an admin tool. The "
-            "quality bar is the site an elite design studio builds for a client who is not "
-            "price-sensitive: the editorial restraint of a serious gallery or fashion house's own "
-            "site, imagery doing the work and interface staying out of its way. Real, believable "
-            "production web design — not a concept shot, and not a template with a name dropped in."
+            f"Create a realistic screenshot of the PUBLIC WEBSITE of {spec.business.name}, "
+            f"a {industry} — the page itself as a visitor reads it, not an admin tool. The page "
+            "fills the entire canvas edge to edge: it is not a window, not a card, not a floating "
+            "panel, and there is no backdrop, margin or surrounding surface visible anywhere "
+            "around it. The quality bar is the site an elite design studio builds for a client who "
+            "is not price-sensitive: the editorial restraint of a serious gallery or fashion "
+            "house's own site, imagery doing the work and interface staying out of its way. Real, "
+            "believable production web design — not a concept shot, and not a template with a name "
+            "dropped in."
         )
     if register_id() == "light":
         return (

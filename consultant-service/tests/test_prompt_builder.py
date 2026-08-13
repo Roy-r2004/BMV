@@ -131,12 +131,32 @@ def test_a_follow_up_screen_absent_from_the_navigation_is_not_asked_to_activate_
 
 
 def test_an_anchor_screen_absent_from_the_navigation_is_not_asked_to_activate_one(dental_spec):
+    """Originally asserted the word "active" never appeared. Session 39
+    strengthened the resolution rather than weakened it: silence is not
+    neutral — the navigation bar gets drawn either way, so omitting the
+    clause is a vacancy the model fills, and request 142's Manage screen
+    highlighted Home, a page it is not. The block now says explicitly that
+    nothing is marked. The original concern is unchanged and still checked:
+    no item the screen is not may be named as active."""
     off_nav = dental_spec.model_copy(deep=True)
     off_nav.navigation = list(JEANNE_NAV)
-    assert "active" not in prompt_builder._nav_block(off_nav)
+    block = prompt_builder._nav_block(off_nav)
+    assert "no item is marked active on this screen" in block
+    for item in JEANNE_NAV:
+        assert f"mark {item} active" not in block
+
     on_nav = dental_spec.model_copy(deep=True)
     on_nav.navigation = ["Dashboard", "Schedule", "Reports"]
     assert "mark Dashboard active" in prompt_builder._nav_block(on_nav)
+
+
+def test_a_follow_up_screen_with_no_matching_item_says_so_too(dental_spec):
+    """The continuation branch carries the same vacancy — and it is the one
+    request 142's Manage screen went through."""
+    off_nav = dental_spec.model_copy(deep=True)
+    off_nav.navigation = list(JEANNE_NAV)
+    block = prompt_builder._nav_block(off_nav, continuation=True)
+    assert "no navigation item is marked active on this screen" in block
 
 
 def test_the_navigation_block_still_lists_exactly_the_specs_items(dental_spec):

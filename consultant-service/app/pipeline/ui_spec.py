@@ -13,7 +13,7 @@ import re
 
 from sqlalchemy.orm import Session
 
-from app import archetypes
+from app import archetypes, surfaces
 from app.ai import provider
 from app.config import settings
 from app.models import Request
@@ -24,7 +24,7 @@ from app.ui_spec import TOOL_CONCEPT_KINDS, ChartSpec, Kpi, Panel, ScreenConcept
 
 logger = logging.getLogger("consultant.ui_spec")
 
-UI_SPEC_PROMPT_VERSION = "ui-spec-v5"
+UI_SPEC_PROMPT_VERSION = "ui-spec-v6"
 
 
 # ── the customer's own navigation list ────────────────────────────────────
@@ -143,10 +143,28 @@ def extract_explicit_navigation(*texts: str | None) -> list[str] | None:
 
 
 def _apply_explicit_navigation(specs: list[UIDemoSpec], explicit_nav: list[str] | None) -> None:
-    """The customer's list, on every screen, whatever the model returned."""
+    """The customer's list, whatever the model returned — on the screens it
+    is actually the navigation OF.
+
+    When every screen is internal (which was every archetype before session
+    39) that is all of them, unchanged. When the demo also contains public
+    pages, the customer's list is the WEBSITE's menu and belongs to those:
+    "home, gallery, about, contact" describes what a visitor can reach, not
+    how the owner's admin tool is organised.
+
+    Measured across requests 141-144: forcing the public menu onto the
+    back-office screen left it with no item it could honestly mark, and the
+    model highlighted "Home" on a screen of enquiry counts and revenue
+    charts every single time — including after the prompt was changed to
+    say explicitly that no item is marked. There was nothing true to say,
+    so saying it did not help. The screen needed its own navigation, not a
+    better instruction about someone else's.
+    """
     if not explicit_nav:
         return
-    for spec in specs:
+    public = [s for s in specs if surfaces.is_public(s.surface)]
+    targets = public or specs
+    for spec in targets:
         spec.navigation = list(explicit_nav)
 
 
@@ -461,8 +479,10 @@ def build_ui_specs(
 
         # After the coherence loop, not inside it: the customer's list is the
         # last word on navigation, including over the anchor's.
-        _apply_explicit_navigation(specs, explicit_nav)
+        # Surfaces first: _apply_explicit_navigation asks which screens are
+        # public, and nothing is public until they are stamped.
         _apply_surfaces(specs, archetype_id)
+        _apply_explicit_navigation(specs, explicit_nav)
         _apply_active_nav_invariant(specs)
         _apply_hero_subject_invariant(specs)
         _apply_brand_string_invariant(specs)
