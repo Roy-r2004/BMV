@@ -25,6 +25,7 @@ paragraphs garble. Everything the builders emit as visible UI text comes
 from spec fields the ui_spec stage is instructed to keep short.
 """
 
+from app import surfaces
 from app.config import settings
 from app.pipeline import art_packs
 from app.ui_spec import UIDemoSpec
@@ -420,6 +421,19 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
             "Navigation items — placed exactly where the attached image places them, in one navigation "
             f"region and no other{marked}"
         )
+    elif surfaces.is_public(spec.surface):
+        # A public page's navigation is a website header, not app chrome.
+        # Without this branch the block asked for a "left sidebar" and the
+        # surface block two lines later said "no sidebar" — the pipeline
+        # contradicting its own instructions in a single prompt, which is
+        # the failure mode the duplicated-navigation and double-CTA fixes
+        # were both about. The art pack describes the same bar, so the two
+        # now agree.
+        marked = f"; mark {active} active" if active else ""
+        placement = (
+            "Navigation items (a thin horizontal website header across the very top, over the hero: "
+            f"the wordmark at the far left, these items spaced to the right{marked})"
+        )
     elif is_tool_screen(spec):
         # No button at the right end of the top bar — because _steps_block
         # already asks for concept.primary_action as "the single most
@@ -666,6 +680,118 @@ def _ai_layer_block(spec: UIDemoSpec) -> str:
     return "\n".join(intro) + "\n\n" + "\n".join(values) + "\n\n" + tail
 
 
+def _marketing_block(spec: UIDemoSpec) -> str:
+    """A public landing page: the screen a visitor lands on.
+
+    Built from the same spec fields as every other screen — no new model
+    output was added for this. The hero becomes the full-bleed image
+    instead of a panel inside a content area, the KPIs become proof points
+    instead of metric cards, and the concept's primary_action becomes the
+    one call to action. Reusing the fields is what keeps this a new SHAPE
+    rather than a new pipeline.
+
+    Every line names a string the spec supplied. Nothing here describes an
+    element without giving its words, because a described-but-unnamed
+    element is how "a single accented action button at the right" shipped
+    as a button labelled "Action".
+    """
+    concept = spec.concept
+    lines = [
+        "This screen is the PUBLIC LANDING PAGE of the website — what a visitor sees "
+        "when they arrive, not an admin tool. No KPI cards, no chart, no data table, "
+        "no sidebar.",
+        "",
+    ]
+    if spec.hero.present:
+        lines.append(f"A full-bleed hero image across the top. Subject: {spec.hero.subject}")
+        if spec.hero.treatment:
+            lines.append(f"Treatment: {spec.hero.treatment}")
+        lines.append("")
+    headline = spec.greeting or spec.product.name
+    lines.append(f"Over the hero, the headline reads exactly: {headline}")
+    if spec.subheading:
+        lines.append(f"Directly beneath it, one supporting line reading exactly: {spec.subheading}")
+    if concept.primary_action:
+        lines.append(
+            f"Below that, one accented button — the single most prominent element on the "
+            f"page — reading exactly: {concept.primary_action}"
+        )
+    if concept.secondary_action:
+        lines.append(f"Beside it, one quieter outlined button reading exactly: {concept.secondary_action}")
+
+    points = [kpi for kpi in spec.kpis[:3] if kpi.label]
+    if points:
+        lines.append("")
+        lines.append(
+            "Below the hero, a row of three short value points, each one heading and "
+            "one figure, reading exactly:"
+        )
+        for kpi in points:
+            lines.append(f"{kpi.label} — {kpi.value}")
+
+    featured = _catalog_items(spec)[:4]
+    if featured:
+        lines.append("")
+        lines.append(
+            "Below those, a strip of featured work — one image each, with its title "
+            "printed beneath, reading exactly:"
+        )
+        lines.extend(featured)
+    return "\n".join(lines)
+
+
+def _catalog_items(spec: UIDemoSpec) -> list[str]:
+    """Item captions for a public grid, taken from whichever panel the spec
+    actually filled. A gallery's items are the same rows a back-office
+    screen would have listed in a table; only the way they are drawn
+    changes."""
+    rows = list(spec.primary_panel.rows or [])
+    if not rows and spec.secondary_panel:
+        rows = list(spec.secondary_panel.rows or [])
+    captions: list[str] = []
+    for row in rows:
+        values = [str(v).strip() for v in row.values() if str(v).strip()]
+        if values:
+            captions.append(" · ".join(values[:2]))
+    return captions
+
+
+def _catalog_block(spec: UIDemoSpec) -> str:
+    """A public catalogue page: the grid a visitor browses."""
+    lines = [
+        "This screen is a PUBLIC CATALOGUE PAGE of the website — a visitor browsing "
+        "what is on offer, not an admin tool. No KPI cards, no chart, no data table.",
+        "",
+        "A grid of cards fills the content area, each card a single image with its "
+        "caption printed beneath it. The cards read exactly:",
+    ]
+    items = _catalog_items(spec)
+    if items:
+        lines.extend(items[:8])
+    else:
+        lines.append(spec.product.name)
+    if spec.hero.present:
+        lines.append("")
+        lines.append(
+            f"One card is larger than the rest and visibly featured. Its image subject: "
+            f"{spec.hero.subject}"
+        )
+        if spec.hero.caption:
+            lines.append(f"Its caption reads exactly: {spec.hero.caption}")
+
+    filters = [step for step in spec.concept.steps if step.options]
+    if filters:
+        step = filters[0]
+        chosen = step.selected or step.options[0]
+        lines.append("")
+        lines.append(
+            "Above the grid, one row of category filter chips reading exactly: "
+            + ", ".join(step.options[:5])
+        )
+        lines.append(f"The chip reading {chosen} is the selected one.")
+    return "\n".join(lines)
+
+
 def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     sections = [
         f"The screen to draw:\n\n{spec.screen_title}",
@@ -679,6 +805,20 @@ def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
 
     tool = is_tool_screen(spec)
     ai_module = _ai_layer_block(spec)
+
+    # Surface dispatch comes first: a public page is a different shape of
+    # screen, not a dashboard with different data, so none of the KPI /
+    # chart / panel / activity blocks below apply to it. Screens with no
+    # surface — every spec frozen before session 39 — fall through to
+    # exactly the branches that existed before.
+    if surfaces.is_public(spec.surface):
+        if surfaces.resolve(spec.surface) == surfaces.MARKETING:
+            sections.append(_marketing_block(spec))
+        else:
+            sections.append(_catalog_block(spec))
+        if ai_module:
+            sections.append(ai_module)
+        return "\n\n".join(sections)
 
     if is_conversation_screen(spec):
         # Same shape as the tool branch and for the same reason: the thread
@@ -756,11 +896,13 @@ def _branding_block(spec: UIDemoSpec) -> str:
         # "light interface, teal accents" from the spec stage would contradict
         # the register in the same prompt.
         lines.append(f"Palette: {spec.style.palette_description}")
-    where = (
-        "at the far left of the top navigation bar"
-        if is_tool_screen(spec)
-        else "at the top of the sidebar"
-    )
+    if is_tool_screen(spec) or surfaces.is_public(spec.surface):
+        # Public pages and tool screens both carry a top bar. Saying
+        # "sidebar" here while the surface block bans one is the same
+        # self-contradiction _nav_block used to carry.
+        where = "at the far left of the top navigation bar"
+    else:
+        where = "at the top of the sidebar"
     lines.append(f'The product wordmark "{spec.product.name}" appears small and plain {where}.')
     return "\n".join(lines)
 
@@ -771,6 +913,20 @@ def _task_line(spec: UIDemoSpec) -> str:
     and Stripe while asking for a deep cinematic ground pulls the model back
     toward a light dashboard in the same breath."""
     industry = spec.business.industry or "a local business"
+    if surfaces.is_public(spec.surface):
+        # A public page is not "a production software application", and
+        # opening the prompt by calling it one is the single strongest pull
+        # back toward the dashboard the rest of this branch is trying to
+        # avoid. The quality references change with it: naming Linear and
+        # Ramp asks for app chrome on a page that must not have any.
+        return (
+            f"Create a realistic desktop screenshot of the PUBLIC WEBSITE of {spec.business.name}, "
+            f"a {industry} — the page as a visitor sees it in their browser, not an admin tool. The "
+            "quality bar is the site an elite design studio builds for a client who is not "
+            "price-sensitive: the editorial restraint of a serious gallery or fashion house's own "
+            "site, imagery doing the work and interface staying out of its way. Real, believable "
+            "production web design — not a concept shot, and not a template with a name dropped in."
+        )
     if register_id() == "light":
         return (
             f"Create a realistic desktop screenshot of a production SaaS application used by {industry} — "

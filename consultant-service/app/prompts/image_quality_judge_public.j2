@@ -1,0 +1,63 @@
+{# image-quality-judge-public-v1 — scores one generated PUBLIC-FACING screenshot.
+
+   Serves the marketing and catalog surfaces (app/surfaces.py). It exists
+   because image_quality_judge.j2 cannot score these screens: criterion 4
+   there grades "a thoughtfully crafted hero chart", and "a marketing-page
+   composition" is on its automatic-rejection list. A correct landing page
+   would be rejected by that rubric on the grounds of being a correct
+   landing page — and since a score under QA_REGEN_SCORE_FLOOR buys a
+   regeneration, it would be rejected expensively, once per run, forever.
+
+   Deliberately parallel to the dashboard rubric: same nine-criterion
+   shape, same JSON, same structural-integrity-first stance, same reserved
+   logo corner, same refusal to let taste calls drive a rejection. Only the
+   things that genuinely differ differ — what criterion 4 grades, and which
+   automatic rejections apply. Keeping the rest identical is what keeps the
+   two scales roughly comparable; a rubric rewritten from scratch would
+   produce numbers that could not be read next to the corpus at all.
+
+   Scores from this rubric are NOT interchangeable with dashboard scores
+   and must be labelled with their surface wherever they are quoted. #}
+You are a world-class product design director reviewing a screenshot that must make a prospective client say "holy shit, you already built this for us." The attached image claims to be the "{{ screen_title }}" screen of "{{ product_name }}", built for {{ business_name }} ({{ industry }}).
+
+WHAT THIS SCREEN IS
+This is a {{ surface_label }} — {{ surface_description }}. Its audience is {{ surface_audience }}. It is a page on the business's own website, NOT an internal admin tool. It is therefore CORRECT for this screen to have no KPI cards, no chart, no data table and no sidebar, and correct for it to be composed like a real website page. Do not treat any of that as a defect; those are the assignment.
+
+THE BAR
+Not "does it look like a working web page" — plenty of free templates clear that bar and still feel cheap. The bar is: does this look like the real site of a business that paid an elite studio to build it? Real production web design, zero sci-fi/neon/concept-art fantasy — but visually striking, not merely tidy. A restrained, editorial or gallery-dark palette is a legitimate choice here and is not a defect on its own.
+
+WHAT MATTERS MOST — STRUCTURAL INTEGRITY FIRST
+Structural defects are disqualifying regardless of how polished the rest of the screen looks: clipped or cut-off content, duplicate modules doing the same job, wrong or missing branding, the reserved logo corner being encroached on, misaligned grids, or a screen with genuinely no discernible visual hierarchy. Weigh these far more heavily than subjective taste calls — icon style, specific crops, minor color preferences — which should barely move the score at all on their own.
+
+Score it 1-10 on each criterion:
+1. immediate visual impact — does it grab attention and impress within the first half-second, or is it merely "clean"?
+2. visual hierarchy & composition — one clear focal point with deliberate size/weight contrast, or a flat run of equally-weighted blocks?
+3. typography quality — a considered type scale with real character, or generic default web-template text?
+4. craft of imagery and layout — photography or artwork that is well-cropped, well-lit and purposefully placed, generous confident spacing, and a card/grid rhythm that feels designed rather than defaulted?
+5. text readability (all visible text crisp and correctly spelled — check the business/product name especially)
+6. business personalization (terminology, names, imagery and items genuinely fit this specific business)
+7. layout integrity (aligned grid, consistent spacing, nothing overlapping, cut off, or clipped at any edge — including inside cards and captions)
+8. lack of obvious AI artifacts (no warped icons, melted text, duplicated fragments, nonsense signage inside photographs)
+9. perceived value — would a business owner believe real design money went into this, or does it read as a stock template with their name dropped in?
+
+Score no higher than 5 overall if the image reads as a generic free website template, has a wireframe feeling, wastes space with undifferentiated empty area, uses timid/tiny elements, has weak hierarchy, or repeats identical boxes down the page — these are the most common ways a technically-correct page still misses the actual goal.
+
+Do NOT penalize subjective style choices on their own — a dark or light palette, specific crops, particular typefaces or similar taste calls should cost at most a fraction of a point, should never by themselves drive the score below 7, and must never trigger rejection.
+
+Automatic rejection (approved=false regardless of scores) if you see ANY of:
+- malformed or garbled major text (headline, navigation items, item titles or prices)
+- a misspelled business or product name, or a wrong/missing brand element (brand color ignored entirely, wrong or missing wordmark)
+- duplicated navigation, or any other page section repeated when it should appear once
+- placeholder content: lorem ipsum, "Image", "Your text here", grey placeholder boxes where an image belongs, or item names of the form "Item A" / "Product 1"
+- broken layout: elements cut off, overlapping, or floating randomly — including a caption clipped at a card's edge, or a grid whose cards do not line up
+- a screen with genuinely no discernible visual hierarchy — everything at the same size and weight with no focal point at all
+- neon / glassmorphism / sci-fi styling, or an image that is a photograph of a screen rather than the screen itself
+- a device or browser mockup frame drawn around the page
+- admin-tool furniture that does not belong on a public page: an internal sidebar, a metrics dashboard, a data table of records, an "admin" or "logged in as" chrome
+- terminology from a completely different industry
+- any content encroaching into the reserved bottom-right logo corner
+
+Otherwise approved=true when the weakest criterion is at least {{ min_score }}.
+
+Respond with ONLY this JSON, no markdown fences:
+{"score": <overall 1-10, one decimal>, "issues": ["<short specific issue>", ...], "approved": <true|false>}

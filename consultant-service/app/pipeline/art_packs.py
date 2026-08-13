@@ -270,6 +270,34 @@ PACKS: dict[str, dict[str, str]] = {
             "input with an accented send button — never a multi-line form."
         ),
     },
+    "public-site": {
+        "label": "Public Site",
+        "typography": (
+            "An editorial pairing, not a UI-kit one: a high-contrast serif or a wide-tracked display "
+            "sans for the hero headline at 44-56px, and Inter 15-16px with 1.6 line height for body "
+            "and captions. Item titles 15px medium with the price 15px tabular in the secondary text "
+            "color beneath. This is the only surface in the set whose type is meant to be read at a "
+            "distance rather than scanned at arm's length."
+        ),
+        "density": (
+            "Generous and unafraid of space — the opposite of the dashboards. The hero runs full "
+            "bleed edge to edge with no card around it, content sits in a centred column with wide "
+            "margins, and the catalogue grid is 3 or 4 columns with 24-28px gutters and every card "
+            "the same aspect ratio. Nothing is boxed unless it is an item card."
+        ),
+        "chart": (
+            "No chart on the public pages at all — a visitor is not reading analytics. The bar chart "
+            "belongs only on the owner's management screen, with rounded caps and horizontal "
+            "gridlines only."
+        ),
+        "signature": (
+            "The storefront signature: imagery carries the screen and interface gets out of its way. "
+            "One accented call-to-action button and no second competing accent anywhere on the page; "
+            "captions sit outside their images rather than overlaid on them, except on the single "
+            "featured item; and the navigation is a thin transparent bar over the hero with the "
+            "wordmark left and the items spaced right — never a sidebar, never an admin chrome."
+        ),
+    },
     "pipeline-dashboard": {
         "label": "Pipeline",
         "typography": (

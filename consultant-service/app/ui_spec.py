@@ -259,6 +259,12 @@ class UIDemoSpec(_Tolerant):
     # to death — must be a member of `navigation`, one screen per item,
     # empty otherwise.
     active_nav: str = ""
+    # What CLASS of software surface this screen is (app/surfaces.py). Set
+    # deterministically from the archetype, never by the model: it routes
+    # both the prompt that draws the screen and the rubric that scores it,
+    # and those two must not be able to disagree. Empty means back-office,
+    # which is every screen frozen before session 39.
+    surface: str = ""
     greeting: str = ""
     subheading: str = ""
     kpis: list[Kpi] = Field(default_factory=list)

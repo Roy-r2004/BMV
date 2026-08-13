@@ -278,6 +278,7 @@ def _fallback_specs(
             }
         )
         specs.append(spec)
+    _apply_surfaces(specs, archetype_id)
     return archetype_id, specs
 
 
@@ -388,6 +389,21 @@ def _apply_brand_string_invariant(specs: list[UIDemoSpec]) -> None:
             spec.hero.caption = _widen_truncated_brand(spec.hero.caption, spec.business.name)
 
 
+def _apply_surfaces(specs: list[UIDemoSpec], archetype_id: str) -> None:
+    """Stamp each screen with the surface its archetype says it is.
+
+    Deterministic and positional — screen N of the specs is screen N of the
+    archetype, which is already how screen_type and layout are assigned. It
+    is stamped rather than asked for because the same value routes the
+    prompt that draws the screen and the rubric that scores it; a model
+    free to answer differently in two places would eventually score a
+    landing page against a dashboard rubric, which is the exact failure
+    this whole mechanism exists to stop."""
+    ordered = archetypes.screen_surfaces(archetype_id, len(specs))
+    for spec, surface_id in zip(specs, ordered):
+        spec.surface = surface_id
+
+
 def build_ui_specs(
     db: Session, request_id: int, consult_result: dict, plan_result: dict
 ) -> tuple[str, list[UIDemoSpec]]:
@@ -446,6 +462,7 @@ def build_ui_specs(
         # After the coherence loop, not inside it: the customer's list is the
         # last word on navigation, including over the anchor's.
         _apply_explicit_navigation(specs, explicit_nav)
+        _apply_surfaces(specs, archetype_id)
         _apply_active_nav_invariant(specs)
         _apply_hero_subject_invariant(specs)
         _apply_brand_string_invariant(specs)

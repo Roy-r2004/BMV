@@ -5,7 +5,15 @@ terminology — NOT from per-industry templates. The archetype only decides
 layout shape: which screens to produce, what panels each screen carries,
 and how dense it should feel. Keep this list short and strong; the
 ui_spec LLM stage picks the best one per business.
+
+Each screen may declare a `surface` (see app/surfaces.py) — what CLASS of
+software surface it is, which routes both the prompt shape that draws it
+and the rubric that scores it. Screens that do not declare one are
+back-office screens, which is every screen this pipeline had before
+session 39.
 """
+
+from app import surfaces
 
 # Each screen entry describes the layout skeleton the ui_spec LLM must fill
 # with business-specific data. The first screen is the visual anchor —
@@ -156,9 +164,55 @@ ARCHETYPES: dict[str, dict] = {
             },
         ],
     },
+    # The first archetype whose screens are not all operator screens.
+    #
+    # Every archetype above answers "what software does this business RUN".
+    # For a business whose product faces the public — an artist, a
+    # restaurant, a shop, anyone a visitor browses before they ever make
+    # contact — that is the wrong half of the answer. Request 138's intake
+    # asked in the owner's own words for "home, gallery, about, contact"
+    # and got three admin screens wearing those four words in a header.
+    #
+    # The split is deliberate: two screens the visitor sees, one the owner
+    # works in. A demo of only public pages would be a website mock-up and
+    # would not show there is software here at all; a demo of only the back
+    # office is what the pipeline already got wrong.
+    "public-site": {
+        "label": "Public Site + Back Office",
+        "when": (
+            "businesses whose product faces the public and is browsed before it is bought: "
+            "artists, galleries, portfolios, restaurants, shops, venues — where a visitor "
+            "looks first and the owner manages what they looked at"
+        ),
+        "screens": [
+            {
+                "screen_type": "home",
+                "surface": surfaces.MARKETING,
+                "layout": "full-bleed hero image with the business name and one short line of positioning, a single primary call to action, three short value points below, and a strip of featured work — no KPI cards, no chart, no data tables",
+                "chart": None,
+            },
+            {
+                "screen_type": "gallery",
+                "surface": surfaces.CATALOG,
+                "layout": "a grid of the things on offer, each with its own image, title and price or short attribute, a row of category filters above the grid, one item visibly hovered or featured — no KPI cards, no chart",
+                "chart": None,
+            },
+            {
+                "screen_type": "manage",
+                "surface": surfaces.BACK_OFFICE,
+                "layout": "the owner's side: 4 KPI cards, a bar chart of views or enquiries over time, and a management table of the catalogue items with status and price",
+                "chart": "bar",
+            },
+        ],
+    },
 }
 
 DEFAULT_ARCHETYPE = "operations-dashboard"
+
+# The archetype that answers a public-facing brief. Named for the same
+# reason ASSISTANT_ARCHETYPE is: code needs to reason about the pairing
+# without string-matching an id in three places.
+PUBLIC_SITE_ARCHETYPE = "public-site"
 
 # The one archetype whose anchor is a conversation rather than a selection
 # flow. Named here so the ui_spec stage can enforce that pairing in code —
@@ -175,6 +229,24 @@ def get_archetype(archetype_id: str | None) -> tuple[str, dict]:
     if archetype_id and archetype_id in ARCHETYPES:
         return archetype_id, ARCHETYPES[archetype_id]
     return DEFAULT_ARCHETYPE, ARCHETYPES[DEFAULT_ARCHETYPE]
+
+
+def screen_surfaces(archetype_id: str | None, screen_count: int) -> list[str]:
+    """The surface of each screen this archetype will produce, in order.
+
+    This is the routing table the whole surface mechanism rests on, and it
+    is deterministic on purpose: the archetype was already chosen by the
+    ui_spec stage, so the shape that DRAWS a screen and the rubric that
+    SCORES it read the same answer and cannot disagree about what the
+    screen was meant to be. A per-image classifier would be a second model
+    re-deciding something the generator already knows, and every
+    disagreement between the two would be a screen judged by the wrong
+    rubric."""
+    _, arch = get_archetype(archetype_id)
+    return [
+        surfaces.resolve(screen.get("surface"))
+        for screen in arch["screens"][:screen_count]
+    ]
 
 
 def catalog_for_prompt() -> str:

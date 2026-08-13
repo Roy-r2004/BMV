@@ -38,6 +38,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 from sqlalchemy.orm import Session
 
+from app import surfaces
 from app.ai import provider
 from app.config import settings
 from app.pipeline import defect_check, text_truth
@@ -156,13 +157,25 @@ def _transcribe_call(image_bytes: bytes) -> dict:
 def _judge_call(image_bytes: bytes, spec: UIDemoSpec) -> dict:
     """{"verdict": {...} | None, "usage": dict | None, "error": ...} with
     the retry inside — verdict None means failed after retry (fail open)."""
+    # The rubric is chosen by the screen's surface (app/surfaces.py), not
+    # fixed. Back-office and conversation screens both resolve to
+    # image_quality_judge.j2 — the same file, unchanged — so every score
+    # this pipeline has ever published stays comparable and the refactor
+    # owes no before/after. Only genuinely new surfaces get a new rubric,
+    # because a public page has no chart and no metric cards, and the
+    # dashboard rubric grades exactly those and auto-rejects "a
+    # marketing-page composition".
+    surface = surfaces.get(spec.surface)
     prompt = render(
-        "image_quality_judge.j2",
+        surface["judge_template"],
         screen_title=spec.screen_title,
         product_name=spec.product.name,
         business_name=spec.business.name,
         industry=spec.business.industry,
         min_score=settings.QA_MIN_SCORE,
+        surface_label=surface["label"],
+        surface_description=surface["description"],
+        surface_audience=surface["audience"],
     )
     data_uri = _uri(image_bytes)
     last_exc: Exception | None = None
