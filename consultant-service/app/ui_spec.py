@@ -242,6 +242,23 @@ class UIDemoSpec(_Tolerant):
     product: ProductInfo = Field(default_factory=ProductInfo)
     user: UserInfo = Field(default_factory=UserInfo)
     navigation: list[str] = Field(default_factory=list)
+    # Which navigation item THIS screen is, when one of them is it.
+    #
+    # Session 39, request 130: the customer's own four items were honoured
+    # exactly (Home, Gallery, About, Contact) and all three screens rendered
+    # "Home" active, because active_nav_item can only match a nav label
+    # against screen_title — and the titles are archetype roles (Dashboard,
+    # Analytics, Customers). Nothing matched, so no screen was told what it
+    # was, and the model defaulted every one of them to the first item. The
+    # header was the customer's and the navigation state was dead.
+    #
+    # Matching titles to labels by similarity is the one thing not to do
+    # here (see brand-variant specs: fuzzy rewriting is how invented
+    # strings get in). The model already sees both the honoured list and
+    # the screen's role, so it declares the mapping and code validates it
+    # to death — must be a member of `navigation`, one screen per item,
+    # empty otherwise.
+    active_nav: str = ""
     greeting: str = ""
     subheading: str = ""
     kpis: list[Kpi] = Field(default_factory=list)

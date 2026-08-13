@@ -373,7 +373,22 @@ def active_nav_item(spec: UIDemoSpec) -> str | None:
     stated; no new ban is added here, because the defect was a
     contradiction rather than a missing rule (the same lesson as the
     duplicated-navigation fix in _nav_block).
+
+    Session 39 added the other half. Matching a title against the labels
+    only ever works when the customer's words happen to be the archetype's
+    words; on request 130 the header was Home/Gallery/About/Contact and the
+    titles were Dashboard/Analytics/Customers, so no screen was ever told
+    what it was and every one of them defaulted to the first item. The spec
+    now carries `active_nav`, already validated in ui_spec.py against the
+    honoured list and de-duplicated across screens, and it is preferred
+    here. The title match stays as the fallback for specs that predate the
+    field — including every frozen golden bundle.
     """
+    declared = (spec.active_nav or "").strip().lower()
+    if declared:
+        return next(
+            (label for label in spec.navigation[:8] if label.strip().lower() == declared), None
+        )
     title = (spec.screen_title or "").strip().lower()
     if not title:
         return None

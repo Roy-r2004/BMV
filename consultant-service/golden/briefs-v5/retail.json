@@ -1,0 +1,561 @@
+{
+  "id": "retail",
+  "label": "Northgate Coffee Roasters — Coffee Roastery & E-commerce",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Northgate Coffee Roasters",
+    "business_description": "Specialty coffee roastery with one café and a growing online subscription business. Wholesale accounts with 12 local cafés. Nobody has time to watch which blends are selling, and reorder decisions are made from gut feel.",
+    "industry": "Coffee Roastery & E-commerce",
+    "consult_result": {
+      "consulting_summary": "An AI merchandiser that watches sales and subscription churn daily, forecasts roast volumes and flags reorders before a blend runs out."
+    },
+    "plan_result": {
+      "concept_name": "Northgate Roast Intelligence",
+      "visual_theme": {
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534",
+        "mood": "warm, crafted, confident"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v5"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Home",
+        "Sales",
+        "Inventory",
+        "Subscriptions",
+        "Wholesale",
+        "Reports"
+      ],
+      "active_nav": "Sales",
+      "greeting": "Good morning, Marco",
+      "subheading": "Sales overview and trends",
+      "kpis": [
+        {
+          "label": "Total Sales",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Online Orders",
+          "value": "78",
+          "delta": "+8% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Wholesale Orders",
+          "value": "6",
+          "delta": "+2 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Churn",
+          "value": "1.5%",
+          "delta": "-0.3% vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Selling Blends",
+        "rows": [
+          {
+            "Blend": "House Espresso",
+            "Units": "85",
+            "Revenue": "$1,487"
+          },
+          {
+            "Blend": "Ethiopia Yirgacheffe",
+            "Units": "62",
+            "Revenue": "$1,178"
+          },
+          {
+            "Blend": "Sumatra Mandheling",
+            "Units": "48",
+            "Revenue": "$912"
+          },
+          {
+            "Blend": "Decaf Colombia",
+            "Units": "30",
+            "Revenue": "$510"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Subscription Growth",
+        "rows": [
+          {
+            "Plan": "Monthly 12oz",
+            "New": "12",
+            "Cancellations": "2"
+          },
+          {
+            "Plan": "Monthly 5lb",
+            "New": "3",
+            "Cancellations": "0"
+          },
+          {
+            "Plan": "Bi-weekly 12oz",
+            "New": "8",
+            "Cancellations": "1"
+          },
+          {
+            "Plan": "Gift Subscriptions",
+            "New": "5",
+            "Cancellations": "0"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Sales",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          650.0,
+          720.0,
+          810.0,
+          690.0,
+          930.0,
+          1050.0,
+          980.0
+        ],
+        "metric_label": "Revenue ($)"
+      },
+      "activity": [
+        {
+          "name": "Wholesale Order",
+          "action": "Urban Grind (30lb)",
+          "time": "10:15 AM"
+        },
+        {
+          "name": "New Subscription",
+          "action": "Sarah L. - Monthly 12oz",
+          "time": "9:30 AM"
+        },
+        {
+          "name": "Online Order",
+          "action": "Order #3456",
+          "time": "8:45 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, subtle greens"
+      },
+      "hero": {
+        "subject": "Freshly roasted coffee beans being poured into a cooling tray, steam rising",
+        "treatment": "product photograph",
+        "caption": "House Espresso",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "configurator",
+        "steps": [
+          {
+            "label": "Choose Blend",
+            "options": [
+              "Ethiopia Yirgacheffe",
+              "Sumatra Mandheling",
+              "House Espresso",
+              "Decaf Colombia"
+            ],
+            "selected": "House Espresso"
+          },
+          {
+            "label": "Select Roast",
+            "options": [
+              "Light City",
+              "Medium City",
+              "Full City",
+              "Dark French"
+            ],
+            "selected": "Medium City"
+          },
+          {
+            "label": "Set Grind & Bag",
+            "options": [
+              "Whole Bean 12oz",
+              "Drip Grind 12oz",
+              "Espresso Grind 12oz",
+              "Whole Bean 5lb"
+            ],
+            "selected": "Drip Grind 12oz"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "House Espresso",
+          "rows": [
+            {
+              "Origin": "Multi-region"
+            },
+            {
+              "Notes": "Chocolate, Caramel"
+            },
+            {
+              "Roast": "Medium City"
+            },
+            {
+              "Grind": "Drip"
+            },
+            {
+              "Size": "12oz"
+            },
+            {
+              "Price": "$17.50"
+            }
+          ]
+        },
+        "primary_action": "Add to Cart",
+        "secondary_action": "Customize Again"
+      },
+      "ai": {
+        "title": "Smart Forecast",
+        "headline": "Increase House Espresso roast",
+        "rationale": "High sales velocity, low current stock",
+        "confidence": "92% confident",
+        "chips": [
+          "High Demand",
+          "Low Stock",
+          "Subscription Core"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Home",
+        "Sales",
+        "Inventory",
+        "Subscriptions",
+        "Wholesale",
+        "Reports"
+      ],
+      "active_nav": "Home",
+      "greeting": "Welcome back, Marco",
+      "subheading": "Today's roast actions and alerts",
+      "kpis": [
+        {
+          "label": "Roast Schedule",
+          "value": "3 batches",
+          "delta": "+1 unplanned",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Renewals",
+          "value": "18",
+          "delta": "+2 today",
+          "trend": "up"
+        },
+        {
+          "label": "Low Stock Alerts",
+          "value": "2 blends",
+          "delta": "Critical",
+          "trend": "up"
+        },
+        {
+          "label": "Wholesale Deliveries",
+          "value": "4",
+          "delta": "On schedule",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Actionable Insights",
+        "rows": [
+          {
+            "Action": "Roast Ethiopia Yirgacheffe",
+            "Priority": "High",
+            "Reason": "Online surge"
+          },
+          {
+            "Action": "Order Green Sumatra",
+            "Priority": "Medium",
+            "Reason": "Upcoming roasts"
+          },
+          {
+            "Action": "Review House Espresso",
+            "Priority": "Critical",
+            "Reason": "Near OOS"
+          },
+          {
+            "Action": "Follow-up Batch 14",
+            "Priority": "Low",
+            "Reason": "QA check overdue"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Upcoming Subscriptions",
+        "rows": [
+          {
+            "Customer": "Emily R.",
+            "Blend": "Yirgacheffe",
+            "Due": "Tomorrow"
+          },
+          {
+            "Customer": "David M.",
+            "Blend": "House Espresso",
+            "Due": "Wed"
+          },
+          {
+            "Customer": "Sophia K.",
+            "Blend": "Sumatra",
+            "Due": "Wed"
+          },
+          {
+            "Customer": "Alex P.",
+            "Blend": "Decaf Colombia",
+            "Due": "Thu"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Roast Complete",
+          "action": "Sumatra Mandheling (Batch 17)",
+          "time": "11:00 AM"
+        },
+        {
+          "name": "Inventory Update",
+          "action": "Green Beans Received (200kg)",
+          "time": "10:30 AM"
+        },
+        {
+          "name": "Subscription Modified",
+          "action": "Emily R. - Blend change",
+          "time": "9:00 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, subtle greens"
+      },
+      "hero": {
+        "subject": "A barista pouring a latte art heart into a ceramic cup in a warm, busy cafe",
+        "treatment": "cinematic still",
+        "caption": "Northgate Cafe",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Action Plan",
+        "headline": "Prioritize House Espresso roast",
+        "rationale": "High wholesale demand, low safety stock",
+        "confidence": "Critical",
+        "chips": [
+          "Wholesale Priority",
+          "Low Stock",
+          "High Demand"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee sales",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Home",
+        "Sales",
+        "Inventory",
+        "Subscriptions",
+        "Wholesale",
+        "Reports"
+      ],
+      "active_nav": "Subscriptions",
+      "greeting": "Hello, Marco",
+      "subheading": "Subscription customers and insights",
+      "kpis": [
+        {
+          "label": "Active Subscribers",
+          "value": "185",
+          "delta": "+7 this week",
+          "trend": "up"
+        },
+        {
+          "label": "Monthly Revenue",
+          "value": "$3,200",
+          "delta": "+5% MoM",
+          "trend": "up"
+        },
+        {
+          "label": "Average LTV",
+          "value": "$350",
+          "delta": "+$15",
+          "trend": "up"
+        },
+        {
+          "label": "Churn Rate",
+          "value": "1.5%",
+          "delta": "-0.3%",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recent Churn Risk",
+        "rows": [
+          {
+            "Customer": "John D.",
+            "Plan": "Monthly 12oz",
+            "Reason": "Skipped 2 orders"
+          },
+          {
+            "Customer": "Maria S.",
+            "Plan": "Bi-weekly 12oz",
+            "Reason": "Login inactivity"
+          },
+          {
+            "Customer": "Tom K.",
+            "Plan": "Monthly 5lb",
+            "Reason": "Feedback: Blend fatigue"
+          },
+          {
+            "Customer": "Chloe B.",
+            "Plan": "Monthly 12oz",
+            "Reason": "Payment issue"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Top Subscribers",
+        "rows": [
+          {
+            "Customer": "Sarah L.",
+            "Plan": "Bi-weekly 5lb",
+            "Joined": "14 months"
+          },
+          {
+            "Customer": "Michael T.",
+            "Plan": "Monthly 5lb",
+            "Joined": "18 months"
+          },
+          {
+            "Customer": "Jessica W.",
+            "Plan": "Monthly 12oz",
+            "Joined": "2 years"
+          },
+          {
+            "Customer": "Daniel P.",
+            "Plan": "Bi-weekly 12oz",
+            "Joined": "11 months"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Customer Support",
+          "action": "John D. - Churn risk",
+          "time": "1:00 PM"
+        },
+        {
+          "name": "Subscription Renewed",
+          "action": "Michael T.",
+          "time": "12:30 PM"
+        },
+        {
+          "name": "New Subscriber",
+          "action": "Olivia M.",
+          "time": "11:45 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, subtle greens"
+      },
+      "hero": {
+        "subject": "A close-up of a burlap sack filled with green coffee beans, ready for roasting",
+        "treatment": "material close-up",
+        "caption": "Green Coffee Supply",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Churn Prevention",
+        "headline": "Offer John D. a new blend",
+        "rationale": "High skip rate, low engagement",
+        "confidence": "High likelihood",
+        "chips": [
+          "Engagement Low",
+          "Personalized Offer",
+          "Save Subscription"
+        ]
+      }
+    }
+  ]
+}

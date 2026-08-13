@@ -24,7 +24,7 @@ from app.ui_spec import TOOL_CONCEPT_KINDS, ChartSpec, Kpi, Panel, ScreenConcept
 
 logger = logging.getLogger("consultant.ui_spec")
 
-UI_SPEC_PROMPT_VERSION = "ui-spec-v4"
+UI_SPEC_PROMPT_VERSION = "ui-spec-v5"
 
 
 # ── the customer's own navigation list ────────────────────────────────────
@@ -148,6 +148,72 @@ def _apply_explicit_navigation(specs: list[UIDemoSpec], explicit_nav: list[str] 
         return
     for spec in specs:
         spec.navigation = list(explicit_nav)
+
+
+def _apply_active_nav_invariant(specs: list[UIDemoSpec]) -> None:
+    """Keep a declared active item only when it is genuinely one of the
+    honoured navigation labels, and only one screen may claim each.
+
+    The membership check is the whole safety argument. Request 107's
+    six-item header happened because a prompt named an active item that
+    did not exist and the model added it; a declared value that is not in
+    `navigation` is that same failure arriving by a new road, so it is
+    dropped rather than trusted. The de-duplication is the session-39
+    defect stated as an invariant: three screens all claiming "Home" is
+    exactly the dead navigation this field exists to fix, and a model that
+    declares it should not be able to reintroduce it.
+
+    Silence stays legal. A screen that is none of the customer's sections
+    declares nothing and gets the pre-existing behaviour, because "no item
+    is marked" is honest and banning it would be a new rule with its own
+    blast radius.
+    """
+    claimed: set[str] = set()
+    for spec in specs:
+        declared = (spec.active_nav or "").strip()
+        spec.active_nav = ""
+        if not declared:
+            continue
+        match = next(
+            (label for label in spec.navigation if label.strip().lower() == declared.lower()),
+            None,
+        )
+        if match is None or match.strip().lower() in claimed:
+            continue
+        spec.active_nav = match
+        claimed.add(match.strip().lower())
+
+
+def _apply_hero_subject_invariant(specs: list[UIDemoSpec]) -> None:
+    """On a tool screen the hero is a photograph OF the thing the detail
+    panel describes, so the caption has to name that thing.
+
+    Session 39, request 130/Analytics: `hero.caption` said "Crimson Tide"
+    while `concept.detail.title` and the picker's `selected` both said
+    "Azure Embrace". The image model rendered the spec faithfully and drew
+    one painting captioned as another, beside a panel quoting a third
+    thing's price. No instrument saw it: the defect inspector looks within
+    a panel rather than across two, the judge reported only that the image
+    was cropped, and text-truth passed correctly because every string on
+    the screen was a string the spec had ordered. The spec was internally
+    incoherent before a model ever read it, which makes this a code fix and
+    not an instrument.
+
+    Runs before the brand invariant so a caption replaced here still gets
+    its brand widened.
+    """
+    for spec in specs:
+        if not spec.concept.is_tool or not spec.hero.caption:
+            continue
+        subject = ((spec.concept.detail.title if spec.concept.detail else "") or "").strip()
+        if not subject and spec.concept.steps:
+            subject = (spec.concept.steps[-1].selected or "").strip()
+        if subject and spec.hero.caption.strip().lower() != subject.lower():
+            logger.info(
+                "hero caption renamed to the screen's subject: %r -> %r",
+                spec.hero.caption, subject,
+            )
+            spec.hero.caption = subject
 
 
 def _fallback_specs(
@@ -380,6 +446,8 @@ def build_ui_specs(
         # After the coherence loop, not inside it: the customer's list is the
         # last word on navigation, including over the anchor's.
         _apply_explicit_navigation(specs, explicit_nav)
+        _apply_active_nav_invariant(specs)
+        _apply_hero_subject_invariant(specs)
         _apply_brand_string_invariant(specs)
 
         log_usage(

@@ -1,4 +1,4 @@
-{# ui-spec-v4 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 added hero / concept / ai; v3 gives the ai module its own title, because an untitled panel is a vacancy the image model fills from whatever prose sits nearest (six invented headings on the session-33 set); v4 makes the navigation length a default that yields to a list the customer named, after request 107 asked for four items and had the "5-7" rule pad it to five. #}
+{# ui-spec-v4 — converts the consulting analysis into structured UIDemoSpec JSON, one per screen. v2 added hero / concept / ai; v3 gives the ai module its own title, because an untitled panel is a vacancy the image model fills from whatever prose sits nearest (six invented headings on the session-33 set); v4 makes the navigation length a default that yields to a list the customer named, after request 107 asked for four items and had the "5-7" rule pad it to five; v5 adds active_nav, because honouring request 130's four-item header left every screen marking the same item and the navigation state dead — the model knows which section a screen is, code cannot guess it without fuzzy matching, so it says. #}
 You are a senior product designer at a SaaS company, preparing the demo content for a personalized product preview. Convert the business analysis below into structured UI content for {{ screen_count }} screens of ONE coherent software product. You are producing DATA ONLY — layout and style are handled elsewhere.
 
 BUSINESS
@@ -38,6 +38,7 @@ RULES FOR THE CONTENT
 {% else -%}
 - navigation: 5-7 short one-word items that fit this business. That is a DEFAULT for when the customer has not said what they want in their own words — it is a range to fill naturally, never a quota to pad up to with generic items.
 {% endif -%}
+- active_nav: which ONE navigation item this screen IS, copied character-for-character from the navigation list above — or "" when this screen is none of them. A screen showing today's overview for a header that starts with "Home" is Home; a screen browsing the catalogue for a header containing "Gallery" is Gallery. Two screens must never claim the same item, and never write an item that is not in the list. If the honest answer for a screen is "none of these", write "" — that is a normal answer, not a failure.
 - Wherever any string names the business itself — a product name, a hero caption, a header — spell the business name EXACTLY as given under BUSINESS: never shortened, never a legal suffix dropped, never reworded into a variant brand. A product name may embed the exact name ("<product> by <exact business name>") or leave the business name out entirely; it must never contain an altered version of it.
 - The user is a plausible owner/manager persona for this business (e.g. "Dr. Carter", "Marco"), greeted by first name.
 - greeting: "Good morning, <name>" style, maximum 4 words. subheading: maximum 6 words. NEVER a long sentence — long text garbles when rendered.
@@ -93,6 +94,7 @@ Respond with ONLY this JSON shape, no markdown fences, no commentary:
       "product": {"name": "{{ concept_name }}", "purpose": "<short phrase>", "screen_type": "<screen type>"},
       "user": {"name": "<persona name>", "role": "<owner/manager role>"},
       "navigation": [{% if explicit_navigation %}{% for item in explicit_navigation %}"{{ item }}"{% if not loop.last %}, {% endif %}{% endfor %}{% else %}"<5-7 short items>"{% endif %}],
+      "active_nav": "<the one navigation item this screen is, or empty>",
       "greeting": "<max 4 words>",
       "subheading": "<max 6 words>",
       "kpis": [{"label": "<2-3 words>", "value": "<short>", "delta": "<short>", "trend": "up"}],

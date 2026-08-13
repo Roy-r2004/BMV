@@ -1,0 +1,550 @@
+{
+  "id": "assistant",
+  "label": "Halden & Co — Accountancy Practice",
+  "archetype": "assistant-console",
+  "intake": {
+    "business_name": "Halden & Co",
+    "business_description": "Two-partner accountancy practice. Most of the day goes on the same questions from clients — deadlines, what to send us, where their return is up to — and booking the calls that follow. We want an assistant answering those and a record of every conversation it handled.",
+    "industry": "Accountancy Practice",
+    "consult_result": {
+      "consulting_summary": "An AI assistant that answers client questions around the clock, books the calls it cannot close, and hands you every conversation it had."
+    },
+    "plan_result": {
+      "concept_name": "Halden Desk",
+      "visual_theme": {
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309",
+        "mood": "calm, precise, reassuring"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v5"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Halden & Co",
+        "industry": "Accountancy Practice",
+        "location": null,
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309"
+      },
+      "product": {
+        "name": "Halden Desk",
+        "purpose": "AI client assistant for accountants",
+        "screen_type": "conversations"
+      },
+      "user": {
+        "name": "Mr. Halden",
+        "role": "Senior Partner"
+      },
+      "navigation": [
+        "Inbox",
+        "Conversations",
+        "Clients",
+        "Knowledge",
+        "Settings"
+      ],
+      "active_nav": "Conversations",
+      "greeting": "Good morning, Mr. Halden",
+      "subheading": "All active client interactions",
+      "kpis": [
+        {
+          "label": "Open Threads",
+          "value": "18",
+          "delta": "+3 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Calls Booked",
+          "value": "7",
+          "delta": "+1 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Resolved by AI",
+          "value": "82%",
+          "delta": "+1% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Average Handle",
+          "value": "3 min",
+          "delta": "-1 min vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Active Conversations",
+        "rows": [
+          {
+            "Client": "Sarah Jenkins",
+            "Last Message": "1m ago",
+            "Topic": "Expenses",
+            "Status": "Assigned"
+          },
+          {
+            "Client": "Tom Davies",
+            "Last Message": "5m ago",
+            "Topic": "Tax Deadline",
+            "Status": "Closed"
+          },
+          {
+            "Client": "Anya Sharma",
+            "Last Message": "12m ago",
+            "Topic": "Payroll Query",
+            "Status": "Open"
+          },
+          {
+            "Client": "Mark Wilson",
+            "Last Message": "30m ago",
+            "Topic": "VAT Return",
+            "Status": "Closed"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Assigned to You",
+        "rows": [
+          {
+            "Client": "Sarah Jenkins",
+            "Topic": "Expenses",
+            "Activity": "Book call"
+          },
+          {
+            "Client": "Peter Green",
+            "Topic": "New Business",
+            "Activity": "Review details"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Conversation Volume",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri"
+        ],
+        "values": [
+          15.0,
+          18.0,
+          22.0,
+          19.0,
+          25.0
+        ],
+        "metric_label": "Conversations"
+      },
+      "activity": [
+        {
+          "name": "AI Assistant",
+          "action": "booked a call for A. Sharma",
+          "time": "Just now"
+        },
+        {
+          "name": "You",
+          "action": "reviewed M. Wilson's VAT query",
+          "time": "15m ago"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "answered T. Davies' deadline query",
+          "time": "30m ago"
+        }
+      ],
+      "style": {
+        "archetype": "assistant-console",
+        "density": "normal",
+        "palette_description": "professional dark teal, warm orange accents"
+      },
+      "hero": {
+        "subject": "A modern, minimalist office desk with financial documents and a laptop, morning light",
+        "treatment": "photoreal render",
+        "caption": "",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "assistant",
+        "steps": [],
+        "turns": [
+          {
+            "speaker": "customer",
+            "text": "When is the deadline for my self-assessment?"
+          },
+          {
+            "speaker": "assistant",
+            "text": "Your personal self-assessment deadline is January 31st."
+          },
+          {
+            "speaker": "customer",
+            "text": "What documents do you need from me?"
+          },
+          {
+            "speaker": "assistant",
+            "text": "We'll need your P60, bank statements, and any other income proofs."
+          },
+          {
+            "speaker": "customer",
+            "text": "I'd like to discuss my expenses strategy."
+          },
+          {
+            "speaker": "assistant",
+            "text": "I can book a call with your accountant. What day works?"
+          }
+        ],
+        "detail": {
+          "title": "Client Context",
+          "rows": [
+            {
+              "Client": "Sarah Jenkins"
+            },
+            {
+              "Entity": "Jenkins Marketing Ltd."
+            },
+            {
+              "Last Contact": "2 days ago (Email)"
+            },
+            {
+              "Account Manager": "Mr. Halden"
+            }
+          ]
+        },
+        "primary_action": "Reply to Sarah",
+        "secondary_action": "Suggest: Book call"
+      },
+      "ai": {
+        "title": "AI Insights",
+        "headline": "Sarah Jenkins needs call",
+        "rationale": "High sentiment score, unable to self-serve.",
+        "confidence": "98% likely",
+        "chips": [
+          "Urgent",
+          "Client Retention",
+          "Expense Query"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Halden & Co",
+        "industry": "Accountancy Practice",
+        "location": null,
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309"
+      },
+      "product": {
+        "name": "Halden Desk",
+        "purpose": "AI client assistant for accountants",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Mr. Halden",
+        "role": "Senior Partner"
+      },
+      "navigation": [
+        "Inbox",
+        "Conversations",
+        "Clients",
+        "Knowledge",
+        "Settings"
+      ],
+      "active_nav": "",
+      "greeting": "Good morning, Mr. Halden",
+      "subheading": "Assistant performance overview",
+      "kpis": [
+        {
+          "label": "AI Resolution",
+          "value": "82%",
+          "delta": "+1% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Call Reduction",
+          "value": "24%",
+          "delta": "-2% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Top Query",
+          "value": "Tax Deadlines",
+          "delta": "",
+          "trend": "up"
+        },
+        {
+          "label": "Client Satisfaction",
+          "value": "4.7/5",
+          "delta": "+0.1 vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Queries",
+        "rows": [
+          {
+            "Query": "Tax Deadlines",
+            "Count": "45",
+            "Resolved": "95%"
+          },
+          {
+            "Query": "Documents Required",
+            "Count": "38",
+            "Resolved": "88%"
+          },
+          {
+            "Query": "VAT Returns",
+            "Count": "22",
+            "Resolved": "75%"
+          },
+          {
+            "Query": "Expense Claims",
+            "Count": "19",
+            "Resolved": "60%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recent Call Bookings",
+        "rows": [
+          {
+            "Client": "Peter Green",
+            "Topic": "New Business Setup"
+          },
+          {
+            "Client": "Fiona Ross",
+            "Topic": "Inheritance Tax"
+          },
+          {
+            "Client": "John Smith",
+            "Topic": "Q3 Payroll Review"
+          }
+        ]
+      },
+      "chart": {
+        "title": "AI Resolution Rate",
+        "labels": [
+          "Week 1",
+          "Week 2",
+          "Week 3",
+          "Week 4",
+          "Week 5"
+        ],
+        "values": [
+          78.0,
+          79.0,
+          80.0,
+          81.0,
+          82.0
+        ],
+        "metric_label": "Resolution %"
+      },
+      "activity": [
+        {
+          "name": "AI Assistant",
+          "action": "resolved 5 deadline queries",
+          "time": "Today"
+        },
+        {
+          "name": "You",
+          "action": "updated 'VAT Exemptions' knowledge",
+          "time": "Yesterday"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "booked 3 consultations",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "assistant-console",
+        "density": "normal",
+        "palette_description": "professional dark teal, warm orange accents"
+      },
+      "hero": {
+        "subject": "A focused accountant reviewing a financial report on a tablet, with blurred office background",
+        "treatment": "cinematic still",
+        "caption": "",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Recommendation",
+        "headline": "Update Expense Claims knowledge",
+        "rationale": "Lowest resolution rate, high manual intervention.",
+        "confidence": "High",
+        "chips": [
+          "Knowledge Gap",
+          "Efficiency Gain"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Halden & Co",
+        "industry": "Accountancy Practice",
+        "location": null,
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309"
+      },
+      "product": {
+        "name": "Halden Desk",
+        "purpose": "AI client assistant for accountants",
+        "screen_type": "knowledge"
+      },
+      "user": {
+        "name": "Mr. Halden",
+        "role": "Senior Partner"
+      },
+      "navigation": [
+        "Inbox",
+        "Conversations",
+        "Clients",
+        "Knowledge",
+        "Settings"
+      ],
+      "active_nav": "Knowledge",
+      "greeting": "Good morning, Mr. Halden",
+      "subheading": "Manage assistant knowledge base",
+      "kpis": [
+        {
+          "label": "Total Articles",
+          "value": "78",
+          "delta": "+2 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Most Used Article",
+          "value": "SA Deadlines",
+          "delta": "",
+          "trend": "up"
+        },
+        {
+          "label": "Unanswered Queries",
+          "value": "5",
+          "delta": "-1 vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Last Updated",
+          "value": "Yesterday",
+          "delta": "",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Knowledge Articles",
+        "rows": [
+          {
+            "Title": "Self-Assessment Deadlines",
+            "Category": "Tax",
+            "Last Edit": "2 days ago",
+            "Views": "120"
+          },
+          {
+            "Title": "Required Documents for Tax",
+            "Category": "Onboarding",
+            "Last Edit": "1 week ago",
+            "Views": "98"
+          },
+          {
+            "Title": "Understanding VAT Rates",
+            "Category": "VAT",
+            "Last Edit": "Yesterday",
+            "Views": "65"
+          },
+          {
+            "Title": "Allowable Business Expenses",
+            "Category": "Tax",
+            "Last Edit": "3 days ago",
+            "Views": "42"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Suggested New Articles",
+        "rows": [
+          {
+            "Topic": "Payroll Auto-Enrolment",
+            "Queries": "7"
+          },
+          {
+            "Topic": "R&D Tax Credits",
+            "Queries": "5"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Article Performance",
+        "labels": [
+          "SA Deadlines",
+          "Documents",
+          "VAT Rates",
+          "Expenses"
+        ],
+        "values": [
+          120.0,
+          98.0,
+          65.0,
+          42.0
+        ],
+        "metric_label": "Article Views"
+      },
+      "activity": [
+        {
+          "name": "You",
+          "action": "edited 'VAT Rates' article",
+          "time": "Just now"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "flagged 'R&D Credits' as missing",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "recommended 'Payroll Enrolment' article",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "assistant-console",
+        "density": "normal",
+        "palette_description": "professional dark teal, warm orange accents"
+      },
+      "hero": {
+        "subject": "An open notebook with a pen and a tablet displaying financial graphs, warm office lighting",
+        "treatment": "product photograph",
+        "caption": "",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Content Gap",
+        "headline": "Create R&D Tax Credits guide",
+        "rationale": "Recurring unhandled queries from clients.",
+        "confidence": "High",
+        "chips": [
+          "Client Need",
+          "Automation Potential"
+        ]
+      }
+    }
+  ]
+}

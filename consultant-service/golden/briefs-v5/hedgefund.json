@@ -1,0 +1,602 @@
+{
+  "id": "hedgefund",
+  "label": "Meridian Capital Partners — Hedge Fund / Asset Management",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Meridian Capital Partners",
+    "business_description": "Boutique long/short equity hedge fund managing $180M for institutional and high-net-worth clients, 6 analysts. Investor reporting and portfolio risk monitoring are manual and slow.",
+    "industry": "Hedge Fund / Asset Management",
+    "consult_result": {
+      "consulting_summary": "An AI analyst that monitors portfolio risk in real time, drafts investor updates and flags exposure limits before they're breached."
+    },
+    "plan_result": {
+      "concept_name": "Meridian Intelligence",
+      "visual_theme": {
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227",
+        "mood": "authoritative, precise, institutional"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v5"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered portfolio monitoring and reporting",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Overview",
+        "Portfolios",
+        "Reporting",
+        "Alerts",
+        "Settings"
+      ],
+      "active_nav": "Overview",
+      "greeting": "Good morning, David",
+      "subheading": "Portfolio Performance at a Glance",
+      "kpis": [
+        {
+          "label": "AUM",
+          "value": "$182.5M",
+          "delta": "+1.4% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "YTD Return",
+          "value": "9.8%",
+          "delta": "+0.3% vs benchmark",
+          "trend": "up"
+        },
+        {
+          "label": "Sharpe Ratio",
+          "value": "1.45",
+          "delta": "+0.02 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Cash Reserve",
+          "value": "$12.1M",
+          "delta": "-5% vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Holdings",
+        "rows": [
+          {
+            "Ticker": "MSFT",
+            "Weight": "5.2%",
+            "Return (1D)": "+1.1%"
+          },
+          {
+            "Ticker": "GOOGL",
+            "Weight": "4.8%",
+            "Return (1D)": "+0.9%"
+          },
+          {
+            "Ticker": "AMZN",
+            "Weight": "4.5%",
+            "Return (1D)": "+1.3%"
+          },
+          {
+            "Ticker": "AAPL",
+            "Weight": "4.1%",
+            "Return (1D)": "+0.7%"
+          },
+          {
+            "Ticker": "NVDA",
+            "Weight": "3.9%",
+            "Return (1D)": "+2.5%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recent Alerts",
+        "rows": [
+          {
+            "Type": "Exposure Limit",
+            "Asset": "TSLA",
+            "Status": "Review"
+          },
+          {
+            "Type": "Concentration",
+            "Asset": "Technology",
+            "Status": "Resolved"
+          },
+          {
+            "Type": "Liquidity",
+            "Asset": "Small Cap",
+            "Status": "Warning"
+          },
+          {
+            "Type": "VaR Breach",
+            "Asset": "Fund A",
+            "Status": "Critical"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Portfolio Value (30 Days)",
+        "labels": [
+          "Day 1",
+          "Day 7",
+          "Day 14",
+          "Day 21",
+          "Day 28"
+        ],
+        "values": [
+          178.5,
+          179.2,
+          180.1,
+          181.5,
+          182.5
+        ],
+        "metric_label": "Value ($M)"
+      },
+      "activity": [
+        {
+          "name": "Analyst Sarah",
+          "action": "Reviewed TSLA exposure",
+          "time": "10:05 AM"
+        },
+        {
+          "name": "Client Portal",
+          "action": "Accessed Q2 Report",
+          "time": "09:30 AM"
+        },
+        {
+          "name": "AI Engine",
+          "action": "Generated daily summary",
+          "time": "07:00 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A modern trading floor with multiple monitors displaying market data at dawn",
+        "treatment": "cinematic still",
+        "caption": "Strategy Overview",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Strategy",
+            "options": [
+              "Long/Short Equity",
+              "Global Macro",
+              "Credit Arbitrage"
+            ],
+            "selected": "Long/Short Equity"
+          },
+          {
+            "label": "Define Risk Band",
+            "options": [
+              "Conservative (Beta < 0.8)",
+              "Balanced (Beta 0.8-1.2)",
+              "Aggressive (Beta > 1.2)"
+            ],
+            "selected": "Balanced (Beta 0.8-1.2)"
+          },
+          {
+            "label": "Set Allocation",
+            "options": [
+              "Growth",
+              "Value",
+              "Blend"
+            ],
+            "selected": "Growth"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Strategy Overview",
+          "rows": [
+            {
+              "Strategy": "Long/Short Equity"
+            },
+            {
+              "Risk Profile": "Moderate"
+            },
+            {
+              "Target Allocation": "Growth"
+            },
+            {
+              "Expected Return": "12-15% PA"
+            },
+            {
+              "Max Drawdown": "8%"
+            }
+          ]
+        },
+        "primary_action": "Review Proposal",
+        "secondary_action": "Adjust Parameters"
+      },
+      "ai": {
+        "title": "AI Insights",
+        "headline": "Elevated tech exposure",
+        "rationale": "Sector concentration above threshold",
+        "confidence": "High",
+        "chips": [
+          "Technology Sector",
+          "Risk Management",
+          "Rebalance"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered portfolio monitoring and reporting",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Overview",
+        "Portfolios",
+        "Reporting",
+        "Alerts",
+        "Settings"
+      ],
+      "active_nav": "Portfolios",
+      "greeting": "Hello, David",
+      "subheading": "Detailed Portfolio Performance",
+      "kpis": [
+        {
+          "label": "Portfolio Beta",
+          "value": "1.08",
+          "delta": "+0.03 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Tracking Error",
+          "value": "2.1%",
+          "delta": "-0.1% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Largest Drawdown",
+          "value": "-4.2%",
+          "delta": "No change",
+          "trend": "flat"
+        },
+        {
+          "label": "Active Share",
+          "value": "78%",
+          "delta": "+2% vs last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Portfolio Holdings",
+        "rows": [
+          {
+            "Asset": "Apple Inc.",
+            "Weight": "4.1%",
+            "Type": "Equity",
+            "VaR": "0.8%"
+          },
+          {
+            "Asset": "Microsoft Corp.",
+            "Weight": "5.2%",
+            "Type": "Equity",
+            "VaR": "0.9%"
+          },
+          {
+            "Asset": "Amazon.com Inc.",
+            "Weight": "4.5%",
+            "Type": "Equity",
+            "VaR": "0.7%"
+          },
+          {
+            "Asset": "Alphabet Inc.",
+            "Weight": "4.8%",
+            "Type": "Equity",
+            "VaR": "1.0%"
+          },
+          {
+            "Asset": "Tesla Inc.",
+            "Weight": "2.8%",
+            "Type": "Equity",
+            "VaR": "1.2%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Sector Exposure",
+        "rows": [
+          {
+            "Sector": "Technology",
+            "Weight": "35%",
+            "Limit": "30%",
+            "Status": "Over"
+          },
+          {
+            "Sector": "Healthcare",
+            "Weight": "15%",
+            "Limit": "20%",
+            "Status": "Under"
+          },
+          {
+            "Sector": "Financials",
+            "Weight": "12%",
+            "Limit": "15%",
+            "Status": "OK"
+          },
+          {
+            "Sector": "Consumer Discretionary",
+            "Weight": "10%",
+            "Limit": "10%",
+            "Status": "OK"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Risk Contribution by Asset",
+        "labels": [
+          "MSFT",
+          "GOOGL",
+          "AMZN",
+          "AAPL",
+          "NVDA",
+          "Other"
+        ],
+        "values": [
+          25.0,
+          20.0,
+          18.0,
+          15.0,
+          12.0,
+          10.0
+        ],
+        "metric_label": "VaR (%)"
+      },
+      "activity": [
+        {
+          "name": "Analyst Mark",
+          "action": "Updated FX hedges",
+          "time": "11:15 AM"
+        },
+        {
+          "name": "Portfolio Ops",
+          "action": "Processed trade confirmations",
+          "time": "10:45 AM"
+        },
+        {
+          "name": "AI Engine",
+          "action": "Identified cross-correlation risk",
+          "time": "08:30 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "Detailed stock market candlestick chart on a large monitor in a dimly lit office",
+        "treatment": "cinematic still",
+        "caption": "Market Trends",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Risk Forecast",
+        "headline": "Potential for increased volatility",
+        "rationale": "Geopolitical events may impact indices",
+        "confidence": "Medium",
+        "chips": [
+          "Market Risk",
+          "Hedging Strategy",
+          "Geopolitical"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered portfolio monitoring and reporting",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Overview",
+        "Portfolios",
+        "Reporting",
+        "Alerts",
+        "Settings"
+      ],
+      "active_nav": "Reporting",
+      "greeting": "Good afternoon, David",
+      "subheading": "Investor Reporting & Communications",
+      "kpis": [
+        {
+          "label": "Reports Generated",
+          "value": "18",
+          "delta": "+3 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Client Engagements",
+          "value": "7",
+          "delta": "+2 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Avg. Report Time",
+          "value": "5 min",
+          "delta": "-20% vs last month",
+          "trend": "down"
+        },
+        {
+          "label": "Pending Reviews",
+          "value": "2",
+          "delta": "No change",
+          "trend": "flat"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recent Reports",
+        "rows": [
+          {
+            "Client": "Blackstone Mgmt",
+            "Type": "Q2 Performance",
+            "Status": "Sent"
+          },
+          {
+            "Client": "Highland Trust",
+            "Type": "Monthly Update",
+            "Status": "Drafting"
+          },
+          {
+            "Client": "Veritas Inc.",
+            "Type": "Risk Overview",
+            "Status": "Approved"
+          },
+          {
+            "Client": "Global Wealth",
+            "Type": "YTD Summary",
+            "Status": "Sent"
+          },
+          {
+            "Client": "Summit Capital",
+            "Type": "Custom Analysis",
+            "Status": "Review"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Pending Investor Updates",
+        "rows": [
+          {
+            "Client": "Highland Trust",
+            "Report": "Monthly Performance",
+            "Due": "Today"
+          },
+          {
+            "Client": "Summit Capital",
+            "Report": "Exposure Analysis",
+            "Due": "Tomorrow"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Report Generation Time",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul"
+        ],
+        "values": [
+          30.0,
+          25.0,
+          22.0,
+          18.0,
+          15.0,
+          12.0,
+          5.0
+        ],
+        "metric_label": "Minutes"
+      },
+      "activity": [
+        {
+          "name": "AI Engine",
+          "action": "Drafted Highland Trust update",
+          "time": "12:45 PM"
+        },
+        {
+          "name": "Analyst Emily",
+          "action": "Reviewed Veritas Inc. report",
+          "time": "12:10 PM"
+        },
+        {
+          "name": "David Smith",
+          "action": "Approved Q2 reports",
+          "time": "11:55 AM"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A polished, open quarterly investor report document displayed on a tablet with a pen",
+        "treatment": "product photograph",
+        "caption": "Q2 Investor Update",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Draft Suggestion",
+        "headline": "Highlight outperformance in healthcare",
+        "rationale": "Sector showed strong relative gains",
+        "confidence": "High",
+        "chips": [
+          "Investor Relations",
+          "Performance Narrative",
+          "Healthcare Sector"
+        ]
+      }
+    }
+  ]
+}

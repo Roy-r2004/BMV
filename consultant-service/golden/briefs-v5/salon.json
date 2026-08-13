@@ -1,0 +1,573 @@
+{
+  "id": "salon",
+  "label": "Lumière Hair Studio — Hair Salon",
+  "archetype": "operations-dashboard",
+  "intake": {
+    "business_name": "Lumière Hair Studio",
+    "business_description": "Upscale hair salon with 5 stylists and a dedicated color specialist. Cuts, color, styling, bridal packages. Loses revenue to stylist double-booking and last-minute cancellations.",
+    "industry": "Hair Salon",
+    "consult_result": {
+      "consulting_summary": "An AI concierge that manages stylist schedules, fills cancellations instantly and upsells add-on services at booking."
+    },
+    "plan_result": {
+      "concept_name": "Lumière Studio OS",
+      "visual_theme": {
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26",
+        "mood": "elegant, warm, editorial"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v5"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Lumière Hair Studio",
+        "industry": "Hair Salon",
+        "location": null,
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26"
+      },
+      "product": {
+        "name": "Lumière Studio OS",
+        "purpose": "AI-powered salon management",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Genevieve",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Clients",
+        "Services",
+        "Reports"
+      ],
+      "active_nav": "Dashboard",
+      "greeting": "Good morning, Genevieve",
+      "subheading": "Today's Studio Overview",
+      "kpis": [
+        {
+          "label": "Appointments Today",
+          "value": "18",
+          "delta": "+15% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Revenue Forecast",
+          "value": "$1,980",
+          "delta": "+8% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Open Slots",
+          "value": "4",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Cancellation Rate",
+          "value": "6.2%",
+          "delta": "-1.5% vs last month",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Appointments",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Client": "Sophia Lee",
+            "Service": "Haircut & Style",
+            "Stylist": "Chloe"
+          },
+          {
+            "Time": "10:30 AM",
+            "Client": "Ethan Miller",
+            "Service": "Full Color",
+            "Stylist": "Elara"
+          },
+          {
+            "Time": "11:00 AM",
+            "Client": "Olivia White",
+            "Service": "Highlights",
+            "Stylist": "Isabelle"
+          },
+          {
+            "Time": "1:00 PM",
+            "Client": "Noah Davis",
+            "Service": "Gent's Cut",
+            "Stylist": "Marcus"
+          },
+          {
+            "Time": "1:30 PM",
+            "Client": "Ava Garcia",
+            "Service": "Full Color",
+            "Stylist": "Elara"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recent Activity",
+        "rows": [
+          {
+            "Action": "Confirmed booking",
+            "Client": "Lucas Brown",
+            "Service": "Haircut",
+            "Time": "15 min ago"
+          },
+          {
+            "Action": "Rescheduled",
+            "Client": "Mia Wilson",
+            "Service": "Updo",
+            "Time": "1 hour ago"
+          },
+          {
+            "Action": "New client added",
+            "Client": "Charlotte Hall",
+            "Service": "Consult",
+            "Time": "2 hours ago"
+          },
+          {
+            "Action": "Completed checkout",
+            "Client": "James Clark",
+            "Service": "Color",
+            "Time": "3 hours ago"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Sarah Chen",
+          "action": "booked Full Color",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Michael Kim",
+          "action": "canceled haircut",
+          "time": "20 min ago"
+        },
+        {
+          "name": "Jessica Lee",
+          "action": "added Deep Condition",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "warm interface, rose gold accents"
+      },
+      "hero": {
+        "subject": "A stylist meticulously applying balayage color to client's hair in a brightly lit salon",
+        "treatment": "cinematic still",
+        "caption": "Booking Summary",
+        "placement": "right"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Service",
+            "options": [
+              "Haircut & Style",
+              "Full Color",
+              "Highlights/Balayage",
+              "Bridal Updo",
+              "Deep Conditioning"
+            ],
+            "selected": "Full Color"
+          },
+          {
+            "label": "Choose Stylist",
+            "options": [
+              "Chloe",
+              "Isabelle",
+              "Marcus",
+              "Olivia",
+              "Samuel",
+              "Elara (Color Specialist)"
+            ],
+            "selected": "Elara (Color Specialist)"
+          },
+          {
+            "label": "Pick Time",
+            "options": [
+              "Today, 10:00 AM",
+              "Today, 1:30 PM",
+              "Tomorrow, 9:00 AM",
+              "Tomorrow, 3:00 PM"
+            ],
+            "selected": "Today, 1:30 PM"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Booking Summary",
+          "rows": [
+            {
+              "Service": "Full Color"
+            },
+            {
+              "Stylist": "Elara"
+            },
+            {
+              "Date": "Today, Oct 26"
+            },
+            {
+              "Time": "1:30 PM"
+            },
+            {
+              "Duration": "2h 30m"
+            },
+            {
+              "Price": "$185"
+            }
+          ]
+        },
+        "primary_action": "Confirm Booking",
+        "secondary_action": "Reschedule"
+      },
+      "ai": {
+        "title": "Smart Action",
+        "headline": "Fill Michael's open slot",
+        "rationale": "High demand for early afternoon slots",
+        "confidence": "98% likely to fill",
+        "chips": [
+          "12:00 PM Slot",
+          "Marcus available",
+          "Target waiting list"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Lumière Hair Studio",
+        "industry": "Hair Salon",
+        "location": null,
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26"
+      },
+      "product": {
+        "name": "Lumière Studio OS",
+        "purpose": "AI-powered salon management",
+        "screen_type": "schedule"
+      },
+      "user": {
+        "name": "Genevieve",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Clients",
+        "Services",
+        "Reports"
+      ],
+      "active_nav": "Schedule",
+      "greeting": "Hello, Genevieve",
+      "subheading": "Today's Stylist Schedules",
+      "kpis": [
+        {
+          "label": "Booked Hours",
+          "value": "32h",
+          "delta": "+3h vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Next Open Slot",
+          "value": "12:00 PM",
+          "delta": "Michael's cancel",
+          "trend": "down"
+        },
+        {
+          "label": "Upcoming Clients",
+          "value": "11",
+          "delta": "Same as yesterday",
+          "trend": "flat"
+        },
+        {
+          "label": "Double Bookings",
+          "value": "0",
+          "delta": "-1 vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Stylist Availability",
+        "rows": [
+          {
+            "Stylist": "Chloe",
+            "9 AM": "Sophia Lee",
+            "11 AM": "Grace King",
+            "1 PM": "Open"
+          },
+          {
+            "Stylist": "Isabelle",
+            "9 AM": "Open",
+            "11 AM": "Olivia White",
+            "1 PM": "Daniel Scott"
+          },
+          {
+            "Stylist": "Marcus",
+            "9 AM": "Emily Green",
+            "11 AM": "Open",
+            "1 PM": "Noah Davis"
+          },
+          {
+            "Stylist": "Olivia",
+            "9 AM": "Amelia Baker",
+            "11 AM": "Open",
+            "1 PM": "Lily Taylor"
+          },
+          {
+            "Stylist": "Samuel",
+            "9 AM": "Open",
+            "11 AM": "Benjamin Hill",
+            "1 PM": "Open"
+          },
+          {
+            "Stylist": "Elara",
+            "9 AM": "Liam Carter",
+            "11 AM": "Ethan Miller",
+            "1 PM": "Ava Garcia"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Waiting List",
+        "rows": [
+          {
+            "Client": "Harper Young",
+            "Service": "Haircut",
+            "Pref. Time": "Afternoon",
+            "Status": "Notified"
+          },
+          {
+            "Client": "Evelyn Harris",
+            "Service": "Highlights",
+            "Pref. Time": "Any",
+            "Status": "Pending"
+          },
+          {
+            "Client": "Jackson Lee",
+            "Service": "Full Color",
+            "Pref. Time": "Thurs",
+            "Status": "Notified"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Marcus",
+          "action": "marked client as done",
+          "time": "10 min ago"
+        },
+        {
+          "name": "Lumière AI",
+          "action": "notified waiting list",
+          "time": "25 min ago"
+        },
+        {
+          "name": "Chloe",
+          "action": "added notes for client",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "warm interface, rose gold accents"
+      },
+      "hero": {
+        "subject": "Stylist station with tools, hair products, and a mirror in a modern upscale salon",
+        "treatment": "product photograph",
+        "caption": "Stylist Station 3",
+        "placement": "left"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Intelligent Scheduling",
+        "headline": "Recommend upsell for Grace",
+        "rationale": "Due for deep conditioning treatment",
+        "confidence": "High likelihood to accept",
+        "chips": [
+          "Grace King",
+          "Deep Condition",
+          "Offer at check-in"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Lumière Hair Studio",
+        "industry": "Hair Salon",
+        "location": null,
+        "primary_color": "#b76e79",
+        "secondary_color": "#2d2a26"
+      },
+      "product": {
+        "name": "Lumière Studio OS",
+        "purpose": "AI-powered salon management",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Genevieve",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Clients",
+        "Services",
+        "Reports"
+      ],
+      "active_nav": "Reports",
+      "greeting": "Good afternoon, Genevieve",
+      "subheading": "Performance & Trends",
+      "kpis": [
+        {
+          "label": "Monthly Revenue",
+          "value": "$22,500",
+          "delta": "+10% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Avg. Service Value",
+          "value": "$95",
+          "delta": "+$5 vs last quarter",
+          "trend": "up"
+        },
+        {
+          "label": "New Clients",
+          "value": "28",
+          "delta": "+3 vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Rebooking Rate",
+          "value": "78%",
+          "delta": "+2% vs last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Stylist Performance",
+        "rows": [
+          {
+            "Stylist": "Chloe",
+            "Bookings": "98",
+            "Revenue": "$8,200",
+            "Rebook %": "85%"
+          },
+          {
+            "Stylist": "Elara",
+            "Bookings": "72",
+            "Revenue": "$9,100",
+            "Rebook %": "88%"
+          },
+          {
+            "Stylist": "Isabelle",
+            "Bookings": "85",
+            "Revenue": "$7,150",
+            "Rebook %": "79%"
+          },
+          {
+            "Stylist": "Marcus",
+            "Bookings": "70",
+            "Revenue": "$5,900",
+            "Rebook %": "75%"
+          },
+          {
+            "Stylist": "Olivia",
+            "Bookings": "65",
+            "Revenue": "$5,400",
+            "Rebook %": "70%"
+          }
+        ]
+      },
+      "secondary_panel": null,
+      "chart": {
+        "title": "Weekly Bookings",
+        "labels": [
+          "Wk 1",
+          "Wk 2",
+          "Wk 3",
+          "Wk 4",
+          "Wk 5",
+          "Wk 6"
+        ],
+        "values": [
+          85.0,
+          92.0,
+          88.0,
+          95.0,
+          102.0,
+          99.0
+        ],
+        "metric_label": "Bookings"
+      },
+      "activity": [
+        {
+          "name": "Report",
+          "action": "exported client list",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "System",
+          "action": "updated monthly forecast",
+          "time": "2 hours ago"
+        },
+        {
+          "name": "Report",
+          "action": "viewed service breakdown",
+          "time": "3 hours ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "warm interface, rose gold accents"
+      },
+      "hero": {
+        "subject": "Overhead view of a modern hair salon floor with several stylists working and natural light",
+        "treatment": "aerial view",
+        "caption": "Studio Flow",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Revenue Predictor",
+        "headline": "Increase Bridal Package outreach",
+        "rationale": "High seasonal demand approaching soon",
+        "confidence": "92% accuracy",
+        "chips": [
+          "Bridal services",
+          "Q4 trend",
+          "Target new clients"
+        ]
+      }
+    }
+  ]
+}

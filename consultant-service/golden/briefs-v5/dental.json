@@ -1,0 +1,605 @@
+{
+  "id": "dental",
+  "label": "SmileBright Dental — Dental Clinic",
+  "archetype": "operations-dashboard",
+  "intake": {
+    "business_name": "SmileBright Dental",
+    "business_description": "Family dental clinic with 3 dentists and 2 hygienists. Cleanings, crowns, implants, Invisalign. Struggles with no-shows and slow recall of lapsed patients.",
+    "industry": "Dental Clinic",
+    "consult_result": {
+      "consulting_summary": "An AI front-desk that fills the schedule, chases no-shows and recalls lapsed patients automatically."
+    },
+    "plan_result": {
+      "concept_name": "SmileBright Operations",
+      "visual_theme": {
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8",
+        "mood": "clean, clinical, trustworthy"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v5"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "SmileBright Dental",
+        "industry": "Dental Clinic",
+        "location": null,
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8"
+      },
+      "product": {
+        "name": "SmileBright Operations",
+        "purpose": "Automated dental practice management",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Dr. Miller",
+        "role": "Owner Dentist"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Patients",
+        "Recall",
+        "Analytics",
+        "Settings"
+      ],
+      "active_nav": "Dashboard",
+      "greeting": "Good morning, Dr. Miller",
+      "subheading": "Today's practice overview",
+      "kpis": [
+        {
+          "label": "Appointments Today",
+          "value": "18",
+          "delta": "+5% vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Expected Revenue",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "No-Shows",
+          "value": "1",
+          "delta": "-50% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Recall Booked",
+          "value": "7",
+          "delta": "+35% vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Appointments",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Patient": "Sarah Chen",
+            "Service": "Cleaning",
+            "Provider": "Emily RDH"
+          },
+          {
+            "Time": "9:30 AM",
+            "Patient": "David Lee",
+            "Service": "Crown Prep",
+            "Provider": "Dr. Patel"
+          },
+          {
+            "Time": "10:30 AM",
+            "Patient": "Maria Garcia",
+            "Service": "Implant Consult",
+            "Provider": "Dr. Miller"
+          },
+          {
+            "Time": "11:00 AM",
+            "Patient": "John Smith",
+            "Service": "Invisalign Check",
+            "Provider": "Dr. Chen"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Recent Patient Activity",
+        "rows": [
+          {
+            "Patient": "Tom Wong",
+            "Action": "Confirmed 2 PM",
+            "Status": "Active"
+          },
+          {
+            "Patient": "Lisa Green",
+            "Action": "Rescheduled 11 AM",
+            "Status": "Active"
+          },
+          {
+            "Patient": "Ben Carter",
+            "Action": "Recall booked",
+            "Status": "Active"
+          },
+          {
+            "Patient": "Anna Kim",
+            "Action": "New patient added",
+            "Status": "New"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Appointments",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "values": [
+          15.0,
+          18.0,
+          22.0,
+          19.0,
+          16.0,
+          8.0
+        ],
+        "metric_label": "Appointments"
+      },
+      "activity": [
+        {
+          "name": "AI Assistant",
+          "action": "Filled 2:00 PM slot",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Emily RDH",
+          "action": "Updated patient notes",
+          "time": "15 min ago"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "Sent recall reminders",
+          "time": "30 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, teal accents"
+      },
+      "hero": {
+        "subject": "A modern, bright dental examination room with a dental chair and instruments, early morning light",
+        "treatment": "photoreal render",
+        "caption": "",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Treatment",
+            "options": [
+              "Cleaning",
+              "Crown",
+              "Implant",
+              "Invisalign",
+              "Extraction"
+            ],
+            "selected": "Cleaning"
+          },
+          {
+            "label": "Choose Practitioner",
+            "options": [
+              "Dr. Miller",
+              "Dr. Patel",
+              "Dr. Chen",
+              "Sarah RN",
+              "Emily RDH"
+            ],
+            "selected": "Emily RDH"
+          },
+          {
+            "label": "Pick Time Slot",
+            "options": [
+              "Today 9:00 AM",
+              "Today 10:30 AM",
+              "Tomorrow 8:00 AM",
+              "Tomorrow 1:00 PM"
+            ],
+            "selected": "Today 10:30 AM"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Appointment Details",
+          "rows": [
+            {
+              "Treatment": "Cleaning"
+            },
+            {
+              "Practitioner": "Emily RDH"
+            },
+            {
+              "Date": "June 14, 2024"
+            },
+            {
+              "Time": "10:30 AM - 11:30 AM"
+            },
+            {
+              "Duration": "60 mins"
+            }
+          ]
+        },
+        "primary_action": "Book Appointment",
+        "secondary_action": "Find Other Times"
+      },
+      "ai": {
+        "title": "Smart Forecast",
+        "headline": "Recommend late afternoon offer",
+        "rationale": "Fill today's 3-5 PM open slots",
+        "confidence": "High",
+        "chips": [
+          "Open Slots",
+          "Last Minute",
+          "Revenue Boost"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "SmileBright Dental",
+        "industry": "Dental Clinic",
+        "location": null,
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8"
+      },
+      "product": {
+        "name": "SmileBright Operations",
+        "purpose": "Automated dental practice management",
+        "screen_type": "schedule"
+      },
+      "user": {
+        "name": "Dr. Miller",
+        "role": "Owner Dentist"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Patients",
+        "Recall",
+        "Analytics",
+        "Settings"
+      ],
+      "active_nav": "Schedule",
+      "greeting": "Good morning, Dr. Miller",
+      "subheading": "Today's appointment calendar",
+      "kpis": [
+        {
+          "label": "Total Booked",
+          "value": "18",
+          "delta": "+5% vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Open Slots",
+          "value": "7",
+          "delta": "-2 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Confirmed",
+          "value": "16",
+          "delta": "+10% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "New Patients",
+          "value": "3",
+          "delta": "Steady",
+          "trend": "neutral"
+        }
+      ],
+      "primary_panel": {
+        "title": "Dr. Miller's Day",
+        "rows": [
+          {
+            "Time": "8:00 AM",
+            "Patient": "Reserved",
+            "Service": "Prep"
+          },
+          {
+            "Time": "9:00 AM",
+            "Patient": "Emily White",
+            "Service": "Crown Delivery"
+          },
+          {
+            "Time": "10:30 AM",
+            "Patient": "Mark Johnson",
+            "Service": "Implant Stage 2"
+          },
+          {
+            "Time": "12:00 PM",
+            "Patient": "Lunch",
+            "Service": ""
+          },
+          {
+            "Time": "1:00 PM",
+            "Patient": "Sarah Kim",
+            "Service": "New Patient Consult"
+          },
+          {
+            "Time": "2:30 PM",
+            "Patient": "Open",
+            "Service": ""
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Emily RDH's Day",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Patient": "Sarah Chen",
+            "Service": "Cleaning"
+          },
+          {
+            "Time": "10:00 AM",
+            "Patient": "Daniel Brown",
+            "Service": "Cleaning"
+          },
+          {
+            "Time": "11:00 AM",
+            "Patient": "Lisa Green",
+            "Service": "Scaling"
+          },
+          {
+            "Time": "12:00 PM",
+            "Patient": "Lunch",
+            "Service": ""
+          },
+          {
+            "Time": "1:00 PM",
+            "Patient": "Open",
+            "Service": ""
+          },
+          {
+            "Time": "2:00 PM",
+            "Patient": "Ben Carter",
+            "Service": "Cleaning"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "AI Assistant",
+          "action": "Confirmed 3 appointments",
+          "time": "10 min ago"
+        },
+        {
+          "name": "Reception",
+          "action": "Booked Jane Doe for 4PM",
+          "time": "25 min ago"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "Filled Dr. Patel's 11 AM",
+          "time": "45 min ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, teal accents"
+      },
+      "hero": {
+        "subject": "A detailed 3D scan of healthy human teeth and gums, brightly lit in a digital environment",
+        "treatment": "photoreal render",
+        "caption": "Digital Scan",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Smart Scheduling",
+        "headline": "Suggest rebooking no-show",
+        "rationale": "Patient missed last cleaning, high value",
+        "confidence": "92% likely to book",
+        "chips": [
+          "High Value",
+          "Overdue Recall",
+          "Easy Rebook"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "SmileBright Dental",
+        "industry": "Dental Clinic",
+        "location": null,
+        "primary_color": "#0e9594",
+        "secondary_color": "#1d4ed8"
+      },
+      "product": {
+        "name": "SmileBright Operations",
+        "purpose": "Automated dental practice management",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Dr. Miller",
+        "role": "Owner Dentist"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Patients",
+        "Recall",
+        "Analytics",
+        "Settings"
+      ],
+      "active_nav": "Analytics",
+      "greeting": "Good morning, Dr. Miller",
+      "subheading": "Practice performance insights",
+      "kpis": [
+        {
+          "label": "No-Show Rate",
+          "value": "6.2%",
+          "delta": "-2.1% vs last month",
+          "trend": "down"
+        },
+        {
+          "label": "Recall Success",
+          "value": "78%",
+          "delta": "+5% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "New Patient Growth",
+          "value": "15%",
+          "delta": "+2% vs last quarter",
+          "trend": "up"
+        },
+        {
+          "label": "Average Treatment Value",
+          "value": "$320",
+          "delta": "+$15 vs last year",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Monthly Performance",
+        "rows": [
+          {
+            "Metric": "Appointments",
+            "Current": "320",
+            "Previous": "305",
+            "Change": "+5%"
+          },
+          {
+            "Metric": "Revenue",
+            "Current": "$85,000",
+            "Previous": "$78,500",
+            "Change": "+8%"
+          },
+          {
+            "Metric": "No-Shows",
+            "Current": "20",
+            "Previous": "28",
+            "Change": "-28%"
+          },
+          {
+            "Metric": "Recall Booked",
+            "Current": "125",
+            "Previous": "100",
+            "Change": "+25%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Treatment Breakdown",
+        "rows": [
+          {
+            "Service": "Cleanings",
+            "Count": "180",
+            "Revenue": "$27,000"
+          },
+          {
+            "Service": "Crowns",
+            "Count": "45",
+            "Revenue": "$36,000"
+          },
+          {
+            "Service": "Implants",
+            "Count": "10",
+            "Revenue": "$15,000"
+          },
+          {
+            "Service": "Invisalign",
+            "Count": "5",
+            "Revenue": "$20,000"
+          }
+        ]
+      },
+      "chart": {
+        "title": "No-Show Rate Trend",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun"
+        ],
+        "values": [
+          10.0,
+          9.0,
+          8.0,
+          7.0,
+          6.5,
+          6.2
+        ],
+        "metric_label": "Rate %"
+      },
+      "activity": [
+        {
+          "name": "AI Assistant",
+          "action": "Generated month-end report",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "Dr. Miller",
+          "action": "Reviewed revenue trends",
+          "time": "2 hours ago"
+        },
+        {
+          "name": "AI Assistant",
+          "action": "Identified recall opportunities",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, teal accents"
+      },
+      "hero": {
+        "subject": "A close-up of clear Invisalign aligners on a dental model, softly lit",
+        "treatment": "product photograph",
+        "caption": "Invisalign Treatment",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Insights",
+        "headline": "Focus on Invisalign outreach",
+        "rationale": "High profit, growing interest, low current volume",
+        "confidence": "High potential ROI",
+        "chips": [
+          "High Profit",
+          "Low Penetration",
+          "Patient Interest"
+        ]
+      }
+    }
+  ]
+}

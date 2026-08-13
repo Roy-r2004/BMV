@@ -258,3 +258,52 @@ def test_the_tool_top_bar_asks_for_no_unlabelled_control_either():
 def test_a_dashboard_screen_is_unaffected(dental_spec):
     """The change is scoped to the tool branch; nothing else moved."""
     assert "Navigation items (left sidebar" in prompt_builder._nav_block(dental_spec)
+
+
+def test_a_declared_active_item_beats_the_title_match():
+    """Session 39: the title match only ever fires when the customer's
+    words happen to be the archetype's words. On request 130 they were not,
+    and every screen defaulted to the first item."""
+    from app.pipeline.prompt_builder import active_nav_item
+
+    spec = UIDemoSpec.model_validate({
+        "navigation": ["Home", "Gallery", "About", "Contact"],
+        "active_nav": "Gallery",
+        "product": {"screen_type": "analytics"},
+    })
+    assert active_nav_item(spec) == "Gallery"
+
+
+def test_the_title_match_still_works_for_specs_that_predate_the_field():
+    """Every frozen golden bundle is one of these."""
+    from app.pipeline.prompt_builder import active_nav_item
+
+    spec = UIDemoSpec.model_validate({
+        "navigation": ["Dashboard", "Analytics", "Customers"],
+        "product": {"screen_type": "analytics"},
+    })
+    assert active_nav_item(spec) == "Analytics"
+
+
+def test_no_declaration_and_no_match_names_no_active_item():
+    from app.pipeline.prompt_builder import active_nav_item
+
+    spec = UIDemoSpec.model_validate({
+        "navigation": ["Home", "Gallery", "About", "Contact"],
+        "product": {"screen_type": "customers"},
+    })
+    assert active_nav_item(spec) is None
+
+
+def test_the_declared_item_reaches_the_rendered_prompt():
+    """The point of the field is the sentence the image model reads."""
+    from app.pipeline import prompt_builder
+
+    spec = UIDemoSpec.model_validate({
+        "business": {"name": "Jeanne Art"},
+        "product": {"name": "Jeanne Artistry Canvas", "screen_type": "analytics"},
+        "navigation": ["Home", "Gallery", "About", "Contact"],
+        "active_nav": "Gallery",
+    })
+    prompt = prompt_builder.build_continuation_prompt(spec, "Dashboard")
+    assert "Only the active item changes, to Gallery." in prompt

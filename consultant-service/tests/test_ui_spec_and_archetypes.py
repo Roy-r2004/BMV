@@ -374,3 +374,127 @@ def test_a_series_that_cannot_be_plotted_asks_for_no_chart_at_all():
     })
     assert spec.chart.values == []
     assert "Performance" not in prompt_builder.build_dashboard_image_prompt(spec)
+
+
+# --- session 39: the navigation state, and the hero's subject -----------
+
+
+def _screens(*payloads):
+    return [UIDemoSpec.model_validate(p) for p in payloads]
+
+
+NAV = ["Home", "Gallery", "About", "Contact"]
+
+
+def test_a_declared_active_item_survives_when_it_is_in_the_honoured_list():
+    from app.pipeline.ui_spec import _apply_active_nav_invariant
+
+    specs = _screens(
+        {"navigation": NAV, "active_nav": "Home", "product": {"screen_type": "dashboard"}},
+        {"navigation": NAV, "active_nav": "Gallery", "product": {"screen_type": "analytics"}},
+    )
+    _apply_active_nav_invariant(specs)
+    assert [s.active_nav for s in specs] == ["Home", "Gallery"]
+
+
+def test_an_active_item_the_customer_never_asked_for_is_dropped_not_added():
+    """Request 107's six-item header came from a prompt naming an item that
+    did not exist. A declared value outside the honoured list is that same
+    failure arriving by a new road."""
+    from app.pipeline.ui_spec import _apply_active_nav_invariant
+
+    specs = _screens(
+        {"navigation": NAV, "active_nav": "Schedule", "product": {"screen_type": "schedule"}},
+    )
+    _apply_active_nav_invariant(specs)
+    assert specs[0].active_nav == ""
+    assert specs[0].navigation == NAV
+
+
+def test_two_screens_cannot_both_claim_the_same_item():
+    """Three screens all marking Home is the exact session-39 defect; the
+    field that fixes it must not be able to reintroduce it."""
+    from app.pipeline.ui_spec import _apply_active_nav_invariant
+
+    specs = _screens(
+        {"navigation": NAV, "active_nav": "Home", "product": {"screen_type": "dashboard"}},
+        {"navigation": NAV, "active_nav": "home", "product": {"screen_type": "analytics"}},
+        {"navigation": NAV, "active_nav": "Home", "product": {"screen_type": "customers"}},
+    )
+    _apply_active_nav_invariant(specs)
+    assert [s.active_nav for s in specs] == ["Home", "", ""]
+
+
+def test_declaring_nothing_stays_legal():
+    """A screen that is none of the customer's sections is a normal
+    outcome, and banning it would be a new rule with its own blast radius."""
+    from app.pipeline.ui_spec import _apply_active_nav_invariant
+
+    specs = _screens({"navigation": NAV, "product": {"screen_type": "customers"}})
+    _apply_active_nav_invariant(specs)
+    assert specs[0].active_nav == ""
+
+
+def test_the_hero_caption_names_the_thing_the_detail_panel_describes():
+    """Request 130/Analytics captioned the hero 'Crimson Tide' beside a
+    panel quoting 'Azure Embrace' at $2,800 — two paintings presented as
+    one, and the spec was already incoherent before a model read it."""
+    from app.pipeline.ui_spec import _apply_hero_subject_invariant
+
+    specs = _screens({
+        "hero": {"caption": "Crimson Tide", "subject": "an abstract oil painting"},
+        "concept": {
+            "kind": "explorer",
+            "steps": [{"label": "Select Painting",
+                       "options": ["Crimson Tide", "Azure Embrace"],
+                       "selected": "Azure Embrace"}],
+            "detail": {"title": "Azure Embrace", "rows": [{"Price": "$2,800"}]},
+        },
+    })
+    _apply_hero_subject_invariant(specs)
+    assert specs[0].hero.caption == "Azure Embrace"
+
+
+def test_the_hero_caption_falls_back_to_the_final_selection():
+    from app.pipeline.ui_spec import _apply_hero_subject_invariant
+
+    specs = _screens({
+        "hero": {"caption": "Unit A-1102"},
+        "concept": {
+            "kind": "selector",
+            "steps": [
+                {"label": "Tower", "options": ["North"], "selected": "North"},
+                {"label": "Unit", "options": ["A-1803"], "selected": "A-1803"},
+            ],
+        },
+    })
+    _apply_hero_subject_invariant(specs)
+    assert specs[0].hero.caption == "A-1803"
+
+
+def test_a_dashboard_hero_caption_is_left_alone():
+    """The invariant is about a picture OF the selected thing. A dashboard
+    hero is a scene, and renaming it to a table row would be a new defect."""
+    from app.pipeline.ui_spec import _apply_hero_subject_invariant
+
+    specs = _screens({
+        "hero": {"caption": "My Studio"},
+        "concept": {"kind": "dashboard", "detail": {"title": "Olivia Chen"}},
+    })
+    _apply_hero_subject_invariant(specs)
+    assert specs[0].hero.caption == "My Studio"
+
+
+def test_an_already_coherent_caption_is_not_rewritten():
+    from app.pipeline.ui_spec import _apply_hero_subject_invariant
+
+    specs = _screens({
+        "hero": {"caption": "Azure Embrace"},
+        "concept": {
+            "kind": "explorer",
+            "steps": [{"label": "Painting", "options": [], "selected": "Azure Embrace"}],
+            "detail": {"title": "Azure Embrace"},
+        },
+    })
+    _apply_hero_subject_invariant(specs)
+    assert specs[0].hero.caption == "Azure Embrace"

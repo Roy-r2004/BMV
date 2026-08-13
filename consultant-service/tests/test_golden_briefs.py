@@ -77,7 +77,7 @@ def test_brand_critical_strings_are_the_text_gates_ground_truth():
 
 
 # ── the v4 set (session 38) ──────────────────────────────────────────────
-# golden/briefs is frozen at ui-spec-v1 and the live stage is ui-spec-v4.
+# golden/briefs is frozen at ui-spec-v1 and the live stage is ui-spec-v5.
 # The default deliberately does NOT move: every past evidence document
 # means v1 by "the golden set", and bakeoff.py --frozen-specs exists to
 # reproduce historical cells, which it could not do if the set underneath
@@ -115,9 +115,14 @@ def test_a_v4_brief_is_coherent_and_was_frozen_at_v4(brief_id):
     from app.pipeline.ui_spec import UI_SPEC_PROMPT_VERSION
 
     bundle = _v4(brief_id)
-    assert bundle["frozen_by"]["ui_spec_prompt_version"] == UI_SPEC_PROMPT_VERSION, (
+    # Pinned to the literal version, not to the live one. Session 39 moved
+    # the stage to v5 and froze briefs-v5; v4 stays exactly what session 38
+    # measured, which is the only thing that makes it comparable to session
+    # 38's numbers. A set that tracks the live version is not a control arm.
+    assert bundle["frozen_by"]["ui_spec_prompt_version"] == "ui-spec-v4", (
         "one set, one prompt version — that is what makes it a control arm"
     )
+    assert UI_SPEC_PROMPT_VERSION >= "ui-spec-v4", "a frozen set must never lead the live stage"
     anchor = bundle["screens"][0]
     assert anchor.business.name == INTAKE_FIXTURES[brief_id]["business_name"]
     assert anchor.product.name == INTAKE_FIXTURES[brief_id]["plan_result"]["concept_name"]
@@ -159,3 +164,91 @@ def test_the_shipped_default_set_is_untouched_by_any_of_this():
         for bid in golden.brief_ids()
     }
     assert frozen_at == {"ui-spec-v1"}
+
+
+# ── the v5 set (session 39) ──────────────────────────────────────────────
+# v5 adds active_nav. It gets its own directory for the same reason v4 did:
+# every number session 38 published was measured against v4, and a set that
+# silently gains a field is no longer the thing those numbers describe.
+
+V5_DIR = pathlib.Path(__file__).resolve().parents[1] / "golden" / "briefs-v5"
+
+
+def _v5(brief_id: str) -> dict:
+    from app.ui_spec import UIDemoSpec
+
+    bundle = json.loads((V5_DIR / f"{brief_id}.json").read_text(encoding="utf-8"))
+    bundle["screens"] = [UIDemoSpec.model_validate(s) for s in bundle["screens"]]
+    return bundle
+
+
+V5_IDS = sorted(p.stem for p in V5_DIR.glob("*.json")) if V5_DIR.is_dir() else []
+
+
+def test_the_v5_set_covers_every_intake_fixture():
+    assert set(V5_IDS) == set(INTAKE_FIXTURES), (
+        "rebuild with GOLDEN_BRIEFS_DIR=golden/briefs-v5 python scripts/build_golden.py"
+    )
+
+
+@pytest.mark.parametrize("brief_id", V5_IDS)
+def test_a_v5_brief_was_frozen_at_the_live_prompt_version(brief_id):
+    from app.pipeline.ui_spec import UI_SPEC_PROMPT_VERSION
+
+    assert _v5(brief_id)["frozen_by"]["ui_spec_prompt_version"] == UI_SPEC_PROMPT_VERSION
+
+
+@pytest.mark.parametrize("brief_id", V5_IDS)
+def test_a_v5_brief_is_coherent_and_business_specific(brief_id):
+    bundle = _v5(brief_id)
+    anchor = bundle["screens"][0]
+    assert anchor.business.name == INTAKE_FIXTURES[brief_id]["business_name"]
+    assert anchor.product.name == INTAKE_FIXTURES[brief_id]["plan_result"]["concept_name"]
+    assert not (anchor.user.name == "Alex" and anchor.subheading == "Today at a glance"), (
+        "this is the ui_spec fallback, not a real spec"
+    )
+    for spec in bundle["screens"]:
+        assert spec.style.archetype == bundle["archetype"]
+        assert spec.navigation == anchor.navigation
+
+
+@pytest.mark.parametrize("brief_id", V5_IDS)
+def test_a_v5_brief_never_declares_an_active_item_off_its_own_menu(brief_id):
+    """The invariant, checked against real model output rather than only
+    against hand-built specs: a declared item must be one of the honoured
+    labels, and no two screens may claim the same one. This is what stops
+    request 130's dead navigation coming back, and request 107's invented
+    sixth header item coming back with it."""
+    bundle = _v5(brief_id)
+    claimed = []
+    for spec in bundle["screens"]:
+        if not spec.active_nav:
+            continue
+        assert spec.active_nav in spec.navigation, (
+            f"{brief_id}/{spec.screen_title} claims {spec.active_nav!r}, "
+            f"which is not in {spec.navigation}"
+        )
+        claimed.append(spec.active_nav)
+    assert len(claimed) == len(set(claimed)), f"{brief_id} marks the same item twice: {claimed}"
+
+
+@pytest.mark.parametrize("brief_id", V5_IDS)
+def test_a_v5_tool_screen_captions_its_hero_with_its_own_subject(brief_id):
+    """Request 130/Analytics drew one painting captioned as another beside
+    a panel quoting a third thing's price."""
+    for spec in _v5(brief_id)["screens"]:
+        if not (spec.concept.is_tool and spec.hero.caption):
+            continue
+        subject = ((spec.concept.detail.title if spec.concept.detail else "") or "").strip()
+        if not subject and spec.concept.steps:
+            subject = (spec.concept.steps[-1].selected or "").strip()
+        if subject:
+            assert spec.hero.caption.strip().lower() == subject.lower(), (
+                f"{brief_id}/{spec.screen_title}: hero says {spec.hero.caption!r}, "
+                f"the screen is about {subject!r}"
+            )
+
+
+def test_the_v5_set_still_spans_distinct_archetypes_for_the_bakeoff():
+    archetype_ids = [_v5(bid)["archetype"] for bid in golden.BAKEOFF_BRIEF_IDS]
+    assert len(set(archetype_ids)) == len(golden.BAKEOFF_BRIEF_IDS), archetype_ids
