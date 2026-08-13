@@ -542,3 +542,67 @@ def test_the_featured_catalogue_card_is_one_of_the_counted_cards():
     assert "featured" not in prompt.split("BRANDING")[0].split("PUBLIC CATALOGUE")[1]
     # The hero is dropped on a catalogue page: each card's image IS its item.
     assert "an abstract oil painting in gallery light" not in prompt
+
+
+def test_the_back_office_gets_its_own_menu_when_the_model_copies_the_public_one():
+    """Requests 141-147: the model wrote the website's menu onto the back
+    office every single run, through three prompt rewrites. Scoping the
+    forced list to public screens stopped this stage OVERWRITING an owner
+    menu; it did not create one. This is the promise behind the request."""
+    from app.pipeline.ui_spec import _apply_explicit_navigation, _apply_surfaces
+
+    nav = ["Home", "Gallery", "About", "Contact"]
+    specs = [
+        UIDemoSpec.model_validate({
+            "product": {"screen_type": t},
+            "style": {"archetype": archetypes.PUBLIC_SITE_ARCHETYPE},
+            "navigation": list(nav),
+            "active_nav": "Home" if t == "manage" else "",
+        })
+        for t in ("home", "gallery", "manage")
+    ]
+    _apply_surfaces(specs, archetypes.PUBLIC_SITE_ARCHETYPE)
+    _apply_explicit_navigation(specs, nav)
+
+    assert specs[0].navigation == nav
+    assert specs[1].navigation == nav
+    assert specs[2].navigation == ["Overview", "Catalogue", "Enquiries", "Settings"]
+    assert specs[2].active_nav == "", "a stale active item must not survive the swap"
+
+
+def test_a_model_written_admin_menu_is_left_alone():
+    """It fires on an exact match only. The model's own words are
+    business-specific and the fallback deliberately is not."""
+    from app.pipeline.ui_spec import _apply_explicit_navigation, _apply_surfaces
+
+    nav = ["Home", "Gallery", "About", "Contact"]
+    written = ["Overview", "Artworks", "Enquiries"]
+    specs = [
+        UIDemoSpec.model_validate({
+            "product": {"screen_type": t},
+            "style": {"archetype": archetypes.PUBLIC_SITE_ARCHETYPE},
+            "navigation": list(n),
+        })
+        for t, n in (("home", nav), ("gallery", nav), ("manage", written))
+    ]
+    _apply_surfaces(specs, archetypes.PUBLIC_SITE_ARCHETYPE)
+    _apply_explicit_navigation(specs, nav)
+    assert specs[2].navigation == written
+
+
+def test_an_all_internal_archetype_still_gets_the_list_everywhere():
+    """The pre-session-39 behaviour, unchanged: with no public screens the
+    customer's list is the product's only menu."""
+    from app.pipeline.ui_spec import _apply_explicit_navigation, _apply_surfaces
+
+    nav = ["Home", "Gallery", "About", "Contact"]
+    specs = [
+        UIDemoSpec.model_validate({
+            "product": {"screen_type": t},
+            "style": {"archetype": "operations-dashboard"},
+        })
+        for t in ("dashboard", "schedule", "analytics")
+    ]
+    _apply_surfaces(specs, "operations-dashboard")
+    _apply_explicit_navigation(specs, nav)
+    assert all(s.navigation == nav for s in specs)

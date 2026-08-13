@@ -163,9 +163,35 @@ def _apply_explicit_navigation(specs: list[UIDemoSpec], explicit_nav: list[str] 
     if not explicit_nav:
         return
     public = [s for s in specs if surfaces.is_public(s.surface)]
-    targets = public or specs
-    for spec in targets:
+    for spec in (public or specs):
         spec.navigation = list(explicit_nav)
+    if not public:
+        return
+
+    # The other half of the promise. Scoping the forced list to public
+    # screens only stops this stage OVERWRITING the owner's menu — it does
+    # not create one, and the model wrote the public list onto the back
+    # office by itself on every measured run (141-147), including after
+    # three separate prompt rewrites. So: a back-office screen still
+    # carrying the visitor's menu gets the archetype's own admin sections.
+    #
+    # Fires only on an exact match. A model that wrote a genuinely
+    # different menu keeps it, because its words are business-specific and
+    # the fallback deliberately is not.
+    admin = archetypes.admin_navigation(specs[0].style.archetype if specs else None)
+    if not admin:
+        return
+    lowered = [item.strip().lower() for item in explicit_nav]
+    for spec in specs:
+        if surfaces.is_public(spec.surface):
+            continue
+        if [item.strip().lower() for item in spec.navigation] == lowered:
+            logger.info(
+                "back-office screen was carrying the website's menu; using the admin sections: %s",
+                admin,
+            )
+            spec.navigation = list(admin)
+            spec.active_nav = ""
 
 
 def _apply_active_nav_invariant(specs: list[UIDemoSpec]) -> None:

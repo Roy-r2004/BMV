@@ -201,6 +201,15 @@ ARCHETYPES: dict[str, dict] = {
             {
                 "screen_type": "manage",
                 "surface": surfaces.BACK_OFFICE,
+                # The owner's own menu. The customer's list is the WEBSITE's
+                # navigation and belongs to the visitor-facing screens; this
+                # screen is the admin tool behind it and is none of those
+                # sections, which is why nothing could ever be marked active
+                # on it. Deliberately business-neutral — the archetype serves
+                # galleries, restaurants and shops alike — and only used when
+                # the model copies the public list across instead of writing
+                # its own (measured: it does that every run).
+                "admin_navigation": ["Overview", "Catalogue", "Enquiries", "Settings"],
                 "layout": "the owner's side: 4 KPI cards, a bar chart of views or enquiries over time, and a management table of the catalogue items with status and price",
                 "chart": "bar",
             },
@@ -248,6 +257,16 @@ def screen_surfaces(archetype_id: str | None, screen_count: int) -> list[str]:
         surfaces.resolve(screen.get("surface"))
         for screen in arch["screens"][:screen_count]
     ]
+
+
+def admin_navigation(archetype_id: str | None) -> list[str] | None:
+    """The owner-facing menu an archetype defines for its back-office
+    screen, when it has both kinds of screen. None when it does not."""
+    _, arch = get_archetype(archetype_id)
+    for screen in arch["screens"]:
+        if screen.get("admin_navigation"):
+            return list(screen["admin_navigation"])
+    return None
 
 
 def has_public_screens(archetype_id: str | None) -> bool:
