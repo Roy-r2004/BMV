@@ -1,205 +1,190 @@
-# Kickoff — the demo can be a website now; go and draw one
+# Kickoff — the demo is right; the instrument scoring it is not
 
-*Supersedes session 38's prompt. Its JOB 1 is closed — verifier v2's cost
-is measured and bounded. Of the two defects session 39 found on request
-130, the hero-coherence fix is verified live on request 138 and the
-navigation fix is landed but inert on that brief. The cost program remains
-closed. The chart tail is unchanged and still owner-gated.*
+*Supersedes every earlier prompt. The owner's goal is MET and verified over
+seven funded runs: a brief asking to showcase paintings with home, gallery,
+about and contact now produces a public landing page, a gallery page, and a
+back office carrying analytics and artwork management
+([/studio/147](http://localhost:5173/studio/147)). What is left is
+calibration, one code-level promise, and one new instrument.*
 
 Read first, in this order:
 
-1. `docs/evidence/session39/results.md` — the cost answer, the funded run,
-   three things found on it, and the two that were fixed
-2. `docs/evidence/session39/verifier-cost-ab.json` — 47 images, 76 claims,
-   both arms, per-claim reasons
-3. `docs/evidence/session38/results.md` — still the substantive record;
-   note the correction block at the request-129 section
-4. Memory: "Count it, don't sample a window", "Describing a thing next to
-   where it is drawn", "LLM judges confabulate about text"
+1. `docs/evidence/session39/results.md` — the whole session, including the
+   seven-run table and the three defects that were in the prompt text
+2. `app/surfaces.py` — the routing key, and the additive rule at the top
+3. `app/prompts/image_quality_judge_public.j2` — the rubric JOB 1 is about
+4. Memory: "Price instrument changes by replay", "Describing a thing next
+   to where it is drawn", "LLM judges confabulate about text", "Count it,
+   don't sample a window"
 
 ## Settled — do not reopen without a reason
 
-- **Verifier v2 stays.** Cost is $0 to +$0.04 a run (≤6%), against a
-  corpus sd of $0.135. Do not tune it back, and do not watch the cost line
-  run-by-run — detecting the effect that way needs ~175 runs a side.
-  Session 38's claim that request 129 was a v2 reading was wrong and is
-  corrected in place; the first v2 run is **130**.
-- **Criterion 4 stays as it is** (session 38). Console scores stay flagged
-  as not-comparable wherever they are quoted.
-- **`golden/briefs-v5` is the current set** (session 39, adds `active_nav`);
-  `briefs-v4` stays frozen at ui-spec-v4 as session 38's control arm, and
-  the DEFAULT set is still v1 because every evidence document before
-  session 38 means v1 by "the golden set" and `--frozen-specs` replays it.
-  Address a set explicitly: `GOLDEN_BRIEFS_DIR=golden/briefs-v5`.
-- **The public-site archetype exists** (session 39, owner's decision), and
-  the reasoning that blocked it in session 38 is retired: declining to
-  build a product because the measuring instrument rejects it is the wrong
-  dependency direction. It ships with its own rubric rather than a change
-  to the dashboard one, so no published score moved.
-- **The additive rule for surfaces.** Anything that existed before session
-  39 routes to `image_quality_judge.j2`, the same file. Moving
-  `conversation` onto its own rubric is available but is a score-moving
-  change and owes a before/after.
+- **The surface architecture stands.** A screen declares what class it is
+  and that routes the prompt shape, the rubric and the defect policy.
+  Anything that existed before session 39 routes to
+  `image_quality_judge.j2`, the same file, so no published score moved.
+  Adding a business shape that reuses surfaces costs one archetype entry
+  and one art-pack entry — there is a test that says so.
+- **The nav split cannot be bought with a prompt.** Three attempts failed
+  (an explicit "no item is marked" clause; scoping the forced list to
+  public surfaces; removing the two contradicting rules and the hard-coded
+  list in the JSON shape). Do not try a fourth wording. JOB 3 is the fix.
+- **Criterion 4 of the dashboard rubric stays as it is.** Public pages have
+  their own rubric now, which is what that debate was actually about.
+- **Verifier v2 stays** — $0 to +$0.04 a run, measured.
+- **The cost program is closed.** $0.39 nominal, ~$0.63 realised.
 
 ## The one thing to say back before instrument work
 
-Any change to `image_quality_judge.j2`, the defect inspector, or the
-verifier is its own step, measured before/after over a labelled set, stated
-back to the owner first. Generators may vary; instruments are held fixed
-while they do. That rule is what makes every number in these documents
-comparable across sessions.
+JOBs 1 and 4 both change an instrument. Each is its own step: a labelled
+set first, a before/after second, the owner's go before either lands.
+Generators may vary; instruments are held fixed while they do. That is what
+makes every number in these documents comparable across sessions.
 
-## JOB 1 — draw a public page. Nothing ever has.
+## JOB 1 — the public rubric under-scores clean pages
 
-Session 39 built the surface mechanism (`app/surfaces.py`): a screen
-declares what CLASS of surface it is, and that routes both the prompt that
-draws it and the rubric that scores it. The `public-site` archetype is
-**home** (marketing) → **gallery** (catalog) → **manage** (back office),
-and the classifier picks it correctly for the owner's brief while leaving
-the salon control on its dashboard (probe, $0.02193, requests 139/140).
+**The finding.** Gallery was the weakest screen in all seven runs. It is
+not the weakest page — it is the most under-scored one. Request 146 scored
+**7.5 on a single complaint**: *"the typography for the artwork titles
+feels a bit small."* Request 147's five complaints are nav spacing "not
+quite even", a glow that is "slightly pixelated", typography "a bit
+generic", captions aligned bottom-left, and rounded corners on cards.
 
-**All of it is unproven in pixels.** No image has ever been generated on a
-public surface. Unit tests cover the routing and the prompt text; a text
-probe covers the classification; nothing covers whether the image model
-renders a credible landing page or whether the new rubric scores one
-sanely. One funded run on the gallery brief (~$0.75) is the first job and
-it answers:
+`image_quality_judge_public.j2` already says taste calls "should cost at
+most a fraction of a point, should never by themselves drive the score
+below 7". Two things are wrong with that guard:
 
-- does `_marketing_block` produce a landing page, or a dashboard with the
-  furniture stripped out and nothing put in its place?
-- does `_catalog_block` produce a real grid with captions and filters?
-- does `image_quality_judge_public.j2` score them in a sane range, or does
-  it reject correct pages? **A rejection costs a regeneration**, so a badly
-  calibrated public rubric spends money on every run.
-- is the third screen still recognisably the owner's back office?
+1. It is being ignored — a lone typographic preference is taking a point
+   and a half.
+2. Its floor is **7**, and `QA_MIN_SCORE` is **8**. Even obeyed exactly, it
+   permits a structurally perfect page to be marked unapproved on
+   preference alone.
 
-Report those scores flagged as public-surface — they are NOT comparable to
-the dashboard corpus (mean 8.228, sd 0.489), for the same reason console
-scores are not.
+The rubric is not badly designed — request 141 proves it catches real
+problems precisely ("This is an admin/management screen, not a public
+gallery page", "drawn as a card floating on a visible backdrop"). It is
+mis-calibrated.
 
-**Two known loose ends to look for on that run.**
+**The change to try:** a page with no structural defect and only
+typographic or spacing preferences scores at least `min_score`. Tie the
+floor to the threshold rather than to a hard-coded 7.
 
-1. `_apply_anchor_tool` still gives the anchor a selection flow ("explorer:
-   Select Collection" on request 139), but the anchor is now a landing page
-   and `_marketing_block` ignores `concept.steps`. Harmless — the surface
-   branch runs before every `is_tool_screen` check — but the spec carries a
-   flow that never renders, and the mechanism assumes the anchor is an app
-   screen.
-2. The model renames screens (`home-page` rather than `home`). Surface
-   routing is positional and indifferent, but `screen_title` becomes "Home
-   Page" while the customer's nav says "Home", so `active_nav_item`'s
-   title-match fallback cannot fire and the whole burden falls on the
-   declared `active_nav`.
+**How to measure it, and this is the point: do NOT fund runs.** Instruments
+re-judge existing screenshots. Requests 141-147 left roughly a dozen public
+screens on disk with their specs, all of them eyeballed and written up in
+results.md — that is the labelled set, free. Two arms over the same images,
+old rubric vs new, roughly **$0.03**. Report per-screen score deltas and,
+specifically, how many structurally-clean pages cross from below 8 to at or
+above it. Session 39 answered a $111 question for $0.18 this way; the same
+discipline applies here.
 
-## JOB 2 — the header can still lose the customer's word
+Watch the other direction too. A rubric that stops penalising taste can
+become a rubber stamp — include at least one genuinely bad screen in the
+set (request 141's gallery, 5.0, is on disk) and confirm it still fails.
 
-Request 138 rendered `Home | Analytics | About | Contact` on its Dashboard.
-The customer asked for Gallery. This is the highest-value open defect,
-because it defeats the fidelity work at the last step and **every gate
-passed it**:
+## JOB 2 — delete the corner reserve, it is protecting nothing
 
-- `text_truth` checks whether each expected string is present ANYWHERE on
-  the screen. "Gallery" appears twice on that Dashboard ("GALLERY VIEWS",
-  "Gallery Showcase"), so the header could lose it and the gate still
-  passed, `checked: 6, failures: []`.
-- It is a substitution, not an addition, so the count is still four.
-- The anchor drew the header correctly; the *follow-up* corrupted it,
-  while being shown the anchor and told to place navigation exactly where
-  the attached image places it.
+Every image prompt still carries `_CORNER_RESERVE`: keep roughly the last
+12% of width and 17% of height clear, "a real logo is composited into
+exactly that small corner afterward". It is not. `compositing.py` places
+the mark on the BACKDROP now, and its own comment says why: *"The corner
+mark painted onto the screenshot itself is what clipped card content in the
+W1 and W2 runs."*
 
-The fix has been named since session 38 and is now clearly worth its
-price: **positional transcription**. Ask the transcriber not "is this
-string on the screen" but "read the items in the top navigation bar, left
-to right", then diff that list against `spec.navigation` in code. That is
-one extra cheap call per screen, it catches substitutions, additions,
-drops and reorderings in one move, and it is the only thing that can.
+So the pipeline reserves a chunk of every canvas for something that moved,
+and **both** judges still auto-reject "content encroaching into the
+reserved bottom-right logo corner" — the public rubric inherited that line
+because it was copied across without being questioned.
 
-It is a new instrument, so it needs the owner's go, a labelled set and a
-before/after — but the labelled set is free: requests 107, 108, 130 and
-138 are already on disk with their specs, and the headers can be eyed.
+On a full-bleed landing page this is actively harmful, and it is a live
+suspect for the margins still visible around request 147's hero. Deleting
+the block and the two rubric lines is a few lines of work, and it can be
+measured by re-judging the existing corpus rather than by funding runs.
 
-## JOB 3 — make abstention explicit, not silent
+## JOB 3 — the back-office navigation, as a promise in code
 
-`active_nav` shipped with "declaring nothing is honest" as its fallback.
-Request 138 falsified that. On the Customers screen — collectors, patrons,
-contact counts — the spec declared "" and the image model marked
-**Gallery** active anyway. Where the spec is silent the model fills the
-vacancy, the same mechanism as an untitled panel getting a heading
-invented for it.
+The back office still carries the WEBSITE's menu — Home, Gallery, About,
+Contact — on a screen of enquiry counts and revenue charts. It is none of
+them, `active_nav` is correctly empty, and the model highlights "Home"
+anyway, every run.
 
-Two things to do, both cheap:
+`_apply_explicit_navigation` already stops FORCING the public list onto
+back-office screens. What is missing is what fills the gap. Use the pattern
+that actually works here: **a dedicated JSON field**. `active_nav` is filled
+correctly on 20 of 21 golden screens because it is a named field in the
+output shape; the same instruction written as prose in the rules block was
+ignored three times running.
 
-1. When no screen-appropriate item exists, `prompt_builder` should say so
-   explicitly rather than omit the clause — the omission is what the model
-   is filling. Mind the blast radius: this is a new instruction, so it is
-   a prompt change with a funded run behind it, not a free edit.
-2. The model declined to declare on 2 of 3 screens of the gallery brief
-   even though the prompt's worked example is literally that brief's
-   mapping. It mapped confidently on 5 of 7 golden briefs, so the
-   instruction works in general and fails on this shape. Worth one look at
-   whether `screen_type` is anchoring it.
+So: ask for the owner's menu as its own field on the back-office screen,
+and enforce in code that what comes back is not simply the public list
+copied over, falling back to a short generic admin list if it is. Verify
+with one run on the gallery brief (~$0.65) and check the pixels, not the
+spec — the spec has looked right before while the image did not.
 
-## JOB 4 — the judge, if the owner wants it touched
+## JOB 4 — positional transcription, the one that closes a class
 
-`image_quality_judge.j2` criterion 4 grades data-visualisation craft, and
-it docked 130/Analytics for reading "more like a marketing page" — on a
-brief where a gallery IS the correct product. Session 38 declined to build
-a public-site archetype for the same reason and session 39 got fresh
-evidence for it.
+Request 138 rendered `Home | Analytics | About | Contact` where the
+customer asked for Gallery. Every gate passed it: `text_truth` returned
+`passed: true, checked: 6, failures: []`, because it asks whether an
+expected string appears ANYWHERE on the screen, and "Gallery" appeared
+twice elsewhere on that page ("GALLERY VIEWS", "Gallery Showcase"). It is a
+substitution, so the count is unchanged too.
 
-This is instrument work and it is expensive in a way that is not just
-money: criterion 4 touches every screen ever scored, so changing it
-invalidates cross-session score comparisons wherever it applies. It needs
-the owner's explicit go, a labelled set, and a before/after. Do not touch
-it as a side effect of anything else.
+Ask the transcriber a positional question instead — *"read the items in the
+top navigation bar, left to right"* — and diff that list against
+`spec.navigation` in code. One cheap call per screen, and it catches
+substitutions, insertions, drops and reorderings in a single move. Nothing
+else can.
 
-## JOB 5 — the chart tail (unchanged, owner-gated)
+Instrument work: labelled set, before/after, owner's go. The set is already
+on disk — requests 107, 108, 130, 138 and 141-147, each with its spec and a
+header that can be read by eye.
 
-Both of request 119's console re-rolls were `malformed_data_display` on a
-chart: unevenly stepped Y-axis ticks at even spacing. Same finding as
-sessions 36, 37, 38. The two specced answers are unchanged — the
-coded-ticks prompt experiment (~$2 to measure) and JOB 6 (PIL-composited
-charts). **Fund only if defect-carrying charts bother the demos
-commercially.** Note that 130's chart was clean, ticks correct and evenly
-spaced, so the tail is a tail and not a constant.
+## JOB 5 — owner-gated, neither blocks anything
+
+- **The chart tail.** Unevenly stepped Y-axis ticks at even spacing, the
+  same finding since session 36, seen again on request 141's back office
+  (0, 10, 20, 30, 40, 50, **160**). Coded-ticks experiment ~$2, or JOB 6's
+  PIL-composited charts.
+- **Re-run the art-pack A/B.** `ENABLE_ART_PACKS` is False in production,
+  so no art direction reaches any prompt today — including the `public-site`
+  pack written in session 39. It was measured in session 31 and lost 0-2 on
+  pairwise, but all four judged runs named the SAME deciding defect: panel
+  text clipped behind the composited logo. That logo has since moved
+  (JOB 2). Session 31 called this "the one experiment most likely to flip".
+  ~$0.9.
 
 ## Smaller, all with receipts
 
-- **The verifier is unstable on the header-vs-panel double CTA.** v2
-  confirms 'Apply Model' (104) and 'Apply Strategy' (128) and refutes
-  'Book This Slot' (106), 'Request Info' (107), 'View Painting' (108) —
-  the same shape, opposite verdicts. Shrinking blast radius, since
-  `prompt_builder` no longer generates the top-bar button. Worth an A/A
-  control if anyone wants the noise floor: re-run
-  `scripts/verifier_cost_ab.py` with `--baseline-template` pointing at the
-  live v2 template, ~$0.18, and the flip count you get back is pure
-  instrument variance.
-- **Placeholder names look fixed** — 108's "Guest Artist A/B" did not
-  recur on the same brief in 130. One run, one brief; the investment and
-  schedule briefs that produced "Institutional Fund ABC" and "Client
-  B/C/D/E/F" have not been re-run since the v4 rule landed.
-- **The hero-coherence invariant is verified live** (request 138: the model
-  again captioned the wrong painting, `'Tuscan Sunset' -> 'Morning Mist'`,
-  and the caption, detail panel and picker all agreed in the pixels).
-- **v5 blast radius is unmeasured.** Request 138 scored 7.5/7.0/7.5 against
-  130's 8.1/8.0/8.7 on the same brief and config. One run each and image QA
-  is noisy, but it is the wrong direction after a prompt change and should
-  not be quoted as "no effect".
-- **Archetype selection is not deterministic.** No write-up should say a
-  class "lands on X" from a single run.
-- **The scaffolding leak has not recurred.** 105's "Floating Labels" chip
-  was pre-fix; 130 is clean. Keep looking at analytics heroes.
+- **Images bleeding through data panels.** Request 144's back office drew a
+  cityscape painting through the "Pending Inquiries" list, destroying
+  legibility, and a forest through the chart. Seen once in seven runs; the
+  defect inspector did not raise it. Watch for it before building anything.
+- **"Oll on Canvas"** — request 142 misspelled "Oil" twice in card captions,
+  `text_truth` passed (it checks 6 brand-critical strings, not panel
+  content) and the judge scored the page 9.0 without noticing. The known
+  "judges confabulate about text" blind spot; JOB 4 is the same shape of
+  fix.
+- **A duplicated hero caption** — request 141 drew "Studio View" as both an
+  overlay chip and a caption beneath the image.
+- **v6 has no golden set.** The newest frozen set is v5, and the live stage
+  is ui-spec-v6. The version test is generic now, so building one is
+  `GOLDEN_BRIEFS_DIR=golden/briefs-v6 python scripts/build_golden.py`
+  (~$0.07) and nothing else.
+- **A stray empty `consultant.db`** sits untracked at the repo root, left by
+  a query that ran from the wrong directory. Safe to delete.
 
 ## Traps
 
-- The judge is held fixed while generators vary. State instrument changes
-  back before making them.
-- `scripts/verifier_cost_ab.py` **swaps a live template file** and restores
-  it in a `finally`. Do not run a generation while it is running, and check
-  `git status` after — a killed process leaves the baseline template live.
+- **uvicorn runs without `--reload`.** Restart the container after ANY code
+  change, or the run pays to test the old code. This nearly cost a run.
 - Read spend from `ai_usage_events` via `/api/requests/<id>/admin`. The
   OpenRouter key is shared; use its balance only as a bracket.
-- Do not run two bakeoff batches concurrently.
-- Instrument replays are ~$0.004 an image a side. Regeneration is $0.121 an
-  image. Reach for the replay first, every time — session 39's entire
-  answer cost less than a third of one funded run.
+- `scripts/verifier_cost_ab.py` swaps a live template and restores it in a
+  `finally`. Never run a generation alongside it; check `git status` after.
+- Instrument replays are ~$0.004 an image a side; a regeneration is $0.121.
+  **Reach for the replay first, every time.**
+- Prompt changes have blast radius the previous run never predicts. Every
+  fix in session 39 was verified in the pixels, and three of them were
+  defects introduced by the fix before.
+- Explicit pathspecs on `git add` — parallel sessions share this checkout.
