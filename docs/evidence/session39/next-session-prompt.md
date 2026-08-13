@@ -1,14 +1,15 @@
-# Kickoff — the header is the customer's; the navigation still isn't
+# Kickoff — the navigation answers now; go and look at it
 
-*Supersedes session 38's prompt. JOB 1 of that brief is closed and does
-not need reopening: verifier v2's cost is measured and bounded. The cost
-program remains closed. JOB 2 (the chart tail) is unchanged and still
+*Supersedes session 38's prompt. Its JOB 1 is closed — verifier v2's cost
+is measured and bounded. The two defects session 39 found on request 130
+are both fixed in `ui-spec-v5` and both await a funded run. The cost
+program remains closed. The chart tail is unchanged and still
 owner-gated.*
 
 Read first, in this order:
 
 1. `docs/evidence/session39/results.md` — the cost answer, the funded run,
-   and three things found and not fixed
+   three things found on it, and the two that were fixed
 2. `docs/evidence/session39/verifier-cost-ab.json` — 47 images, 76 claims,
    both arms, per-claim reasons
 3. `docs/evidence/session38/results.md` — still the substantive record;
@@ -25,8 +26,11 @@ Read first, in this order:
   corrected in place; the first v2 run is **130**.
 - **Criterion 4 stays as it is** (session 38). Console scores stay flagged
   as not-comparable wherever they are quoted.
-- **The v4 golden set is frozen** and the DEFAULT set did not move.
-  Address the new set explicitly with `GOLDEN_BRIEFS_DIR=golden/briefs-v4`.
+- **`golden/briefs-v5` is the current set** (session 39, adds `active_nav`);
+  `briefs-v4` stays frozen at ui-spec-v4 as session 38's control arm, and
+  the DEFAULT set is still v1 because every evidence document before
+  session 38 means v1 by "the golden set" and `--frozen-specs` replays it.
+  Address a set explicitly: `GOLDEN_BRIEFS_DIR=golden/briefs-v5`.
 - **No public-site archetype** without a judge change first — and a judge
   change is its own step with a before/after over a labelled set. Session
   39 got fresh evidence for the original decision: the judge docked
@@ -41,48 +45,47 @@ back to the owner first. Generators may vary; instruments are held fixed
 while they do. That rule is what makes every number in these documents
 comparable across sessions.
 
-## JOB 1 — the navigation is honoured but the navigation state is dead
+## JOB 1 — draw a screen under ui-spec-v5
 
-This is the direct, visible consequence of the fidelity work and the
-highest-value thing open.
+Session 39 fixed both defects it found on request 130 and **neither has a
+funded image run behind it**. The deterministic halves are unit-tested and
+the prompt half is verified across seven briefs of real model output
+(`golden/briefs-v5`, 20 of 21 screens declaring a valid, unique
+`active_nav`) — but nothing has yet *drawn* a screen under v5.
 
-Request 130 renders `Home | Gallery | About | Contact` exactly as the
-customer wrote it, on all three screens — and **all three show `Home` as
-the active item**, because none of those four labels matches a demo screen
-title (Dashboard, Analytics, Customers). `active_nav_item` is behaving as
-specified: name an active item only when a nav label actually matches the
-screen. The gap is upstream of it. Honouring a customer's header and
-mapping the demo's screens onto that header are two different problems and
-session 38 solved only the first.
+One run on request 130's brief (~$0.75 at that brief's observed rate)
+answers all of it at once:
 
-Two candidate shapes, both cheap to reason about before spending:
+- does the header now show a **different** item active on each screen, in
+  the pixels — Home on the overview, Gallery on the browser?
+- does the hero caption match its detail panel?
+- did adding a field to the spec prompt cost anything elsewhere? A new
+  instruction always has blast radius, and v5's is the first change to
+  that prompt since v4.
 
-- **Map screens onto the customer's labels.** When explicit navigation
-  exists, let it drive the screen set — the demo's three screens become
-  three of the customer's four items rather than the archetype's defaults.
-  This touches `ui_spec.py` screen-role selection, not the judge.
-- **Accept it and say so.** Leave the nav static and treat the header as
-  chrome. Cheaper, honest, and defensible — but the prospect sees a
-  four-item menu that never responds.
+Compare against 108 ($0.64505, 5 images, v1 verifier, dead nav) and 130
+($0.75268, 6 images, v2 verifier, dead nav). Same brief three times is as
+close to a controlled series as this pipeline gets.
 
-Decide with the owner before building. A funded run on request 130's brief
-is the natural check either way, and 108/130 give two pre-existing points
-to compare against.
+**Watch for one specific regression.** `active_nav` is chosen by the model
+and validated only for membership and uniqueness — not for being the
+*right* item. A screen marked Gallery that is plainly the customer list is
+a new failure mode, invisible to text-truth (the string is authorised) and
+to the defect inspector (it looks within a panel). Eyes on the images.
 
-## JOB 2 — cross-panel coherence has no instrument at all
+## JOB 2 — the judge, if the owner wants it touched
 
-130/Analytics captions its hero image "Crimson Tide" while the detail
-panel beside it reads "Azure Embrace", $2,800 — and "Azure Embrace" is the
-underlined selection in the picker. Two different paintings presented as
-one. The defect inspector raised one claim on that screen and it was not
-this; the QA judge reported only that the image was "cut off at the bottom
-of its card"; text-truth passed, correctly, because every string on the
-screen is a string the spec authorised.
+`image_quality_judge.j2` criterion 4 grades data-visualisation craft, and
+it docked 130/Analytics for reading "more like a marketing page" — on a
+brief where a gallery IS the correct product. Session 38 declined to build
+a public-site archetype for the same reason and session 39 got fresh
+evidence for it.
 
-Nothing in the pipeline compares one panel against another. That is a new
-defect class, not a miss by an existing instrument, and it is exactly the
-kind a prospect notices. If it gets built it is instrument work: a
-labelled set first, before/after second, and only then a landing.
+This is instrument work and it is expensive in a way that is not just
+money: criterion 4 touches every screen ever scored, so changing it
+invalidates cross-session score comparisons wherever it applies. It needs
+the owner's explicit go, a labelled set, and a before/after. Do not touch
+it as a side effect of anything else.
 
 ## JOB 3 — the chart tail (unchanged, owner-gated)
 

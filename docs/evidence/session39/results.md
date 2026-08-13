@@ -143,9 +143,11 @@ above the corpus mean — it neither confirms nor contradicts the replay.
   server-side per request with no model call, so /studio/108 renders it
   too. The portfolio trigger fires: "It is not your public website."
 
-## Found and not fixed
+## Found on run 130
 
-**The active nav item never moves.** All three screens of 130 render
+Two of these were fixed the same session, below. One was not.
+
+**The active nav item never moves.** *(fixed — `ui-spec-v5`)* All three screens of 130 render
 `Home` as the active item. This is session 38's `active_nav_item` fix
 behaving exactly as specified — only name an active item when a nav label
 matches the screen title — and none of the customer's four labels
@@ -154,7 +156,7 @@ Analytics, Customers). The nav is honoured and the navigation *state* is
 now meaningless. Honouring a customer's header and mapping it to the demo's
 screens are two different problems and only the first is solved.
 
-**A coherence defect no instrument caught.** 130/Analytics captions the
+**A coherence defect no instrument caught.** *(fixed — `ui-spec-v5`)* 130/Analytics captions the
 hero image "Crimson Tide" while the detail panel beside it reads "Azure
 Embrace", $2,800, Available — and "Azure Embrace" is the underlined
 selection in the picker. Two different paintings named as the same one.
@@ -162,7 +164,7 @@ The inspector raised one claim on that screen and the QA judge saw only
 "'Crimson Tide' is cut off at the bottom of its card". This is a
 cross-panel consistency failure; nothing in the pipeline looks for those.
 
-**The judge calls the portfolio class marketing-like.** 130/Analytics drew
+**The judge calls the portfolio class marketing-like.** *(NOT fixed — needs an owner decision)* 130/Analytics drew
 "the overall feel is a bit more like a marketing [page]" as a QA issue at
 8.1. That is the same tension session 38 named when it declined to build a
 public-site archetype: for this class of customer the honest product
@@ -173,6 +175,74 @@ it in points.
 **Verifier instability on the double-CTA class**, above — v2 confirms and
 refutes the same shape on different screens.
 
+## The two fixes — `ui-spec-v5`
+
+### The navigation state
+
+Matching a screen title against the customer's labels only ever works when
+their words happen to be the archetype's words. Matching them by
+*similarity* is the one thing not to do (brand-variant specs: fuzzy
+rewriting is how invented strings get in). So the model, which already
+sees both the honoured list and the screen's role, declares the mapping in
+a new spec field `active_nav`, and code validates it to death:
+
+- it must be a member of that screen's `navigation`, or it is dropped —
+  request 107's invented sixth header item cannot return by this road;
+- **no two screens may claim the same item**, which is the session-39
+  defect written as an invariant the field that fixes it cannot undo;
+- declaring nothing stays legal, because "this screen is none of your
+  sections" is honest and banning it would be a new rule with its own
+  blast radius.
+
+`active_nav_item` prefers the declared value and keeps the title match as
+the fallback, so every frozen golden bundle still behaves as before.
+
+**Verified on real model output, not only on hand-built specs.** The v5
+golden set (`golden/briefs-v5`, seven briefs, $0.0659): **20 of 21 screens
+declare an active item, every one a member of its own navigation, no brief
+marking the same item twice.**
+
+| brief | screen 1 / 2 / 3 |
+|---|---|
+| hedgefund | Overview \| Portfolios \| Reporting |
+| hvac | Home \| Schedule \| Reports |
+| retail | Sales \| Home \| Subscriptions |
+| assistant | Conversations \| *(none)* \| Knowledge |
+
+`hedgefund`, `hvac` and `retail` are the request-130 shape — nav labels
+that are not screen titles — and all three now resolve to three distinct
+items instead of collapsing onto the first. `assistant/analytics` declares
+nothing, correctly: that console's menu is Inbox/Conversations/Clients/
+Knowledge/Settings and an analytics screen is none of them.
+
+### The hero's subject
+
+On a tool screen the hero is a photograph *of* the thing the detail panel
+describes, so `_apply_hero_subject_invariant` forces `hero.caption` to
+`concept.detail.title`, falling back to the last step's `selected`. It runs
+before the brand invariant so a replaced caption still gets its brand
+widened, and it leaves dashboard heroes alone — those are scenes, and
+renaming one to a table row would be a new defect.
+
+Honest limit: all six tool screens in the v5 set were **already coherent**,
+so the golden rebuild shows the invariant harms nothing but does not show
+it firing. The firing case is unit-tested against request 130's exact
+values ("Crimson Tide" beside "Azure Embrace").
+
+### What is NOT fixed
+
+**The judge.** Criterion 4 grades data-visualisation craft and docked
+130/Analytics for reading "more like a marketing page" — on a brief where
+a gallery is the correct answer. Changing it breaks score comparability
+with every screen in every prior session and needs its own before/after
+over a labelled set. Left alone, flagged, and it needs an owner decision
+and a budget this session does not have.
+
+**Neither fix has a funded image run behind it.** Both deterministic halves
+are unit-tested and the prompt half is verified across seven briefs of real
+model output, but nothing has yet drawn a screen under v5. That is the
+first thing to spend on next.
+
 ## Cost accounting
 
 | item | cost |
@@ -181,16 +251,22 @@ refutes the same shape on different screens.
 | harness smoke tests (5 images, both arms) | $0.02560 |
 | verifier cost replay, 47 images / 76 claims / 2 arms | $0.18215 |
 | request 130, funded run | $0.75268 |
-| **total** | **$4.76135** |
+| v5 golden set, 7 briefs, text stages only | $0.06590 |
+| **total** | **$4.82725** |
 
-$0.23865 to the $5 stop, $1.23865 to the envelope.
+$0.17275 to the $5 stop, $1.17275 to the envelope.
 
 ## Tests
 
 `docker exec -w /repo/consultant-service bmv-consultant python -m pytest -q`
-— **372 passed**, from a 368 baseline. The four new ones
+— **414 passed**, from a 368 baseline. Four
 (`tests/test_verifier_cost_ab.py`) pin the two ways the cost harness fails
 silently: a mis-parsed `--requests` range measures the wrong corpus and
 reports a confident number about it, and a `TEMPLATE` constant that drifts
 from the path `defect_check` reads would run both arms against the live
-prompt and report a null result for any change whatsoever.
+prompt and report a null result for any change whatsoever. The rest cover
+the two fixes: nine on the invariants themselves (including that an
+off-menu declaration is dropped rather than added, and that two screens
+cannot both claim one item), four on `active_nav_item`'s precedence and
+its fallback for pre-v5 specs, and the v5 golden set parametrised over
+seven briefs.
