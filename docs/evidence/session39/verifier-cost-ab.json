@@ -1,0 +1,1424 @@
+{
+  "requests": [
+    104,
+    105,
+    106,
+    107,
+    108,
+    119,
+    120,
+    128,
+    129
+  ],
+  "model": "google/gemini-2.5-flash",
+  "cost_usd": 0.18215,
+  "inspector_cost_usd": 0.05155,
+  "v1": {
+    "images": 47,
+    "claims": 76,
+    "confirmed_claims": 31,
+    "images_with_confirmed": 24,
+    "image_confirm_rate": 0.5106,
+    "confirmed_by_kind": {
+      "malformed_data_display": 7,
+      "blank_or_unlabelled": 6,
+      "duplicated_panel": 5,
+      "non_app_chrome": 7,
+      "clipping_or_truncation": 6
+    },
+    "cost_usd": 0.06426
+  },
+  "v2": {
+    "images": 47,
+    "claims": 76,
+    "confirmed_claims": 34,
+    "images_with_confirmed": 24,
+    "image_confirm_rate": 0.5106,
+    "confirmed_by_kind": {
+      "duplicated_panel": 8,
+      "malformed_data_display": 9,
+      "non_app_chrome": 7,
+      "blank_or_unlabelled": 4,
+      "clipping_or_truncation": 6
+    },
+    "cost_usd": 0.06634
+  },
+  "per_image": [
+    {
+      "key": "104/Analytics",
+      "shipped": true,
+      "qa_score": 8.7,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Apply Model' button appears in two distinct locations on the screen, once in the main header and again within the 'Core Alpha Allocation' panel.",
+          "confirmed": false,
+          "reason": "While both buttons say 'Apply Model', the top right button is in the main header and the other is within the 'Core Alpha Allocation' panel, but they are not the same 'panel' and their location implies"
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BMV AI' logo is partially cut off by the bottom edge of the image.",
+          "confirmed": false,
+          "reason": "The 'BMV AI' logo in the bottom right corner is fully visible and not partially cut off by the bottom edge of the image."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Apply Model' button appears in two distinct locations on the screen, once in the main header and again within the 'Core Alpha Allocation' panel.",
+          "confirmed": true,
+          "reason": "The 'Apply Model' button appears in the top right corner of the screen and also within the 'Core Alpha Allocation' panel, serving the same function in two distinct locations."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BMV AI' logo is partially cut off by the bottom edge of the image.",
+          "confirmed": false,
+          "reason": "The 'BMV AI' logo is entirely visible and not cut off by the bottom edge of the image."
+        }
+      ]
+    },
+    {
+      "key": "104/Customers",
+      "shipped": true,
+      "qa_score": 7.5,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is a chip or button with no visible label in the bottom right corner of the chart 'Client Inflows'.",
+          "confirmed": false,
+          "reason": "There is nothing in the bottom right corner of the chart 'Client Inflows'; the area is empty."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is a chip or button with no visible label in the bottom right corner of the chart 'Client Inflows'.",
+          "confirmed": false,
+          "reason": "There is no chip or button in the bottom right corner of the 'Client Inflows' chart; instead, there is a clear Q4 label for the x-axis."
+        }
+      ]
+    },
+    {
+      "key": "104/Dashboard",
+      "shipped": true,
+      "qa_score": 7.3,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are not evenly spaced (0.8, 0.6, 0.4, 0.2, 0, -0.1, -0.2) despite being visually equidistant.",
+          "confirmed": true,
+          "reason": "The Y-axis tick labels are 0.8, 0.6, 0.4, 0.2, 0, -0.1, -0.2, which are not evenly spaced while appearing visually equidistant."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are not evenly spaced (0.8, 0.6, 0.4, 0.2, 0, -0.1, -0.2) despite being visually equidistant.",
+          "confirmed": true,
+          "reason": "The Y-axis tick labels are indeed 0.8, 0.6, 0.4, 0.2, 0, -0.1, -0.2 and appear visually equidistant, confirming the uneven spacing claim."
+        }
+      ]
+    },
+    {
+      "key": "105/Analytics",
+      "shipped": true,
+      "qa_score": 8.7,
+      "claims": 3,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "There are two identical, unlabelled slider controls, indicating potential duplication or an incomplete implementation.",
+          "confirmed": false,
+          "reason": "The claim states there are two identical, unlabelled slider controls, but the screenshot shows only one visible slider control at the bottom center of the 'Performance Trends' panel, with no correspon"
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The button in the header labeled 'Schedule Consultation' has no discernable interactive element (like an icon or clear text) beyond the label itself, and its in",
+          "confirmed": false,
+          "reason": "The button labeled 'Schedule Consultation' has a discernible interactive element: it is a clearly outlined pill-shaped button with a distinct background color different from the surrounding header, in"
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick values are unevenly spaced; the step between 0 and 5 is the same visual length as the step between 25 and 30, but the data labels show unequal n",
+          "confirmed": false,
+          "reason": "The Y-axis tick values from 0 to 30 are evenly spaced visually and numerically, showing a consistent increment of 5 units per visual step."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "There are two identical, unlabelled slider controls, indicating potential duplication or an incomplete implementation.",
+          "confirmed": false,
+          "reason": "The claim states that there are two identical, unlabelled slider controls, but upon inspection, the two circular controls are located at the top and bottom of the central 'Performance Trends' panel, a"
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The button in the header labeled 'Schedule Consultation' has no discernable interactive element (like an icon or clear text) beyond the label itself, and its in",
+          "confirmed": false,
+          "reason": "The button labeled 'Schedule Consultation' has a clear rectangular shape with rounded corners and a distinct background color, indicating it is an interactive element, and its interaction state is cle"
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick values are unevenly spaced; the step between 0 and 5 is the same visual length as the step between 25 and 30, but the data labels show unequal n",
+          "confirmed": false,
+          "reason": "The claim states that the step between 0 and 5 is the same visual length as the step between 25 and 30, but visually the step between 0 and 5 appears shorter than the step between 25 and 30, and the n"
+        }
+      ]
+    },
+    {
+      "key": "105/Dashboard",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Schedule Consultation' button is drawn twice, once in the top right of the application header and once within the 'CONSULTATION DETAILS' panel on the left ",
+          "confirmed": false,
+          "reason": "The claim is that the 'Schedule Consultation' button is drawn twice, once in the top right of the application header and once within the 'CONSULTATION DETAILS' panel, but the claim depends on reading "
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Schedule Consultation' button is drawn twice, once in the top right of the application header and once within the 'CONSULTATION DETAILS' panel on the left ",
+          "confirmed": false,
+          "reason": "The claim states that the 'Schedule Consultation' button is drawn twice, but the button at the top right is a global action button, whereas the button within 'CONSULTATION DETAILS' is context-specific"
+        }
+      ]
+    },
+    {
+      "key": "105/Pipeline",
+      "shipped": true,
+      "qa_score": 7.5,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'CONSULTATIONS BOOKED' label is cut off on the right side.",
+          "confirmed": false,
+          "reason": "The 'CONSULTATIONS BOOKED' label is fully visible and not cut off on the right side."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are 0, 6000, 9000, 12500, which are unevenly stepped at even spacing, and the plotted line for 'Inquiry' is at 12500, but the Y-axis labe",
+          "confirmed": false,
+          "reason": "The Y-axis tick labels are 0, 6000, 9000, 12500, which are unevenly stepped at even spacing, but the plotted line for 'Inquiry' is at 12500, and the Y-axis label 12500 is drawn aligned with that point"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'CONSULTATIONS BOOKED' label is cut off on the right side.",
+          "confirmed": false,
+          "reason": "The label 'CONSULTATIONS BOOKED' is fully visible and not cut off on the right side."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are 0, 6000, 9000, 12500, which are unevenly stepped at even spacing, and the plotted line for 'Inquiry' is at 12500, but the Y-axis labe",
+          "confirmed": false,
+          "reason": "The Y-axis tick labels are 0, 6000, 9000, 12500, which are indeed unevenly stepped, but the plotted line for 'Inquiry' is at 12500, and the Y-axis label 12500 is drawn precisely at that point, not abo"
+        }
+      ]
+    },
+    {
+      "key": "106/Analytics",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick values are unevenly stepped at even spacing, showing 85, 78, 72, 65, 60 instead of uniform intervals.",
+          "confirmed": true,
+          "reason": "The Y-axis tick values in the Weekly Bookings graph are indeed 85, 78, 72, 65, and 60, which are unevenly stepped at even spacing."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick values are unevenly stepped at even spacing, showing 85, 78, 72, 65, 60 instead of uniform intervals.",
+          "confirmed": true,
+          "reason": "The Y-axis of the 'Weekly Bookings' graph displays tick values of 85, 78, 72, 65, and 60, which are indeed unevenly spaced at visually uniform intervals, confirming the claim of malformed data display"
+        }
+      ]
+    },
+    {
+      "key": "106/Dashboard",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The gauge indicates '88% likelihood' but has no label to specify what the likelihood refers to within the context of the smart insight.",
+          "confirmed": true,
+          "reason": "The speedometer-like gauge indicating '88% likelihood' in the 'Smart Insights' panel lacks a specific label to clarify what this likelihood refers to within the context of the smart insight."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The gauge indicates '88% likelihood' but has no label to specify what the likelihood refers to within the context of the smart insight.",
+          "confirmed": false,
+          "reason": "The claim states that the gauge has no label to specify what the likelihood refers to, but the text directly above the gauge clearly states 'Upsell Color Consults to 3 Clients' and 'High potential bas"
+        }
+      ]
+    },
+    {
+      "key": "106/Schedule",
+      "shipped": true,
+      "qa_score": 7.5,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Smart Scheduling' card, including its title, suggestion, and descriptive text, is drawn twice in the right sidebar.",
+          "confirmed": false,
+          "reason": "The two 'Smart Scheduling' cards are not identical; the second card includes a '92% match' indicator and three action buttons ('Fill Gaps', 'Optimize Revenue', 'Client Demand') that are absent in the "
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Smart Scheduling' card, including its title, suggestion, and descriptive text, is drawn twice in the right sidebar.",
+          "confirmed": false,
+          "reason": "The two cards named as identical are not identical; the second card has an additional '92% match' and three buttons ('Fill Gaps', 'Optimize Revenue', 'Client Demand') that are not present in the first"
+        }
+      ]
+    },
+    {
+      "key": "107/Analytics",
+      "shipped": true,
+      "qa_score": 6.8,
+      "claims": 3,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "Both tables display identical content, including artwork names, view counts, and inquiry counts.",
+          "confirmed": false,
+          "reason": "The claim states that both tables display identical content, but the text content of the last artwork listed in each table is different: 'Rooftop Serenity' versus 'Rooftop Serenity'."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "A small circular logo is present without any visible text label.",
+          "confirmed": false,
+          "reason": "The logo in the bottom right corner of the screen contains the visible text 'BW' and 'AT', which refutes the claim of it being unlabelled."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The y-axis labels are unevenly spaced (0, 3, 6, 9, 12, 15, 18) while the visual grid lines suggest even spacing.",
+          "confirmed": true,
+          "reason": "The y-axis labels on the 'Weekly Inquiries' graph are indeed 0, 3, 6, 9, 12, 15, 18, which are evenly spaced, while the visual grid lines appear to be evenly spaced, creating a mismatch between the la"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "Both tables display identical content, including artwork names, view counts, and inquiry counts.",
+          "confirmed": false,
+          "reason": "The two 'Top Artworks' panels display identical content for the first three artworks, but the fourth artwork listed on the right panel ('Rooftop Serenity') is missing on the left panel, making the con"
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "A small circular logo is present without any visible text label.",
+          "confirmed": false,
+          "reason": "The claim states there is a small circular logo without any visible text label in the bottom right corner, but the logo present clearly has the text 'BW-AT' written on it."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The y-axis labels are unevenly spaced (0, 3, 6, 9, 12, 15, 18) while the visual grid lines suggest even spacing.",
+          "confirmed": true,
+          "reason": "The y-axis labels (0, 3, 6, 9, 12, 15, 18) are indeed unevenly spaced, while the grid lines appear to be evenly distributed, matching the claim of malformed data display."
+        }
+      ]
+    },
+    {
+      "key": "107/Dashboard",
+      "shipped": true,
+      "qa_score": 8.0,
+      "claims": 3,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Request Info' button is duplicated, appearing in the top right of the header navigation and again within the 'PAINTING DETAILS' panel.",
+          "confirmed": true,
+          "reason": "The 'Request Info' button is indeed present in the top right of the header navigation and again within the 'PAINTING DETAILS' panel."
+        },
+        {
+          "kind": "non_app_chrome",
+          "what": "A logo or watermark 'BW' is visible in the bottom right corner, which is not part of the application's interface.",
+          "confirmed": true,
+          "reason": "A logo or watermark 'BW' is visible in the bottom right corner, partially obscured by an AI icon, which is not part of the application's interface."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom edge of the large painting image is cut off at the application's boundary.",
+          "confirmed": false,
+          "reason": "The bottom edge of the painting image is fully visible and not cut off at the application's boundary; there is a clear margin below the image before the application's bottom edge."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Request Info' button is duplicated, appearing in the top right of the header navigation and again within the 'PAINTING DETAILS' panel.",
+          "confirmed": true,
+          "reason": "The 'Request Info' button appears in the top right of the header navigation and again within the 'PAINTING DETAILS' panel, fulfilling the claim of duplication."
+        },
+        {
+          "kind": "non_app_chrome",
+          "what": "A logo or watermark 'BW' is visible in the bottom right corner, which is not part of the application's interface.",
+          "confirmed": true,
+          "reason": "A logo with the letters 'BW' is visible in the bottom right corner of the screen, as described."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom edge of the large painting image is cut off at the application's boundary.",
+          "confirmed": false,
+          "reason": "The bottom edge of the large painting image is clearly visible and not cut off at the application's boundary; there is a distinct border below the image separating it from the application's bottom edg"
+        }
+      ]
+    },
+    {
+      "key": "107/Schedule",
+      "shipped": true,
+      "qa_score": 8.1,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The label 'Palette Work' is rendered in two distinct locations over the same image panel.",
+          "confirmed": false,
+          "reason": "The claim states that 'Palette Work' appears twice, but the image shows one instance of 'Palette Work' as a label in the bottom left, and another instance as a tooltip that appears when hovering over "
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The label 'Palette Work' is rendered in two distinct locations over the same image panel.",
+          "confirmed": false,
+          "reason": "The claim states that 'Palette Work' appears twice, but the instance near the center of the image panel is a tooltip, not a duplicated panel element."
+        }
+      ]
+    },
+    {
+      "key": "108/Analytics",
+      "shipped": true,
+      "qa_score": 7.0,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'View Painting' button is drawn twice, once in the top right header and again as a primary action button within the content selection panel.",
+          "confirmed": false,
+          "reason": "The claim states that the 'View Painting' button is drawn twice within the 'Abstract Mediums' section, but the top right 'View Painting' button is in the main header navigation, not within the 'Abstra"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'View Painting' button is drawn twice, once in the top right header and again as a primary action button within the content selection panel.",
+          "confirmed": false,
+          "reason": "The claim states that the 'View Painting' button is drawn twice within the 'Abstract Mediums' section, but the top right button is in the main header of the entire page, not within the 'Abstract Mediu"
+        }
+      ]
+    },
+    {
+      "key": "108/Customers",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 0,
+      "v1": [],
+      "v2": []
+    },
+    {
+      "key": "108/Dashboard",
+      "shipped": true,
+      "qa_score": 7.9,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The image of the creative space is cut off by the left edge of the application frame.",
+          "confirmed": false,
+          "reason": "The image on the left side of the dashboard is not cut off by the left edge of the application frame; there is a visible border between the image and the edge of the screen."
+        },
+        {
+          "kind": "non_app_chrome",
+          "what": "A portion of an operating system's taskbar or application bar is visible at the very bottom of the screenshot.",
+          "confirmed": false,
+          "reason": "The area at the bottom left corner shows a dark horizontal bar that is part of the webpage's background, not a discernible operating system taskbar or application bar."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The image of the creative space is cut off by the left edge of the application frame.",
+          "confirmed": false,
+          "reason": "The image of the creative space is fully contained within its card and is not cut off by the left edge of the application frame; there is clear padding between the image and the edge."
+        },
+        {
+          "kind": "non_app_chrome",
+          "what": "A portion of an operating system's taskbar or application bar is visible at the very bottom of the screenshot.",
+          "confirmed": false,
+          "reason": "The area at the bottom left corner is a solid black bar with a logo 'BW AT' on the right, which does not appear to be an operating system's taskbar or application bar."
+        }
+      ]
+    },
+    {
+      "key": "119/Analytics",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Growth Trends' button is duplicated in two different panels.",
+          "confirmed": false,
+          "reason": "The claim specifies 'Growth Trends button on the large image panel and Growth Trends button on the 'Smart Forecast' panel'. The Smart Forecast panel shows buttons 'Q3 Growth', 'Service Demand', and 'C"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Growth Trends' button is duplicated in two different panels.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Growth Trends' button is duplicated between the large image panel and the 'Smart Forecast' panel, but the 'Smart Forecast' panel actually contains buttons for 'Q3 Growth', '"
+        }
+      ]
+    },
+    {
+      "key": "119/Conversations",
+      "shipped": true,
+      "qa_score": 7.9,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is a logo with 'BW' and 'AI' that appears to be part of the application but is not labelled or integrated into the application's design.",
+          "confirmed": false,
+          "reason": "While there is a logo with 'BW' and 'AI' in the bottom right corner, it is visually integrated into the screen's overall aesthetic with a glowing gradient background that matches other elements of the"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is a logo with 'BW' and 'AI' that appears to be part of the application but is not labelled or integrated into the application's design.",
+          "confirmed": true,
+          "reason": "There is indeed a logo with 'BW' and 'AI' in the bottom right corner of the screen, below the 'AI Insights' panel, that is not integrated into the application's design or labelled."
+        }
+      ]
+    },
+    {
+      "key": "119/Knowledge",
+      "shipped": true,
+      "qa_score": 8.4,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are 0, 300, 400, 600, 750, which are unevenly stepped despite being evenly spaced visually.",
+          "confirmed": true,
+          "reason": "The Y-axis tick labels are 0, 300, 400, 600, 750, which are visually evenly spaced but numerically unevenly stepped."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are 0, 300, 400, 600, 750, which are unevenly stepped despite being evenly spaced visually.",
+          "confirmed": true,
+          "reason": "The Y-axis tick labels on the Article Performance chart are indeed 0, 300, 400, 600, 750, which are unevenly stepped visually despite appearing evenly spaced."
+        }
+      ]
+    },
+    {
+      "key": "120/Analytics",
+      "shipped": true,
+      "qa_score": 6.5,
+      "claims": 4,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Avg. Response Time' panel is duplicated twice in the top row.",
+          "confirmed": false,
+          "reason": "The claim relies on reading the text content of the panels, which is outside this pipeline's jurisdiction."
+        },
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Top Course Inquiries' panel appears twice with identical content.",
+          "confirmed": false,
+          "reason": "The claim relies on reading text content to determine if the panels are duplicates, which is outside the pipeline's jurisdiction."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is an unlabeled icon or logo in the bottom right corner of the screen.",
+          "confirmed": false,
+          "reason": "There is a logo that clearly spells 'BMW AI' in the bottom right corner, which means it is labeled."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The text label on the Y-axis of the 'Weekly Inquiries' chart is cut off vertically.",
+          "confirmed": false,
+          "reason": "The Y-axis label of the 'Weekly Inquiries' chart is fully visible and not cut off vertically; it clearly reads 'Total Inquiries' in its entirety."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Avg. Response Time' panel is duplicated twice in the top row.",
+          "confirmed": true,
+          "reason": "The two rightmost KPI cards in the top row are both titled 'Avg. Response Time' and display the same value '5s', indicating a duplication."
+        },
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Top Course Inquiries' panel appears twice with identical content.",
+          "confirmed": true,
+          "reason": "The 'Top Course Inquiries' panel appears twice with identical content, once on the left and once in the middle-bottom of the screen."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is an unlabeled icon or logo in the bottom right corner of the screen.",
+          "confirmed": false,
+          "reason": "There is a clearly visible 'BMW AI' logo in the bottom right corner of the screen, which is not unlabeled."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The text label on the Y-axis of the 'Weekly Inquiries' chart is cut off vertically.",
+          "confirmed": false,
+          "reason": "The Y-axis label of the 'Weekly Inquiries' chart is 'Total Inquiries' and is not cut off vertically; it is fully visible and rotated 90 degrees."
+        }
+      ]
+    },
+    {
+      "key": "120/Conversations",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A B/W logo is visible at the bottom right corner, suggesting part of a background or external element rather than application content.",
+          "confirmed": true,
+          "reason": "A B/W logo is clearly visible at the specified coordinates, matching the description of a non-application element."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "A curved white shape is cut off by the bottom left edge of the image.",
+          "confirmed": true,
+          "reason": "A curved white shape is plainly visible and cut off by the bottom left edge of the image at the specified location."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A B/W logo is visible at the bottom right corner, suggesting part of a background or external element rather than application content.",
+          "confirmed": true,
+          "reason": "A B/W logo is clearly visible at the bottom right corner of the screen, as described."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "A curved white shape is cut off by the bottom left edge of the image.",
+          "confirmed": false,
+          "reason": "At the specified location, there is a very subtle dark gray curved shape that is part of the overall UI design, but it is not a distinct white shape that is clearly cut off."
+        }
+      ]
+    },
+    {
+      "key": "120/Knowledge",
+      "shipped": true,
+      "qa_score": 8.5,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The panel titled 'AI Suggestion' with content 'Review 'Gift Vouchers' entry' and 'High number of recent inquiries' is duplicated twice on the screen.",
+          "confirmed": false,
+          "reason": "The two 'AI Suggestion' panels are not identical; the first panel includes '88% match', 'High demand', 'Draft status', and 'Urgent action', while the second panel includes '97% match', 'Repeat visitor"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The panel titled 'AI Suggestion' with content 'Review 'Gift Vouchers' entry' and 'High number of recent inquiries' is duplicated twice on the screen.",
+          "confirmed": false,
+          "reason": "The two 'AI Suggestion' panels (coordinates approx. 590,440 and 590,790) are not duplicated as they display different metrics and action buttons, despite having the same title and primary text content"
+        }
+      ]
+    },
+    {
+      "key": "128/Analytics",
+      "shipped": true,
+      "qa_score": 7.5,
+      "claims": 0,
+      "v1": [],
+      "v2": []
+    },
+    {
+      "key": "128/Customers",
+      "shipped": true,
+      "qa_score": 8.7,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "A circular element is cut off by the top edge of the image and the right edge of the content panel.",
+          "confirmed": false,
+          "reason": "There is no circular element clipped by both the top and right edge of the content panel; instead, there is a circular element (a draggable dot) that is entirely within the bounds of the image, althou"
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are '0, 1, 2, 3, 3, 4, 5', showing a duplicated '3' and an uneven progression.",
+          "confirmed": false,
+          "reason": "The Y-axis tick labels are clearly '0, 1, 2, 3, 4, 5', showing a clear and even progression without any duplication."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "A circular element is cut off by the top edge of the image and the right edge of the content panel.",
+          "confirmed": true,
+          "reason": "A small circular element above 'Client Partnership' is visibly cut off by the top and right edges of the content panel."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick labels are '0, 1, 2, 3, 3, 4, 5', showing a duplicated '3' and an uneven progression.",
+          "confirmed": true,
+          "reason": "The Y-axis tick labels in the 'Client Onboarding' chart show '0, 1, 2, 3, 3, 4, 5', with a duplicated '3' and an uneven progression as described."
+        }
+      ]
+    },
+    {
+      "key": "128/Dashboard",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The y-axis label for 0.0 appears as '-0.', which is an atypical representation for zero.",
+          "confirmed": true,
+          "reason": "The right y-axis of the Market Movement graph shows the label '-0.' at the position typically reserved for zero, which is an atypical representation."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The y-axis label for 0.0 appears as '-0.', which is an atypical representation for zero.",
+          "confirmed": true,
+          "reason": "The right y-axis of the Market Movement graph clearly displays '-0.' as the label for zero, which is an atypical representation."
+        }
+      ]
+    },
+    {
+      "key": "129/Analytics",
+      "shipped": true,
+      "qa_score": 8.4,
+      "claims": 3,
+      "v1": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'Total Bookings' label on the y-axis is partially cut off at the bottom.",
+          "confirmed": false,
+          "reason": "The 'Total Bookings' label on the left y-axis of the 'Weekly Bookings Trend' graph is fully visible and not cut off at the bottom."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The y-axis tick values are unevenly stepped (0, 70, 80, 90, 100, 115) at visually even spacing, indicating a non-linear scale.",
+          "confirmed": true,
+          "reason": "The left y-axis ticks of the 'Weekly Bookings Trend' graph display values 0, 70, 80, 90, 100, 115 at visually uneven spacing, confirming the claim of a non-linear scale."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The horizontal golden bar under the 'Analytics' tab is clipped on its right side by the 'Settings' tab.",
+          "confirmed": false,
+          "reason": "The horizontal golden bar under the 'Analytics' tab is not clipped by the 'Settings' tab; there is a clear gap between them, indicating it is not clipped."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'Total Bookings' label on the y-axis is partially cut off at the bottom.",
+          "confirmed": false,
+          "reason": "The 'Total Bookings' label on the left y-axis of the 'Weekly Bookings Trend' graph is fully visible and not cut off at the bottom."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The y-axis tick values are unevenly stepped (0, 70, 80, 90, 100, 115) at visually even spacing, indicating a non-linear scale.",
+          "confirmed": true,
+          "reason": "The left y-axis of the 'Weekly Bookings Trend' graph shows tick values 0, 70, 80, 90, 100, 115 at visually even intervals, which means the steps are uneven (70, 10, 10, 10, 15)."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The horizontal golden bar under the 'Analytics' tab is clipped on its right side by the 'Settings' tab.",
+          "confirmed": false,
+          "reason": "The horizontal golden bar under the 'Analytics' tab is not clipped on its right side by the 'Settings' tab; there is a visible gap between the end of the bar and the beginning of the 'Settings' tab."
+        }
+      ]
+    },
+    {
+      "key": "129/Dashboard",
+      "shipped": true,
+      "qa_score": 9.2,
+      "claims": 0,
+      "v1": [],
+      "v2": []
+    },
+    {
+      "key": "129/Schedule",
+      "shipped": true,
+      "qa_score": 8.5,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Studio status' label is drawn twice over the studio image.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Studio status' label is drawn twice over the studio image; however, the two instances of 'Studio status' are in two distinct, non-overlapping locations, acting as labels for"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Studio status' label is drawn twice over the studio image.",
+          "confirmed": false,
+          "reason": "The 'Studio status' label is present in two locations but refers to different sections of the image gallery, implying distinct functions rather than duplication."
+        }
+      ]
+    },
+    {
+      "key": "104/Analytics#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A small 'BW' logo with a surrounding circle is visible, which appears to be a watermark or part of a device mockup, not the application.",
+          "confirmed": true,
+          "reason": "A small 'BW' logo with a surrounding circle is clearly visible in the bottom right corner of the screen, which appears to be a watermark and not part of the application."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A small 'BW' logo with a surrounding circle is visible, which appears to be a watermark or part of a device mockup, not the application.",
+          "confirmed": true,
+          "reason": "A small 'BW' logo within a circle is clearly visible in the bottom right corner, as described, and appears to be a watermark."
+        }
+      ]
+    },
+    {
+      "key": "104/Analytics#2",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 4,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Apply Model' button is duplicated, appearing once in the top right header and again in the 'CORE ALPHA ALLOCATION' panel.",
+          "confirmed": false,
+          "reason": "The claim is refuted because the 'Apply Model' button in the top right is a standalone button in the header, while the 'Apply Model' button in the 'CORE ALPHA ALLOCATION' panel is part of a form, maki"
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The navigation dots below the image carousel are not explicitly labeled as navigation controls.",
+          "confirmed": true,
+          "reason": "The navigation dots below the image carousel are present and are not explicitly labeled as navigation controls."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The numeric value '1.15' in the second row of the 'CORE ALPHA ALLOCATION' panel does not have a label indicating what it measures.",
+          "confirmed": true,
+          "reason": "The numeric value '1.15' in the second row of the 'CORE ALPHA ALLOCATION' panel is present and does not have an associated label indicating what it measures."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The numeric value '8%' in the second row of the 'CORE ALPHA ALLOCATION' panel does not have a label indicating what it measures.",
+          "confirmed": true,
+          "reason": "The numeric value '8%' in the second row of the 'CORE ALPHA ALLOCATION' panel is present and does not have an explicit label indicating what it measures."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Apply Model' button is duplicated, appearing once in the top right header and again in the 'CORE ALPHA ALLOCATION' panel.",
+          "confirmed": true,
+          "reason": "The 'Apply Model' button appears in the top right header and again within the 'CORE ALPHA ALLOCATION' panel, serving the same function."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The navigation dots below the image carousel are not explicitly labeled as navigation controls.",
+          "confirmed": true,
+          "reason": "The navigation dots below the image carousel are present but do not have any explicit labels describing their function as navigation controls."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The numeric value '1.15' in the second row of the 'CORE ALPHA ALLOCATION' panel does not have a label indicating what it measures.",
+          "confirmed": false,
+          "reason": "The numeric value '1.15' in the second row of the 'CORE ALPHA ALLOCATION' panel is labelled as 'Core Alpha Growth' in the first row, indicating what it measures."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The numeric value '8%' in the second row of the 'CORE ALPHA ALLOCATION' panel does not have a label indicating what it measures.",
+          "confirmed": true,
+          "reason": "The numeric value '8%' in the second row of the 'CORE ALPHA ALLOCATION' panel is present and lacks an explicit label indicating what it measures."
+        }
+      ]
+    },
+    {
+      "key": "105/Analytics#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick values are unevenly stepped at 0, 15, 20, 25, 30 at even visual spacing.",
+          "confirmed": false,
+          "reason": "The Y-axis tick values are 0, 15, 20, 25, 30, which are unevenly stepped, but the visual spacing between 0 and 15 is much larger than between 15, 20, 25, and 30, not even as claimed."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "malformed_data_display",
+          "what": "The Y-axis tick values are unevenly stepped at 0, 15, 20, 25, 30 at even visual spacing.",
+          "confirmed": false,
+          "reason": "The Y-axis tick values are 0, 15, 20, 25, 30, but they are not at even visual spacing; the gap between 0 and 15 is visually larger than the gaps between 15, 20, 25, and 30."
+        }
+      ]
+    },
+    {
+      "key": "105/Dashboard#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A watermark 'BMW AI' is present in the bottom right corner, which is not part of the application interface.",
+          "confirmed": true,
+          "reason": "A small 'BMW AI' logo is plainly visible in the bottom right corner of the screenshot, consistent with the claim."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom edge of the 'Select Matter Type' panel (around y=980) appears cut off by the image boundary.",
+          "confirmed": false,
+          "reason": "The bottom edge of the 'Select Matter Type' panel is fully visible and not cut off by the image boundary; there is a visible dark margin below it."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A watermark 'BMW AI' is present in the bottom right corner, which is not part of the application interface.",
+          "confirmed": true,
+          "reason": "A watermark 'BMW AI' is clearly visible in the bottom right corner of the screenshot, which is not part of the application interface."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom edge of the 'Select Matter Type' panel (around y=980) appears cut off by the image boundary.",
+          "confirmed": false,
+          "reason": "The panel 'Select Matter Type' is fully visible, and its bottom edge is not cut off by the image boundary."
+        }
+      ]
+    },
+    {
+      "key": "106/Analytics#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A small logo for 'BW' is visible, which appears to be non-application chrome.",
+          "confirmed": true,
+          "reason": "A small logo with the letters 'BW' is clearly visible in the bottom right corner of the screen, consistent with the claim."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A small logo for 'BW' is visible, which appears to be non-application chrome.",
+          "confirmed": true,
+          "reason": "A small 'BW' logo is clearly visible in the bottom right corner of the screen, outside the application's main content area."
+        }
+      ]
+    },
+    {
+      "key": "106/Dashboard#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Book This Slot' button appears both in the top right navigation and within the 'Appointment Slot' panel, performing the same action.",
+          "confirmed": true,
+          "reason": "The 'Book This Slot' button is present in the top right navigation bar and another identical 'Book This Slot' button is present within the 'Appointment Slot' panel, appearing to perform the same actio"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Book This Slot' button appears both in the top right navigation and within the 'Appointment Slot' panel, performing the same action.",
+          "confirmed": false,
+          "reason": "The 'Book This Slot' button in the top right navigation bar is distinct from the 'Book This Slot' button within the 'Appointment Slot' panel because they serve different immediate contexts; the top ri"
+        }
+      ]
+    },
+    {
+      "key": "106/Dashboard#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The label 'Finishing Touch' is displayed twice: once as part of the image overlay in the carousel, and again as a smaller, separate label floating above the top",
+          "confirmed": false,
+          "reason": "While the words 'Finishing Touch' appear twice, they are part of two distinct visual elements, one a label overlay within the carousel image and the other a small floating label above the top right of"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The label 'Finishing Touch' is displayed twice: once as part of the image overlay in the carousel, and again as a smaller, separate label floating above the top",
+          "confirmed": false,
+          "reason": "The claim states that 'Finishing Touch' appears twice, but the image shows 'Finishing Touch' once as a label overlay in the bottom left of the image carousel and a second time as a smaller label in th"
+        }
+      ]
+    },
+    {
+      "key": "107/Analytics#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 4,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The entire chart structure, including the y-axis, x-axis, data points, labels, and overall shape of the data curve, appears to be identical in two separate loca",
+          "confirmed": false,
+          "reason": "The claim states that the two 'Weekly Inquiries' charts are identical, but upon close inspection, the top chart has a '-25% Mon \u2192 Sun' label which is absent from the bottom chart, indicating they are "
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "A small graphical element resembling a bookmark or ribbon is partially visible and cut off at the very top of the displayed image in the gallery section.",
+          "confirmed": true,
+          "reason": "A small graphical element resembling a bookmark or ribbon is indeed partially visible and cut off at the very top of the displayed image in the gallery section at the specified coordinates."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The column displaying numbers like '3', '2', '1', and '0' in the 'Top Artworks' panel lacks a header or label to indicate what these values represent.",
+          "confirmed": true,
+          "reason": "The second column of numerical data in the 'Top Artworks' panel (e.g., '3' next to 'Coastal Breeze') clearly lacks a header or label."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The tick marks on the y-axis are spaced evenly but represent uneven numerical steps (0, 5, 10, 15, 20), where the step between 0 and 5 is the same visual length",
+          "confirmed": false,
+          "reason": "The claim states the steps are uneven, but the visual spacing and numerical values on the y-axis (0, 5, 10, 15, 20) clearly show even numerical steps of 5, with visually equal spacing between them."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The entire chart structure, including the y-axis, x-axis, data points, labels, and overall shape of the data curve, appears to be identical in two separate loca",
+          "confirmed": false,
+          "reason": "The two charts labeled 'Weekly Inquiries' are not identical; the top chart shows a '-25% Mon -> Sun' label that is not present in the bottom chart, indicating they are not exact duplicates."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "A small graphical element resembling a bookmark or ribbon is partially visible and cut off at the very top of the displayed image in the gallery section.",
+          "confirmed": true,
+          "reason": "A small graphical element resembling a bookmark or ribbon is visible and cut off at the very top of the displayed image in the gallery section, exactly as described."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The column displaying numbers like '3', '2', '1', and '0' in the 'Top Artworks' panel lacks a header or label to indicate what these values represent.",
+          "confirmed": true,
+          "reason": "The second column of numerical data in the 'Top Artworks' panel does not have a header or label to explain what the values '3', '2', '1', and '0' represent."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The tick marks on the y-axis are spaced evenly but represent uneven numerical steps (0, 5, 10, 15, 20), where the step between 0 and 5 is the same visual length",
+          "confirmed": true,
+          "reason": "The tick marks on the y-axis of both 'Weekly Inquiries' charts are visually spaced evenly but represent numerical steps of 0, 5, 10, 15, 20, which means the visual length for 0-5 is the same as 5-10, "
+        }
+      ]
+    },
+    {
+      "key": "107/Dashboard#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Request Info' button is drawn twice, once in the header and once within the 'Painting Details' panel.",
+          "confirmed": true,
+          "reason": "There are indeed two 'Request Info' buttons, one in the top right header and another within the 'Painting Details' panel, as described."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Request Info' button is drawn twice, once in the header and once within the 'Painting Details' panel.",
+          "confirmed": false,
+          "reason": "The 'Request Info' button in the header serves a general purpose for the entire gateway, while the 'Request Info' button within the 'Painting Details' panel is specific to inquiring about that particu"
+        }
+      ]
+    },
+    {
+      "key": "108/Analytics#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'View Painting' button is present twice on the screen, once in the top right navigation bar and again as a primary action button at the bottom of the left c",
+          "confirmed": true,
+          "reason": "The 'View Painting' button is present in the top right navigation bar and again as a primary action button at the bottom of the left content panel, exactly as described."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The label 'NEW INQUIRIES' is partially cut off at the bottom, specifically the letter 'S'.",
+          "confirmed": false,
+          "reason": "The label 'NEW INQUIRIES' is fully visible and not cut off at the bottom, including the letter 'S'."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'View Painting' button is present twice on the screen, once in the top right navigation bar and again as a primary action button at the bottom of the left c",
+          "confirmed": false,
+          "reason": "The 'View Painting' button in the top right navigation bar and the one at the bottom left are distinct elements serving different purposes; the top right is a global navigation button, while the botto"
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The label 'NEW INQUIRIES' is partially cut off at the bottom, specifically the letter 'S'.",
+          "confirmed": false,
+          "reason": "The label 'NEW INQUIRIES' is fully visible, and no part of the letter 'S' is cut off at the bottom."
+        }
+      ]
+    },
+    {
+      "key": "108/Dashboard#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BW-AT' logo is cut off by the bottom and right edges of the image.",
+          "confirmed": false,
+          "reason": "The 'BW-AT' logo is fully visible in the bottom right corner and is not cut off by the edges of the image."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BW-AT' logo is cut off by the bottom and right edges of the image.",
+          "confirmed": false,
+          "reason": "The 'BW-AT' logo is fully visible in the bottom right corner of the screen and is not cut off by the edges of the image."
+        }
+      ]
+    },
+    {
+      "key": "119/Analytics#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'HR Advisory' service is listed twice consecutively with identical values of '25' and '$3,750'.",
+          "confirmed": true,
+          "reason": "The 'HR Advisory' service is listed twice consecutively in the 'Top Services' list, both showing '25' and '$3,750'."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BW AI' logo is partially cut off at the bottom edge of the image.",
+          "confirmed": true,
+          "reason": "The 'BW AI' logo is clearly visible in the bottom-right corner and is partially cut off at the bottom edge of the image."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'HR Advisory' service is listed twice consecutively with identical values of '25' and '$3,750'.",
+          "confirmed": true,
+          "reason": "The 'HR Advisory' service is listed twice consecutively in the 'Top Services' list, both showing '25' and '$3,750'."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BW AI' logo is partially cut off at the bottom edge of the image.",
+          "confirmed": false,
+          "reason": "The 'BW AI' logo is fully visible in the bottom-right corner of the screen and is not partially cut off."
+        }
+      ]
+    },
+    {
+      "key": "119/Conversations#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The last bullet point is cut off at the bottom, partially obscured by the message input field.",
+          "confirmed": true,
+          "reason": "The last bullet point under 'High Customer' insights is indeed partially obscured by the message input field at the bottom of the screen."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The last bullet point is cut off at the bottom, partially obscured by the message input field.",
+          "confirmed": true,
+          "reason": "The last bullet point under 'High Customer' insights is indeed cut off, with the text 'Evaluao orta toxcard stalipikretion' partially obscured at the bottom of the visible area, and the message input "
+        }
+      ]
+    },
+    {
+      "key": "119/Knowledge#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Knowledge Base' panel is drawn twice, once occupying the upper left quadrant and again in the lower left, both with identical background images.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Knowledge Base' panel is drawn twice, but the lower left panel only contains the text 'Knowledge Base' and lacks the full panel content and image of the upper left panel, ma"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Knowledge Base' panel is drawn twice, once occupying the upper left quadrant and again in the lower left, both with identical background images.",
+          "confirmed": false,
+          "reason": "While both panels are labeled 'Knowledge Base' and share an identical background image, the top panel is a larger, singular panel, while the bottom panel is a section within a multi-panel layout, indi"
+        }
+      ]
+    },
+    {
+      "key": "120/Analytics#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 3,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Digital Art Basics' course is listed twice consecutively in the 'Top Course Inquiries' panel, suggesting a duplicate entry.",
+          "confirmed": false,
+          "reason": "The claim relies on reading text content, which is outside this pipeline's jurisdiction; therefore, it is auto-refuted."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom edge of the application is cut off by the image boundary, and the 'BW' logo is partially clipped.",
+          "confirmed": true,
+          "reason": "The bottom edge of the application is cut off by the image boundary and the 'BW' logo in the bottom right corner is partially clipped, exactly as described."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The x-axis labels of the 'Weekly Inquiries' chart show 'W4' repeated twice consecutively, indicating an uneven or incorrect stepping sequence.",
+          "confirmed": true,
+          "reason": "The x-axis labels of the 'Weekly Inquiries' chart clearly show 'W4' repeated twice consecutively, indicating an uneven sequence."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Digital Art Basics' course is listed twice consecutively in the 'Top Course Inquiries' panel, suggesting a duplicate entry.",
+          "confirmed": true,
+          "reason": "The 'Digital Art Basics' course is indeed listed twice consecutively in the 'Top Course Inquiries' panel at the specified location."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom edge of the application is cut off by the image boundary, and the 'BW' logo is partially clipped.",
+          "confirmed": true,
+          "reason": "The bottom edge of the application is cut off by the image boundary, and the 'BW' logo in the bottom right corner is partially clipped, as described."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The x-axis labels of the 'Weekly Inquiries' chart show 'W4' repeated twice consecutively, indicating an uneven or incorrect stepping sequence.",
+          "confirmed": true,
+          "reason": "The x-axis labels of the 'Weekly Inquiries' chart clearly show 'W4' repeated twice consecutively, exactly as described in the claim."
+        }
+      ]
+    },
+    {
+      "key": "120/Conversations#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A branding element (BW and AI logos) is present, indicating that the image is not solely of the application interface.",
+          "confirmed": true,
+          "reason": "A small 'BW' logo is present in the bottom left corner and a small 'AI' logo is present in the bottom right corner, partially obscured."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A branding element (BW and AI logos) is present, indicating that the image is not solely of the application interface.",
+          "confirmed": true,
+          "reason": "A small blue BW logo is visible in the bottom left corner and a small blue AI logo is visible in the bottom right corner of the image, as described."
+        }
+      ]
+    },
+    {
+      "key": "128/Analytics#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Apply Strategy' button appears twice on the screen.",
+          "confirmed": false,
+          "reason": "The two named buttons are visually distinct in their size and placement, and they are located in different contexts within the interface, thus not constituting a duplicated panel."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BW' logo in the bottom right corner is partially cut off by the image edge.",
+          "confirmed": true,
+          "reason": "The 'BW' logo in the bottom right corner is indeed partially cut off by the image edge."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Apply Strategy' button appears twice on the screen.",
+          "confirmed": true,
+          "reason": "The 'Apply Strategy' button is visible at the top right of the screen and also within the 'Strategy Details' panel, appearing twice as claimed."
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The 'BW' logo in the bottom right corner is partially cut off by the image edge.",
+          "confirmed": true,
+          "reason": "The 'BW' logo in the bottom right corner is partially cut off by the image edge, specifically the right side of the 'W' is truncated."
+        }
+      ]
+    },
+    {
+      "key": "128/Customers#0",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 2,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Status: Pending' chip appears twice within the same 'Client Overview' panel.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Status: Pending' chip appears twice within the same 'Client Overview' panel, but the second instance at the top right of the panel is a circular icon with three dots, not a "
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is a small circular button with three dots but no label on the 'Client Partnership' panel.",
+          "confirmed": true,
+          "reason": "There is a small circular button with three dots but no label on the bottom right of the 'Client Partnership' panel at the specified coordinates."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'Status: Pending' chip appears twice within the same 'Client Overview' panel.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Status: Pending' chip appears twice within the same 'Client Overview' panel, but the image shows one 'Status: Pending' chip at the top left of the main image within the 'Cli"
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "There is a small circular button with three dots but no label on the 'Client Partnership' panel.",
+          "confirmed": false,
+          "reason": "The element at the specified location is a circular button with three dots, but it also has a small, light-colored, circular element to its right that appears to be part of the button or an indicator,"
+        }
+      ]
+    },
+    {
+      "key": "129/Analytics#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 4,
+      "v1": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'TOP SERVICE' panel, displaying 'Full Colour' and '+10% vs prev month', appears twice on the screen.",
+          "confirmed": false,
+          "reason": "The claim states that the 'TOP SERVICE' panel appears twice, displaying 'Full Colour' and '+10% vs prev month'. While both panels show 'TOP SERVICE' and 'Full Colour' with '+10% vs prev month', the pa"
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom of the vertical scrollbar is cut off by the edge of its containing panel.",
+          "confirmed": false,
+          "reason": "The scrollbar appears complete and is not cut off by the edge of its containing panel at the named location."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The percentage '32%' has an unlabelled segment in its circular progress indicator.",
+          "confirmed": false,
+          "reason": "The circular progress indicator for '32%' shows a filled segment and a transparent segment, but no unlabelled segment that is distinct from the background or the filled portion."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The plotted points for 'Wk 3' (60) and 'Wk 4' (96) suggest uneven spacing between ticks Wk 1 to Wk 7, or the plotted values are not consistent with the visual p",
+          "confirmed": false,
+          "reason": "The claim regarding malformed data display relies on an interpretation of 'uneven spacing' which is subjective, and the visual position of points Wk 3 and Wk 4 appears consistent with the overall curv"
+        }
+      ],
+      "v2": [
+        {
+          "kind": "duplicated_panel",
+          "what": "The 'TOP SERVICE' panel, displaying 'Full Colour' and '+10% vs prev month', appears twice on the screen.",
+          "confirmed": false,
+          "reason": "While both panels are titled 'TOP SERVICE' and display 'Full Colour' and '+10% vs prev month', they are located in different sections of the dashboard and likely serve different purposes or display a "
+        },
+        {
+          "kind": "clipping_or_truncation",
+          "what": "The bottom of the vertical scrollbar is cut off by the edge of its containing panel.",
+          "confirmed": true,
+          "reason": "The scrollbar clearly shows truncation at its bottom end where it is cut off by the edge of its containing panel."
+        },
+        {
+          "kind": "blank_or_unlabelled",
+          "what": "The percentage '32%' has an unlabelled segment in its circular progress indicator.",
+          "confirmed": false,
+          "reason": "The circular progress indicator for '32%' shows a filled segment and an unfilled segment, which is expected for a progress indicator, not an unlabelled segment."
+        },
+        {
+          "kind": "malformed_data_display",
+          "what": "The plotted points for 'Wk 3' (60) and 'Wk 4' (96) suggest uneven spacing between ticks Wk 1 to Wk 7, or the plotted values are not consistent with the visual p",
+          "confirmed": false,
+          "reason": "The horizontal spacing between the week labels (Wk 1 through Wk 7) appears to be consistent and visually evenly distributed across the x-axis of the line graph, and the plotted values accurately refle"
+        }
+      ]
+    },
+    {
+      "key": "129/Dashboard#1",
+      "shipped": false,
+      "qa_score": null,
+      "claims": 1,
+      "v1": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A watermark 'BMV AI' is visible outside the application's boundaries.",
+          "confirmed": true,
+          "reason": "A watermark with the text 'BMV AI' is visible in the bottom right corner, outside the application frame."
+        }
+      ],
+      "v2": [
+        {
+          "kind": "non_app_chrome",
+          "what": "A watermark 'BMV AI' is visible outside the application's boundaries.",
+          "confirmed": true,
+          "reason": "A watermark 'BMV AI' is clearly visible in the bottom right corner of the image, below the application frame as described."
+        }
+      ]
+    }
+  ]
+}

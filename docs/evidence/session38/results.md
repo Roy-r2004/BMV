@@ -363,11 +363,16 @@ the flow commits — the top bar carries no button at all. Request 102, same
 brief, pre-fix, rendered it in both places. That screen scored **9.2 with
 zero reported issues**.
 
-The run doubles as the first cost reading under verifier v2: $0.65490
-against the eight-run corpus mean of $0.634, with the usual two-candidate
-anchor and one follow-up re-roll. One run is not a rate, and watching this
-number is the next session's first job — but the stricter gate did not
-visibly blow up regenerations on its first outing.
+The run cost $0.65490 against the eight-run corpus mean of $0.634, with
+the usual two-candidate anchor and one follow-up re-roll.
+
+**Correction (session 39).** This paragraph originally called that "the
+first cost reading under verifier v2". It was not. Request 129 ran at
+06:48; `verifier-v2-measurement.json` was written at 09:46 and
+`defect_check.py`'s version bump at 09:48. The verifier was still v1 when
+this run went through, so $0.65490 is the LAST reading under v1, not the
+first under v2 — and session 38 shipped a stricter gate with no funded run
+behind it at all. The real first reading is request 130 in session 39.
 
 ## Found and not fixed
 
