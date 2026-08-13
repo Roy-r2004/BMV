@@ -82,24 +82,41 @@ Watch the other direction too. A rubric that stops penalising taste can
 become a rubber stamp — include at least one genuinely bad screen in the
 set (request 141's gallery, 5.0, is on disk) and confirm it still fails.
 
-## JOB 2 — delete the corner reserve, it is protecting nothing
+## JOB 2 — the judges police a corner nothing reserves any more
 
-Every image prompt still carries `_CORNER_RESERVE`: keep roughly the last
-12% of width and 17% of height clear, "a real logo is composited into
-exactly that small corner afterward". It is not. `compositing.py` places
-the mark on the BACKDROP now, and its own comment says why: *"The corner
-mark painted onto the screenshot itself is what clipped card content in the
-W1 and W2 runs."*
+**Correction to an earlier draft of this brief, which claimed the prompt
+still reserves the corner. It does not.** `_render_registers` emits
+`_CORNER_RESERVE` only when `WATERMARK_STYLE == "corner"`, and the live
+style is `footer` — the mark goes in a strip grown BELOW the interface,
+where it covers nothing. Verified by rendering a prompt: the reservation
+text is absent. That half is already correct.
 
-So the pipeline reserves a chunk of every canvas for something that moved,
-and **both** judges still auto-reject "content encroaching into the
-reserved bottom-right logo corner" — the public rubric inherited that line
-because it was copied across without being questioned.
+What is still wrong is the other half. **Both** rubrics carry, as an
+AUTOMATIC REJECTION, "any content encroaching into the reserved bottom-right
+logo corner" — a corner that is no longer reserved, for a mark that is no
+longer drawn there. The public rubric inherited the line because it was
+copied across without being questioned.
 
-On a full-bleed landing page this is actively harmful, and it is a live
-suspect for the margins still visible around request 147's hero. Deleting
-the block and the two rubric lines is a few lines of work, and it can be
-measured by re-judging the existing corpus rather than by funding runs.
+Counted across the whole corpus, 22 of 204 shipped screens carry a
+corner/logo complaint, and the rule is incoherent in both directions:
+
+- penalised for having content there — 91/Dashboard 7.8 *"the bottom-right
+  logo corner is not reserved; there's content ('Smart Reminders' card) in
+  that area"*; 119/Conversations 7.9 *"bottom-right corner (logo corner)
+  encroached on by the AI insights card"*
+- penalised for leaving it empty — 19/Dashboard 8.7 *"the bottom right logo
+  corner is empty; a subtle brand element there might enhance perceived
+  value"*; 84/Dashboard 8.5 *"the bottom-right corner where the logo would
+  typically be seems empty"*
+
+Since the prompt stopped reserving it the model fills it naturally, and the
+judge marks it down either way. Removing the line from both rubrics — or
+conditioning it on `WATERMARK_STYLE` — is the fix.
+
+It is a judge change, so it owes the same treatment as JOB 1: state it
+back, get the go, and measure by re-judging the existing corpus rather than
+by funding runs. It composes with JOB 1 cleanly; both are edits to the same
+two files and can share one replay.
 
 ## JOB 3 — the back-office navigation, as a promise in code
 
@@ -140,19 +157,45 @@ Instrument work: labelled set, before/after, owner's go. The set is already
 on disk — requests 107, 108, 130, 138 and 141-147, each with its spec and a
 header that can be read by eye.
 
-## JOB 5 — owner-gated, neither blocks anything
+## CLOSED — the chart tail is not a defect
 
-- **The chart tail.** Unevenly stepped Y-axis ticks at even spacing, the
-  same finding since session 36, seen again on request 141's back office
-  (0, 10, 20, 30, 40, 50, **160**). Coded-ticks experiment ~$2, or JOB 6's
-  PIL-composited charts.
-- **Re-run the art-pack A/B.** `ENABLE_ART_PACKS` is False in production,
-  so no art direction reaches any prompt today — including the `public-site`
-  pack written in session 39. It was measured in session 31 and lost 0-2 on
-  pairwise, but all four judged runs named the SAME deciding defect: panel
-  text clipped behind the composited logo. That logo has since moved
-  (JOB 2). Session 31 called this "the one experiment most likely to flip".
-  ~$0.9.
+**Owner's decision, session 39: the chart tail is cosmetic and does not
+matter.** Unevenly stepped Y-axis ticks at even spacing has been tracked
+since session 36 across three archetypes; it is hereby closed. Do not
+open it, do not spec a coded-ticks experiment, do not build JOB 6's
+PIL-composited charts, and do not report it as a finding.
+
+The money consequence is the part that still needs doing: a confirmed
+`malformed_data_display` on a chart currently sets `approved=False` and can
+buy a regeneration, so the pipeline is paying to re-roll screens over a
+defect the owner has said is cosmetic. Both of request 119's re-rolls were
+exactly this. Measure it by replay before changing the gate — count how
+many confirmed defects in the corpus are chart-only, which is what the
+saving would be — then decide whether chart claims should stop rejecting a
+candidate.
+
+## CLOSED — the art packs lose on their own merits now
+
+**Re-measured session 39, owner-funded, $1.5689 —
+`docs/evidence/session39/art-packs-rerun.md`.** Session 31's packs lost 0-2
+on a defect that was really about the watermark, and that watermark has
+since moved to a footer strip. The re-run tested whether the verdict would
+flip with the confound removed.
+
+It did not. Three of four screens are worse with packs on and the mean
+falls a full point, 8.325 to 7.30 — and this time the absolute scores agree
+with session 31's pairwise verdict instead of contradicting it. The new
+failure modes are the pack's own: a gradient-heavy register the design
+constraints explicitly forbid, and more modules to duplicate.
+
+`ENABLE_ART_PACKS` stays False. **Do not re-run this a third time without a
+new reason** — "the watermark moved" was the reason and it has been spent.
+The `public-site` pack written in session 39 stays on disk, unused, with
+the rest.
+
+One thing the re-run turned up in passing, and it is evidence for JOB 2:
+the packs-on analytics cell was marked down for *"branding (logo corner)
+encroached by the main content"* — a corner that nothing reserves.
 
 ## Smaller, all with receipts
 
@@ -173,6 +216,10 @@ header that can be read by eye.
   (~$0.07) and nothing else.
 - **A stray empty `consultant.db`** sits untracked at the repo root, left by
   a query that ran from the wrong directory. Safe to delete.
+- **Budget a bake-off cell at what a customer run costs**, $0.32-$0.47, not
+  from the candidate count. `--candidates 1` does not prevent a
+  regeneration: session 39's cells produced two and three images each, and
+  two cost estimates in a row were wrong because of it.
 
 ## Traps
 
