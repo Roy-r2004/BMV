@@ -36,7 +36,7 @@ from app.ui_spec import UIDemoSpec
 logger = logging.getLogger("consultant.defect_check")
 
 INSPECTOR_PROMPT_VERSION = "image-defect-inspector-v1"
-VERIFIER_PROMPT_VERSION = "image-defect-verifier-v1"
+VERIFIER_PROMPT_VERSION = "image-defect-verifier-v2"
 
 # An inspector that returns a wall of claims is padding, and every claim
 # costs a verifier call. The rubric says at most 4; this enforces it.

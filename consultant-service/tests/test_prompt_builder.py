@@ -210,3 +210,51 @@ def test_the_conversation_shape_is_switchable_off_like_every_other_concept():
         prompt = prompt_builder.build_dashboard_image_prompt(_console_spec())
     assert "Do you have anything Thursday afternoon?" not in prompt
     assert "Main list panel:" in prompt, "it must fall all the way back to the dashboard layout"
+
+
+# ── the commit button is ordered once (session 38) ───────────────────────
+# _nav_block's tool branch asked for a top-bar button reading
+# concept.primary_action while _steps_block asked for the same string as
+# "the single most prominent accented element on the screen". Two buttons,
+# one label, one of them declared unique. The defect inspector reported it
+# as a duplicated panel on all six tool screens in the corpus and was right
+# every time; the eye-census that found it had labelled all six clean.
+
+
+def _tool_spec() -> UIDemoSpec:
+    return UIDemoSpec.model_validate({
+        "business": {"name": "Meridian Capital Partners", "industry": "Hedge Fund"},
+        "product": {"name": "Meridian Apex", "screen_type": "analytics"},
+        "navigation": ["Analytics", "Portfolio", "Clients"],
+        "concept": {
+            "kind": "selector",
+            "steps": [{"label": "Select Strategy", "options": ["Global Macro"], "selected": "Global Macro"}],
+            "primary_action": "Confirm Allocation",
+            "secondary_action": "Review Strategies",
+        },
+    })
+
+
+def test_the_commit_button_is_asked_for_exactly_once_on_a_tool_screen():
+    prompt = prompt_builder.build_dashboard_image_prompt(_tool_spec())
+    assert prompt.count("Confirm Allocation") == 1, (
+        "the top bar and the selection flow were both ordering this string"
+    )
+    # It survives where it belongs: the flow's own commit button.
+    assert 'The main button reads "Confirm Allocation"' in prompt
+
+
+def test_the_tool_top_bar_asks_for_no_unlabelled_control_either():
+    """The button was originally added because asking for an unnamed one
+    made the session-33 set ship a button reading literally "Action". Not
+    asking for a top-bar button at all satisfies both constraints."""
+    spec = _tool_spec()
+    spec.concept.primary_action = ""
+    block = prompt_builder._nav_block(spec)
+    assert "button" not in block.lower()
+    assert "Analytics" in block, "the navigation itself is untouched"
+
+
+def test_a_dashboard_screen_is_unaffected(dental_spec):
+    """The change is scoped to the tool branch; nothing else moved."""
+    assert "Navigation items (left sidebar" in prompt_builder._nav_block(dental_spec)

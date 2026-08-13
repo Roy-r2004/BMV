@@ -385,16 +385,30 @@ def test_the_variant_still_reaches_the_prompt(dental_spec):
     assert variant["directive"][:60] in prompt
 
 
-def test_the_top_bar_button_is_named_not_described():
+def test_the_top_bar_asks_for_no_button_at_all():
     """Both retail screens in the session-33 golden set shipped a top-bar
-    button labelled literally "Action". The nav block asked for "a single
-    accented action button at the right" and supplied no string, so the model
-    used the only word it had. The spec already carries a real one."""
+    button labelled literally "Action": the nav block asked for "a single
+    accented action button at the right" and supplied no string, so the
+    model used the only word it had. Session 34 fixed that by supplying
+    concept.primary_action as the button's label.
+
+    Session 38 measured the consequence. _steps_block asks for the SAME
+    string as "the single most prominent accented element on the screen",
+    so the prompt was ordering one CTA twice — and the defect inspector
+    reported it as a duplicated panel on all six tool screens in the
+    corpus (100, 102, 103, 105, 106, 108), correctly each time.
+
+    Both concerns are satisfied by asking for no top-bar button: there is
+    nothing to leave unlabelled and nothing to duplicate. The original
+    defect is still pinned — no described-but-unnamed control — and the
+    label now appears exactly once, on the flow's own commit button."""
     spec = _tool_spec()
     prompt = prompt_builder.build_dashboard_image_prompt(spec)
 
     assert "accented action button" not in prompt
-    assert "one accented button reading Confirm Booking" in prompt
+    assert "accented button reading" not in prompt
+    assert prompt.count("Confirm Booking") == 1
+    assert 'The main button reads "Confirm Booking"' in prompt
 
 
 def test_no_button_is_asked_for_when_the_spec_names_none():

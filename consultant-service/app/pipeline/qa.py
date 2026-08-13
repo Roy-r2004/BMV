@@ -1,7 +1,7 @@
 """Optional vision-model QA over generated screenshot candidates.
 Prompt versions: image-quality-judge-v1 (prompts/image_quality_judge.j2),
 image-text-transcription-v1 (prompts/image_text_transcription.j2),
-image-defect-inspector-v1 / image-defect-verifier-v1 (defect_check.py).
+image-defect-inspector-v1 / image-defect-verifier-v2 (defect_check.py).
 
 Three instruments, deliberately separate:
 

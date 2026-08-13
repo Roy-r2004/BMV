@@ -406,20 +406,31 @@ def _nav_block(spec: UIDemoSpec, *, continuation: bool = False) -> str:
             f"region and no other{marked}"
         )
     elif is_tool_screen(spec):
-        # The button at the right end is named, not described. Both retail
-        # screens in the session-33 golden set shipped a top-bar button
-        # labelled literally "Action" — this block used to ask for "a single
-        # accented action button at the right" and supply no string, so the
-        # model used the only word it had been given. The spec already
-        # carries a real one in concept.primary_action; where it does not,
-        # the button is not asked for at all, because an unlabelled control
-        # is on DoD line 2's defect list and an invented one is worse.
-        action = (spec.concept.primary_action or "").strip()
-        button = f", and at the right end one accented button reading {action}" if action else ""
+        # No button at the right end of the top bar — because _steps_block
+        # already asks for concept.primary_action as "the single most
+        # prominent accented element on the screen", and this block used to
+        # ask for the SAME string as a second button in the same prompt.
+        #
+        # Measured, session 38: the defect inspector reported it as a
+        # duplicated panel on six of six tool screens in the corpus —
+        # "Confirm Allocation" (100), "Confirm Booking" (102), "Add to
+        # Order" (103), "Schedule Consultation" (105), "Book This Slot"
+        # (106), "View Painting" (108) — and it was right every time. The
+        # census that found it had first labelled all six clean, so the
+        # instrument caught a defect a person reading the same screens
+        # missed.
+        #
+        # The button's original reason was a real one: the session-33
+        # golden set shipped a top-bar button labelled literally "Action",
+        # because this block asked for a button and supplied no string. But
+        # that argues for not asking for an unnamed button, and asking for
+        # a named one turned out to order the CTA twice. Asking for no
+        # top-bar button at all satisfies both: nothing to leave unlabelled,
+        # nothing to duplicate.
         marked = f"; mark {active} active" if active else ""
         placement = (
             "Navigation items (a horizontal bar across the very top of the screen: the product wordmark at the "
-            f"far left, these items spaced across the middle{button}{marked})"
+            f"far left, these items spaced across the middle{marked})"
         )
     else:
         marked = f"; mark {active} active" if active else ""

@@ -1,11 +1,26 @@
-{# image-defect-verifier-v1 — tries to REFUTE one inspector claim about one screenshot.
+{# image-defect-verifier-v2 — tries to REFUTE one inspector claim about one screenshot.
 
    The refute-by-default stance is the load-bearing part. Session 33's sweep
    made 16 claims that did NOT survive this stage; without it, every one of
    those would have rejected a good screen and spent a regeneration on
    nothing. A verifier that rubber-stamps the inspector is a single-stage
    judge with extra steps, and single-stage judging is exactly what has
-   failed here three times. #}
+   failed here three times.
+
+   v2 (session 38) fixes a collision measured on a labelled set. The
+   inspector RAISES a correct duplicated_panel claim on 9 of 11 genuinely
+   duplicated screens, and v1 confirmed 3 of 10 of those true claims — the
+   two rules below were killing the rest. "A similar-but-different pair is
+   not a duplicate" acquitted every real case, because an image model's
+   duplicate is never byte-identical: one copy is always truncated,
+   restyled or carrying a slightly different value, and that difference is
+   the artifact rather than a defence against it (107's two 'Top Artworks'
+   tables were refuted for "a small difference in the last entry"). And
+   the text-claim ban was being applied to the ACT OF NAMING the duplicated
+   panel — 101 and 106 were refuted as "outside jurisdiction" for saying
+   which panel it was. Both carve-outs are narrow and the refute-by-default
+   stance is untouched. Measured before/after:
+   docs/evidence/session38/verifier-v2-measurement.json #}
 You are an adversarial verifier. Another inspector has claimed a structural defect in the attached screenshot — the "{{ screen_title }}" screen of "{{ product_name }}". Your job is to try to REFUTE the claim.
 
 The claim:
@@ -16,8 +31,8 @@ The claim:
 Look at the exact place the claim names. The claim survives ONLY if you can see, plainly and countably, exactly what it describes. Refute it if:
 
 - you cannot find what it describes at the place it names;
-- what is there differs from what the claim says (a similar-but-different pair is not a duplicate; two panels legitimately showing the same metric differently are not a duplicate);
-- the claim depends on reading text content, spelling or wording — text claims are outside this pipeline's jurisdiction and auto-refuted whatever the pixels say;
+- what is there differs from what the claim says. Two panels doing DIFFERENT jobs are not a duplicate, and one metric legitimately shown once as a number and once inside a chart is not a duplicate. But on a duplicated_panel claim, do not require the two copies to be identical: when the same module appears twice serving the same purpose, one copy is routinely truncated, restyled, or carrying a slightly different value, and that difference is what the artifact looks like rather than a reason to acquit it. Ask whether it is the same thing twice, not whether the pixels match;
+- the claim is ABOUT text — its spelling, its wording, whether it is accurate or garbled. Those are outside this pipeline's jurisdiction and auto-refuted whatever the pixels say. Naming a panel by the title printed on it, in order to say WHICH element is duplicated or clipped, is identification and not a text claim; judge that claim on what you can see;
 - the claim is a taste judgment dressed as a defect;
 - you are not sure. **Uncertainty means refuted.** A rejected screenshot costs a regeneration, and a false rejection spends money to fix a screen that was fine. The inspector's claim must EARN the rejection.
 
