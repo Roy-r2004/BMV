@@ -130,7 +130,7 @@ export function studioDeckUrl(id: number): string {
 /** The permanent address of a finished run. The customer's way back in — it
  *  is the same string we put on screen, so build it in one place. */
 export function studioResultPath(id: number): string {
-  return `/studio/${id}`;
+  return `/demo/${id}`;
 }
 
 /** The service returns 429 when the studio is at generation capacity. */

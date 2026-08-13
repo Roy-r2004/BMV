@@ -55,6 +55,11 @@ function useElapsed(running: boolean, startedAt: number | null) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!running) return;
+    // Read the clock the moment the run starts. Without this the first
+    // render uses whatever `now` was when the component mounted, which can
+    // be a second or more stale — and a stale `now` against a freshly
+    // re-based `startedAt` is a negative elapsed, floored to 0:00.
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [running]);
@@ -157,9 +162,23 @@ export default function StudioPage() {
   const applyProgress = useCallback(
     (id: number, p: StudioProgress) => {
       setProgress(p);
-      // The clock is the server's, re-based on every poll so it cannot drift
-      // and cannot be wrong on a run this tab did not start.
-      setStartedAt(Date.now() - (p.elapsed_s ?? 0) * 1000);
+      // The clock is the server's, but it is SET rather than re-based on
+      // every poll. Re-basing each time read `Date.now() - elapsed_s*1000`
+      // while the displayed `now` only ticks once a second, so the fresh
+      // origin was routinely newer than the cached now — a negative
+      // elapsed, floored to 0:00 by Math.max, every 2.5s. The clock sat at
+      // zero for the whole run.
+      //
+      // Adopt the server's number when there is no clock yet, or when the
+      // local one has genuinely drifted from it. That keeps the property
+      // this was written for — a correct time on a run this tab did not
+      // start — without resetting a clock that is already right.
+      setStartedAt((prev) => {
+        if (p.elapsed_s == null) return prev ?? Date.now();
+        const fromServer = Date.now() - p.elapsed_s * 1000;
+        if (prev == null || Math.abs(prev - fromServer) > 2000) return fromServer;
+        return prev;
+      });
       if (p.is_failed || p.stage === 'failed') {
         sessionStorage.removeItem(RESUME_KEY);
         setFailureDetail(p.detail ?? null);
@@ -364,7 +383,7 @@ export default function StudioPage() {
               <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
                 <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-start">
                   <div className="pt-4">
-                    <p className="studio-kicker mb-5">The Studio</p>
+                    <p className="studio-kicker mb-5">The Demo</p>
                     <h1 className="studio-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-off-white">
                       See your software before anyone writes a line of it.
                     </h1>
