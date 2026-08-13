@@ -5,10 +5,13 @@ import GlowButton from './GlowButton';
 import { useAuth } from '../context/AuthContext';
 import { scrollToTop } from '../utils/scroll';
 
+// One client-facing generator, called Demo. The old /demo page listed
+// generated preview APPS; the studio generates the image demo, and it is
+// the only generation a client is offered. Two entries called "Demo" and
+// "Studio" made that a choice the client had to understand.
 const LINKS = [
   { to: '/solutions', label: 'Solutions' },
   { to: '/demo', label: 'Demo' },
-  { to: '/studio', label: 'Studio' },
   { to: '/examples', label: 'Examples' },
   { to: '/about', label: 'About' },
 ];

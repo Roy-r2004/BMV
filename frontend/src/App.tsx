@@ -3,7 +3,6 @@ import ScrollManager from './components/ScrollManager';
 import { AuthProvider } from './context/AuthContext';
 import LandingPage from './routes/LandingPage';
 import ExamplesPage from './routes/ExamplesPage';
-import DemoPage from './routes/DemoPage';
 import SolutionsPage from './routes/SolutionsPage';
 import SolutionDetailPage from './routes/SolutionDetailPage';
 import AboutPage from './routes/AboutPage';
@@ -29,15 +28,24 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/examples" element={<ExamplesPage />} />
-          <Route path="/demo" element={<DemoPage />} />
+
           <Route path="/solutions" element={<SolutionsPage />} />
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/submit" element={<SubmitPage />} />
-          <Route path="/studio" element={<StudioPage />} />
+          {/* The client-facing generator, addressed as /demo. It used to be
+              /studio, beside a separate /demo page that listed generated
+              preview apps — two entries offering the client two different
+              things to generate. The image demo is the one we sell, so it
+              took the name. */}
+          <Route path="/demo" element={<StudioPage />} />
           {/* The permanent address of one run. A generation costs real money;
               the result it produces has to survive a refresh, a bookmark and
-              a forwarded link, not just the tab that started it. */}
+              a forwarded link, not just the tab that started it. Both spellings
+              resolve: every /studio/<id> link already handed out, written into
+              an evidence document or bookmarked has to keep working. */}
+          <Route path="/demo/:id" element={<StudioPage />} />
+          <Route path="/studio" element={<StudioPage />} />
           <Route path="/studio/:id" element={<StudioPage />} />
           <Route path="/result/:id" element={<ResultPreviewPage />} />
           <Route path="/share/:id" element={<ResultPreviewPage />} />

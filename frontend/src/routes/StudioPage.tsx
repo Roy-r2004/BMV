@@ -299,7 +299,7 @@ export default function StudioPage() {
     setStartedAt(null);
     setFailureDetail(null);
     setAct('intake');
-    navigate('/studio');
+    navigate('/demo');
   };
 
   const copyLink = async () => {
