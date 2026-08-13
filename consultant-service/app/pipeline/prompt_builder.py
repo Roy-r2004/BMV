@@ -1069,7 +1069,7 @@ Layout density: {density}
 
 {_content_sections(spec)}
 
-Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written and punctuated exactly as written: never wrap a string in brackets, quotation marks or parentheses it does not already have, and never strip ones it does — a KPI label given as New Enquiries is drawn New Enquiries and never [New Enquiries], while a work titled Untitled (WIP) keeps its parentheses. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
 
 {_branding_block(spec)}
 
@@ -1149,6 +1149,6 @@ Preserve the exact same application design:
 
 {_content_sections(spec, continuation=True)}
 
-Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
+Every visible string above is the EXACT text to render — short labels, names and numbers only. Render each string once, spelled exactly as written and punctuated exactly as written: never wrap a string in brackets, quotation marks or parentheses it does not already have, and never strip ones it does — a KPI label given as New Enquiries is drawn New Enquiries and never [New Enquiries], while a work titled Untitled (WIP) keeps its parentheses. Do not add extra text of your own. The lines above that describe what to draw ("The visual centerpiece...", "Metric cards:", "Navigation items...", and so on) are instructions to you, not labels: never draw them, and never draw a heading above an element unless a heading is given as one of the exact strings.
 
 {_design_constraints()}{_art_direction(spec, archetype_id)}"""
