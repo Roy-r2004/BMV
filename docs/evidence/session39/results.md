@@ -303,10 +303,37 @@ word that happens to appear elsewhere on the screen.
 
 ### Blast radius
 
-QA scores 7.5 / 7.0 / 7.5 (mean 7.33) against request 130's 8.1 / 8.0 /
-8.7 (mean 8.27), same brief, same config. One run against one run, and
-image QA is noisy, but it is the wrong direction after a prompt change and
-should not be quoted as "no effect". The image count was unchanged at 6.
+QA 7.5 / 7.0 / 7.5 (mean 7.33) against request 130's mean 8.27, same brief
+and config. Flagged at the time as "the wrong direction". **Put in corpus
+context it is an unremarkable draw**, and the original flag over-weighted
+it — corrected here.
+
+Twenty-five completed runs from 90 on: mean of run-means **8.228**, sd
+**0.489**. 138 sits at −1.83 sd, second-lowest of 25. But the same brief
+re-run changes by that much on the seed alone:
+
+| brief | runs | spread |
+|---|---|---|
+| Hartwell & Grey | 8.50, 8.03, 7.20, 8.47 | **1.30** |
+| Jeanne Art | 7.63, 8.03, 8.27, **7.33** | 0.94 |
+| Northgate | 8.50, 7.57, 8.40 | 0.93 |
+| Lumière | 8.43, 9.20, 9.13, 8.63, 8.70 | 0.77 |
+| Meridian | 8.27, 8.10, 7.80, 7.83 | 0.47 |
+
+Hartwell moved 1.30 points across four runs with no code change between
+them. 138's 7.33 is the low end of a brief that has always run low — the
+gallery brief's four-run mean is 7.82 against a corpus 8.23. The last six
+runs average 8.222, which is the corpus mean to three decimals.
+
+**The consequence for method: the aggregate QA score cannot adjudicate a
+generator change at any affordable N.** Within-brief sd is ~0.4, so
+detecting a 0.3-point regression needs ~28 runs an arm, ~$21 a side — the
+same wall the verifier cost question hit. Judge scores are for tracking
+the corpus, not for accepting or rejecting a prompt version. What settles
+v5 is the deterministic checks, which are free and unambiguous: does the
+rendered header match `spec.navigation`, and does the hero caption match
+its detail panel. So v5's image-quality effect is **unmeasured and
+probably unmeasurable this way** — not "harmful", and not "neutral".
 
 ## Cost accounting
 
