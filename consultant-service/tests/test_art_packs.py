@@ -67,8 +67,19 @@ def test_a_missing_brand_color_falls_back():
 
 # ── the prompt section ───────────────────────────────────────────────────
 
-def test_every_archetype_has_a_pack():
-    assert set(art_packs.PACKS) == set(ARCHETYPES)
+def test_every_archetype_resolves_a_pack():
+    """Was an equality against PACKS. Relaxed to resolution when packs
+    gained a surface-level fallback (session 39): a future public archetype
+    should inherit the public-site pack rather than paste a copy of it, and
+    an equality test would force the copy it exists to prevent. Every
+    archetype must still END UP with a pack — an unpacked one renders
+    without any art direction at all."""
+    from app import archetypes as _arch
+
+    for aid in ARCHETYPES:
+        surface_ids = _arch.screen_surfaces(aid, len(ARCHETYPES[aid]["screens"]))
+        for surface_id in surface_ids:
+            assert art_packs.pack_for(aid, surface_id) is not None, f"{aid}/{surface_id}"
 
 
 def test_pack_section_describes_the_system(dental_spec):

@@ -25,6 +25,7 @@ rather than designed.
 
 import colorsys
 
+from app import surfaces
 from app.ui_spec import UIDemoSpec
 
 ART_PACK_VERSION = "art-pack-v1"
@@ -321,14 +322,27 @@ PACKS: dict[str, dict[str, str]] = {
 }
 
 
-def pack_for(archetype_id: str | None) -> dict[str, str] | None:
-    return PACKS.get(archetype_id or "")
+def pack_for(archetype_id: str | None, surface_id: str | None = None) -> dict[str, str] | None:
+    """The archetype's own pack, else the one its surface falls back to.
+
+    Visual language belongs to the KIND of screen, not to the archetype.
+    Without the fallback every future public archetype — restaurant-site,
+    shop-site, studio-site — would paste the same "editorial, full-bleed,
+    no chart" pack beside a different name, and they would drift apart one
+    edit at a time. The archetype still wins wherever it defines a pack, so
+    every archetype that shipped before this resolves exactly what it did.
+    """
+    pack = PACKS.get(archetype_id or "")
+    if pack is not None:
+        return pack
+    return PACKS.get(surfaces.SURFACE_ART_PACKS.get(surfaces.resolve(surface_id), ""))
 
 
 def build_art_direction(spec: UIDemoSpec, archetype_id: str | None) -> str:
-    """The ART DIRECTION prompt section, or "" when the archetype has no pack
-    (so an unpacked archetype renders exactly as it does today)."""
-    pack = pack_for(archetype_id)
+    """The ART DIRECTION prompt section, or "" when neither the archetype
+    nor its surface has a pack (so an unpacked archetype renders exactly as
+    it does today)."""
+    pack = pack_for(archetype_id, spec.surface)
     if pack is None:
         return ""
 

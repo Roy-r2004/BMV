@@ -11,19 +11,30 @@ pages — and the pipeline answered with three admin screens wearing the
 customer's words in their header. The navigation was honoured; the product
 was not.
 
-A surface carries three decisions that used to be hard-coded:
+A surface carries the decisions that used to be hard-coded:
 
-  - which prompt shape draws it (`prompt_kind`)
   - which rubric scores it (`judge_template`)
-  - what is a defect ON it (`allows_marketing_composition`, `expects_chart`)
+  - how it describes itself to that rubric (`label`, `description`,
+    `audience`)
 
-The third matters as much as the others. `image_quality_judge.j2` lists "a
-marketing-page composition" as an automatic rejection and grades "a
-thoughtfully crafted hero chart" as a whole criterion. On a landing page
-those are not defects, they are the assignment — a rubric written for data
-screens would reject a correct public page by construction, and because a
-score under QA_REGEN_SCORE_FLOOR buys a regeneration, it would do it while
-quietly spending money.
+and, in prompt_builder, which block draws it — registered there rather
+than named here, because a template name is data and a function is not.
+
+Why the rubric has to move with the surface: `image_quality_judge.j2`
+lists "a marketing-page composition" as an automatic rejection and grades
+"a thoughtfully crafted hero chart" as a whole criterion. On a landing
+page those are not defects, they are the assignment — a rubric written for
+data screens would reject a correct public page by construction, and
+because a score under QA_REGEN_SCORE_FLOOR buys a regeneration, it would
+do it while quietly spending money.
+
+EVERY FIELD HERE IS READ. An earlier draft of this module also carried
+`prompt_kind`, `expects_chart` and `allows_marketing_composition`, and an
+architecture review found all three had zero readers: the registry looked
+data-driven while the behaviour sat in `if` statements elsewhere. That is
+worse than having no config at all, because the next person to add a
+surface fills the fields in and nothing happens. If a field is added here
+it must have a reader and a test that fails when the wiring is missing.
 
 THE ADDITIVE RULE. Every surface that existed before this module routes to
 `image_quality_judge.j2`, the same file, unchanged. No historical score
@@ -54,48 +65,49 @@ SURFACES: dict[str, dict] = {
     BACK_OFFICE: {
         "label": "Back-office screen",
         "description": "the software the business operates: dashboards, schedules, pipelines, analytics",
-        "prompt_kind": BACK_OFFICE,
         "judge_template": "image_quality_judge.j2",
-        "expects_chart": True,
-        "allows_marketing_composition": False,
         "audience": "the person who runs the business",
     },
     CONVERSATION: {
         "label": "Assistant console",
         "description": "a thread between a customer and the product's assistant",
-        "prompt_kind": CONVERSATION,
         # Deliberately the same rubric as back_office: changing it would move
         # every console score ever published. See the additive rule above.
         "judge_template": "image_quality_judge.j2",
-        "expects_chart": False,
-        "allows_marketing_composition": False,
         "audience": "the person who runs the business",
     },
     MARKETING: {
         "label": "Public landing page",
         "description": "the page a visitor lands on: hero, what this is, proof, one clear call to action",
-        "prompt_kind": MARKETING,
         "judge_template": "image_quality_judge_public.j2",
-        "expects_chart": False,
-        "allows_marketing_composition": True,
         "audience": "a visitor who has never used the product",
     },
     CATALOG: {
         "label": "Public catalogue page",
         "description": "the page a visitor browses: a grid of the things on offer, with filters",
-        "prompt_kind": CATALOG,
         "judge_template": "image_quality_judge_public.j2",
-        "expects_chart": False,
-        "allows_marketing_composition": True,
         "audience": "a visitor deciding what they want",
     },
 }
 
-# Surfaces a visitor sees rather than an operator. Kept as a set rather than
-# read off `allows_marketing_composition`, because "is this public" and "may
-# this look like a marketing page" are two questions that happen to agree
-# today and should be free to stop agreeing.
+# Surfaces a visitor sees rather than an operator. This is read by
+# prompt_builder for the handful of decisions that are genuinely about
+# public-vs-internal rather than about one specific surface — the website
+# header instead of a sidebar, the wordmark's position, and the opening
+# line that frames the whole prompt.
 PUBLIC_SURFACES = frozenset({MARKETING, CATALOG})
+
+# The art-direction pack a surface falls back to when its archetype does
+# not define one of its own. Visual language belongs to the KIND of screen,
+# not to the archetype: without this, every future public archetype —
+# restaurant-site, shop-site, studio-site — would paste the same
+# "editorial, full-bleed, no chart" pack next to a different name, and they
+# would drift apart one edit at a time. Archetype packs still win where
+# they exist, so nothing that shipped before this changes.
+SURFACE_ART_PACKS: dict[str, str] = {
+    MARKETING: "public-site",
+    CATALOG: "public-site",
+}
 
 
 def get(surface_id: str | None) -> dict:

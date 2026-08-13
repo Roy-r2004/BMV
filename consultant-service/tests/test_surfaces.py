@@ -28,16 +28,57 @@ from app.ui_spec import UIDemoSpec
 
 # ── the additive rule ────────────────────────────────────────────────────
 
-def test_every_pre_existing_archetype_is_entirely_back_office():
+def test_no_pre_existing_archetype_gained_a_public_screen():
     """Every archetype but the new one answers "what software does this
-    business RUN". If one of them ever gains a public screen, its scores
-    stop being comparable to the corpus and this test should be the thing
-    that says so."""
+    business RUN", so none of them may carry a surface that changes which
+    rubric scores it. If one ever does, its scores stop being comparable to
+    the corpus and this test should be the thing that says so.
+
+    `conversation` is allowed here: the assistant console's anchor genuinely
+    is one, and it routes to the same rubric as back_office, so nothing it
+    has ever scored moved when it was labelled honestly."""
+    internal = {surfaces.BACK_OFFICE, surfaces.CONVERSATION}
     for aid, arch in archetypes.ARCHETYPES.items():
         if aid == archetypes.PUBLIC_SITE_ARCHETYPE:
             continue
         found = {surfaces.resolve(s.get("surface")) for s in arch["screens"]}
-        assert found == {surfaces.BACK_OFFICE}, f"{aid} declares {found}"
+        assert found <= internal, f"{aid} declares {found}"
+        assert not any(surfaces.is_public(s) for s in found), aid
+
+
+def test_labelling_the_console_conversation_changed_nothing_it_draws():
+    """The conversation surface was dead config until this: declared,
+    tested for judge routing, never assigned by any archetype. Assigning it
+    makes the data model honest, and must not move a single character of
+    the prompt — the console still chooses its shape on concept.kind, which
+    is a distinction WITHIN a surface."""
+    from app.pipeline import prompt_builder
+
+    payload = {
+        "business": {"name": "Halden & Co", "industry": "Professional Services"},
+        "product": {"name": "Halden Assistant", "screen_type": "conversations"},
+        "navigation": ["Inbox", "Conversations", "Clients"],
+        "kpis": [{"label": "Handled", "value": "42"}],
+        "concept": {
+            "kind": "assistant",
+            "turns": [
+                {"speaker": "customer", "text": "Can I move my Thursday appointment?"},
+                {"speaker": "assistant", "text": "Yes — I have Friday at 10:00 free."},
+            ],
+        },
+    }
+    unlabelled = prompt_builder.build_dashboard_image_prompt(UIDemoSpec.model_validate(payload))
+    labelled = prompt_builder.build_dashboard_image_prompt(
+        UIDemoSpec.model_validate({**payload, "surface": surfaces.CONVERSATION})
+    )
+    assert unlabelled == labelled
+    assert surfaces.judge_template(surfaces.CONVERSATION) == surfaces.judge_template(surfaces.BACK_OFFICE)
+
+
+def test_the_console_anchor_declares_the_conversation_surface():
+    assert archetypes.screen_surfaces(archetypes.ASSISTANT_ARCHETYPE, 3) == [
+        surfaces.CONVERSATION, surfaces.BACK_OFFICE, surfaces.BACK_OFFICE,
+    ]
 
 
 def test_the_surfaces_that_predate_this_keep_the_original_judge():
@@ -71,12 +112,70 @@ def test_both_judge_templates_exist_on_disk():
 def test_every_surface_record_is_complete():
     """A surface missing a key would fail at judge time, on a funded run,
     after the image had already been paid for."""
-    required = {
-        "label", "description", "prompt_kind", "judge_template",
-        "expects_chart", "allows_marketing_composition", "audience",
-    }
+    required = {"label", "description", "judge_template", "audience"}
     for sid, record in surfaces.SURFACES.items():
         assert required <= set(record), f"{sid} missing {required - set(record)}"
+
+
+def test_no_surface_field_is_dead_config():
+    """The meta-test, and the one that would have caught the real bug.
+
+    The first draft of this registry carried `prompt_kind`, `expects_chart`
+    and `allows_marketing_composition`, and an architecture review found
+    all three had ZERO readers anywhere in the codebase: the module looked
+    data-driven while every decision it claimed to make sat in an `if`
+    statement somewhere else. That is worse than having no config, because
+    the next person to add a surface fills the fields in and expects
+    behaviour.
+
+    So: every key in every surface record must be read by something outside
+    surfaces.py. If you add a field, wire it."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sources = []
+    for folder, _dirs, files in os.walk(os.path.join(root, "app")):
+        for name in files:
+            if not name.endswith((".py", ".j2")):
+                continue
+            path = os.path.join(folder, name)
+            if os.path.basename(path) == "surfaces.py":
+                continue
+            with open(path, encoding="utf-8") as handle:
+                sources.append(handle.read())
+    corpus = "\n".join(sources)
+
+    fields = {key for record in surfaces.SURFACES.values() for key in record}
+    dead = sorted(f for f in fields if f not in corpus)
+    assert not dead, f"surface fields nothing reads: {dead} — wire them or delete them"
+
+
+def test_every_surface_has_an_explicit_rendering_decision():
+    """A surface with no entry would fall through to the dashboard branches
+    and render as a dashboard — silently, and only visible on a funded run.
+    `None` is a legitimate entry meaning "the concept.kind branches decide";
+    absence is not."""
+    from app.pipeline.prompt_builder import SURFACE_RENDERERS
+
+    missing = set(surfaces.SURFACES) - set(SURFACE_RENDERERS)
+    assert not missing, f"surfaces with no rendering decision: {sorted(missing)}"
+    extra = set(SURFACE_RENDERERS) - set(surfaces.SURFACES)
+    assert not extra, f"renderers for surfaces that do not exist: {sorted(extra)}"
+
+
+def test_every_surface_resolves_an_art_pack_or_deliberately_none():
+    """Public surfaces inherit the public-site pack so a future
+    restaurant-site or shop-site does not have to paste a copy of it."""
+    from app.pipeline import art_packs
+
+    for sid in surfaces.PUBLIC_SURFACES:
+        assert art_packs.pack_for("some-future-public-archetype", sid) is not None, sid
+
+
+def test_an_archetype_with_its_own_pack_still_wins():
+    """The additive half: nothing that shipped before inherits anything."""
+    from app.pipeline import art_packs
+
+    own = art_packs.pack_for("operations-dashboard", surfaces.MARKETING)
+    assert own is not None and own["label"] == "Operations"
 
 
 # ── the drawing path is unchanged for old surfaces ───────────────────────
@@ -262,3 +361,71 @@ def test_a_back_office_prompt_keeps_its_sidebar_and_its_opening_line():
     assert "left sidebar" in prompt
     assert "at the top of the sidebar" in prompt
     assert "PUBLIC WEBSITE" not in prompt
+
+
+# ── the scalability claim, made falsifiable ──────────────────────────────
+
+def test_a_whole_new_business_shape_needs_no_new_code():
+    """The claim this architecture is making, written as a test.
+
+    Adding a business shape that REUSES existing surfaces must cost one
+    dictionary entry and nothing else — no prompt-builder branch, no art
+    pack, no judge template, no test. Before session 39's review that was
+    false three times over: the renderer was an if/elif on specific surface
+    ids, and the art pack was keyed per archetype so every public archetype
+    would have pasted a copy of the same visual language.
+
+    A restaurant is the case that will actually turn up: a home page, a
+    menu the visitor browses, and a back office the owner works in.
+    """
+    from app.pipeline import art_packs, prompt_builder
+
+    restaurant = {
+        "label": "Restaurant Site + Back Office",
+        "when": "restaurants and cafés: a visitor reads the menu before they book",
+        "screens": [
+            {"screen_type": "home", "surface": surfaces.MARKETING, "layout": "hero", "chart": None},
+            {"screen_type": "menu", "surface": surfaces.CATALOG, "layout": "grid", "chart": None},
+            {"screen_type": "manage", "surface": surfaces.BACK_OFFICE, "layout": "kpis", "chart": "bar"},
+        ],
+    }
+    patched = {**archetypes.ARCHETYPES, "restaurant-site": restaurant}
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(archetypes, "ARCHETYPES", patched)
+
+        ordered = archetypes.screen_surfaces("restaurant-site", 3)
+        assert ordered == [surfaces.MARKETING, surfaces.CATALOG, surfaces.BACK_OFFICE]
+
+        for surface_id in ordered:
+            # a rubric, without writing one
+            assert surfaces.judge_template(surface_id)
+            # a rendering decision, without writing one
+            assert surface_id in prompt_builder.SURFACE_RENDERERS
+
+        # Public screens inherit their visual language, because every public
+        # page shares one. Back-office screens deliberately do NOT: the
+        # operations, crm, analytics and pipeline packs are meant to differ
+        # (test_packs_differ_between_archetypes), so a new shape supplies one
+        # pack for its owner-facing screen and inherits the rest. Two
+        # dictionary entries, no code.
+        for surface_id in (surfaces.MARKETING, surfaces.CATALOG):
+            assert art_packs.pack_for("restaurant-site", surface_id) is not None
+        assert art_packs.pack_for("restaurant-site", surfaces.BACK_OFFICE) is None
+
+        # and it actually draws, as a menu rather than as a dashboard
+        spec = _public_spec(
+            surfaces.CATALOG,
+            product={"name": "Trattoria Sole", "screen_type": "menu"},
+            style={"archetype": "restaurant-site"},
+        )
+        prompt = prompt_builder.build_dashboard_image_prompt(spec, archetype_id="restaurant-site")
+        assert "PUBLIC CATALOGUE PAGE" in prompt
+
+        # ENABLE_ART_PACKS is False in production — the W2 pack experiment
+        # never shipped as the default — so art direction only reaches a
+        # prompt when it is switched on. Patched here rather than asserted
+        # against the live setting, so this test measures the inheritance
+        # and not the flag.
+        mp.setattr(prompt_builder.settings, "ENABLE_ART_PACKS", True)
+        packed = prompt_builder.build_dashboard_image_prompt(spec, archetype_id="restaurant-site")
+        assert "Public Site pack" in packed, "inherited the surface's art pack"

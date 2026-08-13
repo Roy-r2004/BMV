@@ -25,6 +25,8 @@ paragraphs garble. Everything the builders emit as visible UI text comes
 from spec fields the ui_spec stage is instructed to keep short.
 """
 
+from collections.abc import Callable
+
 from app import surfaces
 from app.config import settings
 from app.pipeline import art_packs
@@ -792,6 +794,24 @@ def _catalog_block(spec: UIDemoSpec) -> str:
     return "\n".join(lines)
 
 
+# Which block draws which surface. Registered here rather than named in
+# surfaces.py because a function is not data, and importing prompt_builder
+# from the registry would be a cycle.
+#
+# `None` means "the pre-existing branches below decide" — back_office
+# screens still choose between the conversation, tool and dashboard shapes
+# on `concept.kind`, which is a distinction WITHIN a surface rather than
+# between surfaces. Mapping it to None rather than omitting it is what lets
+# a completeness test insist every registered surface has an entry, so a
+# new surface cannot be added without someone deciding how it is drawn.
+SURFACE_RENDERERS: dict[str, "Callable[[UIDemoSpec], str] | None"] = {
+    surfaces.BACK_OFFICE: None,
+    surfaces.CONVERSATION: None,
+    surfaces.MARKETING: _marketing_block,
+    surfaces.CATALOG: _catalog_block,
+}
+
+
 def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     sections = [
         f"The screen to draw:\n\n{spec.screen_title}",
@@ -809,13 +829,17 @@ def _content_sections(spec: UIDemoSpec, *, continuation: bool = False) -> str:
     # Surface dispatch comes first: a public page is a different shape of
     # screen, not a dashboard with different data, so none of the KPI /
     # chart / panel / activity blocks below apply to it. Screens with no
-    # surface — every spec frozen before session 39 — fall through to
-    # exactly the branches that existed before.
-    if surfaces.is_public(spec.surface):
-        if surfaces.resolve(spec.surface) == surfaces.MARKETING:
-            sections.append(_marketing_block(spec))
-        else:
-            sections.append(_catalog_block(spec))
+    # surface — every spec frozen before session 39 — resolve to
+    # back_office, whose renderer is None, and fall through to exactly the
+    # branches that existed before.
+    #
+    # A registry rather than an if/elif chain, because the chain this
+    # replaced read "if public: if MARKETING else CATALOG" — a third public
+    # surface would have rendered silently as a catalogue. A missing
+    # renderer is now a test failure instead of a wrong screen.
+    renderer = SURFACE_RENDERERS.get(surfaces.resolve(spec.surface))
+    if renderer is not None:
+        sections.append(renderer(spec))
         if ai_module:
             sections.append(ai_module)
         return "\n\n".join(sections)

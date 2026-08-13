@@ -125,6 +125,7 @@ ARCHETYPES: dict[str, dict] = {
         "screens": [
             {
                 "screen_type": "conversations",
+                "surface": surfaces.CONVERSATION,
                 "layout": "thread list rail (name + last line + time), one open conversation as the hero, small KPI strip above",
                 "chart": None,
             },
