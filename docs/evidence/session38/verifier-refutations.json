@@ -1,0 +1,102 @@
+{
+  "confirmed": 3,
+  "of": 10,
+  "cost_usd": 0.00895,
+  "screens": {
+    "100/Dashboard": {
+      "sort": "panel",
+      "verdicts": [
+        {
+          "claim": "The information panel containing 'New Capital', 'Risk Alerts', and 'Client Inquiries' with their respective va",
+          "confirmed": false,
+          "reason": "The claim states there is a duplicated panel containing 'New Capital', 'Risk Alerts', and 'Client Inquiries', but while these metrics appear in two distinct locations, the second instance of these metrics is presented as"
+        }
+      ]
+    },
+    "101/Dashboard": {
+      "sort": "row",
+      "verdicts": [
+        {
+          "claim": "The 'Sarah Hartwell' option is listed twice in the attorney selection, and the 'Mon 9:00 AM' option is listed ",
+          "confirmed": false,
+          "reason": "The claim relies on reading text content to identify duplicates, which is outside the pipeline's jurisdiction."
+        }
+      ]
+    },
+    "104/Analytics": {
+      "sort": "control",
+      "verdicts": [
+        {
+          "claim": "The 'Apply Model' button appears in two different locations with identical appearance and presumed function.",
+          "confirmed": true,
+          "reason": "The 'Apply Model' button appears in the top right of the header and also within the 'Core Alpha Allocation' panel, both with identical appearance and presumed function."
+        }
+      ]
+    },
+    "106/Schedule": {
+      "sort": "panel",
+      "verdicts": [
+        {
+          "claim": "The 'Smart Scheduling' panel containing 'Suggest David's 12 PM for Blowout' is drawn twice identically.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Smart Scheduling' panel is drawn twice identically, but the second instance of the panel contains additional information, specifically '92% match' and three buttons: 'Fill Gaps', 'Optimize Reve"
+        }
+      ]
+    },
+    "106/Analytics": {
+      "sort": "row",
+      "verdicts": [
+        {
+          "claim": "Two distinct 'Blowout' service entries are listed consecutively in the 'Revenue by Service' panel, implying a ",
+          "confirmed": false,
+          "reason": "The claim relies on interpreting text content ('Blowout') and the perceived implication of two entries, which is outside the scope of this pipeline."
+        }
+      ]
+    },
+    "107/Analytics": {
+      "sort": "panel",
+      "verdicts": [
+        {
+          "claim": "The 'Top Artworks' table is drawn twice with identical content.",
+          "confirmed": false,
+          "reason": "The two 'Top Artworks' panels display identical content, however, one of the panels includes a small difference in the last entry for 'Rooftop Serenity', which has a '0' in the 'Inquiry' column in one panel, and a blank "
+        }
+      ]
+    },
+    "120/Analytics": {
+      "sort": "panel",
+      "verdicts": [
+        {
+          "claim": "The 'Top Course Inquiries' panel is duplicated, displaying the exact same content in two different locations o",
+          "confirmed": false,
+          "reason": "The two 'Top Course Inquiries' panels are not duplicates; the second panel displays 'Watercolor Fundame...' while the first one displays 'Watercolor Fundamentals', making the text content different between the two."
+        },
+        {
+          "claim": "The 'Avg. Response Time' panel is duplicated, displaying identical information in two adjacent locations.",
+          "confirmed": true,
+          "reason": "Two panels titled 'Avg. Response Time' are visibly present and adjacent, displaying identical content '5s' and '-1s vs last month'."
+        }
+      ]
+    },
+    "119/Analytics": {
+      "sort": "overlay",
+      "verdicts": [
+        {
+          "claim": "The 'Growth Trends' button is drawn twice on the same image card element.",
+          "confirmed": false,
+          "reason": "The claim states that the 'Growth Trends' button is drawn twice on the same image card element, however, there are two distinct 'Growth Trends' buttons, one at the top right and another at the bottom right of the image c"
+        }
+      ]
+    },
+    "120/Knowledge": {
+      "sort": "panel",
+      "verdicts": [
+        {
+          "claim": "The panel 'AI Suggestion' with content 'Review 'Gift Vouchers' entry / High number of recent inquiries' is dra",
+          "confirmed": true,
+          "reason": "There are two distinct panels, side-by-side, both titled 'AI Suggestion' and containing the exact same text 'Review 'Gift Vouchers' entry / High number of recent inquiries', with only the percentage match and associated "
+        }
+      ]
+    }
+  }
+}

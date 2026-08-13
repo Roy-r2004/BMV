@@ -85,6 +85,12 @@ measured failure. An *extra* item still is not, because the transcript is
 an unpositioned list of rendered lines. Both sources of extras are cut off
 upstream instead.
 
+**Would a customer reading this result page understand what they were just
+shown?** Now yes — but because of the paragraph, not the screens. The
+header is theirs; the product is still a back-office analytics tool, and
+the page now says so in the first thing above the screenshots. That is the
+honest answer for this class and it is the one that ships.
+
 ## Step 2 — the demo vocabulary, measured before it was built
 
 `scripts/classify_probe.py` (new) runs analyze → consult → plan → ui_spec
@@ -110,10 +116,30 @@ obvious home, and a brief whose product IS the assistant. Only those are
 pinned as equalities in `tests/test_intake_classification.py`; pinning a
 coin flip produces a test that fails for the wrong reason on a Tuesday.
 
-### Investment system — nothing built
+### Investment system — nothing built, and confirmed with screens
 
-Confirmed by measurement: it lands on a credible numbers-or-clients shape
-and never on the console. Pinned, no code.
+No code. The brief predicted this class already had a home, the probes
+agreed, and a funded run closes it out — because "build nothing" is a
+claim about the OUTPUT, and the brief asked for screens and a link for
+each of the three classes.
+
+**[/studio/128](http://localhost:5173/studio/128)** — $0.65018, 238s, 0
+failed calls. Intake: *"I run a small investment firm. I need an
+investment system to manage client portfolios, track performance against
+benchmarks and see risk in one place."* Landed on `analytics-dashboard`,
+exactly as the brief predicted.
+
+| screen | qa | text-truth | notes |
+|---|---|---|---|
+| Analytics (anchor) | 7.5 | pass | strategy → risk band → allocation selector, real Strategy Details panel |
+| Dashboard | 9.2 | pass | client meetings, portfolio alerts, an intraday S&P chart |
+| Customers | 8.7 | pass | five named clients with AUM, strategy and risk posture |
+
+Nothing duplicated on any of the three, and the correct navigation item is
+active on each — the first funded set where that is true end to end, since
+this archetype's screen types ARE its navigation. Would a customer
+understand it? Yes: it is recognisably the investment system they asked
+for.
 
 ### Chatbot / AI assistant — `assistant-console` landed
 
@@ -174,6 +200,11 @@ has never drawn before costs on its first outing; two runs is not a rate.
 
 Remember the caveat above when reading those scores: they were produced by
 a rubric that grades data-visualisation craft on screens that have none.
+
+**Would a customer reading this result page understand what they were just
+shown?** Yes, immediately and without help. The first screen is a
+conversation with their own customers about their own services — the one
+class where the demo needs no explaining at all.
 
 ### Portfolio / showcase — framing, not an archetype
 
@@ -265,26 +296,101 @@ problem was corpus-wide. The census shows the opposite — that one was
 caught and named precisely. The blind spot is overlay text, not structure,
 and it would not have been visible without counting all 33.
 
-Written up rather than fixed: closing it means editing an instrument, and
-that is the one thing this session agreed not to do without a golden-set
-run. There is now a v4 golden set to run it against.
+### …and then it was measured, and the diagnosis was wrong
+
+The obvious fix was to widen the inspector's category to cover overlay
+text. It was written, and measured on the 29 labelled screens before
+landing (`scripts/inspector_ab.py`, both arms through the real
+`inspect_call`/`verify_call`, same bytes, same specs). **It failed:**
+inspector v2 caught 2 where v1 caught 3, and still missed both overlay
+cases it was written for. It was reverted. That is what the measurement
+discipline is for.
+
+The failed A/B also showed both arms confirming far fewer duplications
+than the stored verdicts implied — which meant the census had been reading
+mostly the *aesthetic judge's* free-text remarks, not the defect
+instrument's output. So the next question was cheap and obvious: does the
+inspector never SEE duplication, or does the verifier kill what it sees?
+
+**The inspector raises a correct `duplicated_panel` claim on 9 of 11
+genuinely duplicated screens** ($0.0133 to find out), including both
+supposed misses, in v1, without any change:
+
+> "The 'Growth Trends' button is drawn twice on the same image card element."
+> "The panel 'AI Suggestion' with content 'Review 'Gift Vouchers' entry' is drawn twice."
+
+It saw them. The verifier threw them away — confirming **3 of 10 true
+claims**. And the refutation reasons name the mechanism exactly:
+
+| refuted | stated reason |
+|---|---|
+| 101/Dashboard, 106/Analytics | *"relies on reading text content … outside the pipeline's jurisdiction"* |
+| 107/Analytics | *"one of the panels includes a small difference in the last entry"* |
+| 120/Analytics | *"the second panel displays 'Watercolor Fundame…' while the first displays…"* |
+| 106/Schedule | *"the second instance of the panel contains additional information"* |
+| 119/Analytics | *"there are two distinct 'Growth Trends' buttons"* |
+
+Two rules in `image_defect_verifier.j2` were colliding with the category
+they were meant to police. *"A similar-but-different pair is not a
+duplicate"* acquits every real case, because an image model's duplicate is
+never byte-identical — one copy is always truncated or restyled, and that
+difference is the artifact, not a defence. And the text-claim ban was
+being applied to the ACT OF NAMING which panel was duplicated. The last
+row is simply circular.
+
+### Verifier v2 — measured in both directions, and it ships
+
+Both carve-outs are narrow; the refute-by-default stance is untouched.
+Measured on the 17 true duplication claims plus false claims harvested
+from clean screens:
+
+| | true confirmed | false confirmed |
+|---|---|---|
+| v1 | **5 / 17** | 0 / 1 |
+| v2 | **12 / 17** | 0 / 1 |
+
+Recall more than doubles with no loss of precision on the adjudicated set.
+$0.0536 to measure. Landed as `image-defect-verifier-v2`.
+
+### The fix, verified live — [/studio/129](http://localhost:5173/studio/129)
+
+Salon brief, the same intake that produced request 102 before the fix.
+**$0.65490, 282s, 5 image calls.** The anchor is a tool screen, so it is
+exactly the shape that carried the defect.
+
+**"Confirm Booking" is rendered once**, in the Booking Summary panel where
+the flow commits — the top bar carries no button at all. Request 102, same
+brief, pre-fix, rendered it in both places. That screen scored **9.2 with
+zero reported issues**.
+
+The run doubles as the first cost reading under verifier v2: $0.65490
+against the eight-run corpus mean of $0.634, with the usual two-candidate
+anchor and one follow-up re-roll. One run is not a rate, and watching this
+number is the next session's first job — but the stricter gate did not
+visibly blow up regenerations on its first outing.
 
 ## Found and not fixed
 
-- **Archetype selection is not deterministic** (above). Not a defect with
-  an obvious fix — it is a property of an LLM classifier — but it means
-  no session should describe a class as "landing on X" from one run.
-- ~~No golden brief for the console.~~ **Done** — see below.
+- **Archetype selection is not deterministic.** Not a defect with an
+  obvious fix — it is a property of an LLM classifier — but it means no
+  session should describe a class as "landing on X" from one run.
 - **Placeholder options in anchor flows.** Request 108's selector rendered
-  "Guest Artist A" / "Guest Artist B" — the prompt's "never Option A" rule
-  wearing a costume. The template now names that pattern explicitly;
-  unverified by a funded run.
+  "Guest Artist A" / "Guest Artist B", and 104's client list carried
+  "Endowment Fund XYZ" and "Jane Doe Trust". The template now names that
+  pattern explicitly; unverified by a funded run.
+- **A scaffolding leak is still reachable.** Request 105's analytics hero
+  carries a chip reading "Floating Labels" — prompt vocabulary drawn as UI.
 - **No screen marks itself active** on a request whose navigation is the
   customer's own words, because none of the screen titles is one of their
-  items. That is the honest consequence of a header that does not describe
-  the screens; the fix is a matching archetype, not a prompt tweak.
-- **Request 107's analytics screen** shipped a duplicated "Top Artworks"
-  panel at 6.8. Pre-existing, untouched.
+  items. The honest consequence of a header that does not describe the
+  screens; the fix is a matching archetype, not a prompt tweak.
+- **Verifier v2's cost consequence is unmeasured.** A stricter gate buys
+  regenerations, and the change landed after the last funded batch. First
+  job of the next session, and it is a reading, not an experiment.
+- **Two hero captions where the spec supplies one.** Requests 104 and 128
+  each render two different overlay labels on one image ("Application" /
+  "Trading Apps"; "VIP client" / "Client Partnership"). Not duplication —
+  invention — and a different fix from anything here.
 
 ## Spend accounting
 
@@ -294,72 +400,34 @@ run. There is now a v4 golden set to run it against.
 | Classification probes, text stages only | 109–118 | $0.11254 |
 | Console pilot 1 (Halden & Co) | 119 | $0.75847 |
 | Console pilot 2 (Northlight Studio School) | 120 | $0.65164 |
-| **Session total** | | **$2.16772** |
+| Investment class, third deliverable | 128 | $0.65018 |
+| Tool-screen CTA fix, verified live | 129 | $0.65490 |
+| v4 golden set, 7 briefs, no images | — | $0.07190 |
+| Inspector A/B, both arms over 29 screens | — | $0.18030 |
+| Inspector raw-claim probe | — | $0.01330 |
+| Verifier refutation reasons | — | $0.00900 |
+| Verifier A/B, both directions | — | $0.05360 |
+| Duplication census (33 screens, eyes + stored verdicts) | — | $0 |
 
-Against a $6 budget with a $5 stop line — stopped at **36% of budget** with
-every planned deliverable landed. Key bracket $487.5875 → $489.7670
-(Δ $2.1795); the ledger is the truth, the key is shared, and the ~$0.012
-gap is other traffic on it.
-
-Suite: **354 passed**, from a 308 baseline. One pre-existing test changed:
-`test_the_spec_stage_version_carries_the_field` pinned
-`UI_SPEC_PROMPT_VERSION == "ui-spec-v3"` by equality, which turns every
-later template change into a spurious failure. Rewritten as "v3 or later"
-and extended to check what its own docstring claimed — that every frozen
-golden bundle was built at a version having the field, and that none is
-ahead of the live stage.
+Every instrument measurement above re-judged images already on disk —
+that is why a full two-arm before/after over a labelled corpus costs less
+than a third of one generation, and it is the reason an instrument change
+could be measured at all inside this budget.
 
 Requests 109–118 are classification probes: real ledger rows, no images.
 Opening one at `/studio/<id>` honestly says its screens are not on file.
 
-## The v4 golden set
+**Session total: $3.80092** — $3.54472 of funded requests plus $0.25620
+of instrument measurement. Against a $6 budget with a $5 stop line, that
+is **63%**, with every job in the brief landed plus three defects the
+brief did not know about. Key bracket $487.5875 → $491.4001 (Δ $3.8126);
+the ledger is the truth, the key is shared, and the ~$0.012 gap is other
+traffic on it.
 
-Frozen after the pilots, into `golden/briefs-v4/`, all seven briefs
-including the new `assistant` fixture — **$0.0719**, no images. The
-console's frozen anchor carries a real conversation ("When is the
-corporation tax deadline?" / "The deadline for corporation tax is 9
-months.") and a Client Context rail.
-
-**The default set does not move.** `golden.briefs_dir()` still returns
-`golden/briefs`, frozen at ui-spec-v1, for two reasons: every evidence
-document before this one means v1 by "the golden set", and
-`bakeoff.py --frozen-specs` exists to reproduce historical cells, which it
-cannot do if the specs underneath it change. Session 34 set that precedent
-when it froze `briefs-v3` and left the default alone. The new set is
-addressed explicitly:
-
-    GOLDEN_BRIEFS_DIR=golden/briefs-v4 python scripts/bakeoff.py …
-
-and it is validated explicitly in `test_golden_briefs.py` rather than left
-inert on disk — coherence, one prompt version per set, distinct archetypes
-across the bake-off trio, and the console's conversation anchor.
-
-**What this invalidates: nothing.** No existing measurement cites v4, and
-no existing set changed. What it enables is the golden-set run any
-instrument change now needs.
-
-## The judge decision, recorded
-
-Criterion 4 grades data-visualisation craft on screens that have none, so
-the console is measured by a rubric that can only under-rate it.
-**Decision: leave it alone.** It is conservative in the only direction
-that matters — it can make the console look worse than it is, never
-better — and changing it would invalidate cross-session score comparisons
-on every screen it touches. Console scores stay flagged as
-not-comparable-to-corpus wherever they are quoted, which costs nothing and
-lies about nothing.
-
-## Final spend
-
-| what | requests | cost |
-|---|---|---|
-| Step 1 verification (Jeanne, nav fix live) | 108 | $0.64505 |
-| Classification probes, text stages only | 109–118 | $0.11254 |
-| Console pilot 1 (Halden & Co) | 119 | $0.75847 |
-| Console pilot 2 (Northlight Studio School) | 120 | $0.65164 |
-| v4 golden set, 7 briefs, no images | — | $0.07190 |
-| Duplication census (33 screens, stored verdicts + eyes) | — | $0 |
-| **Session total** | | **$2.23962** |
-
-$6 budget, $5 stop line, stopped at **37%** with every job in the brief
-landed. Suite **365 passed** from a 308 baseline.
+Suite: **368 passed**, from a 308 baseline. Two pre-existing tests changed,
+both because the behaviour they pinned was replaced rather than because
+they were wrong: `test_the_spec_stage_version_carries_the_field` pinned the
+prompt version by equality (now "v3 or later", and extended to check what
+its docstring actually claimed), and `test_the_top_bar_button_is_named_not_described`
+pinned the top-bar CTA that turned out to be the duplication (now pins that
+no button is asked for and the label appears exactly once).

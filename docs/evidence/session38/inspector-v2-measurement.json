@@ -1,0 +1,271 @@
+{
+  "screens": 29,
+  "model": "google/gemini-2.5-flash",
+  "v1": {
+    "score": {
+      "tally": {
+        "missed": 8,
+        "caught": 3,
+        "clean": 16,
+        "false_alarm": 2
+      },
+      "misses": [
+        "100/Dashboard (KPI trio repeated in header strip and cards)",
+        "103/Dashboard ('Very High' label twice in the reorder card)",
+        "104/Analytics ('Apply Model' button twice)",
+        "107/Analytics (two identical 'Top Artworks' tables)",
+        "120/Analytics ('Top Course Inquiries' module + 'Avg. Response Time' card twice)",
+        "119/Analytics (hero caption 'Growth Trends' twice on one image)",
+        "119/Knowledge (chart annotation '+150% Week 1 - Week 4' twice)",
+        "120/Knowledge (whole 'AI Suggestion / Review Gift Vouchers' module twice)"
+      ],
+      "false_alarms": [
+        "103/Analytics",
+        "105/Dashboard"
+      ]
+    },
+    "cost_usd": 0.0889,
+    "confirmed": {
+      "100/Analytics": [],
+      "100/Customers": [],
+      "100/Dashboard": [],
+      "101/Dashboard": [
+        {
+          "kind": "duplicated_panel",
+          "where": "Panel titled '2. CHOOSE ATTORNEY' and panel titled '3. PICK SLOT'",
+          "what": "The 'Sarah Hartwell' chip and the 'Mon 9:00 AM' chip are duplicated in their respective lists."
+        },
+        {
+          "kind": "non_app_chrome",
+          "where": "Bottom right corner of the image",
+          "what": "A small blue square logo with 'BMV AI' is visible, which is not part of the application interface."
+        }
+      ],
+      "102/Dashboard": [
+        {
+          "kind": "blank_or_unlabelled",
+          "where": "Bottom right corner of the screen",
+          "what": "There is an unlabelled, small circular logo or icon with 'BW' text inside it."
+        }
+      ],
+      "102/Schedule": [
+        {
+          "kind": "clipping_or_truncation",
+          "where": "The bottom right corner of the screen",
+          "what": "A logo or icon is partially cut off at the bottom right corner of the screenshot."
+        }
+      ],
+      "103/Analytics": [
+        {
+          "kind": "duplicated_panel",
+          "where": "Top right header and 'Configured Blend' panel",
+          "what": "The 'Add to Order' button appears in the main header navigation and again within the 'Configured Blend' panel."
+        }
+      ],
+      "103/Customers": [],
+      "103/Dashboard": [
+        {
+          "kind": "malformed_data_display",
+          "where": "Subscription Status panel, line graph",
+          "what": "The X-axis tick labels are Jan, Feb, Mar, Wed, Thu, Jul, Aug, which are not uniformly spaced and include days of the week mixed with months."
+        }
+      ],
+      "104/Analytics": [],
+      "104/Customers": [],
+      "104/Dashboard": [],
+      "105/Analytics": [],
+      "105/Dashboard": [
+        {
+          "kind": "duplicated_panel",
+          "where": "The 'Schedule Consultation' button in the top right header (approx. coordinates 845, 47) and the 'Schedule Consultation' button in the 'CONSULTATION DETAILS' panel (approx. coordinates 145, 750)",
+          "what": "The 'Schedule Consultation' button appears in two distinct locations on the screen."
+        },
+        {
+          "kind": "non_app_chrome",
+          "where": "The 'BW' logo and the 'AI' text in the bottom right corner (approx. coordinates 952, 955)",
+          "what": "There is a logo 'BW AI' visible in the bottom right that is not part of the GreyMatter application interface itself."
+        }
+      ],
+      "106/Analytics": [
+        {
+          "kind": "duplicated_panel",
+          "where": "The 'Blowout' entry in the 'Revenue by Service' panel, and the following 'Blowout' entry immediately below it.",
+          "what": "The 'Blowout' service entry appears twice consecutively in the 'Revenue by Service' list, once with revenue $2,800 and again with $800, which is unlikely to be intended."
+        }
+      ],
+      "106/Dashboard": [],
+      "106/Schedule": [
+        {
+          "kind": "duplicated_panel",
+          "where": "The 'Smart Scheduling' panel on the right, starting with 'Suggest David's 12 PM for Blowout'.",
+          "what": "The entire 'Smart Scheduling' panel, including its title and descriptive text, is drawn twice, once above the 92% match gauge and again below it."
+        }
+      ],
+      "107/Analytics": [
+        {
+          "kind": "blank_or_unlabelled",
+          "where": "The small button with a magnifying glass icon next to a plus sign, below the gallery image",
+          "what": "There is a button with a magnifying glass and plus icon that has no visible label."
+        },
+        {
+          "kind": "non_app_chrome",
+          "where": "The bottom right corner of the screen",
+          "what": "A 'BW' logo with 'AT' underneath is present, which appears to be a brand watermark or external chrome not part of the application UI."
+        }
+      ],
+      "107/Dashboard": [],
+      "107/Schedule": [],
+      "108/Analytics": [],
+      "108/Customers": [],
+      "108/Dashboard": [],
+      "119/Analytics": [
+        {
+          "kind": "clipping_or_truncation",
+          "where": "Bottom edge of the entire application screenshot",
+          "what": "The bottom edge of the application is cut off by the image boundary, visible by the abrupt end of the dark background and the 'BMW AI' logo being partially cut."
+        }
+      ],
+      "119/Conversations": [],
+      "119/Knowledge": [
+        {
+          "kind": "malformed_data_display",
+          "where": "The 'Article Performance' graph, specifically the Y-axis (Article Views)",
+          "what": "The Y-axis tick marks are at 0, 300, 400, 600, and 750, which are unevenly stepped despite being evenly spaced visually."
+        }
+      ],
+      "120/Analytics": [
+        {
+          "kind": "malformed_data_display",
+          "where": "The 'Weekly Inquiries' chart (approx. x=400, y=650)",
+          "what": "The legend or data marker 'W7, 48' is placed over the final data point and its label '42', making both difficult to read."
+        }
+      ],
+      "120/Conversations": [
+        {
+          "kind": "non_app_chrome",
+          "where": "bottom right corner of the screen, logo with 'BW'",
+          "what": "A 'BW' logo is present in the bottom right corner, indicating non-application chrome."
+        }
+      ],
+      "120/Knowledge": [
+        {
+          "kind": "clipping_or_truncation",
+          "where": "Bottom right corner of the screen",
+          "what": "The logo 'BMW - AI' is partially cut off by the image boundary."
+        }
+      ]
+    }
+  },
+  "v2": {
+    "score": {
+      "tally": {
+        "missed": 9,
+        "caught": 2,
+        "clean": 18
+      },
+      "misses": [
+        "100/Dashboard (KPI trio repeated in header strip and cards)",
+        "103/Dashboard ('Very High' label twice in the reorder card)",
+        "104/Analytics ('Apply Model' button twice)",
+        "106/Schedule ('Smart Scheduling' module twice)",
+        "106/Analytics ('Blowout' row twice with different values)",
+        "120/Analytics ('Top Course Inquiries' module + 'Avg. Response Time' card twice)",
+        "119/Analytics (hero caption 'Growth Trends' twice on one image)",
+        "119/Knowledge (chart annotation '+150% Week 1 - Week 4' twice)",
+        "120/Knowledge (whole 'AI Suggestion / Review Gift Vouchers' module twice)"
+      ],
+      "false_alarms": []
+    },
+    "cost_usd": 0.09136,
+    "confirmed": {
+      "100/Analytics": [],
+      "100/Customers": [],
+      "100/Dashboard": [
+        {
+          "kind": "non_app_chrome",
+          "where": "Bottom right corner of the screen.",
+          "what": "A logo 'BW AT' is visible at the bottom right corner, which is not part of the Meridian Apex application interface."
+        }
+      ],
+      "101/Dashboard": [
+        {
+          "kind": "duplicated_panel",
+          "where": "top right button and button below consultation slot",
+          "what": "The 'Book Consultation' button is displayed twice on the screen."
+        },
+        {
+          "kind": "non_app_chrome",
+          "where": "bottom right corner of the screen",
+          "what": "A faint logo or watermark 'BW' is visible in the bottom right corner, which is not part of the application's interface."
+        }
+      ],
+      "102/Dashboard": [
+        {
+          "kind": "non_app_chrome",
+          "where": "bottom right corner of the screen",
+          "what": "The 'BW' logo and surrounding dark bar appear to be a non-application element, likely part of a screenshot frame or watermark."
+        }
+      ],
+      "102/Schedule": [
+        {
+          "kind": "non_app_chrome",
+          "where": "Bottom right corner of the screen",
+          "what": "A 'BW AT' logo is visible in the application screenshot."
+        }
+      ],
+      "103/Analytics": [],
+      "103/Customers": [],
+      "103/Dashboard": [],
+      "104/Analytics": [],
+      "104/Customers": [],
+      "104/Dashboard": [],
+      "105/Analytics": [
+        {
+          "kind": "clipping_or_truncation",
+          "where": "Bottom right corner, 'BW' logo",
+          "what": "The 'BW' logo in the bottom right corner is partially cut off by the edge of the image."
+        }
+      ],
+      "105/Dashboard": [],
+      "106/Analytics": [
+        {
+          "kind": "non_app_chrome",
+          "where": "The bottom right corner of the image",
+          "what": "A logo 'BW' is visible in the bottom right corner, which is not part of the application interface."
+        }
+      ],
+      "106/Dashboard": [],
+      "106/Schedule": [],
+      "107/Analytics": [
+        {
+          "kind": "duplicated_panel",
+          "where": "The 'Top Artworks' table (left) and the 'Top Artworks' table (right)",
+          "what": "The 'Top Artworks' table is duplicated side-by-side, displaying identical content."
+        }
+      ],
+      "107/Dashboard": [],
+      "107/Schedule": [],
+      "108/Analytics": [],
+      "108/Customers": [],
+      "108/Dashboard": [],
+      "119/Analytics": [
+        {
+          "kind": "malformed_data_display",
+          "where": "Monthly Bookings chart, Y-axis",
+          "what": "The y-axis tick values (120, 135, 150, 165, 170) are unevenly stepped with varying intervals of 15, 15, 15, then 5, despite appearing evenly spaced visually."
+        }
+      ],
+      "119/Conversations": [],
+      "119/Knowledge": [],
+      "120/Analytics": [],
+      "120/Conversations": [
+        {
+          "kind": "non_app_chrome",
+          "where": "Bottom right corner of the screen (approx. x=930, y=960)",
+          "what": "A small 'BW' logo is visible, which is not part of the application UI."
+        }
+      ],
+      "120/Knowledge": []
+    }
+  }
+}

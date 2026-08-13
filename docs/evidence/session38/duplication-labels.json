@@ -1,0 +1,155 @@
+{
+  "100/Dashboard": {
+    "duplicate": true,
+    "what": "KPI trio repeated in header strip and cards",
+    "sort": "panel"
+  },
+  "101/Dashboard": {
+    "duplicate": true,
+    "what": "'Sarah Hartwell' twice in CHOOSE ATTORNEY",
+    "sort": "row"
+  },
+  "103/Dashboard": {
+    "duplicate": true,
+    "what": "'Very High' label twice in the reorder card",
+    "sort": "label"
+  },
+  "104/Analytics": {
+    "duplicate": true,
+    "what": "'Apply Model' button twice",
+    "sort": "control"
+  },
+  "106/Schedule": {
+    "duplicate": true,
+    "what": "'Smart Scheduling' module twice",
+    "sort": "panel"
+  },
+  "106/Analytics": {
+    "duplicate": true,
+    "what": "'Blowout' row twice with different values",
+    "sort": "row"
+  },
+  "107/Analytics": {
+    "duplicate": true,
+    "what": "two identical 'Top Artworks' tables",
+    "sort": "panel"
+  },
+  "120/Analytics": {
+    "duplicate": true,
+    "what": "'Top Course Inquiries' module + 'Avg. Response Time' card twice",
+    "sort": "panel"
+  },
+  "119/Analytics": {
+    "duplicate": true,
+    "what": "hero caption 'Growth Trends' twice on one image",
+    "sort": "overlay"
+  },
+  "119/Knowledge": {
+    "duplicate": true,
+    "what": "chart annotation '+150% Week 1 - Week 4' twice",
+    "sort": "overlay"
+  },
+  "120/Knowledge": {
+    "duplicate": true,
+    "what": "whole 'AI Suggestion / Review Gift Vouchers' module twice",
+    "sort": "panel"
+  },
+  "100/Analytics": {
+    "duplicate": true,
+    "what": "'Confirm Allocation' in the top bar and in Strategy Details",
+    "sort": "double-cta",
+    "note": "corrected after the verifier A/B; the census eye-label missed this class"
+  },
+  "100/Customers": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "102/Dashboard": {
+    "duplicate": true,
+    "what": "'Confirm Booking' in the top bar and in Selected Appointment",
+    "sort": "double-cta",
+    "note": "corrected after the verifier A/B; the census eye-label missed this class"
+  },
+  "102/Schedule": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "103/Analytics": {
+    "duplicate": true,
+    "what": "'Add to Order' in the top bar and in Configured Blend",
+    "sort": "double-cta",
+    "note": "corrected after the verifier A/B; the census eye-label missed this class"
+  },
+  "103/Customers": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "104/Customers": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "104/Dashboard": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "105/Analytics": {
+    "duplicate": false,
+    "what": "",
+    "sort": "",
+    "note": "a pagination-dot claim was raised here and refuted by both arms; left labelled clean as undetermined"
+  },
+  "105/Dashboard": {
+    "duplicate": true,
+    "what": "'Schedule Consultation' in the top bar and in Consultation Details",
+    "sort": "double-cta",
+    "note": "corrected after the verifier A/B; the census eye-label missed this class"
+  },
+  "106/Dashboard": {
+    "duplicate": true,
+    "what": "'Book This Slot' in the top bar and in Appointment Slot",
+    "sort": "double-cta",
+    "note": "corrected after the verifier A/B; the census eye-label missed this class"
+  },
+  "107/Dashboard": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "107/Schedule": {
+    "duplicate": true,
+    "what": "hero caption 'Palette Work' twice on one image",
+    "sort": "overlay",
+    "note": "corrected after the verifier A/B; the census eye-label missed this"
+  },
+  "108/Analytics": {
+    "duplicate": true,
+    "what": "'View Painting' in the top bar and in the painting panel",
+    "sort": "double-cta",
+    "note": "corrected after the verifier A/B; the census eye-label missed this class"
+  },
+  "108/Customers": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "108/Dashboard": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "119/Conversations": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  },
+  "120/Conversations": {
+    "duplicate": false,
+    "what": "",
+    "sort": ""
+  }
+}

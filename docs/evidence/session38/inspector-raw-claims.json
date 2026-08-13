@@ -1,0 +1,110 @@
+{
+  "raised": 9,
+  "of": 11,
+  "cost_usd": 0.01334,
+  "screens": {
+    "100/Dashboard": {
+      "sort": "panel",
+      "truth": "KPI trio repeated in header strip and cards",
+      "dup_claims": [
+        "The information panel containing 'New Capital', 'Risk Alerts', and 'Client Inquiries' with their respective va"
+      ],
+      "other_kinds": [
+        "clipping_or_truncation",
+        "blank_or_unlabelled"
+      ]
+    },
+    "101/Dashboard": {
+      "sort": "row",
+      "truth": "'Sarah Hartwell' twice in CHOOSE ATTORNEY",
+      "dup_claims": [
+        "The 'Sarah Hartwell' option is listed twice in the attorney selection, and the 'Mon 9:00 AM' option is listed "
+      ],
+      "other_kinds": [
+        "non_app_chrome"
+      ]
+    },
+    "103/Dashboard": {
+      "sort": "label",
+      "truth": "'Very High' label twice in the reorder card",
+      "dup_claims": [],
+      "other_kinds": [
+        "malformed_data_display",
+        "malformed_data_display",
+        "malformed_data_display"
+      ]
+    },
+    "104/Analytics": {
+      "sort": "control",
+      "truth": "'Apply Model' button twice",
+      "dup_claims": [
+        "The 'Apply Model' button appears in two different locations with identical appearance and presumed function."
+      ],
+      "other_kinds": []
+    },
+    "106/Schedule": {
+      "sort": "panel",
+      "truth": "'Smart Scheduling' module twice",
+      "dup_claims": [
+        "The 'Smart Scheduling' panel containing 'Suggest David's 12 PM for Blowout' is drawn twice identically."
+      ],
+      "other_kinds": []
+    },
+    "106/Analytics": {
+      "sort": "row",
+      "truth": "'Blowout' row twice with different values",
+      "dup_claims": [
+        "Two distinct 'Blowout' service entries are listed consecutively in the 'Revenue by Service' panel, implying a "
+      ],
+      "other_kinds": []
+    },
+    "107/Analytics": {
+      "sort": "panel",
+      "truth": "two identical 'Top Artworks' tables",
+      "dup_claims": [
+        "The 'Top Artworks' table is drawn twice with identical content."
+      ],
+      "other_kinds": []
+    },
+    "120/Analytics": {
+      "sort": "panel",
+      "truth": "'Top Course Inquiries' module + 'Avg. Response Time' card twice",
+      "dup_claims": [
+        "The 'Top Course Inquiries' panel is duplicated, displaying the exact same content in two different locations o",
+        "The 'Avg. Response Time' panel is duplicated, displaying identical information in two adjacent locations."
+      ],
+      "other_kinds": [
+        "malformed_data_display",
+        "malformed_data_display"
+      ]
+    },
+    "119/Analytics": {
+      "sort": "overlay",
+      "truth": "hero caption 'Growth Trends' twice on one image",
+      "dup_claims": [
+        "The 'Growth Trends' button is drawn twice on the same image card element."
+      ],
+      "other_kinds": []
+    },
+    "119/Knowledge": {
+      "sort": "overlay",
+      "truth": "chart annotation '+150% Week 1 - Week 4' twice",
+      "dup_claims": [],
+      "other_kinds": [
+        "malformed_data_display"
+      ]
+    },
+    "120/Knowledge": {
+      "sort": "panel",
+      "truth": "whole 'AI Suggestion / Review Gift Vouchers' module twice",
+      "dup_claims": [
+        "The panel 'AI Suggestion' with content 'Review 'Gift Vouchers' entry / High number of recent inquiries' is dra"
+      ],
+      "other_kinds": [
+        "clipping_or_truncation",
+        "blank_or_unlabelled",
+        "non_app_chrome"
+      ]
+    }
+  }
+}

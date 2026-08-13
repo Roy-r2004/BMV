@@ -43,29 +43,31 @@ labelled set (the gate-relaxations rule). State it back and get a go.
   `bakeoff.py --frozen-specs` reproduces historical cells against it.
   Address the new set explicitly with `GOLDEN_BRIEFS_DIR=golden/briefs-v4`.
 
-## JOB 1 — the overlay-text blind spot (~$0.20, and it is the best-value job here)
+## JOB 1 — watch what verifier v2 does to the cost line
 
-Counted across all 33 shipped screens of requests 100–120
-(`duplication-census.md`), the instruments split cleanly:
+Session 38 measured the defect instruments on a labelled set and changed
+one of them. `image-defect-verifier-v2` confirms **12 of 17** true
+duplication claims where v1 confirmed 5, with no false confirmations in
+either arm (`verifier-v2-measurement.json`). Two rules were colliding with
+the category they policed: "a similar-but-different pair is not a
+duplicate" acquitted every real case, because a model's duplicate is never
+byte-identical, and the text-claim ban was being applied to the act of
+NAMING which panel was duplicated.
 
-- panels, modules, cards, rows, controls: **8 caught, 1 missed**
-- text painted on top of an image or a chart: **0 caught, 2 missed**
+That is a gate getting stricter, and a stricter gate buys regenerations.
+Nothing in session 38 measured the cost consequence — the verifier change
+landed after the last funded batch but one. **First job: read the next few
+runs' `by_purpose.image` call counts against the eight-run baseline of
+~$0.63 realised.** If regenerations rise materially, the owner decides
+whether the extra confirmations are worth it; do not tune the verifier
+back without that number.
 
-`image_defect_inspector.j2`'s `duplicated_panel` asks for "the same panel,
-card, button pair, label or block of information drawn twice" — a hero
-caption or a chart annotation is none of those nouns, and both misses are
-exactly that. The one panel-level miss (120 Knowledge, a whole AI
-Suggestion module drawn twice) shipped approved at **8.5 with zero issues
-from either instrument**, which is the defect the judge's own rejection
-list promises to catch.
-
-This is an instrument change, so it is staged properly and it is now
-cheap to stage, because instruments re-judge EXISTING images — no
-regeneration. The 33 census screens are on disk with eye-labels; run the
-current inspector and a candidate revision over all of them and compare
-against the census, ~$0.0022 a screen a side. That is a real before/after
-on a labelled set for about $0.20. State the judge-held-fixed implication
-and get a go before landing it.
+An inspector change was also tried and **reverted** — widening
+`duplicated_panel` to cover overlay text made it worse (caught 2 where v1
+caught 3) and still missed both overlay cases. The inspector was never the
+problem: it raises a correct claim on 9 of 11 genuinely duplicated
+screens. Do not re-try that edit without reading
+`inspector-v2-measurement.json` first.
 
 ## JOB 2 — the chart tail, still the only open quality lever
 

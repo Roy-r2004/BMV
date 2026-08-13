@@ -1,0 +1,258 @@
+{
+  "true_claims": 10,
+  "false_claims": 9,
+  "cost_usd": 0.05358,
+  "v1": {
+    "true_confirmed": 4,
+    "false_confirmed": 1,
+    "detail": [
+      {
+        "bucket": "true",
+        "screen": "100/Dashboard",
+        "confirmed": false,
+        "reason": "The claim states that the information panel containing 'New Capital', 'Risk Alerts', and 'Client Inquiries' is duplicated, but while these items appear in two distinct areas, the claim incorrectly imp"
+      },
+      {
+        "bucket": "true",
+        "screen": "101/Dashboard",
+        "confirmed": true,
+        "reason": "The 'Sarah Hartwell' option is indeed listed twice under '2. CHOOSE ATTORNEY' and the 'Mon 9:00 AM' option is listed twice under '3. PICK SLOT', confirming the duplication as stated in the claim."
+      },
+      {
+        "bucket": "true",
+        "screen": "104/Analytics",
+        "confirmed": true,
+        "reason": "The 'Apply Model' button is clearly visible in two different locations: once in the top right corner of the header, and again within the 'Core Alpha Allocation' panel, both with identical appearance."
+      },
+      {
+        "bucket": "true",
+        "screen": "106/Schedule",
+        "confirmed": false,
+        "reason": "The two panels are not identical; the second panel contains additional information, specifically '92% match' and three buttons: 'Fill Gaps', 'Optimize Revenue', and 'Client Demand', which are absent i"
+      },
+      {
+        "bucket": "true",
+        "screen": "106/Analytics",
+        "confirmed": false,
+        "reason": "The claim relies on interpreting text content ('Blowout') and the associated numbers, which is outside the scope of this pipeline's jurisdiction for refutation."
+      },
+      {
+        "bucket": "true",
+        "screen": "107/Analytics",
+        "confirmed": false,
+        "reason": "While two 'Top Artworks' panels are present, the claim that they are identical is false; the second panel has an additional entry for 'Rooftop Serenity' not present in the first. Additionally, their c"
+      },
+      {
+        "bucket": "true",
+        "screen": "120/Analytics",
+        "confirmed": false,
+        "reason": "The claim states that the 'Top Course Inquiries' panel is duplicated, but while there are two panels with this title, the content for 'Watercolor Fundamentals' in the lower panel is truncated and diff"
+      },
+      {
+        "bucket": "true",
+        "screen": "120/Analytics",
+        "confirmed": true,
+        "reason": "Two panels titled 'Avg. Response Time' are visibly adjacent and contain identical numerical values and descriptive text."
+      },
+      {
+        "bucket": "true",
+        "screen": "119/Analytics",
+        "confirmed": false,
+        "reason": "The claim states that the 'Growth Trends' button is drawn twice on the same image card element, but one instance is on the main image of a user working, and the other is a call-to-action button, which"
+      },
+      {
+        "bucket": "true",
+        "screen": "120/Knowledge",
+        "confirmed": true,
+        "reason": "There are two panels clearly visible, both titled 'AI Suggestion' and containing the exact same text 'Review 'Gift Vouchers' entry / High number of recent inquiries', positioned side-by-side near the "
+      },
+      {
+        "bucket": "false",
+        "screen": "100/Analytics",
+        "confirmed": false,
+        "reason": "The claim states that the 'Confirm Allocation' button is duplicated in two distinct locations, but only one button with that exact text and appearance is visible within the main content area, with a s"
+      },
+      {
+        "bucket": "false",
+        "screen": "100/Customers",
+        "confirmed": false,
+        "reason": "The two panels 'All Clients' and 'Client Risk Profiles' display different types of information for the clients, with one showing AUM and investment type, and the other showing a risk score and status,"
+      },
+      {
+        "bucket": "false",
+        "screen": "102/Dashboard",
+        "confirmed": true,
+        "reason": "The 'Confirm Booking' button is present in the top right corner of the screen and also within the 'Selected Appointment' panel in the middle of the screen."
+      },
+      {
+        "bucket": "false",
+        "screen": "103/Analytics",
+        "confirmed": false,
+        "reason": "The claim states that the 'Add to Order' button appears twice, but these are two separate buttons, one in the header and one within a panel, serving different functional contexts rather than being dup"
+      },
+      {
+        "bucket": "false",
+        "screen": "105/Analytics",
+        "confirmed": false,
+        "reason": "While there are two pagination dots, they are clearly associated with different content sections (the image carousel and the 'Performance Trends' section) and are not identical in structure, as one is"
+      },
+      {
+        "bucket": "false",
+        "screen": "105/Dashboard",
+        "confirmed": false,
+        "reason": "The claim of duplicated_panel for the 'Schedule Consultation' button is refuted because while there are two buttons with the same text, they are distinct, independently actionable components in differ"
+      },
+      {
+        "bucket": "false",
+        "screen": "106/Dashboard",
+        "confirmed": false,
+        "reason": "The claim is outside the pipeline's jurisdiction as it relies on reading text content to identify the buttons."
+      },
+      {
+        "bucket": "false",
+        "screen": "107/Schedule",
+        "confirmed": false,
+        "reason": "The claim states that the label 'Palette Work' is displayed twice over the same image content, but only one 'Palette Work' label is directly on the image content while the other appears as a tooltip o"
+      },
+      {
+        "bucket": "false",
+        "screen": "108/Analytics",
+        "confirmed": false,
+        "reason": "There is a 'View Painting' button in the top right navigation bar and another 'View Painting' button at the bottom of the 'Abstract Mediums' section, but these are distinct buttons in different locati"
+      }
+    ],
+    "rescored": {
+      "true_confirmed": 5,
+      "true_total": 17,
+      "false_confirmed": 0,
+      "false_total": 1
+    }
+  },
+  "v2": {
+    "true_confirmed": 7,
+    "false_confirmed": 5,
+    "detail": [
+      {
+        "bucket": "true",
+        "screen": "100/Dashboard",
+        "confirmed": false,
+        "reason": "The claim states that the information panel containing 'New Capital', 'Risk Alerts', and 'Client Inquiries' is duplicated, but these three distinct panels appear only once at the top of the screen."
+      },
+      {
+        "bucket": "true",
+        "screen": "101/Dashboard",
+        "confirmed": true,
+        "reason": "The 'Sarah Hartwell' option appears twice in the 'CHOOSE ATTORNEY' section, and 'Mon 9:00 AM' appears twice in the 'PICK SLOT' section."
+      },
+      {
+        "bucket": "true",
+        "screen": "104/Analytics",
+        "confirmed": true,
+        "reason": "The 'Apply Model' button appears in the top right corner of the screen and also within the 'Core Alpha Allocation' panel, both with identical appearance and presumed function."
+      },
+      {
+        "bucket": "true",
+        "screen": "106/Schedule",
+        "confirmed": false,
+        "reason": "The claim states that the 'Smart Scheduling' panel is drawn twice identically, but while there are two such panels, the second one includes a '92% match' meter and three buttons ('Fill Gaps', 'Optimiz"
+      },
+      {
+        "bucket": "true",
+        "screen": "106/Analytics",
+        "confirmed": true,
+        "reason": "The 'Revenue by Service' panel clearly shows 'Blowout' listed twice consecutively with different revenue figures ($2,800 and $800) and different counts (4 and 25)."
+      },
+      {
+        "bucket": "true",
+        "screen": "107/Analytics",
+        "confirmed": true,
+        "reason": "The 'Top Artworks' table is clearly drawn twice with identical content and headings in the lower-left section of the screen."
+      },
+      {
+        "bucket": "true",
+        "screen": "120/Analytics",
+        "confirmed": true,
+        "reason": "The 'Top Course Inquiries' panel appears twice on the screen, displaying identical content in both instances."
+      },
+      {
+        "bucket": "true",
+        "screen": "120/Analytics",
+        "confirmed": true,
+        "reason": "The 'Avg. Response Time' panel is indeed shown twice, adjacent to each other, with identical content."
+      },
+      {
+        "bucket": "true",
+        "screen": "119/Analytics",
+        "confirmed": false,
+        "reason": "The 'Growth Trends' button appears twice on the image card element, but they are clearly distinct buttons, one in the top right corner and one in the bottom right corner, not drawn on top of each othe"
+      },
+      {
+        "bucket": "true",
+        "screen": "120/Knowledge",
+        "confirmed": true,
+        "reason": "Two panels titled 'AI Suggestion' with identical text 'Review 'Gift Vouchers' entry / High number of recent inquiries' are present on the screen."
+      },
+      {
+        "bucket": "false",
+        "screen": "100/Analytics",
+        "confirmed": true,
+        "reason": "The 'Confirm Allocation' button is present in the top right corner of the header and again within the 'Strategy Details' panel."
+      },
+      {
+        "bucket": "false",
+        "screen": "100/Customers",
+        "confirmed": false,
+        "reason": "The two panels mentioned, 'All Clients' and 'Client Risk Profiles', present different information for each client, one showing financial details and the other showing risk assessment, therefore they a"
+      },
+      {
+        "bucket": "false",
+        "screen": "102/Dashboard",
+        "confirmed": true,
+        "reason": "The 'Confirm Booking' button appears in the top right corner of the screen and also within the 'SELECTED APPOINTMENT' panel, confirming its duplication."
+      },
+      {
+        "bucket": "false",
+        "screen": "103/Analytics",
+        "confirmed": true,
+        "reason": "The 'Add to Order' button is present in the top right corner of the header and also within the 'Configured Blend' panel, serving the same purpose of adding to an order."
+      },
+      {
+        "bucket": "false",
+        "screen": "105/Analytics",
+        "confirmed": false,
+        "reason": "The claim states there are two sets of pagination dots, each showing two dots, that appear identical. However, the screenshot clearly shows one set of two dots and another single dot, not two sets of "
+      },
+      {
+        "bucket": "false",
+        "screen": "105/Dashboard",
+        "confirmed": true,
+        "reason": "The 'Schedule Consultation' button is present at the top right of the screen and also within the 'CONSULTATION DETAILS' section at the bottom left, confirming it appears in two distinct locations."
+      },
+      {
+        "bucket": "false",
+        "screen": "106/Dashboard",
+        "confirmed": false,
+        "reason": "The two 'Book This Slot' buttons serve different purposes: one is a general button in the top navigation bar, and the other is contextually placed within a specific 'Appointment Slot' panel, allowing "
+      },
+      {
+        "bucket": "false",
+        "screen": "107/Schedule",
+        "confirmed": false,
+        "reason": "The claim states that the label 'Palette Work' is displayed twice over the same image content, but one instance is a tooltip and the other is a persistent label on the image, serving different interac"
+      },
+      {
+        "bucket": "false",
+        "screen": "108/Analytics",
+        "confirmed": true,
+        "reason": "The 'View Painting' button is displayed twice on the screen: once in the top right corner of the header and again at the bottom of the left-hand panel displaying painting options."
+      }
+    ],
+    "rescored": {
+      "true_confirmed": 12,
+      "true_total": 17,
+      "false_confirmed": 0,
+      "false_total": 1
+    }
+  },
+  "rescoring_note": "Scored against corrected labels. Seven claims the first labelling called false were real: six are the tool-screen double CTA (a pipeline defect, see prompt_builder) and one is a duplicated hero caption. 105/Analytics is excluded as undetermined; both arms refuted it."
+}
