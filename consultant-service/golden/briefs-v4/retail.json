@@ -1,0 +1,534 @@
+{
+  "id": "retail",
+  "label": "Northgate Coffee Roasters — Coffee Roastery & E-commerce",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Northgate Coffee Roasters",
+    "business_description": "Specialty coffee roastery with one café and a growing online subscription business. Wholesale accounts with 12 local cafés. Nobody has time to watch which blends are selling, and reorder decisions are made from gut feel.",
+    "industry": "Coffee Roastery & E-commerce",
+    "consult_result": {
+      "consulting_summary": "An AI merchandiser that watches sales and subscription churn daily, forecasts roast volumes and flags reorders before a blend runs out."
+    },
+    "plan_result": {
+      "concept_name": "Northgate Roast Intelligence",
+      "visual_theme": {
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534",
+        "mood": "warm, crafted, confident"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v4"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee roasteries",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Customers",
+        "Roasts",
+        "Inventory"
+      ],
+      "greeting": "Good morning, Marco",
+      "subheading": "Sales overview",
+      "kpis": [
+        {
+          "label": "Daily Sales",
+          "value": "$4,850",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Online Orders",
+          "value": "78",
+          "delta": "+5 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Churn",
+          "value": "1.2%",
+          "delta": "-0.3% vs last month",
+          "trend": "down"
+        },
+        {
+          "label": "Wholesale Growth",
+          "value": "6.2%",
+          "delta": "+1.1% vs last quarter",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Blends",
+        "rows": [
+          {
+            "Blend": "Pacific Standard",
+            "Sales": "345 units"
+          },
+          {
+            "Blend": "Sunrise Blend",
+            "Sales": "280 units"
+          },
+          {
+            "Blend": "Midnight Express",
+            "Sales": "190 units"
+          },
+          {
+            "Blend": "Decaf Delight",
+            "Sales": "115 units"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Wholesale Accounts",
+        "rows": [
+          {
+            "Account": "The Daily Grind",
+            "Last Order": "2 days ago"
+          },
+          {
+            "Account": "Java Junction",
+            "Last Order": "5 days ago"
+          },
+          {
+            "Account": "Brew & Bloom",
+            "Last Order": "1 week ago"
+          },
+          {
+            "Account": "Cornerstone Cafe",
+            "Last Order": "3 weeks ago"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Weekly Sales Trend",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          3200.0,
+          3500.0,
+          3100.0,
+          4200.0,
+          4850.0,
+          5100.0,
+          4950.0
+        ],
+        "metric_label": "Revenue ($)"
+      },
+      "activity": [
+        {
+          "name": "Online",
+          "action": "New subscription",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Java Junction",
+          "action": "Placed order",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "Cafe",
+          "action": "Batch roast completed",
+          "time": "2 hours ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, high contrast"
+      },
+      "hero": {
+        "subject": "Green coffee beans cascading into a hot roaster drum, light smoke rising",
+        "treatment": "photoreal render",
+        "caption": "Roasting",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Blend",
+            "options": [
+              "Pacific Standard",
+              "Sunrise Blend",
+              "Midnight Express",
+              "Decaf Delight",
+              "Ethiopian Yirgacheffe"
+            ],
+            "selected": "Pacific Standard"
+          },
+          {
+            "label": "Choose Roast",
+            "options": [
+              "Light",
+              "Medium",
+              "Dark",
+              "Espresso"
+            ],
+            "selected": "Medium"
+          },
+          {
+            "label": "Grind & Bag",
+            "options": [
+              "Whole Bean 5lb",
+              "Whole Bean 12oz",
+              "Drip Grind 12oz",
+              "Espresso Grind 12oz"
+            ],
+            "selected": "Whole Bean 12oz"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Pacific Standard",
+          "rows": [
+            {
+              "Origin": "Colombia, Brazil",
+              "Notes": "Chocolate, Caramel"
+            },
+            {
+              "Inventory": "450 lbs",
+              "Next Roast": "Tomorrow"
+            },
+            {
+              "Wholesale": "Yes",
+              "Subscription": "Yes"
+            }
+          ]
+        },
+        "primary_action": "Roast Batch",
+        "secondary_action": "Adjust Recipe"
+      },
+      "ai": {
+        "title": "Smart Forecast",
+        "headline": "Increase Pacific Standard roast volume",
+        "rationale": "High sales velocity, low inventory",
+        "confidence": "96% accurate",
+        "chips": [
+          "Top Seller",
+          "Low Stock",
+          "High Demand"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee roasteries",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Customers",
+        "Roasts",
+        "Inventory"
+      ],
+      "greeting": "Good morning, Marco",
+      "subheading": "Operations overview",
+      "kpis": [
+        {
+          "label": "Upcoming Roasts",
+          "value": "7 batches",
+          "delta": "+2 for this week",
+          "trend": "up"
+        },
+        {
+          "label": "Subscription Deliveries",
+          "value": "210 today",
+          "delta": "+15 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Critical Inventory",
+          "value": "3 blends",
+          "delta": "No change",
+          "trend": "neutral"
+        },
+        {
+          "label": "New Wholesale Leads",
+          "value": "2",
+          "delta": "No change",
+          "trend": "neutral"
+        }
+      ],
+      "primary_panel": {
+        "title": "Roast Schedule Today",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Blend": "Sunrise Blend",
+            "Volume": "120 lbs"
+          },
+          {
+            "Time": "11:00 AM",
+            "Blend": "Pacific Standard",
+            "Volume": "180 lbs"
+          },
+          {
+            "Time": "1:00 PM",
+            "Blend": "Decaf Delight",
+            "Volume": "60 lbs"
+          },
+          {
+            "Time": "3:00 PM",
+            "Blend": "Midnight Express",
+            "Volume": "120 lbs"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Inventory Levels",
+        "rows": [
+          {
+            "Blend": "Pacific Standard",
+            "Remaining": "450 lbs"
+          },
+          {
+            "Blend": "Sunrise Blend",
+            "Remaining": "620 lbs"
+          },
+          {
+            "Blend": "Midnight Express",
+            "Remaining": "210 lbs"
+          },
+          {
+            "Blend": "Decaf Delight",
+            "Remaining": "180 lbs"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Roaster 1",
+          "action": "Started Sunrise Blend",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Packing Station",
+          "action": "Finished subs batch",
+          "time": "30 min ago"
+        },
+        {
+          "name": "Warehouse",
+          "action": "Received green beans",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, high contrast"
+      },
+      "hero": {
+        "subject": "Roasted coffee beans being cooled in a large metal tray after leaving the roaster",
+        "treatment": "product photograph",
+        "caption": "Cooling",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Reorder Alert",
+        "headline": "Order more Ethiopian Yirgacheffe",
+        "rationale": "High subscription demand, low raw stock",
+        "confidence": "Very High",
+        "chips": [
+          "Subscription Risk",
+          "Fast Moving",
+          "Reorder Now"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Northgate Coffee Roasters",
+        "industry": "Coffee Roastery & E-commerce",
+        "location": null,
+        "primary_color": "#7c3f21",
+        "secondary_color": "#166534"
+      },
+      "product": {
+        "name": "Northgate Roast Intelligence",
+        "purpose": "AI merchandiser for coffee roasteries",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "Marco",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Customers",
+        "Roasts",
+        "Inventory"
+      ],
+      "greeting": "Good morning, Marco",
+      "subheading": "Customer insights",
+      "kpis": [
+        {
+          "label": "Total Subscribers",
+          "value": "1,250",
+          "delta": "+25 this week",
+          "trend": "up"
+        },
+        {
+          "label": "Average Order Value",
+          "value": "$35.20",
+          "delta": "-$0.80 vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Top Blend Preference",
+          "value": "Pacific Standard",
+          "delta": "No change",
+          "trend": "neutral"
+        },
+        {
+          "label": "Churn Risk",
+          "value": "12 customers",
+          "delta": "-3 vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recent Subscribers",
+        "rows": [
+          {
+            "Name": "Sarah Chen",
+            "Plan": "Weekly Medium",
+            "Started": "Today"
+          },
+          {
+            "Name": "David Lee",
+            "Plan": "Bi-weekly Dark",
+            "Started": "Yesterday"
+          },
+          {
+            "Name": "Emily White",
+            "Plan": "Monthly Light",
+            "Started": "2 days ago"
+          },
+          {
+            "Name": "Michael Brown",
+            "Plan": "Weekly Espresso",
+            "Started": "3 days ago"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Wholesale Clients",
+        "rows": [
+          {
+            "Client": "The Daily Grind",
+            "Volume": "High"
+          },
+          {
+            "Client": "Java Junction",
+            "Volume": "Medium"
+          },
+          {
+            "Client": "Brew & Bloom",
+            "Volume": "Medium"
+          },
+          {
+            "Client": "Cornerstone Cafe",
+            "Volume": "Low"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Sarah Chen",
+          "action": "New subscription",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "Brew & Bloom",
+          "action": "Contacted for reorder",
+          "time": "3 hours ago"
+        },
+        {
+          "name": "Emily White",
+          "action": "Updated subscription",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "earthy tones, high contrast"
+      },
+      "hero": {
+        "subject": "Close-up of a barista expertly pouring latte art into a ceramic cup in a bustling cafe",
+        "treatment": "cinematic still",
+        "caption": "Customer Experience",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Retention Suggestion",
+        "headline": "Offer loyalty discount to churn risks",
+        "rationale": "Identified patterns of reduced engagement",
+        "confidence": "88% likely",
+        "chips": [
+          "Subscription Health",
+          "Proactive Outreach",
+          "Customer Value"
+        ]
+      }
+    }
+  ]
+}

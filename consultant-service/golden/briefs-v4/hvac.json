@@ -1,0 +1,587 @@
+{
+  "id": "hvac",
+  "label": "Summit Air Heating & Cooling — HVAC Services",
+  "archetype": "operations-dashboard",
+  "intake": {
+    "business_name": "Summit Air Heating & Cooling",
+    "business_description": "Residential HVAC company with 6 technicians. Installs, repairs, seasonal maintenance plans. Loses jobs to slow estimate follow-up and messy dispatching.",
+    "industry": "HVAC Services",
+    "consult_result": {
+      "consulting_summary": "An AI dispatcher that books jobs, routes technicians and chases open estimates before they go cold."
+    },
+    "plan_result": {
+      "concept_name": "Summit Dispatch",
+      "visual_theme": {
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e",
+        "mood": "practical, dependable"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v4"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Summit Air Heating & Cooling",
+        "industry": "HVAC Services",
+        "location": null,
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e"
+      },
+      "product": {
+        "name": "Summit Dispatch",
+        "purpose": "AI-powered HVAC job management",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "David",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Estimates",
+        "Technicians",
+        "Customers",
+        "Analytics"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Today's service overview",
+      "kpis": [
+        {
+          "label": "Jobs Today",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Open Estimates",
+          "value": "12",
+          "delta": "-1 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Revenue YTD",
+          "value": "$4,850",
+          "delta": "+12% vs last year",
+          "trend": "up"
+        },
+        {
+          "label": "Maintenance Plans",
+          "value": "62",
+          "delta": "+3 this month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Upcoming Jobs",
+        "rows": [
+          {
+            "Time": "9:00 AM",
+            "Customer": "John Doe",
+            "Service": "Furnace Repair",
+            "Tech": "Liam Davis"
+          },
+          {
+            "Time": "10:30 AM",
+            "Customer": "Jane Smith",
+            "Service": "AC Tune-up",
+            "Tech": "Sophia Chen"
+          },
+          {
+            "Time": "1:00 PM",
+            "Customer": "Robert Johnson",
+            "Service": "New AC Install",
+            "Tech": "Noah Sharma"
+          },
+          {
+            "Time": "2:00 PM",
+            "Customer": "Sarah Miller",
+            "Service": "AC Repair",
+            "Tech": "Liam Davis"
+          },
+          {
+            "Time": "3:30 PM",
+            "Customer": "Emily White",
+            "Service": "Duct Cleaning",
+            "Tech": "Olivia Rodriguez"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Expiring Estimates",
+        "rows": [
+          {
+            "Customer": "Michael Brown",
+            "Service": "Furnace Replacement",
+            "Expires": "Today"
+          },
+          {
+            "Customer": "Jessica Green",
+            "Service": "AC Unit Upgrade",
+            "Expires": "Tomorrow"
+          },
+          {
+            "Customer": "Daniel Lee",
+            "Service": "Heat Pump Install",
+            "Expires": "2 days"
+          },
+          {
+            "Customer": "Laura Hall",
+            "Service": "Water Heater Repair",
+            "Expires": "3 days"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Daily Job Volume",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          15.0,
+          17.0,
+          14.0,
+          18.0,
+          16.0,
+          9.0,
+          5.0
+        ],
+        "metric_label": "Jobs per day"
+      },
+      "activity": [
+        {
+          "name": "Noah Sharma",
+          "action": "Completed AC Install",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Sophia Chen",
+          "action": "Updated job status",
+          "time": "45 min ago"
+        },
+        {
+          "name": "David",
+          "action": "Dispatched Liam Davis",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, orange accents"
+      },
+      "hero": {
+        "subject": "A modern, energy-efficient outdoor AC condenser unit in a residential backyard, bright afternoon",
+        "treatment": "product photograph",
+        "caption": "",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Service",
+            "options": [
+              "AC Repair",
+              "Furnace Install",
+              "Seasonal Tune-up",
+              "Duct Cleaning"
+            ],
+            "selected": "AC Repair"
+          },
+          {
+            "label": "Assign Technician",
+            "options": [
+              "Liam Davis",
+              "Sophia Chen",
+              "Noah Sharma",
+              "Olivia Rodriguez"
+            ],
+            "selected": "Liam Davis"
+          },
+          {
+            "label": "Choose Time Slot",
+            "options": [
+              "Today 2:00 PM",
+              "Tomorrow 9:00 AM",
+              "Tomorrow 1:00 PM"
+            ],
+            "selected": "Today 2:00 PM"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Selected Job",
+          "rows": [
+            {
+              "Service": "AC Repair",
+              "Technician": "Liam Davis",
+              "Time": "Today 2:00 PM",
+              "Customer": "Sarah Miller"
+            }
+          ]
+        },
+        "primary_action": "Schedule Job",
+        "secondary_action": "Reschedule"
+      },
+      "ai": {
+        "title": "Smart Dispatch",
+        "headline": "Optimize Liam's route",
+        "rationale": "Clustering nearby jobs for efficiency",
+        "confidence": "High",
+        "chips": [
+          "Route Optimization",
+          "Travel Time",
+          "Fuel Savings"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Summit Air Heating & Cooling",
+        "industry": "HVAC Services",
+        "location": null,
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e"
+      },
+      "product": {
+        "name": "Summit Dispatch",
+        "purpose": "AI-powered HVAC job management",
+        "screen_type": "schedule"
+      },
+      "user": {
+        "name": "David",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Estimates",
+        "Technicians",
+        "Customers",
+        "Analytics"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Today's technician schedule",
+      "kpis": [
+        {
+          "label": "Jobs Today",
+          "value": "18",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Available Hours",
+          "value": "8.5",
+          "delta": "-1.5 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "On-Time Rate",
+          "value": "95%",
+          "delta": "+1% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Emergency Calls",
+          "value": "2",
+          "delta": "Same as yesterday",
+          "trend": "neutral"
+        }
+      ],
+      "primary_panel": {
+        "title": "Technician Calendar",
+        "rows": [
+          {
+            "Time": "8:00 AM",
+            "Liam Davis": "Preventative Maint. · John Doe",
+            "Sophia Chen": "New AC Install · Jane Smith",
+            "Noah Sharma": "Furnace Repair · Robert Johnson",
+            "Olivia Rodriguez": "Duct Cleaning · Emily White"
+          },
+          {
+            "Time": "11:00 AM",
+            "Liam Davis": "AC Repair · Sarah Miller",
+            "Sophia Chen": "Service Call · David Lee",
+            "Noah Sharma": "Furnace Maint. · Laura Hall",
+            "Olivia Rodriguez": "Unassigned"
+          },
+          {
+            "Time": "2:00 PM",
+            "Liam Davis": "Unassigned",
+            "Sophia Chen": "New Furnace Est. · Michael Brown",
+            "Noah Sharma": "AC Repair · Jessica Green",
+            "Olivia Rodriguez": "Emergency Call · Daniel White"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Unassigned Jobs",
+        "rows": [
+          {
+            "Customer": "Anna King",
+            "Service": "Thermostat Install",
+            "Priority": "Medium"
+          },
+          {
+            "Customer": "James Clark",
+            "Service": "Furnace Cleaning",
+            "Priority": "Low"
+          },
+          {
+            "Customer": "Emma Lewis",
+            "Service": "AC Checkup",
+            "Priority": "Medium"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Technician Utilization",
+        "labels": [
+          "Liam",
+          "Sophia",
+          "Noah",
+          "Olivia",
+          "Ethan",
+          "Ava"
+        ],
+        "values": [
+          8.0,
+          7.0,
+          8.0,
+          6.0,
+          0.0,
+          0.0
+        ],
+        "metric_label": "Hours scheduled"
+      },
+      "activity": [
+        {
+          "name": "David",
+          "action": "Assigned emergency job",
+          "time": "10 min ago"
+        },
+        {
+          "name": "Olivia Rodriguez",
+          "action": "Started travel to next job",
+          "time": "30 min ago"
+        },
+        {
+          "name": "Sophia Chen",
+          "action": "Updated availability",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, orange accents"
+      },
+      "hero": {
+        "subject": "An HVAC technician diagnosing a furnace inside a residential basement, soft artificial light",
+        "treatment": "product photograph",
+        "caption": "Liam Davis · Furnace Repair",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Smart Scheduler",
+        "headline": "Assign Anna King to Olivia",
+        "rationale": "Optimal route and available time slot",
+        "confidence": "High",
+        "chips": [
+          "Route Efficiency",
+          "Skill Match",
+          "Next Opening"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Summit Air Heating & Cooling",
+        "industry": "HVAC Services",
+        "location": null,
+        "primary_color": "#ea580c",
+        "secondary_color": "#0f766e"
+      },
+      "product": {
+        "name": "Summit Dispatch",
+        "purpose": "AI-powered HVAC job management",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "David",
+        "role": "Owner"
+      },
+      "navigation": [
+        "Dashboard",
+        "Schedule",
+        "Estimates",
+        "Technicians",
+        "Customers",
+        "Analytics"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Performance insights this month",
+      "kpis": [
+        {
+          "label": "Job Completion",
+          "value": "92%",
+          "delta": "+3% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Estimate Conversion",
+          "value": "65%",
+          "delta": "+5% vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Average Job Value",
+          "value": "$750",
+          "delta": "+$50 vs last month",
+          "trend": "up"
+        },
+        {
+          "label": "Customer Satisfaction",
+          "value": "4.8/5",
+          "delta": "Same as last month",
+          "trend": "neutral"
+        }
+      ],
+      "primary_panel": {
+        "title": "Estimate Status",
+        "rows": [
+          {
+            "Status": "Accepted",
+            "Count": "42",
+            "Value": "$31,500"
+          },
+          {
+            "Status": "Pending",
+            "Count": "12",
+            "Value": "$9,000"
+          },
+          {
+            "Status": "Rejected",
+            "Count": "5",
+            "Value": "$3,750"
+          },
+          {
+            "Status": "Expired",
+            "Count": "2",
+            "Value": "$1,500"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Technician Performance",
+        "rows": [
+          {
+            "Technician": "Liam Davis",
+            "Jobs": "18",
+            "Ratings": "4.9/5"
+          },
+          {
+            "Technician": "Sophia Chen",
+            "Jobs": "15",
+            "Ratings": "4.7/5"
+          },
+          {
+            "Technician": "Noah Sharma",
+            "Jobs": "16",
+            "Ratings": "4.8/5"
+          },
+          {
+            "Technician": "Olivia Rodriguez",
+            "Jobs": "14",
+            "Ratings": "4.8/5"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Monthly Revenue Trend",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May"
+        ],
+        "values": [
+          15000.0,
+          17500.0,
+          22000.0,
+          25000.0,
+          28000.0
+        ],
+        "metric_label": "Revenue ($)"
+      },
+      "activity": [
+        {
+          "name": "System",
+          "action": "Generated monthly report",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "David",
+          "action": "Reviewed conversion rates",
+          "time": "2 hours ago"
+        },
+        {
+          "name": "System",
+          "action": "Identified declining estimates",
+          "time": "Yesterday"
+        }
+      ],
+      "style": {
+        "archetype": "operations-dashboard",
+        "density": "normal",
+        "palette_description": "light interface, orange accents"
+      },
+      "hero": {
+        "subject": "A residential home with a newly installed central air conditioning unit visible on the side, sunny afternoon",
+        "treatment": "photoreal render",
+        "caption": "Project: Smith Residence",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Estimate Insight",
+        "headline": "Follow up on Michael Brown",
+        "rationale": "High-value estimate nearing expiration",
+        "confidence": "90% chance of conversion",
+        "chips": [
+          "High Value",
+          "Urgent",
+          "Customer History"
+        ]
+      }
+    }
+  ]
+}

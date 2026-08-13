@@ -1,0 +1,597 @@
+{
+  "id": "law",
+  "label": "Hartwell & Grey LLP — Law Firm",
+  "archetype": "crm-dashboard",
+  "intake": {
+    "business_name": "Hartwell & Grey LLP",
+    "business_description": "Boutique family-law firm, 4 attorneys. Consultations, mediation, litigation. New-lead intake is manual and follow-ups slip through the cracks.",
+    "industry": "Law Firm",
+    "consult_result": {
+      "consulting_summary": "An AI intake paralegal that qualifies leads, books consultations and keeps every matter's follow-ups on schedule."
+    },
+    "plan_result": {
+      "concept_name": "Hartwell Chambers",
+      "visual_theme": {
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b",
+        "mood": "authoritative, discreet"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v4"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Hartwell & Grey LLP",
+        "industry": "Law Firm",
+        "location": null,
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b"
+      },
+      "product": {
+        "name": "Hartwell Chambers",
+        "purpose": "AI intake and follow-up management",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Partner Attorney"
+      },
+      "navigation": [
+        "Dashboard",
+        "Pipeline",
+        "Clients",
+        "Consults",
+        "Tasks",
+        "Analytics"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Your firm's daily overview",
+      "kpis": [
+        {
+          "label": "New Leads",
+          "value": "18",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Consults Booked",
+          "value": "5",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Upcoming Follow-ups",
+          "value": "7",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Open Matters",
+          "value": "42",
+          "delta": "Steady",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Pending Consults",
+        "rows": [
+          {
+            "Client": "Elena Rodriguez",
+            "Type": "Divorce",
+            "Time": "10:00 AM"
+          },
+          {
+            "Client": "Marcus Chen",
+            "Type": "Child Custody",
+            "Time": "11:30 AM"
+          },
+          {
+            "Client": "Sofia Garcia",
+            "Type": "Prenuptial",
+            "Time": "1:00 PM"
+          },
+          {
+            "Client": "David Lee",
+            "Type": "Adoption",
+            "Time": "2:30 PM"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Overdue Follow-ups",
+        "rows": [
+          {
+            "Matter": "Kim vs. Kim",
+            "Due": "Yesterday",
+            "Action": "Email update"
+          },
+          {
+            "Matter": "Patel Estate",
+            "Due": "Jul 15",
+            "Action": "Document review"
+          },
+          {
+            "Matter": "Jensen Custody",
+            "Due": "Jul 14",
+            "Action": "Client call"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Lead Volume",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          10.0,
+          15.0,
+          12.0,
+          18.0,
+          14.0,
+          7.0,
+          5.0
+        ],
+        "metric_label": "New Leads"
+      },
+      "activity": [
+        {
+          "name": "Hartwell Chambers AI",
+          "action": "Booked Elena Rodriguez",
+          "time": "5 min ago"
+        },
+        {
+          "name": "Michael Grey",
+          "action": "Updated Marcus Chen matter",
+          "time": "30 min ago"
+        },
+        {
+          "name": "Hartwell Chambers AI",
+          "action": "Qualified new lead",
+          "time": "1 hour ago"
+        }
+      ],
+      "style": {
+        "archetype": "crm-dashboard",
+        "density": "normal",
+        "palette_description": "professional interface, deep blue accents"
+      },
+      "hero": {
+        "subject": "A modern, well-lit law office conference room, mid-morning",
+        "treatment": "photoreal render",
+        "caption": "Consultation Room A",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Matter Type",
+            "options": [
+              "Divorce",
+              "Child Custody",
+              "Adoption",
+              "Prenuptial",
+              "Estate Planning"
+            ],
+            "selected": "Divorce"
+          },
+          {
+            "label": "Choose Attorney",
+            "options": [
+              "Sarah Hartwell",
+              "Michael Grey",
+              "Emily Chen",
+              "David Kim"
+            ],
+            "selected": "Sarah Hartwell"
+          },
+          {
+            "label": "Pick Slot",
+            "options": [
+              "Today 10:00 AM",
+              "Today 2:00 PM",
+              "Tomorrow 9:00 AM",
+              "Tomorrow 1:00 PM"
+            ],
+            "selected": "Today 10:00 AM"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Consultation Details",
+          "rows": [
+            {
+              "Client": "Elena Rodriguez"
+            },
+            {
+              "Type": "Divorce"
+            },
+            {
+              "Attorney": "Sarah Hartwell"
+            },
+            {
+              "Date": "Jul 18, 2024"
+            },
+            {
+              "Time": "10:00 AM"
+            },
+            {
+              "Duration": "60 mins"
+            }
+          ]
+        },
+        "primary_action": "Book Consultation",
+        "secondary_action": "Reschedule"
+      },
+      "ai": {
+        "title": "AI Insights",
+        "headline": "Prioritize high-value leads",
+        "rationale": "High income potential, urgent need",
+        "confidence": "91% confidence",
+        "chips": [
+          "Complex Case",
+          "Immediate Action",
+          "High Net Worth"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Hartwell & Grey LLP",
+        "industry": "Law Firm",
+        "location": null,
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b"
+      },
+      "product": {
+        "name": "Hartwell Chambers",
+        "purpose": "AI intake and follow-up management",
+        "screen_type": "pipeline"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Partner Attorney"
+      },
+      "navigation": [
+        "Dashboard",
+        "Pipeline",
+        "Clients",
+        "Consults",
+        "Tasks",
+        "Analytics"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Manage your client pipeline",
+      "kpis": [
+        {
+          "label": "New Leads",
+          "value": "18",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Consults Booked",
+          "value": "5",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Upcoming Follow-ups",
+          "value": "7",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Open Matters",
+          "value": "42",
+          "delta": "Steady",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "New Leads (Qualified)",
+        "rows": [
+          {
+            "Client": "Thomas Jefferson",
+            "Type": "Divorce",
+            "Status": "Consult Scheduled"
+          },
+          {
+            "Client": "Olivia Chang",
+            "Type": "Child Custody",
+            "Status": "Follow-up Needed"
+          },
+          {
+            "Client": "Daniel Smith",
+            "Type": "Prenuptial",
+            "Status": "Consult Scheduled"
+          },
+          {
+            "Client": "Isabella Rossi",
+            "Type": "Adoption",
+            "Status": "Needs Review"
+          },
+          {
+            "Client": "Liam Murphy",
+            "Type": "Estate Planning",
+            "Status": "Consult Scheduled"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Active Matters",
+        "rows": [
+          {
+            "Matter": "Kim vs. Kim",
+            "Stage": "Discovery",
+            "Next": "Aug 10"
+          },
+          {
+            "Matter": "Patel Estate",
+            "Stage": "Probate",
+            "Next": "Jul 25"
+          },
+          {
+            "Matter": "Jensen Custody",
+            "Stage": "Mediation",
+            "Next": "Jul 20"
+          },
+          {
+            "Matter": "Lee Property",
+            "Stage": "Litigation",
+            "Next": "Sep 5"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Pipeline Stages",
+        "labels": [
+          "New",
+          "Consult",
+          "Retainer",
+          "Active",
+          "Closed"
+        ],
+        "values": [
+          18.0,
+          12.0,
+          8.0,
+          42.0,
+          15.0
+        ],
+        "metric_label": "Matters"
+      },
+      "activity": [
+        {
+          "name": "Hartwell Chambers AI",
+          "action": "Moved Olivia Chang to Follow-up",
+          "time": "15 min ago"
+        },
+        {
+          "name": "Emily Chen",
+          "action": "Updated Lee Property stage",
+          "time": "45 min ago"
+        },
+        {
+          "name": "Hartwell Chambers AI",
+          "action": "Added Daniel Smith to pipeline",
+          "time": "2 hours ago"
+        }
+      ],
+      "style": {
+        "archetype": "crm-dashboard",
+        "density": "normal",
+        "palette_description": "professional interface, deep blue accents"
+      },
+      "hero": {
+        "subject": "A panoramic view of a bustling courthouse lobby at peak hours",
+        "treatment": "cinematic still",
+        "caption": "Justice System",
+        "placement": "right"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Smart Nudge",
+        "headline": "Follow-up Olivia Chang",
+        "rationale": "High interest shown, no consult booked",
+        "confidence": "95% match",
+        "chips": [
+          "Missed Call",
+          "Email Draft Ready",
+          "Child Custody"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Hartwell & Grey LLP",
+        "industry": "Law Firm",
+        "location": null,
+        "primary_color": "#1e3a5f",
+        "secondary_color": "#8a6d3b"
+      },
+      "product": {
+        "name": "Hartwell Chambers",
+        "purpose": "AI intake and follow-up management",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Sarah",
+        "role": "Partner Attorney"
+      },
+      "navigation": [
+        "Dashboard",
+        "Pipeline",
+        "Clients",
+        "Consults",
+        "Tasks",
+        "Analytics"
+      ],
+      "greeting": "Good morning, Sarah",
+      "subheading": "Review firm performance metrics",
+      "kpis": [
+        {
+          "label": "New Leads",
+          "value": "18",
+          "delta": "+12% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Consults Booked",
+          "value": "5",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Upcoming Follow-ups",
+          "value": "7",
+          "delta": "-1 vs yesterday",
+          "trend": "down"
+        },
+        {
+          "label": "Open Matters",
+          "value": "42",
+          "delta": "Steady",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Lead Source Breakdown",
+        "rows": [
+          {
+            "Source": "Website",
+            "Leads": "8",
+            "Conversion": "25%"
+          },
+          {
+            "Source": "Referral",
+            "Leads": "6",
+            "Conversion": "50%"
+          },
+          {
+            "Source": "Social Media",
+            "Leads": "3",
+            "Conversion": "10%"
+          },
+          {
+            "Source": "Paid Ad",
+            "Leads": "1",
+            "Conversion": "0%"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Matter Type Trends",
+        "rows": [
+          {
+            "Type": "Divorce",
+            "New": "5",
+            "Active": "15"
+          },
+          {
+            "Type": "Child Custody",
+            "New": "4",
+            "Active": "12"
+          },
+          {
+            "Type": "Prenuptial",
+            "New": "3",
+            "Active": "8"
+          },
+          {
+            "Type": "Adoption",
+            "New": "2",
+            "Active": "4"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Conversion Rate",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul"
+        ],
+        "values": [
+          20.0,
+          22.0,
+          25.0,
+          23.0,
+          27.0,
+          26.0,
+          28.0
+        ],
+        "metric_label": "Percent"
+      },
+      "activity": [
+        {
+          "name": "Hartwell Chambers AI",
+          "action": "Generated monthly report",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "David Kim",
+          "action": "Reviewed Q2 metrics",
+          "time": "Yesterday"
+        },
+        {
+          "name": "Hartwell Chambers AI",
+          "action": "Identified low conversion source",
+          "time": "2 days ago"
+        }
+      ],
+      "style": {
+        "archetype": "crm-dashboard",
+        "density": "normal",
+        "palette_description": "professional interface, deep blue accents"
+      },
+      "hero": {
+        "subject": "A focused legal professional reviewing financial documents on a large monitor, evening",
+        "treatment": "cinematic still",
+        "caption": "Strategic Review",
+        "placement": "left"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Performance Suggestion",
+        "headline": "Optimize Paid Ad campaigns",
+        "rationale": "High cost per lead, low conversion",
+        "confidence": "88% confidence",
+        "chips": [
+          "A/B Test Ad Copy",
+          "Targeting Refinement",
+          "Budget Allocation"
+        ]
+      }
+    }
+  ]
+}

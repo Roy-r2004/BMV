@@ -9,49 +9,65 @@ closed — do not reopen it.*
 Read first, in this order:
 
 1. `docs/evidence/session38/results.md` — what landed and what it cost
-2. `docs/evidence/session38/classification-probe.json` — ten measured
+2. `docs/evidence/session38/duplication-census.md` — all 33 shipped
+   screens, eye-labelled, against what the instruments said
+3. `docs/evidence/session38/classification-probe.json` — ten measured
    landings, each with the catalogue it ran against
-3. `tests/test_intake_classification.py` — what is pinned as an equality
+4. `tests/test_intake_classification.py` — what is pinned as an equality
    and, more importantly, what deliberately is not
-4. Memory: "Demo matches the business", "LLM judges confabulate about
+5. Memory: "Demo matches the business", "LLM judges confabulate about
    text", "Count it, don't sample a window"
 
-## The one thing that must be said back before any judge work
+## The one thing that must be said back before any instrument work
 
-The assistant console currently ships **judged by a rubric written for
-data screens**. `image_quality_judge.j2` criterion 4 grades "premium craft
-of cards & data visualization — a thoughtfully crafted hero chart", and a
-conversation screen has no chart. The console's scores are therefore NOT
-comparable to the dashboard corpus, and every number quoted about it must
-carry that caveat. Any rubric change is its own step with a golden-set run
-before and after (the gate-relaxations rule). State this back and get a go
-before touching the judge.
+The assistant console ships **judged by a rubric written for data
+screens**. `image_quality_judge.j2` criterion 4 grades "premium craft of
+cards & data visualization — a thoughtfully crafted hero chart", and a
+conversation screen has no chart. Its scores are therefore NOT comparable
+to the dashboard corpus, and every number quoted about it must carry that
+caveat. That specific gap was decided in session 38 and left alone (below)
+— but JOB 1 does touch an instrument, so the rule still applies: a change
+to the judge or the inspector is its own step with a before/after over a
+labelled set (the gate-relaxations rule). State it back and get a go.
 
-## JOB 1 — decide whether the console keeps its scores (~$0 to specify)
+## Settled in session 38 — do not reopen without a reason
 
-Two honest options, and the owner picks:
+- **Criterion 4 stays as it is.** It grades data-visualisation craft on
+  screens that have none, so it under-rates the console — conservative in
+  the only direction that matters, and changing it would invalidate
+  cross-session score comparisons on every screen it touches. Console
+  scores stay flagged as not-comparable wherever they are quoted.
+- **The v4 golden set is frozen** in `golden/briefs-v4/`, all seven briefs
+  including `assistant`. The DEFAULT set did not move and should not: every
+  evidence document before session 38 means v1 by "the golden set", and
+  `bakeoff.py --frozen-specs` reproduces historical cells against it.
+  Address the new set explicitly with `GOLDEN_BRIEFS_DIR=golden/briefs-v4`.
 
-- **Leave the judge alone.** The console is measured by a rubric that
-  under-rates it, which is conservative — it can only make the console
-  look worse than it is, never better. Cheapest, and it keeps every
-  historical comparison valid.
-- **Make criterion 4 conditional on the screen having a chart.** This is a
-  judge change. It needs the golden set run before and after, and it
-  invalidates cross-session score comparisons on the screens it touches.
+## JOB 1 — the overlay-text blind spot (~$0.20, and it is the best-value job here)
 
-There is no third option where the console gets a fairer score for free.
+Counted across all 33 shipped screens of requests 100–120
+(`duplication-census.md`), the instruments split cleanly:
 
-## JOB 2 — the golden set is one version behind the stage (~$0.05)
+- panels, modules, cards, rows, controls: **8 caught, 1 missed**
+- text painted on top of an image or a chart: **0 caught, 2 missed**
 
-`golden/briefs` is frozen at ui-spec-v1 and the live stage is
-ui-spec-v4. `build_golden.py` now refuses to mix versions into one set and
-prints the right invocation. Freezing a v4 set — including the new
-`assistant` intake fixture, which has no frozen brief yet — retires the v1
-and v3 control arms, so it is a measurement decision, not a chore. If it
-is taken: freeze all seven, keep the old directories, and say in the
-write-up which comparisons the new set invalidates.
+`image_defect_inspector.j2`'s `duplicated_panel` asks for "the same panel,
+card, button pair, label or block of information drawn twice" — a hero
+caption or a chart annotation is none of those nouns, and both misses are
+exactly that. The one panel-level miss (120 Knowledge, a whole AI
+Suggestion module drawn twice) shipped approved at **8.5 with zero issues
+from either instrument**, which is the defect the judge's own rejection
+list promises to catch.
 
-## JOB 3 — the chart tail, still the only open quality lever
+This is an instrument change, so it is staged properly and it is now
+cheap to stage, because instruments re-judge EXISTING images — no
+regeneration. The 33 census screens are on disk with eye-labels; run the
+current inspector and a candidate revision over all of them and compare
+against the census, ~$0.0022 a screen a side. That is a real before/after
+on a labelled set for about $0.20. State the judge-held-fixed implication
+and get a go before landing it.
+
+## JOB 2 — the chart tail, still the only open quality lever
 
 Both of the console's follow-up re-rolls (request 119) were bought by
 `malformed_data_display` on a chart: unevenly stepped Y-axis ticks at even
@@ -62,11 +78,15 @@ Fund only if defect-carrying screens bother the demos commercially.
 
 ## Smaller, all with receipts in the session-38 record
 
-- **A duplicated hero caption is invisible to both instruments.** Request
-  119's analytics screen drew "Growth Trends" twice; the aesthetic judge
-  called it "a slightly thicker border" and the defect inspector did not
-  report it. Duplication is on the inspector's list as `duplicated_panel`
-  — an overlay caption apparently does not read as a panel.
+- **Placeholder names keep appearing in list content.** "Guest Artist A"
+  and "Guest Artist B" (108), "Client B/C/D/E/F" (102 Schedule),
+  "Endowment Fund XYZ" / "Jane Doe Trust" / "Institutional Fund ABC"
+  (104 Customers). The template's "never Option A" rule now names the
+  pattern explicitly; it is unverified by a funded run.
+- **A scaffolding leak is still reachable.** Request 105's analytics hero
+  carries a chip reading "Floating Labels" — prompt vocabulary rendered as
+  UI, the class the memory rule "name the string or say nothing" exists
+  for. Pre-fix run; worth one look on any future analytics screen.
 - **Archetype selection is not deterministic.** Identical intake text
   landed the investment brief on analytics-dashboard and then
   crm-dashboard. Nothing is broken; it means no write-up should say a
@@ -78,7 +98,6 @@ Fund only if defect-carrying screens bother the demos commercially.
   fails and an extra one does not. Both known sources are cut off
   upstream; a third would be silent. Detecting extras needs positional
   transcription, which nothing here has.
-- **`assistant` has an intake fixture and no golden brief** (see JOB 2).
 
 ## Traps, all still paid for
 

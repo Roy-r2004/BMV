@@ -225,43 +225,56 @@ golden set" means two different things depending on which brief you load.
 The script now refuses and prints the `GOLDEN_BRIEFS_DIR` invocation that
 does it properly.
 
-## The instrument finding, and it is the loudest thing in this session
+## The instrument finding — counted, not sampled
 
 `image_quality_judge.j2`'s automatic-rejection list names *"a duplicated
 AI-activity/workstream module, or any other UI panel repeated when it
-should appear once"*. Across the six pilot screens a module was drawn
-twice on three of them, and the instruments handled the three differently:
+should appear once"*, and the defect inspector carries a
+`duplicated_panel` category. Three pilot screens looked like misses, so
+rather than report three anecdotes the whole artifact was counted: **all
+33 screens shipped by requests 100–120, every one of the 21 that reported
+no duplication opened and read.** Full table in
+[`duplication-census.md`](duplication-census.md).
 
-| screen | what was drawn twice | what the instruments said |
-|---|---|---|
-| 120 Analytics | "Top Course Inquiries" panel, identical content | **caught** — "Duplicate module… appears twice with identical content", scored 6.5, re-rolled, re-roll lost, shipped |
-| 119 Analytics | the hero caption "Growth Trends" | **downgraded** — reported as "a slightly thicker border" on a button |
-| 120 Knowledge | the whole "AI Suggestion / Review 'Gift Vouchers' entry" module, same title, same headline, same rationale | **missed entirely** — zero issues reported, **scored 8.5, shipped approved** |
+The result is narrower and more useful than "the instruments are
+unreliable":
 
-The last row is the problem. A screen carrying the exact defect the rubric
-promises to auto-reject passed the gate with a clean sheet, and the defect
-inspector — whose `duplicated_panel` category exists for this — did not
-report it either. Both instruments were held fixed this session and both
-are wrong about the same screen, which is the same shape of failure
-session 36 fixed under "stop the pipeline contradicting its own
-instruments".
+- **Panels, modules, cards, rows and controls: 8 caught, 1 missed.** The
+  instruments are good at this, and specific — 104's claim carries pixel
+  coordinates, 107's names the table ("two identical 'Top Artworks'
+  tables"), 106's calls its duplicated module "a critical flaw".
+- **Text painted on top of an image or a chart: 0 caught, 2 missed.**
 
-This is NOT a console problem. Request 107's analytics screen shipped a
-duplicated "Top Artworks" panel at 6.8 before any of this session's work.
-It is a corpus-wide miss that three new screens happened to make visible.
-It is written up rather than fixed because fixing it means touching the
-judge, and that is the one thing this session agreed not to do without a
-golden-set run.
+The one panel-level miss is the expensive one: request 120's Knowledge
+screen drew the entire "AI Suggestion / Review 'Gift Vouchers' entry"
+module twice — same title, same headline, same rationale — and **shipped
+approved at 8.5 with zero issues reported by either instrument.** That is
+the exact defect the rubric promises to auto-reject.
+
+The two overlay misses point somewhere specific. A duplicated hero caption
+(119 Analytics, "Growth Trends" twice on one image) and a duplicated chart
+annotation (119 Knowledge, "+150% Week 1 → Week 4" twice on one chart) are
+painted over imagery rather than laid out as panels — and the inspector's
+category asks for "the same panel, card, button pair, label or block of
+information", which an overlay caption is none of. The aesthetic judge did
+see one of them and described it as "a slightly thicker border".
+
+**A correction to an earlier draft of this document:** it claimed request
+107's duplicated "Top Artworks" panel was a missed defect and that the
+problem was corpus-wide. The census shows the opposite — that one was
+caught and named precisely. The blind spot is overlay text, not structure,
+and it would not have been visible without counting all 33.
+
+Written up rather than fixed: closing it means editing an instrument, and
+that is the one thing this session agreed not to do without a golden-set
+run. There is now a v4 golden set to run it against.
 
 ## Found and not fixed
 
 - **Archetype selection is not deterministic** (above). Not a defect with
   an obvious fix — it is a property of an LLM classifier — but it means
   no session should describe a class as "landing on X" from one run.
-- **No golden brief for the console.** The intake fixture is in
-  `golden/intake.py`, but freezing it means freezing a whole v4 set, which
-  retires the v1 and v3 control arms. That is a measurement decision with
-  a price tag (~$0.05), not a side effect of this session.
+- ~~No golden brief for the console.~~ **Done** — see below.
 - **Placeholder options in anchor flows.** Request 108's selector rendered
   "Guest Artist A" / "Guest Artist B" — the prompt's "never Option A" rule
   wearing a costume. The template now names that pattern explicitly;
@@ -298,3 +311,55 @@ ahead of the live stage.
 
 Requests 109–118 are classification probes: real ledger rows, no images.
 Opening one at `/studio/<id>` honestly says its screens are not on file.
+
+## The v4 golden set
+
+Frozen after the pilots, into `golden/briefs-v4/`, all seven briefs
+including the new `assistant` fixture — **$0.0719**, no images. The
+console's frozen anchor carries a real conversation ("When is the
+corporation tax deadline?" / "The deadline for corporation tax is 9
+months.") and a Client Context rail.
+
+**The default set does not move.** `golden.briefs_dir()` still returns
+`golden/briefs`, frozen at ui-spec-v1, for two reasons: every evidence
+document before this one means v1 by "the golden set", and
+`bakeoff.py --frozen-specs` exists to reproduce historical cells, which it
+cannot do if the specs underneath it change. Session 34 set that precedent
+when it froze `briefs-v3` and left the default alone. The new set is
+addressed explicitly:
+
+    GOLDEN_BRIEFS_DIR=golden/briefs-v4 python scripts/bakeoff.py …
+
+and it is validated explicitly in `test_golden_briefs.py` rather than left
+inert on disk — coherence, one prompt version per set, distinct archetypes
+across the bake-off trio, and the console's conversation anchor.
+
+**What this invalidates: nothing.** No existing measurement cites v4, and
+no existing set changed. What it enables is the golden-set run any
+instrument change now needs.
+
+## The judge decision, recorded
+
+Criterion 4 grades data-visualisation craft on screens that have none, so
+the console is measured by a rubric that can only under-rate it.
+**Decision: leave it alone.** It is conservative in the only direction
+that matters — it can make the console look worse than it is, never
+better — and changing it would invalidate cross-session score comparisons
+on every screen it touches. Console scores stay flagged as
+not-comparable-to-corpus wherever they are quoted, which costs nothing and
+lies about nothing.
+
+## Final spend
+
+| what | requests | cost |
+|---|---|---|
+| Step 1 verification (Jeanne, nav fix live) | 108 | $0.64505 |
+| Classification probes, text stages only | 109–118 | $0.11254 |
+| Console pilot 1 (Halden & Co) | 119 | $0.75847 |
+| Console pilot 2 (Northlight Studio School) | 120 | $0.65164 |
+| v4 golden set, 7 briefs, no images | — | $0.07190 |
+| Duplication census (33 screens, stored verdicts + eyes) | — | $0 |
+| **Session total** | | **$2.23962** |
+
+$6 budget, $5 stop line, stopped at **37%** with every job in the brief
+landed. Suite **365 passed** from a 308 baseline.

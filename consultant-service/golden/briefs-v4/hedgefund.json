@@ -1,0 +1,595 @@
+{
+  "id": "hedgefund",
+  "label": "Meridian Capital Partners — Hedge Fund / Asset Management",
+  "archetype": "analytics-dashboard",
+  "intake": {
+    "business_name": "Meridian Capital Partners",
+    "business_description": "Boutique long/short equity hedge fund managing $180M for institutional and high-net-worth clients, 6 analysts. Investor reporting and portfolio risk monitoring are manual and slow.",
+    "industry": "Hedge Fund / Asset Management",
+    "consult_result": {
+      "consulting_summary": "An AI analyst that monitors portfolio risk in real time, drafts investor updates and flags exposure limits before they're breached."
+    },
+    "plan_result": {
+      "concept_name": "Meridian Intelligence",
+      "visual_theme": {
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227",
+        "mood": "authoritative, precise, institutional"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v4"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered portfolio oversight",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Clients",
+        "Reporting",
+        "Settings"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Portfolio Performance Overview",
+      "kpis": [
+        {
+          "label": "AUM",
+          "value": "$181.2M",
+          "delta": "+0.7% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "YTD Return",
+          "value": "8.3%",
+          "delta": "+0.1% vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Avg Daily VaR",
+          "value": "$1.5M",
+          "delta": "-5% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Sharpe Ratio",
+          "value": "1.85",
+          "delta": "+0.02 vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Risk Exposure",
+        "rows": [
+          {
+            "Sector": "Technology",
+            "Exposure": "28%",
+            "VaR": "$450k"
+          },
+          {
+            "Sector": "Healthcare",
+            "Exposure": "21%",
+            "VaR": "$380k"
+          },
+          {
+            "Sector": "Financials",
+            "Exposure": "15%",
+            "VaR": "$290k"
+          },
+          {
+            "Sector": "Industrials",
+            "Exposure": "12%",
+            "VaR": "$210k"
+          },
+          {
+            "Sector": "Consumer Disc.",
+            "Exposure": "9%",
+            "VaR": "$180k"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Top Positions",
+        "rows": [
+          {
+            "Ticker": "AAPL",
+            "Weight": "4.2%",
+            "PnL": "+$25k"
+          },
+          {
+            "Ticker": "MSFT",
+            "Weight": "3.8%",
+            "PnL": "+$18k"
+          },
+          {
+            "Ticker": "TSLA",
+            "Weight": "3.1%",
+            "PnL": "-$12k"
+          },
+          {
+            "Ticker": "GOOGL",
+            "Weight": "2.9%",
+            "PnL": "+$15k"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Portfolio Value",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri"
+        ],
+        "values": [
+          180.5,
+          180.8,
+          181.0,
+          181.1,
+          181.2
+        ],
+        "metric_label": "Millions USD"
+      },
+      "activity": [
+        {
+          "name": "Sophia R.",
+          "action": "Generated Q3 report",
+          "time": "15:30"
+        },
+        {
+          "name": "Ethan L.",
+          "action": "Updated risk limits",
+          "time": "11:45"
+        },
+        {
+          "name": "You",
+          "action": "Reviewed client exposure",
+          "time": "09:10"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A panoramic view of a bustling trading floor with multiple screens displaying market data at dawn",
+        "treatment": "cinematic still",
+        "caption": "New York Exchange",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "selector",
+        "steps": [
+          {
+            "label": "Select Strategy",
+            "options": [
+              "Global Macro",
+              "Long/Short Equity",
+              "Credit Arbitrage",
+              "Event-Driven"
+            ],
+            "selected": "Long/Short Equity"
+          },
+          {
+            "label": "Choose Risk Band",
+            "options": [
+              "Conservative",
+              "Moderate",
+              "Aggressive"
+            ],
+            "selected": "Moderate"
+          },
+          {
+            "label": "Set Allocation",
+            "options": [
+              "20% Growth",
+              "40% Growth",
+              "60% Growth"
+            ],
+            "selected": "40% Growth"
+          }
+        ],
+        "turns": [],
+        "detail": {
+          "title": "Selected Profile",
+          "rows": [
+            {
+              "Strategy": "Long/Short Equity"
+            },
+            {
+              "Risk Profile": "Moderate"
+            },
+            {
+              "Target Growth": "40%"
+            },
+            {
+              "Max Drawdown": "12%"
+            },
+            {
+              "Liquidity": "Monthly"
+            }
+          ]
+        },
+        "primary_action": "Confirm Allocation",
+        "secondary_action": "Review Strategies"
+      },
+      "ai": {
+        "title": "AI Risk Alert",
+        "headline": "Healthcare sector over-allocated",
+        "rationale": "Breaches 20% limit for moderate profile",
+        "confidence": "High certainty",
+        "chips": [
+          "Sector Diversification",
+          "Risk Limit",
+          "Portfolio Rebalance"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered portfolio oversight",
+        "screen_type": "dashboard"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Clients",
+        "Reporting",
+        "Settings"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Real-time Portfolio Summary",
+      "kpis": [
+        {
+          "label": "Current PnL",
+          "value": "+$58,320",
+          "delta": "+0.03% today",
+          "trend": "up"
+        },
+        {
+          "label": "Daily Trading Vol",
+          "value": "$7.1M",
+          "delta": "+15% vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Cash Reserve",
+          "value": "$15.6M",
+          "delta": "-2% vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Active Alerts",
+          "value": "3",
+          "delta": "+1 vs yesterday",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Portfolio Health",
+        "rows": [
+          {
+            "Metric": "Liquidity Ratio",
+            "Value": "0.78",
+            "Status": "Good"
+          },
+          {
+            "Metric": "Stress Test (1W)",
+            "Value": "-4.5%",
+            "Status": "Moderate"
+          },
+          {
+            "Metric": "Concentration Risk",
+            "Value": "High",
+            "Status": "Alert"
+          },
+          {
+            "Metric": "Market Sentiment",
+            "Value": "Bullish",
+            "Status": "Positive"
+          },
+          {
+            "Metric": "Compliance Check",
+            "Value": "All Clear",
+            "Status": "Compliant"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Investor Reporting Drafts",
+        "rows": [
+          {
+            "Client": "Ascent Ventures",
+            "Report": "Q1 2024",
+            "Status": "Drafted"
+          },
+          {
+            "Client": "Highland Trust",
+            "Report": "April Update",
+            "Status": "Ready"
+          },
+          {
+            "Client": "Global Partners",
+            "Report": "May Update",
+            "Status": "Drafting"
+          },
+          {
+            "Client": "Coastal Family",
+            "Report": "Q4 2023",
+            "Status": "Approved"
+          }
+        ]
+      },
+      "chart": {
+        "title": "Daily PnL Trend",
+        "labels": [
+          "09:00",
+          "10:00",
+          "11:00",
+          "12:00",
+          "13:00"
+        ],
+        "values": [
+          -15.0,
+          5.0,
+          30.0,
+          45.0,
+          58.0
+        ],
+        "metric_label": "Thousands USD"
+      },
+      "activity": [
+        {
+          "name": "Meridian Intelligence",
+          "action": "Drafted investor update for Ascent Ventures",
+          "time": "14:10"
+        },
+        {
+          "name": "You",
+          "action": "Closed short position on TSLA",
+          "time": "13:30"
+        },
+        {
+          "name": "Meridian Intelligence",
+          "action": "Flagged exposure limit breach (GOOGL)",
+          "time": "10:55"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "The New York City skyline at twilight, financial district prominent, with dynamic light trails from traffic",
+        "treatment": "photoreal render",
+        "caption": "City at Dusk",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Action Suggestion",
+        "headline": "Rebalance tech sector exposure",
+        "rationale": "Mitigate potential over-concentration in Technology",
+        "confidence": "High",
+        "chips": [
+          "Portfolio Optimization",
+          "Risk Reduction",
+          "Sector Caps"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Meridian Capital Partners",
+        "industry": "Hedge Fund / Asset Management",
+        "location": null,
+        "primary_color": "#0a2540",
+        "secondary_color": "#c9a227"
+      },
+      "product": {
+        "name": "Meridian Intelligence",
+        "purpose": "AI-powered portfolio oversight",
+        "screen_type": "customers"
+      },
+      "user": {
+        "name": "David",
+        "role": "Portfolio Manager"
+      },
+      "navigation": [
+        "Analytics",
+        "Dashboard",
+        "Clients",
+        "Reporting",
+        "Settings"
+      ],
+      "greeting": "Good morning, David",
+      "subheading": "Client Portfolio Overview",
+      "kpis": [
+        {
+          "label": "Total Clients",
+          "value": "34",
+          "delta": "+1 new last month",
+          "trend": "up"
+        },
+        {
+          "label": "Institutional AUM",
+          "value": "$125M",
+          "delta": "+1.2% YTD",
+          "trend": "up"
+        },
+        {
+          "label": "HNW AUM",
+          "value": "$56.2M",
+          "delta": "+0.8% YTD",
+          "trend": "up"
+        },
+        {
+          "label": "Client Retention",
+          "value": "96%",
+          "delta": "Steady",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Client List",
+        "rows": [
+          {
+            "Client Name": "Ascent Ventures",
+            "Type": "Institutional",
+            "AUM": "$35M"
+          },
+          {
+            "Client Name": "Highland Trust",
+            "Type": "HNW",
+            "AUM": "$18M"
+          },
+          {
+            "Client Name": "Global Partners",
+            "Type": "Institutional",
+            "AUM": "$48M"
+          },
+          {
+            "Client Name": "Coastal Family",
+            "Type": "HNW",
+            "AUM": "$12M"
+          },
+          {
+            "Client Name": "Summit Corp",
+            "Type": "Institutional",
+            "AUM": "$42M"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Client Risk Profiles",
+        "rows": [
+          {
+            "Client": "Ascent Ventures",
+            "Profile": "Aggressive",
+            "Status": "On Track"
+          },
+          {
+            "Client": "Highland Trust",
+            "Profile": "Moderate",
+            "Status": "Deviation"
+          },
+          {
+            "Client": "Global Partners",
+            "Profile": "Aggressive",
+            "Status": "On Track"
+          },
+          {
+            "Client": "Coastal Family",
+            "Profile": "Conservative",
+            "Status": "On Track"
+          }
+        ]
+      },
+      "chart": {
+        "title": "AUM Growth by Client Type",
+        "labels": [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May"
+        ],
+        "values": [
+          178.0,
+          179.0,
+          180.0,
+          180.5,
+          181.2
+        ],
+        "metric_label": "Millions USD"
+      },
+      "activity": [
+        {
+          "name": "Ascent Ventures",
+          "action": "Accessed Q1 2024 report",
+          "time": "Yesterday"
+        },
+        {
+          "name": "Meridian Intelligence",
+          "action": "Identified risk deviation for Highland Trust",
+          "time": "Yesterday"
+        },
+        {
+          "name": "Global Partners",
+          "action": "Requested portfolio review",
+          "time": "2 days ago"
+        }
+      ],
+      "style": {
+        "archetype": "analytics-dashboard",
+        "density": "normal",
+        "palette_description": "dark interface, gold accents"
+      },
+      "hero": {
+        "subject": "A modern, sophisticated office interior with floor-to-ceiling windows overlooking a city, reflecting soft morning light",
+        "treatment": "product photograph",
+        "caption": "Client Engagement",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "AI Client Insight",
+        "headline": "Highland Trust risk deviation",
+        "rationale": "Exceeds moderate risk allocation in tech",
+        "confidence": "Very High",
+        "chips": [
+          "Risk Alignment",
+          "Client Preferences",
+          "Rebalancing Suggestion"
+        ]
+      }
+    }
+  ]
+}

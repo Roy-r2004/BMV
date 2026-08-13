@@ -1,0 +1,516 @@
+{
+  "id": "assistant",
+  "label": "Halden & Co — Accountancy Practice",
+  "archetype": "assistant-console",
+  "intake": {
+    "business_name": "Halden & Co",
+    "business_description": "Two-partner accountancy practice. Most of the day goes on the same questions from clients — deadlines, what to send us, where their return is up to — and booking the calls that follow. We want an assistant answering those and a record of every conversation it handled.",
+    "industry": "Accountancy Practice",
+    "consult_result": {
+      "consulting_summary": "An AI assistant that answers client questions around the clock, books the calls it cannot close, and hands you every conversation it had."
+    },
+    "plan_result": {
+      "concept_name": "Halden Desk",
+      "visual_theme": {
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309",
+        "mood": "calm, precise, reassuring"
+      }
+    }
+  },
+  "frozen_on": "2026-08-13",
+  "frozen_by": {
+    "analysis_model": "google/gemini-2.5-flash",
+    "ui_spec_prompt_version": "ui-spec-v4"
+  },
+  "screens": [
+    {
+      "business": {
+        "name": "Halden & Co",
+        "industry": "Accountancy Practice",
+        "location": null,
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309"
+      },
+      "product": {
+        "name": "Halden Desk",
+        "purpose": "AI assistant for client queries",
+        "screen_type": "conversations"
+      },
+      "user": {
+        "name": "Alex",
+        "role": "Partner"
+      },
+      "navigation": [
+        "Conversations",
+        "Analytics",
+        "Knowledge",
+        "Clients",
+        "Settings"
+      ],
+      "greeting": "Good morning, Alex",
+      "subheading": "Active client conversations",
+      "kpis": [
+        {
+          "label": "Open Threads",
+          "value": "18",
+          "delta": "+3 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Calls Booked",
+          "value": "6",
+          "delta": "+2 vs yesterday",
+          "trend": "up"
+        },
+        {
+          "label": "Avg Resolution",
+          "value": "4 mins",
+          "delta": "-30s vs last week",
+          "trend": "down"
+        },
+        {
+          "label": "Assisted Queries",
+          "value": "78%",
+          "delta": "+5% vs last week",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Recent Activity",
+        "rows": [
+          {
+            "Client": "David Lee",
+            "Query": "P60 documents",
+            "Status": "Closed"
+          },
+          {
+            "Client": "Eleanor Vance",
+            "Query": "VAT registration",
+            "Status": "Call booked"
+          },
+          {
+            "Client": "Mark Chen",
+            "Query": "Payroll deadlines",
+            "Status": "Ongoing"
+          },
+          {
+            "Client": "Olivia White",
+            "Query": "Expense claims",
+            "Status": "Closed"
+          },
+          {
+            "Client": "Robert Green",
+            "Query": "Capital gains tax",
+            "Status": "Call booked"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Unassigned Calls",
+        "rows": [
+          {
+            "Client": "Sophia Miller",
+            "Topic": "Company formation",
+            "Time": "11:00 AM"
+          },
+          {
+            "Client": "James Brown",
+            "Topic": "Tax planning",
+            "Time": "2:30 PM"
+          },
+          {
+            "Client": "Laura Davies",
+            "Topic": "HMRC query",
+            "Time": "Next day"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Halden Desk",
+          "action": "booked call for Eleanor Vance",
+          "time": "5 mins ago"
+        },
+        {
+          "name": "Halden Desk",
+          "action": "resolved David Lee query",
+          "time": "15 mins ago"
+        },
+        {
+          "name": "Alex",
+          "action": "assigned Robert Green call",
+          "time": "30 mins ago"
+        }
+      ],
+      "style": {
+        "archetype": "assistant-console",
+        "density": "normal",
+        "palette_description": "professional dark interface, blue-green accents"
+      },
+      "hero": {
+        "subject": "Modern office desk with a laptop displaying a financial graph during daylight",
+        "treatment": "photoreal render",
+        "caption": "Efficiency",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "assistant",
+        "steps": [],
+        "turns": [
+          {
+            "speaker": "customer",
+            "text": "When is the corporation tax deadline?"
+          },
+          {
+            "speaker": "assistant",
+            "text": "The deadline for corporation tax is 9 months."
+          },
+          {
+            "speaker": "customer",
+            "text": "What do I need to send for my self-assessment?"
+          },
+          {
+            "speaker": "assistant",
+            "text": "I can book a call to discuss your self-assessment."
+          }
+        ],
+        "detail": {
+          "title": "Client Context",
+          "rows": [
+            {
+              "Client": "Sarah Jenkins"
+            },
+            {
+              "Type": "Sole Trader"
+            },
+            {
+              "Last Contact": "2 weeks ago"
+            },
+            {
+              "Open Tasks": "VAT Return Q3"
+            }
+          ]
+        },
+        "primary_action": "Reply to Sarah",
+        "secondary_action": "Suggest a callback"
+      },
+      "ai": {
+        "title": "Smart Suggestion",
+        "headline": "Delegate Eleanor Vance call",
+        "rationale": "High complexity, requires partner expertise",
+        "confidence": "92% match",
+        "chips": [
+          "VAT",
+          "New business",
+          "Partner required"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Halden & Co",
+        "industry": "Accountancy Practice",
+        "location": null,
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309"
+      },
+      "product": {
+        "name": "Halden Desk",
+        "purpose": "AI assistant for client queries",
+        "screen_type": "analytics"
+      },
+      "user": {
+        "name": "Alex",
+        "role": "Partner"
+      },
+      "navigation": [
+        "Conversations",
+        "Analytics",
+        "Knowledge",
+        "Clients",
+        "Settings"
+      ],
+      "greeting": "Good morning, Alex",
+      "subheading": "Assistant performance overview",
+      "kpis": [
+        {
+          "label": "Total Queries",
+          "value": "245",
+          "delta": "+15 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Resolutions",
+          "value": "190",
+          "delta": "+10 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Call-outs",
+          "value": "55",
+          "delta": "+5 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Client Satisfaction",
+          "value": "4.7/5",
+          "delta": "+0.1 vs last month",
+          "trend": "up"
+        }
+      ],
+      "primary_panel": {
+        "title": "Top Query Topics",
+        "rows": [
+          {
+            "Topic": "Deadlines",
+            "Count": "42",
+            "Resolved": "95%"
+          },
+          {
+            "Topic": "Documents",
+            "Count": "38",
+            "Resolved": "88%"
+          },
+          {
+            "Topic": "Return Status",
+            "Count": "30",
+            "Resolved": "75%"
+          },
+          {
+            "Topic": "Book Call",
+            "Count": "25",
+            "Resolved": "0%"
+          },
+          {
+            "Topic": "Tax Advice",
+            "Count": "20",
+            "Resolved": "10%"
+          }
+        ]
+      },
+      "secondary_panel": null,
+      "chart": {
+        "title": "Weekly Query Volume",
+        "labels": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat",
+          "Sun"
+        ],
+        "values": [
+          30.0,
+          35.0,
+          40.0,
+          28.0,
+          32.0,
+          15.0,
+          5.0
+        ],
+        "metric_label": "Queries"
+      },
+      "activity": [
+        {
+          "name": "Halden Desk",
+          "action": "answered 15 deadline queries",
+          "time": "Today"
+        },
+        {
+          "name": "Halden Desk",
+          "action": "booked 3 self-assessment calls",
+          "time": "Yesterday"
+        },
+        {
+          "name": "Alex",
+          "action": "updated payroll knowledge base",
+          "time": "2 days ago"
+        }
+      ],
+      "style": {
+        "archetype": "assistant-console",
+        "density": "normal",
+        "palette_description": "professional dark interface, blue-green accents"
+      },
+      "hero": {
+        "subject": "A backlit server room with rows of blinking lights and network cables, suggesting data processing",
+        "treatment": "cinematic still",
+        "caption": "Data Insights",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Insight",
+        "headline": "Automate document requests",
+        "rationale": "High volume, low complexity, easy to script",
+        "confidence": "85% confidence",
+        "chips": [
+          "Document requests",
+          "High volume",
+          "Efficiency gain"
+        ]
+      }
+    },
+    {
+      "business": {
+        "name": "Halden & Co",
+        "industry": "Accountancy Practice",
+        "location": null,
+        "primary_color": "#155e75",
+        "secondary_color": "#b45309"
+      },
+      "product": {
+        "name": "Halden Desk",
+        "purpose": "AI assistant for client queries",
+        "screen_type": "knowledge"
+      },
+      "user": {
+        "name": "Alex",
+        "role": "Partner"
+      },
+      "navigation": [
+        "Conversations",
+        "Analytics",
+        "Knowledge",
+        "Clients",
+        "Settings"
+      ],
+      "greeting": "Good morning, Alex",
+      "subheading": "Manage assistant knowledge base",
+      "kpis": [
+        {
+          "label": "Knowledge Articles",
+          "value": "112",
+          "delta": "+2 vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Coverage Score",
+          "value": "89%",
+          "delta": "+1% vs last week",
+          "trend": "up"
+        },
+        {
+          "label": "Conflicting Entries",
+          "value": "0",
+          "delta": "no change",
+          "trend": "neutral"
+        },
+        {
+          "label": "Updates Needed",
+          "value": "7",
+          "delta": "-3 vs last week",
+          "trend": "down"
+        }
+      ],
+      "primary_panel": {
+        "title": "Knowledge Categories",
+        "rows": [
+          {
+            "Category": "Deadlines",
+            "Articles": "15",
+            "Last Updated": "Today"
+          },
+          {
+            "Category": "Documents Required",
+            "Articles": "22",
+            "Last Updated": "Yesterday"
+          },
+          {
+            "Category": "Tax Returns",
+            "Articles": "30",
+            "Last Updated": "3 days ago"
+          },
+          {
+            "Category": "VAT",
+            "Articles": "18",
+            "Last Updated": "Last week"
+          },
+          {
+            "Category": "Payroll",
+            "Articles": "10",
+            "Last Updated": "2 weeks ago"
+          }
+        ]
+      },
+      "secondary_panel": {
+        "title": "Pending Review",
+        "rows": [
+          {
+            "Article": "Company Car Benefit",
+            "Editor": "Halden Desk",
+            "Status": "Draft"
+          },
+          {
+            "Article": "IR35 Updates 2024",
+            "Editor": "Halden Desk",
+            "Status": "Needs Review"
+          },
+          {
+            "Article": "Crypto Tax Guide",
+            "Editor": "Alex",
+            "Status": "Published"
+          }
+        ]
+      },
+      "chart": null,
+      "activity": [
+        {
+          "name": "Halden Desk",
+          "action": "suggested 'Capital Gains Allowance' article",
+          "time": "1 hour ago"
+        },
+        {
+          "name": "Alex",
+          "action": "published 'Self-Assessment Penalties'",
+          "time": "Yesterday"
+        },
+        {
+          "name": "Halden Desk",
+          "action": "updated 'VAT Thresholds 2024'",
+          "time": "2 days ago"
+        }
+      ],
+      "style": {
+        "archetype": "assistant-console",
+        "density": "normal",
+        "palette_description": "professional dark interface, blue-green accents"
+      },
+      "hero": {
+        "subject": "A stack of various tax forms and financial documents on a polished wooden desk",
+        "treatment": "product photograph",
+        "caption": "Essential Resources",
+        "placement": "center"
+      },
+      "concept": {
+        "kind": "dashboard",
+        "steps": [],
+        "turns": [],
+        "detail": null,
+        "primary_action": "",
+        "secondary_action": ""
+      },
+      "ai": {
+        "title": "Smart Update",
+        "headline": "Review P11D knowledge base",
+        "rationale": "High client interest, recent legislation changes",
+        "confidence": "90% confidence",
+        "chips": [
+          "Employee Benefits",
+          "Annual Update",
+          "High Impact"
+        ]
+      }
+    }
+  ]
+}
