@@ -589,68 +589,6 @@
   padding: 0.2rem 0.65rem;
 }
 
-/* ── the AI employees ─────────────────────────────────────────────────── */
-
-.studio-aicards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 0.85rem;
-}
-
-.studio-aicard {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-left: 2px solid rgba(34, 211, 238, 0.65);
-  border-radius: 0.7rem;
-  background: rgba(15, 23, 42, 0.45);
-  padding: 1rem 1.1rem;
-}
-
-.studio-aicard h3 {
-  color: #a5f3fc;
-  font-weight: 600;
-  font-size: 0.9rem;
-  margin: 0 0 0.4rem;
-}
-
-.studio-aicard p {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 0.84rem;
-  line-height: 1.6;
-}
-
-/* ── what it does / the blueprint ─────────────────────────────────────── */
-
-.studio-featurelist {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 0.7rem;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.studio-featurelist li {
-  position: relative;
-  padding: 0.7rem 0.9rem 0.7rem 2rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 0.7rem;
-  background: rgba(15, 23, 42, 0.4);
-  color: #cbd5e1;
-  font-size: 0.87rem;
-  line-height: 1.5;
-}
-
-.studio-featurelist li::before {
-  content: "";
-  position: absolute;
-  left: 0.85rem;
-  top: 1.15rem;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 999px;
-  background: #22d3ee;
-}
 
 /* ── result tabs ───────────────────────────────────────────────────────── */
 
@@ -694,11 +632,6 @@
 
 .studio-tabpanel {
   animation: studio-tabpanel-in 0.35s ease both;
-}
-
-.studio-tabpanel--prose {
-  max-width: 46rem;
-  margin-inline: auto;
 }
 
 @keyframes studio-tabpanel-in {
@@ -745,6 +678,421 @@
 
 .studio-prose li {
   margin-bottom: 0.35rem;
+}
+
+/* ── plan documents (blueprint / technical plan) — cinematic layouts ───
+   The two documents share a fixed `## Heading` skeleton (see
+   blueprint.j2 / technical_plan.j2), parsed in StudioPage.tsx into named
+   sections — each gets its own bespoke block here instead of one long
+   scroll of prose. */
+
+.studio-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5rem;
+}
+
+.studio-plan-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  background:
+    radial-gradient(720px 320px at 85% -20%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(520px 280px at -10% 120%, rgba(34, 211, 238, 0.14), transparent 60%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.92));
+  padding: 2.25rem 2rem;
+  box-shadow: 0 30px 80px rgba(2, 6, 23, 0.6);
+}
+
+.studio-plan-hero-lead {
+  position: relative;
+  max-width: 44rem;
+  color: #cbd5e1;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+/* Roster — compact AI-employee cards inside the blueprint/technical docs */
+
+.studio-plan-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+
+.studio-plan-roster--stacked {
+  grid-template-columns: 1fr;
+}
+
+.studio-plan-rostercard {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1.1rem 1.2rem;
+}
+
+.studio-plan-avatar {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #020617;
+  background: linear-gradient(135deg, #67e8f9, #38bdf8);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.12), 0 8px 22px rgba(34, 211, 238, 0.3);
+}
+
+.studio-plan-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+
+.studio-plan-rostername {
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 0.3rem;
+}
+
+.studio-plan-rostertext {
+  color: #94a3b8;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+/* Two-column layout for paired panels (journey/wins, aiwork/security) */
+
+.studio-plan-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.studio-plan-panel {
+  padding: 1.75rem;
+}
+
+/* Customer-journey timeline — numbered nodes down a connecting line */
+
+.studio-plan-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.studio-plan-timeline::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(103, 232, 249, 0.5), rgba(103, 232, 249, 0));
+}
+
+.studio-plan-timeline-item {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.studio-plan-timeline-no {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #020617;
+  background: linear-gradient(135deg, #67e8f9, #38bdf8);
+}
+
+.studio-plan-timeline-item p {
+  padding-top: 0.35rem;
+  color: #cbd5e1;
+  font-size: 0.87rem;
+  line-height: 1.65;
+}
+
+/* Checklists — wins, security, capabilities */
+
+.studio-plan-checklist-lead {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+}
+
+.studio-plan-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.studio-plan-checklist--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.7rem;
+}
+
+.studio-plan-checkrow {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.studio-plan-checkicon {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  color: #020617;
+  background: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+}
+
+.studio-plan-checkrow p {
+  color: #cbd5e1;
+  font-size: 0.87rem;
+  line-height: 1.6;
+}
+
+/* Feature / building-block grid — numbered glass cards */
+
+.studio-plan-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.9rem;
+}
+
+.studio-plan-featurecard {
+  position: relative;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.45));
+  padding: 1.1rem 1.2rem 1.2rem;
+  overflow: hidden;
+}
+
+.studio-plan-featurecard::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #67e8f9, transparent);
+  opacity: 0.6;
+}
+
+.studio-plan-featureno {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #67e8f9;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+}
+
+.studio-plan-featuretitle {
+  font-weight: 700;
+  color: #f1f5f9;
+  font-size: 0.92rem;
+  margin-bottom: 0.35rem;
+}
+
+.studio-plan-featuretext {
+  color: #94a3b8;
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+
+/* Implementation roadmap — vertical milestone cards */
+
+.studio-plan-roadmap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.studio-plan-roadmap::before {
+  content: "";
+  position: absolute;
+  left: 1.1rem;
+  top: 1.5rem;
+  bottom: 1.5rem;
+  width: 1px;
+  background-image: linear-gradient(180deg, rgba(103, 232, 249, 0.4) 60%, transparent 0%);
+  background-size: 1px 8px;
+  background-repeat: repeat-y;
+}
+
+.studio-plan-roadmap-item {
+  position: relative;
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.studio-plan-roadmap-no {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #020617;
+  background: linear-gradient(135deg, #67e8f9, #38bdf8);
+  box-shadow: 0 0 0 4px #020617;
+}
+
+.studio-plan-roadmap-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1.1rem 1.3rem;
+}
+
+.studio-plan-roadmap-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: #f1f5f9;
+  font-size: 1.02rem;
+  margin-bottom: 0.6rem;
+}
+
+.studio-plan-roadmap-field {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin-top: 0.4rem;
+}
+
+.studio-plan-roadmap-field span {
+  color: #67e8f9;
+  font-weight: 600;
+}
+
+/* ── AI team roster (the dedicated tab) ─────────────────────────────────── */
+
+.studio-roster {
+  position: relative;
+}
+
+.studio-roster-line {
+  position: absolute;
+  left: 1.6rem;
+  top: 5.5rem;
+  bottom: 2rem;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(103, 232, 249, 0.35), rgba(103, 232, 249, 0));
+  z-index: 0;
+}
+
+.studio-roster-list {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.studio-rostercard {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.55), rgba(15, 23, 42, 0.5));
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 20px 50px -30px rgba(2, 6, 23, 0.7);
+}
+
+.studio-rostercard-avatar {
+  flex: 0 0 auto;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #020617;
+  background: linear-gradient(135deg, #67e8f9, #38bdf8);
+  box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.1), 0 10px 26px rgba(34, 211, 238, 0.32);
+}
+
+.studio-rostercard-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #67e8f9;
+  margin-bottom: 0.35rem;
+}
+
+.studio-rostercard h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 0.5rem;
+}
+
+.studio-rostercard p {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.studio-rostercard-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6ee7b7;
+}
+
+@media (max-width: 640px) {
+  .studio-roster-line {
+    display: none;
+  }
 }
 
 /* ── opening a result URL ─────────────────────────────────────────────── */

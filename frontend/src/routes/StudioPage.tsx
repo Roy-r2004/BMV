@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
@@ -16,6 +16,15 @@ import {
   type StudioProgress,
   type StudioScreen,
 } from '../api/consultant';
+import {
+  splitH2Sections,
+  findSection,
+  splitH3Subsections,
+  parseListItems,
+  parseNestedPhases,
+  firstParagraph,
+  stripInlineMarkdown,
+} from '../utils/consultantMarkdown';
 import '../styles/studio.css';
 
 // The orchestrator's real stages, told as studio work. `at` mirrors the
@@ -116,6 +125,243 @@ function BlueprintProse({ text }: { text: string }) {
         ) : (
           <p key={i}>{b.text}</p>
         ),
+      )}
+    </div>
+  );
+}
+
+/** First two initial letters of a name's words — "AI Scheduler" → "AS". */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((w) => /^[a-zA-Z]/.test(w))
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+    </svg>
+  );
+}
+
+function PlanHero({ kicker, title, lead }: { kicker: string; title: string; lead: string }) {
+  return (
+    <div className="studio-plan-hero">
+      <p className="studio-kicker mb-3">{kicker}</p>
+      <h2 className="studio-display text-2xl sm:text-3xl font-bold text-off-white mb-4">{title}</h2>
+      <p className="studio-plan-hero-lead">{lead}</p>
+    </div>
+  );
+}
+
+function PlanPanel({
+  eyebrow,
+  children,
+  className = '',
+}: {
+  eyebrow: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`studio-panel studio-plan-panel ${className}`}>
+      <p className="studio-kicker mb-4">{eyebrow}</p>
+      {children}
+    </div>
+  );
+}
+
+/** The blueprint's and technical plan's prompts each mandate a fixed
+ *  `## Heading` skeleton (see blueprint.j2 / technical_plan.j2), so this
+ *  parses out named sections and gives each a bespoke cinematic treatment
+ *  instead of one long scroll of prose. An unrecognized or older document
+ *  (missing the sections this looks for) falls back to BlueprintProse. */
+function BlueprintCinematic({ preview }: { preview: StudioPreview }) {
+  const md = preview.mvp_blueprint ?? '';
+  const sections = useMemo(() => splitH2Sections(md), [md]);
+  const vision = findSection(sections, /vision/);
+  const employeesSec = findSection(sections, /employee/);
+  const featuresSec = findSection(sections, /feature/);
+  const journeySec = findSection(sections, /experience|customer/);
+  const winsSec = findSection(sections, /win/);
+
+  if (!vision && !employeesSec) return <BlueprintProse text={md} />;
+
+  const visionText = vision ? stripInlineMarkdown(vision.body.replace(/\n+/g, ' ')) : preview.preview_summary ?? '';
+  const employees = employeesSec ? splitH3Subsections(employeesSec.body) : [];
+  const employeeCards = employees.length
+    ? employees
+    : preview.ai_features.map((f) => ({ title: f.name, text: f.description }));
+  const journeySteps = journeySec ? parseListItems(journeySec.body) : [];
+  const winsIntro = winsSec ? firstParagraph(winsSec.body) : '';
+  const winsChecks = winsSec ? parseListItems(winsSec.body) : [];
+  const featureItems = featuresSec ? parseListItems(featuresSec.body) : [];
+
+  return (
+    <div className="studio-plan">
+      <PlanHero kicker="The vision" title={preview.concept_name || preview.business_name} lead={visionText} />
+
+      {employeeCards.length > 0 && (
+        <div className="studio-plan-roster">
+          {employeeCards.map((emp, i) => (
+            <div className="studio-plan-rostercard" key={emp.title || i}>
+              <span className="studio-plan-avatar">{initials(emp.title) || 'AI'}</span>
+              <div className="min-w-0">
+                <p className="studio-plan-eyebrow">Employee {String(i + 1).padStart(2, '0')}</p>
+                <p className="studio-plan-rostername">{emp.title}</p>
+                <p className="studio-plan-rostertext">{emp.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(journeySteps.length > 0 || winsIntro) && (
+        <div className="studio-plan-columns">
+          {journeySteps.length > 0 && (
+            <PlanPanel eyebrow="How your customers will experience it">
+              <div className="studio-plan-timeline">
+                {journeySteps.map((step, i) => (
+                  <div className="studio-plan-timeline-item" key={i}>
+                    <span className="studio-plan-timeline-no">{i + 1}</span>
+                    <p>{step.text || step.title}</p>
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
+          {winsIntro && (
+            <PlanPanel eyebrow="Why this wins">
+              <p className="studio-plan-checklist-lead">{winsIntro}</p>
+              {winsChecks.length > 0 && (
+                <div className="studio-plan-checklist">
+                  {winsChecks.map((c, i) => (
+                    <div className="studio-plan-checkrow" key={i}>
+                      <CheckIcon className="studio-plan-checkicon" />
+                      <p>{c.text || c.title}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </PlanPanel>
+          )}
+        </div>
+      )}
+
+      {featureItems.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-4">Core features</p>
+          <div className="studio-plan-features">
+            {featureItems.map((f, i) => (
+              <div className="studio-plan-featurecard" key={f.title || i}>
+                <span className="studio-plan-featureno">{String(i + 1).padStart(2, '0')}</span>
+                <p className="studio-plan-featuretitle">{f.title}</p>
+                {f.text && <p className="studio-plan-featuretext">{f.text}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
+  const md = preview.technical_plan ?? '';
+  const sections = useMemo(() => splitH2Sections(md), [md]);
+  const arch = findSection(sections, /architecture/);
+  const blocks = findSection(sections, /building blocks|components/);
+  const aiWork = findSection(sections, /employees work|how the ai/);
+  const implPhases = findSection(sections, /implementation/);
+  const security = findSection(sections, /security|data/);
+
+  if (!arch && !blocks && !aiWork) return <BlueprintProse text={md} />;
+
+  const archText = arch ? stripInlineMarkdown(arch.body.replace(/\n+/g, ' ')) : '';
+  const buildBlocks = blocks ? parseListItems(blocks.body) : [];
+  const aiRows = aiWork ? parseListItems(aiWork.body) : [];
+  const securityRows = security ? parseListItems(security.body) : [];
+  const phases = implPhases ? parseNestedPhases(implPhases.body) : [];
+
+  return (
+    <div className="studio-plan">
+      <PlanHero
+        kicker="System architecture"
+        title={`${preview.concept_name || preview.business_name} — how it gets built`}
+        lead={archText}
+      />
+
+      {(aiRows.length > 0 || securityRows.length > 0) && (
+        <div className="studio-plan-columns">
+          {aiRows.length > 0 && (
+            <PlanPanel eyebrow="How the AI employees work">
+              <div className="studio-plan-roster studio-plan-roster--stacked">
+                {aiRows.map((row, i) => (
+                  <div className="studio-plan-rostercard" key={row.title || i}>
+                    <span className="studio-plan-avatar">{initials(row.title) || 'AI'}</span>
+                    <div className="min-w-0">
+                      <p className="studio-plan-rostername">{row.title}</p>
+                      <p className="studio-plan-rostertext">{row.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
+          {securityRows.length > 0 && (
+            <PlanPanel eyebrow="Data, security &amp; reliability">
+              <div className="studio-plan-checklist">
+                {securityRows.map((row, i) => (
+                  <div className="studio-plan-checkrow" key={i}>
+                    <CheckIcon className="studio-plan-checkicon" />
+                    <p>{row.text || row.title}</p>
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
+        </div>
+      )}
+
+      {buildBlocks.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-4">The building blocks</p>
+          <div className="studio-plan-features">
+            {buildBlocks.map((b, i) => (
+              <div className="studio-plan-featurecard" key={b.title || i}>
+                <span className="studio-plan-featureno">{String(i + 1).padStart(2, '0')}</span>
+                <p className="studio-plan-featuretitle">{b.title}</p>
+                {b.text && <p className="studio-plan-featuretext">{b.text}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {phases.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-4">Implementation phases</p>
+          <div className="studio-plan-roadmap">
+            {phases.map((phase, i) => (
+              <div className="studio-plan-roadmap-item" key={phase.title || i}>
+                <span className="studio-plan-roadmap-no">{i + 1}</span>
+                <div className="studio-plan-roadmap-card">
+                  <p className="studio-plan-roadmap-title">{phase.title}</p>
+                  {phase.fields.map((field, j) => (
+                    <p className="studio-plan-roadmap-field" key={j}>
+                      {field.label && <span>{field.label}: </span>}
+                      {field.text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -769,18 +1015,26 @@ export default function StudioPage() {
                 {activeTab === 'team' && (
                   <div className="studio-tabpanel">
                     {preview.ai_features.length > 0 && (
-                      <div>
-                        <h2 className="studio-display text-xl font-bold text-off-white mb-4">
-                          The AI employees inside it
-                        </h2>
-                        {/* Cards, not chips: these descriptions are a sentence or
-                            two of real reasoning, and a pill full of prose reads
-                            like a bug. */}
-                        <div className="studio-aicards">
-                          {preview.ai_features.map((f) => (
-                            <article className="studio-aicard" key={f.id}>
-                              <h3>{f.name}</h3>
-                              <p>{f.description}</p>
+                      <div className="studio-roster">
+                        <p className="studio-kicker mb-6">Your new team</p>
+                        {preview.ai_features.length > 1 && (
+                          <span className="studio-roster-line" aria-hidden="true" />
+                        )}
+                        <div className="studio-roster-list">
+                          {preview.ai_features.map((f, i) => (
+                            <article className="studio-rostercard" key={f.id}>
+                              <span className="studio-rostercard-avatar">{initials(f.name) || 'AI'}</span>
+                              <div className="min-w-0">
+                                <p className="studio-rostercard-eyebrow">
+                                  Employee {String(i + 1).padStart(2, '0')}
+                                </p>
+                                <h3 className="studio-display">{f.name}</h3>
+                                <p>{f.description}</p>
+                                <span className="studio-rostercard-status">
+                                  <span className="studio-ai-dot" aria-hidden="true" />
+                                  Always on
+                                </span>
+                              </div>
                             </article>
                           ))}
                         </div>
@@ -788,41 +1042,30 @@ export default function StudioPage() {
                     )}
 
                     {preview.preview_features.length > 0 && (
-                      <div className="mt-14">
-                        <h2 className="studio-display text-xl font-bold text-off-white mb-4">
-                          What it does for you
-                        </h2>
-                        <ul className="studio-featurelist">
+                      <div className="mt-16">
+                        <p className="studio-kicker mb-4">What it does for you</p>
+                        <div className="studio-plan-checklist studio-plan-checklist--grid">
                           {preview.preview_features.map((f) => (
-                            <li key={f}>{f}</li>
+                            <div className="studio-plan-checkrow" key={f}>
+                              <CheckIcon className="studio-plan-checkicon" />
+                              <p>{f}</p>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
 
                 {activeTab === 'blueprint' && preview.mvp_blueprint && (
-                  <div className="studio-tabpanel studio-tabpanel--prose">
-                    <div className="studio-panel p-8">
-                      <p className="studio-kicker mb-3">What we'd build first</p>
-                      <h2 className="studio-display text-xl font-bold text-off-white mb-4">
-                        The blueprint
-                      </h2>
-                      <BlueprintProse text={preview.mvp_blueprint} />
-                    </div>
+                  <div className="studio-tabpanel">
+                    <BlueprintCinematic preview={preview} />
                   </div>
                 )}
 
                 {activeTab === 'technical' && preview.technical_plan && (
-                  <div className="studio-tabpanel studio-tabpanel--prose">
-                    <div className="studio-panel p-8">
-                      <p className="studio-kicker mb-3">How we'd build it</p>
-                      <h2 className="studio-display text-xl font-bold text-off-white mb-4">
-                        The technical plan
-                      </h2>
-                      <BlueprintProse text={preview.technical_plan} />
-                    </div>
+                  <div className="studio-tabpanel">
+                    <TechnicalCinematic preview={preview} />
                   </div>
                 )}
 

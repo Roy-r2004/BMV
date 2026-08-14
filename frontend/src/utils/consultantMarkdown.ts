@@ -109,6 +109,42 @@ export function stripInlineMarkdown(text: string): string {
     .trim();
 }
 
+export interface MdPhase {
+  title: string;
+  fields: { label: string; text: string }[];
+}
+
+/** A two-level bullet list — top-level items (e.g. "Phase 1: ...") each
+ *  followed by indented child bullets (e.g. "**Delivers:** ..."). Grouped by
+ *  indentation rather than `parseListItems`' flat marker scan, so a phase and
+ *  its detail lines stay together as one card instead of separate rows. */
+export function parseNestedPhases(body: string): MdPhase[] {
+  const phases: MdPhase[] = [];
+  let current: MdPhase | null = null;
+  for (const raw of body.split(/\r\n|\n/)) {
+    if (!raw.trim()) continue;
+    const marker = raw.match(/^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/);
+    if (!marker) continue;
+    const indent = marker[1].length;
+    const content = marker[2].trim();
+    const bold = content.match(/^\*\*(.+?)\*\*[:\s—–-]*\s*(.*)$/s);
+    if (indent === 0) {
+      current = { title: stripInlineMarkdown(bold ? bold[1] : content), fields: [] };
+      phases.push(current);
+    } else if (current) {
+      if (bold) {
+        current.fields.push({
+          label: stripInlineMarkdown(bold[1]).replace(/:+$/, ''),
+          text: stripInlineMarkdown(bold[2]),
+        });
+      } else {
+        current.fields.push({ label: '', text: stripInlineMarkdown(content) });
+      }
+    }
+  }
+  return phases;
+}
+
 /** "Online Booking System (integrated with X)" → { title, sub } for card layouts. */
 export function splitFeatureLabel(feature: string): { title: string; sub: string } {
   const paren = feature.match(/^(.*?)\s*\((.+)\)\s*$/);
