@@ -1,6 +1,5 @@
 import Hero from '../components/Hero';
 import HowItWorks from '../components/HowItWorks';
-import ExamplesTeaser from '../components/ExamplesTeaser';
 import UseCases from '../components/UseCases';
 import Packages from '../components/Packages';
 import FAQ from '../components/FAQ';
@@ -16,7 +15,6 @@ export default function LandingPage() {
         <Hero />
       </div>
       <HowItWorks />
-      <ExamplesTeaser />
       <div id="use-cases">
         <UseCases />
       </div>
