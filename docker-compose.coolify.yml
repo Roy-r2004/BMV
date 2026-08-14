@@ -1,9 +1,18 @@
-# Coolify / one-service deploy: keeps SQLite + preview builds across redeploys.
-# In Coolify: use this compose file (or Dockerfile.app) and ensure a persistent
-# volume is mounted at /app/data. SEED_DEMO stays false — no PlateSync reseed.
+# Coolify / two-service deploy, ONE Application, ONE env panel:
+#   `app`        — main backend + its frontend (buildmyversion.com)
+#   `consultant` — the image-demo pipeline (consultant-service)
+# Both build and redeploy together on every push to main; every value below
+# either has a safe default or is read once from Coolify's shared env panel
+# — nothing is entered twice. Ensure a persistent volume is mounted at
+# /app/data for `app` and at /app/data for `consultant` (separate volumes,
+# same mount path inside each container — Coolify keeps per-service storage).
 #
-# Coolify UI alternative (Dockerfile deploy):
-#   Storages → Add → Destination Path = /app/data
+# The ONE genuinely new thing Coolify needs for this deploy: assign a domain
+# to the `consultant` service in its dashboard (its routes collide with
+# `app`'s, so it can't share buildmyversion.com — see Dockerfile.consultant).
+# Once that's set, put the same URL in CONSULTANT_PUBLIC_URL below and every
+# other wire-up (CORS, the frontend's build-time API base) follows from it
+# automatically — no other manual step, then or on any future deploy.
 #
 # Pushing main auto-deploys when Coolify is connected to this repository.
 
@@ -16,6 +25,9 @@ services:
         # Same-origin API behind Coolify reverse proxy
         VITE_API_BASE_URL: ""
         VITE_ROY_WHATSAPP_NUMBER: ${ROY_WHATSAPP_NUMBER:-}
+        # Derived from CONSULTANT_PUBLIC_URL (the one value this stack asks
+        # you to set) — never entered separately.
+        VITE_CONSULTANT_API_BASE_URL: ${CONSULTANT_PUBLIC_URL:?Set CONSULTANT_PUBLIC_URL to the domain you assign the consultant service in Coolify, e.g. https://consultant-api.buildmyversion.com}
         # Immutable release metadata supplied by the deployment system.
         APP_GIT_REVISION: ${APP_GIT_REVISION:-}
         APP_BUILD_TIMESTAMP: ${APP_BUILD_TIMESTAMP:-}
@@ -92,6 +104,49 @@ services:
       retries: 8
       start_period: 90s
 
+  consultant:
+    build:
+      context: .
+      dockerfile: Dockerfile.consultant
+    restart: unless-stopped
+    # Deliberately no env_file here (unlike `app`) — this service needs
+    # exactly the two variables below, not the main app's full secret set
+    # (admin password, WhatsApp number, etc.) sitting in its container env.
+    environment:
+      # Same key already set for `app` above — one OpenRouter budget, one
+      # place spend is tracked, never entered twice.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Defaults to the SAME public domain already used for CORS_ORIGINS on
+      # `app` above, since that's this business's one real frontend origin.
+      FRONTEND_ORIGIN: ${CORS_ORIGINS:-https://buildmyversion.com}
+      # DATABASE_URL / PORT / UPLOADS_DIR: baked into Dockerfile.consultant
+      # already (sqlite:////app/data/consultant.db, 8002, symlinked to
+      # /app/data/uploads) — nothing to set here.
+      #
+      # Every other consultant-service setting (IMAGE_MODEL,
+      # DASHBOARD_CANDIDATES, QA_MIN_SCORE, WATERMARK_STYLE, IMAGE_REGISTER,
+      # the ENABLE_* feature flags, ...) has a deliberately measured default
+      # in app/config.py — verified 2026-08-14 against this exact env, so
+      # deliberately left unset rather than restated and risking drift.
+    volumes:
+      - bmv-consultant-data:/app/data
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
 volumes:
   bmv-persistent-data:
     name: bmv-persistent-data
+  bmv-consultant-data:
+    name: bmv-consultant-data
