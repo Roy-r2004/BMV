@@ -2238,9 +2238,12 @@ h1, h2, h3, h4 {
 }
 
 .examples-showcase__tab--active {
-  border-color: rgba(34, 211, 238, 0.6);
-  background: rgba(8, 47, 73, 0.65);
-  box-shadow: 0 0 24px rgba(34, 211, 238, 0.16);
+  border-color: rgba(34, 211, 238, 0.75);
+  background: rgba(8, 47, 73, 0.75);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.25),
+    0 8px 24px -8px rgba(34, 211, 238, 0.35),
+    0 0 32px rgba(34, 211, 238, 0.14);
 }
 
 .examples-showcase__tab-thumb {
@@ -2339,11 +2342,18 @@ h1, h2, h3, h4 {
 
 /* Product app preview (logged-in SaaS UI) */
 .ex-preview {
+  position: relative;
   border-radius: 0.85rem;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.32);
   background: #0b1220;
-  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.4);
+  /* Ambient glow anchoring the card into the dark scene instead of it
+     reading as a flat rectangle pasted on top — box-shadow paints outside
+     the box regardless of overflow:hidden, unlike a pseudo-element would. */
+  box-shadow:
+    0 24px 56px -8px rgba(2, 6, 23, 0.55),
+    0 0 0 1px rgba(148, 163, 184, 0.06),
+    0 0 90px -18px rgba(34, 211, 238, 0.4);
 }
 
 .ex-preview--app {
@@ -2633,12 +2643,12 @@ h1, h2, h3, h4 {
 }
 
 .ex-app__body--dense .ex-work {
-  gap: 0.4rem;
+  gap: 0.55rem;
 }
 
 .ex-work {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.65rem;
 }
 
 .ex-work__toolbar {
@@ -2678,28 +2688,39 @@ h1, h2, h3, h4 {
 }
 
 .ex-work__stats > div {
+  position: relative;
   border-radius: 0.55rem;
   border: 1px solid #e2e8f0;
-  background: #fff;
-  padding: 0.4rem 0.5rem;
+  background: linear-gradient(165deg, #f8fbff 0%, #fff 55%);
+  padding: 0.45rem 0.55rem 0.5rem;
+  overflow: hidden;
+}
+
+.ex-work__stats > div::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, #22d3ee, #2563eb);
+  opacity: 0.7;
 }
 
 .ex-work__stats span {
   display: block;
-  font-size: 0.55rem;
+  font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #64748b;
-  margin-bottom: 0.12rem;
+  margin-bottom: 0.18rem;
 }
 
 .ex-work__stats strong {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .ex-work__warn {
@@ -2749,31 +2770,33 @@ h1, h2, h3, h4 {
 .ex-work__insight {
   display: flex;
   align-items: flex-start;
-  gap: 0.45rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.55rem;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.6rem;
   border: 1px solid #a5f3fc;
   background: linear-gradient(120deg, #ecfeff, #f0f9ff);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 6px 16px -10px rgba(8, 145, 178, 0.35);
 }
 
 .ex-work__insight-mark {
   flex-shrink: 0;
-  font-size: 0.55rem;
+  font-size: 0.56rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #fff;
   background: linear-gradient(120deg, #0891b2, #2563eb);
-  border-radius: 0.3rem;
-  padding: 0.18rem 0.32rem;
+  border-radius: 0.35rem;
+  padding: 0.22rem 0.38rem;
   line-height: 1;
   margin-top: 0.05rem;
+  box-shadow: 0 0 12px rgba(8, 145, 178, 0.4);
 }
 
 .ex-work__insight p {
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 650;
-  line-height: 1.35;
+  line-height: 1.4;
   color: #0f766e;
 }
 
@@ -2974,14 +2997,14 @@ h1, h2, h3, h4 {
 .ex-work__split {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  gap: 0.45rem;
+  gap: 0.7rem;
 }
 
 .ex-work__panel {
   border-radius: 0.65rem;
   border: 1px solid #e2e8f0;
   background: #fff;
-  padding: 0.55rem 0.6rem;
+  padding: 0.7rem 0.75rem;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
@@ -2990,12 +3013,14 @@ h1, h2, h3, h4 {
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .ex-work__panel header strong {
   font-family: var(--font-display);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: #0f172a;
 }
@@ -3015,14 +3040,14 @@ h1, h2, h3, h4 {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.28rem;
+  gap: 0.4rem;
 }
 
 .ex-work__kv li {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
 }
 
 .ex-work__kv span {
@@ -3041,13 +3066,13 @@ h1, h2, h3, h4 {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.55rem;
 }
 
 .ex-work__steps li {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.45rem;
+  gap: 0.5rem;
   align-items: start;
 }
 
