@@ -652,41 +652,64 @@
   background: #22d3ee;
 }
 
-.studio-details-block {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 0.9rem;
-  background: rgba(15, 23, 42, 0.4);
-  padding: 1.1rem 1.35rem;
-}
+/* ── result tabs ───────────────────────────────────────────────────────── */
 
-.studio-details-block summary {
-  cursor: pointer;
+.studio-tabs {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.75rem;
-  list-style: none;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-bottom: 3rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.45);
+  max-width: fit-content;
+  margin-inline: auto;
 }
 
-.studio-details-block summary::-webkit-details-marker {
-  display: none;
+.studio-tab {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.15rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.studio-details-block summary::after {
-  content: "▾";
-  margin-left: auto;
-  color: #67e8f9;
-  transition: transform 0.2s ease;
+.studio-tab:hover {
+  color: #e2e8f0;
 }
 
-.studio-details-block[open] summary::after {
-  transform: rotate(180deg);
+.studio-tab--active {
+  color: #020617;
+  background: linear-gradient(120deg, #67e8f9, #38bdf8);
+  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
 }
 
-.studio-details-block summary:focus-visible {
-  outline: 2px solid #67e8f9;
-  outline-offset: 4px;
-  border-radius: 0.4rem;
+.studio-tabpanel {
+  animation: studio-tabpanel-in 0.35s ease both;
+}
+
+.studio-tabpanel--prose {
+  max-width: 46rem;
+  margin-inline: auto;
+}
+
+@keyframes studio-tabpanel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .studio-prose {

@@ -41,6 +41,18 @@ const RENDER_WHISPERS = [
 // the other end; 'missing' is an id that was never issued.
 type Act = 'intake' | 'loading' | 'building' | 'reveal' | 'failed' | 'missing';
 
+type ResultTab = 'screens' | 'blueprint' | 'technical' | 'team';
+
+// Each tab knows its own availability rule, so a run that skipped a stage
+// (no technical plan yet, no AI employees named) never shows an empty tab —
+// the tab bar itself is evidence of what this run actually produced.
+const RESULT_TABS: { id: ResultTab; label: string; available: (p: StudioPreview) => boolean }[] = [
+  { id: 'screens', label: 'Screens', available: () => true },
+  { id: 'blueprint', label: 'Blueprint', available: (p) => Boolean(p.mvp_blueprint) },
+  { id: 'technical', label: 'Technical plan', available: (p) => Boolean(p.technical_plan) },
+  { id: 'team', label: 'AI team', available: (p) => p.ai_features.length > 0 },
+];
+
 interface FieldErrors {
   business_name?: string;
   business_description?: string;
@@ -122,6 +134,7 @@ export default function StudioPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [failureDetail, setFailureDetail] = useState<string | null>(null);
   const [whisper, setWhisper] = useState(0);
+  const [activeTab, setActiveTab] = useState<ResultTab>('screens');
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [copied, setCopied] = useState(false);
   // Screens whose file did not load. A missing byte gets an honest tile
@@ -147,6 +160,7 @@ export default function StudioPage() {
     try {
       const data = await getStudioPreview(id);
       setPreview(data);
+      setActiveTab('screens');
       setAct('reveal');
     } catch (err) {
       if (isNotFound(err)) setAct('missing');
@@ -357,6 +371,7 @@ export default function StudioPage() {
 
   const allScreens: StudioScreen[] = preview?.generated_pages.attraction_images ?? [];
   const screens = allScreens.filter((s) => !brokenSrc[s.image_url]);
+  const visibleTabs = preview ? RESULT_TABS.filter((t) => t.available(preview)) : [];
   const buildingName = progress?.business_name || form.business_name.trim() || 'Your business';
   const fade = reduceMotion
     ? {}
@@ -625,7 +640,27 @@ export default function StudioPage() {
                   </div>
                 )}
 
-                {screens.length === 0 ? (
+                {/* One tab per thing this run actually produced — a run that
+                    skipped the technical plan or named no AI employees never
+                    shows an empty tab, since RESULT_TABS filters on that. */}
+                {visibleTabs.length > 1 && (
+                  <div className="studio-tabs" role="tablist" aria-label="Result sections">
+                    {visibleTabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
+                        className={`studio-tab${activeTab === tab.id ? ' studio-tab--active' : ''}`}
+                        onClick={() => setActiveTab(tab.id)}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'screens' && (screens.length === 0 ? (
                   <div className="studio-panel p-8 text-center max-w-xl mx-auto">
                     <p className="text-slate-300 font-semibold">This run's screens aren't on file.</p>
                     <p className="mt-3 text-slate-400 text-sm">
@@ -729,52 +764,66 @@ export default function StudioPage() {
                       );
                     })}
                   </div>
+                ))}
+
+                {activeTab === 'team' && (
+                  <div className="studio-tabpanel">
+                    {preview.ai_features.length > 0 && (
+                      <div>
+                        <h2 className="studio-display text-xl font-bold text-off-white mb-4">
+                          The AI employees inside it
+                        </h2>
+                        {/* Cards, not chips: these descriptions are a sentence or
+                            two of real reasoning, and a pill full of prose reads
+                            like a bug. */}
+                        <div className="studio-aicards">
+                          {preview.ai_features.map((f) => (
+                            <article className="studio-aicard" key={f.id}>
+                              <h3>{f.name}</h3>
+                              <p>{f.description}</p>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {preview.preview_features.length > 0 && (
+                      <div className="mt-14">
+                        <h2 className="studio-display text-xl font-bold text-off-white mb-4">
+                          What it does for you
+                        </h2>
+                        <ul className="studio-featurelist">
+                          {preview.preview_features.map((f) => (
+                            <li key={f}>{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                {preview.ai_features.length > 0 && (
-                  <div className="mt-16">
-                    <h2 className="studio-display text-xl font-bold text-off-white mb-4">
-                      The AI employees inside it
-                    </h2>
-                    {/* Cards, not chips: these descriptions are a sentence or
-                        two of real reasoning, and a pill full of prose reads
-                        like a bug. */}
-                    <div className="studio-aicards">
-                      {preview.ai_features.map((f) => (
-                        <article className="studio-aicard" key={f.id}>
-                          <h3>{f.name}</h3>
-                          <p>{f.description}</p>
-                        </article>
-                      ))}
+                {activeTab === 'blueprint' && preview.mvp_blueprint && (
+                  <div className="studio-tabpanel studio-tabpanel--prose">
+                    <div className="studio-panel p-8">
+                      <p className="studio-kicker mb-3">What we'd build first</p>
+                      <h2 className="studio-display text-xl font-bold text-off-white mb-4">
+                        The blueprint
+                      </h2>
+                      <BlueprintProse text={preview.mvp_blueprint} />
                     </div>
                   </div>
                 )}
 
-                {preview.preview_features.length > 0 && (
-                  <div className="mt-14">
-                    <h2 className="studio-display text-xl font-bold text-off-white mb-4">
-                      What it does for you
-                    </h2>
-                    <ul className="studio-featurelist">
-                      {preview.preview_features.map((f) => (
-                        <li key={f}>{f}</li>
-                      ))}
-                    </ul>
+                {activeTab === 'technical' && preview.technical_plan && (
+                  <div className="studio-tabpanel studio-tabpanel--prose">
+                    <div className="studio-panel p-8">
+                      <p className="studio-kicker mb-3">How we'd build it</p>
+                      <h2 className="studio-display text-xl font-bold text-off-white mb-4">
+                        The technical plan
+                      </h2>
+                      <BlueprintProse text={preview.technical_plan} />
+                    </div>
                   </div>
-                )}
-
-                {preview.mvp_blueprint && (
-                  <details className="studio-details-block mt-14">
-                    <summary>
-                      <span className="studio-display text-xl font-bold text-off-white">
-                        Read the blueprint
-                      </span>
-                      <span className="studio-hint">
-                        What we'd build first, in plain words
-                      </span>
-                    </summary>
-                    <BlueprintProse text={preview.mvp_blueprint} />
-                  </details>
                 )}
 
                 {/* The empty-state panel above already offers its own way

@@ -93,6 +93,7 @@ export interface StudioPreview {
   preview_features: string[];
   ai_features: StudioAiFeature[];
   mvp_blueprint: string | null;
+  technical_plan: string | null;
   generated_pages: { attraction_images: StudioScreen[] };
   deck_available: boolean;
   status: string;
