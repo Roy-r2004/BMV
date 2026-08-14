@@ -104,6 +104,8 @@ export default function SiteChatWidget() {
   if (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/submit') ||
+    pathname.startsWith('/demo') ||
+    pathname.startsWith('/studio') ||
     pathname.startsWith('/result') ||
     pathname.startsWith('/share') ||
     pathname.startsWith('/login') ||

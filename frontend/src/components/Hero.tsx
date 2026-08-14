@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import GlowButton from './GlowButton';
 import HeroScrollCue from './HeroScrollCue';
 import HeroProductStage from './HeroProductStage';
@@ -78,12 +77,9 @@ export default function Hero() {
               transition={{ delay: 0.28, duration: 0.5, ease: easeOut }}
               className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start items-stretch sm:items-center"
             >
-              <GlowButton to="/submit" className="text-sm px-7 py-3.5">
+              <GlowButton to="/demo" className="text-sm px-7 py-3.5">
                 Find my AI fit
               </GlowButton>
-              <Link to="/demo" className="bmv-hero__secondary">
-                See live demos
-              </Link>
             </motion.div>
           </div>
 

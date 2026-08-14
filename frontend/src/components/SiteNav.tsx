@@ -113,7 +113,7 @@ export default function SiteNav() {
           )}
 
           <GlowButton
-            to="/submit"
+            to="/demo"
             className="!inline-flex items-center justify-center text-xs sm:text-sm py-2.5 px-3.5 sm:px-4 whitespace-nowrap leading-none min-h-10"
           >
             <span className="sm:hidden">Start</span>
@@ -168,7 +168,7 @@ export default function SiteNav() {
               </Link>
             ))}
           <Link
-            to="/submit"
+            to="/demo"
             onClick={() => setMenuOpen(false)}
             className="mt-2 rounded-xl font-bold text-center text-white bg-gradient-to-r from-blue-600 to-cyan-500 py-3"
           >

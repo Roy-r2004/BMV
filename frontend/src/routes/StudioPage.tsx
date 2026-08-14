@@ -66,6 +66,58 @@ interface FieldErrors {
   business_name?: string;
   business_description?: string;
   email?: string;
+  what_you_like?: string;
+}
+
+// The intake mirrors the old build-request wizard's five steps and fields —
+// that data meaningfully shapes the analysis (see analyze.j2), so trimming
+// it down to "just enough for a demo" was throwing away signal the pipeline
+// already knows how to use.
+const INTAKE_STEPS = [
+  { id: 'business', label: 'Business', subtitle: 'Tell us who you are' },
+  { id: 'challenge', label: 'Challenge', subtitle: 'What you need solved' },
+  { id: 'inspiration', label: 'Inspiration', subtitle: 'A tool you admire' },
+  { id: 'project', label: 'Project', subtitle: 'Scope & AI appetite' },
+  { id: 'contact', label: 'Contact', subtitle: 'Where to send it' },
+] as const;
+
+const NEEDS_AI_OPTIONS = ['Yes, definitely', 'Maybe, if it adds value', 'No, keep it simple'];
+const NEEDS_AI_MAP: Record<string, string> = {
+  'Yes, definitely': 'yes',
+  'Maybe, if it adds value': 'maybe',
+  'No, keep it simple': 'no',
+};
+const NEEDS_AI_REVERSE: Record<string, string> = {
+  yes: 'Yes, definitely',
+  maybe: 'Maybe, if it adds value',
+  no: 'No, keep it simple',
+};
+const BUDGET_OPTIONS = ['Starter scope', 'Standard scope', 'Full build', 'Not sure yet'];
+const TIMELINE_OPTIONS = ['ASAP (2–4 weeks)', '1–2 months', '2–3 months', 'Flexible'];
+
+function StudioPills({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="studio-pills">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          className={`studio-pill${value === opt ? ' studio-pill--active' : ''}`}
+          onClick={() => onChange(opt)}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // Kept only as a bridge for someone who lands on bare /studio with a run
@@ -393,9 +445,18 @@ export default function StudioPage() {
     email: '',
     industry: '',
     main_problem: '',
+    target_customers: '',
+    desired_outcome: '',
+    reference_url: '',
+    what_you_like: '',
+    needs_ai: 'yes',
+    budget_range: BUDGET_OPTIONS[0],
+    timeline: 'Flexible',
+    whatsapp: '',
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState(0);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
@@ -531,21 +592,60 @@ export default function StudioPage() {
     };
   }, [act, routeId, applyProgress]);
 
-  const validate = (): boolean => {
-    const next: FieldErrors = {};
-    if (form.business_name.trim().length < 2) next.business_name = 'Give your business its real name.';
-    if (form.business_description.trim().length < 30) {
-      next.business_description = 'A couple of sentences — what you do, for whom, and what eats your day.';
+  // Each step validates and returns on only its own field(s) — a stale
+  // error left on a step the visitor has already backed away from must
+  // never block Continue on the step they're actually standing on.
+  const validateStep = (i: number): boolean => {
+    let key: keyof FieldErrors | null = null;
+    let message: string | null = null;
+    if (i === 0 && form.business_name.trim().length < 2) {
+      key = 'business_name';
+      message = 'Give your business its real name.';
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = 'A real address, so we can reach you about it.';
-    setErrors(next);
-    return Object.keys(next).length === 0;
+    if (i === 1 && form.business_description.trim().length < 30) {
+      key = 'business_description';
+      message = 'A couple of sentences — what you do, for whom, and what eats your day.';
+    }
+    if (i === 2 && form.reference_url.trim() && !form.what_you_like.trim()) {
+      key = 'what_you_like';
+      message = "Tell us what to borrow from it — otherwise we won't know what you liked.";
+    }
+    if (i === 4 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      key = 'email';
+      message = 'A real address, so we can reach you about it.';
+    }
+    setErrors((prev) => {
+      const next = { ...prev };
+      const clears: (keyof FieldErrors)[] =
+        i === 0 ? ['business_name'] : i === 1 ? ['business_description'] : i === 2 ? ['what_you_like'] : i === 4 ? ['email'] : [];
+      clears.forEach((k) => delete next[k]);
+      if (key) next[key] = message ?? undefined;
+      return next;
+    });
+    return key === null;
   };
+
+  const goNext = () => {
+    if (!validateStep(step)) return;
+    setStep((s) => Math.min(s + 1, INTAKE_STEPS.length - 1));
+  };
+
+  const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter in a text field submits the nearest form regardless of which
+    // button is on screen — on an earlier step that means "next", not "go".
+    if (step < INTAKE_STEPS.length - 1) {
+      goNext();
+      return;
+    }
     setSubmitError(null);
-    if (!validate() || submitting) return;
+    // The last step is the only one whose Continue button submits — walk
+    // every step's rule once more so a stale error from an earlier step
+    // (edited, then navigated away from) can't slip through.
+    const allValid = [0, 1, 2, 4].every((i) => validateStep(i));
+    if (!allValid || submitting) return;
     setSubmitting(true);
     try {
       const { id } = await createStudioRequest({
@@ -554,6 +654,14 @@ export default function StudioPage() {
         email: form.email.trim(),
         industry: form.industry.trim() || undefined,
         main_problem: form.main_problem.trim() || undefined,
+        target_customers: form.target_customers.trim() || undefined,
+        desired_outcome: form.desired_outcome.trim() || undefined,
+        reference_url: form.reference_url.trim() || undefined,
+        what_you_like: form.what_you_like.trim() || undefined,
+        needs_ai: form.needs_ai || undefined,
+        budget_range: form.budget_range || undefined,
+        timeline: form.timeline || undefined,
+        whatsapp: form.whatsapp.trim() || undefined,
       });
       sessionStorage.setItem(RESUME_KEY, String(id));
       // The run gets its address the moment it exists, not when it finishes —
@@ -577,6 +685,8 @@ export default function StudioPage() {
     setProgress(null);
     setStartedAt(null);
     setFailureDetail(null);
+    setErrors({});
+    setStep(0);
     setAct('intake');
     navigate('/demo');
   };
@@ -677,88 +787,225 @@ export default function StudioPage() {
                     animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.08 }}
                   >
-                    <div className="space-y-5">
-                      <div className="studio-field" data-invalid={!!errors.business_name}>
-                        <label htmlFor="st-name">Business name</label>
-                        <input
-                          id="st-name"
-                          value={form.business_name}
-                          onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                          placeholder="Beacon Physiotherapy"
-                          autoComplete="organization"
-                        />
-                        {errors.business_name && <p className="studio-error-text">{errors.business_name}</p>}
-                      </div>
-
-                      <div className="studio-field" data-invalid={!!errors.business_description}>
-                        <label htmlFor="st-desc">What does it do?</label>
-                        <textarea
-                          id="st-desc"
-                          rows={4}
-                          value={form.business_description}
-                          onChange={(e) => setForm({ ...form, business_description: e.target.value })}
-                          placeholder="Physiotherapy clinic with six therapists. Patients book assessments and follow-ups; we juggle availability, insurance pre-approvals and no-shows…"
-                        />
-                        {errors.business_description ? (
-                          <p className="studio-error-text">{errors.business_description}</p>
-                        ) : (
-                          <p className="studio-hint">
-                            The more specific you are, the more the screens feel like yours.
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="studio-field" data-invalid={!!errors.email}>
-                        <label htmlFor="st-email">Email</label>
-                        <input
-                          id="st-email"
-                          type="email"
-                          value={form.email}
-                          onChange={(e) => setForm({ ...form, email: e.target.value })}
-                          placeholder="you@yourbusiness.com"
-                          autoComplete="email"
-                        />
-                        {errors.email && <p className="studio-error-text">{errors.email}</p>}
-                      </div>
-
-                      <div className="grid sm:grid-cols-2 gap-5">
-                        <div className="studio-field">
-                          <label htmlFor="st-industry">
-                            Industry <span className="text-slate-500 font-normal">(optional)</span>
-                          </label>
-                          <input
-                            id="st-industry"
-                            value={form.industry}
-                            onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                            placeholder="Physiotherapy clinic"
-                          />
+                    <div className="studio-steps" aria-hidden="true">
+                      {INTAKE_STEPS.map((s, i) => (
+                        <div className="studio-step" data-state={i < step ? 'done' : i === step ? 'active' : 'pending'} key={s.id}>
+                          <span className="studio-step-no">{i < step ? '✓' : i + 1}</span>
+                          <span className="studio-step-label">{s.label}</span>
                         </div>
-                        <div className="studio-field">
-                          <label htmlFor="st-problem">
-                            Biggest headache <span className="text-slate-500 font-normal">(optional)</span>
-                          </label>
-                          <input
-                            id="st-problem"
-                            value={form.main_problem}
-                            onChange={(e) => setForm({ ...form, main_problem: e.target.value })}
-                            placeholder="Scheduling eats our evenings"
-                          />
-                        </div>
-                      </div>
-
-                      {submitError && (
-                        <p className="studio-error-text" role="alert">
-                          {submitError}
-                        </p>
-                      )}
-
-                      <button className="studio-cta" type="submit" disabled={submitting}>
-                        {submitting ? 'Opening the studio…' : 'Design my software'}
-                      </button>
-                      <p className="studio-hint text-center">
-                        Free. No call, no deck — you watch it get made.
-                      </p>
+                      ))}
                     </div>
+                    <p className="studio-hint mb-6">{INTAKE_STEPS[step].subtitle}</p>
+
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={step}
+                        initial={reduceMotion ? undefined : { opacity: 0, x: 16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={reduceMotion ? undefined : { opacity: 0, x: -16 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-5"
+                      >
+                        {step === 0 && (
+                          <>
+                            <div className="studio-field" data-invalid={!!errors.business_name}>
+                              <label htmlFor="st-name">Business name</label>
+                              <input
+                                id="st-name"
+                                value={form.business_name}
+                                onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+                                placeholder="Beacon Physiotherapy"
+                                autoComplete="organization"
+                              />
+                              {errors.business_name && <p className="studio-error-text">{errors.business_name}</p>}
+                            </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-industry">
+                                Industry <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-industry"
+                                value={form.industry}
+                                onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                                placeholder="Physiotherapy clinic"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {step === 1 && (
+                          <>
+                            <div className="studio-field" data-invalid={!!errors.business_description}>
+                              <label htmlFor="st-desc">What does it do?</label>
+                              <textarea
+                                id="st-desc"
+                                rows={4}
+                                value={form.business_description}
+                                onChange={(e) => setForm({ ...form, business_description: e.target.value })}
+                                placeholder="Physiotherapy clinic with six therapists. Patients book assessments and follow-ups; we juggle availability, insurance pre-approvals and no-shows…"
+                              />
+                              {errors.business_description ? (
+                                <p className="studio-error-text">{errors.business_description}</p>
+                              ) : (
+                                <p className="studio-hint">
+                                  The more specific you are, the more the screens feel like yours.
+                                </p>
+                              )}
+                            </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-customers">
+                                Who are your customers? <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-customers"
+                                value={form.target_customers}
+                                onChange={(e) => setForm({ ...form, target_customers: e.target.value })}
+                                placeholder="Busy professionals, 30-55, referred by their doctor"
+                              />
+                            </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-problem">
+                                Biggest headache <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-problem"
+                                value={form.main_problem}
+                                onChange={(e) => setForm({ ...form, main_problem: e.target.value })}
+                                placeholder="Scheduling eats our evenings"
+                              />
+                            </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-outcome">
+                                What would fixing it get you? <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-outcome"
+                                value={form.desired_outcome}
+                                onChange={(e) => setForm({ ...form, desired_outcome: e.target.value })}
+                                placeholder="Evenings back, zero double-bookings"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {step === 2 && (
+                          <>
+                            <div className="studio-field">
+                              <label htmlFor="st-refurl">
+                                A tool or site you like <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-refurl"
+                                value={form.reference_url}
+                                onChange={(e) => setForm({ ...form, reference_url: e.target.value })}
+                                placeholder="https://example.com"
+                                autoComplete="url"
+                              />
+                            </div>
+                            <div className="studio-field" data-invalid={!!errors.what_you_like}>
+                              <label htmlFor="st-refwhy">
+                                What do you like about it?
+                                {!form.reference_url.trim() && (
+                                  <span className="text-slate-500 font-normal"> (optional)</span>
+                                )}
+                              </label>
+                              <textarea
+                                id="st-refwhy"
+                                rows={3}
+                                value={form.what_you_like}
+                                onChange={(e) => setForm({ ...form, what_you_like: e.target.value })}
+                                placeholder="The clean booking calendar and how simple it is to reschedule"
+                              />
+                              {errors.what_you_like && <p className="studio-error-text">{errors.what_you_like}</p>}
+                            </div>
+                          </>
+                        )}
+
+                        {step === 3 && (
+                          <>
+                            <div className="studio-field">
+                              <label>Want AI running any of this?</label>
+                              <StudioPills
+                                options={NEEDS_AI_OPTIONS}
+                                value={NEEDS_AI_REVERSE[form.needs_ai] ?? NEEDS_AI_OPTIONS[0]}
+                                onChange={(v) => setForm({ ...form, needs_ai: NEEDS_AI_MAP[v] })}
+                              />
+                            </div>
+                            <div className="studio-field">
+                              <label>Rough scope</label>
+                              <StudioPills
+                                options={BUDGET_OPTIONS}
+                                value={form.budget_range}
+                                onChange={(v) => setForm({ ...form, budget_range: v })}
+                              />
+                            </div>
+                            <div className="studio-field">
+                              <label>Timeline</label>
+                              <StudioPills
+                                options={TIMELINE_OPTIONS}
+                                value={form.timeline}
+                                onChange={(v) => setForm({ ...form, timeline: v })}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {step === 4 && (
+                          <>
+                            <div className="studio-field" data-invalid={!!errors.email}>
+                              <label htmlFor="st-email">Email</label>
+                              <input
+                                id="st-email"
+                                type="email"
+                                value={form.email}
+                                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                                placeholder="you@yourbusiness.com"
+                                autoComplete="email"
+                              />
+                              {errors.email && <p className="studio-error-text">{errors.email}</p>}
+                            </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-whatsapp">
+                                WhatsApp <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-whatsapp"
+                                value={form.whatsapp}
+                                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                                placeholder="+1 555 010 1234"
+                                autoComplete="tel"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {submitError && (
+                      <p className="studio-error-text mt-5" role="alert">
+                        {submitError}
+                      </p>
+                    )}
+
+                    <div className="studio-stepnav">
+                      {step > 0 && (
+                        <button type="button" className="studio-ghost-btn" onClick={goBack} disabled={submitting}>
+                          Back
+                        </button>
+                      )}
+                      {step < INTAKE_STEPS.length - 1 ? (
+                        <button type="button" className="studio-cta studio-stepnav-cta" onClick={goNext}>
+                          Continue
+                        </button>
+                      ) : (
+                        <button className="studio-cta studio-stepnav-cta" type="submit" disabled={submitting}>
+                          {submitting ? 'Opening the studio…' : 'Design my software'}
+                        </button>
+                      )}
+                    </div>
+                    <p className="studio-hint text-center mt-4">
+                      Free. No call, no deck — you watch it get made.
+                    </p>
                   </motion.form>
                 </div>
               </motion.section>

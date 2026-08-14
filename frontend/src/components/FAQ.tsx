@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import GlowButton from './GlowButton';
 
@@ -74,12 +73,9 @@ export default function FAQ() {
             </div>
 
             <div className="faq-showcase__cta">
-              <GlowButton to="/submit" className="text-sm px-6 py-3.5 !inline-flex">
+              <GlowButton to="/demo" className="text-sm px-6 py-3.5 !inline-flex">
                 Create My Business Version
               </GlowButton>
-              <Link to="/demo" className="faq-showcase__ghost">
-                See live demos
-              </Link>
             </div>
           </motion.div>
 

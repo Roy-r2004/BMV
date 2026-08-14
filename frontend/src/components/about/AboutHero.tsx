@@ -79,7 +79,7 @@ export default function AboutHero() {
           transition={{ delay: 0.32, duration: 0.5, ease }}
           className="about-boom-hero__actions"
         >
-          <GlowButton to="/submit" className="text-sm px-7 py-3.5 !inline-flex">
+          <GlowButton to="/demo" className="text-sm px-7 py-3.5 !inline-flex">
             Find my AI fit
           </GlowButton>
           <Link to="/demo" className="about-boom-hero__ghost">

@@ -57,7 +57,7 @@ export default function SolutionsPage() {
             transition={{ duration: 0.5, delay: 0.2, ease: easeOut }}
             className="flex flex-wrap justify-center gap-3"
           >
-            <GlowButton to="/submit" className="text-sm px-6 py-3 !inline-block">
+            <GlowButton to="/demo" className="text-sm px-6 py-3 !inline-block">
               Get this software
             </GlowButton>
           </motion.div>
@@ -96,7 +96,7 @@ export default function SolutionsPage() {
             className="mt-14 text-center"
           >
             <p className="text-slate-500 mb-4">Don't see your industry?</p>
-            <GlowButton to="/submit" className="text-sm px-6 py-3 !inline-block">
+            <GlowButton to="/demo" className="text-sm px-6 py-3 !inline-block">
               Tell us about your business
             </GlowButton>
           </motion.div>

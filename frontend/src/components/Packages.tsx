@@ -41,7 +41,7 @@ export default function Packages() {
                 ))}
               </ul>
               <Link
-                to="/submit"
+                to="/demo"
                 className="mt-5 inline-flex justify-center rounded-xl bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 hover:bg-slate-800 transition"
               >
                 Start with a free preview

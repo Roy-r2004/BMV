@@ -22,6 +22,14 @@ export interface StudioIntake {
   email: string;
   industry?: string;
   main_problem?: string;
+  target_customers?: string;
+  desired_outcome?: string;
+  reference_url?: string;
+  what_you_like?: string;
+  needs_ai?: string;
+  budget_range?: string;
+  timeline?: string;
+  whatsapp?: string;
 }
 
 export interface StudioProgress {
@@ -108,6 +116,14 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   form.set('email', intake.email);
   if (intake.industry) form.set('industry', intake.industry);
   if (intake.main_problem) form.set('main_problem', intake.main_problem);
+  if (intake.target_customers) form.set('target_customers', intake.target_customers);
+  if (intake.desired_outcome) form.set('desired_outcome', intake.desired_outcome);
+  if (intake.reference_url) form.set('reference_url', intake.reference_url);
+  if (intake.what_you_like) form.set('what_you_like', intake.what_you_like);
+  if (intake.needs_ai) form.set('needs_ai', intake.needs_ai);
+  if (intake.budget_range) form.set('budget_range', intake.budget_range);
+  if (intake.timeline) form.set('timeline', intake.timeline);
+  if (intake.whatsapp) form.set('whatsapp', intake.whatsapp);
   const { data } = await consultantClient.post('/api/requests', form, { timeout: 30000 });
   return data;
 }

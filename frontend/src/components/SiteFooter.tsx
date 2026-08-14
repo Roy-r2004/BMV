@@ -4,7 +4,7 @@ import Logo from './Logo';
 type FooterLink = { to: To; label: string };
 
 const PRODUCT_LINKS: FooterLink[] = [
-  { to: '/submit', label: 'Create my version' },
+  { to: '/demo', label: 'Create my version' },
   { to: '/solutions', label: 'Solutions by industry' },
   { to: '/demo', label: 'Live demos' },
   { to: '/examples', label: 'Example outputs' },
@@ -15,7 +15,7 @@ const COMPANY_LINKS: FooterLink[] = [
   { to: '/about', label: 'About us' },
   { to: '/demo', label: 'Live demos' },
   { to: '/examples', label: 'What we build' },
-  { to: '/submit', label: 'Get started' },
+  { to: '/demo', label: 'Get started' },
 ];
 
 export default function SiteFooter() {
@@ -83,7 +83,7 @@ export default function SiteFooter() {
               Describe your business, share a reference, and get a custom MVP concept with visual preview in minutes.
             </p>
             <Link
-              to="/submit"
+              to="/demo"
               className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all duration-300"
             >
               Create My Business Version
@@ -99,7 +99,7 @@ export default function SiteFooter() {
           <div className="flex gap-6">
             <Link to="/examples" className="hover:text-slate-300 transition-colors">Examples</Link>
             <Link to="/about" className="hover:text-slate-300 transition-colors">About</Link>
-            <Link to="/submit" className="hover:text-slate-300 transition-colors">Get started</Link>
+            <Link to="/demo" className="hover:text-slate-300 transition-colors">Get started</Link>
           </div>
         </div>
       </div>

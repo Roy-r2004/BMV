@@ -18,7 +18,7 @@ export default function CinematicCTA({
   title = 'Ready to find what your business should automate?',
   subtitle = 'Tell us how you work. We map the AI opportunities, show a free preview, then our team builds the real product.',
   primaryLabel = 'Find my AI fit',
-  primaryTo = '/submit',
+  primaryTo = '/demo',
   secondaryLabel = 'Browse examples',
   secondaryTo = '/examples',
 }: Props) {
