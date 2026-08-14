@@ -107,6 +107,14 @@ export interface StudioPreview {
   status: string;
   is_generating: boolean;
   industry: string | null;
+  /** Echoed back from the intake — feeds the Plans tab's add-on suggestions,
+   *  the same signal the analysis prompt already used. */
+  main_problem: string | null;
+  desired_outcome: string | null;
+  reference_url: string | null;
+  what_you_like: string | null;
+  timeline: string | null;
+  budget_range: string | null;
 }
 
 export async function createStudioRequest(intake: StudioIntake): Promise<{ id: number; status: string }> {

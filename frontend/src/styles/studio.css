@@ -1140,6 +1140,170 @@
   font-weight: 600;
 }
 
+/* ── plans tab — packages, add-ons, deck export ─────────────────────────── */
+
+.studio-plancards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.studio-plancard {
+  position: relative;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.55), rgba(15, 23, 42, 0.5));
+  padding: 1.5rem 1.4rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.studio-plancard:hover {
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+.studio-plancard--active {
+  border-color: rgba(103, 232, 249, 0.55);
+  box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.35), 0 20px 50px -30px rgba(34, 211, 238, 0.5);
+}
+
+.studio-plancard-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #020617;
+  background: linear-gradient(120deg, #67e8f9, #38bdf8);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  margin-bottom: 0.7rem;
+}
+
+.studio-plancard-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #f8fafc;
+}
+
+.studio-plancard-tagline {
+  margin-top: 0.35rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.studio-plancard-timeline {
+  margin-top: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.studio-plancard-includes {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  list-style: none;
+}
+
+.studio-plancard-includes li {
+  position: relative;
+  padding-left: 1.15rem;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin-bottom: 0.3rem;
+}
+
+.studio-plancard-includes li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #22d3ee;
+  font-weight: 700;
+}
+
+.studio-addons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.7rem;
+}
+
+.studio-addon {
+  text-align: left;
+  border-radius: 0.9rem;
+  padding: 0.9rem 1.05rem;
+  font-size: 0.82rem;
+}
+
+.studio-addon--included {
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.studio-addon--optional {
+  appearance: none;
+  cursor: pointer;
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.4);
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.studio-addon--optional:hover {
+  border-color: rgba(148, 163, 184, 0.36);
+}
+
+.studio-addon--on {
+  border-color: rgba(103, 232, 249, 0.5);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.studio-addon-name {
+  font-weight: 700;
+  color: #f1f5f9;
+  font-size: 0.85rem;
+}
+
+.studio-addon-desc {
+  margin-top: 0.3rem;
+  color: #94a3b8;
+  line-height: 1.55;
+}
+
+.studio-addon-why {
+  margin-top: 0.5rem;
+  color: #67e8f9;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.studio-addon-toggle {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.studio-addon--on .studio-addon-toggle {
+  color: #67e8f9;
+}
+
+.studio-plans-actions {
+  text-align: center;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
 /* ── AI team roster (the dedicated tab) ─────────────────────────────────── */
 
 .studio-roster {

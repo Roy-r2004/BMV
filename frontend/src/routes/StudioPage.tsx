@@ -25,6 +25,15 @@ import {
   firstParagraph,
   stripInlineMarkdown,
 } from '../utils/consultantMarkdown';
+import { whatsappUrl } from '../api/client';
+import {
+  BUILD_PLANS,
+  suggestBusinessAddons,
+  addonAvailable,
+  addonIncluded,
+  summarizeSelection,
+  type BuildPlan,
+} from '../data/buildPlans';
 import '../styles/studio.css';
 
 // The orchestrator's real stages, told as studio work. `at` mirrors the
@@ -50,7 +59,7 @@ const RENDER_WHISPERS = [
 // the other end; 'missing' is an id that was never issued.
 type Act = 'intake' | 'loading' | 'building' | 'reveal' | 'failed' | 'missing';
 
-type ResultTab = 'screens' | 'blueprint' | 'technical' | 'team';
+type ResultTab = 'screens' | 'blueprint' | 'technical' | 'team' | 'plans';
 
 // Each tab knows its own availability rule, so a run that skipped a stage
 // (no technical plan yet, no AI employees named) never shows an empty tab —
@@ -60,6 +69,9 @@ const RESULT_TABS: { id: ResultTab; label: string; available: (p: StudioPreview)
   { id: 'blueprint', label: 'Blueprint', available: (p) => Boolean(p.mvp_blueprint) },
   { id: 'technical', label: 'Technical plan', available: (p) => Boolean(p.technical_plan) },
   { id: 'team', label: 'AI team', available: (p) => p.ai_features.length > 0 },
+  // Static plan/add-on content (data/buildPlans.ts) plus the deck export —
+  // always something to show, so always available.
+  { id: 'plans', label: 'Plans', available: () => true },
 ];
 
 interface FieldErrors {
@@ -415,6 +427,152 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Packages, tailored add-ons and the deck export — the same canonical,
+ *  no-public-prices catalog the landing page's Packages section and the old
+ *  pipeline's BuildRequestCTA already use (data/buildPlans.ts), read from
+ *  this run's own preview instead of invented for the occasion. There is no
+ *  build-request endpoint on consultant-service, so the call to action is
+ *  WhatsApp — already wired, no backend dependency. */
+function PlansPanel({ preview }: { preview: StudioPreview }) {
+  const [planId, setPlanId] = useState<BuildPlan['id']>('growth');
+  const [addonIds, setAddonIds] = useState<string[]>([]);
+
+  const roleLabels = useMemo(
+    () => [...new Set(preview.generated_pages.attraction_images.map((s) => s.role_label))],
+    [preview.generated_pages.attraction_images],
+  );
+
+  const addons = useMemo(
+    () =>
+      suggestBusinessAddons({
+        businessName: preview.business_name,
+        conceptName: preview.concept_name,
+        industry: preview.industry,
+        mainProblem: preview.main_problem,
+        desiredOutcome: preview.desired_outcome,
+        previewFeatures: preview.preview_features,
+        aiFeatures: preview.ai_features,
+        roleLabels,
+      }),
+    [preview, roleLabels],
+  );
+
+  const plan = BUILD_PLANS.find((p) => p.id === planId) ?? BUILD_PLANS[1];
+  const includedAddons = addons.filter((a) => addonIncluded(a, planId));
+  const optionalAddons = addons.filter((a) => addonAvailable(a, planId));
+
+  const selectPlan = (id: BuildPlan['id']) => {
+    setPlanId(id);
+    setAddonIds((prev) =>
+      prev.filter((aid) => {
+        const addon = addons.find((a) => a.id === aid);
+        return addon ? addonAvailable(addon, id) : false;
+      }),
+    );
+  };
+
+  const toggleAddon = (id: string) => {
+    setAddonIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const selectionSummary = summarizeSelection(planId, addonIds, addons, BUILD_PLANS);
+  const waMessage = `Hi, I saw the "${preview.concept_name || preview.business_name}" demo and want to move forward.\n\n${selectionSummary}`;
+
+  return (
+    <div className="studio-plan">
+      <div className="studio-plan-hero">
+        <p className="studio-kicker mb-3">Next step</p>
+        <h2 className="studio-display text-2xl sm:text-3xl font-bold text-off-white mb-4">
+          Choose how we build it
+        </h2>
+        <p className="studio-plan-hero-lead">
+          Packages and add-ons below are written from this preview. No public prices — we quote
+          after you choose and confirm scope.
+        </p>
+        {preview.deck_available && (
+          <a className="studio-cta studio-plans-deckbtn mt-6" href={studioDeckUrl(preview.id)}>
+            Download the deck (PowerPoint)
+          </a>
+        )}
+      </div>
+
+      <div className="studio-plancards">
+        {BUILD_PLANS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={`studio-plancard${planId === p.id ? ' studio-plancard--active' : ''}`}
+            onClick={() => selectPlan(p.id)}
+          >
+            {p.badge && <span className="studio-plancard-badge">{p.badge}</span>}
+            <p className="studio-plancard-name">{p.name}</p>
+            <p className="studio-plancard-tagline">{p.tagline}</p>
+            <p className="studio-plancard-timeline">{p.timeline}</p>
+            <ul className="studio-plancard-includes">
+              {p.includes.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </button>
+        ))}
+      </div>
+
+      {(includedAddons.length > 0 || optionalAddons.length > 0) && (
+        <div className="studio-plan-columns">
+          {includedAddons.length > 0 && (
+            <PlanPanel eyebrow={`Included in ${plan.name}`}>
+              <div className="studio-addons">
+                {includedAddons.map((addon) => (
+                  <div className="studio-addon studio-addon--included" key={addon.id}>
+                    <p className="studio-addon-name">{addon.name}</p>
+                    {addon.description && <p className="studio-addon-desc">{addon.description}</p>}
+                    {addon.whyForYou && <p className="studio-addon-why">Why for you: {addon.whyForYou}</p>}
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
+          {optionalAddons.length > 0 && (
+            <PlanPanel eyebrow="Optional upgrades">
+              <div className="studio-addons">
+                {optionalAddons.map((addon) => {
+                  const on = addonIds.includes(addon.id);
+                  return (
+                    <button
+                      key={addon.id}
+                      type="button"
+                      className={`studio-addon studio-addon--optional${on ? ' studio-addon--on' : ''}`}
+                      onClick={() => toggleAddon(addon.id)}
+                    >
+                      <p className="studio-addon-name">{addon.name}</p>
+                      {addon.description && <p className="studio-addon-desc">{addon.description}</p>}
+                      <span className="studio-addon-toggle">{on ? 'Added' : 'Add'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </PlanPanel>
+          )}
+        </div>
+      )}
+
+      <div className="studio-plans-actions">
+        <a
+          className="studio-cta studio-stepnav-cta"
+          href={whatsappUrl(waMessage)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          WhatsApp this plan
+        </a>
+        <p className="studio-hint">
+          Or just reply to the email you gave us — we already have the blueprint.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1313,6 +1471,12 @@ export default function StudioPage() {
                 {activeTab === 'technical' && preview.technical_plan && (
                   <div className="studio-tabpanel">
                     <TechnicalCinematic preview={preview} />
+                  </div>
+                )}
+
+                {activeTab === 'plans' && (
+                  <div className="studio-tabpanel">
+                    <PlansPanel preview={preview} />
                   </div>
                 )}
 
