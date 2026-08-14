@@ -593,6 +593,9 @@
 /* ── result tabs ───────────────────────────────────────────────────────── */
 
 .studio-tabs {
+  position: sticky;
+  top: 3.75rem;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -601,9 +604,18 @@
   padding: 0.35rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
   max-width: fit-content;
   margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .studio-tabs {
+    top: 4.25rem;
+  }
 }
 
 .studio-tab {
