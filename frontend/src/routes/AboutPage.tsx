@@ -172,8 +172,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── 2 · manifesto (white, huge, no cards) ───────────────────────── */}
-      <section className="py-20 sm:py-24">
-        <div className="container-max px-4 sm:px-6 grid lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
+      <section className="py-20 sm:py-24 relative overflow-hidden">
+        <div className="container-max px-4 sm:px-6 grid lg:grid-cols-[1fr_1.1fr] gap-12 items-center">
           <div>
             <h2 className="about-display text-4xl sm:text-5xl font-bold leading-[1.1] text-navy">
               AI is everywhere.
@@ -196,13 +196,52 @@ export default function AboutPage() {
               )}
             </ul>
           </div>
-          <div className="about-radar hidden lg:block" aria-hidden="true">
-            <span className="about-radar-ring" style={{ width: '100%', height: '100%' }} />
-            <span className="about-radar-ring" style={{ width: '70%', height: '70%' }} />
-            <span className="about-radar-ring" style={{ width: '42%', height: '42%' }} />
-            <span className="about-radar-dot" />
+          {/* the operation, as a schematic: the thing we understand first */}
+          <div className="about-ops hidden lg:block" aria-hidden="true">
+            <svg className="about-ops-lines" viewBox="0 0 560 400">
+              <path d="M150 90 L150 150 Q150 170 170 170 L250 170" fill="none" />
+              <path d="M430 90 L430 150 Q430 130 410 150 L340 178" fill="none" />
+              <path d="M295 230 L295 300" fill="none" />
+              <path d="M250 210 L150 210 Q130 210 130 230 L130 280" fill="none" strokeDasharray="4 4" />
+              <path d="M340 210 L440 210 Q460 210 460 230 L460 280" fill="none" strokeDasharray="4 4" />
+              {[
+                [150, 90], [250, 170], [430, 90], [340, 178], [295, 300], [130, 280], [460, 280],
+              ].map(([x, y]) => (
+                <circle key={`${x}-${y}`} cx={x} cy={y} r="4" />
+              ))}
+            </svg>
+            {[
+              { icon: 'users', label: 'Demand', style: { left: '6%', top: '4%' } },
+              { icon: 'user', label: 'Customers', style: { right: '4%', top: '4%' } },
+              { icon: 'target', label: 'Operations', style: { left: '44%', top: '34%' }, core: true },
+              { icon: 'cube', label: 'Inventory', style: { left: '2%', top: '60%' } },
+              { icon: 'truck', label: 'Fulfillment', style: { right: '0%', top: '60%' } },
+              { icon: 'coin', label: 'Finance', style: { left: '42%', top: '76%' } },
+            ].map((n) => (
+              <div
+                key={n.label}
+                className={`about-ops-card${n.core ? ' about-ops-card--core' : ''}`}
+                style={n.style}
+              >
+                <span className={`about-ops-icon about-ops-icon--${n.icon}`} />
+                <div>
+                  <p>{n.label}</p>
+                  <span className="about-ops-skel" />
+                  <span className="about-ops-skel about-ops-skel--short" />
+                </div>
+              </div>
+            ))}
+            <span className="about-ops-dots" style={{ left: '30%', top: '20%' }} />
+            <span className="about-ops-dots" style={{ right: '12%', top: '44%' }} />
+            <span className="about-ops-dots" style={{ left: '18%', top: '84%' }} />
           </div>
         </div>
+
+        {/* curved divider with a traveling point */}
+        <svg className="about-curve" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 10 Q600 60 1200 10" fill="none" />
+        </svg>
+        <span className="about-curve-dot" aria-hidden="true" />
       </section>
 
       {/* ── 3 · what we are — breadth (pale) ────────────────────────────── */}

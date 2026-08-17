@@ -55,32 +55,135 @@
   background: #22d3ee;
 }
 
-.about-radar {
+.about-kicker--rule {
   position: relative;
-  aspect-ratio: 1;
-  max-width: 22rem;
-  margin-inline: auto;
+  padding-bottom: 0.7rem;
 }
 
-.about-radar-ring {
+.about-kicker--rule::after {
+  content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(37, 99, 235, 0.18);
+  left: 0;
+  bottom: 0;
+  width: 2.2rem;
+  height: 3px;
+  background: #2563eb;
+}
+
+/* the operation as a schematic — cards over a connector layer */
+
+.about-ops {
+  position: relative;
+  min-height: 26rem;
+}
+
+.about-ops-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.about-ops-lines path {
+  stroke: rgba(37, 99, 235, 0.35);
+  stroke-width: 1.4;
+}
+
+.about-ops-lines circle {
+  fill: #2563eb;
+}
+
+.about-ops-card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 14px 30px -22px rgba(15, 23, 42, 0.4);
+  padding: 0.75rem 1rem;
+  min-width: 10rem;
+}
+
+.about-ops-card--core {
+  box-shadow: 0 22px 44px -20px rgba(37, 99, 235, 0.45);
+  border-color: rgba(37, 99, 235, 0.25);
+  z-index: 1;
+}
+
+.about-ops-card p {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.3rem;
+}
+
+.about-ops-icon {
+  flex: 0 0 auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.6rem;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  position: relative;
+}
+
+.about-ops-icon::after {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  border: 1.6px solid #2563eb;
   border-radius: 999px;
 }
 
-.about-radar-dot {
+.about-ops-skel {
+  display: block;
+  height: 4px;
+  width: 4.2rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  margin-top: 3px;
+}
+
+.about-ops-skel--short {
+  width: 2.6rem;
+}
+
+.about-ops-dots {
   position: absolute;
-  top: 50%;
+  width: 3rem;
+  height: 2rem;
+  background-image: radial-gradient(rgba(37, 99, 235, 0.35) 1.2px, transparent 1.2px);
+  background-size: 9px 9px;
+}
+
+/* curved section divider with a point on it */
+
+.about-curve {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3rem;
+}
+
+.about-curve path {
+  stroke: rgba(37, 99, 235, 0.35);
+  stroke-width: 1.4;
+}
+
+.about-curve-dot {
+  position: absolute;
+  bottom: calc(3rem - 2.55rem);
   left: 50%;
-  transform: translate(-50%, -50%);
-  width: 0.65rem;
-  height: 0.65rem;
+  transform: translateX(-50%);
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 999px;
   background: #2563eb;
-  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 4px #ffffff, 0 0 0 5px rgba(37, 99, 235, 0.25);
 }
 
 /* ── what-we-are columns — hairline separators, no cards ─────────────── */
