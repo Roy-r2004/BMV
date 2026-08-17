@@ -6,12 +6,65 @@ import '../styles/site-chat.css';
 const WELCOME =
   "Hey — I’m the Build My Version guide. We find the AI your business actually needs, prove it with a free preview, then build it. What kind of business are you running?";
 
+// Lucide-style outline paths, stroked with currentColor.
+const ICONS = {
+  utensils:
+    'M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2 M7 2v20 M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3 M21 15v7',
+  rocket:
+    'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0 M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5',
+  gift: 'M20 12v10H4V12 M2 7h20v5H2z M12 22V7 M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z',
+  bulb: 'M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5 M9 18h6 M10 22h4',
+  sparkle:
+    'M9.9 15.5a2 2 0 0 0-1.4-1.4l-6.1-1.6a.5.5 0 0 1 0-.96L8.5 9.9A2 2 0 0 0 9.9 8.5l1.6-6.1a.5.5 0 0 1 .96 0l1.6 6.1a2 2 0 0 0 1.4 1.4l6.1 1.6a.5.5 0 0 1 0 .96l-6.1 1.6a2 2 0 0 0-1.4 1.4l-1.6 6.1a.5.5 0 0 1-.96 0z M19 3v4 M21 5h-4',
+  plane: 'M22 2 11 13 M22 2 15 22l-4-9-9-4z',
+} as const;
+
+function Icon({ path, className }: { path: string; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d={path} />
+    </svg>
+  );
+}
+
+/** The one robot mark used everywhere — header tile, message avatar, fab:
+ *  a speech-bubble head with antenna nubs, eyes and a smile. */
+function BotMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M9 3.5v2M15 3.5v2" />
+      <rect x="4.5" y="5.5" width="15" height="12.5" rx="4" />
+      <path d="M9.5 10.4v1.7M14.5 10.4v1.7" />
+      <path d="M9.6 15q2.4 1.7 4.8 0" />
+      <path d="M8.5 18v3l3-3" />
+    </svg>
+  );
+}
+
 const STARTERS = [
-  'I’m a restaurant',
-  'How do I start?',
-  'What packages do you offer?',
-  'Show me solutions',
-];
+  { label: 'I’m a restaurant', icon: ICONS.utensils },
+  { label: 'How do I start?', icon: ICONS.rocket },
+  { label: 'What packages do you offer?', icon: ICONS.gift },
+  { label: 'Show me solutions', icon: ICONS.bulb },
+] as const;
 
 function linkify(text: string) {
   const parts = text.split(/(\/[a-z0-9\-/_]+)/gi);
@@ -25,61 +78,6 @@ function linkify(text: string) {
     }
     return <span key={i}>{part}</span>;
   });
-}
-
-function GuideBot({ active }: { active?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 64 72"
-      className={`site-chat__bot ${active ? 'site-chat__bot--bounce' : ''}`}
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id="site-chat-bot-body" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#1e3a8a" />
-          <stop offset="100%" stopColor="#0f172a" />
-        </linearGradient>
-        <linearGradient id="site-chat-bot-face" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="100%" stopColor="#22d3ee" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="32" cy="68" rx="14" ry="3" fill="#2563eb" opacity="0.2" />
-      <rect
-        x="14"
-        y="18"
-        width="36"
-        height="38"
-        rx="12"
-        fill="url(#site-chat-bot-body)"
-        stroke="#38bdf8"
-        strokeWidth="1.5"
-        opacity="0.9"
-      />
-      <rect x="22" y="26" width="20" height="16" rx="6" fill="url(#site-chat-bot-face)" />
-      <circle cx="28" cy="34" r="2.5" fill="#0f172a" />
-      <circle cx="36" cy="34" r="2.5" fill="#0f172a" />
-      <path
-        d="M27 40 Q32 43 37 40"
-        stroke="#0f172a"
-        strokeWidth="1.5"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <rect x="8" y="30" width="6" height="16" rx="3" fill="#2563eb" />
-      <rect x="50" y="30" width="6" height="16" rx="3" fill="#2563eb" />
-      <circle cx="32" cy="12" r="5" fill="#22d3ee" className="site-chat__antenna" />
-      <line
-        x1="32"
-        y1="17"
-        x2="32"
-        y2="20"
-        stroke="#67e8f9"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }
 
 export default function SiteChatWidget() {
@@ -149,7 +147,10 @@ export default function SiteChatWidget() {
       {open && (
         <section className="site-chat__panel" aria-label="Site guide chat">
           <header className="site-chat__head">
-            <div>
+            <span className="site-chat__tile" aria-hidden>
+              <BotMark className="site-chat__tile-bot" />
+            </span>
+            <div className="site-chat__headtext">
               <p className="site-chat__eyebrow">Site guide</p>
               <h2>Build My Version</h2>
             </div>
@@ -164,19 +165,32 @@ export default function SiteChatWidget() {
           </header>
 
           <div className="site-chat__messages">
-            {messages.map((m, i) => (
-              <div
-                key={`${m.role}-${i}`}
-                className={`site-chat__bubble site-chat__bubble--${m.role}`}
-              >
-                {linkify(m.content)}
-              </div>
-            ))}
+            {messages.map((m, i) =>
+              m.role === 'assistant' ? (
+                <div key={`a-${i}`} className="site-chat__row">
+                  <span className="site-chat__avatar" aria-hidden>
+                    <BotMark className="site-chat__avatar-bot" />
+                  </span>
+                  <div className="site-chat__bubble site-chat__bubble--assistant">
+                    {linkify(m.content)}
+                  </div>
+                </div>
+              ) : (
+                <div key={`u-${i}`} className="site-chat__bubble site-chat__bubble--user">
+                  {linkify(m.content)}
+                </div>
+              ),
+            )}
             {busy && (
-              <div className="site-chat__bubble site-chat__bubble--assistant site-chat__typing">
-                <span />
-                <span />
-                <span />
+              <div className="site-chat__row">
+                <span className="site-chat__avatar" aria-hidden>
+                  <BotMark className="site-chat__avatar-bot" />
+                </span>
+                <div className="site-chat__bubble site-chat__bubble--assistant site-chat__typing">
+                  <span />
+                  <span />
+                  <span />
+                </div>
               </div>
             )}
             <div ref={endRef} />
@@ -185,25 +199,30 @@ export default function SiteChatWidget() {
           {!busy && messages.length < 3 && (
             <div className="site-chat__starters">
               {STARTERS.map((s) => (
-                <button key={s} type="button" onClick={() => void ask(s)}>
-                  {s}
+                <button key={s.label} type="button" onClick={() => void ask(s.label)}>
+                  <Icon path={s.icon} className="site-chat__chip-icon" />
+                  {s.label}
                 </button>
               ))}
             </div>
           )}
 
           <form className="site-chat__form" onSubmit={onSubmit}>
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about plans, solutions…"
-              maxLength={800}
-              disabled={busy}
-              aria-label="Message"
-            />
+            <div className="site-chat__inputwrap">
+              <Icon path={ICONS.sparkle} className="site-chat__spark" />
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about plans, solutions…"
+                maxLength={800}
+                disabled={busy}
+                aria-label="Message"
+              />
+            </div>
             <button type="submit" disabled={busy || !input.trim()}>
               Send
+              <Icon path={ICONS.plane} className="site-chat__plane" />
             </button>
           </form>
         </section>
@@ -216,7 +235,7 @@ export default function SiteChatWidget() {
         aria-expanded={open}
         aria-label={open ? 'Close site guide' : 'Open site guide'}
       >
-        {open ? <span className="site-chat__fab-x">×</span> : <GuideBot active={!open} />}
+        {open ? <span className="site-chat__fab-x">×</span> : <BotMark className="site-chat__fab-bot" />}
       </button>
     </div>
   );
