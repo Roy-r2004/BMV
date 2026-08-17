@@ -1,31 +1,37 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ScrollManager from './components/ScrollManager';
 import { AuthProvider } from './context/AuthContext';
+// The landing stays eager — it is the first paint. Every other route is a
+// separate chunk fetched on navigation, so the landing bundle stops
+// carrying the studio, admin and solutions code.
 import LandingPage from './routes/LandingPage';
-import ExamplesPage from './routes/ExamplesPage';
-import SolutionsPage from './routes/SolutionsPage';
-import SolutionDetailPage from './routes/SolutionDetailPage';
-import AboutPage from './routes/AboutPage';
-import PrivateAIPage from './routes/PrivateAIPage';
-import SubmitPage from './routes/SubmitPage';
-import StudioPage from './routes/StudioPage';
-import ResultPreviewPage from './routes/ResultPreviewPage';
-import LoginPage from './routes/LoginPage';
-import SignupPage from './routes/SignupPage';
-import AdminLoginPage from './routes/AdminLoginPage';
-import AdminOpsPage from './routes/AdminOpsPage';
-import AdminDashboardPage from './routes/AdminDashboardPage';
-import AdminUsagePage from './routes/AdminUsagePage';
-import AdminRequestDetailPage from './routes/AdminRequestDetailPage';
-import AdminLayout from './components/AdminLayout';
 import SiteChatWidget from './components/SiteChatWidget';
 import './styles/mobile-shell.css';
+
+const ExamplesPage = lazy(() => import('./routes/ExamplesPage'));
+const SolutionsPage = lazy(() => import('./routes/SolutionsPage'));
+const SolutionDetailPage = lazy(() => import('./routes/SolutionDetailPage'));
+const AboutPage = lazy(() => import('./routes/AboutPage'));
+const PrivateAIPage = lazy(() => import('./routes/PrivateAIPage'));
+const SubmitPage = lazy(() => import('./routes/SubmitPage'));
+const StudioPage = lazy(() => import('./routes/StudioPage'));
+const ResultPreviewPage = lazy(() => import('./routes/ResultPreviewPage'));
+const LoginPage = lazy(() => import('./routes/LoginPage'));
+const SignupPage = lazy(() => import('./routes/SignupPage'));
+const AdminLoginPage = lazy(() => import('./routes/AdminLoginPage'));
+const AdminOpsPage = lazy(() => import('./routes/AdminOpsPage'));
+const AdminDashboardPage = lazy(() => import('./routes/AdminDashboardPage'));
+const AdminUsagePage = lazy(() => import('./routes/AdminUsagePage'));
+const AdminRequestDetailPage = lazy(() => import('./routes/AdminRequestDetailPage'));
+const AdminLayout = lazy(() => import('./components/AdminLayout'));
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <ScrollManager />
+        <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/examples" element={<ExamplesPage />} />
@@ -61,6 +67,7 @@ export default function App() {
             <Route path="usage" element={<AdminUsagePage />} />
           </Route>
         </Routes>
+        </Suspense>
         <SiteChatWidget />
       </BrowserRouter>
     </AuthProvider>

@@ -175,7 +175,7 @@ export default function PrivateAIPage() {
                 label on it names infrastructure the client owns and
                 controls, never a BMV facility. */}
             <img
-              src="/private-ai-environment.png"
+              src="/private-ai-environment.webp"
               alt="Your environment: your data and applications connected to a private AI model running on infrastructure you own, inside a security boundary"
               className="pai-hero-image"
             />

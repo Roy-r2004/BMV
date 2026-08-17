@@ -164,7 +164,7 @@ export default function AboutPage() {
             </p>
           </div>
           <img
-            src="/private-ai-environment.png"
+            src="/private-ai-environment.webp"
             alt="A business environment: data and applications connected to an AI model inside a controlled boundary"
             className="about-hero-image"
           />

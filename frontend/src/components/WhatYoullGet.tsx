@@ -130,17 +130,17 @@ export default function WhatYoullGet() {
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="grid grid-cols-4 gap-1.5">
                 {DISCOVER_FLOW.map((s, i) => (
-                  <div key={s.label} className="relative flex flex-col items-center text-center">
+                  <div key={s.label} className="relative flex flex-col items-center text-center min-w-0">
                     {i > 0 && (
                       <span className="absolute -left-2 top-4 text-slate-300 text-[10px]" aria-hidden>
                         →
                       </span>
                     )}
-                    <span className="w-9 h-9 rounded-full border border-blue-200 bg-blue-50/60 text-blue-600 flex items-center justify-center mb-1.5">
-                      <Icon path={s.icon} className="w-4 h-4" />
+                    <span className="w-8 h-8 rounded-full border border-blue-200 bg-blue-50/60 text-blue-600 flex items-center justify-center mb-1.5">
+                      <Icon path={s.icon} className="w-3.5 h-3.5" />
                     </span>
-                    <p className="text-[11px] font-bold text-navy">{s.label}</p>
-                    <p className="text-[9.5px] text-slate-500 leading-tight mt-0.5">{s.sub}</p>
+                    <p className="text-[10px] font-bold text-navy leading-tight break-words w-full px-0.5">{s.label}</p>
+                    <p className="text-[9px] text-slate-500 leading-tight mt-0.5 break-words w-full px-0.5">{s.sub}</p>
                   </div>
                 ))}
               </div>
@@ -200,12 +200,12 @@ export default function WhatYoullGet() {
               <div className="relative grid grid-cols-4 gap-1.5">
                 <span className="absolute left-6 right-6 top-[18px] h-px bg-slate-200" aria-hidden />
                 {PLAN_PHASES.map((p, i) => (
-                  <div key={p.label} className="relative flex flex-col items-center text-center">
-                    <span className="w-9 h-9 rounded-full border border-blue-200 bg-white text-blue-600 flex items-center justify-center mb-1.5 relative z-10">
-                      <Icon path={p.icon} className="w-4 h-4" />
+                  <div key={p.label} className="relative flex flex-col items-center text-center min-w-0">
+                    <span className="w-8 h-8 rounded-full border border-blue-200 bg-white text-blue-600 flex items-center justify-center mb-1.5 relative z-10">
+                      <Icon path={p.icon} className="w-3.5 h-3.5" />
                     </span>
-                    <p className="text-[11px] font-bold text-navy">{p.label}</p>
-                    <p className="text-[9.5px] text-slate-500 mt-0.5">Phase {i + 1}</p>
+                    <p className="text-[10px] font-bold text-navy leading-tight break-words w-full px-0.5">{p.label}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">Phase {i + 1}</p>
                   </div>
                 ))}
               </div>

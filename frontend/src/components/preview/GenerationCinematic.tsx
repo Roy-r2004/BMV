@@ -515,7 +515,7 @@ function NodeGraph({
       <circle cx={cx} cy={cy} r={hubR} fill="none" stroke="#38bdf8" strokeWidth={compact ? 1.8 : 2.2} opacity="0.85" />
 
       <image
-        href="/logo.png"
+        href="/logo-160.png"
         x={cx - logoSize / 2}
         y={cy - logoSize / 2}
         width={logoSize}

@@ -27,7 +27,7 @@ export default function Logo({ to = '/', size = 'md', showTagline = false, showN
     <div className="flex items-center gap-2.5">
       <div className={`logo-mark shrink-0 ${sizes[size]}`}>
         <img
-          src="/logo.png"
+          src="/logo-160.png"
           alt="Build My Version"
           className="h-full w-full object-contain"
         />

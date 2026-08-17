@@ -158,7 +158,7 @@ export default function Hero() {
           </div>
           {/* app nav */}
           <div className="flex items-center gap-5 px-5 py-3 border-b border-white/5 text-sm">
-            <img src="/logo.png" alt="" className="w-7 h-7 rounded-full" />
+            <img src="/logo-64.png" alt="" className="w-7 h-7 rounded-full" />
             {['Screens', 'Blueprint', 'Technical plan', 'Playbook', 'AI team'].map((t, i) => (
               <span
                 key={t}
