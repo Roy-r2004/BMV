@@ -1133,10 +1133,10 @@ export default function StudioPage() {
                         Built around your business — not a generic AI demo.
                       </span>
                     </div>
-                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-off-white">
+                    <h1 className="studio-display text-4xl sm:text-5xl font-bold leading-[1.05] text-off-white">
                       Before you invest in AI, see exactly what we'd build.
                     </h1>
-                    <p className="mt-6 text-slate-400 text-lg max-w-xl leading-relaxed">
+                    <p className="mt-5 text-slate-400 text-lg max-w-xl leading-relaxed">
                       Tell us where your business is slow, manual, or expensive. We'll turn it
                       into a tailored AI system concept — built around your workflows, your data,
                       your tools, and your economics.
@@ -1156,7 +1156,7 @@ export default function StudioPage() {
                       </span>
                     </div>
 
-                    <div className="mt-12 studio-outcomes">
+                    <div className="mt-8 studio-outcomes">
                       {OUTCOMES.map((o, i) => (
                         <div className="studio-outcome" key={o.title}>
                           <span className="studio-outcome-bubble">

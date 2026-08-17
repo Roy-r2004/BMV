@@ -137,7 +137,7 @@ export default function PrivateAIPage() {
       <main className="relative z-10">
         {/* ── hero ──────────────────────────────────────────────────────── */}
         <section className="pai-section pt-32 sm:pt-36 pb-16">
-          <div className="container-max max-w-6xl grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center">
+          <div className="container-max max-w-6xl grid lg:grid-cols-[0.8fr_1.2fr] gap-10 lg:gap-12 items-center">
             <div>
               <span className="pai-pill mb-4 lg:hidden">
                 <Icon path={ICONS.lock} className="w-3.5 h-3.5" />

@@ -108,13 +108,22 @@
 
 /* ── hero illustration — the client's environment, labeled as such ───── */
 
+/* No border, no frame: the illustration's black ground blends into the
+   page, so it reads as part of the hero rather than a boxed thumbnail —
+   and it gets to be as large as its column allows. */
 .pai-hero-image {
   width: 100%;
   height: auto;
-  border-radius: 1rem;
-  /* The illustration's own ground is pure black; the page is #020617. A
-     faint edge keeps it from reading as a hole in the layout. */
-  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+/* Let it bleed slightly past the column on large screens — the PNG's own
+   labels stop short of its edges, so the overflow is empty ground. */
+@media (min-width: 1024px) {
+  .pai-hero-image {
+    width: 112%;
+    max-width: none;
+    margin-left: -6%;
+  }
 }
 
 /* ── why-cards ───────────────────────────────────────────────────────── */

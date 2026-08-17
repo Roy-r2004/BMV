@@ -71,10 +71,13 @@
 
 /* ── outcome list — 01/02/03, no cards, no borders but a thin left rule ── */
 
+/* Compact vertical rhythm on purpose: the whole left column (headline,
+   outcomes, diagram) should land at roughly the form panel's height, not
+   run long past it. */
 .studio-outcomes {
   display: flex;
   flex-direction: column;
-  gap: 2.25rem;
+  gap: 1.4rem;
 }
 
 .studio-outcome {
@@ -88,8 +91,8 @@
   /* Centered against the whole row, like the reference — while the number
      and title hang from the top. */
   align-self: center;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3rem;
+  height: 3rem;
   border-radius: 999px;
   border: 1px solid rgba(103, 232, 249, 0.3);
   background: rgba(15, 23, 42, 0.5);
@@ -123,17 +126,17 @@
 
 .studio-outcome-title {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #f8fafc;
   letter-spacing: -0.01em;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
 }
 
 .studio-outcome-desc {
   color: #94a3b8;
-  font-size: 0.92rem;
-  line-height: 1.65;
+  font-size: 0.88rem;
+  line-height: 1.6;
   max-width: 30rem;
 }
 
@@ -206,8 +209,8 @@
 .studio-diagram {
   width: 100%;
   height: auto;
-  margin-top: 3rem;
-  max-width: 34rem;
+  margin-top: 1.75rem;
+  max-width: 27rem;
 }
 
 .studio-diagram-mobile {
