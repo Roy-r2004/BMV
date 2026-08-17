@@ -83,11 +83,13 @@ interface FieldErrors {
 
 // Heroicons-24-outline paths, same convention as ConsultantExperience.tsx.
 const INTAKE_ICONS = {
-  monitor:
-    'M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25',
   shield:
     'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z',
-  bolt: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
+  workflow:
+    'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
+  cpu: 'M8.25 3v1.5M15.75 3v1.5M8.25 19.5V21M15.75 19.5V21M3 8.25H1.5M3 12H1.5M3 15.75H1.5M22.5 8.25H21M22.5 12H21M22.5 15.75H21M6.75 19.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v10.5a2.25 2.25 0 0 0 2.25 2.25Zm3-9h4.5v4.5h-4.5V9.75Z',
+  chart:
+    'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
 };
 
 function Icon({ path, className }: { path: string; className?: string }) {
@@ -98,26 +100,79 @@ function Icon({ path, className }: { path: string; className?: string }) {
   );
 }
 
-const INTAKE_STATS = [
+// What a serious buyer engages a consultancy for — not what the tool does.
+// Numbered rather than titled "Features", on purpose.
+const OUTCOMES = [
   {
-    icon: INTAKE_ICONS.monitor,
-    num: '3',
-    title: 'production-grade screens',
-    sub: 'of bespoke software, designed for your trade',
+    icon: INTAKE_ICONS.workflow,
+    title: 'Your workflow, redesigned',
+    body: 'See how the operation changes when AI is embedded directly into the work.',
   },
   {
-    icon: INTAKE_ICONS.shield,
-    num: '2×',
-    title: 'every screen passes',
-    sub: 'an aesthetic judge and a structural inspection before you see it',
+    icon: INTAKE_ICONS.cpu,
+    title: 'Your AI system, visualized',
+    body: 'A concrete view of the agents, interfaces, data, integrations, and human handoffs we’d build.',
   },
   {
-    icon: INTAKE_ICONS.bolt,
-    num: '~3m',
-    title: 'from this form to your screens',
-    sub: 'watchable live',
+    icon: INTAKE_ICONS.chart,
+    title: 'Your business case, modeled',
+    body: 'Understand where the value comes from, what can be automated or augmented, and why the system is worth building.',
   },
 ] as const;
+
+/** What the intake actually produces isn't three app screens — it's an
+ *  understanding of the business that then gets architected into a system.
+ *  This says that visually instead of showing UI mockups, which is exactly
+ *  the read this page is trying not to give. */
+function SystemDiagram() {
+  return (
+    <svg
+      className="studio-diagram"
+      viewBox="0 0 640 258"
+      role="img"
+      aria-label="Your business connects through AI agents, data and tools, to human review"
+    >
+      <g className="studio-diagram-lines">
+        <line x1="160" y1="130" x2="248" y2="40" />
+        <line x1="160" y1="130" x2="248" y2="128" />
+        <line x1="160" y1="130" x2="248" y2="216" />
+        <line x1="392" y1="40" x2="480" y2="130" />
+        <line x1="392" y1="128" x2="480" y2="130" />
+        <line x1="392" y1="216" x2="480" y2="130" />
+      </g>
+      <g className="studio-diagram-node" transform="translate(20,106)">
+        <rect width="140" height="48" rx="8" />
+        <text x="70" y="29" textAnchor="middle">
+          Your business
+        </text>
+      </g>
+      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,18)">
+        <rect width="144" height="44" rx="8" />
+        <text x="72" y="27" textAnchor="middle">
+          AI agents
+        </text>
+      </g>
+      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,106)">
+        <rect width="144" height="44" rx="8" />
+        <text x="72" y="27" textAnchor="middle">
+          Data
+        </text>
+      </g>
+      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,194)">
+        <rect width="144" height="44" rx="8" />
+        <text x="72" y="27" textAnchor="middle">
+          Tools
+        </text>
+      </g>
+      <g className="studio-diagram-node" transform="translate(480,106)">
+        <rect width="140" height="48" rx="8" />
+        <text x="70" y="29" textAnchor="middle">
+          Human review
+        </text>
+      </g>
+    </svg>
+  );
+}
 
 // The intake mirrors the old build-request wizard's five steps and fields —
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming
@@ -144,6 +199,42 @@ const NEEDS_AI_REVERSE: Record<string, string> = {
 };
 const BUDGET_OPTIONS = ['Starter scope', 'Standard scope', 'Full build', 'Not sure yet'];
 const TIMELINE_OPTIONS = ['ASAP (2–4 weeks)', '1–2 months', '2–3 months', 'Flexible'];
+
+/** Tiers built on the real validation rule (30 chars minimum, see
+ *  validateStep) rather than an arbitrary "AI is impressed" fiction — this
+ *  turns a threshold that already exists into live feedback instead of a
+ *  surprise error on blur. */
+function specificityTier(text: string): { pct: number; label: string; tone: 'low' | 'mid' | 'high' } {
+  const len = text.trim().length;
+  if (len === 0) return { pct: 0, label: 'What do you do, and for whom?', tone: 'low' };
+  if (len < 30) {
+    return { pct: Math.round((len / 30) * 40), label: 'A little more — what do you do, and for whom?', tone: 'low' };
+  }
+  if (len < 120) {
+    return {
+      pct: 40 + Math.round(((len - 30) / 90) * 40),
+      label: 'Good — a bit more detail helps the screens feel real',
+      tone: 'mid',
+    };
+  }
+  return {
+    pct: Math.min(100, 80 + Math.round(((len - 120) / 120) * 20)),
+    label: 'Excellent detail — this will feel like yours',
+    tone: 'high',
+  };
+}
+
+function SpecificityMeter({ value }: { value: string }) {
+  const { pct, label, tone } = specificityTier(value);
+  return (
+    <div className="studio-specificity" data-tone={tone}>
+      <div className="studio-specificity-track">
+        <div className="studio-specificity-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="studio-specificity-label">{label}</p>
+    </div>
+  );
+}
 
 function StudioPills({
   options,
@@ -649,6 +740,7 @@ export default function StudioPage() {
     budget_range: BUDGET_OPTIONS[0],
     timeline: 'Flexible',
     whatsapp: '',
+    site_url: '',
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -858,6 +950,7 @@ export default function StudioPage() {
         budget_range: form.budget_range || undefined,
         timeline: form.timeline || undefined,
         whatsapp: form.whatsapp.trim() || undefined,
+        site_url: form.site_url.trim() || undefined,
       });
       sessionStorage.setItem(RESUME_KEY, String(id));
       // The run gets its address the moment it exists, not when it finishes —
@@ -954,31 +1047,32 @@ export default function StudioPage() {
                       <p className="studio-kicker">The Demo</p>
                       <span className="studio-trust-badge">
                         <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
-                        No calls. No decks. Just your software.
+                        Built around your business — not a generic AI demo.
                       </span>
                     </div>
                     <h1 className="studio-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-off-white">
-                      See your software before anyone writes a line of it.
+                      Before you invest in AI, see exactly what we'd build.
                     </h1>
                     <p className="mt-6 text-slate-400 text-lg max-w-xl leading-relaxed">
-                      Describe your business. The studio designs the product you'd actually run it
-                      with — real screens, your services, your numbers — and hands them to you in
-                      about three minutes.
+                      Tell us where your business is slow, manual, or expensive. We'll turn it
+                      into a tailored AI system concept — built around your workflows, your data,
+                      your tools, and your economics.
                     </p>
-                    <ul className="mt-8 space-y-3">
-                      {INTAKE_STATS.map((s) => (
-                        <li className="studio-stat" key={s.title}>
-                          <span className="studio-stat-icon">
-                            <Icon path={s.icon} className="w-5 h-5" />
-                          </span>
-                          <span className="studio-stat-num">{s.num}</span>
-                          <span className="studio-stat-text">
-                            <span className="studio-stat-title">{s.title}</span>
-                            <span className="studio-stat-sub">{s.sub}</span>
-                          </span>
-                        </li>
+
+                    <div className="mt-12 studio-outcomes">
+                      {OUTCOMES.map((o, i) => (
+                        <div className="studio-outcome" key={o.title}>
+                          <div className="studio-outcome-head">
+                            <span className="studio-outcome-no">{String(i + 1).padStart(2, '0')}</span>
+                            <Icon path={o.icon} className="studio-outcome-icon" />
+                          </div>
+                          <h3 className="studio-outcome-title">{o.title}</h3>
+                          <p className="studio-outcome-desc">{o.body}</p>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
+
+                    <SystemDiagram />
                   </div>
 
                   <motion.form
@@ -1032,6 +1126,23 @@ export default function StudioPage() {
                                 placeholder="Physiotherapy clinic"
                               />
                             </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-siteurl">
+                                Your website or Google/Instagram page{' '}
+                                <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-siteurl"
+                                value={form.site_url}
+                                onChange={(e) => setForm({ ...form, site_url: e.target.value })}
+                                placeholder="https://yourbusiness.com"
+                                autoComplete="url"
+                              />
+                              <p className="studio-hint">
+                                We'll read it before analyzing — real services, hours and tone make
+                                everything sharper.
+                              </p>
+                            </div>
                           </>
                         )}
 
@@ -1049,9 +1160,7 @@ export default function StudioPage() {
                               {errors.business_description ? (
                                 <p className="studio-error-text">{errors.business_description}</p>
                               ) : (
-                                <p className="studio-hint">
-                                  The more specific you are, the more the screens feel like yours.
-                                </p>
+                                <SpecificityMeter value={form.business_description} />
                               )}
                             </div>
                             <div className="studio-field">
@@ -1346,6 +1455,25 @@ export default function StudioPage() {
                       <p className="studio-kicker">Our diagnosis</p>
                       <span className="studio-diagnosis-badge">{preview.business_model}</span>
                     </div>
+                    {preview.site_research && (
+                      <div className="studio-diagnosis-site">
+                        <p className="studio-diagnosis-label">
+                          Pulled from {preview.site_research.source_url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '')}
+                        </p>
+                        {preview.site_research.services.length > 0 && (
+                          <ul className="studio-diagnosis-pains">
+                            {preview.site_research.services.map((s) => (
+                              <li key={s}>{s}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {(preview.site_research.hours || preview.site_research.tone) && (
+                          <p className="studio-diagnosis-site-meta">
+                            {[preview.site_research.hours, preview.site_research.tone].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {preview.target_customer_profile && (
                       <p className="text-slate-300 leading-relaxed mb-4">{preview.target_customer_profile}</p>
                     )}

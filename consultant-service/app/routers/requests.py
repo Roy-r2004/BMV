@@ -34,6 +34,7 @@ def create_request(
     budget_range: str | None = Form(None),
     timeline: str | None = Form(None),
     whatsapp: str | None = Form(None),
+    site_url: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     # Every accepted request spends real AI money — cap how many can be
@@ -60,6 +61,7 @@ def create_request(
         budget_range=budget_range,
         timeline=timeline,
         whatsapp=whatsapp,
+        site_url=site_url,
         status="new",
         is_generating=True,
     )
@@ -109,6 +111,7 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
     # pipeline stage — read back out rather than re-derived, so the reveal
     # never states a finding the consulting/blueprint stages didn't also see.
     analysis = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
+    site_research = json.loads(req.site_research_json) if req.site_research_json else None
     ai_features = [
         {
             "id": f"ai-employee-{i}",
@@ -181,6 +184,10 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         "target_customer_profile": analysis.get("target_customer_profile") or None,
         "pain_points": analysis.get("pain_points") or [],
         "growth_opportunity": analysis.get("growth_opportunity") or None,
+        # Null when no site_url was given, the fetch failed, or the page had
+        # too little content — the frontend renders nothing in that case,
+        # same rule as every other optional field on this payload.
+        "site_research": site_research,
     }
 
 

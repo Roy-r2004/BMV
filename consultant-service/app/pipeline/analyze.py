@@ -18,6 +18,29 @@ def _fallback(req: Request) -> dict:
     }
 
 
+def _format_site_research(req: Request) -> str:
+    """Flattens the research stage's JSON into one line for the prompt —
+    same pre-formatted-string pattern plan.py already uses for its JSON
+    context fields. "none given" when there is nothing to report, so the
+    model reads it the same as any other unanswered intake field."""
+    if not req.site_research_json:
+        return "none given"
+    try:
+        data = json.loads(req.site_research_json)
+    except (TypeError, ValueError):
+        return "none given"
+    parts = []
+    if data.get("services"):
+        parts.append(f"services mentioned: {', '.join(data['services'])}")
+    if data.get("hours"):
+        parts.append(f"hours: {data['hours']}")
+    if data.get("tone"):
+        parts.append(f"tone: {data['tone']}")
+    if data.get("highlights"):
+        parts.append(f"highlights: {', '.join(data['highlights'])}")
+    return "; ".join(parts) if parts else "none given"
+
+
 def analyze_business(db: Session, request_id: int) -> dict:
     """Stage 1 of the consulting workflow: understand the business."""
     req = db.get(Request, request_id)
@@ -34,6 +57,7 @@ def analyze_business(db: Session, request_id: int) -> dict:
             main_problem=req.main_problem or "unspecified",
             desired_outcome=req.desired_outcome or "unspecified",
             what_you_like=req.what_you_like or "none given",
+            site_research=_format_site_research(req),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}])
         content = body["choices"][0]["message"]["content"]

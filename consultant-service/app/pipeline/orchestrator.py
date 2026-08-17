@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, images, plan, ui_spec
+from app.pipeline import analyze, blueprint, consult, images, plan, research, ui_spec
 from app.pipeline._shared import emit
 
 
@@ -38,6 +38,12 @@ def run(request_id: int) -> None:
 
 
 def _run_inner(db: Session, request_id: int) -> None:
+    # A no-op in well under a second when no site_url was given — the guard
+    # lives inside research_business so this stays unconditional, like every
+    # other stage here.
+    emit(db, request_id, "researching", "Reading your business...", 5)
+    research.research_business(db, request_id)
+
     emit(db, request_id, "analyzing", "Analyzing your business...", 10)
     analysis_result = analyze.analyze_business(db, request_id)
 

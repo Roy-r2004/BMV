@@ -30,6 +30,10 @@ export interface StudioIntake {
   budget_range?: string;
   timeline?: string;
   whatsapp?: string;
+  /** The owner's own site/profile — distinct from reference_url, which is a
+   *  tool they admire, not their own business. The research stage fetches
+   *  it before analysis when present. */
+  site_url?: string;
 }
 
 export interface StudioProgress {
@@ -122,6 +126,17 @@ export interface StudioPreview {
   target_customer_profile: string | null;
   pain_points: string[];
   growth_opportunity: string | null;
+  /** Real facts pulled from the owner's own site, when they gave one and
+   *  the fetch/extraction succeeded. Null otherwise — never a guess. */
+  site_research: StudioSiteResearch | null;
+}
+
+export interface StudioSiteResearch {
+  source_url: string;
+  services: string[];
+  hours: string | null;
+  tone: string | null;
+  highlights: string[];
 }
 
 export async function createStudioRequest(intake: StudioIntake): Promise<{ id: number; status: string }> {
@@ -139,6 +154,7 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   if (intake.budget_range) form.set('budget_range', intake.budget_range);
   if (intake.timeline) form.set('timeline', intake.timeline);
   if (intake.whatsapp) form.set('whatsapp', intake.whatsapp);
+  if (intake.site_url) form.set('site_url', intake.site_url);
   const { data } = await consultantClient.post('/api/requests', form, { timeout: 30000 });
   return data;
 }

@@ -69,54 +69,86 @@
   flex: 0 0 auto;
 }
 
-.studio-stat {
+/* ── outcome list — 01/02/03, no cards, no borders but a thin left rule ── */
+
+.studio-outcomes {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.4);
-  padding: 0.9rem 1.15rem;
+  flex-direction: column;
+  gap: 2.25rem;
 }
 
-.studio-stat-icon {
-  flex: 0 0 auto;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(34, 211, 238, 0.1);
-  border: 1px solid rgba(34, 211, 238, 0.2);
-  color: #67e8f9;
+.studio-outcome {
+  padding-left: 1.25rem;
+  border-left: 1px solid rgba(148, 163, 184, 0.2);
 }
 
-.studio-stat-num {
-  flex: 0 0 auto;
+.studio-outcome-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.studio-outcome-no {
   font-family: var(--font-display);
+  font-size: 0.72rem;
   font-weight: 700;
-  font-size: 1.5rem;
-  color: #67e8f9;
+  letter-spacing: 0.12em;
+  color: #64748b;
   font-variant-numeric: tabular-nums;
 }
 
-.studio-stat-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.studio-outcome-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #67e8f9;
 }
 
-.studio-stat-title {
-  font-weight: 600;
-  font-size: 0.88rem;
-  color: #f1f5f9;
+.studio-outcome-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
 }
 
-.studio-stat-sub {
-  font-size: 0.78rem;
+.studio-outcome-desc {
   color: #94a3b8;
-  line-height: 1.45;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  max-width: 30rem;
+}
+
+/* ── the system diagram — business, AI agents/data/tools, human review ── */
+
+.studio-diagram {
+  width: 100%;
+  height: auto;
+  margin-top: 3rem;
+  max-width: 34rem;
+}
+
+.studio-diagram-lines line {
+  stroke: rgba(148, 163, 184, 0.3);
+  stroke-width: 1;
+}
+
+.studio-diagram-node rect {
+  fill: rgba(15, 23, 42, 0.55);
+  stroke: rgba(148, 163, 184, 0.3);
+  stroke-width: 1;
+}
+
+.studio-diagram-node--core rect {
+  stroke: rgba(103, 232, 249, 0.42);
+}
+
+.studio-diagram-node text {
+  fill: #cbd5e1;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* ── glass panels ─────────────────────────────────────────────────────── */
@@ -162,9 +194,55 @@
 .studio-field input:focus-visible,
 .studio-field textarea:focus-visible {
   outline: none;
-  border-color: rgba(34, 211, 238, 0.65);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
-  background: rgba(2, 6, 23, 0.8);
+  border-color: rgba(34, 211, 238, 0.75);
+  background: rgba(2, 6, 23, 0.85);
+  animation: studio-field-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes studio-field-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14), 0 0 16px rgba(34, 211, 238, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.24), 0 0 26px rgba(34, 211, 238, 0.24);
+  }
+}
+
+.studio-specificity {
+  margin-top: 0.6rem;
+}
+
+.studio-specificity-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+
+.studio-specificity-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease, background 0.35s ease;
+  background: linear-gradient(90deg, #f59e0b, #fb923c);
+}
+
+.studio-specificity[data-tone="mid"] .studio-specificity-fill {
+  background: linear-gradient(90deg, #38bdf8, #67e8f9);
+}
+
+.studio-specificity[data-tone="high"] .studio-specificity-fill {
+  background: linear-gradient(90deg, #22d3ee, #34d399);
+}
+
+.studio-specificity-label {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  transition: color 0.3s ease;
+}
+
+.studio-specificity[data-tone="high"] .studio-specificity-label {
+  color: #6ee7b7;
 }
 
 .studio-field[data-invalid="true"] input,
@@ -602,6 +680,18 @@
   color: #64748b;
   font-size: 0.82rem;
   font-style: italic;
+}
+
+.studio-diagnosis-site {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.studio-diagnosis-site-meta {
+  margin-top: 0.6rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
 }
 
 /* ── the keepsake: this run's permanent address ───────────────────────── */
@@ -1558,5 +1648,10 @@
   }
   .studio-spinner {
     animation-duration: 2.4s;
+  }
+  .studio-field input:focus-visible,
+  .studio-field textarea:focus-visible {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
   }
 }

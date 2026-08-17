@@ -25,6 +25,10 @@ class Request(Base):
     budget_range: Mapped[str | None] = mapped_column(String(100), nullable=True)
     timeline: Mapped[str | None] = mapped_column(String(100), nullable=True)
     whatsapp: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # The owner's own site/profile — distinct from reference_url, which is a
+    # tool they admire, not their own business. Optional; the research stage
+    # fetches it before analysis when present.
+    site_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Pipeline output.
     status: Mapped[str] = mapped_column(String(50), default="new")
@@ -36,6 +40,10 @@ class Request(Base):
     progress_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     business_analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # {"source_url", "services", "hours", "tone", "highlights"} extracted
+    # from site_url — null when no URL was given, the fetch failed, or the
+    # page had too little real content to extract anything from.
+    site_research_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
