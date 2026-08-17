@@ -30,6 +30,7 @@ tests/test_deck_layout.py.
 
 import json
 import os
+import re
 from datetime import date
 
 from PIL import Image
@@ -430,10 +431,10 @@ def build_presentation(
     business_case = json.loads(req.business_case_json) if getattr(req, "business_case_json", None) else {}
     playbook = json.loads(req.playbook_json) if getattr(req, "playbook_json", None) else {}
 
-    # ── The product, module by module ─────────────────────────────────────
+    # ── The blueprint: the product, module by module ──────────────────────
     if modules:
         slide = prs.slides.add_slide(blank)
-        chrome(slide, label="The product, part by part")
+        chrome(slide, label="The blueprint · part by part")
         _add_text(
             slide, "What we'd actually build", MARGIN, Inches(1.02),
             Inches(11.8), Inches(0.8), size=30, color=TEXT, font=FONT_DISPLAY,
@@ -473,10 +474,10 @@ def build_presentation(
                     size=10, color=ACCENT_SOFT, line_spacing=1.2,
                 )
 
-    # ── How this makes money ──────────────────────────────────────────────
+    # ── The blueprint: how this makes money ───────────────────────────────
     if business_case:
         slide = prs.slides.add_slide(blank)
-        chrome(slide, label="How this makes money")
+        chrome(slide, label="The blueprint · how this makes money")
         _add_text(
             slide, "The business case", MARGIN, Inches(1.02),
             Inches(11.8), Inches(0.8), size=30, color=TEXT, font=FONT_DISPLAY,
@@ -584,6 +585,141 @@ def build_presentation(
                     size=9, color=MUTED, align=PP_ALIGN.RIGHT,
                 )
 
+    # ── Technical plan: one slide per module, in the owner's voice ────────
+    for mi, m in enumerate(modules[:6]):
+        spec = m.get("spec") or {}
+        tech = m.get("tech") or {}
+        agent = tech.get("ai_agent") or {}
+        slide = prs.slides.add_slide(blank)
+        chrome(slide, label=f"Technical plan · part {mi + 1:02d} / {min(len(modules), 6):02d}")
+        _add_text(
+            slide, m.get("name") or "Module", MARGIN, Inches(0.95),
+            Inches(11.8), Inches(0.6), size=26, color=TEXT, font=FONT_DISPLAY,
+        )
+        _add_text(
+            slide, _fit(m.get("purpose") or "", Inches(11.8), 12, lines=2), MARGIN, Inches(1.5),
+            Inches(11.8), Inches(0.55), size=12, color=MUTED, line_spacing=1.2,
+        )
+
+        col_top, col_h = Inches(2.25), Inches(2.55)
+        left_w, right_w = Inches(5.6), Inches(5.95)
+        right_x2 = MARGIN + left_w + Inches(0.28)
+
+        # Left: what it keeps track of + the screens.
+        _rect(slide, SURFACE, MARGIN, col_top, left_w, col_h, alpha=60)
+        _rect(slide, ACCENT, MARGIN, col_top, Pt(2.5), col_h)
+        _kicker(slide, "What it keeps track of", MARGIN + Inches(0.25), col_top + Inches(0.18), ACCENT_SOFT, width=left_w - Inches(0.5), size=10)
+        entities = [e.get("entity") for e in (tech.get("data_model") or []) if e.get("entity")]
+        data_line = "  ·  ".join(entities[:6]) or "  ·  ".join((spec.get("data") or [])[:6]) or "—"
+        _add_text(
+            slide, _fit(data_line, left_w - Inches(0.5), 11, lines=3),
+            MARGIN + Inches(0.25), col_top + Inches(0.55), left_w - Inches(0.5), Inches(0.95),
+            size=11, color=TEXT, line_spacing=1.25,
+        )
+        _kicker(slide, "The screens you'll use", MARGIN + Inches(0.25), col_top + Inches(1.55), ACCENT_SOFT, width=left_w - Inches(0.5), size=10)
+        _add_text(
+            slide, _fit("  ·  ".join((spec.get("screens") or [])[:4]) or "—", left_w - Inches(0.5), 11, lines=2),
+            MARGIN + Inches(0.25), col_top + Inches(1.92), left_w - Inches(0.5), Inches(0.6),
+            size=11, color=TEXT, line_spacing=1.25,
+        )
+
+        # Right: the AI, honestly bounded.
+        _rect(slide, SURFACE, right_x2, col_top, right_w, col_h, alpha=60)
+        _rect(slide, ACCENT, right_x2, col_top, right_w, Pt(2.5))
+        _kicker(slide, "Where the AI works", right_x2 + Inches(0.25), col_top + Inches(0.18), ACCENT_SOFT, width=right_w - Inches(0.5), size=10)
+        ai_role = agent.get("purpose") or (spec.get("ai") or {}).get("role") or "No AI in this part — deliberately."
+        _add_text(
+            slide, _fit(ai_role, right_w - Inches(0.5), 11, lines=2),
+            right_x2 + Inches(0.25), col_top + Inches(0.55), right_w - Inches(0.5), Inches(0.65),
+            size=11, color=TEXT, line_spacing=1.25,
+        )
+        never = (agent.get("guardrails") or [])[:1]
+        handoff = agent.get("escalation") or (spec.get("ai") or {}).get("hands_off") or ""
+        if never:
+            _add_text(
+                slide, _fit(f"Never: {never[0]}", right_w - Inches(0.5), 10, lines=2),
+                right_x2 + Inches(0.25), col_top + Inches(1.3), right_w - Inches(0.5), Inches(0.55),
+                size=10, color=_ALERT, line_spacing=1.2,
+            )
+        if handoff:
+            _add_text(
+                slide, _fit(f"Hands to you: {handoff}", right_w - Inches(0.5), 10, lines=2),
+                right_x2 + Inches(0.25), col_top + Inches(1.9), right_w - Inches(0.5), Inches(0.55),
+                size=10, color=MUTED, line_spacing=1.2,
+            )
+
+        # Bottom band: built in order + finished when.
+        band_top, band_h = Inches(5.0), Inches(1.95)
+        _rect(slide, SURFACE, MARGIN, band_top, left_w, band_h, alpha=45)
+        _kicker(slide, "Built in this order", MARGIN + Inches(0.25), band_top + Inches(0.15), ACCENT_SOFT, width=left_w - Inches(0.5), size=10)
+        steps_raw = [s for s in (tech.get("build_sequence") or [])][:4]
+        steps_clean = [re.sub(r"^\s*\d+[.)]\s*", "", s) for s in steps_raw]
+        _add_bullets(
+            slide, steps_clean or ["—"],
+            MARGIN + Inches(0.25), band_top + Inches(0.5), left_w - Inches(0.5), band_h - Inches(0.6),
+            size=10, color=TEXT, accent=ACCENT, gap=0.85,
+            clamp=_fit_chars(left_w - Inches(0.5), 10, 1),
+        )
+        _rect(slide, SURFACE, right_x2, band_top, right_w, band_h, alpha=45)
+        _kicker(slide, "It's finished when", right_x2 + Inches(0.25), band_top + Inches(0.15), _GOOD, width=right_w - Inches(0.5), size=10)
+        _add_bullets(
+            slide, (tech.get("done_when") or [])[:3] or ["—"],
+            right_x2 + Inches(0.25), band_top + Inches(0.5), right_w - Inches(0.5), band_h - Inches(0.6),
+            size=10, color=TEXT, accent=_GOOD, gap=0.9,
+            clamp=_fit_chars(right_w - Inches(0.5), 10, 2),
+        )
+
+    # ── Your AI team ──────────────────────────────────────────────────────
+    employees_slide = (consult_result.get("recommended_ai_employees") or [])[:4]
+    if employees_slide:
+        slide = prs.slides.add_slide(blank)
+        chrome(slide, label="Your AI team")
+        _add_text(
+            slide, "The employees inside it", MARGIN, Inches(1.02),
+            Inches(11.8), Inches(0.8), size=30, color=TEXT, font=FONT_DISPLAY,
+        )
+        n = len(employees_slide)
+        card_w = Inches((11.83 - (n - 1) * 0.25) / n)
+        gap = Inches(0.25)
+        card_top = Inches(2.3)
+        # Sized from the longest "why" rather than fixed — the lesson
+        # tests/test_deck_layout.py pins: one-line reasons in a fixed tall
+        # box read as content that failed to load, and a pathological reason
+        # must not push the card off the slide.
+        chars_per_line = max(20, int(card_w / Inches(0.083)))
+        longest = max((len(e.get("why", "")) for e in employees_slide), default=0)
+        lines = max(1, -(-longest // chars_per_line))
+        card_h = min(Inches(3.4), Inches(0.95) + Inches(0.26) * lines)
+        for i, emp in enumerate(employees_slide):
+            x = MARGIN + i * (card_w + gap)
+            card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, int(x), int(card_top), int(card_w), int(card_h))
+            card.fill.solid()
+            card.fill.fore_color.rgb = SURFACE
+            card.line.color.rgb = LINE
+            card.shadow.inherit = False
+            tf = card.text_frame
+            tf.word_wrap = True
+            tf.vertical_anchor = MSO_ANCHOR.TOP
+            tf.margin_left = Pt(16)
+            tf.margin_right = Pt(16)
+            tf.margin_top = Pt(18)
+            tf.margin_bottom = Pt(18)
+            p0 = tf.paragraphs[0]
+            r0 = p0.add_run()
+            r0.text = emp.get("title", "AI Employee")
+            r0.font.bold = True
+            r0.font.size = Pt(15)
+            r0.font.color.rgb = TEXT
+            r0.font.name = FONT_TEXT
+            p1 = tf.add_paragraph()
+            p1.space_before = Pt(8)
+            r1 = p1.add_run()
+            r1.text = _clamp(emp.get("why", ""), 260)
+            r1.font.size = Pt(11.5)
+            r1.font.color.rgb = MUTED
+            r1.font.name = FONT_TEXT
+            _rect(slide, ACCENT, x, card_top, card_w, Pt(2.5))
+
     # ── Your playbook ─────────────────────────────────────────────────────
     pb_steps = playbook.get("steps") or []
     if pb_steps:
@@ -629,52 +765,6 @@ def build_presentation(
     )
     _hairline(slide, LINE, MARGIN, Inches(2.3), Inches(11.83))
 
-    employees = (consult_result.get("recommended_ai_employees") or [])[:4]
-    if employees:
-        n = len(employees)
-        card_w = Inches((11.83 - (n - 1) * 0.25) / n)
-        gap = Inches(0.25)
-        card_top = Inches(2.65)
-        # Sized from the longest "why" rather than fixed. Two employees with
-        # one-line reasons in a fixed 2.9" box produced cards four times
-        # taller than their text, which reads as content that failed to load.
-        # The estimate only ever grows the card: slightly too tall is untidy,
-        # too short clips.
-        chars_per_line = max(20, int(card_w / Inches(0.083)))
-        longest = max((len(e.get("why", "")) for e in employees), default=0)
-        lines = max(1, -(-longest // chars_per_line))
-        card_h = min(Inches(3.4), Inches(0.95) + Inches(0.26) * lines)
-        for i, emp in enumerate(employees):
-            x = MARGIN + i * (card_w + gap)
-            card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, int(x), int(card_top), int(card_w), int(card_h))
-            card.fill.solid()
-            card.fill.fore_color.rgb = SURFACE
-            card.line.color.rgb = LINE
-            card.shadow.inherit = False
-            tf = card.text_frame
-            tf.word_wrap = True
-            tf.vertical_anchor = MSO_ANCHOR.TOP
-            tf.margin_left = Pt(16)
-            tf.margin_right = Pt(16)
-            tf.margin_top = Pt(18)
-            tf.margin_bottom = Pt(18)
-            p0 = tf.paragraphs[0]
-            p0.alignment = PP_ALIGN.LEFT
-            r0 = p0.add_run()
-            r0.text = emp.get("title", "AI Employee")
-            r0.font.bold = True
-            r0.font.size = Pt(15)
-            r0.font.color.rgb = TEXT
-            r0.font.name = FONT_TEXT
-            p1 = tf.add_paragraph()
-            p1.alignment = PP_ALIGN.LEFT
-            p1.space_before = Pt(8)
-            r1 = p1.add_run()
-            r1.text = emp.get("why", "")
-            r1.font.size = Pt(11.5)
-            r1.font.color.rgb = MUTED
-            r1.font.name = FONT_TEXT
-            _rect(slide, ACCENT, x, card_top, card_w, Pt(2.5))
 
     _add_text(
         slide, f"Prepared exclusively for {req.business_name}", MARGIN, Inches(6.75),

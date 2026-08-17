@@ -96,6 +96,17 @@ def _employee_cards(slide):
     return [s for s in slide.shapes if s.name.startswith("Rounded Rectangle")]
 
 
+def _team_slide(prs):
+    """The AI-team slide, found by what is ON it rather than by index — the
+    cards moved off the closing slide onto their own slide, and an index
+    would silently assert against the wrong one (same lesson as
+    _screen_slide)."""
+    for slide in prs.slides:
+        if _employee_cards(slide):
+            return slide
+    raise AssertionError("no slide carries employee cards")
+
+
 def test_a_screen_slide_carries_exactly_one_image(run_dir):
     """The owner's rule (session 35): the screenshot is the subject, and the
     IN DETAIL column of two composite crops is gone from both the deck and
@@ -134,9 +145,8 @@ def test_a_closing_card_is_sized_from_its_own_text(run_dir):
     long = _build([{"title": "AI Ops", "why": "A much longer sentence about what this employee does all day, " * 3}])
 
     def _card_height(prs):
-        closing = prs.slides[len(prs.slides._sldIdLst) - 1]
-        cards = _employee_cards(closing)
-        assert cards, "the closing slide has no employee cards"
+        cards = _employee_cards(_team_slide(prs))
+        assert cards, "the team slide has no employee cards"
         return cards[0].height
 
     assert _card_height(long) > _card_height(short)
@@ -146,6 +156,5 @@ def test_a_closing_card_is_sized_from_its_own_text(run_dir):
 def test_the_card_never_grows_without_bound(run_dir):
     """A pathological `why` must not push the card off the slide."""
     prs = _build([{"title": "AI Ops", "why": "x" * 4000}])
-    closing = prs.slides[len(prs.slides._sldIdLst) - 1]
-    cards = _employee_cards(closing)
+    cards = _employee_cards(_team_slide(prs))
     assert cards[0].top + cards[0].height < export_pptx.SLIDE_H
