@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 
 // Heroicons-24-outline paths.
 const ICONS = {
-  building:
-    'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21',
-  search: 'm21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z',
+  monitor:
+    'M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25',
+  doc: 'M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z',
   cpu: 'M8.25 3v1.5M15.75 3v1.5M8.25 19.5V21M15.75 19.5V21M3 8.25H1.5M3 12H1.5M3 15.75H1.5M22.5 8.25H21M22.5 12H21M22.5 15.75H21M6.75 19.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v10.5a2.25 2.25 0 0 0 2.25 2.25Zm3-9h4.5v4.5h-4.5V9.75Z',
-  bolt: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
+  users:
+    'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z',
   check: 'M4.5 12.75l6 6 9-13.5',
 } as const;
 
@@ -21,31 +22,31 @@ function Icon({ path, className }: { path: string; className?: string }) {
 
 const STEPS = [
   {
-    icon: ICONS.building,
-    title: 'Your business',
-    body: 'We learn how your business operates',
-    sub: 'Data, tools, people, workflows',
+    icon: ICONS.monitor,
+    title: 'Product screens',
+    body: 'Your software, drawn for your business',
+    sub: 'QA-inspected, your services and numbers',
     hot: false,
   },
   {
-    icon: ICONS.search,
-    title: 'BMV analyzes',
-    body: 'We find where AI creates the most value',
-    sub: 'Automation, augmentation or new systems',
+    icon: ICONS.doc,
+    title: 'Blueprint',
+    body: 'The product, module by module',
+    sub: 'Plus how it makes money',
     hot: false,
   },
   {
     icon: ICONS.cpu,
-    title: 'AI plan',
-    body: 'We design the right solution for your context',
-    sub: 'Prioritized opportunities and expected impact',
+    title: 'Technical plan',
+    body: 'Every AI agent specced: brain, tools, guardrails',
+    sub: 'Build order + done-when checks',
     hot: true,
   },
   {
-    icon: ICONS.bolt,
-    title: 'Your version',
-    body: 'You get a preview of the system we would build',
-    sub: 'Visual preview + implementation plan',
+    icon: ICONS.users,
+    title: 'Playbook & AI team',
+    body: 'Who does what — you, us, partners',
+    sub: 'AI employees with human oversight',
     hot: true,
   },
 ] as const;
@@ -63,12 +64,12 @@ const PRODUCES = [
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-[#050d1f] text-white">
+    <section className="relative overflow-hidden bg-white text-navy">
       <div
-        className="absolute inset-0 pointer-events-none opacity-[0.35]"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(900px 480px at 75% 0%, rgba(37,99,235,0.35), transparent 60%), radial-gradient(700px 420px at 10% 80%, rgba(34,211,238,0.16), transparent 60%)',
+            'radial-gradient(900px 480px at 78% -5%, rgba(37,99,235,0.10), transparent 60%), radial-gradient(700px 420px at 5% 85%, rgba(34,211,238,0.07), transparent 60%)',
         }}
       />
       <div className="container-max relative px-4 sm:px-6 pt-24 sm:pt-28 pb-20 grid lg:grid-cols-[0.85fr_1.15fr] gap-12 lg:gap-10 items-center">
@@ -78,7 +79,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-[11px] font-bold uppercase tracking-[0.3em] text-blue-400 mb-5"
+            className="text-[11px] font-bold uppercase tracking-[0.3em] text-blue-600 mb-5"
           >
             AI strategy + build
           </motion.p>
@@ -98,7 +99,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.14, duration: 0.55 }}
-            className="mt-6 text-xl sm:text-2xl font-bold text-slate-100 leading-snug max-w-md"
+            className="mt-6 text-xl sm:text-2xl font-bold text-navy leading-snug max-w-md"
           >
             We find the AI &amp; automation your business actually needs.
           </motion.p>
@@ -106,7 +107,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.55 }}
-            className="mt-4 text-slate-400 leading-relaxed max-w-md"
+            className="mt-4 text-slate-600 leading-relaxed max-w-md"
           >
             We analyze how your business works, identify high-impact opportunities, and build a
             custom plan — with a preview of the system we would build for you.
@@ -124,8 +125,8 @@ export default function Hero() {
               See my AI opportunity
               <span aria-hidden>→</span>
             </Link>
-            <span className="flex items-center gap-2.5 text-sm text-slate-300">
-              <span className="w-6 h-6 rounded-full border-2 border-cyan-400 text-cyan-400 flex items-center justify-center">
+            <span className="flex items-center gap-2.5 text-sm text-slate-600">
+              <span className="w-6 h-6 rounded-full border-2 border-blue-600 text-blue-600 flex items-center justify-center">
                 <Icon path={ICONS.check} className="w-3.5 h-3.5" />
               </span>
               No commitment.
@@ -139,7 +140,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.7 }}
-          className="rounded-2xl border border-white/10 bg-[#0a1428] shadow-[0_40px_100px_-40px_rgba(37,99,235,0.5)] overflow-hidden"
+          className="rounded-2xl border border-white/10 bg-[#0a1428] shadow-[0_50px_110px_-45px_rgba(37,99,235,0.45)] ring-1 ring-slate-900/5 overflow-hidden"
         >
           {/* browser chrome */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
@@ -158,7 +159,7 @@ export default function Hero() {
           {/* app nav */}
           <div className="flex items-center gap-5 px-5 py-3 border-b border-white/5 text-sm">
             <img src="/logo.png" alt="" className="w-7 h-7 rounded-full" />
-            {['Overview', 'Analysis', 'AI Opportunities', 'Your Version'].map((t, i) => (
+            {['Screens', 'Blueprint', 'Technical plan', 'Playbook', 'AI team'].map((t, i) => (
               <span
                 key={t}
                 className={
@@ -173,7 +174,7 @@ export default function Hero() {
           </div>
 
           <div className="p-5">
-            <p className="font-bold text-lg mb-4">Your AI opportunity</p>
+            <p className="font-bold text-lg mb-4 text-white">What your run produces</p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {STEPS.map((s) => (
                 <div
@@ -246,14 +247,14 @@ export default function Hero() {
 
       {/* scroll cue */}
       <div className="relative pb-8 flex flex-col items-center gap-3">
-        <span className="w-6 h-10 rounded-full border-2 border-slate-600 flex justify-center pt-1.5">
+        <span className="w-6 h-10 rounded-full border-2 border-slate-300 flex justify-center pt-1.5">
           <motion.i
             animate={{ y: [0, 6, 0] }}
             transition={{ duration: 1.6, repeat: Infinity }}
-            className="w-1 h-2 rounded-full bg-cyan-400"
+            className="w-1 h-2 rounded-full bg-blue-600"
           />
         </span>
-        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-slate-500">
+        <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-slate-400">
           Explore what's inside
         </p>
       </div>

@@ -7327,3 +7327,132 @@ html.refine-chat-open {
   font-size: 0.85rem;
 }
 
+/* ── the machine — landing-page pipeline schematic ── */
+
+.machine {
+  display: flex;
+  flex-direction: column;
+}
+
+.machine-row {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  row-gap: 0.75rem;
+}
+
+.machine-row--offset {
+  margin-left: clamp(0rem, 10%, 8rem);
+}
+
+.machine-node {
+  flex: 1 1 9rem;
+  min-width: 9rem;
+  max-width: 13rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 0.85rem;
+  background: #ffffff;
+  box-shadow: 0 12px 28px -22px rgba(15, 23, 42, 0.4);
+  padding: 0.8rem 0.95rem;
+  color: #2563eb;
+}
+
+.machine-node--hot {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: #f5f9ff;
+  box-shadow: 0 16px 34px -20px rgba(37, 99, 235, 0.45);
+}
+
+.machine-node p {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.machine-node span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.machine-link {
+  flex: 0 0 1.6rem;
+  align-self: center;
+  height: 0;
+  border-top: 2px dotted rgba(37, 99, 235, 0.4);
+  position: relative;
+  overflow: visible;
+}
+
+.machine-pulse {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #2563eb;
+  animation: machine-pulse-x 2.2s ease-in-out infinite;
+}
+
+@keyframes machine-pulse-x {
+  0% { transform: translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(1.35rem); opacity: 0; }
+}
+
+.machine-drop {
+  align-self: flex-end;
+  margin-right: clamp(2rem, 20%, 14rem);
+  width: 0;
+  height: 1.4rem;
+  border-left: 2px dotted rgba(37, 99, 235, 0.4);
+  position: relative;
+}
+
+.machine-pulse--v {
+  top: 0;
+  left: -3.5px;
+  animation: machine-pulse-y 2.2s ease-in-out infinite;
+}
+
+@keyframes machine-pulse-y {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(1.1rem); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .machine-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .machine-row--offset {
+    margin-left: 0;
+    margin-top: 0.6rem;
+  }
+
+  .machine-link,
+  .machine-drop {
+    display: none;
+  }
+
+  .machine-node {
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .machine-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+}
