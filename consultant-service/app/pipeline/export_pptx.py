@@ -10,10 +10,11 @@ missing rather than failing the export.
 Two things make it look like the screens it carries rather than like a
 template with pictures dropped in:
 
-  - **The palette is sampled from the rendered images** (`deck_palette`).
-    The deck used to be tinted from `visual_theme.primary_color`, a hex the
-    plan stage chose before any pixel existed; framing a dark cinematic
-    screenshot in that indigo read as two documents stapled together.
+  - **A fixed BMV cinematic palette** (dark ground, cyan accent) — the same
+    register as the result page, so deck and page read as one deliverable.
+    (Palette-sampling from the screens was tried and reverted: it inherits
+    whatever hue the screens landed on, and a gold interface made an ochre
+    deck.)
   - **Every screen slide states the AI module that is drawn on it**, taken
     from the spec the screen was rendered from (`spec_json`). Those strings
     were sent to the image model as text to render, so the caption under a
@@ -41,7 +42,7 @@ from pptx.util import Emu, Inches, Pt
 
 from app.config import settings
 from app.models import Request
-from app.pipeline import compositing, deck_palette, screen_story
+from app.pipeline import compositing, screen_story
 from app.pipeline._shared import employees_with_ids
 
 SLIDE_W = Inches(13.333)
@@ -308,20 +309,22 @@ def build_presentation(
     prs.slide_height = SLIDE_H
     blank = prs.slide_layouts[6]
 
-    theme = plan_result.get("visual_theme") or {}
     concept = plan_result.get("concept_name") or req.business_name
 
-    # The palette comes out of the pictures this deck is built from. Falls
-    # back through the brand colour to a fixed dark scheme; always complete.
-    screen_paths = [p for p in (_abs_image_path(i.file_path) for i in images) if p]
-    palette = deck_palette.from_images(screen_paths, theme.get("primary_color"))
-    BG = _hex_to_rgb(palette["bg"])
-    SURFACE = _hex_to_rgb(palette["surface"])
-    LINE = _hex_to_rgb(palette["line"])
-    ACCENT = _hex_to_rgb(palette["accent"])
-    ACCENT_SOFT = _hex_to_rgb(palette["accent_soft"])
-    TEXT = _hex_to_rgb(palette["text"])
-    MUTED = _hex_to_rgb(palette["muted"])
+    # Fixed BMV cinematic palette — the same register as the result page.
+    # The palette USED to be sampled from the rendered screens (owner call,
+    # to stop an indigo frame clashing with dark screenshots), but sampling
+    # inherits whatever hue the screens landed on: a gold/brown interface
+    # produced a muddy ochre deck (owner verdict on the first fund run:
+    # ugly). The screens are dark-cinematic by register, so the site's own
+    # dark ground frames any of them; the accent stays BMV cyan everywhere.
+    BG = _hex_to_rgb("#020617")
+    SURFACE = _hex_to_rgb("#0f172a")
+    LINE = _hex_to_rgb("#28364e")
+    ACCENT = _hex_to_rgb("#22d3ee")
+    ACCENT_SOFT = _hex_to_rgb("#a5f3fc")
+    TEXT = _hex_to_rgb("#f8fafc")
+    MUTED = _hex_to_rgb("#94a3b8")
     primary = ACCENT  # kept as the name the older slides used
 
     def chrome(slide, *, label: str = ""):
@@ -421,6 +424,87 @@ def build_presentation(
         Inches(11.8), Inches(0.7), size=11, color=MUTED, line_spacing=1.15,
     )
 
+    # The decompose-era artifacts, read straight off the request row — the
+    # deck degrades slide by slide when a piece is missing, same as always.
+    modules = json.loads(req.modules_json) if getattr(req, "modules_json", None) else []
+    business_case = json.loads(req.business_case_json) if getattr(req, "business_case_json", None) else {}
+    playbook = json.loads(req.playbook_json) if getattr(req, "playbook_json", None) else {}
+
+    # ── The product, module by module ─────────────────────────────────────
+    if modules:
+        slide = prs.slides.add_slide(blank)
+        chrome(slide, label="The product, part by part")
+        _add_text(
+            slide, "What we'd actually build", MARGIN, Inches(1.02),
+            Inches(11.8), Inches(0.8), size=30, color=TEXT, font=FONT_DISPLAY,
+        )
+        shown = modules[:6]
+        cols = 2
+        rows = -(-len(shown) // cols)
+        grid_top = Inches(2.1)
+        grid_h = Inches(4.9)
+        gap = Inches(0.3)
+        card_w = (Inches(11.83) - gap * (cols - 1)) / cols
+        card_h = (grid_h - gap * (rows - 1)) / rows
+        for i, m in enumerate(shown):
+            x = MARGIN + (i % cols) * (card_w + gap)
+            y = grid_top + (i // cols) * (card_h + gap)
+            _rect(slide, SURFACE, x, y, card_w, card_h, alpha=70)
+            _rect(slide, ACCENT, x, y, Pt(2.5), card_h)
+            _add_text(
+                slide, f"{i + 1:02d}", x + Inches(0.25), y + Inches(0.18),
+                Inches(0.6), Inches(0.3), size=11, color=ACCENT, bold=True,
+            )
+            _add_text(
+                slide, _fit(m.get("name") or "", card_w - Inches(1.2), 15),
+                x + Inches(0.75), y + Inches(0.16), card_w - Inches(1.0), Inches(0.35),
+                size=15, color=TEXT, bold=True,
+            )
+            _add_text(
+                slide, _fit(m.get("purpose") or "", card_w - Inches(1.0), 11, lines=2),
+                x + Inches(0.75), y + Inches(0.55), card_w - Inches(1.0), Inches(0.6),
+                size=11, color=MUTED, line_spacing=1.2,
+            )
+            spec_ai = ((m.get("spec") or {}).get("ai") or {})
+            if spec_ai.get("role"):
+                _add_text(
+                    slide, _fit(f"AI: {spec_ai['role']}", card_w - Inches(1.0), 10, lines=2),
+                    x + Inches(0.75), y + card_h - Inches(0.75), card_w - Inches(1.0), Inches(0.6),
+                    size=10, color=ACCENT_SOFT, line_spacing=1.2,
+                )
+
+    # ── How this makes money ──────────────────────────────────────────────
+    if business_case:
+        slide = prs.slides.add_slide(blank)
+        chrome(slide, label="How this makes money")
+        _add_text(
+            slide, "The business case", MARGIN, Inches(1.02),
+            Inches(11.8), Inches(0.8), size=30, color=TEXT, font=FONT_DISPLAY,
+        )
+        columns = [
+            ("Revenue", [f"{s.get('name')}: {s.get('description')}" for s in (business_case.get("revenue_streams") or [])], _GOOD),
+            ("Costs removed", [f"{c.get('cost')}: {c.get('how')}" for c in (business_case.get("costs_removed") or [])], _ALERT),
+            ("Pricing levers", list(business_case.get("pricing_levers") or []), ACCENT),
+        ]
+        col_w2 = Inches(3.75)
+        for i, (head, items, tint) in enumerate(columns):
+            x = MARGIN + i * (col_w2 + Inches(0.29))
+            _rect(slide, SURFACE, x, Inches(2.1), col_w2, Inches(3.7), alpha=60)
+            _rect(slide, tint, x, Inches(2.1), col_w2, Pt(2.5))
+            _kicker(slide, head, x + Inches(0.25), Inches(2.3), tint, width=col_w2 - Inches(0.5))
+            _add_bullets(
+                slide, [i for i in items if i][:3] or ["—"],
+                x + Inches(0.25), Inches(2.8), col_w2 - Inches(0.5), Inches(2.9),
+                size=11, color=TEXT, accent=tint, gap=1.1,
+                clamp=_fit_chars(col_w2 - Inches(0.5), 11, 3),
+            )
+        payback = (business_case.get("payback_logic") or "").strip()
+        if payback:
+            _add_text(
+                slide, _fit(payback, Inches(11.8), 11, lines=2), MARGIN, Inches(6.2),
+                Inches(11.8), Inches(0.7), size=11, color=MUTED, line_spacing=1.2,
+            )
+
     # ── One slide per product screen ──────────────────────────────────────
     # The slides the deck exists for: the client seeing their own software,
     # framed, with the AI module on it named.
@@ -500,6 +584,34 @@ def build_presentation(
                     size=9, color=MUTED, align=PP_ALIGN.RIGHT,
                 )
 
+    # ── Your playbook ─────────────────────────────────────────────────────
+    pb_steps = playbook.get("steps") or []
+    if pb_steps:
+        slide = prs.slides.add_slide(blank)
+        chrome(slide, label="Your playbook")
+        _add_text(
+            slide, "Every step, in order — and who does it", MARGIN, Inches(1.02),
+            Inches(11.8), Inches(0.8), size=30, color=TEXT, font=FONT_DISPLAY,
+        )
+        who_label = {"you": "YOU", "bmv": "BMV", "partner": "PARTNER"}
+        phase_heads = [("before", "Before the build"), ("during", "During the build"), ("after", "After launch")]
+        col_w3 = Inches(3.75)
+        for i, (phase_id, head) in enumerate(phase_heads):
+            x = MARGIN + i * (col_w3 + Inches(0.29))
+            steps = [s for s in pb_steps if s.get("phase") == phase_id][:4]
+            _rect(slide, SURFACE, x, Inches(2.1), col_w3, Inches(4.5), alpha=60)
+            _rect(slide, ACCENT, x, Inches(2.1), col_w3, Pt(2.5))
+            _kicker(slide, head, x + Inches(0.25), Inches(2.3), ACCENT_SOFT, width=col_w3 - Inches(0.5))
+            lines = [
+                f"{who_label.get(s.get('who'), '')} — {s.get('title')}" for s in steps
+            ]
+            _add_bullets(
+                slide, lines or ["—"],
+                x + Inches(0.25), Inches(2.8), col_w3 - Inches(0.5), Inches(3.6),
+                size=11, color=TEXT, accent=ACCENT, gap=1.15,
+                clamp=_fit_chars(col_w3 - Inches(0.5), 11, 2),
+            )
+
     # ── Closing slide ─────────────────────────────────────────────────────
     slide = prs.slides.add_slide(blank)
     chrome(slide, label="The next step")
@@ -507,7 +619,15 @@ def build_presentation(
         slide, f"Ready to make {concept} real?", MARGIN, Inches(1.15), Inches(11.8), Inches(1),
         size=34, color=TEXT, font=FONT_DISPLAY,
     )
-    _hairline(slide, LINE, MARGIN, Inches(2.15), Inches(11.83))
+    # The two honest paths, stated on the deck the client keeps: this
+    # document set is complete enough to execute without us.
+    _add_text(
+        slide,
+        "Two ways forward: we execute this plan for you, module by module — or you take the "
+        "blueprint, technical plan and playbook to your own team. They are written to be enough.",
+        MARGIN, Inches(1.62), Inches(11.8), Inches(0.6), size=13, color=MUTED, line_spacing=1.25,
+    )
+    _hairline(slide, LINE, MARGIN, Inches(2.3), Inches(11.83))
 
     employees = (consult_result.get("recommended_ai_employees") or [])[:4]
     if employees:
