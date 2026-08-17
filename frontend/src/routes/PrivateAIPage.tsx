@@ -144,14 +144,14 @@ export default function PrivateAIPage() {
                 Your data. Under your control.
               </span>
               <p className="pai-kicker mb-5">Private AI</p>
-              <h1 className="pai-display text-5xl sm:text-6xl font-bold leading-[1.05] text-white">
+              <h1 className="pai-display text-5xl sm:text-6xl font-bold leading-[1.05] text-navy">
                 Your AI.
                 <br />
                 Your data.
                 <br />
                 Your infrastructure.
               </h1>
-              <p className="mt-6 text-slate-400 text-lg max-w-lg leading-relaxed">
+              <p className="mt-6 text-slate-600 text-lg max-w-lg leading-relaxed">
                 For businesses that need tighter control over sensitive data, we deploy private AI
                 systems on dedicated infrastructure you own and control.
               </p>
@@ -272,7 +272,7 @@ export default function PrivateAIPage() {
                 <br />
                 Pay for the compute you actually use.
               </p>
-              <p className="text-slate-400 leading-relaxed">
+              <p className="text-slate-600 leading-relaxed">
                 Rather than permanently paying an AI provider a margin on every request, suitable
                 workloads can run on infrastructure you own. Ongoing costs come from infrastructure
                 operation, electricity, maintenance, and the support arrangement you choose.
@@ -290,7 +290,7 @@ export default function PrivateAIPage() {
           <div className="container-max max-w-6xl grid lg:grid-cols-2 gap-12 items-start">
             <div>
               <p className="pai-kicker mb-4">Not every workload should be local</p>
-              <p className="text-slate-300 leading-relaxed">
+              <p className="text-slate-700 leading-relaxed">
                 Private AI makes the most sense when data sensitivity, compliance, high sustained
                 usage, latency, or infrastructure control justify it.
               </p>
@@ -324,7 +324,7 @@ export default function PrivateAIPage() {
                   Discuss a private AI deployment
                   <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
                 </a>
-                <p className="flex items-center gap-2 text-sm text-slate-500">
+                <p className="flex items-center gap-2 text-sm text-slate-400">
                   <Icon path={ICONS.lock} className="w-4 h-4" />
                   No obligation. Just a technical conversation.
                 </p>

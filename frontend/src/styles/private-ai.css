@@ -1,14 +1,16 @@
-/* Private AI — enterprise-facing page. Same dark register and color family
-   as the Studio pages (one cyan-blue accent, #020617 ground) but its own
-   component vocabulary: card grids, a comparison table, a numbered step
-   flow, a conceptual environment diagram — not the Studio's glass panels. */
+/* Private AI — enterprise-facing page in the site's light register: white
+   ground with pale blue radials, ink typography, the blue accent family.
+   Its own component vocabulary: card grids, a comparison table, a numbered
+   step flow, a conceptual environment diagram. The hero illustration keeps
+   its dark ground and is framed as a panel — a window into the client's
+   environment. The closing CTA is the one deliberately dark band. */
 
 .pai-page {
   background:
-    radial-gradient(1000px 480px at 82% -8%, rgba(37, 99, 235, 0.14), transparent 62%),
-    radial-gradient(820px 440px at -8% 30%, rgba(34, 211, 238, 0.08), transparent 58%),
-    #020617;
-  color: #f8fafc;
+    radial-gradient(1000px 480px at 82% -8%, rgba(37, 99, 235, 0.08), transparent 62%),
+    radial-gradient(820px 440px at -8% 30%, rgba(96, 165, 250, 0.07), transparent 58%),
+    #ffffff;
+  color: #0f172a;
   min-height: 100vh;
 }
 
@@ -17,11 +19,11 @@
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+    linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
   background-size: 46px 46px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 55%);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 55%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 55%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent 55%);
 }
 
 .pai-display {
@@ -35,7 +37,7 @@
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 .pai-section {
@@ -43,7 +45,7 @@
 }
 
 .pai-section.border-t {
-  border-color: rgba(148, 163, 184, 0.1);
+  border-color: rgba(15, 23, 42, 0.08);
 }
 
 /* ── buttons ─────────────────────────────────────────────────────────── */
@@ -55,18 +57,18 @@
   font-family: var(--font-body);
   font-weight: 700;
   font-size: 0.92rem;
-  color: #020617;
-  background: linear-gradient(100deg, #38bdf8, #22d3ee 55%, #67e8f9);
+  color: #ffffff;
+  background: linear-gradient(100deg, #2563eb, #3b82f6);
   border-radius: 0.75rem;
   padding: 0.85rem 1.4rem;
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 12px 30px -12px rgba(34, 211, 238, 0.5);
+  box-shadow: 0 14px 30px -14px rgba(37, 99, 235, 0.6);
 }
 
 .pai-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 36px -10px rgba(34, 211, 238, 0.6);
+  box-shadow: 0 18px 36px -12px rgba(37, 99, 235, 0.7);
 }
 
 .pai-ghost-btn {
@@ -76,14 +78,14 @@
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.92rem;
-  color: #e2e8f0;
+  color: #334155;
   text-decoration: none;
   padding: 0.85rem 0.4rem;
   transition: color 0.2s ease;
 }
 
 .pai-ghost-btn:hover {
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 /* ── hero pill (mobile) ─────────────────────────────────────────────── */
@@ -93,46 +95,60 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  font-weight: 500;
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  font-weight: 600;
+  color: #334155;
+  border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.5);
+  background: #ffffff;
   padding: 0.5rem 1rem;
+  box-shadow: 0 6px 16px -12px rgba(15, 23, 42, 0.4);
 }
 
 .pai-pill svg {
-  color: #67e8f9;
+  color: #2563eb;
   flex: 0 0 auto;
+}
+
+/* The pill is mobile-only. Its display:inline-flex above loads after the
+   Tailwind utilities, so the markup's lg:hidden loses the cascade — hide
+   it here at the same breakpoint instead. */
+@media (min-width: 1024px) {
+  .pai-pill {
+    display: none;
+  }
 }
 
 /* ── hero illustration — the client's environment, labeled as such ───── */
 
-/* No border, no frame: the illustration's black ground blends into the
-   page, so it reads as part of the hero rather than a boxed thumbnail —
-   and it gets to be as large as its column allows. */
+/* The illustration's own ground is near-black, so on the light page it is
+   framed as a dark panel: a window into the client's environment. The
+   panel background matches the image ground so there is no visible seam. */
 .pai-hero-image {
   width: 100%;
   height: auto;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #020617;
+  box-shadow: 0 30px 60px -30px rgba(15, 23, 42, 0.45);
 }
 
-/* Let it bleed slightly past the column on large screens — the PNG's own
-   labels stop short of its edges, so the overflow is empty ground. */
+/* Let it bleed slightly past the column on large screens. */
 @media (min-width: 1024px) {
   .pai-hero-image {
-    width: 112%;
+    width: 108%;
     max-width: none;
-    margin-left: -6%;
+    margin-left: -4%;
   }
 }
 
 /* ── why-cards ───────────────────────────────────────────────────────── */
 
 .pai-card {
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.4);
+  background: #ffffff;
   padding: 1.4rem 1.35rem;
+  box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.4);
 }
 
 /* Two-up on phones (the reference layout) needs tighter cards. */
@@ -157,9 +173,9 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.65rem;
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.18);
-  color: #67e8f9;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  color: #2563eb;
   margin-bottom: 0.9rem;
 }
 
@@ -167,12 +183,12 @@
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1rem;
-  color: #f1f5f9;
+  color: #0f172a;
   margin-bottom: 0.45rem;
 }
 
 .pai-card p {
-  color: #94a3b8;
+  color: #475569;
   font-size: 0.85rem;
   line-height: 1.55;
 }
@@ -213,26 +229,26 @@
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: #67e8f9;
+  color: #2563eb;
   font-variant-numeric: tabular-nums;
 }
 
 .pai-step-icon {
   width: 1.15rem;
   height: 1.15rem;
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 .pai-step h3 {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.98rem;
-  color: #f1f5f9;
+  color: #0f172a;
   margin-bottom: 0.5rem;
 }
 
 .pai-step p {
-  color: #94a3b8;
+  color: #475569;
   font-size: 0.83rem;
   line-height: 1.55;
 }
@@ -241,7 +257,7 @@
   position: absolute;
   top: -0.15rem;
   right: -1.35rem;
-  color: rgba(148, 163, 184, 0.3);
+  color: rgba(15, 23, 42, 0.25);
   font-size: 1.1rem;
 }
 
@@ -259,9 +275,9 @@
   align-items: stretch;
   justify-content: center;
   gap: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 1.25rem;
-  background: rgba(15, 23, 42, 0.35);
+  background: #f8fafc;
   padding: 1.75rem;
 }
 
@@ -273,31 +289,32 @@
   justify-content: center;
   gap: 0.5rem;
   text-align: center;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 1rem;
-  background: rgba(2, 6, 23, 0.5);
+  background: #ffffff;
   padding: 1.5rem 1rem;
+  box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.5);
 }
 
 .pai-flow-node p {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #0f172a;
 }
 
 .pai-flow-icon {
   width: 1.6rem;
   height: 1.6rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .pai-flow-node--core {
-  border: 1px dashed rgba(103, 232, 249, 0.55);
-  background: rgba(34, 211, 238, 0.06);
+  border: 1px dashed rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.05);
 }
 
 .pai-flow-node--core .pai-flow-icon {
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 .pai-flow-node-tag {
@@ -307,12 +324,12 @@
   margin-top: 0.35rem;
   font-size: 0.68rem;
   font-weight: 600;
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 .pai-flow-arrow {
   align-self: center;
-  color: rgba(148, 163, 184, 0.45);
+  color: rgba(15, 23, 42, 0.3);
   font-size: 1.1rem;
 }
 
@@ -332,15 +349,16 @@
 }
 
 .pai-compare-col {
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.4);
+  background: #ffffff;
   padding: 1.4rem 1.35rem;
+  box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.4);
 }
 
 .pai-compare-col--core {
-  border-color: rgba(103, 232, 249, 0.35);
-  background: rgba(34, 211, 238, 0.05);
+  border-color: rgba(37, 99, 235, 0.3);
+  background: rgba(37, 99, 235, 0.04);
 }
 
 .pai-compare-head {
@@ -348,18 +366,18 @@
   align-items: center;
   gap: 0.6rem;
   margin-bottom: 1rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .pai-compare-col--core .pai-compare-head {
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 .pai-compare-head h3 {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1rem;
-  color: #f1f5f9;
+  color: #0f172a;
 }
 
 .pai-compare-col ul {
@@ -376,14 +394,14 @@
   align-items: flex-start;
   gap: 0.55rem;
   font-size: 0.85rem;
-  color: #cbd5e1;
+  color: #334155;
   line-height: 1.4;
 }
 
 .pai-compare-col li svg {
   flex: 0 0 auto;
   margin-top: 0.15rem;
-  color: #67e8f9;
+  color: #2563eb;
 }
 
 .pai-compare-vs {
@@ -400,9 +418,10 @@
   font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 800;
-  color: #020617;
-  background: #f8fafc;
-  border: 3px solid #020617;
+  color: #ffffff;
+  background: #0f172a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 8px 20px -10px rgba(15, 23, 42, 0.5);
 }
 
 @media (max-width: 640px) {
@@ -422,29 +441,32 @@
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.45);
+  background: #f8fafc;
   padding: 1.2rem 1.35rem;
-  color: #cbd5e1;
+  color: #334155;
   font-size: 0.9rem;
   line-height: 1.55;
 }
 
 .pai-quote svg {
   flex: 0 0 auto;
-  color: #fbbf24;
+  color: #d97706;
   margin-top: 0.1rem;
 }
 
 .pai-quote--shield svg {
-  color: #67e8f9;
+  color: #2563eb;
 }
 
-/* ── bottom cta panel ───────────────────────────────────────────────── */
+/* ── bottom cta panel — the one deliberately dark band ──────────────── */
 
 .pai-panel {
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.2);
   border-radius: 1.5rem;
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.55), rgba(15, 23, 42, 0.5));
+  background:
+    radial-gradient(600px 260px at 85% -20%, rgba(37, 99, 235, 0.25), transparent 60%),
+    linear-gradient(140deg, #0d1b33, #020617 70%);
+  box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.6);
 }
