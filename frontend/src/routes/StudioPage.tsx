@@ -331,159 +331,247 @@ function PlanPanel({
   );
 }
 
-/** The decompose-era blueprint: rendered from the structured decomposition
- *  itself (preview.modules + preview.business_case) rather than re-parsed
- *  out of the markdown it produced — the markdown is only consulted for
- *  the sections that exist nowhere else (executive summary, build order,
- *  success measures). Used when the run has modules; older runs keep
- *  BlueprintCinematic below. */
+/** The decompose-era blueprint, in the reference's consulting-app layout —
+ *  every number and node populated from the run's own structured data:
+ *  the agent flow from the modules' real agents, the data sources from
+ *  their brains, the value cards from the business case. Deliberately
+ *  ABSENT from the reference: invented impact dollars/percentages, fake
+ *  prospect cards, stock avatars — this page only states facts the
+ *  pipeline produced. Older runs keep BlueprintCinematic below. */
 function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
   const md = preview.mvp_blueprint ?? '';
   const sections = useMemo(() => splitH2Sections(md), [md]);
   const exec = findSection(sections, /executive|summary/);
   const buildFirst = findSection(sections, /build first/);
-  const success = findSection(sections, /success/);
   const bc = preview.business_case;
+  const mods = preview.modules ?? [];
 
   const execText = exec
     ? stripInlineMarkdown(exec.body.replace(/\n+/g, ' '))
     : preview.preview_summary ?? '';
-  const successRows = success ? parseListItems(success.body) : [];
+
+  type TechRail = { ai_agent?: { purpose?: string; brain?: string[]; escalation?: string } };
+  const agentMods = mods.filter((m) => m.spec?.ai?.role || (m as { tech?: TechRail }).tech?.ai_agent);
+  const integrations = [...new Set(mods.flatMap((m) => m.spec?.integrations ?? []))];
+  const dataSources = [
+    ...new Set(agentMods.flatMap((m) => (m as { tech?: TechRail }).tech?.ai_agent?.brain ?? [])),
+  ].slice(0, 5);
+
+  const valueCards = [
+    ...(bc?.revenue_streams ?? []).map((s) => ({
+      icon: INTAKE_ICONS.chart, tone: 'up' as const, title: s.name, body: s.description,
+    })),
+    ...(bc?.costs_removed ?? []).map((c) => ({
+      icon: INTAKE_ICONS.bolt, tone: 'down' as const, title: c.cost, body: c.how,
+    })),
+  ].slice(0, 4);
 
   return (
-    <div className="studio-plan">
-      <PlanHero
-        kicker="Executive summary"
-        title={preview.concept_name || preview.business_name}
-        lead={execText}
-      />
-
-      {bc && (
+    <div className="bp">
+      {/* hero: identity left, agent flow right */}
+      <div className="bp-hero">
         <div>
-          <p className="studio-kicker mb-2">How this makes money</p>
-          {bc.payback_logic && (
-            <p className="studio-plan-checklist-lead max-w-3xl">{bc.payback_logic}</p>
+          <p className="studio-kicker mb-3">Blueprint</p>
+          <h2 className="studio-display bp-title">{preview.concept_name || preview.business_name}</h2>
+          {preview.business_model && (
+            <p className="bp-subtitle">AI {preview.business_model} system</p>
           )}
-          <div className="studio-plan-columns mt-4">
-            {(bc.revenue_streams?.length ?? 0) > 0 && (
-              <PlanPanel eyebrow="Revenue">
-                <div className="studio-plan-checklist">
-                  {bc.revenue_streams.map((s, i) => (
-                    <div className="studio-plan-checkrow" key={s.name || i}>
-                      <CheckIcon className="studio-plan-checkicon" />
-                      <p>
-                        <strong className="text-slate-900">{s.name}.</strong> {s.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </PlanPanel>
-            )}
-            {(bc.costs_removed?.length ?? 0) > 0 && (
-              <PlanPanel eyebrow="Costs removed">
-                <div className="studio-plan-checklist">
-                  {bc.costs_removed.map((c, i) => (
-                    <div className="studio-plan-checkrow" key={c.cost || i}>
-                      <CheckIcon className="studio-plan-checkicon" />
-                      <p>
-                        <strong className="text-slate-900">{c.cost}.</strong> {c.how}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </PlanPanel>
-            )}
+          <p className="bp-lead">{execText}</p>
+          <div className="bp-stats">
+            <div className="bp-stat">
+              <Icon path={INTAKE_ICONS.workflow} className="w-4 h-4" />
+              <strong>{mods.length}</strong> Core modules
+            </div>
+            <div className="bp-stat">
+              <Icon path={INTAKE_ICONS.cpu} className="w-4 h-4" />
+              <strong>{agentMods.length}</strong> AI agents
+            </div>
+            <div className="bp-stat">
+              <Icon path={INTAKE_ICONS.globe} className="w-4 h-4" />
+              <strong>{integrations.length}</strong> Integrations
+            </div>
+            <div className="bp-stat">
+              <Icon path={INTAKE_ICONS.shield} className="w-4 h-4" />
+              <strong>100%</strong> Human oversight
+            </div>
           </div>
-          {(bc.pricing_levers?.length ?? 0) > 0 && (
-            <div className="studio-plan-checklist studio-plan-checklist--grid mt-4">
+        </div>
+
+        <div className="bp-flowpanel">
+          {dataSources.length > 0 && (
+            <div className="bp-sources">
+              <p className="bp-mini-kicker">Data sources</p>
+              {dataSources.map((s) => (
+                <div className="bp-source" key={s}>
+                  <Icon path={INTAKE_ICONS.database} className="w-3.5 h-3.5" />
+                  <p>{s}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="bp-agents">
+            {agentMods.map((m, i) => (
+              <div className="bp-agentnode" key={m.id || i}>
+                <span className="bp-agentnode-no">{String(i + 1).padStart(2, '0')}</span>
+                <p className="bp-agentnode-name">{m.name}</p>
+                <p className="bp-agentnode-tag">AI Agent</p>
+              </div>
+            ))}
+            <div className="bp-agentnode bp-agentnode--human">
+              <span className="bp-agentnode-no">{String(agentMods.length + 1).padStart(2, '0')}</span>
+              <p className="bp-agentnode-name">Human review</p>
+              <p className="bp-agentnode-tag">Your team</p>
+            </div>
+          </div>
+          <div className="bp-legend">
+            <span><i className="bp-dot bp-dot--ai" /> AI processing</span>
+            <span><i className="bp-dot bp-dot--human" /> Human in the loop</span>
+          </div>
+        </div>
+      </div>
+
+      {/* how this creates value — from the business case, nothing invented */}
+      {valueCards.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-4">How this creates value</p>
+          <div className="bp-valuegrid">
+            {valueCards.map((v) => (
+              <div className="bp-valuecard" key={v.title}>
+                <span className={`bp-valueicon bp-valueicon--${v.tone}`}>
+                  <Icon path={v.icon} className="w-4 h-4" />
+                </span>
+                <h3>{v.title}</h3>
+                <p>{v.body}</p>
+              </div>
+            ))}
+          </div>
+          {bc?.payback_logic && <p className="bp-payback">{bc.payback_logic}</p>}
+        </div>
+      )}
+
+      {/* the system at a glance: module rows + honest sidebar */}
+      <div className="bp-glance">
+        <div>
+          <p className="studio-kicker mb-2">The system at a glance</p>
+          <h3 className="studio-display bp-glance-title">
+            {mods.length} modules. {agentMods.length} AI agents. One seamless workflow.
+          </h3>
+          <div className="bp-modrows">
+            {mods.map((m, i) => (
+              <a className="bp-modrow" href={`#bp-mod-${i}`} key={m.id || i}>
+                <span className="bp-modrow-no">{String(i + 1).padStart(2, '0')}</span>
+                <div className="min-w-0">
+                  <div className="bp-modrow-head">
+                    <h4>{m.name}</h4>
+                    <span className={`bp-modrow-badge${m.spec?.ai?.role ? '' : ' bp-modrow-badge--none'}`}>
+                      {m.spec?.ai?.role ? 'AI agent' : 'No AI — deliberate'}
+                    </span>
+                  </div>
+                  <p>{m.purpose}</p>
+                  <span className="bp-modrow-more">Learn more ↓</span>
+                </div>
+              </a>
+            ))}
+          </div>
+          <div className="bp-oversight">
+            <Icon path={INTAKE_ICONS.shield} className="w-5 h-5" />
+            <p>
+              <strong>Human oversight at every critical step.</strong> Every agent has a hand-off
+              trigger and things it may never do — written into its spec.
+            </p>
+          </div>
+        </div>
+
+        <aside className="bp-side">
+          {bc && (bc.pricing_levers?.length ?? 0) > 0 && (
+            <div className="bp-sidecard">
+              <p className="bp-mini-kicker">Pricing levers</p>
               {bc.pricing_levers.map((l) => (
-                <div className="studio-plan-checkrow" key={l}>
+                <div className="bp-siderow" key={l}>
                   <CheckIcon className="studio-plan-checkicon" />
                   <p>{l}</p>
                 </div>
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      <div>
-        <p className="studio-kicker mb-4">The product, module by module</p>
-        <div className="studio-plan-roster studio-plan-roster--stacked">
-          {preview.modules.map((m, i) => {
-            const spec = m.spec;
-            return (
-              <div className="studio-panel studio-plan-panel" key={m.id || i}>
-                <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
-                  <p className="studio-plan-rostername text-base">
-                    <span className="studio-plan-featureno inline mr-2">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    {m.name}
-                  </p>
-                  {(m.users?.length ?? 0) > 0 && (
-                    <span className="studio-diagnosis-badge">{m.users.join(' · ')}</span>
-                  )}
-                </div>
-                <p className="studio-plan-rostertext mb-1">{m.purpose}</p>
-                {m.pain_point_addressed && (
-                  <p className="studio-plan-roadmap-field">
-                    <span>Exists because: </span>
-                    {m.pain_point_addressed}
-                  </p>
-                )}
-                {(spec?.features?.length ?? 0) > 0 && (
-                  <div className="studio-plan-checklist mt-3">
-                    {spec!.features.map((f, j) => (
-                      <div className="studio-plan-checkrow" key={f.name || j}>
-                        <CheckIcon className="studio-plan-checkicon" />
-                        <p>
-                          <strong className="text-slate-900">{f.name}.</strong> {f.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {spec?.ai?.role && (
-                  <p className="studio-plan-roadmap-field mt-3">
-                    <span>Where the AI works: </span>
-                    {spec.ai.role}
-                    {spec.ai.hands_off ? ` Hands off to a human: ${spec.ai.hands_off}` : ''}
-                  </p>
-                )}
-                {(spec?.kpis?.length ?? 0) > 0 && (
-                  <p className="studio-plan-roadmap-field">
-                    <span>You'll know it's working when: </span>
-                    {spec!.kpis.join(' · ')}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
+          <div className="bp-sidecard">
+            <p className="bp-mini-kicker">Build details</p>
+            <div className="bp-sidefact"><span>Core modules</span><strong>{mods.length}</strong></div>
+            <div className="bp-sidefact"><span>AI agents</span><strong>{agentMods.length}</strong></div>
+            <div className="bp-sidefact"><span>Integrations</span><strong>{integrations.length}</strong></div>
+            {preview.timeline && (
+              <div className="bp-sidefact"><span>Your timeline</span><strong>{preview.timeline}</strong></div>
+            )}
+            {preview.budget_range && (
+              <div className="bp-sidefact"><span>Scope appetite</span><strong>{preview.budget_range}</strong></div>
+            )}
+          </div>
+          {buildFirst && (
+            <div className="bp-sidecard">
+              <p className="bp-mini-kicker">What we'd build first</p>
+              <BlueprintProse text={buildFirst.body} />
+            </div>
+          )}
+        </aside>
       </div>
 
-      {(buildFirst || successRows.length > 0) && (
-        <div className="studio-plan-columns">
-          {buildFirst && (
-            <PlanPanel eyebrow="What we'd build first">
-              <BlueprintProse text={buildFirst.body} />
-            </PlanPanel>
-          )}
-          {successRows.length > 0 && (
-            <PlanPanel eyebrow="What success looks like">
-              <div className="studio-plan-checklist">
-                {successRows.map((row, i) => (
-                  <div className="studio-plan-checkrow" key={i}>
-                    <CheckIcon className="studio-plan-checkicon" />
-                    <p>{row.text || row.title}</p>
-                  </div>
-                ))}
+      {/* one deep section per module */}
+      {mods.map((m, i) => {
+        const spec = m.spec;
+        const tech = (m as { tech?: TechRail }).tech;
+        return (
+          <div className="bp-module" id={`bp-mod-${i}`} key={m.id || i}>
+            <div>
+              <div className="bp-module-head">
+                <span className="bp-modrow-no">{String(i + 1).padStart(2, '0')}</span>
+                <h3 className="studio-display">{m.name}</h3>
               </div>
-            </PlanPanel>
-          )}
-        </div>
-      )}
+              <p className="bp-mini-kicker mt-4">How it works</p>
+              <p className="bp-module-purpose">{m.purpose}</p>
+              {(spec?.features?.length ?? 0) > 0 && (
+                <div className="studio-plan-checklist mt-3">
+                  {spec!.features.map((f, j) => (
+                    <div className="studio-plan-checkrow" key={f.name || j}>
+                      <CheckIcon className="studio-plan-checkicon" />
+                      <p><strong className="text-slate-900">{f.name}.</strong> {f.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(spec?.data?.length ?? 0) > 0 && (
+                <>
+                  <p className="bp-mini-kicker mt-5">What it keeps track of</p>
+                  <div className="bp-datachips">
+                    {spec!.data.slice(0, 6).map((d) => (
+                      <span key={d}>{d}</span>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <aside className="bp-module-rail">
+              {spec?.ai?.role && (
+                <div className="bp-sidecard">
+                  <p className="bp-mini-kicker">The AI in this module</p>
+                  <p className="bp-module-airole">{spec.ai.role}</p>
+                  {((tech?.ai_agent?.brain?.length ?? 0) > 0) && (
+                    <p className="bp-module-aibrain">
+                      <span>Grounded in: </span>
+                      {tech!.ai_agent!.brain!.slice(0, 3).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              )}
+              {(spec?.ai?.hands_off || tech?.ai_agent?.escalation) && (
+                <div className="bp-sidecard bp-sidecard--human">
+                  <p className="bp-mini-kicker">Human review</p>
+                  <p>{spec?.ai?.hands_off || tech?.ai_agent?.escalation}</p>
+                </div>
+              )}
+            </aside>
+          </div>
+        );
+      })}
     </div>
   );
 }
