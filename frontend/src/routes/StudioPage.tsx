@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
@@ -123,8 +123,10 @@ const OUTCOMES = [
 /** What the intake actually produces isn't three app screens — it's an
  *  understanding of the business that then gets architected into a system.
  *  This says that visually instead of showing UI mockups, which is exactly
- *  the read this page is trying not to give. */
-function SystemDiagram() {
+ *  the read this page is trying not to give. Memoized: it takes no props
+ *  and never changes, so it has no reason to re-reconcile on every
+ *  keystroke the intake form's state changes trigger a re-render for. */
+const SystemDiagram = memo(function SystemDiagram() {
   return (
     <svg
       className="studio-diagram"
@@ -172,7 +174,7 @@ function SystemDiagram() {
       </g>
     </svg>
   );
-}
+});
 
 // The intake mirrors the old build-request wizard's five steps and fields —
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming

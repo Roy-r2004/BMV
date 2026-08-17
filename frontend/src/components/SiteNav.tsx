@@ -14,6 +14,7 @@ const LINKS = [
   { to: '/demo', label: 'Demo' },
   { to: '/examples', label: 'Examples' },
   { to: '/about', label: 'About' },
+  { to: '/private-ai', label: 'Private AI' },
 ];
 
 export default function SiteNav() {

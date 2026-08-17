@@ -6,6 +6,7 @@ import ExamplesPage from './routes/ExamplesPage';
 import SolutionsPage from './routes/SolutionsPage';
 import SolutionDetailPage from './routes/SolutionDetailPage';
 import AboutPage from './routes/AboutPage';
+import PrivateAIPage from './routes/PrivateAIPage';
 import SubmitPage from './routes/SubmitPage';
 import StudioPage from './routes/StudioPage';
 import ResultPreviewPage from './routes/ResultPreviewPage';
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/solutions" element={<SolutionsPage />} />
           <Route path="/solutions/:id" element={<SolutionDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/private-ai" element={<PrivateAIPage />} />
           <Route path="/submit" element={<SubmitPage />} />
           {/* The client-facing generator, addressed as /demo. It used to be
               /studio, beside a separate /demo page that listed generated

@@ -196,16 +196,11 @@
   outline: none;
   border-color: rgba(34, 211, 238, 0.75);
   background: rgba(2, 6, 23, 0.85);
-  animation: studio-field-glow 2.4s ease-in-out infinite;
-}
-
-@keyframes studio-field-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14), 0 0 16px rgba(34, 211, 238, 0.1);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.24), 0 0 26px rgba(34, 211, 238, 0.24);
-  }
+  /* A static glow, not an animated one — animating box-shadow repaints
+     every frame for as long as the field stays focused (it isn't a
+     compositor-only property like opacity/transform), which is exactly
+     the kind of thing that reads as "the page is laggy" while typing. */
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.2), 0 0 22px rgba(34, 211, 238, 0.18);
 }
 
 .studio-specificity {
@@ -1648,10 +1643,5 @@
   }
   .studio-spinner {
     animation-duration: 2.4s;
-  }
-  .studio-field input:focus-visible,
-  .studio-field textarea:focus-visible {
-    animation: none;
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
   }
 }
