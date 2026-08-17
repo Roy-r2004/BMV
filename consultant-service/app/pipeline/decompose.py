@@ -164,7 +164,7 @@ def decompose_business(
                 other_modules=others,
             )
             body = provider.chat(
-                settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=2500,
+                settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=3200,
             )
             return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage"), None
         except Exception as exc:

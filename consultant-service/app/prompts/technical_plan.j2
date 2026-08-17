@@ -33,7 +33,17 @@ One ### subsection PER MODULE, in the decomposition's order. Each subsection cov
 - **APIs & events:** from tech.apis
 - **Connects to:** tech.integration_details — each system and what data flows which direction
 - **Security:** tech.security notes for this module
+- **Build sequence:** tech.build_sequence as a numbered inline list — the order to stand this module up
+- **Done when:** tech.done_when — the checks that prove this module is finished
 - **Build notes:** 1-2 sentences of real engineering judgement: the hard part, the risk, or the thing to get right first
+
+## Bringing it to life yourself
+This plan is complete enough to execute without us — this section is the honest guide for a client who takes it to their own team. Cover, as short labeled bullets:
+- **Team shape:** the smallest team that can build this (roles, not names — e.g. one full-stack developer plus one AI engineer; adjust to THIS system's real complexity)
+- **Build order:** the modules in dependency order, one line of reasoning each — which module's data the others need first
+- **Buy, don't build:** the pieces to take off the shelf (messaging/SMS provider, calendaring, hosting, auth) rather than write — named as CATEGORIES with what to look for, never a specific vendor pitch
+- **Proving the agents before launch:** how to use each module's evaluation checks to trust the AI before real customers touch it — human review loops first, thresholds before autonomy
+- **The first thing to ship:** the smallest end-to-end slice that touches real users, and why starting there de-risks the rest
 
 ## Data, security & reliability
 4-5 bullets, system-wide: where data lives, backups, privacy of client information, access control, uptime — plain language, no boilerplate that could describe any product.

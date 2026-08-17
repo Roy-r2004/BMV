@@ -710,6 +710,7 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
   const blocks = findSection(sections, /building blocks|components/);
   // The decompose-era document: one ### per module with labeled facet lines.
   const moduleSpecs = findSection(sections, /module spec/);
+  const selfBuild = findSection(sections, /yourself|bringing it to life/);
   const aiWork = findSection(sections, /employees work|how the ai/);
   const implPhases = findSection(sections, /implementation/);
   const security = findSection(sections, /security|data/);
@@ -790,6 +791,16 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
             })}
           </div>
         </div>
+      )}
+
+      {selfBuild && (
+        <PlanPanel eyebrow="Bringing it to life yourself">
+          <p className="studio-plan-rostertext mb-3">
+            This plan is complete enough to execute without us. If you take it to your own team,
+            this is the honest guide.
+          </p>
+          <BlueprintProse text={selfBuild.body} />
+        </PlanPanel>
       )}
 
       {buildBlocks.length > 0 && (
@@ -2115,6 +2126,38 @@ export default function StudioPage() {
 
                 {activeTab === 'technical' && preview.technical_plan && (
                   <div className="studio-tabpanel">
+                    {/* The plan is deliberately complete enough to execute
+                        without us — so the choice is stated, not implied. */}
+                    <div className="studio-plan-columns mb-10">
+                      <div className="studio-panel studio-plan-panel">
+                        <p className="studio-kicker mb-2">Path one</p>
+                        <p className="studio-plan-rostername mb-1">We execute this plan for you</p>
+                        <p className="studio-plan-rostertext mb-4">
+                          The same team that wrote it builds it — module by module, in the order
+                          below, with you reviewing at every phase.
+                        </p>
+                        <button
+                          type="button"
+                          className="studio-ghost-btn"
+                          onClick={() => setActiveTab('plans')}
+                        >
+                          See build packages
+                        </button>
+                      </div>
+                      <div className="studio-panel studio-plan-panel">
+                        <p className="studio-kicker mb-2">Path two</p>
+                        <p className="studio-plan-rostername mb-1">Take the plan — it's yours</p>
+                        <p className="studio-plan-rostertext mb-4">
+                          Every module, data model, agent spec, build sequence and acceptance check
+                          is written down below. A competent team can build from this document.
+                        </p>
+                        {preview.deck_available && (
+                          <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+                            Download the deck
+                          </a>
+                        )}
+                      </div>
+                    </div>
                     <TechnicalCinematic preview={preview} />
                   </div>
                 )}
