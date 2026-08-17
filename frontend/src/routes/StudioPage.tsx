@@ -1492,6 +1492,20 @@ export default function StudioPage() {
     setLightbox(null);
   };
 
+  // Switching tabs on a long page must land the reader at the top of the
+  // new tab, not mid-scroll of wherever the previous tab left them. The
+  // ref skips the mount run so opening a result URL doesn't jump.
+  const firstTabRender = useRef(true);
+  useEffect(() => {
+    if (firstTabRender.current) {
+      firstTabRender.current = false;
+      return;
+    }
+    if (act !== 'reveal') return;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   const pct = progress?.pct ?? 4;
   const stageStates = useMemo(
     () =>
