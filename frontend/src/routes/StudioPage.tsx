@@ -117,25 +117,54 @@ function Icon({ path, className }: { path: string; className?: string }) {
   );
 }
 
-// What a serious buyer engages a consultancy for — not what the tool does.
-// Numbered rather than titled "Features", on purpose.
-const OUTCOMES = [
-  {
-    icon: INTAKE_ICONS.workflow,
-    title: 'Your workflow, redesigned',
-    body: 'See how the operation changes when AI is embedded directly into the work.',
-  },
-  {
-    icon: INTAKE_ICONS.cpu,
-    title: 'Your AI system, visualized',
-    body: 'A concrete view of the agents, interfaces, data, integrations, and human handoffs we’d build.',
-  },
-  {
-    icon: INTAKE_ICONS.chart,
-    title: 'Your business case, modeled',
-    body: 'Understand where the value comes from, what can be automated or augmented, and why the system is worth building.',
-  },
-] as const;
+/** The three hand-drawn sketches on the "what you'll get" cards —
+ *  a flowchart being redesigned, an AI system wiring diagram, and a
+ *  value chart. Pure inline SVG; decorative. */
+function GetSketch({ kind }: { kind: 'flow' | 'system' | 'chart' }) {
+  const stroke = '#94a3b8';
+  const blue = '#2563eb';
+  return (
+    <svg viewBox="0 0 120 90" className="studio-getcard-sketch" aria-hidden="true">
+      {kind === 'flow' && (
+        <g fill="none" strokeWidth="1.6">
+          <rect x="8" y="8" width="30" height="14" rx="3" stroke={stroke} />
+          <rect x="8" y="38" width="30" height="14" rx="3" stroke={stroke} />
+          <rect x="8" y="68" width="30" height="14" rx="3" stroke={stroke} />
+          <path d="M23 22v16M23 52v16" stroke={stroke} strokeDasharray="3 3" />
+          <path d="M44 45h18" stroke={blue} />
+          <path d="M58 40l6 5-6 5" stroke={blue} />
+          <rect x="70" y="30" width="40" height="18" rx="4" stroke={blue} fill="rgba(37,99,235,0.06)" />
+          <rect x="70" y="56" width="40" height="12" rx="3" stroke={stroke} />
+        </g>
+      )}
+      {kind === 'system' && (
+        <g fill="none" strokeWidth="1.6">
+          {[10, 30, 50, 70].map((y) => (
+            <rect key={y} x="8" y={y} width="10" height="10" rx="2" stroke={stroke} />
+          ))}
+          {[16, 40, 64].map((y) => (
+            <rect key={y} x="102" y={y} width="10" height="10" rx="2" stroke={stroke} />
+          ))}
+          <path d="M22 15 48 40M22 35 48 43M22 55 48 46M22 75 48 50M72 45 98 21M72 45 98 45M72 47 98 69" stroke={stroke} strokeDasharray="2 3" />
+          <circle cx="60" cy="45" r="14" stroke={blue} fill="rgba(37,99,235,0.06)" />
+          <path d="M60 38l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill={blue} />
+        </g>
+      )}
+      {kind === 'chart' && (
+        <g fill="none" strokeWidth="1.6">
+          <path d="M10 82h100" stroke={stroke} />
+          {[
+            { x: 16, h: 18 }, { x: 34, h: 26 }, { x: 52, h: 22 }, { x: 70, h: 38 }, { x: 88, h: 50 },
+          ].map((b) => (
+            <rect key={b.x} x={b.x} y={78 - b.h} width="11" height={b.h} rx="2" stroke={stroke} fill="rgba(148,163,184,0.12)" />
+          ))}
+          <path d="M14 62 40 52 60 56 84 32 106 18" stroke={blue} />
+          <circle cx="106" cy="18" r="3" fill={blue} />
+        </g>
+      )}
+    </svg>
+  );
+}
 
 // The intake mirrors the old build-request wizard's five steps and fields —
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming
@@ -1502,31 +1531,19 @@ export default function StudioPage() {
 
             {act === 'intake' && (
               <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
-                {/* Reference layout: headline+chips left, AI-network art
-                    center (desktop only), form right; the clarity cards and
-                    the insight panel move BELOW the hero. */}
-                <div className="grid lg:grid-cols-[1.05fr_0.8fr_1.1fr] gap-10 lg:gap-8 items-center">
+                {/* Reference layout: copy + flow map left, form right. */}
+                <div className="grid lg:grid-cols-[1.2fr_1fr] gap-10 lg:gap-14 items-start">
                   <div className="pt-4">
-                    <div className="flex flex-col-reverse sm:flex-col items-start gap-3 mb-6">
-                      <p className="studio-kicker">The Demo</p>
-                      <span className="studio-trust-badge">
-                        <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
-                        Built around your business — not a generic AI demo.
-                      </span>
-                    </div>
-                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[2.9rem] font-bold leading-[1.08] text-navy">
+                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[3.1rem] font-bold leading-[1.08] text-navy">
                       Before you invest in AI, see exactly{' '}
                       <span className="studio-hero-grad">what we'd build.</span>
                     </h1>
-                    <p className="mt-4 text-slate-600 text-base sm:text-lg lg:text-base max-w-xl leading-relaxed">
+                    <p className="mt-5 text-slate-600 text-base sm:text-lg max-w-xl leading-relaxed">
                       Tell us where your business is slow, manual, or expensive. We'll turn it
                       into a tailored AI system concept — <strong className="text-navy">built
-                      around your workflows, your data, your tools, and your economics.</strong>
+                      around your workflows, data, tools, and economics.</strong>
                     </p>
 
-                    {/* On desktop the form sits right beside this copy — nothing
-                        to jump to. On mobile it's a long scroll away, so give
-                        it a shortcut. */}
                     <div className="mt-6 flex items-center gap-4 lg:hidden">
                       <a href="#studio-form" className="studio-cta studio-jumplink">
                         Start your demo
@@ -1538,41 +1555,40 @@ export default function StudioPage() {
                       </span>
                     </div>
 
-                    <div className="mt-8 studio-chips">
-                      {[
-                        { icon: INTAKE_ICONS.workflow, title: 'Tailored to you', sub: 'Not one-size-fits-all' },
-                        { icon: INTAKE_ICONS.cpu, title: 'AI-first approach', sub: 'Designed to deliver ROI' },
-                        { icon: INTAKE_ICONS.shield, title: 'Secure & private', sub: 'Your data stays yours' },
-                      ].map((c) => (
-                        <div className="studio-chip" key={c.title}>
-                          <span className="studio-chip-icon">
-                            <Icon path={c.icon} className="w-4 h-4" />
-                          </span>
-                          <span>
-                            <span className="studio-chip-title">{c.title}</span>
-                            <span className="studio-chip-sub">{c.sub}</span>
-                          </span>
+                    {/* the flow map: business -> signals -> agents -> workflow,
+                        branching to human review -> outcomes */}
+                    <div className="studio-flowmap mt-9" aria-hidden="true">
+                      <div className="studio-flowmap-row">
+                        {[
+                          { icon: INTAKE_ICONS.building, label: 'Your business', sub: 'Processes, people, and systems' },
+                          { icon: INTAKE_ICONS.database, label: 'Signals & data', sub: 'Structured + unstructured' },
+                          { icon: INTAKE_ICONS.sparkle, label: 'AI agents', sub: 'Reason, decide, and act', hot: true },
+                          { icon: INTAKE_ICONS.workflow, label: 'Workflow', sub: 'Integrated into your operations' },
+                        ].map((n, i) => (
+                          <div className="contents" key={n.label}>
+                            {i > 0 && <span className="studio-flowmap-link" />}
+                            <div className={`studio-flowmap-node${n.hot ? ' studio-flowmap-node--hot' : ''}`}>
+                              <Icon path={n.icon} className="w-4 h-4" />
+                              <p>{n.label}</p>
+                              <span>{n.sub}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="studio-flowmap-row studio-flowmap-row--branch">
+                        <div className="studio-flowmap-node">
+                          <Icon path={INTAKE_ICONS.user} className="w-4 h-4" />
+                          <p>Human review</p>
+                          <span>Validate, refine, and approve</span>
                         </div>
-                      ))}
+                        <span className="studio-flowmap-link" />
+                        <div className="studio-flowmap-node">
+                          <Icon path={INTAKE_ICONS.chart} className="w-4 h-4" />
+                          <p>Outcomes</p>
+                          <span>Better decisions, measurable impact</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* The AI-network centerpiece — decorative, desktop only. */}
-                  <div className="hidden lg:block studio-hero-art" aria-hidden="true">
-                    <span className="studio-hero-art-glow" />
-                    <span className="studio-hero-art-orb">AI</span>
-                    <span className="studio-hero-art-chip" style={{ left: '2%', top: '22%' }}>
-                      <Icon path={INTAKE_ICONS.database} className="w-4 h-4" />
-                    </span>
-                    <span className="studio-hero-art-chip" style={{ right: '4%', top: '30%' }}>
-                      <Icon path={INTAKE_ICONS.user} className="w-4 h-4" />
-                    </span>
-                    <span className="studio-hero-art-chip" style={{ left: '12%', bottom: '18%' }}>
-                      <Icon path={INTAKE_ICONS.chart} className="w-4 h-4" />
-                    </span>
-                    <span className="studio-hero-art-chip" style={{ right: '10%', bottom: '10%' }}>
-                      <Icon path={INTAKE_ICONS.briefcase} className="w-4 h-4" />
-                    </span>
                   </div>
 
                   <motion.form
@@ -1613,7 +1629,7 @@ export default function StudioPage() {
                                   id="st-name"
                                   value={form.business_name}
                                   onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                                  placeholder="Beacon Physiotherapy"
+                                  placeholder="e.g. Beacon Physiotherapy"
                                   autoComplete="organization"
                                 />
                               </div>
@@ -1629,13 +1645,13 @@ export default function StudioPage() {
                                   id="st-industry"
                                   value={form.industry}
                                   onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                                  placeholder="Physiotherapy clinic"
+                                  placeholder="e.g. Physiotherapy clinic"
                                 />
                               </div>
                             </div>
                             <div className="studio-field">
                               <label htmlFor="st-siteurl">
-                                Your website or Google/Instagram page{' '}
+                                Website or Google/Instagram page{' '}
                                 <span className="text-slate-500 font-normal">(optional)</span>
                               </label>
                               <div className="studio-inputwrap">
@@ -1644,7 +1660,7 @@ export default function StudioPage() {
                                   id="st-siteurl"
                                   value={form.site_url}
                                   onChange={(e) => setForm({ ...form, site_url: e.target.value })}
-                                  placeholder="https://yourbusiness.com"
+                                  placeholder="e.g. https://yourbusiness.com"
                                   autoComplete="url"
                                 />
                               </div>
@@ -1846,92 +1862,89 @@ export default function StudioPage() {
                     </div>
                     <p className="studio-hint studio-hint--trust text-center mt-4">
                       <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
-                      Free. No call, no deck — you watch it get made.
+                      No sales call. No deck. Just a clearer path forward.
                     </p>
                   </motion.form>
                 </div>
 
-                {/* ── below the hero: clarity cards + the insight panel ── */}
-                <div className="mt-16 grid lg:grid-cols-[0.95fr_1.5fr] gap-10 lg:gap-12 items-start">
-                  <div>
-                    <h2 className="studio-display text-xl font-bold text-navy mb-5">
-                      You'll walk away with clarity.
-                    </h2>
-                    <div className="grid sm:grid-cols-3 gap-4">
-                      {OUTCOMES.map((o, i) => (
-                        <div className="studio-claritycard" key={o.title}>
-                          <span className="studio-claritycard-no">{String(i + 1).padStart(2, '0')}</span>
-                          <span className="studio-claritycard-icon">
-                            <Icon path={o.icon} className="w-4 h-4" />
-                          </span>
-                          <h3>{o.title}</h3>
-                          <p>{o.body}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h2 className="studio-display text-xl font-bold text-navy mb-5">
-                      From insight to impact. Built around you.
-                    </h2>
-                    <div className="studio-insight">
-                      <div className="studio-insight-flow">
-                        {[
-                          { icon: INTAKE_ICONS.building, label: 'Your business' },
-                          { icon: INTAKE_ICONS.database, label: 'Data' },
-                        ].map((n) => (
-                          <div className="studio-insight-node" key={n.label}>
-                            <Icon path={n.icon} className="w-5 h-5" />
-                            <p>{n.label}</p>
-                          </div>
-                        ))}
-                        <div className="studio-insight-core">
-                          <span className="studio-insight-core-orb">AI</span>
-                          <p>AI System</p>
-                          <div className="studio-insight-tools">
-                            <Icon path={INTAKE_ICONS.wrench} className="w-4 h-4" />
-                            <p>Tools</p>
-                          </div>
-                        </div>
-                        <div className="studio-insight-node">
-                          <Icon path={INTAKE_ICONS.user} className="w-5 h-5" />
-                          <p>Human review</p>
+                {/* ── what you'll get: three sketch cards ── */}
+                <div className="mt-16">
+                  <h2 className="studio-display text-xl font-bold text-navy mb-5">What you'll get</h2>
+                  <div className="grid lg:grid-cols-3 gap-5">
+                    {[
+                      {
+                        kind: 'flow' as const,
+                        icon: INTAKE_ICONS.workflow,
+                        title: 'Workflow redesigned',
+                        body: 'We map your current process, find the friction, and redesign the workflow for speed and scale.',
+                      },
+                      {
+                        kind: 'system' as const,
+                        icon: INTAKE_ICONS.cpu,
+                        title: 'AI system visualized',
+                        body: 'See how AI agents, data, and tools work together — tailored to your operation.',
+                      },
+                      {
+                        kind: 'chart' as const,
+                        icon: INTAKE_ICONS.chart,
+                        title: 'Business case modeled',
+                        body: 'We show where the value comes from — what can be automated or augmented, and why the system is worth building.',
+                      },
+                    ].map((c) => (
+                      <div className="studio-getcard" key={c.title}>
+                        <GetSketch kind={c.kind} />
+                        <div>
+                          <h3>
+                            <Icon path={c.icon} className="w-4 h-4" />
+                            {c.title}
+                          </h3>
+                          <p>{c.body}</p>
                         </div>
                       </div>
-                      <div className="studio-insight-benefits">
-                        {[
-                          { icon: INTAKE_ICONS.bolt, label: 'Faster decisions' },
-                          { icon: INTAKE_ICONS.chart, label: 'Lower costs' },
-                          { icon: INTAKE_ICONS.user, label: 'Happier teams' },
-                          { icon: INTAKE_ICONS.shield, label: 'Measurable ROI' },
-                        ].map((b) => (
-                          <div className="studio-insight-benefit" key={b.label}>
-                            <Icon path={b.icon} className="w-4 h-4" />
-                            <p>{b.label}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* ── enterprise strip ── */}
-                <div className="mt-10 studio-enterprise">
-                  <p className="studio-enterprise-lead">
-                    Enterprise-grade foundation. Startups move fast. We meet you where you are.
-                  </p>
-                  <div className="studio-enterprise-chips">
+                {/* ── the pipeline band + benefits ── */}
+                <div className="mt-8 studio-band">
+                  <div className="studio-band-cols">
                     {[
-                      { icon: INTAKE_ICONS.shield, label: 'Your data is private' },
-                      { icon: INTAKE_ICONS.cpu, label: 'Secure by design' },
-                      { icon: INTAKE_ICONS.workflow, label: 'You own everything' },
-                      { icon: INTAKE_ICONS.bolt, label: 'No lock-in' },
-                    ].map((c) => (
-                      <span key={c.label}>
-                        <Icon path={c.icon} className="w-3.5 h-3.5" />
-                        {c.label}
-                      </span>
+                      { icon: INTAKE_ICONS.building, title: 'Business inputs', items: ['Your data', 'Operations', 'Systems & tools', 'Goals'] },
+                      { icon: INTAKE_ICONS.sparkle, title: 'AI system', items: ['AI agents', 'Models', 'Knowledge', 'Automation'] },
+                      { icon: INTAKE_ICONS.user, title: 'Human review', items: ['Check', 'Refine', 'Approve', 'Learn'] },
+                      { icon: INTAKE_ICONS.chart, title: 'Measurable results', items: ['Better decisions', 'More capacity', 'Lower costs', 'Sustainable growth'] },
+                    ].map((col, i) => (
+                      <div className="contents" key={col.title}>
+                        {i > 0 && <span className="studio-band-arrow">→</span>}
+                        <div className="studio-band-col">
+                          <p className="studio-band-col-head">
+                            <Icon path={col.icon} className="w-4 h-4" />
+                            {col.title}
+                          </p>
+                          <ul>
+                            {col.items.map((it) => (
+                              <li key={it}>{it}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="studio-band-benefits">
+                    {[
+                      { title: 'Faster decisions', sub: 'From insight to action in less time.' },
+                      { title: 'Lower costs', sub: 'Eliminate manual work and rework.' },
+                      { title: 'Happier teams', sub: 'Remove friction. Increase focus.' },
+                      { title: 'Measurable ROI', sub: 'Clear impact you can track and prove.' },
+                    ].map((b) => (
+                      <div className="studio-band-benefit" key={b.title}>
+                        <span className="studio-band-check">
+                          <CheckIcon className="w-3 h-3" />
+                        </span>
+                        <p>
+                          <strong>{b.title}</strong> {b.sub}
+                        </p>
+                      </div>
                     ))}
                   </div>
                 </div>
