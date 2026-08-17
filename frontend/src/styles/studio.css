@@ -78,30 +78,47 @@
 }
 
 .studio-outcome {
-  padding-left: 1.25rem;
-  border-left: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
 }
 
-.studio-outcome-head {
+.studio-outcome-bubble {
+  flex: 0 0 auto;
+  /* Centered against the whole row, like the reference — while the number
+     and title hang from the top. */
+  align-self: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  background: rgba(15, 23, 42, 0.5);
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 0.65rem;
+  justify-content: center;
+  color: #67e8f9;
 }
 
 .studio-outcome-no {
+  flex: 0 0 auto;
   font-family: var(--font-display);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: #64748b;
+  color: #22d3ee;
   font-variant-numeric: tabular-nums;
+  /* Rides level with the title's first line. */
+  padding-top: 0.35rem;
+}
+
+.studio-outcome-body {
+  border-left: 1px solid rgba(148, 163, 184, 0.2);
+  padding-left: 1.25rem;
 }
 
 .studio-outcome-icon {
-  width: 1.05rem;
-  height: 1.05rem;
-  color: #67e8f9;
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .studio-outcome-title {
@@ -120,6 +137,70 @@
   max-width: 30rem;
 }
 
+.studio-outcome-chevron {
+  display: none;
+}
+
+/* Below lg, the form isn't visible beside this copy — each outcome reads
+   more like a tappable step toward it, so it gets a full card boundary and
+   a trailing chevron instead of the desktop's plain hairline-and-whitespace
+   list. */
+@media (max-width: 1023px) {
+  .studio-outcomes {
+    gap: 1rem;
+  }
+
+  .studio-outcome {
+    position: relative;
+    gap: 1rem;
+    align-items: center;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 1rem;
+    background: rgba(15, 23, 42, 0.35);
+    padding: 1.1rem 2.5rem 1.1rem 1.1rem;
+  }
+
+  .studio-outcome-bubble {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  /* The phone design reads number → icon → text. */
+  .studio-outcome-no {
+    order: -1;
+    padding-top: 0;
+    align-self: center;
+  }
+
+  .studio-outcome-body {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .studio-outcome-chevron {
+    display: block;
+    position: absolute;
+    top: 50%;
+    right: 1.1rem;
+    transform: translateY(-50%);
+    width: 1.1rem;
+    height: 1.1rem;
+    color: #64748b;
+  }
+
+  .studio-outcome-title {
+    font-size: 1.1rem;
+  }
+}
+
+/* ── mobile-only jump link straight to the form ─────────────────────── */
+
+.studio-jumplink {
+  width: auto;
+  padding: 0.8rem 1.3rem;
+  font-size: 0.9rem;
+}
+
 /* ── the system diagram — business, AI agents/data/tools, human review ── */
 
 .studio-diagram {
@@ -129,9 +210,23 @@
   max-width: 34rem;
 }
 
+.studio-diagram-mobile {
+  width: 100%;
+  max-width: 20rem;
+  height: auto;
+  margin: 3rem auto 0;
+  display: block;
+}
+
 .studio-diagram-lines line {
   stroke: rgba(148, 163, 184, 0.3);
   stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.studio-diagram-junction {
+  fill: #22d3ee;
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.8));
 }
 
 .studio-diagram-node rect {
@@ -149,6 +244,22 @@
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
+}
+
+.studio-diagram-nodeicon {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.studio-diagram-nodeicon--core {
+  stroke: #67e8f9;
+}
+
+.studio-diagram-mobile .studio-diagram-node text {
+  font-size: 10.5px;
 }
 
 /* ── glass panels ─────────────────────────────────────────────────────── */
@@ -245,6 +356,38 @@
   border-color: rgba(251, 113, 133, 0.6);
 }
 
+/* Leading icon inside a text input. */
+.studio-inputwrap {
+  position: relative;
+}
+
+.studio-inputwrap svg {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.05rem;
+  height: 1.05rem;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.studio-inputwrap input {
+  padding-left: 2.5rem;
+}
+
+.studio-hint--trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.studio-hint--trust svg {
+  color: #67e8f9;
+  flex: 0 0 auto;
+}
+
 .studio-hint {
   font-size: 0.75rem;
   color: #64748b;
@@ -325,7 +468,9 @@
 }
 
 .studio-step[data-state="active"] .studio-step-label {
-  color: #e2e8f0;
+  color: #67e8f9;
+  border-bottom: 2px solid #22d3ee;
+  padding-bottom: 2px;
 }
 
 .studio-step[data-state="done"] .studio-step-label {

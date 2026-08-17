@@ -90,70 +90,6 @@ const PRIVATE_ROWS = [
 
 const CONTACT_MESSAGE = "Hi, I'd like to discuss a private AI deployment.";
 
-/** The isometric "environment" illustration — a conceptual diagram, not a
- *  photo, and never labeled as BMV's own facility: every label names the
- *  CLIENT's environment/data/infrastructure. Deliberately abstract rather
- *  than photorealistic, so nothing here reads as a claim about physical
- *  infrastructure BMV owns. */
-function EnvironmentDiagram() {
-  const blocks = [
-    { x: 40, y: 210, w: 46, h: 30 },
-    { x: 100, y: 190, w: 46, h: 50 },
-    { x: 400, y: 195, w: 46, h: 45 },
-    { x: 460, y: 215, w: 46, h: 25 },
-    { x: 70, y: 260, w: 46, h: 20 },
-    { x: 420, y: 258, w: 46, h: 22 },
-  ];
-  return (
-    <svg
-      className="pai-diagram"
-      viewBox="0 0 560 340"
-      role="img"
-      aria-label="Your environment: your data and infrastructure surrounding a private AI model, inside a security boundary"
-    >
-      <path
-        className="pai-diagram-boundary"
-        d="M280 20 L520 130 L280 240 L40 130 Z"
-      />
-      <line x1="280" y1="20" x2="280" y2="240" className="pai-diagram-boundary" />
-      {blocks.map((b, i) => (
-        <g className="pai-diagram-block" key={i} transform={`translate(${b.x},${b.y})`}>
-          <polygon points={`0,${b.h} 23,${b.h + 12} 46,${b.h} 46,0 23,-12 0,0`} />
-          <polygon points={`0,0 23,-12 46,0 46,${b.h} 23,${b.h + 12} 0,${b.h}`} opacity="0" />
-        </g>
-      ))}
-      <g className="pai-diagram-core" transform="translate(232,150)">
-        <polygon points="0,60 24,74 48,60 48,20 24,6 0,20" />
-      </g>
-      <line x1="280" y1="20" x2="280" y2="0" className="pai-diagram-lead" />
-      <text x="280" y="-8" textAnchor="middle" className="pai-diagram-label">
-        Your environment
-      </text>
-
-      <line x1="256" y1="150" x2="256" y2="80" className="pai-diagram-lead" />
-      <text x="256" y="68" textAnchor="middle" className="pai-diagram-label pai-diagram-label--core">
-        Private AI model
-      </text>
-
-      <line x1="40" y1="130" x2="0" y2="130" className="pai-diagram-lead" />
-      <text x="-4" y="134" textAnchor="end" className="pai-diagram-label">
-        Your data
-      </text>
-
-      <line x1="520" y1="130" x2="558" y2="130" className="pai-diagram-lead" />
-      <text x="562" y="134" textAnchor="start" className="pai-diagram-label">
-        Your infrastructure
-      </text>
-
-      <circle cx="280" cy="240" r="3" className="pai-diagram-dot" />
-      <line x1="280" y1="240" x2="280" y2="280" className="pai-diagram-lead" />
-      <text x="280" y="298" textAnchor="middle" className="pai-diagram-label pai-diagram-label--muted">
-        Security boundary
-      </text>
-    </svg>
-  );
-}
-
 /** Team / application / private model / data — the same "who talks to what"
  *  shape as the hero diagram, closer up and inside the client's boundary. */
 function IntegrationDiagram() {
@@ -203,6 +139,10 @@ export default function PrivateAIPage() {
         <section className="pai-section pt-32 sm:pt-36 pb-16">
           <div className="container-max max-w-6xl grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center">
             <div>
+              <span className="pai-pill mb-4 lg:hidden">
+                <Icon path={ICONS.lock} className="w-3.5 h-3.5" />
+                Your data. Under your control.
+              </span>
               <p className="pai-kicker mb-5">Private AI</p>
               <h1 className="pai-display text-5xl sm:text-6xl font-bold leading-[1.05] text-white">
                 Your AI.
@@ -231,7 +171,14 @@ export default function PrivateAIPage() {
               </p>
             </div>
 
-            <EnvironmentDiagram />
+            {/* Conceptual illustration of the CLIENT's environment — every
+                label on it names infrastructure the client owns and
+                controls, never a BMV facility. */}
+            <img
+              src="/private-ai-environment.png"
+              alt="Your environment: your data and applications connected to a private AI model running on infrastructure you own, inside a security boundary"
+              className="pai-hero-image"
+            />
           </div>
         </section>
 
@@ -239,7 +186,7 @@ export default function PrivateAIPage() {
         <section className="pai-section py-16 border-t border-white/5">
           <div className="container-max max-w-6xl">
             <p className="pai-kicker mb-8">Why companies choose private AI</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {WHY_CARDS.map((c) => (
                 <div className="pai-card" key={c.title}>
                   <span className="pai-card-icon">

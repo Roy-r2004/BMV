@@ -85,6 +85,19 @@ interface FieldErrors {
 const INTAKE_ICONS = {
   shield:
     'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z',
+  building:
+    'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21',
+  briefcase:
+    'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0',
+  globe:
+    'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m-18.432-.001A8.959 8.959 0 0 1 3 12c0-.778.099-1.533.284-2.253',
+  sparkle:
+    'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z',
+  database:
+    'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 3.75v3.75m-16.5-3.75v3.75',
+  wrench:
+    'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75',
+  user: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
   workflow:
     'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
   cpu: 'M8.25 3v1.5M15.75 3v1.5M8.25 19.5V21M15.75 19.5V21M3 8.25H1.5M3 12H1.5M3 15.75H1.5M22.5 8.25H21M22.5 12H21M22.5 15.75H21M6.75 19.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v10.5a2.25 2.25 0 0 0 2.25 2.25Zm3-9h4.5v4.5h-4.5V9.75Z',
@@ -142,34 +155,99 @@ const SystemDiagram = memo(function SystemDiagram() {
         <line x1="392" y1="128" x2="480" y2="130" />
         <line x1="392" y1="216" x2="480" y2="130" />
       </g>
+      <circle cx="160" cy="130" r="3" className="studio-diagram-junction" />
+      <circle cx="480" cy="130" r="3" className="studio-diagram-junction" />
       <g className="studio-diagram-node" transform="translate(20,106)">
         <rect width="140" height="48" rx="8" />
-        <text x="70" y="29" textAnchor="middle">
+        <path d={INTAKE_ICONS.building} transform="translate(16,14) scale(0.83)" className="studio-diagram-nodeicon" />
+        <text x="86" y="29" textAnchor="middle">
           Your business
         </text>
       </g>
       <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,18)">
         <rect width="144" height="44" rx="8" />
-        <text x="72" y="27" textAnchor="middle">
+        <path d={INTAKE_ICONS.sparkle} transform="translate(20,12) scale(0.83)" className="studio-diagram-nodeicon studio-diagram-nodeicon--core" />
+        <text x="90" y="27" textAnchor="middle">
           AI agents
         </text>
       </g>
       <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,106)">
         <rect width="144" height="44" rx="8" />
-        <text x="72" y="27" textAnchor="middle">
+        <path d={INTAKE_ICONS.database} transform="translate(32,12) scale(0.83)" className="studio-diagram-nodeicon studio-diagram-nodeicon--core" />
+        <text x="90" y="27" textAnchor="middle">
           Data
         </text>
       </g>
       <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,194)">
         <rect width="144" height="44" rx="8" />
-        <text x="72" y="27" textAnchor="middle">
+        <path d={INTAKE_ICONS.wrench} transform="translate(30,12) scale(0.83)" className="studio-diagram-nodeicon studio-diagram-nodeicon--core" />
+        <text x="90" y="27" textAnchor="middle">
           Tools
         </text>
       </g>
       <g className="studio-diagram-node" transform="translate(480,106)">
         <rect width="140" height="48" rx="8" />
-        <text x="70" y="29" textAnchor="middle">
+        <path d={INTAKE_ICONS.user} transform="translate(14,14) scale(0.83)" className="studio-diagram-nodeicon" />
+        <text x="84" y="29" textAnchor="middle">
           Human review
+        </text>
+      </g>
+    </svg>
+  );
+});
+
+/** The same idea, laid out for a narrow screen — a compact cross instead of
+ *  a wide left-to-right flow, since the desktop diagram's 640px viewBox has
+ *  nothing sensible to shrink to at phone width. Fewer nodes on purpose:
+ *  "human review" and the AI/data/tools split collapse into one "AI systems
+ *  concept" core, with the team added at the point that's most legible in
+ *  a plus shape — this is a condensed read of the same idea, not a partial
+ *  one. */
+const MobileSystemDiagram = memo(function MobileSystemDiagram() {
+  return (
+    <svg
+      className="studio-diagram-mobile"
+      viewBox="0 0 300 300"
+      role="img"
+      aria-label="Your business and team feed an AI systems concept, built from your data and tools"
+    >
+      <g className="studio-diagram-lines">
+        <line x1="150" y1="62" x2="150" y2="110" />
+        <line x1="150" y1="190" x2="150" y2="240" />
+        <line x1="68" y1="150" x2="75" y2="150" />
+        <line x1="225" y1="150" x2="232" y2="150" />
+      </g>
+      <g className="studio-diagram-node" transform="translate(85,20)">
+        <rect width="130" height="42" rx="8" />
+        <text x="65" y="26" textAnchor="middle">
+          Your business
+        </text>
+      </g>
+      <g className="studio-diagram-node" transform="translate(10,130)">
+        <rect width="58" height="40" rx="8" />
+        <text x="29" y="25" textAnchor="middle">
+          Your data
+        </text>
+      </g>
+      <g className="studio-diagram-node" transform="translate(232,130)">
+        <rect width="58" height="40" rx="8" />
+        <text x="29" y="25" textAnchor="middle">
+          Your tools
+        </text>
+      </g>
+      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(75,110)">
+        <rect width="150" height="80" rx="10" />
+        <text x="75" y="36" textAnchor="middle">
+          AI systems
+        </text>
+        <text x="75" y="52" textAnchor="middle">
+          concept
+        </text>
+      </g>
+      <g className="studio-diagram-node" transform="translate(90,240)">
+        <rect width="120" height="42" rx="8" />
+        <text x="60" y="26" textAnchor="middle">
+          Your team
         </text>
       </g>
     </svg>
@@ -1045,7 +1123,10 @@ export default function StudioPage() {
               <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
                 <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-start">
                   <div className="pt-4">
-                    <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+                    {/* Badge above the kicker on mobile (matching the phone
+                        design); kicker first with the badge stacked under it
+                        on desktop (matching the desktop design). */}
+                    <div className="flex flex-col-reverse sm:flex-col items-start gap-3 mb-6">
                       <p className="studio-kicker">The Demo</p>
                       <span className="studio-trust-badge">
                         <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
@@ -1061,23 +1142,46 @@ export default function StudioPage() {
                       your tools, and your economics.
                     </p>
 
+                    {/* On desktop the form sits right beside this copy — nothing
+                        to jump to. On mobile it's a long scroll past the
+                        diagram and three cards, so give it a shortcut. */}
+                    <div className="mt-7 flex items-center gap-4 lg:hidden">
+                      <a href="#studio-form" className="studio-cta studio-jumplink">
+                        Start your demo
+                        <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
+                      </a>
+                      <span className="flex items-center gap-1.5 text-xs text-slate-500 whitespace-nowrap">
+                        <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
+                        No call required
+                      </span>
+                    </div>
+
                     <div className="mt-12 studio-outcomes">
                       {OUTCOMES.map((o, i) => (
                         <div className="studio-outcome" key={o.title}>
-                          <div className="studio-outcome-head">
-                            <span className="studio-outcome-no">{String(i + 1).padStart(2, '0')}</span>
+                          <span className="studio-outcome-bubble">
                             <Icon path={o.icon} className="studio-outcome-icon" />
+                          </span>
+                          <span className="studio-outcome-no">{String(i + 1).padStart(2, '0')}</span>
+                          <div className="studio-outcome-body">
+                            <h3 className="studio-outcome-title">{o.title}</h3>
+                            <p className="studio-outcome-desc">{o.body}</p>
                           </div>
-                          <h3 className="studio-outcome-title">{o.title}</h3>
-                          <p className="studio-outcome-desc">{o.body}</p>
+                          <Icon path="m8.25 4.5 7.5 7.5-7.5 7.5" className="studio-outcome-chevron" />
                         </div>
                       ))}
                     </div>
 
-                    <SystemDiagram />
+                    <div className="hidden lg:block">
+                      <SystemDiagram />
+                    </div>
+                    <div className="lg:hidden">
+                      <MobileSystemDiagram />
+                    </div>
                   </div>
 
                   <motion.form
+                    id="studio-form"
                     className="studio-panel p-6 sm:p-8"
                     onSubmit={submit}
                     noValidate
@@ -1108,38 +1212,47 @@ export default function StudioPage() {
                           <>
                             <div className="studio-field" data-invalid={!!errors.business_name}>
                               <label htmlFor="st-name">Business name</label>
-                              <input
-                                id="st-name"
-                                value={form.business_name}
-                                onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                                placeholder="Beacon Physiotherapy"
-                                autoComplete="organization"
-                              />
+                              <div className="studio-inputwrap">
+                                <Icon path={INTAKE_ICONS.building} />
+                                <input
+                                  id="st-name"
+                                  value={form.business_name}
+                                  onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+                                  placeholder="Beacon Physiotherapy"
+                                  autoComplete="organization"
+                                />
+                              </div>
                               {errors.business_name && <p className="studio-error-text">{errors.business_name}</p>}
                             </div>
                             <div className="studio-field">
                               <label htmlFor="st-industry">
                                 Industry <span className="text-slate-500 font-normal">(optional)</span>
                               </label>
-                              <input
-                                id="st-industry"
-                                value={form.industry}
-                                onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                                placeholder="Physiotherapy clinic"
-                              />
+                              <div className="studio-inputwrap">
+                                <Icon path={INTAKE_ICONS.briefcase} />
+                                <input
+                                  id="st-industry"
+                                  value={form.industry}
+                                  onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                                  placeholder="Physiotherapy clinic"
+                                />
+                              </div>
                             </div>
                             <div className="studio-field">
                               <label htmlFor="st-siteurl">
                                 Your website or Google/Instagram page{' '}
                                 <span className="text-slate-500 font-normal">(optional)</span>
                               </label>
-                              <input
-                                id="st-siteurl"
-                                value={form.site_url}
-                                onChange={(e) => setForm({ ...form, site_url: e.target.value })}
-                                placeholder="https://yourbusiness.com"
-                                autoComplete="url"
-                              />
+                              <div className="studio-inputwrap">
+                                <Icon path={INTAKE_ICONS.globe} />
+                                <input
+                                  id="st-siteurl"
+                                  value={form.site_url}
+                                  onChange={(e) => setForm({ ...form, site_url: e.target.value })}
+                                  placeholder="https://yourbusiness.com"
+                                  autoComplete="url"
+                                />
+                              </div>
                               <p className="studio-hint">
                                 We'll read it before analyzing — real services, hours and tone make
                                 everything sharper.
@@ -1309,14 +1422,17 @@ export default function StudioPage() {
                       {step < INTAKE_STEPS.length - 1 ? (
                         <button type="button" className="studio-cta studio-stepnav-cta" onClick={goNext}>
                           Continue
+                          <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
                         </button>
                       ) : (
                         <button className="studio-cta studio-stepnav-cta" type="submit" disabled={submitting}>
                           {submitting ? 'Opening the studio…' : 'Design my software'}
+                          {!submitting && <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />}
                         </button>
                       )}
                     </div>
-                    <p className="studio-hint text-center mt-4">
+                    <p className="studio-hint studio-hint--trust text-center mt-4">
+                      <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
                       Free. No call, no deck — you watch it get made.
                     </p>
                   </motion.form>
