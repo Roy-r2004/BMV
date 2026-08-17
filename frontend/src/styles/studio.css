@@ -70,131 +70,117 @@
   flex: 0 0 auto;
 }
 
-/* ── outcome list — 01/02/03, no cards, no borders but a thin left rule ── */
+/* ── hero: gradient phrase, network art, trust chips ────────────────── */
 
-/* Compact vertical rhythm on purpose: the whole left column (headline,
-   outcomes, diagram) should land at roughly the form panel's height, not
-   run long past it. */
-.studio-outcomes {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
+.studio-hero-grad {
+  background: linear-gradient(100deg, #2563eb, #3b82f6 55%, #60a5fa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.studio-outcome {
-  display: flex;
-  align-items: flex-start;
-  gap: 1.25rem;
+.studio-hero-art {
+  position: relative;
+  aspect-ratio: 1;
+  max-width: 24rem;
+  margin-inline: auto;
+  width: 100%;
 }
 
-.studio-outcome-bubble {
-  flex: 0 0 auto;
-  /* Centered against the whole row, like the reference — while the number
-     and title hang from the top. */
-  align-self: center;
-  width: 2.75rem;
-  height: 2.75rem;
+.studio-hero-art-glow {
+  position: absolute;
+  inset: 8%;
   border-radius: 999px;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  background: rgba(241, 245, 249, 0.5);
+  background:
+    radial-gradient(closest-side, rgba(37, 99, 235, 0.22), rgba(59, 130, 246, 0.08) 55%, transparent 75%);
+}
+
+.studio-hero-art-glow::before,
+.studio-hero-art-glow::after {
+  content: "";
+  position: absolute;
+  inset: -6%;
+  border-radius: 999px;
+  border: 1px dashed rgba(59, 130, 246, 0.25);
+}
+
+.studio-hero-art-glow::after {
+  inset: 14%;
+  border-style: solid;
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.studio-hero-art-orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #3b82f6;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #60a5fa);
+  box-shadow:
+    0 0 0 10px rgba(59, 130, 246, 0.12),
+    0 0 60px rgba(37, 99, 235, 0.45);
 }
 
-.studio-outcome-no {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.studio-hero-art-chip {
+  position: absolute;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #2563eb;
-  font-variant-numeric: tabular-nums;
-  /* Rides level with the title's first line. */
-  padding-top: 0.35rem;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.25);
 }
 
-.studio-outcome-body {
-  border-left: 1px solid rgba(15, 23, 42, 0.2);
-  padding-left: 1.25rem;
+.studio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
 }
 
-.studio-outcome-icon {
-  width: 1.35rem;
-  height: 1.35rem;
+.studio-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
-.studio-outcome-title {
-  font-family: var(--font-display);
-  font-size: 1.15rem;
+.studio-chip-icon {
+  flex: 0 0 auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+.studio-chip-title {
+  display: block;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.4rem;
 }
 
-.studio-outcome-desc {
+.studio-chip-sub {
+  display: block;
+  font-size: 0.75rem;
   color: #64748b;
-  font-size: 0.88rem;
-  line-height: 1.6;
-  max-width: 30rem;
-}
-
-.studio-outcome-chevron {
-  display: none;
-}
-
-/* Below lg, the form isn't visible beside this copy — each outcome reads
-   more like a tappable step toward it, so it gets a full card boundary and
-   a trailing chevron instead of the desktop's plain hairline-and-whitespace
-   list. */
-@media (max-width: 1023px) {
-  .studio-outcomes {
-    gap: 1rem;
-  }
-
-  .studio-outcome {
-    position: relative;
-    gap: 1rem;
-    align-items: center;
-    border: 1px solid rgba(15, 23, 42, 0.18);
-    border-radius: 1rem;
-    background: rgba(241, 245, 249, 0.35);
-    padding: 1.1rem 2.5rem 1.1rem 1.1rem;
-  }
-
-  .studio-outcome-bubble {
-    width: 2.75rem;
-    height: 2.75rem;
-  }
-
-  /* The phone design reads number → icon → text. */
-  .studio-outcome-no {
-    order: -1;
-    padding-top: 0;
-    align-self: center;
-  }
-
-  .studio-outcome-body {
-    border-left: none;
-    padding-left: 0;
-  }
-
-  .studio-outcome-chevron {
-    display: block;
-    position: absolute;
-    top: 50%;
-    right: 1.1rem;
-    transform: translateY(-50%);
-    width: 1.1rem;
-    height: 1.1rem;
-    color: #64748b;
-  }
-
-  .studio-outcome-title {
-    font-size: 1.1rem;
-  }
 }
 
 /* ── mobile-only jump link straight to the form ─────────────────────── */
@@ -205,67 +191,224 @@
   font-size: 0.9rem;
 }
 
-/* ── the system diagram — business, AI agents/data/tools, human review ── */
+/* ── clarity cards ───────────────────────────────────────────────────── */
 
-.studio-diagram {
-  width: 100%;
-  height: auto;
-  /* Vertical placement is the layout's job (lg:mt-auto pins it to the
-     form's bottom edge), not a fixed margin's. */
-  margin-top: 0;
-  max-width: 26rem;
+.studio-claritycard {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 14px 34px -24px rgba(15, 23, 42, 0.35);
+  padding: 1.1rem 1.15rem;
 }
 
-.studio-diagram-mobile {
-  width: 100%;
-  max-width: 20rem;
-  height: auto;
-  margin: 3rem auto 0;
+.studio-claritycard-no {
   display: block;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #2563eb;
+  margin-bottom: 0.6rem;
 }
 
-.studio-diagram-lines line {
-  stroke: rgba(15, 23, 42, 0.3);
-  stroke-width: 1;
-  stroke-dasharray: 3 4;
+.studio-claritycard-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  margin-bottom: 0.6rem;
 }
 
-.studio-diagram-junction {
-  fill: #2563eb;
-  filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.8));
+.studio-claritycard h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin-bottom: 0.4rem;
 }
 
-.studio-diagram-node rect {
-  fill: rgba(241, 245, 249, 0.55);
-  stroke: rgba(15, 23, 42, 0.3);
-  stroke-width: 1;
+.studio-claritycard p {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.55;
 }
 
-.studio-diagram-node--core rect {
-  stroke: rgba(59, 130, 246, 0.42);
+/* ── the insight panel: flow + benefits ──────────────────────────────── */
+
+.studio-insight {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, #ffffff, #f6f9ff);
+  box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.3);
+  padding: 1.75rem;
 }
 
-.studio-diagram-node text {
-  fill: #475569;
-  font-family: var(--font-body);
-  font-size: 12px;
+@media (max-width: 700px) {
+  .studio-insight {
+    grid-template-columns: 1fr;
+  }
+}
+
+.studio-insight-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.studio-insight-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.3);
+  padding: 1rem 1.1rem;
+  color: #334155;
+}
+
+.studio-insight-node p {
+  font-size: 0.75rem;
   font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
 }
 
-.studio-diagram-nodeicon {
-  fill: none;
-  stroke: #64748b;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.studio-insight-node svg {
+  color: #2563eb;
 }
 
-.studio-diagram-nodeicon--core {
-  stroke: #3b82f6;
+.studio-insight-core {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: 3.4rem;
 }
 
-.studio-diagram-mobile .studio-diagram-node text {
-  font-size: 10.5px;
+.studio-insight-core-orb {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #60a5fa);
+  box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.12), 0 0 40px rgba(37, 99, 235, 0.4);
+}
+
+.studio-insight-core > p {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  white-space: nowrap;
+}
+
+.studio-insight-tools {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  color: #2563eb;
+}
+
+.studio-insight-tools p {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.studio-insight-benefits {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.85rem;
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+  padding-left: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .studio-insight-benefits {
+    border-left: none;
+    padding-left: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.studio-insight-benefit {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.studio-insight-benefit svg {
+  color: #2563eb;
+}
+
+.studio-insight-benefit p {
+  font-size: 0.8rem;
+}
+
+/* ── enterprise strip ───────────────────────────────────────────────── */
+
+.studio-enterprise {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  flex-wrap: wrap;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 12px 30px -24px rgba(15, 23, 42, 0.3);
+  padding: 1rem 1.5rem;
+}
+
+.studio-enterprise-lead {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.studio-enterprise-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+}
+
+.studio-enterprise-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.studio-enterprise-chips svg {
+  color: #2563eb;
 }
 
 /* ── glass panels ─────────────────────────────────────────────────────── */

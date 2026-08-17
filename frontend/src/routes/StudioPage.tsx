@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import SiteNav from '../components/SiteNav';
@@ -101,6 +101,7 @@ const INTAKE_ICONS = {
   wrench:
     'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75',
   user: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
+  bolt: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
   workflow:
     'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
   cpu: 'M8.25 3v1.5M15.75 3v1.5M8.25 19.5V21M15.75 19.5V21M3 8.25H1.5M3 12H1.5M3 15.75H1.5M22.5 8.25H21M22.5 12H21M22.5 15.75H21M6.75 19.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v10.5a2.25 2.25 0 0 0 2.25 2.25Zm3-9h4.5v4.5h-4.5V9.75Z',
@@ -135,127 +136,6 @@ const OUTCOMES = [
     body: 'Understand where the value comes from, what can be automated or augmented, and why the system is worth building.',
   },
 ] as const;
-
-/** What the intake actually produces isn't three app screens — it's an
- *  understanding of the business that then gets architected into a system.
- *  This says that visually instead of showing UI mockups, which is exactly
- *  the read this page is trying not to give. Memoized: it takes no props
- *  and never changes, so it has no reason to re-reconcile on every
- *  keystroke the intake form's state changes trigger a re-render for. */
-const SystemDiagram = memo(function SystemDiagram() {
-  return (
-    <svg
-      className="studio-diagram"
-      viewBox="0 0 640 258"
-      role="img"
-      aria-label="Your business connects through AI agents, data and tools, to human review"
-    >
-      <g className="studio-diagram-lines">
-        <line x1="160" y1="130" x2="248" y2="40" />
-        <line x1="160" y1="130" x2="248" y2="128" />
-        <line x1="160" y1="130" x2="248" y2="216" />
-        <line x1="392" y1="40" x2="480" y2="130" />
-        <line x1="392" y1="128" x2="480" y2="130" />
-        <line x1="392" y1="216" x2="480" y2="130" />
-      </g>
-      <circle cx="160" cy="130" r="3" className="studio-diagram-junction" />
-      <circle cx="480" cy="130" r="3" className="studio-diagram-junction" />
-      <g className="studio-diagram-node" transform="translate(20,106)">
-        <rect width="140" height="48" rx="8" />
-        <path d={INTAKE_ICONS.building} transform="translate(16,14) scale(0.83)" className="studio-diagram-nodeicon" />
-        <text x="86" y="29" textAnchor="middle">
-          Your business
-        </text>
-      </g>
-      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,18)">
-        <rect width="144" height="44" rx="8" />
-        <path d={INTAKE_ICONS.sparkle} transform="translate(20,12) scale(0.83)" className="studio-diagram-nodeicon studio-diagram-nodeicon--core" />
-        <text x="90" y="27" textAnchor="middle">
-          AI agents
-        </text>
-      </g>
-      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,106)">
-        <rect width="144" height="44" rx="8" />
-        <path d={INTAKE_ICONS.database} transform="translate(32,12) scale(0.83)" className="studio-diagram-nodeicon studio-diagram-nodeicon--core" />
-        <text x="90" y="27" textAnchor="middle">
-          Data
-        </text>
-      </g>
-      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(248,194)">
-        <rect width="144" height="44" rx="8" />
-        <path d={INTAKE_ICONS.wrench} transform="translate(30,12) scale(0.83)" className="studio-diagram-nodeicon studio-diagram-nodeicon--core" />
-        <text x="90" y="27" textAnchor="middle">
-          Tools
-        </text>
-      </g>
-      <g className="studio-diagram-node" transform="translate(480,106)">
-        <rect width="140" height="48" rx="8" />
-        <path d={INTAKE_ICONS.user} transform="translate(14,14) scale(0.83)" className="studio-diagram-nodeicon" />
-        <text x="84" y="29" textAnchor="middle">
-          Human review
-        </text>
-      </g>
-    </svg>
-  );
-});
-
-/** The same idea, laid out for a narrow screen — a compact cross instead of
- *  a wide left-to-right flow, since the desktop diagram's 640px viewBox has
- *  nothing sensible to shrink to at phone width. Fewer nodes on purpose:
- *  "human review" and the AI/data/tools split collapse into one "AI systems
- *  concept" core, with the team added at the point that's most legible in
- *  a plus shape — this is a condensed read of the same idea, not a partial
- *  one. */
-const MobileSystemDiagram = memo(function MobileSystemDiagram() {
-  return (
-    <svg
-      className="studio-diagram-mobile"
-      viewBox="0 0 300 300"
-      role="img"
-      aria-label="Your business and team feed an AI systems concept, built from your data and tools"
-    >
-      <g className="studio-diagram-lines">
-        <line x1="150" y1="62" x2="150" y2="110" />
-        <line x1="150" y1="190" x2="150" y2="240" />
-        <line x1="68" y1="150" x2="75" y2="150" />
-        <line x1="225" y1="150" x2="232" y2="150" />
-      </g>
-      <g className="studio-diagram-node" transform="translate(85,20)">
-        <rect width="130" height="42" rx="8" />
-        <text x="65" y="26" textAnchor="middle">
-          Your business
-        </text>
-      </g>
-      <g className="studio-diagram-node" transform="translate(10,130)">
-        <rect width="58" height="40" rx="8" />
-        <text x="29" y="25" textAnchor="middle">
-          Your data
-        </text>
-      </g>
-      <g className="studio-diagram-node" transform="translate(232,130)">
-        <rect width="58" height="40" rx="8" />
-        <text x="29" y="25" textAnchor="middle">
-          Your tools
-        </text>
-      </g>
-      <g className="studio-diagram-node studio-diagram-node--core" transform="translate(75,110)">
-        <rect width="150" height="80" rx="10" />
-        <text x="75" y="36" textAnchor="middle">
-          AI systems
-        </text>
-        <text x="75" y="52" textAnchor="middle">
-          concept
-        </text>
-      </g>
-      <g className="studio-diagram-node" transform="translate(90,240)">
-        <rect width="120" height="42" rx="8" />
-        <text x="60" y="26" textAnchor="middle">
-          Your team
-        </text>
-      </g>
-    </svg>
-  );
-});
 
 // The intake mirrors the old build-request wizard's five steps and fields —
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming
@@ -1534,14 +1414,11 @@ export default function StudioPage() {
 
             {act === 'intake' && (
               <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
-                {/* items-stretch + the left column as a flex column: the row's
-                    height is the form's height, and mt-auto on the diagram
-                    pins its bottom edge to the form's bottom edge. */}
-                <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-start lg:items-stretch">
-                  <div className="pt-4 lg:flex lg:flex-col lg:min-h-0">
-                    {/* Badge above the kicker on mobile (matching the phone
-                        design); kicker first with the badge stacked under it
-                        on desktop (matching the desktop design). */}
+                {/* Reference layout: headline+chips left, AI-network art
+                    center (desktop only), form right; the clarity cards and
+                    the insight panel move BELOW the hero. */}
+                <div className="grid lg:grid-cols-[1.05fr_0.8fr_1.1fr] gap-10 lg:gap-8 items-center">
+                  <div className="pt-4">
                     <div className="flex flex-col-reverse sm:flex-col items-start gap-3 mb-6">
                       <p className="studio-kicker">The Demo</p>
                       <span className="studio-trust-badge">
@@ -1549,19 +1426,20 @@ export default function StudioPage() {
                         Built around your business — not a generic AI demo.
                       </span>
                     </div>
-                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[2.65rem] font-bold leading-[1.05] text-navy">
-                      Before you invest in AI, see exactly what we'd build.
+                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[2.9rem] font-bold leading-[1.08] text-navy">
+                      Before you invest in AI, see exactly{' '}
+                      <span className="studio-hero-grad">what we'd build.</span>
                     </h1>
                     <p className="mt-4 text-slate-600 text-base sm:text-lg lg:text-base max-w-xl leading-relaxed">
                       Tell us where your business is slow, manual, or expensive. We'll turn it
-                      into a tailored AI system concept — built around your workflows, your data,
-                      your tools, and your economics.
+                      into a tailored AI system concept — <strong className="text-navy">built
+                      around your workflows, your data, your tools, and your economics.</strong>
                     </p>
 
                     {/* On desktop the form sits right beside this copy — nothing
-                        to jump to. On mobile it's a long scroll past the
-                        diagram and three cards, so give it a shortcut. */}
-                    <div className="mt-7 flex items-center gap-4 lg:hidden">
+                        to jump to. On mobile it's a long scroll away, so give
+                        it a shortcut. */}
+                    <div className="mt-6 flex items-center gap-4 lg:hidden">
                       <a href="#studio-form" className="studio-cta studio-jumplink">
                         Start your demo
                         <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
@@ -1572,28 +1450,41 @@ export default function StudioPage() {
                       </span>
                     </div>
 
-                    <div className="mt-7 studio-outcomes">
-                      {OUTCOMES.map((o, i) => (
-                        <div className="studio-outcome" key={o.title}>
-                          <span className="studio-outcome-bubble">
-                            <Icon path={o.icon} className="studio-outcome-icon" />
+                    <div className="mt-8 studio-chips">
+                      {[
+                        { icon: INTAKE_ICONS.workflow, title: 'Tailored to you', sub: 'Not one-size-fits-all' },
+                        { icon: INTAKE_ICONS.cpu, title: 'AI-first approach', sub: 'Designed to deliver ROI' },
+                        { icon: INTAKE_ICONS.shield, title: 'Secure & private', sub: 'Your data stays yours' },
+                      ].map((c) => (
+                        <div className="studio-chip" key={c.title}>
+                          <span className="studio-chip-icon">
+                            <Icon path={c.icon} className="w-4 h-4" />
                           </span>
-                          <span className="studio-outcome-no">{String(i + 1).padStart(2, '0')}</span>
-                          <div className="studio-outcome-body">
-                            <h3 className="studio-outcome-title">{o.title}</h3>
-                            <p className="studio-outcome-desc">{o.body}</p>
-                          </div>
-                          <Icon path="m8.25 4.5 7.5 7.5-7.5 7.5" className="studio-outcome-chevron" />
+                          <span>
+                            <span className="studio-chip-title">{c.title}</span>
+                            <span className="studio-chip-sub">{c.sub}</span>
+                          </span>
                         </div>
                       ))}
                     </div>
+                  </div>
 
-                    <div className="hidden lg:block lg:mt-auto lg:pt-5">
-                      <SystemDiagram />
-                    </div>
-                    <div className="lg:hidden">
-                      <MobileSystemDiagram />
-                    </div>
+                  {/* The AI-network centerpiece — decorative, desktop only. */}
+                  <div className="hidden lg:block studio-hero-art" aria-hidden="true">
+                    <span className="studio-hero-art-glow" />
+                    <span className="studio-hero-art-orb">AI</span>
+                    <span className="studio-hero-art-chip" style={{ left: '2%', top: '22%' }}>
+                      <Icon path={INTAKE_ICONS.database} className="w-4 h-4" />
+                    </span>
+                    <span className="studio-hero-art-chip" style={{ right: '4%', top: '30%' }}>
+                      <Icon path={INTAKE_ICONS.user} className="w-4 h-4" />
+                    </span>
+                    <span className="studio-hero-art-chip" style={{ left: '12%', bottom: '18%' }}>
+                      <Icon path={INTAKE_ICONS.chart} className="w-4 h-4" />
+                    </span>
+                    <span className="studio-hero-art-chip" style={{ right: '10%', bottom: '10%' }}>
+                      <Icon path={INTAKE_ICONS.briefcase} className="w-4 h-4" />
+                    </span>
                   </div>
 
                   <motion.form
@@ -1870,6 +1761,91 @@ export default function StudioPage() {
                       Free. No call, no deck — you watch it get made.
                     </p>
                   </motion.form>
+                </div>
+
+                {/* ── below the hero: clarity cards + the insight panel ── */}
+                <div className="mt-16 grid lg:grid-cols-[0.95fr_1.5fr] gap-10 lg:gap-12 items-start">
+                  <div>
+                    <h2 className="studio-display text-xl font-bold text-navy mb-5">
+                      You'll walk away with clarity.
+                    </h2>
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      {OUTCOMES.map((o, i) => (
+                        <div className="studio-claritycard" key={o.title}>
+                          <span className="studio-claritycard-no">{String(i + 1).padStart(2, '0')}</span>
+                          <span className="studio-claritycard-icon">
+                            <Icon path={o.icon} className="w-4 h-4" />
+                          </span>
+                          <h3>{o.title}</h3>
+                          <p>{o.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="studio-display text-xl font-bold text-navy mb-5">
+                      From insight to impact. Built around you.
+                    </h2>
+                    <div className="studio-insight">
+                      <div className="studio-insight-flow">
+                        {[
+                          { icon: INTAKE_ICONS.building, label: 'Your business' },
+                          { icon: INTAKE_ICONS.database, label: 'Data' },
+                        ].map((n) => (
+                          <div className="studio-insight-node" key={n.label}>
+                            <Icon path={n.icon} className="w-5 h-5" />
+                            <p>{n.label}</p>
+                          </div>
+                        ))}
+                        <div className="studio-insight-core">
+                          <span className="studio-insight-core-orb">AI</span>
+                          <p>AI System</p>
+                          <div className="studio-insight-tools">
+                            <Icon path={INTAKE_ICONS.wrench} className="w-4 h-4" />
+                            <p>Tools</p>
+                          </div>
+                        </div>
+                        <div className="studio-insight-node">
+                          <Icon path={INTAKE_ICONS.user} className="w-5 h-5" />
+                          <p>Human review</p>
+                        </div>
+                      </div>
+                      <div className="studio-insight-benefits">
+                        {[
+                          { icon: INTAKE_ICONS.bolt, label: 'Faster decisions' },
+                          { icon: INTAKE_ICONS.chart, label: 'Lower costs' },
+                          { icon: INTAKE_ICONS.user, label: 'Happier teams' },
+                          { icon: INTAKE_ICONS.shield, label: 'Measurable ROI' },
+                        ].map((b) => (
+                          <div className="studio-insight-benefit" key={b.label}>
+                            <Icon path={b.icon} className="w-4 h-4" />
+                            <p>{b.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── enterprise strip ── */}
+                <div className="mt-10 studio-enterprise">
+                  <p className="studio-enterprise-lead">
+                    Enterprise-grade foundation. Startups move fast. We meet you where you are.
+                  </p>
+                  <div className="studio-enterprise-chips">
+                    {[
+                      { icon: INTAKE_ICONS.shield, label: 'Your data is private' },
+                      { icon: INTAKE_ICONS.cpu, label: 'Secure by design' },
+                      { icon: INTAKE_ICONS.workflow, label: 'You own everything' },
+                      { icon: INTAKE_ICONS.bolt, label: 'No lock-in' },
+                    ].map((c) => (
+                      <span key={c.label}>
+                        <Icon path={c.icon} className="w-3.5 h-3.5" />
+                        {c.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </motion.section>
             )}
