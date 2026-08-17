@@ -706,14 +706,16 @@ function BlueprintCinematic({ preview }: { preview: StudioPreview }) {
 function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
   const md = preview.technical_plan ?? '';
   const sections = useMemo(() => splitH2Sections(md), [md]);
-  const arch = findSection(sections, /architecture/);
+  // Each matcher accepts every generation of the document's headings —
+  // "Architecture overview" (old), "How your system works" (owner-voice era),
+  // and so on — since stored documents never regenerate.
+  const arch = findSection(sections, /architecture|how your system/);
   const blocks = findSection(sections, /building blocks|components/);
-  // The decompose-era document: one ### per module with labeled facet lines.
-  const moduleSpecs = findSection(sections, /module spec/);
-  const selfBuild = findSection(sections, /yourself|bringing it to life/);
+  const moduleSpecs = findSection(sections, /module spec|parts, one by one/);
+  const selfBuild = findSection(sections, /yourself|own team|bringing it to life/);
   const aiWork = findSection(sections, /employees work|how the ai/);
-  const implPhases = findSection(sections, /implementation/);
-  const security = findSection(sections, /security|data/);
+  const implPhases = findSection(sections, /implementation|applying it/);
+  const security = findSection(sections, /security|information safe|data/);
 
   if (!arch && !blocks && !aiWork && !moduleSpecs) return <BlueprintProse text={md} />;
 

@@ -1,4 +1,4 @@
-You are a senior solutions architect at BuildMyVersion writing the client-facing TECHNICAL PLAN for a prospect. Standard: an engineering document a company would pay for — every module specified one by one, concrete enough that a build team could estimate from it, still readable by a non-technical owner. Generic architecture prose is a failure mode.
+You are a senior solutions architect at BuildMyVersion writing the client-facing TECHNICAL PLAN for a prospect. The reader is the BUSINESS OWNER, not a developer. Standard: after reading it, the owner understands exactly how their system works, what the AI does and doesn't do, how it gets built step by step, and how to verify each piece is done — without needing anyone to translate. All the engineering depth stays, but it is SAID in the owner's language; raw technical notation is confined to one compact "For your build team" line per module.
 
 BUSINESS
 Name: {{ business_name }}
@@ -10,57 +10,56 @@ Roles/screens: {{ roles }}
 Recommended AI employees: {{ recommended_ai_employees }}
 
 THE DECOMPOSITION (your source of truth — specify THESE modules, do not invent others)
-Modules, each with its business spec ("spec": features, data, screens, ai, integrations, kpis) and its technical anatomy ("tech": data_model, ai_agent with brain/tools/memory/guardrails/escalation/evaluation, apis, integration_details, security):
+Modules, each with its business spec ("spec": features, data, screens, ai, integrations, kpis) and its technical anatomy ("tech": data_model, ai_agent with brain/tools/memory/guardrails/escalation/evaluation, apis, integration_details, security, build_sequence, done_when):
 {{ modules }}
 
 TASK
 Write the Technical Plan in Markdown. Structure (exactly these ## headings):
 
-## Architecture overview
-3-5 sentences: the overall shape of the system — application layer, AI layer, data layer — and how the modules below fit into it. Plain language an owner can follow, precise enough that an engineer nods.
+## How your system works
+3-5 sentences: the whole system in plain words — the software your team and clients touch, the AI working inside it, and where your information lives. No layer-cake jargon; an owner reads this and can repeat it to a colleague.
 
-## Module specifications
-One ### subsection PER MODULE, in the decomposition's order. Each subsection covers, as short labeled lines (restating the module's "spec" and "tech" facts — do not invent beyond them; omit any line whose underlying data is missing):
-- **Data model:** each entity from tech.data_model with its key fields, e.g. "Pre-Approval Request (patient, carrier, treatment codes, status, submitted_at)"
-- **Key screens:** from the spec ("screens")
-- **The AI agent:** one sentence of its purpose and model tier — or the line "No AI component — deliberately." when there is none. When there is one, follow with:
-- **Agent brain:** the knowledge it is grounded in (tech.ai_agent.brain)
-- **Agent tools:** each tool name and what calling it does (tech.ai_agent.tools)
-- **Agent memory:** what it remembers and for how long
-- **Guardrails:** what it must never do
-- **Escalation:** the trigger that hands off to a human, and to whom
-- **How we evaluate it:** the checks before trusting it (tech.ai_agent.evaluation)
-- **APIs & events:** from tech.apis
-- **Connects to:** tech.integration_details — each system and what data flows which direction
-- **Security:** tech.security notes for this module
-- **Build sequence:** tech.build_sequence as a numbered inline list — the order to stand this module up
-- **Done when:** tech.done_when — the checks that prove this module is finished
-- **Build notes:** 1-2 sentences of real engineering judgement: the hard part, the risk, or the thing to get right first
+## The parts, one by one
+One ### subsection PER MODULE, in the decomposition's order. Each subsection restates that module's "spec" and "tech" facts in the owner's language — do not invent beyond them; omit any line whose underlying data is missing:
+- **What this part does:** 1-2 plain sentences (from purpose/features)
+- **What it keeps track of:** each record from tech.data_model as a plain phrase with what's inside, e.g. "every pre-approval request — which patient, which insurer, which treatments, where it stands". Never show snake_case or field-list notation here.
+- **The screens you'll use:** from the spec ("screens")
+- **What the AI does on its own:** the agent's purpose and its tools translated into plain verbs, e.g. "checks where a request stands, drafts the message to the patient, flags anything unusual" — or the line "No AI in this part — deliberately." when tech.ai_agent is null
+- **What it knows:** the agent's brain in plain words — the knowledge of YOUR business it is grounded in
+- **Where it stops and hands to you:** decides_alone vs escalation, as one honest sentence naming who picks it up
+- **What it will never do:** the guardrails, plainly
+- **How you'll know it's working:** evaluation + the module's KPIs as things the owner can watch
+- **How this part gets built, in order:** tech.build_sequence translated into numbered plain steps ("first the records it keeps, then the workflow, then the AI wired in, then the screens" — but specific to this module)
+- **It's finished when:** tech.done_when verbatim in spirit — checks the owner can personally verify
+- **For your build team:** ONE compact line with the technical identifiers a developer needs: record names, tool names, connection points (from tech.data_model/tools/apis/integration_details). This is the only place technical notation is allowed.
 
-## Bringing it to life yourself
-This plan is complete enough to execute without us — this section is the honest guide for a client who takes it to their own team. Cover, as short labeled bullets:
-- **Team shape:** the smallest team that can build this (roles, not names — e.g. one full-stack developer plus one AI engineer; adjust to THIS system's real complexity)
-- **Build order:** the modules in dependency order, one line of reasoning each — which module's data the others need first
-- **Buy, don't build:** the pieces to take off the shelf (messaging/SMS provider, calendaring, hosting, auth) rather than write — named as CATEGORIES with what to look for, never a specific vendor pitch
-- **Proving the agents before launch:** how to use each module's evaluation checks to trust the AI before real customers touch it — human review loops first, thresholds before autonomy
-- **The first thing to ship:** the smallest end-to-end slice that touches real users, and why starting there de-risks the rest
-
-## Data, security & reliability
-4-5 bullets, system-wide: where data lives, backups, privacy of client information, access control, uptime — plain language, no boilerplate that could describe any product.
-
-## Implementation phases
+## Applying it, step by step
 3-4 phases, sequenced by dependency. Use EXACTLY this bullet format per phase (top-level bullet, two indented sub-bullets):
 *   **Phase 1: <name>**
-    *   **Delivers:** <which modules from above, by name>
-    *   **You can already:** <what the owner can do at the end of this phase>
+    *   **Delivers:** <which parts from above, by name>
+    *   **You can already:** <what the owner can personally do and see working at the end of this phase>
 No durations, no dates, no prices.
+
+## If you build it with your own team
+This plan is complete enough to execute without us — this section tells the owner how to USE this document with any competent team. Cover, as short labeled bullets:
+- **How to brief them:** hand over this document; the "For your build team" lines and the build orders are their starting point
+- **Team shape:** the smallest team that can build this (roles, not names), adjusted to THIS system's real complexity
+- **Build order:** the parts in dependency order, one line of reasoning each
+- **Buy, don't build:** the pieces to take off the shelf (messaging, calendars, hosting, sign-in) as categories with what to look for — a vendor example or two is fine, never a pitch
+- **How to check their work:** use each part's "It's finished when" checks — you don't need to read code to verify them
+- **Trusting the AI before it goes live:** human review of everything the AI produces first; autonomy only after the evaluation checks pass
+- **The first thing to ship:** the smallest end-to-end slice that touches real users, and why starting there de-risks everything else
+
+## Keeping your information safe
+4-5 bullets, system-wide, in plain words: where your data lives, backups, client privacy, who can see what, staying available — specific to this business, no boilerplate.
 
 Rules:
 - Write directly to the business owner ("you", "your clients").
+- FORBIDDEN outside the "For your build team" lines: API, endpoint, entity, schema, database table, backend, frontend, CRUD, JSON, snake_case identifiers. Say what things ARE, not what they're called in engineering.
 - Grounded and specific to THIS business — their services, their workflow, their words.
 - Every module in the decomposition gets its subsection; add none that aren't in it.
 {% if not modules_present %}
-- The decomposition above is empty (an upstream step failed). Derive the modules yourself from the planned product, keep the exact same document structure, and hold the same standard of specificity.
+- The decomposition above is empty (an upstream step failed). Derive the parts yourself from the planned product, keep the exact same document structure, and hold the same standard of specificity.
 {% endif %}
 - Never include dollar amounts, currency symbols, numeric pricing, or calendar durations.
 - No preamble before the first heading, no closing sign-off.
