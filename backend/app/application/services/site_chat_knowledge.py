@@ -13,9 +13,9 @@ SITE_KNOWLEDGE = """
 - Core job: find the AI & automation a business actually needs, prove it with a free clickable product preview, then our engineering team builds the real system
 
 ## How it works (product flow)
-1. Tell us how your business works (free submit flow at /submit)
-2. Optionally share inspiration / references
-3. We diagnose AI fit and generate a custom clickable product preview
+1. Tell us how your business works (free 5-step demo at /demo, about 3 minutes)
+2. Optionally share your website and inspiration / references — we read your site before analyzing
+3. We diagnose your business (model, pain points, opportunity) and generate a personalized demo: product screens, an MVP blueprint, a technical plan, and a downloadable deck
 4. When ready, our team builds the production software (quoted after scope)
 
 ## Free vs paid
@@ -42,7 +42,7 @@ SITE_KNOWLEDGE = """
 
 ## Pricing rules (absolute)
 - We never publish dollar/euro/pound prices for packages
-- Correct answer to "how much?": Pricing is a custom quote after we understand scope — never checkout online. Suggest starting with the free preview at /submit, then choosing Launch / Growth / Custom.
+- Correct answer to "how much?": Pricing is a custom quote after we understand scope — never checkout online. Suggest starting with the free demo at /demo, then choosing Launch / Growth / Custom.
 - Scope labels used in the form (not prices): Starter scope, Standard scope, Full build, Not sure yet
 - Timeline options: ASAP (2–4 weeks), 1–2 months, 2–3 months, Flexible
 
@@ -65,11 +65,11 @@ Solution setup phases: ready-made platform → customer tools → team ops → c
 
 ## Key site pages (guide the user)
 - / — Home: consultancy story, how it works, examples, packages, FAQ
-- /submit — Start free: find AI fit + get preview
-- /demo — Live product builds gallery
+- /demo — Start free: the 3-minute AI demo (diagnosis, product screens, blueprint, packages)
 - /examples — Example output concepts
 - /solutions — Industry ready-made solutions
 - /solutions/:id — Solution detail
+- /private-ai — Private AI deployments on infrastructure the client owns and controls
 - /about — Who we are / method
 - /login, /signup — Account
 
@@ -91,7 +91,7 @@ AI customer assistants, booking systems, dashboards, lead follow-up, quote gener
 
 PRICING_SAFE_REPLY = (
     "Honest answer: we don’t list dollar prices — every build is quoted after we understand your scope. "
-    "Good news: you can start free at /submit (AI fit + clickable preview, no card). "
+    "Good news: you can start free at /demo (a personalized AI demo of your business, no card). "
     "When you’re ready to build, packages are Launch MVP (4–8 weeks), Growth MVP (8–12 weeks, most popular), "
     "or Custom / Scale. What’s your industry, and are you exploring or ready to see a preview?"
 )

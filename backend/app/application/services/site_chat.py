@@ -26,7 +26,7 @@ Conversation style (required):
 - Answer in 2–4 sentences using ONLY the grounded facts below
 - ALWAYS end with one clear follow-up question (to learn their industry, goal, or next step)
 - Ask about their business when useful: industry, biggest time-sink, what they want to automate
-- Offer a next step with a path when it helps (/submit, /demo, /solutions, /about, /examples)
+- Offer a next step with a path when it helps (/demo, /solutions, /private-ai, /about, /examples)
 - Do NOT dump long lists and stop. Do NOT sound robotic or like FAQ copy-paste
 
 Hard rules (never break):
@@ -100,7 +100,7 @@ def _scrub_money(text: str) -> str:
 _FOLLOWUPS = (
     "What kind of business are you running?",
     "What’s the biggest thing you’d love to automate first?",
-    "Want me to point you to the free start at /submit, or browse /solutions for your industry?",
+    "Want me to point you to the free demo at /demo, or browse /solutions for your industry?",
     "Curious — are you exploring, or ready to see a preview?",
 )
 
@@ -119,7 +119,7 @@ def _ensure_question(text: str, last_user: str = "") -> str:
     elif any(w in low for w in ("package", "plan", "launch", "growth", "custom")):
         q = "Are you aiming to launch fast, or do you need staff roles and care (Growth)?"
     elif any(w in low for w in ("start", "begin", "how do", "preview")):
-        q = "Want me to send you straight to /submit for the free preview?"
+        q = "Want me to send you straight to /demo for the free demo?"
     else:
         q = _FOLLOWUPS[sum(ord(c) for c in cleaned[-12:]) % len(_FOLLOWUPS)]
     return f"{cleaned.rstrip('.')}. {q}"
@@ -153,14 +153,14 @@ def reply_site_chat(
     allowed, reason = ai_is_allowed("site_chat")
     if not allowed:
         return (
-            f"{reason} You can still browse /submit, /demo, and /solutions while we’re paused. "
+            f"{reason} You can still browse /demo and /solutions while we’re paused. "
             "What are you trying to automate?"
         )
 
     if not ai.is_available():
         return (
             "I’m briefly offline, but the short version: we’re an AI consultancy — "
-            "free preview at /submit, live builds at /demo, industry solutions at /solutions. "
+            "free personalized demo at /demo, industry solutions at /solutions. "
             "Pricing is always a custom quote. What are you trying to automate?"
         )
 
@@ -194,8 +194,8 @@ def reply_site_chat(
     except Exception as exc:
         log.warning("site chat failed (%s): %s", model, exc)
         return (
-            "I hit a snag for a second — but you can still start free at /submit, "
-            "browse /demo, or explore /solutions. What industry are you in?"
+            "I hit a snag for a second — but you can still start free at /demo "
+            "or explore /solutions. What industry are you in?"
         )
 
     text = (raw or "").strip()
