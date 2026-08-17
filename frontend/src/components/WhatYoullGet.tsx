@@ -127,20 +127,18 @@ export default function WhatYoullGet() {
             tinted
             delay={0.05}
           >
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="grid grid-cols-4 gap-1.5">
-                {DISCOVER_FLOW.map((s, i) => (
-                  <div key={s.label} className="relative flex flex-col items-center text-center min-w-0">
-                    {i > 0 && (
-                      <span className="absolute -left-2 top-4 text-slate-300 text-[10px]" aria-hidden>
-                        →
-                      </span>
-                    )}
-                    <span className="w-8 h-8 rounded-full border border-blue-200 bg-blue-50/60 text-blue-600 flex items-center justify-center mb-1.5">
+            {/* -mx-3 bleeds into the card padding: four abreast only fits
+                one-line words if the columns get every pixel available */}
+            <div className="rounded-xl border border-slate-200 bg-white px-2 py-3 -mx-3">
+              <div className="relative grid grid-cols-4 gap-x-1 gap-y-1.5">
+                <span className="absolute left-6 right-6 top-4 h-px bg-slate-200" aria-hidden />
+                {DISCOVER_FLOW.map((s) => (
+                  <div key={s.label} className="flex flex-col items-center text-center min-w-0">
+                    <span className="w-8 h-8 rounded-full border border-blue-200 bg-blue-50 text-blue-600 flex items-center justify-center mb-1.5 relative z-10">
                       <Icon path={s.icon} className="w-3.5 h-3.5" />
                     </span>
-                    <p className="text-[10px] font-bold text-navy leading-tight break-words w-full px-0.5">{s.label}</p>
-                    <p className="text-[9px] text-slate-500 leading-tight mt-0.5 break-words w-full px-0.5">{s.sub}</p>
+                    <p className="text-[10px] font-bold text-navy leading-tight tracking-tight break-words w-full">{s.label}</p>
+                    <p className="text-[8.5px] text-slate-500 leading-tight tracking-tight mt-0.5 break-words w-full">{s.sub}</p>
                   </div>
                 ))}
               </div>
@@ -156,7 +154,7 @@ export default function WhatYoullGet() {
             tinted
             delay={0.12}
           >
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 -mx-3">
               <svg viewBox="0 0 100 92" className="w-full h-28" aria-hidden="true">
                 <path d="M12 4v78h84" fill="none" stroke="#cbd5e1" strokeWidth="1" />
                 <path d="M12 43h84M54 4v78" fill="none" stroke="#e2e8f0" strokeWidth="0.8" strokeDasharray="2 2" />
@@ -196,15 +194,15 @@ export default function WhatYoullGet() {
             tinted
             delay={0.19}
           >
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="relative grid grid-cols-4 gap-1.5">
-                <span className="absolute left-6 right-6 top-[18px] h-px bg-slate-200" aria-hidden />
+            <div className="rounded-xl border border-slate-200 bg-white px-2 py-3 -mx-3">
+              <div className="relative grid grid-cols-4 gap-x-1 gap-y-1.5">
+                <span className="absolute left-6 right-6 top-4 h-px bg-slate-200" aria-hidden />
                 {PLAN_PHASES.map((p, i) => (
-                  <div key={p.label} className="relative flex flex-col items-center text-center min-w-0">
+                  <div key={p.label} className="flex flex-col items-center text-center min-w-0">
                     <span className="w-8 h-8 rounded-full border border-blue-200 bg-white text-blue-600 flex items-center justify-center mb-1.5 relative z-10">
                       <Icon path={p.icon} className="w-3.5 h-3.5" />
                     </span>
-                    <p className="text-[10px] font-bold text-navy leading-tight break-words w-full px-0.5">{p.label}</p>
+                    <p className="text-[10px] font-bold text-navy leading-tight tracking-tight break-words w-full">{p.label}</p>
                     <p className="text-[9px] text-slate-500 mt-0.5">Phase {i + 1}</p>
                   </div>
                 ))}
@@ -230,7 +228,7 @@ export default function WhatYoullGet() {
             delay={0.26}
           >
             {/* dashboard sketch — pure skeleton, no fabricated metrics */}
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="rounded-xl border border-slate-200 overflow-hidden -mx-3">
               <div className="flex">
                 <div className="w-8 bg-[#0a1428] p-1.5 space-y-2">
                   {[0, 1, 2, 3].map((i) => (
