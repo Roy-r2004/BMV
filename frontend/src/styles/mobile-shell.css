@@ -143,69 +143,6 @@ body {
     padding: 1.1rem !important;
   }
 
-  /* ── About ── */
-  .about-boom-hero {
-    min-height: auto !important;
-  }
-
-  .about-boom-hero .container-max,
-  .about-boom-hero [class*="min-h"] {
-    min-height: 0 !important;
-    padding-top: 2.5rem !important;
-    padding-bottom: 2.5rem !important;
-  }
-
-  .about-boom-hero__brand {
-    font-size: clamp(2rem, 9vw, 2.85rem) !important;
-  }
-
-  .about-boom-hero__title {
-    font-size: clamp(1.25rem, 5vw, 1.65rem) !important;
-  }
-
-  .about-boom-hero__scroll {
-    display: none !important;
-  }
-
-  .about-boom-hero__actions {
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-
-  .about-boom-hero__actions a,
-  .about-boom-hero__actions .gradient-btn {
-    width: 100%;
-    justify-content: center;
-    min-height: 3rem;
-  }
-
-  .about-boom-stats__grid {
-    grid-template-columns: 1fr !important;
-    gap: 0.65rem !important;
-  }
-
-  .about-boom-stats__card {
-    padding: 1.15rem 1.1rem !important;
-  }
-
-  .about-boom-story__chapter {
-    padding: 1.15rem 1.1rem !important;
-  }
-
-  .about-boom-principles__row {
-    grid-template-columns: 3.25rem 1fr !important;
-    gap: 0.85rem !important;
-    padding: 1.25rem 0.15rem !important;
-  }
-
-  .about-boom-principles__n {
-    font-size: 1.65rem !important;
-  }
-
-  .about-cinematic-hero {
-    min-height: auto !important;
-  }
-
   /* ── Solutions detail ── */
   .sol-detail-hero {
     min-height: auto !important;
@@ -511,10 +448,6 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .about-boom-stats__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
   .sol-detail-hero {
     min-height: auto !important;
   }
@@ -538,8 +471,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .submit-progress-fill,
   .hero-blob,
-  .hero-orb,
-  .about-boom-hero__orb {
+  .hero-orb {
     animation: none !important;
   }
 }

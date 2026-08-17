@@ -1,0 +1,209 @@
+/* About — editorial consultancy register. Alternating white / pale blue /
+   dark navy sections, large conviction typography, hairline dividers
+   instead of cards, blue reserved for emphasis. */
+
+.about-page {
+  color: #0f172a;
+}
+
+.about-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.about-kicker {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.about-kicker--cyan {
+  color: #67e8f9;
+}
+
+/* ── section grounds ─────────────────────────────────────────────────── */
+
+.about-dark {
+  background:
+    radial-gradient(900px 420px at 85% -10%, rgba(37, 99, 235, 0.16), transparent 60%),
+    #020617;
+}
+
+.about-pale {
+  background: #f4f8fd;
+}
+
+/* ── hero ────────────────────────────────────────────────────────────── */
+
+.about-hero-image {
+  width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* ── manifesto ───────────────────────────────────────────────────────── */
+
+.about-dash {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 2px;
+  background: #22d3ee;
+}
+
+.about-radar {
+  position: relative;
+  aspect-ratio: 1;
+  max-width: 22rem;
+  margin-inline: auto;
+}
+
+.about-radar-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 999px;
+}
+
+.about-radar-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+}
+
+/* ── what-we-are columns — hairline separators, no cards ─────────────── */
+
+@media (min-width: 1024px) {
+  .about-columns .about-column + .about-column {
+    border-left: 1px solid rgba(15, 23, 42, 0.08);
+    padding-left: 2rem;
+  }
+}
+
+.about-column-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #2563eb;
+}
+
+/* ── beliefs — dark, divided by hairlines ────────────────────────────── */
+
+.about-beliefs {
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .about-beliefs {
+    gap: 0;
+  }
+  .about-belief {
+    padding-inline: 2.5rem;
+  }
+  .about-belief:first-child {
+    padding-left: 0;
+  }
+  .about-belief + .about-belief {
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+  }
+}
+
+/* ── build/deployment tiles — quiet bordered tiles, not pills ────────── */
+
+.about-area {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1.25rem 1.3rem;
+}
+
+/* ── process strip ───────────────────────────────────────────────────── */
+
+.about-process {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem 3.5rem;
+}
+
+.about-process-step {
+  position: relative;
+}
+
+.about-process-arrow {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .about-process {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .about-process-arrow {
+    display: block;
+    position: absolute;
+    top: 0.1rem;
+    right: -2.6rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: rgba(15, 23, 42, 0.25);
+  }
+}
+
+/* ── final cta buttons ───────────────────────────────────────────────── */
+
+.about-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #020617;
+  background: linear-gradient(100deg, #38bdf8, #22d3ee 55%, #67e8f9);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1.4rem;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 12px 30px -12px rgba(34, 211, 238, 0.5);
+}
+
+.about-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px -10px rgba(34, 211, 238, 0.6);
+}
+
+.about-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1.4rem;
+  text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.about-ghost:hover {
+  border-color: rgba(103, 232, 249, 0.6);
+  color: #ffffff;
+}
