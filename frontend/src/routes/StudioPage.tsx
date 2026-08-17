@@ -428,7 +428,7 @@ function PlanHero({ kicker, title, lead }: { kicker: string; title: string; lead
   return (
     <div className="studio-plan-hero">
       <p className="studio-kicker mb-3">{kicker}</p>
-      <h2 className="studio-display text-2xl sm:text-3xl font-bold text-off-white mb-4">{title}</h2>
+      <h2 className="studio-display text-2xl sm:text-3xl font-bold text-navy mb-4">{title}</h2>
       <p className="studio-plan-hero-lead">{lead}</p>
     </div>
   );
@@ -492,7 +492,7 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
                     <div className="studio-plan-checkrow" key={s.name || i}>
                       <CheckIcon className="studio-plan-checkicon" />
                       <p>
-                        <strong className="text-slate-100">{s.name}.</strong> {s.description}
+                        <strong className="text-slate-900">{s.name}.</strong> {s.description}
                       </p>
                     </div>
                   ))}
@@ -506,7 +506,7 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
                     <div className="studio-plan-checkrow" key={c.cost || i}>
                       <CheckIcon className="studio-plan-checkicon" />
                       <p>
-                        <strong className="text-slate-100">{c.cost}.</strong> {c.how}
+                        <strong className="text-slate-900">{c.cost}.</strong> {c.how}
                       </p>
                     </div>
                   ))}
@@ -558,7 +558,7 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
                       <div className="studio-plan-checkrow" key={f.name || j}>
                         <CheckIcon className="studio-plan-checkicon" />
                         <p>
-                          <strong className="text-slate-100">{f.name}.</strong> {f.description}
+                          <strong className="text-slate-900">{f.name}.</strong> {f.description}
                         </p>
                       </div>
                     ))}
@@ -1106,7 +1106,7 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
     <div className="studio-plan">
       <div className="studio-plan-hero">
         <p className="studio-kicker mb-3">Next step</p>
-        <h2 className="studio-display text-2xl sm:text-3xl font-bold text-off-white mb-4">
+        <h2 className="studio-display text-2xl sm:text-3xl font-bold text-navy mb-4">
           Choose how we build it
         </h2>
         <p className="studio-plan-hero-lead">
@@ -1527,7 +1527,7 @@ export default function StudioPage() {
               <motion.section key="loading" {...fade} transition={{ duration: 0.3 }}>
                 <div className="max-w-xl mx-auto text-center py-24">
                   <span className="studio-spinner" aria-hidden="true" />
-                  <p className="mt-6 text-slate-400">Opening your studio run…</p>
+                  <p className="mt-6 text-slate-600">Opening your studio run…</p>
                 </div>
               </motion.section>
             )}
@@ -1549,10 +1549,10 @@ export default function StudioPage() {
                         Built around your business — not a generic AI demo.
                       </span>
                     </div>
-                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[2.65rem] font-bold leading-[1.05] text-off-white">
+                    <h1 className="studio-display text-4xl sm:text-5xl lg:text-[2.65rem] font-bold leading-[1.05] text-navy">
                       Before you invest in AI, see exactly what we'd build.
                     </h1>
-                    <p className="mt-4 text-slate-400 text-base sm:text-lg lg:text-base max-w-xl leading-relaxed">
+                    <p className="mt-4 text-slate-600 text-base sm:text-lg lg:text-base max-w-xl leading-relaxed">
                       Tell us where your business is slow, manual, or expensive. We'll turn it
                       into a tailored AI system concept — built around your workflows, your data,
                       your tools, and your economics.
@@ -1878,10 +1878,10 @@ export default function StudioPage() {
               <motion.section key="building" {...fade} transition={{ duration: 0.45 }}>
                 <div className="max-w-3xl mx-auto text-center mb-10">
                   <p className="studio-kicker mb-4">Now designing</p>
-                  <h1 className="studio-display text-3xl sm:text-4xl font-bold text-off-white">
+                  <h1 className="studio-display text-3xl sm:text-4xl font-bold text-navy">
                     {buildingName} is in the studio
                   </h1>
-                  <p className="mt-3 text-slate-400">
+                  <p className="mt-3 text-slate-600">
                     {progress?.label ?? 'Warming up…'}
                     {progress?.detail ? <span className="text-slate-500"> — {progress.detail}</span> : null}
                   </p>
@@ -1918,7 +1918,7 @@ export default function StudioPage() {
                     <AnimatePresence mode="wait">
                       <motion.p
                         key={whisper}
-                        className="mt-4 text-sm text-slate-400"
+                        className="mt-4 text-sm text-slate-600"
                         initial={reduceMotion ? undefined : { opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={reduceMotion ? undefined : { opacity: 0 }}
@@ -1951,10 +1951,10 @@ export default function StudioPage() {
               <motion.section key="reveal" {...fade} transition={{ duration: 0.5 }}>
                 <div className="max-w-3xl mx-auto text-center mb-10">
                   <p className="studio-kicker mb-4">Fresh from the studio</p>
-                  <h1 className="studio-display text-4xl sm:text-5xl font-bold text-off-white">
+                  <h1 className="studio-display text-4xl sm:text-5xl font-bold text-navy">
                     {preview.concept_name || `${preview.business_name} OS`}
                   </h1>
-                  <p className="mt-4 text-slate-400 text-lg">
+                  <p className="mt-4 text-slate-600 text-lg">
                     Designed for {preview.business_name}
                     {preview.industry ? ` · ${preview.industry}` : ''}.
                     {screens.length > 0 ? ' Click any screen to see it full size.' : ''}
@@ -1970,7 +1970,7 @@ export default function StudioPage() {
                 {preview.what_this_is && (
                   <div className="studio-panel studio-whatthisis max-w-3xl mx-auto mb-10 p-6">
                     <p className="studio-kicker mb-3">What you're looking at</p>
-                    <p className="text-slate-300 leading-relaxed">{preview.what_this_is}</p>
+                    <p className="text-slate-600 leading-relaxed">{preview.what_this_is}</p>
                   </div>
                 )}
 
@@ -2027,7 +2027,7 @@ export default function StudioPage() {
                       </div>
                     )}
                     {preview.target_customer_profile && (
-                      <p className="text-slate-300 leading-relaxed mb-4">{preview.target_customer_profile}</p>
+                      <p className="text-slate-600 leading-relaxed mb-4">{preview.target_customer_profile}</p>
                     )}
                     {preview.pain_points.length > 0 && (
                       <div className="studio-diagnosis-block">
@@ -2073,8 +2073,8 @@ export default function StudioPage() {
 
                 {activeTab === 'screens' && (screens.length === 0 ? (
                   <div className="studio-panel p-8 text-center max-w-xl mx-auto">
-                    <p className="text-slate-300 font-semibold">This run's screens aren't on file.</p>
-                    <p className="mt-3 text-slate-400 text-sm">
+                    <p className="text-slate-600 font-semibold">This run's screens aren't on file.</p>
+                    <p className="mt-3 text-slate-600 text-sm">
                       The design work finished, but the image files can't be served right now.
                       Start a fresh run and it will render again.
                     </p>
@@ -2292,7 +2292,7 @@ export default function StudioPage() {
                     <button type="button" className="studio-cta max-w-xs" onClick={startOver}>
                       Design another
                     </button>
-                    <p className="text-sm text-slate-400">
+                    <p className="text-sm text-slate-600">
                       Want this built for real? Reply to us from the address you gave — we already
                       have the blueprint.
                     </p>
@@ -2305,10 +2305,10 @@ export default function StudioPage() {
               <motion.section key="failed" {...fade} transition={{ duration: 0.45 }}>
                 <div className="max-w-xl mx-auto studio-panel p-8 text-center">
                   <p className="studio-kicker mb-4">The studio hit a wall</p>
-                  <h1 className="studio-display text-3xl font-bold text-off-white">
+                  <h1 className="studio-display text-3xl font-bold text-navy">
                     That run didn't make it
                   </h1>
-                  <p className="mt-4 text-slate-400">
+                  <p className="mt-4 text-slate-600">
                     {failureDetail || 'Something in the pipeline failed and the run was stopped. Nothing was charged to you, and trying again usually just works.'}
                   </p>
                   <button type="button" className="studio-cta mt-8" onClick={startOver}>
@@ -2322,10 +2322,10 @@ export default function StudioPage() {
               <motion.section key="missing" {...fade} transition={{ duration: 0.45 }}>
                 <div className="max-w-xl mx-auto studio-panel p-8 text-center">
                   <p className="studio-kicker mb-4">Nothing at this address</p>
-                  <h1 className="studio-display text-3xl font-bold text-off-white">
+                  <h1 className="studio-display text-3xl font-bold text-navy">
                     We couldn't find that run
                   </h1>
-                  <p className="mt-4 text-slate-400">
+                  <p className="mt-4 text-slate-600">
                     The link may have a typo, or it may point at a studio run that no longer
                     exists. Designing a fresh set takes about three minutes.
                   </p>
