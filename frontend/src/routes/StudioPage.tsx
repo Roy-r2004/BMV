@@ -703,6 +703,133 @@ function BlueprintCinematic({ preview }: { preview: StudioPreview }) {
   );
 }
 
+/** One module of the technical plan, rendered as a full-width card with
+ *  the facts organized into zones instead of a flat label:text pile — an
+ *  intro line, a breathing facts grid, a highlighted "where the AI works"
+ *  panel, numbered build steps, checkmarked finish criteria, and the dev
+ *  handles as a muted footer. Facet labels are matched loosely so both
+ *  document generations (developer-voice and owner-voice) land in the
+ *  right zone; unknown labels fall into the facts grid rather than
+ *  disappearing. */
+function ModuleSpecCard({ index, title, raw }: { index: number; title: string; raw: string }) {
+  const zones = useMemo(() => {
+    const facets = parseListItems(raw);
+    let intro = '';
+    const ai: { label: string; text: string }[] = [];
+    const facts: { label: string; text: string }[] = [];
+    let steps: string[] = [];
+    const done: string[] = [];
+    let team = '';
+    let collectingSteps = false;
+
+    for (const f of facets) {
+      const label = (f.title || '').toLowerCase();
+      if (!f.title) {
+        // Titleless items are the nested bullets of the facet before them —
+        // in practice the numbered build steps.
+        if (collectingSteps) steps.push(f.text);
+        else if (facts.length > 0) facts[facts.length - 1].text += ` ${f.text}`;
+        continue;
+      }
+      collectingSteps = false;
+      if (label.includes('what this part does')) intro = f.text;
+      else if (label.includes('gets built') || label.includes('build sequence')) {
+        collectingSteps = true;
+        // Inline form: "1. First... 2. Then..." on one line.
+        const inline = f.text.split(/\s*\d+[.)]\s+/).filter(Boolean);
+        if (inline.length > 1) steps = inline;
+      } else if (label.includes('finished when') || label.includes('done when')) {
+        done.push(...f.text.split(/\s*;\s+/).filter(Boolean));
+      } else if (label.includes('build team')) team = f.text;
+      else if (
+        label.startsWith('what the ai') || label.includes('the ai agent') || label.startsWith('agent') ||
+        label.includes('what it knows') || label.includes('hands to you') || label.includes('never do') ||
+        label.includes('escalation') || label.includes('guardrail') || label.includes('evaluate')
+      ) {
+        ai.push({ label: f.title, text: f.text });
+      } else {
+        facts.push({ label: f.title, text: f.text });
+      }
+    }
+    return { intro, ai, facts, steps, done, team };
+  }, [raw]);
+
+  return (
+    <article className="studio-modspec">
+      <header className="studio-modspec-head">
+        <span className="studio-plan-featureno">{String(index + 1).padStart(2, '0')}</span>
+        <h3>{title}</h3>
+      </header>
+      {zones.intro && <p className="studio-modspec-intro">{zones.intro}</p>}
+
+      {zones.facts.length > 0 && (
+        <div className="studio-modspec-grid">
+          {zones.facts.map((f) => (
+            <div className="studio-modspec-cell" key={f.label}>
+              <p className="studio-modspec-label">{f.label}</p>
+              <p>{f.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {zones.ai.length > 0 && (
+        <div className="studio-modspec-ai">
+          <p className="studio-modspec-label studio-modspec-label--ai">
+            <span className="studio-ai-dot" aria-hidden="true" />
+            Where the AI works in this part
+          </p>
+          <div className="studio-modspec-grid studio-modspec-grid--ai">
+            {zones.ai.map((f) => (
+              <div className="studio-modspec-cell" key={f.label}>
+                <p className="studio-modspec-label">{f.label}</p>
+                <p>{f.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(zones.steps.length > 0 || zones.done.length > 0) && (
+        <div className="studio-modspec-buildrow">
+          {zones.steps.length > 0 && (
+            <div className="studio-modspec-cell">
+              <p className="studio-modspec-label">How this part gets built, in order</p>
+              <ol className="studio-modspec-steps">
+                {zones.steps.map((s, i) => (
+                  <li key={i}>
+                    <span className="studio-plan-timeline-no">{i + 1}</span>
+                    <p>{s}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {zones.done.length > 0 && (
+            <div className="studio-modspec-cell">
+              <p className="studio-modspec-label">It's finished when</p>
+              <div className="studio-plan-checklist">
+                {zones.done.map((c, i) => (
+                  <div className="studio-plan-checkrow" key={i}>
+                    <CheckIcon className="studio-plan-checkicon" />
+                    <p>{c}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {zones.team && (
+        <p className="studio-modspec-team">
+          <span>For your build team:</span> {zones.team}
+        </p>
+      )}
+    </article>
+  );
+}
+
 function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
   const md = preview.technical_plan ?? '';
   const sections = useMemo(() => splitH2Sections(md), [md]);
@@ -768,29 +895,11 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
 
       {moduleCards.length > 0 && (
         <div>
-          <p className="studio-kicker mb-4">Module specifications</p>
-          <div className="studio-plan-roster">
-            {moduleCards.map((m, i) => {
-              const facets = m.raw ? parseListItems(m.raw) : [];
-              return (
-                <div className="studio-plan-rostercard" key={m.title || i}>
-                  <span className="studio-plan-featureno">{String(i + 1).padStart(2, '0')}</span>
-                  <div className="min-w-0">
-                    <p className="studio-plan-rostername">{m.title}</p>
-                    {facets.length > 0 ? (
-                      facets.map((f, j) => (
-                        <p className="studio-plan-roadmap-field" key={j}>
-                          {f.title && <span>{f.title}: </span>}
-                          {f.text}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="studio-plan-rostertext">{m.text}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <p className="studio-kicker mb-5">The parts, one by one</p>
+          <div className="studio-modspecs">
+            {moduleCards.map((m, i) => (
+              <ModuleSpecCard key={m.title || i} index={i} title={m.title} raw={m.raw || m.text} />
+            ))}
           </div>
         </div>
       )}
