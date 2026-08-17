@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, decompose, images, plan, research, ui_spec
+from app.pipeline import analyze, blueprint, consult, decompose, images, plan, playbook, research, ui_spec
 from app.pipeline._shared import emit
 
 
@@ -72,8 +72,11 @@ def _run_inner(db: Session, request_id: int) -> None:
         db, request_id, analysis_result, consult_result, plan_result, decomposition,
     )
 
-    emit(db, request_id, "technical", "Writing your technical implementation plan...", 58)
+    emit(db, request_id, "technical", "Writing your technical implementation plan...", 56)
     blueprint.write_technical_plan(db, request_id, consult_result, plan_result, decomposition)
+
+    emit(db, request_id, "playbook", "Writing your step-by-step execution playbook...", 60)
+    playbook.write_playbook(db, request_id, plan_result, decomposition)
 
     emit(db, request_id, "directing", "Designing your product screens...", 62)
     archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)

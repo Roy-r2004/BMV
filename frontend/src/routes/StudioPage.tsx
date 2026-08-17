@@ -45,6 +45,7 @@ const STAGES = [
   { at: 35, name: 'Planning the product', sub: 'Which screens your software actually needs' },
   { at: 42, name: 'Decomposing the business', sub: 'Module by module, each with its own spec' },
   { at: 50, name: 'Writing the blueprint', sub: 'The modules, the money, the build order' },
+  { at: 60, name: 'Writing your playbook', sub: 'Every step you take, who does it, and when' },
   { at: 62, name: 'Art direction', sub: 'Layout, palette and hierarchy — set per screen' },
   { at: 70, name: 'Rendering your screens', sub: 'Drawn in parallel, inspected, re-rolled if flawed' },
 ] as const;
@@ -60,7 +61,7 @@ const RENDER_WHISPERS = [
 // the other end; 'missing' is an id that was never issued.
 type Act = 'intake' | 'loading' | 'building' | 'reveal' | 'failed' | 'missing';
 
-type ResultTab = 'screens' | 'blueprint' | 'technical' | 'team' | 'plans';
+type ResultTab = 'screens' | 'blueprint' | 'technical' | 'playbook' | 'team' | 'plans';
 
 // Each tab knows its own availability rule, so a run that skipped a stage
 // (no technical plan yet, no AI employees named) never shows an empty tab —
@@ -69,6 +70,7 @@ const RESULT_TABS: { id: ResultTab; label: string; available: (p: StudioPreview)
   { id: 'screens', label: 'Screens', available: () => true },
   { id: 'blueprint', label: 'Blueprint', available: (p) => Boolean(p.mvp_blueprint) || (p.modules?.length ?? 0) > 0 },
   { id: 'technical', label: 'Technical plan', available: (p) => Boolean(p.technical_plan) },
+  { id: 'playbook', label: 'Playbook', available: (p) => (p.playbook?.steps?.length ?? 0) > 0 },
   { id: 'team', label: 'AI team', available: (p) => p.ai_features.length > 0 },
   // Static plan/add-on content (data/buildPlans.ts) plus the deck export —
   // always something to show, so always available.
@@ -824,6 +826,103 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PLAYBOOK_PHASES: { id: 'before' | 'during' | 'after'; label: string; sub: string }[] = [
+  { id: 'before', label: 'Before the build', sub: 'What you prepare so the build lands on solid ground' },
+  { id: 'during', label: 'During the build', sub: 'What happens while the system takes shape' },
+  { id: 'after', label: 'After launch', sub: 'The numbers you watch, and what each one triggers' },
+];
+
+const PLAYBOOK_WHO: Record<string, string> = { you: 'You', bmv: 'BMV', partner: 'Partner' };
+
+/** The execution playbook — rendered from the structured steps directly,
+ *  grouped into before/during/after, each step badged with who owns it.
+ *  Closes with the people plan: what the AI employees cover (so no hire is
+ *  needed) and the honest conditions under which humans ARE needed. */
+function PlaybookCinematic({ preview }: { preview: StudioPreview }) {
+  const pb = preview.playbook;
+  if (!pb) return null;
+  const people = pb.people_plan ?? {};
+
+  return (
+    <div className="studio-plan">
+      <PlanHero
+        kicker="Execution playbook"
+        title="Every step, in order — and who does it"
+        lead="The software is one actor in this plan. This is everything else: what you prepare, who does what, which partners you bring in, and what you watch once it's live."
+      />
+
+      {PLAYBOOK_PHASES.map((phase) => {
+        const steps = pb.steps.filter((s) => s.phase === phase.id);
+        if (steps.length === 0) return null;
+        return (
+          <div key={phase.id}>
+            <p className="studio-kicker mb-1">{phase.label}</p>
+            <p className="studio-plan-rostertext mb-4">{phase.sub}</p>
+            <div className="studio-plan-roadmap">
+              {steps.map((s, i) => (
+                <div className="studio-plan-roadmap-item" key={`${phase.id}-${i}`}>
+                  <span className="studio-plan-roadmap-no">{i + 1}</span>
+                  <div className="studio-plan-roadmap-card">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <p className="studio-plan-roadmap-title">{s.title}</p>
+                      <span className={`studio-pb-who studio-pb-who--${s.who}`}>
+                        {PLAYBOOK_WHO[s.who] ?? s.who}
+                      </span>
+                    </div>
+                    <p className="studio-plan-rostertext mt-1">{s.detail}</p>
+                    {(s.needs?.length ?? 0) > 0 && (
+                      <p className="studio-plan-roadmap-field">
+                        <span>Needs: </span>
+                        {s.needs!.join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {((people.ai_covers?.length ?? 0) > 0 || (people.humans_needed?.length ?? 0) > 0) && (
+        <div className="studio-plan-columns">
+          {(people.ai_covers?.length ?? 0) > 0 && (
+            <PlanPanel eyebrow="Your AI employees cover this — no hire needed">
+              <div className="studio-plan-checklist">
+                {people.ai_covers!.map((line, i) => (
+                  <div className="studio-plan-checkrow" key={i}>
+                    <CheckIcon className="studio-plan-checkicon" />
+                    <p>{line}</p>
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
+          {(people.humans_needed?.length ?? 0) > 0 && (
+            <PlanPanel eyebrow="When to bring in humans">
+              <div className="studio-plan-roster studio-plan-roster--stacked">
+                {people.humans_needed!.map((h, i) => (
+                  <div className="studio-plan-rostercard" key={h.role || i}>
+                    <span className="studio-plan-avatar">{initials(h.role) || 'HR'}</span>
+                    <div className="min-w-0">
+                      <p className="studio-plan-rostername">{h.role}</p>
+                      <p className="studio-plan-roadmap-field">
+                        <span>When: </span>
+                        {h.when}
+                      </p>
+                      <p className="studio-plan-rostertext">{h.why}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
         </div>
       )}
     </div>
@@ -2017,6 +2116,12 @@ export default function StudioPage() {
                 {activeTab === 'technical' && preview.technical_plan && (
                   <div className="studio-tabpanel">
                     <TechnicalCinematic preview={preview} />
+                  </div>
+                )}
+
+                {activeTab === 'playbook' && preview.playbook && (
+                  <div className="studio-tabpanel">
+                    <PlaybookCinematic preview={preview} />
                   </div>
                 )}
 

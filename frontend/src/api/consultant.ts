@@ -136,6 +136,25 @@ export interface StudioPreview {
    *  empty array / null for runs made before the decompose stage existed. */
   modules: StudioModule[];
   business_case: StudioBusinessCase | null;
+  /** The execution playbook — ordered real-world steps for the owner, plus
+   *  the AI-covers-it / humans-needed people plan. Null for older runs. */
+  playbook: StudioPlaybook | null;
+}
+
+export interface StudioPlaybookStep {
+  phase: 'before' | 'during' | 'after';
+  who: 'you' | 'bmv' | 'partner';
+  title: string;
+  detail: string;
+  needs?: string[];
+}
+
+export interface StudioPlaybook {
+  steps: StudioPlaybookStep[];
+  people_plan: {
+    ai_covers?: string[];
+    humans_needed?: { role: string; when: string; why: string }[];
+  };
 }
 
 export interface StudioModuleSpec {

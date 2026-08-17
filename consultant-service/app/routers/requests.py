@@ -208,6 +208,10 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # instead of re-parsing them out of the markdown they produced.
         "modules": json.loads(req.modules_json) if req.modules_json else [],
         "business_case": json.loads(req.business_case_json) if req.business_case_json else None,
+        # The execution playbook: ordered real-world steps for the owner,
+        # with the AI-covers-it / humans-needed people plan. Null for runs
+        # from before the stage existed or when its call failed.
+        "playbook": json.loads(req.playbook_json) if req.playbook_json else None,
     }
 
 

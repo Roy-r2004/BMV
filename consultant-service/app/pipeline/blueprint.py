@@ -19,12 +19,12 @@ from app.pipeline._shared import log_usage
 from app.templating import render
 
 
-def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str) -> str | None:
+def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str, *, max_tokens: int = 4000) -> str | None:
     try:
         body = provider.chat(
             settings.ANALYSIS_MODEL,
             [{"role": "user", "content": prompt}],
-            max_tokens=4000,
+            max_tokens=max_tokens,
         )
         content = (body["choices"][0]["message"]["content"] or "").strip()
         if content.startswith("```"):
@@ -107,7 +107,9 @@ def write_technical_plan(
         modules=json.dumps(modules, indent=1) if modules else "(empty)",
         modules_present=bool(modules),
     )
-    content = _markdown_call(db, request_id, "technical_plan", prompt)
+    # Per-module anatomy (data model, agent brain/tools/guardrails, APIs)
+    # makes this the longest document — give it the budget to finish.
+    content = _markdown_call(db, request_id, "technical_plan", prompt, max_tokens=8000)
     req.technical_plan = content
     db.commit()
     return content

@@ -96,9 +96,16 @@ def decompose_business(
 
     # Deep-spec each module with its own dedicated call. The calls are pure
     # HTTP and independent, so they run in parallel — but the DB session is
-    # not thread-safe, so usage is collected in-thread and ledgered here on
-    # the request thread afterwards.
+    # not thread-safe, so: usage is collected in-thread and ledgered here on
+    # the request thread afterwards, and the request's fields are snapshotted
+    # into plain strings BEFORE any thread starts. The commit inside
+    # log_usage expires the ORM instance, so touching req.<attr> from a
+    # worker thread triggers a concurrent refresh on the shared session —
+    # seen failing 3 of 4 parallel calls with "concurrent operations are
+    # not permitted".
     site_research = _format_site_research(req)
+    biz_name = req.business_name or ""
+    biz_desc = req.business_description or ""
 
     def _spec_one(module: dict) -> tuple[dict | None, dict | None, str | None]:
         others = "\n".join(
@@ -107,8 +114,8 @@ def decompose_business(
         try:
             spec_prompt = render(
                 "module_spec.j2",
-                business_name=req.business_name or "",
-                business_description=req.business_description or "",
+                business_name=biz_name,
+                business_description=biz_desc,
                 site_research=site_research,
                 target_customer_profile=analysis.get("target_customer_profile", ""),
                 module_id=module.get("id") or "module",
@@ -133,6 +140,44 @@ def decompose_business(
         log_usage(
             db, request_id,
             provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="module_spec",
+            usage=usage, success=error is None, error=error,
+        )
+
+    # Second pass: the TECHNICAL anatomy of each module — data model, and
+    # for AI-bearing modules the agent's brain/tools/memory/guardrails/
+    # escalation/evaluation. Its own dedicated call per module, fed that
+    # module's business spec, so the technical plan downstream is written
+    # from engineering facts rather than improvising them.
+    def _tech_one(module: dict) -> tuple[dict | None, dict | None, str | None]:
+        others = "\n".join(
+            f"- {m.get('name')}: {m.get('purpose', '')}" for m in modules if m is not module
+        ) or "none"
+        try:
+            tech_prompt = render(
+                "tech_spec.j2",
+                business_name=biz_name,
+                business_description=biz_desc,
+                module_id=module.get("id") or "module",
+                module_name=module.get("name") or "",
+                module_purpose=module.get("purpose") or "",
+                module_spec=json.dumps(module.get("spec") or {}, indent=1),
+                other_modules=others,
+            )
+            body = provider.chat(
+                settings.ANALYSIS_MODEL, [{"role": "user", "content": tech_prompt}], max_tokens=2500,
+            )
+            return extract_json_from_text(body["choices"][0]["message"]["content"]), body.get("usage"), None
+        except Exception as exc:
+            return None, None, str(exc)[:500]
+
+    with ThreadPoolExecutor(max_workers=min(4, len(modules))) as pool:
+        tech_results = list(pool.map(_tech_one, modules))
+
+    for module, (tech, usage, error) in zip(modules, tech_results):
+        module["tech"] = tech
+        log_usage(
+            db, request_id,
+            provider="openrouter", model=settings.ANALYSIS_MODEL, purpose="tech_spec",
             usage=usage, success=error is None, error=error,
         )
 

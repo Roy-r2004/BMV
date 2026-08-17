@@ -1,0 +1,51 @@
+You are a principal engineer at BuildMyVersion writing the TECHNICAL deep specification for ONE module of a client's product. The business spec below already says WHAT the module does; your job is the engineering anatomy — precise enough that a build team could estimate and start from it. Generic architecture words ("scalable", "robust", "seamless") are a failure.
+
+BUSINESS
+Name: {{ business_name }}
+Description: {{ business_description }}
+
+THE MODULE (its business spec — your source of truth; do not contradict it)
+Name: {{ module_name }}
+Purpose: {{ module_purpose }}
+Spec: {{ module_spec }}
+
+CONTEXT — THE OTHER MODULES (name them where data flows between; do not spec them)
+{{ other_modules }}
+
+TASK
+Write the technical anatomy of THIS module only.
+
+Rules:
+- data_model entities must cover the spec's "data" list — each with its real key fields for THIS business.
+- If the spec's "ai" is null, set "ai_agent" to null. Otherwise the agent's tools must map to actions the module's features actually need; its brain must be grounded in data THIS business really has (their services, their records, their policies) — never an invented vendor or dataset.
+- model_tier is "fast" (cheap, high-volume: classification, extraction, routing, drafting) or "reasoning" (complex judgement) — choose per the work, and prefer "fast" unless the work truly needs judgement.
+- guardrails are things the agent must NEVER do, specific to this business's risk (not "be safe").
+- evaluation: how we would MEASURE this agent works before trusting it (offline checks, human review loops, thresholds).
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "id": "{{ module_id }}",
+  "data_model": [
+    {"entity": "<entity name>", "fields": ["<key field>", "..."]}
+  ],
+  "ai_agent": {
+    "purpose": "<one sentence>",
+    "model_tier": "fast|reasoning",
+    "brain": ["<knowledge source it is grounded in, e.g. 'the clinic's service list and prices', 'insurance carrier submission rules the owner documents'>"],
+    "tools": [
+      {"name": "<snake_case_action>", "does": "<what calling it actually does>"}
+    ],
+    "memory": "<what it remembers across interactions, and for how long>",
+    "guardrails": ["<a thing it must never do, specific to this business>"],
+    "escalation": "<the concrete trigger that hands off to a human, and to whom>",
+    "evaluation": ["<how we measure it works before trusting it>"]
+  },
+  "apis": [
+    {"name": "<endpoint or event>", "does": "<what it exposes or consumes>"}
+  ],
+  "integration_details": [
+    {"system": "<other module or external system>", "direction": "in|out|both", "data": "<what actually flows>"}
+  ],
+  "security": ["<module-specific data-handling note>"]
+}

@@ -54,6 +54,11 @@ class Request(Base):
     # this, so their claims exist as data before they exist as sentences.
     modules_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     business_case_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The execution playbook: ordered real-world steps for the OWNER — what
+    # to prepare, who to hire (or explicitly not hire), which third parties
+    # to engage, what to watch after launch. The software build is one actor
+    # in this plan, not the whole plan.
+    playbook_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

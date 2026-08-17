@@ -10,7 +10,7 @@ Roles/screens: {{ roles }}
 Recommended AI employees: {{ recommended_ai_employees }}
 
 THE DECOMPOSITION (your source of truth — specify THESE modules, do not invent others)
-Modules, each with its deep spec (features, data, screens, ai, integrations, kpis):
+Modules, each with its business spec ("spec": features, data, screens, ai, integrations, kpis) and its technical anatomy ("tech": data_model, ai_agent with brain/tools/memory/guardrails/escalation/evaluation, apis, integration_details, security):
 {{ modules }}
 
 TASK
@@ -20,12 +20,20 @@ Write the Technical Plan in Markdown. Structure (exactly these ## headings):
 3-5 sentences: the overall shape of the system — application layer, AI layer, data layer — and how the modules below fit into it. Plain language an owner can follow, precise enough that an engineer nods.
 
 ## Module specifications
-One ### subsection PER MODULE, in the decomposition's order. Each subsection covers, as short labeled lines:
-- **Owns the data:** the entities from the module's spec ("data")
+One ### subsection PER MODULE, in the decomposition's order. Each subsection covers, as short labeled lines (restating the module's "spec" and "tech" facts — do not invent beyond them; omit any line whose underlying data is missing):
+- **Data model:** each entity from tech.data_model with its key fields, e.g. "Pre-Approval Request (patient, carrier, treatment codes, status, submitted_at)"
 - **Key screens:** from the spec ("screens")
-- **AI component:** what the AI does, what it decides alone, when it hands off ("ai") — or the line "No AI component — deliberately." when the spec's ai is null
-- **Connects to:** the integrations from the spec, naming which other modules it hands off to
-- **Build notes:** 1-2 sentences of real engineering judgement for this module: the hard part, the risk, or the thing to get right first
+- **The AI agent:** one sentence of its purpose and model tier — or the line "No AI component — deliberately." when there is none. When there is one, follow with:
+- **Agent brain:** the knowledge it is grounded in (tech.ai_agent.brain)
+- **Agent tools:** each tool name and what calling it does (tech.ai_agent.tools)
+- **Agent memory:** what it remembers and for how long
+- **Guardrails:** what it must never do
+- **Escalation:** the trigger that hands off to a human, and to whom
+- **How we evaluate it:** the checks before trusting it (tech.ai_agent.evaluation)
+- **APIs & events:** from tech.apis
+- **Connects to:** tech.integration_details — each system and what data flows which direction
+- **Security:** tech.security notes for this module
+- **Build notes:** 1-2 sentences of real engineering judgement: the hard part, the risk, or the thing to get right first
 
 ## Data, security & reliability
 4-5 bullets, system-wide: where data lives, backups, privacy of client information, access control, uptime — plain language, no boilerplate that could describe any product.

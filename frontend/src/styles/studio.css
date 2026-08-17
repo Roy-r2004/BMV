@@ -1510,6 +1510,35 @@
   font-weight: 600;
 }
 
+/* Who owns a playbook step. Three fixed actors, three fixed colors. */
+.studio-pb-who {
+  flex: 0 0 auto;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid transparent;
+}
+
+.studio-pb-who--you {
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.4);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.studio-pb-who--bmv {
+  color: #020617;
+  background: linear-gradient(120deg, #67e8f9, #38bdf8);
+}
+
+.studio-pb-who--partner {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.4);
+  background: rgba(252, 211, 77, 0.08);
+}
+
 /* ── plans tab — packages, add-ons, deck export ─────────────────────────── */
 
 .studio-plancards {
