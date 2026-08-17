@@ -106,8 +106,14 @@ def test_cost_never_appears_on_the_lead_facing_preview(client, seeded_request):
 
 def test_preview_exposes_composites_only_when_they_exist(client, seeded_request):
     image = client.get(f"/api/requests/{seeded_request}/preview").json()["generated_pages"]["attraction_images"][0]
-    assert image["hero_url"].endswith("dashboard_hero.png")
-    assert [u.rsplit("_", 1)[1] for u in image["detail_urls"]] == ["1.png"], "detail_2 is absent on disk"
+    # Every lead-facing image URL carries a per-run cache-buster: request ids
+    # restart when the database does, so the bare path can name a DIFFERENT
+    # business's screens than it did last week — and a returning browser
+    # will show its cached copy of the old ones (seen in production).
+    hero_path, _, hero_v = image["hero_url"].partition("?")
+    assert hero_path.endswith("dashboard_hero.png")
+    assert hero_v.startswith("v=")
+    assert [u.partition("?")[0].rsplit("_", 1)[1] for u in image["detail_urls"]] == ["1.png"], "detail_2 is absent on disk"
 
 
 def test_a_missing_composite_yields_null_not_a_guessed_url(tmp_path):

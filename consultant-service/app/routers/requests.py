@@ -123,18 +123,30 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         }
         for i, emp in enumerate(recommendations.get("recommended_ai_employees", []), start=1)
     ]
+    # Cache-buster on every image URL. The path alone is NOT unique across
+    # time: request ids restart when the database does, so /uploads/images/1/
+    # can hold a DIFFERENT business's screens than it did last week — and a
+    # returning browser will happily show its cached copy of the old ones
+    # (seen in production: a fund's result page rendering a gym's cached
+    # screens). The request's creation time is distinct per run even across
+    # database resets, so it versions the URL.
+    cache_v = int(req.created_at.timestamp()) if req.created_at else 0
+
+    def _versioned(path: str | None) -> str | None:
+        return f"{path}?v={cache_v}" if path else None
+
     attraction_images = [
         {
             "role_id": img.role_id,
             "role_label": img.role_label,
-            "image_url": img.file_path,
+            "image_url": _versioned(img.file_path),
             "variant": img.variant,
             # W4 composites when they exist. Null rather than absent, and
             # never a guessed URL: a broken <img> in a lead's preview is
             # worse than no hero shot.
-            "hero_url": compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR),
+            "hero_url": _versioned(compositing.variant_url(img.file_path, "hero", settings.UPLOADS_DIR)),
             "detail_urls": [
-                url for url in (
+                _versioned(url) for url in (
                     compositing.variant_url(img.file_path, "detail_1", settings.UPLOADS_DIR),
                     compositing.variant_url(img.file_path, "detail_2", settings.UPLOADS_DIR),
                 ) if url
