@@ -105,6 +105,10 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Request not found")
 
     recommendations = json.loads(req.consulting_recommendations_json) if req.consulting_recommendations_json else {}
+    # The analyze stage's own diagnosis, already persisted since the first
+    # pipeline stage — read back out rather than re-derived, so the reveal
+    # never states a finding the consulting/blueprint stages didn't also see.
+    analysis = json.loads(req.business_analysis_json) if req.business_analysis_json else {}
     ai_features = [
         {
             "id": f"ai-employee-{i}",
@@ -170,6 +174,13 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         "main_problem": req.main_problem,
         "reference_url": req.reference_url,
         "what_you_like": req.what_you_like,
+        # Null rather than the analyze stage's own fallback sentinel
+        # ("Unknown") — a client reading "we classified you as Unknown"
+        # is worse than the diagnosis panel not rendering at all.
+        "business_model": analysis.get("business_model") if analysis.get("business_model") not in (None, "Unknown") else None,
+        "target_customer_profile": analysis.get("target_customer_profile") or None,
+        "pain_points": analysis.get("pain_points") or [],
+        "growth_opportunity": analysis.get("growth_opportunity") or None,
     }
 
 

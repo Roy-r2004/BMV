@@ -81,6 +81,44 @@ interface FieldErrors {
   what_you_like?: string;
 }
 
+// Heroicons-24-outline paths, same convention as ConsultantExperience.tsx.
+const INTAKE_ICONS = {
+  monitor:
+    'M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25',
+  shield:
+    'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z',
+  bolt: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
+};
+
+function Icon({ path, className }: { path: string; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+    </svg>
+  );
+}
+
+const INTAKE_STATS = [
+  {
+    icon: INTAKE_ICONS.monitor,
+    num: '3',
+    title: 'production-grade screens',
+    sub: 'of bespoke software, designed for your trade',
+  },
+  {
+    icon: INTAKE_ICONS.shield,
+    num: '2×',
+    title: 'every screen passes',
+    sub: 'an aesthetic judge and a structural inspection before you see it',
+  },
+  {
+    icon: INTAKE_ICONS.bolt,
+    num: '~3m',
+    title: 'from this form to your screens',
+    sub: 'watchable live',
+  },
+] as const;
+
 // The intake mirrors the old build-request wizard's five steps and fields —
 // that data meaningfully shapes the analysis (see analyze.j2), so trimming
 // it down to "just enough for a demo" was throwing away signal the pipeline
@@ -912,7 +950,13 @@ export default function StudioPage() {
               <motion.section key="intake" {...fade} transition={{ duration: 0.45 }}>
                 <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-16 items-start">
                   <div className="pt-4">
-                    <p className="studio-kicker mb-5">The Demo</p>
+                    <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+                      <p className="studio-kicker">The Demo</p>
+                      <span className="studio-trust-badge">
+                        <Icon path={INTAKE_ICONS.shield} className="w-3.5 h-3.5" />
+                        No calls. No decks. Just your software.
+                      </span>
+                    </div>
                     <h1 className="studio-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-off-white">
                       See your software before anyone writes a line of it.
                     </h1>
@@ -921,19 +965,19 @@ export default function StudioPage() {
                       with — real screens, your services, your numbers — and hands them to you in
                       about three minutes.
                     </p>
-                    <ul className="mt-8 space-y-3 text-sm text-slate-300">
-                      <li className="flex gap-3">
-                        <span className="text-logo-cyan font-semibold">3</span>
-                        production-grade screens of bespoke software, designed for your trade
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-logo-cyan font-semibold">2×</span>
-                        every screen passes an aesthetic judge and a structural inspection before you see it
-                      </li>
-                      <li className="flex gap-3">
-                        <span className="text-logo-cyan font-semibold">~3m</span>
-                        from this form to your screens, watchable live
-                      </li>
+                    <ul className="mt-8 space-y-3">
+                      {INTAKE_STATS.map((s) => (
+                        <li className="studio-stat" key={s.title}>
+                          <span className="studio-stat-icon">
+                            <Icon path={s.icon} className="w-5 h-5" />
+                          </span>
+                          <span className="studio-stat-num">{s.num}</span>
+                          <span className="studio-stat-text">
+                            <span className="studio-stat-title">{s.title}</span>
+                            <span className="studio-stat-sub">{s.sub}</span>
+                          </span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
 
@@ -1287,6 +1331,42 @@ export default function StudioPage() {
                     <p className="studio-keepsafe-label mt-3">
                       Bookmark it. Your screens stay at this address — share it with anyone who
                       should see them.
+                    </p>
+                  </div>
+                )}
+
+                {/* The diagnosis that produced everything below it — shown as
+                    its own moment, before the tabs, so the reveal reads as
+                    "we found this, so we recommend that" rather than a
+                    dashboard of unrelated outputs. Absent entirely when the
+                    analyze stage's fallback fired instead of a real read. */}
+                {preview.business_model && (
+                  <div className="studio-panel studio-diagnosis max-w-3xl mx-auto mb-10 p-6 sm:p-7">
+                    <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                      <p className="studio-kicker">Our diagnosis</p>
+                      <span className="studio-diagnosis-badge">{preview.business_model}</span>
+                    </div>
+                    {preview.target_customer_profile && (
+                      <p className="text-slate-300 leading-relaxed mb-4">{preview.target_customer_profile}</p>
+                    )}
+                    {preview.pain_points.length > 0 && (
+                      <div className="studio-diagnosis-block">
+                        <p className="studio-diagnosis-label">What we found</p>
+                        <ul className="studio-diagnosis-pains">
+                          {preview.pain_points.map((p) => (
+                            <li key={p}>{p}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {preview.growth_opportunity && (
+                      <div className="studio-diagnosis-block">
+                        <p className="studio-diagnosis-label">The opportunity</p>
+                        <p className="studio-diagnosis-growth">{preview.growth_opportunity}</p>
+                      </div>
+                    )}
+                    <p className="studio-diagnosis-handoff">
+                      Here's what we recommend, because of what we found.
                     </p>
                   </div>
                 )}

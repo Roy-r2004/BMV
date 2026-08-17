@@ -115,6 +115,13 @@ export interface StudioPreview {
   what_you_like: string | null;
   timeline: string | null;
   budget_range: string | null;
+  /** The analyze stage's own diagnosis, read back out rather than
+   *  re-derived — the same finding that shaped everything downstream.
+   *  Null when the fallback ("Unknown") fired instead of a real analysis. */
+  business_model: string | null;
+  target_customer_profile: string | null;
+  pain_points: string[];
+  growth_opportunity: string | null;
 }
 
 export async function createStudioRequest(intake: StudioIntake): Promise<{ id: number; status: string }> {

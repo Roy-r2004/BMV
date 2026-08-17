@@ -49,6 +49,76 @@
   color: #67e8f9;
 }
 
+/* ── intake header: trust badge + stat rows ─────────────────────────────── */
+
+.studio-trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 0.55rem 1rem;
+}
+
+.studio-trust-badge svg {
+  color: #67e8f9;
+  flex: 0 0 auto;
+}
+
+.studio-stat {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 0.9rem 1.15rem;
+}
+
+.studio-stat-icon {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  color: #67e8f9;
+}
+
+.studio-stat-num {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: #67e8f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-stat-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.studio-stat-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #f1f5f9;
+}
+
+.studio-stat-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
 /* ── glass panels ─────────────────────────────────────────────────────── */
 
 .studio-panel {
@@ -469,6 +539,69 @@
    as an aside only if it looks like one. */
 .studio-whatthisis {
   border-left: 2px solid rgba(34, 211, 238, 0.45);
+}
+
+/* ── the diagnosis panel — frames the reveal before the tabs ────────────── */
+
+.studio-diagnosis {
+  border-left: 2px solid rgba(34, 211, 238, 0.45);
+}
+
+.studio-diagnosis-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #020617;
+  background: linear-gradient(120deg, #67e8f9, #38bdf8);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+}
+
+.studio-diagnosis-block {
+  margin-top: 1rem;
+}
+
+.studio-diagnosis-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.45rem;
+}
+
+.studio-diagnosis-pains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.studio-diagnosis-pains li {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 0.4rem 0.85rem;
+}
+
+.studio-diagnosis-growth {
+  color: #a5f3fc;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.studio-diagnosis-handoff {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  color: #64748b;
+  font-size: 0.82rem;
+  font-style: italic;
 }
 
 /* ── the keepsake: this run's permanent address ───────────────────────── */
