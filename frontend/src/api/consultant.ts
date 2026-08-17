@@ -34,6 +34,9 @@ export interface StudioIntake {
    *  tool they admire, not their own business. The research stage fetches
    *  it before analysis when present. */
   site_url?: string;
+  /** How the business earns today, in the owner's words — grounds the
+   *  revenue-model half of the decomposition stage. */
+  revenue_today?: string;
 }
 
 export interface StudioProgress {
@@ -129,6 +132,37 @@ export interface StudioPreview {
   /** Real facts pulled from the owner's own site, when they gave one and
    *  the fetch/extraction succeeded. Null otherwise — never a guess. */
   site_research: StudioSiteResearch | null;
+  /** The decomposition the blueprint/technical docs were written FROM —
+   *  empty array / null for runs made before the decompose stage existed. */
+  modules: StudioModule[];
+  business_case: StudioBusinessCase | null;
+}
+
+export interface StudioModuleSpec {
+  features: { name: string; description: string }[];
+  data: string[];
+  screens: string[];
+  ai: { role: string | null; decides_alone?: string | null; hands_off?: string | null } | null;
+  integrations: string[];
+  kpis: string[];
+}
+
+export interface StudioModule {
+  id: string;
+  name: string;
+  purpose: string;
+  users: string[];
+  pain_point_addressed: string;
+  /** Null when this one module's deep-spec call failed — the module still
+   *  renders from its decomposition fields. */
+  spec: StudioModuleSpec | null;
+}
+
+export interface StudioBusinessCase {
+  revenue_streams: { name: string; description: string; enabled_by?: string }[];
+  costs_removed: { cost: string; how: string; enabled_by?: string }[];
+  pricing_levers: string[];
+  payback_logic: string | null;
 }
 
 export interface StudioSiteResearch {
@@ -155,6 +189,7 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   if (intake.timeline) form.set('timeline', intake.timeline);
   if (intake.whatsapp) form.set('whatsapp', intake.whatsapp);
   if (intake.site_url) form.set('site_url', intake.site_url);
+  if (intake.revenue_today) form.set('revenue_today', intake.revenue_today);
   const { data } = await consultantClient.post('/api/requests', form, { timeout: 30000 });
   return data;
 }

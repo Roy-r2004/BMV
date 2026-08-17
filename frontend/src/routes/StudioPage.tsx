@@ -43,7 +43,8 @@ const STAGES = [
   { at: 10, name: 'Reading your business', sub: 'What you do, who you serve, where it hurts' },
   { at: 25, name: 'Consulting', sub: 'Deciding what your AI employees should take over' },
   { at: 35, name: 'Planning the product', sub: 'Which screens your software actually needs' },
-  { at: 45, name: 'Writing the blueprint', sub: 'The MVP, in plain words' },
+  { at: 42, name: 'Decomposing the business', sub: 'Module by module, each with its own spec' },
+  { at: 50, name: 'Writing the blueprint', sub: 'The modules, the money, the build order' },
   { at: 62, name: 'Art direction', sub: 'Layout, palette and hierarchy — set per screen' },
   { at: 70, name: 'Rendering your screens', sub: 'Drawn in parallel, inspected, re-rolled if flawed' },
 ] as const;
@@ -66,7 +67,7 @@ type ResultTab = 'screens' | 'blueprint' | 'technical' | 'team' | 'plans';
 // the tab bar itself is evidence of what this run actually produced.
 const RESULT_TABS: { id: ResultTab; label: string; available: (p: StudioPreview) => boolean }[] = [
   { id: 'screens', label: 'Screens', available: () => true },
-  { id: 'blueprint', label: 'Blueprint', available: (p) => Boolean(p.mvp_blueprint) },
+  { id: 'blueprint', label: 'Blueprint', available: (p) => Boolean(p.mvp_blueprint) || (p.modules?.length ?? 0) > 0 },
   { id: 'technical', label: 'Technical plan', available: (p) => Boolean(p.technical_plan) },
   { id: 'team', label: 'AI team', available: (p) => p.ai_features.length > 0 },
   // Static plan/add-on content (data/buildPlans.ts) plus the deck export —
@@ -448,6 +449,163 @@ function PlanPanel({
   );
 }
 
+/** The decompose-era blueprint: rendered from the structured decomposition
+ *  itself (preview.modules + preview.business_case) rather than re-parsed
+ *  out of the markdown it produced — the markdown is only consulted for
+ *  the sections that exist nowhere else (executive summary, build order,
+ *  success measures). Used when the run has modules; older runs keep
+ *  BlueprintCinematic below. */
+function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
+  const md = preview.mvp_blueprint ?? '';
+  const sections = useMemo(() => splitH2Sections(md), [md]);
+  const exec = findSection(sections, /executive|summary/);
+  const buildFirst = findSection(sections, /build first/);
+  const success = findSection(sections, /success/);
+  const bc = preview.business_case;
+
+  const execText = exec
+    ? stripInlineMarkdown(exec.body.replace(/\n+/g, ' '))
+    : preview.preview_summary ?? '';
+  const successRows = success ? parseListItems(success.body) : [];
+
+  return (
+    <div className="studio-plan">
+      <PlanHero
+        kicker="Executive summary"
+        title={preview.concept_name || preview.business_name}
+        lead={execText}
+      />
+
+      {bc && (
+        <div>
+          <p className="studio-kicker mb-2">How this makes money</p>
+          {bc.payback_logic && (
+            <p className="studio-plan-checklist-lead max-w-3xl">{bc.payback_logic}</p>
+          )}
+          <div className="studio-plan-columns mt-4">
+            {(bc.revenue_streams?.length ?? 0) > 0 && (
+              <PlanPanel eyebrow="Revenue">
+                <div className="studio-plan-checklist">
+                  {bc.revenue_streams.map((s, i) => (
+                    <div className="studio-plan-checkrow" key={s.name || i}>
+                      <CheckIcon className="studio-plan-checkicon" />
+                      <p>
+                        <strong className="text-slate-100">{s.name}.</strong> {s.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </PlanPanel>
+            )}
+            {(bc.costs_removed?.length ?? 0) > 0 && (
+              <PlanPanel eyebrow="Costs removed">
+                <div className="studio-plan-checklist">
+                  {bc.costs_removed.map((c, i) => (
+                    <div className="studio-plan-checkrow" key={c.cost || i}>
+                      <CheckIcon className="studio-plan-checkicon" />
+                      <p>
+                        <strong className="text-slate-100">{c.cost}.</strong> {c.how}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </PlanPanel>
+            )}
+          </div>
+          {(bc.pricing_levers?.length ?? 0) > 0 && (
+            <div className="studio-plan-checklist studio-plan-checklist--grid mt-4">
+              {bc.pricing_levers.map((l) => (
+                <div className="studio-plan-checkrow" key={l}>
+                  <CheckIcon className="studio-plan-checkicon" />
+                  <p>{l}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <p className="studio-kicker mb-4">The product, module by module</p>
+        <div className="studio-plan-roster studio-plan-roster--stacked">
+          {preview.modules.map((m, i) => {
+            const spec = m.spec;
+            return (
+              <div className="studio-panel studio-plan-panel" key={m.id || i}>
+                <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+                  <p className="studio-plan-rostername text-base">
+                    <span className="studio-plan-featureno inline mr-2">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {m.name}
+                  </p>
+                  {(m.users?.length ?? 0) > 0 && (
+                    <span className="studio-diagnosis-badge">{m.users.join(' · ')}</span>
+                  )}
+                </div>
+                <p className="studio-plan-rostertext mb-1">{m.purpose}</p>
+                {m.pain_point_addressed && (
+                  <p className="studio-plan-roadmap-field">
+                    <span>Exists because: </span>
+                    {m.pain_point_addressed}
+                  </p>
+                )}
+                {(spec?.features?.length ?? 0) > 0 && (
+                  <div className="studio-plan-checklist mt-3">
+                    {spec!.features.map((f, j) => (
+                      <div className="studio-plan-checkrow" key={f.name || j}>
+                        <CheckIcon className="studio-plan-checkicon" />
+                        <p>
+                          <strong className="text-slate-100">{f.name}.</strong> {f.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {spec?.ai?.role && (
+                  <p className="studio-plan-roadmap-field mt-3">
+                    <span>Where the AI works: </span>
+                    {spec.ai.role}
+                    {spec.ai.hands_off ? ` Hands off to a human: ${spec.ai.hands_off}` : ''}
+                  </p>
+                )}
+                {(spec?.kpis?.length ?? 0) > 0 && (
+                  <p className="studio-plan-roadmap-field">
+                    <span>You'll know it's working when: </span>
+                    {spec!.kpis.join(' · ')}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {(buildFirst || successRows.length > 0) && (
+        <div className="studio-plan-columns">
+          {buildFirst && (
+            <PlanPanel eyebrow="What we'd build first">
+              <BlueprintProse text={buildFirst.body} />
+            </PlanPanel>
+          )}
+          {successRows.length > 0 && (
+            <PlanPanel eyebrow="What success looks like">
+              <div className="studio-plan-checklist">
+                {successRows.map((row, i) => (
+                  <div className="studio-plan-checkrow" key={i}>
+                    <CheckIcon className="studio-plan-checkicon" />
+                    <p>{row.text || row.title}</p>
+                  </div>
+                ))}
+              </div>
+            </PlanPanel>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The blueprint's and technical plan's prompts each mandate a fixed
  *  `## Heading` skeleton (see blueprint.j2 / technical_plan.j2), so this
  *  parses out named sections and gives each a bespoke cinematic treatment
@@ -548,13 +706,16 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
   const sections = useMemo(() => splitH2Sections(md), [md]);
   const arch = findSection(sections, /architecture/);
   const blocks = findSection(sections, /building blocks|components/);
+  // The decompose-era document: one ### per module with labeled facet lines.
+  const moduleSpecs = findSection(sections, /module spec/);
   const aiWork = findSection(sections, /employees work|how the ai/);
   const implPhases = findSection(sections, /implementation/);
   const security = findSection(sections, /security|data/);
 
-  if (!arch && !blocks && !aiWork) return <BlueprintProse text={md} />;
+  if (!arch && !blocks && !aiWork && !moduleSpecs) return <BlueprintProse text={md} />;
 
   const archText = arch ? stripInlineMarkdown(arch.body.replace(/\n+/g, ' ')) : '';
+  const moduleCards = moduleSpecs ? splitH3Subsections(moduleSpecs.body) : [];
   const buildBlocks = blocks ? parseListItems(blocks.body) : [];
   const aiRows = aiWork ? parseListItems(aiWork.body) : [];
   const securityRows = security ? parseListItems(security.body) : [];
@@ -597,6 +758,35 @@ function TechnicalCinematic({ preview }: { preview: StudioPreview }) {
               </div>
             </PlanPanel>
           )}
+        </div>
+      )}
+
+      {moduleCards.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-4">Module specifications</p>
+          <div className="studio-plan-roster">
+            {moduleCards.map((m, i) => {
+              const facets = m.raw ? parseListItems(m.raw) : [];
+              return (
+                <div className="studio-plan-rostercard" key={m.title || i}>
+                  <span className="studio-plan-featureno">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="min-w-0">
+                    <p className="studio-plan-rostername">{m.title}</p>
+                    {facets.length > 0 ? (
+                      facets.map((f, j) => (
+                        <p className="studio-plan-roadmap-field" key={j}>
+                          {f.title && <span>{f.title}: </span>}
+                          {f.text}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="studio-plan-rostertext">{m.text}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -821,6 +1011,7 @@ export default function StudioPage() {
     timeline: 'Flexible',
     whatsapp: '',
     site_url: '',
+    revenue_today: '',
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -1031,6 +1222,7 @@ export default function StudioPage() {
         timeline: form.timeline || undefined,
         whatsapp: form.whatsapp.trim() || undefined,
         site_url: form.site_url.trim() || undefined,
+        revenue_today: form.revenue_today.trim() || undefined,
       });
       sessionStorage.setItem(RESUME_KEY, String(id));
       // The run gets its address the moment it exists, not when it finishes —
@@ -1314,14 +1506,32 @@ export default function StudioPage() {
                                 placeholder="Evenings back, zero double-bookings"
                               />
                             </div>
+                            <div className="studio-field">
+                              <label htmlFor="st-revenue">
+                                How do you make money today? <span className="text-slate-500 font-normal">(optional)</span>
+                              </label>
+                              <input
+                                id="st-revenue"
+                                value={form.revenue_today}
+                                onChange={(e) => setForm({ ...form, revenue_today: e.target.value })}
+                                placeholder="Per-session fees, packages, a monthly membership…"
+                              />
+                              <p className="studio-hint">
+                                This is what lets the blueprint talk about your revenue, not revenue in general.
+                              </p>
+                            </div>
                           </>
                         )}
 
                         {step === 2 && (
                           <>
                             <div className="studio-field">
+                              {/* "not your own website" is load-bearing: a real
+                                  production lead put their own company site here
+                                  because it was the only URL field they noticed. */}
                               <label htmlFor="st-refurl">
-                                A tool or site you like <span className="text-slate-500 font-normal">(optional)</span>
+                                A tool you admire — not your own website{' '}
+                                <span className="text-slate-500 font-normal">(optional)</span>
                               </label>
                               <input
                                 id="st-refurl"
@@ -1791,9 +2001,16 @@ export default function StudioPage() {
                   </div>
                 )}
 
-                {activeTab === 'blueprint' && preview.mvp_blueprint && (
+                {/* modules is optional-chained: a result served by an older
+                    API build has no such key at runtime, whatever the type
+                    says. */}
+                {activeTab === 'blueprint' && (preview.mvp_blueprint || (preview.modules?.length ?? 0) > 0) && (
                   <div className="studio-tabpanel">
-                    <BlueprintCinematic preview={preview} />
+                    {(preview.modules?.length ?? 0) > 0 ? (
+                      <DecomposedBlueprint preview={preview} />
+                    ) : (
+                      <BlueprintCinematic preview={preview} />
+                    )}
                   </div>
                 )}
 

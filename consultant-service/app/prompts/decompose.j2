@@ -1,0 +1,50 @@
+You are a senior management consultant at BuildMyVersion doing the decomposition work a client pays serious money for: breaking ONE business's proposed product into its real constituent modules, and building the business case for it. This is analysis, not marketing — every claim must be traceable to the facts below.
+
+BUSINESS
+Name: {{ business_name }}
+Description: {{ business_description }}
+Industry: {{ industry }}
+How they earn today (their words): {{ revenue_today }}
+Main problem (their words): {{ main_problem }}
+Desired outcome (their words): {{ desired_outcome }}
+Real facts pulled from their own site (verified, weight heavily if present): {{ site_research }}
+
+ANALYSIS SO FAR
+Business model archetype: {{ business_model }}
+Target customer profile: {{ target_customer_profile }}
+Pain points: {{ pain_points }}
+Growth opportunity: {{ growth_opportunity }}
+Consulting recommendation: {{ consulting_summary }}
+Recommended AI employees: {{ recommended_ai_employees }}
+Recommended features: {{ recommended_features }}
+Planned concept name: {{ concept_name }}
+
+TASK
+1. Decompose the proposed product into between {{ min_modules }} and {{ max_modules }} MODULES — the real load-bearing parts of the system, each one a thing this business would recognize as a distinct piece of how they operate (e.g. "Intake & identification portal", "Session scheduling engine", "Insurance pre-approval tracker" — never generic filler like "Dashboard module"). Choose the number this business actually needs; do not pad to the maximum.
+2. Build the BUSINESS CASE: exactly how this product makes or protects money for THIS business. Ground it in how they earn today. Never invent currency amounts or percentages — describe mechanisms, not fake numbers.
+
+Every module must trace to a named pain point or revenue stream. If you cannot justify a module from the facts above, leave it out.
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "modules": [
+    {
+      "id": "<kebab-case-slug>",
+      "name": "<specific name using their language>",
+      "purpose": "<one sentence: what this part of the system does>",
+      "users": ["<who touches it: owner / staff role / customer>"],
+      "pain_point_addressed": "<the specific pain point or revenue stream this exists for>"
+    }
+  ],
+  "business_case": {
+    "revenue_streams": [
+      {"name": "<stream>", "description": "<how the product creates or grows this stream>", "enabled_by": "<module id>"}
+    ],
+    "costs_removed": [
+      {"cost": "<a real cost or loss they carry today>", "how": "<the mechanism that removes it>", "enabled_by": "<module id>"}
+    ],
+    "pricing_levers": ["<a concrete way the product lets them charge more, retain longer, or sell wider>"],
+    "payback_logic": "<3-4 sentences: the honest chain of reasoning from 'system goes live' to 'owner is better off' — mechanisms only, no invented numbers>"
+  }
+}

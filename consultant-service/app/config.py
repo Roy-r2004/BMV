@@ -143,6 +143,13 @@ class Settings:
     # path; MAX is a cost/sanity cap on a real model response.
     MIN_ROLES_PER_REQUEST: int = int(_env_or("MIN_ROLES_PER_REQUEST", "2"))
     MAX_ROLES_PER_REQUEST: int = int(_env_or("MAX_ROLES_PER_REQUEST", "4"))
+    # Bounds on the decomposition stage's module count — the model decides
+    # the actual number per business (same soft-bounds pattern as roles:
+    # never a fixed count, a floor against a degenerate answer and a
+    # ceiling against a runaway one). Each module costs one extra deep-spec
+    # text call, so MAX also caps that stage's spend.
+    MIN_MODULES_PER_REQUEST: int = int(_env_or("MIN_MODULES_PER_REQUEST", "3"))
+    MAX_MODULES_PER_REQUEST: int = int(_env_or("MAX_MODULES_PER_REQUEST", "7"))
     VARIANTS_PER_ROLE: int = int(_env_or("VARIANTS_PER_ROLE", "2"))
 
     # ── Demo-screenshot pipeline (cost knobs — this is lead gen) ──────────

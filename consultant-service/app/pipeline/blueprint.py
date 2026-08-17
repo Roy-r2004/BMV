@@ -44,25 +44,40 @@ def _markdown_call(db: Session, request_id: int, purpose: str, prompt: str) -> s
         return None
 
 
-def write_blueprint(db: Session, request_id: int, analysis: dict, consult_result: dict, plan_result: dict) -> str | None:
+def write_blueprint(
+    db: Session,
+    request_id: int,
+    analysis: dict,
+    consult_result: dict,
+    plan_result: dict,
+    decomposition: dict | None = None,
+) -> str | None:
     req = db.get(Request, request_id)
     if req is None:
         raise ValueError(f"Request {request_id} not found")
 
+    from app.pipeline.analyze import _format_site_research
+
+    modules = (decomposition or {}).get("modules") or []
+    business_case = (decomposition or {}).get("business_case") or {}
     prompt = render(
         "blueprint.j2",
         business_name=req.business_name or "",
         business_description=req.business_description or "",
         industry=req.industry or "unspecified",
+        revenue_today=req.revenue_today or "not stated",
+        site_research=_format_site_research(req),
         business_model=analysis.get("business_model", "Unknown"),
         target_customer_profile=analysis.get("target_customer_profile", ""),
         pain_points=json.dumps(analysis.get("pain_points", [])),
         growth_opportunity=analysis.get("growth_opportunity", ""),
         consulting_summary=consult_result.get("consulting_summary", ""),
         recommended_ai_employees=json.dumps(consult_result.get("recommended_ai_employees", [])),
-        recommended_features=json.dumps(consult_result.get("recommended_features", [])),
         concept_name=plan_result.get("concept_name", req.business_name or ""),
         roles=json.dumps(plan_result.get("roles", [])),
+        modules=json.dumps(modules, indent=1) if modules else "(empty)",
+        business_case=json.dumps(business_case, indent=1) if business_case else "(empty)",
+        modules_present=bool(modules),
     )
     content = _markdown_call(db, request_id, "blueprint", prompt)
     req.mvp_blueprint = content
@@ -70,11 +85,18 @@ def write_blueprint(db: Session, request_id: int, analysis: dict, consult_result
     return content
 
 
-def write_technical_plan(db: Session, request_id: int, consult_result: dict, plan_result: dict) -> str | None:
+def write_technical_plan(
+    db: Session,
+    request_id: int,
+    consult_result: dict,
+    plan_result: dict,
+    decomposition: dict | None = None,
+) -> str | None:
     req = db.get(Request, request_id)
     if req is None:
         raise ValueError(f"Request {request_id} not found")
 
+    modules = (decomposition or {}).get("modules") or []
     prompt = render(
         "technical_plan.j2",
         business_name=req.business_name or "",
@@ -82,7 +104,8 @@ def write_technical_plan(db: Session, request_id: int, consult_result: dict, pla
         concept_name=plan_result.get("concept_name", req.business_name or ""),
         roles=json.dumps(plan_result.get("roles", [])),
         recommended_ai_employees=json.dumps(consult_result.get("recommended_ai_employees", [])),
-        recommended_features=json.dumps(consult_result.get("recommended_features", [])),
+        modules=json.dumps(modules, indent=1) if modules else "(empty)",
+        modules_present=bool(modules),
     )
     content = _markdown_call(db, request_id, "technical_plan", prompt)
     req.technical_plan = content

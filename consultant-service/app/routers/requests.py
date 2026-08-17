@@ -35,6 +35,7 @@ def create_request(
     timeline: str | None = Form(None),
     whatsapp: str | None = Form(None),
     site_url: str | None = Form(None),
+    revenue_today: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     # Every accepted request spends real AI money — cap how many can be
@@ -62,6 +63,7 @@ def create_request(
         timeline=timeline,
         whatsapp=whatsapp,
         site_url=site_url,
+        revenue_today=revenue_today,
         status="new",
         is_generating=True,
     )
@@ -188,6 +190,12 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # too little content — the frontend renders nothing in that case,
         # same rule as every other optional field on this payload.
         "site_research": site_research,
+        # The decomposition the blueprint/technical documents were written
+        # FROM — modules (each with its deep spec) and the business case.
+        # Exposed structured so the result page can render them natively
+        # instead of re-parsing them out of the markdown they produced.
+        "modules": json.loads(req.modules_json) if req.modules_json else [],
+        "business_case": json.loads(req.business_case_json) if req.business_case_json else None,
     }
 
 

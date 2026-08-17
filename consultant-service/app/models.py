@@ -29,6 +29,9 @@ class Request(Base):
     # tool they admire, not their own business. Optional; the research stage
     # fetches it before analysis when present.
     site_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # How the business earns today, in the owner's words — the one intake
+    # question that grounds the revenue-model half of the decomposition.
+    revenue_today: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Pipeline output.
     status: Mapped[str] = mapped_column(String(50), default="new")
@@ -44,6 +47,13 @@ class Request(Base):
     # from site_url — null when no URL was given, the fetch failed, or the
     # page had too little real content to extract anything from.
     site_research_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The decomposition stage's output: the product broken into named
+    # modules (each later deep-specced one by one) and the business case
+    # (revenue streams, pricing levers, costs removed). Structure first,
+    # prose second — the blueprint/technical documents are WRITTEN FROM
+    # this, so their claims exist as data before they exist as sentences.
+    modules_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    business_case_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

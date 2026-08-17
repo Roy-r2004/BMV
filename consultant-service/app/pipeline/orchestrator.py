@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, images, plan, research, ui_spec
+from app.pipeline import analyze, blueprint, consult, decompose, images, plan, research, ui_spec
 from app.pipeline._shared import emit
 
 
@@ -59,14 +59,21 @@ def _run_inner(db: Session, request_id: int) -> None:
     )
     plan_result = plan.plan_integration(db, request_id, consult_result)
 
+    emit(db, request_id, "decomposing", "Breaking your business down, module by module...", 42)
+    decomposition = decompose.decompose_business(
+        db, request_id, analysis_result, consult_result, plan_result,
+    )
+
     emit(
-        db, request_id, "blueprint", "Writing your MVP blueprint...", 45,
+        db, request_id, "blueprint", "Writing your blueprint...", 50,
         detail=f"Concept named: {plan_result.get('concept_name', '')}",
     )
-    blueprint.write_blueprint(db, request_id, analysis_result, consult_result, plan_result)
+    blueprint.write_blueprint(
+        db, request_id, analysis_result, consult_result, plan_result, decomposition,
+    )
 
-    emit(db, request_id, "technical", "Writing your technical implementation plan...", 55)
-    blueprint.write_technical_plan(db, request_id, consult_result, plan_result)
+    emit(db, request_id, "technical", "Writing your technical implementation plan...", 58)
+    blueprint.write_technical_plan(db, request_id, consult_result, plan_result, decomposition)
 
     emit(db, request_id, "directing", "Designing your product screens...", 62)
     archetype_id, specs = ui_spec.build_ui_specs(db, request_id, consult_result, plan_result)

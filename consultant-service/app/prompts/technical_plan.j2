@@ -1,4 +1,4 @@
-You are a senior solutions architect at BuildMyVersion writing the client-facing TECHNICAL IMPLEMENTATION PLAN for a prospect. This document is part of a paid deliverable — it must read as credible engineering planning that justifies hiring us to build it, while staying understandable to a non-technical business owner.
+You are a senior solutions architect at BuildMyVersion writing the client-facing TECHNICAL PLAN for a prospect. Standard: an engineering document a company would pay for — every module specified one by one, concrete enough that a build team could estimate from it, still readable by a non-technical owner. Generic architecture prose is a failure mode.
 
 BUSINESS
 Name: {{ business_name }}
@@ -8,29 +8,42 @@ PLANNED PRODUCT
 Concept name: {{ concept_name }}
 Roles/screens: {{ roles }}
 Recommended AI employees: {{ recommended_ai_employees }}
-Recommended features: {{ recommended_features }}
+
+THE DECOMPOSITION (your source of truth — specify THESE modules, do not invent others)
+Modules, each with its deep spec (features, data, screens, ai, integrations, kpis):
+{{ modules }}
 
 TASK
-Write the Technical Implementation Plan in Markdown. Structure:
+Write the Technical Plan in Markdown. Structure (exactly these ## headings):
 
-## Architecture Overview
-2-4 sentences: the overall shape of the system (web app + AI layer + data), in plain language a business owner can follow.
+## Architecture overview
+3-5 sentences: the overall shape of the system — application layer, AI layer, data layer — and how the modules below fit into it. Plain language an owner can follow, precise enough that an engineer nods.
 
-## The Building Blocks
-A list of the main components (customer-facing app, AI employee engine, booking/order/lead engine as fits this business, owner dashboard, notifications) — each with 1-2 sentences on what it does and how it connects.
+## Module specifications
+One ### subsection PER MODULE, in the decomposition's order. Each subsection covers, as short labeled lines:
+- **Owns the data:** the entities from the module's spec ("data")
+- **Key screens:** from the spec ("screens")
+- **AI component:** what the AI does, what it decides alone, when it hands off ("ai") — or the line "No AI component — deliberately." when the spec's ai is null
+- **Connects to:** the integrations from the spec, naming which other modules it hands off to
+- **Build notes:** 1-2 sentences of real engineering judgement for this module: the hard part, the risk, or the thing to get right first
 
-## How the AI Employees Work
-For each recommended AI employee: which channels it lives on (website chat, WhatsApp, phone, email — pick what fits this business), what it can decide on its own vs. when it hands off to a human, and what it logs for the owner.
+## Data, security & reliability
+4-5 bullets, system-wide: where data lives, backups, privacy of client information, access control, uptime — plain language, no boilerplate that could describe any product.
 
-## Implementation Phases
-3-4 phases, each with a name, what gets delivered, and what the owner can already do at the end of that phase. No durations, no dates, no prices.
-
-## Data, Security & Reliability
-3-5 bullet points: where data lives, backups, privacy of client information, uptime — plain language, confidence-building.
+## Implementation phases
+3-4 phases, sequenced by dependency. Use EXACTLY this bullet format per phase (top-level bullet, two indented sub-bullets):
+*   **Phase 1: <name>**
+    *   **Delivers:** <which modules from above, by name>
+    *   **You can already:** <what the owner can do at the end of this phase>
+No durations, no dates, no prices.
 
 Rules:
 - Write directly to the business owner ("you", "your clients").
-- Grounded and specific to THIS business — reference their actual services and the planned roles/screens.
+- Grounded and specific to THIS business — their services, their workflow, their words.
+- Every module in the decomposition gets its subsection; add none that aren't in it.
+{% if not modules_present %}
+- The decomposition above is empty (an upstream step failed). Derive the modules yourself from the planned product, keep the exact same document structure, and hold the same standard of specificity.
+{% endif %}
 - Never include dollar amounts, currency symbols, numeric pricing, or calendar durations.
 - No preamble before the first heading, no closing sign-off.
 - Respond with ONLY the Markdown document.
