@@ -1,6 +1,6 @@
 import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
-import { whatsappUrl } from '../api/client';
+import { consultingEmailUrl } from '../api/client';
 import '../styles/private-ai.css';
 
 // Heroicons-24-outline paths.
@@ -88,7 +88,9 @@ const PRIVATE_ROWS = [
   'Designed for sensitive workloads',
 ];
 
-const CONTACT_MESSAGE = "Hi, I'd like to discuss a private AI deployment.";
+const CONTACT_SUBJECT = 'Private AI deployment';
+const CONTACT_BODY =
+  "Hi,\n\nI'd like to discuss a private AI deployment.\n\nMy business: \nWhat the AI needs to do: \nData it touches: \n";
 
 /** Team / application / private model / data — the same "who talks to what"
  *  shape as the hero diagram, closer up and inside the client's boundary. */
@@ -156,7 +158,7 @@ export default function PrivateAIPage() {
                 systems on dedicated infrastructure you own and control.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <a href={whatsappUrl(CONTACT_MESSAGE)} target="_blank" rel="noopener noreferrer" className="pai-cta">
+                <a href={consultingEmailUrl(CONTACT_SUBJECT, CONTACT_BODY)} className="pai-cta">
                   Explore a private deployment
                   <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
                 </a>
@@ -320,7 +322,7 @@ export default function PrivateAIPage() {
                 </p>
               </div>
               <div className="shrink-0 flex flex-col items-start lg:items-end gap-3">
-                <a href={whatsappUrl(CONTACT_MESSAGE)} target="_blank" rel="noopener noreferrer" className="pai-cta">
+                <a href={consultingEmailUrl(CONTACT_SUBJECT, CONTACT_BODY)} className="pai-cta">
                   Discuss a private AI deployment
                   <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
                 </a>

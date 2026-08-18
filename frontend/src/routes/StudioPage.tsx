@@ -28,7 +28,7 @@ import {
   firstParagraph,
   stripInlineMarkdown,
 } from '../utils/consultantMarkdown';
-import { whatsappUrl } from '../api/client';
+import { consultingEmailUrl } from '../api/client';
 import {
   BUILD_PLANS,
   suggestBusinessAddons,
@@ -1128,7 +1128,15 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
   };
 
   const selectionSummary = summarizeSelection(planId, addonIds, addons, BUILD_PLANS);
-  const waMessage = `Hi, I saw the "${preview.concept_name || preview.business_name}" demo and want to move forward.\n\n${selectionSummary}`;
+  const demoUrl = `${window.location.origin}${studioResultPath(preview.id)}`;
+  const buildEmailHref = consultingEmailUrl(
+    `Build request — ${preview.business_name} (demo #${preview.id})`,
+    `Hi,\n\nI reviewed my demo (${demoUrl}) and I'd like to move forward.\n\n${selectionSummary}\n\nPlease send the exact quote.\n`,
+  );
+  const deepDiveEmailHref = consultingEmailUrl(
+    `Deep-dive request — ${preview.business_name} (demo #${preview.id})`,
+    `Hi,\n\nI'd like to book the deep-dive working session for my demo (${demoUrl}).\n\nPreferred days and times: \n`,
+  );
 
   return (
     <div className="studio-plan">
@@ -1209,17 +1217,30 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
       )}
 
       <div className="studio-plans-actions">
-        <a
-          className="studio-cta studio-stepnav-cta"
-          href={whatsappUrl(waMessage)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          WhatsApp this plan
+        <a className="studio-cta studio-stepnav-cta" href={buildEmailHref}>
+          Email us this plan
         </a>
         <p className="studio-hint">
-          Or just reply to the email you gave us — we already have the blueprint.
+          Goes straight to consulting@buildmyversion.com — we reply with the exact quote. Or just
+          reply to the email you gave us; we already have the blueprint.
         </p>
+      </div>
+
+      {/* The middle rung of the ladder — for readers convinced by the plan
+          but not ready to commit to a build. */}
+      <div className="studio-deepdive">
+        <div>
+          <p className="studio-kicker mb-2">Not ready to choose?</p>
+          <p className="studio-deepdive-title">Book a deep-dive working session</p>
+          <p className="studio-deepdive-text">
+            90 minutes with our consultant inside your real operation. We correct this plan
+            together — modules re-scoped, the business case recomputed from your actual numbers —
+            and you leave with an exact quote. $200, credited in full against your build.
+          </p>
+        </div>
+        <a className="studio-ghost-btn studio-deepdive-btn" href={deepDiveEmailHref}>
+          Request your deep-dive
+        </a>
       </div>
     </div>
   );
@@ -2478,6 +2499,22 @@ export default function StudioPage() {
                           </a>
                         )}
                       </div>
+                    </div>
+                    <div className="studio-deepdive studio-deepdive--slim mb-10">
+                      <p className="studio-deepdive-text">
+                        <strong>Between the two:</strong> a deep-dive working session — 90 minutes
+                        with our consultant, this plan corrected together, an exact quote at the
+                        end. $200, credited in full against your build.
+                      </p>
+                      <a
+                        className="studio-ghost-btn studio-deepdive-btn"
+                        href={consultingEmailUrl(
+                          `Deep-dive request — ${preview.business_name} (demo #${preview.id})`,
+                          `Hi,\n\nI'd like to book the deep-dive working session for my demo (${window.location.origin}${studioResultPath(preview.id)}).\n\nPreferred days and times: \n`,
+                        )}
+                      >
+                        Request your deep-dive
+                      </a>
                     </div>
                     <TechnicalCinematic preview={preview} />
                   </div>

@@ -27,6 +27,15 @@ export function getAdminHeaders(): Record<string, string> {
 
 export const ROY_WHATSAPP = import.meta.env.VITE_ROY_WHATSAPP_NUMBER || '';
 
+/** The consultancy's inbox — the professional contact channel. Outbound
+ *  CTAs build a prefilled mailto so the client sends one click and we get
+ *  a subject line we can triage. */
+export const CONSULTING_EMAIL = 'consulting@buildmyversion.com';
+
+export function consultingEmailUrl(subject: string, body: string) {
+  return `mailto:${CONSULTING_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 export function whatsappUrl(message: string) {
   const number = ROY_WHATSAPP.replace(/\D/g, '');
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;

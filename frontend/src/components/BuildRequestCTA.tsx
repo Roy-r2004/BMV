@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { whatsappUrl } from '../api/client';
+import { consultingEmailUrl } from '../api/client';
 import type { BuildRequestContact } from '../types/buildRequest';
 import type { BuildPlansPayload } from '../data/buildPlans';
 import {
@@ -113,9 +113,13 @@ export default function BuildRequestCTA({
 
   const selectionSummary = summarizeSelection(planId, addonIds, addons, plans);
 
-  const waMessage = demoView
-    ? `Hi, I saw the "${conceptName || 'demo'}" example and want something similar.\n\n${selectionSummary}`
-    : `Hi, I reviewed my preview (Request #${requestId}) for ${businessName || 'my business'} — concept "${conceptName || 'MVP'}".\n\nI'd like to move forward:\n${selectionSummary}\n\nPlease send the exact quote.`;
+  const emailSubject = demoView
+    ? `Build inquiry — ${conceptName || 'demo'}`
+    : `Build request — ${businessName || 'my business'} (preview #${requestId})`;
+  const emailBody = demoView
+    ? `Hi,\n\nI saw the "${conceptName || 'demo'}" example and want something similar.\n\n${selectionSummary}\n`
+    : `Hi,\n\nI reviewed my preview (Request #${requestId}) for ${businessName || 'my business'} — concept "${conceptName || 'MVP'}".\n\nI'd like to move forward:\n${selectionSummary}\n\nPlease send the exact quote.\n`;
+  const emailHref = consultingEmailUrl(emailSubject, emailBody);
 
   const handleRegenerate = async () => {
     if (!onRegeneratePlans) return;
@@ -171,12 +175,10 @@ export default function BuildRequestCTA({
           scope and pricing with you.
         </p>
         <a
-          href={whatsappUrl(waMessage)}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={emailHref}
           className="inline-flex text-sm font-semibold text-emerald-800 underline underline-offset-2"
         >
-          Continue on WhatsApp
+          Continue by email
         </a>
       </div>
     );
@@ -387,12 +389,10 @@ export default function BuildRequestCTA({
                   Continue with {plan.name}
                 </button>
                 <a
-                  href={whatsappUrl(waMessage)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={emailHref}
                   className="px-5 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold text-center hover:bg-white transition-colors text-sm whitespace-nowrap"
                 >
-                  WhatsApp this plan
+                  Email us this plan
                 </a>
               </div>
             </div>
@@ -462,12 +462,10 @@ export default function BuildRequestCTA({
                 {loading ? 'Submitting…' : 'Submit build request'}
               </button>
               <a
-                href={whatsappUrl(waMessage)}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={emailHref}
                 className="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold text-center hover:bg-slate-50 transition-colors text-sm"
               >
-                Or WhatsApp instead
+                Or email us instead
               </a>
             </div>
           </form>

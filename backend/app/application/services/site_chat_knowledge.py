@@ -22,7 +22,9 @@ SITE_KNOWLEDGE = """
 - Starting is free: free AI fit + custom MVP concept + visual/clickable preview
 - No credit card required to start the preview
 - Building the real product is a custom quote after package/scope selection
-- There is NO online checkout and NO public dollar prices
+- ONE fixed-price service exists: the Deep-Dive working session — $200, 90 minutes with our consultant, the demo's plan corrected together from the client's real numbers, an exact build quote at the end. The $200 is credited in full against the build.
+- There is NO online checkout; contact is by email: consulting@buildmyversion.com
+- Build packages themselves have NO public dollar prices (the $200 deep-dive is the only published price)
 
 ## Build packages (NO public prices — quote only)
 1) Launch MVP
@@ -90,8 +92,10 @@ AI customer assistants, booking systems, dashboards, lead follow-up, quote gener
 """.strip()
 
 PRICING_SAFE_REPLY = (
-    "Honest answer: we don’t list dollar prices — every build is quoted after we understand your scope. "
-    "Good news: you can start free at /demo (a personalized AI demo of your business, no card). "
-    "When you’re ready to build, packages are Launch MVP (4–8 weeks), Growth MVP (8–12 weeks, most popular), "
-    "or Custom / Scale. What’s your industry, and are you exploring or ready to see a preview?"
+    "Honest answer: builds don’t have list prices — every build is quoted after we understand your scope. "
+    "You can start free at /demo (a personalized AI demo of your business, no card). "
+    "If you want a human pass before committing, the Deep-Dive working session is $200 — 90 minutes with our "
+    "consultant, your plan corrected together, an exact quote at the end, and the $200 is credited in full "
+    "against your build (email consulting@buildmyversion.com). "
+    "Build packages are Launch MVP (4–8 weeks), Growth MVP (8–12 weeks, most popular), or Custom / Scale."
 )

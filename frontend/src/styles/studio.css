@@ -2699,3 +2699,54 @@
     animation: none;
   }
 }
+
+/* ── deep-dive offer — the middle rung between demo and build ────────── */
+
+.studio-deepdive {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 1.1rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), #ffffff 60%);
+  padding: 1.5rem 1.6rem;
+}
+
+.studio-deepdive > div {
+  max-width: 38rem;
+}
+
+.studio-deepdive-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #0f172a;
+  margin-bottom: 0.45rem;
+}
+
+.studio-deepdive-text {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.studio-deepdive-text strong {
+  color: #0f172a;
+}
+
+.studio-deepdive-btn {
+  border: 1.5px solid rgba(37, 99, 235, 0.35);
+  border-radius: 0.75rem;
+  padding: 0.7rem 1.1rem;
+  color: #2563eb;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.studio-deepdive--slim {
+  margin-top: 0;
+  padding: 1.1rem 1.3rem;
+}

@@ -755,15 +755,23 @@ def build_presentation(
         slide, f"Ready to make {concept} real?", MARGIN, Inches(1.15), Inches(11.8), Inches(1),
         size=34, color=TEXT, font=FONT_DISPLAY,
     )
-    # The two honest paths, stated on the deck the client keeps: this
-    # document set is complete enough to execute without us.
+    # The honest paths, stated on the deck the client keeps: this document
+    # set is complete enough to execute without us — and the deep-dive is
+    # the middle rung for readers convinced but not yet committed.
     _add_text(
         slide,
-        "Two ways forward: we execute this plan for you, module by module — or you take the "
-        "blueprint, technical plan and playbook to your own team. They are written to be enough.",
-        MARGIN, Inches(1.62), Inches(11.8), Inches(0.6), size=13, color=MUTED, line_spacing=1.25,
+        "Three ways forward: we execute this plan for you, module by module. Or book a "
+        "deep-dive working session — 90 minutes with our consultant, this plan corrected "
+        "together, an exact quote at the end ($200, credited in full against your build). "
+        "Or take the blueprint, technical plan and playbook to your own team — they are "
+        "written to be enough.",
+        MARGIN, Inches(1.62), Inches(11.8), Inches(0.9), size=13, color=MUTED, line_spacing=1.25,
     )
-    _hairline(slide, LINE, MARGIN, Inches(2.3), Inches(11.83))
+    _hairline(slide, LINE, MARGIN, Inches(2.62), Inches(11.83))
+    _add_text(
+        slide, "consulting@buildmyversion.com", MARGIN, Inches(2.82), Inches(11.8), Inches(0.45),
+        size=15, color=ACCENT, bold=True,
+    )
 
 
     _add_text(
