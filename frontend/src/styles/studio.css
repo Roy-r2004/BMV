@@ -2844,3 +2844,325 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* ── consultancy layers: journey, scoreboard, procedures, quick wins,
+   risks. Mobile-safe by construction: minmax(0,1fr) grids, overflow
+   wrappers on tables, no fixed widths. ─────────────────────────────── */
+
+.bp-inaction {
+  margin-top: 0.9rem;
+  border-left: 3px solid #d97706;
+  background: #fdf6ec;
+  border-radius: 0 0.6rem 0.6rem 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.bp-inaction strong {
+  color: #0f172a;
+}
+
+.bp-journey {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: 0.8rem;
+}
+
+.bp-jstage {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 14px 32px -28px rgba(15, 23, 42, 0.5);
+  min-width: 0;
+}
+
+.bp-jstage-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.6rem;
+}
+
+.bp-jstage-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.45rem;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: #2563eb;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-jstage-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.bp-jline {
+  font-size: 0.84rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 0.45rem;
+}
+
+.bp-jline span,
+.bp-jline-label {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.15rem;
+}
+
+.bp-jmods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.bp-jmods .bp-jline-label {
+  width: 100%;
+}
+
+.bp-jmod {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.07);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+}
+
+.bp-jfixed {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #047857;
+  background: #e5f5ef;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.bp-scorewrap {
+  overflow-x: auto;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.bp-score {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.bp-score th {
+  text-align: left;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f6f9ff;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  white-space: nowrap;
+}
+
+.bp-score td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  color: #475569;
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+.bp-score tr:last-child td {
+  border-bottom: none;
+}
+
+.bp-score-metric {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bp-pdfbtn {
+  margin-top: 1rem;
+  border: 1.5px solid rgba(37, 99, 235, 0.3);
+  border-radius: 0.75rem;
+  padding: 0.65rem 1.05rem;
+  color: #2563eb;
+  font-weight: 700;
+  display: inline-flex;
+}
+
+.studio-qwins,
+.studio-risks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  gap: 0.8rem;
+}
+
+.studio-qwin,
+.studio-risk {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 14px 32px -28px rgba(15, 23, 42, 0.5);
+  min-width: 0;
+}
+
+.studio-qwin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.studio-qwin-title,
+.studio-risk-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.studio-qwin-tag {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #047857;
+  background: #e5f5ef;
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+  white-space: nowrap;
+}
+
+.studio-risk {
+  border-left: 3px solid rgba(190, 18, 60, 0.45);
+}
+
+.studio-risk-who {
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.studio-pb-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.studio-pb-horizon {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #475569;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 999px;
+  padding: 0.16rem 0.55rem;
+  white-space: nowrap;
+}
+
+.studio-sops {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
+  gap: 0.9rem;
+}
+
+.studio-sop {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 14px 32px -28px rgba(15, 23, 42, 0.5);
+  min-width: 0;
+}
+
+.studio-sop-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.studio-sop-trigger {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2563eb;
+  margin: 0.3rem 0 0.6rem;
+}
+
+.studio-sop-steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.studio-sop-steps li {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.studio-sop-actor {
+  display: inline-block;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  margin-right: 0.4rem;
+  vertical-align: 1px;
+}
+
+.studio-sop-actor--ai {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.studio-sop-ex {
+  margin-top: 0.7rem;
+  border-top: 1px dashed rgba(15, 23, 42, 0.12);
+  padding-top: 0.6rem;
+}
+
+.studio-sop-ex p {
+  font-size: 0.8rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 0.35rem;
+}
+
+.studio-sop-ex strong {
+  color: #0f172a;
+}
+
+.studio-doc-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}

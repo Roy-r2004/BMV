@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Request
-from app.pipeline import analyze, blueprint, consult, decompose, images, plan, playbook, research, ui_spec
+from app.pipeline import analyze, blueprint, consult, decompose, extras, images, plan, playbook, research, ui_spec
 from app.pipeline._shared import emit
 
 
@@ -63,6 +63,9 @@ def _run_inner(db: Session, request_id: int) -> None:
     decomposition = decompose.decompose_business(
         db, request_id, analysis_result, consult_result, plan_result,
     )
+
+    emit(db, request_id, "shaping", "Mapping your journey, scoreboard and procedures...", 46)
+    extras.build_extras(db, request_id, analysis_result, decomposition)
 
     emit(
         db, request_id, "blueprint", "Writing your blueprint...", 50,

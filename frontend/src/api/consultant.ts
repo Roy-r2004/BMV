@@ -179,6 +179,58 @@ export interface StudioPreview {
   /** The execution playbook — ordered real-world steps for the owner, plus
    *  the AI-covers-it / humans-needed people plan. Null for older runs. */
   playbook: StudioPlaybook | null;
+  /** The consultancy layers (extras stage). Each is null/empty for older
+   *  runs or when its one call failed — every layer fails open alone. */
+  journey: { stages: StudioJourneyStage[] } | null;
+  scoreboard: StudioScoreboardRow[];
+  risks: StudioRisk[];
+  procedures: StudioProcedure[];
+}
+
+/** One stage of the service-blueprint journey: what the customer does,
+ *  what they see (frontstage), which modules run unseen (backstage). */
+export interface StudioJourneyStage {
+  stage: string;
+  customer_action: string | null;
+  frontstage: string | null;
+  backstage_modules: string[];
+  fail_point_removed?: string | null;
+}
+
+/** One scoreboard row. Baselines are only ever the owner's own numbers or
+ *  the literal "measure in week 1" — the pipeline never invents one. */
+export interface StudioScoreboardRow {
+  metric: string;
+  baseline: string | null;
+  target: string | null;
+  owner: string | null;
+  review: string | null;
+}
+
+export interface StudioRisk {
+  risk: string;
+  mitigation: string | null;
+  who_feels_it: string | null;
+}
+
+export interface StudioProcedure {
+  name: string;
+  trigger: string | null;
+  steps: { actor: string | null; step: string }[];
+  exceptions: { when: string; then: string | null }[];
+}
+
+export interface StudioQuickWin {
+  title: string;
+  detail: string | null;
+  who?: string | null;
+  no_software?: boolean;
+}
+
+/** The blueprint or technical plan as a branded PDF. Only offer once the
+ *  run is done — the route 400s before the document exists. */
+export function studioPdfUrl(id: number, kind: 'blueprint' | 'technical'): string {
+  return `${CONSULTANT_API_BASE}/api/requests/${id}/export/pdf/${kind}`;
 }
 
 export interface StudioPlaybookStep {
@@ -186,10 +238,14 @@ export interface StudioPlaybookStep {
   who: 'you' | 'bmv' | 'partner';
   title: string;
   detail: string;
+  /** When, as a horizon ("week 1", "first 30 days") — never a date. */
+  horizon?: string | null;
   needs?: string[];
 }
 
 export interface StudioPlaybook {
+  /** 3-5 first-30-days actions, at least one needing no software. */
+  quick_wins?: StudioQuickWin[];
   steps: StudioPlaybookStep[];
   people_plan: {
     ai_covers?: string[];
@@ -222,6 +278,9 @@ export interface StudioBusinessCase {
   costs_removed: { cost: string; how: string; enabled_by?: string }[];
   pricing_levers: string[];
   payback_logic: string | null;
+  /** What staying manual costs — computed from owner numbers when they
+   *  exist, mechanism-only otherwise. */
+  cost_of_inaction?: string | null;
 }
 
 export interface StudioSiteResearch {

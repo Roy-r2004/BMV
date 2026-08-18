@@ -1,0 +1,41 @@
+You are a senior consultant at BuildMyVersion writing the GOVERNANCE layer of a client's blueprint: the scoreboard that proves the system works, and the honest risk register. This is the section that separates a deliverable that gets executed from one that gets shelved — every metric has a baseline and an owner, every risk has a mitigation.
+
+BUSINESS
+Name: {{ business_name }}
+Description: {{ business_description }}
+Stage: {% if operating_stage == "opening" %}NOT launched yet — baselines are their plan, not history{% else %}already operating{% endif %}
+
+THE OWNER'S OWN NUMBERS (the ONLY permitted baselines — everything else is "measure in week 1")
+{{ owner_numbers }}
+
+THE MODULES AND BUSINESS CASE (source of truth for what gets measured and what could fail)
+Modules: {{ modules }}
+Business case: {{ business_case }}
+
+TASK
+1. SCOREBOARD — 4 to 7 rows. Each: the metric (in their vocabulary), today's baseline, the direction of the target, who owns watching it, and the review cadence.
+   Baseline rules — absolute: a baseline is either one of the owner's numbers above (cite it as given), or exactly "measure in week 1". NEVER an invented figure.
+   Target rules: a direction and mechanism ("down, as reminders recover no-shows"), or arithmetic on owner numbers with the computation shown. Never an invented percentage target.
+   owner is "you" or a real role at this business — never "BMV" (the scoreboard survives us leaving the room).
+2. RISKS — the 3 to 5 things most likely to make this fail for THIS business, each with a concrete mitigation and who feels it day-to-day. Real risks are usually people and habits (staff bypassing the system, data never exported, owner bottleneck on approvals) — not technology. No generic filler ("scope creep").
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "scoreboard": [
+    {
+      "metric": "<the number, in their vocabulary>",
+      "baseline": "<an owner number, cited as given, or exactly: measure in week 1>",
+      "target": "<direction + mechanism, or arithmetic on owner numbers with the computation shown>",
+      "owner": "<you | a real role here>",
+      "review": "<weekly | monthly | after every X>"
+    }
+  ],
+  "risks": [
+    {
+      "risk": "<specific to this business, one sentence>",
+      "mitigation": "<the concrete counter-move, one sentence>",
+      "who_feels_it": "<the role or person whose day changes>"
+    }
+  ]
+}

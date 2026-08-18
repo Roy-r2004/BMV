@@ -25,16 +25,28 @@ Rules for the steps:
 - Include the unglamorous prep the owner always forgets: exporting existing client/contact data, deciding handoff rules for the AI, choosing what it may never say, setting up the accounts/numbers/domains the modules need, telling their team what changes.
 - "after" steps must name the specific numbers to watch weekly (use the modules' KPIs) and the decision each number triggers.
 - Every step traces to a module, the business case, or a stated fact. No generic filler ("align stakeholders"), no invented prices, no calendar dates.
+- "horizon" is when the step happens relative to the journey — "week 1", "first 30 days", "during the build", "launch week", "every week after launch". A horizon, never a calendar date.
+
+Also write QUICK WINS: 3-5 actions the owner can execute in their FIRST 30 DAYS with what they already have — before any software exists. At least one must require no software at all (a policy change, a script for the phone, a supplier renegotiation, exporting and cleaning their client list). Each is real value on its own AND makes the build land better. This is the section that proves the plan works before a dollar is spent on building.
 
 Respond with ONLY this JSON shape, no markdown fences, no commentary:
 
 {
+  "quick_wins": [
+    {
+      "title": "<imperative, specific, max 9 words>",
+      "detail": "<2-3 sentences: exactly what to do and the value it creates on its own>",
+      "who": "you|partner",
+      "no_software": true|false
+    }
+  ],
   "steps": [
     {
       "phase": "before|during|after",
       "who": "you|bmv|partner",
       "title": "<imperative, specific, max 9 words>",
       "detail": "<2-3 sentences: exactly what to do and why it matters for THIS business>",
+      "horizon": "<when, as a horizon — never a date>",
       "needs": ["<concrete prerequisite or resource, if any>"]
     }
   ],

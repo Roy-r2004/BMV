@@ -69,6 +69,17 @@ class Request(Base):
     # to engage, what to watch after launch. The software build is one actor
     # in this plan, not the whole plan.
     playbook_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The consultancy layers built from the decomposition (extras.py):
+    # the service-blueprint journey ({"stages": [...]}: customer action,
+    # frontstage, backstage module ids per stage), the KPI scoreboard
+    # (baselines only ever the owner's numbers or "measure in week 1"),
+    # the risk register, and the franchise-manual core procedures
+    # ({"procedures": [...]}: trigger, one-actor-per-step steps,
+    # exceptions). All nullable: each layer fails open alone.
+    journey_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scoreboard_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    procedures_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

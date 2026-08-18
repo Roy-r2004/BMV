@@ -12,6 +12,7 @@ import {
   isAtCapacity,
   isNotFound,
   studioDeckUrl,
+  studioPdfUrl,
   studioResultPath,
   type DiscoveryQuestion,
   type OperatingStage,
@@ -434,6 +435,10 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
     ),
   ].slice(0, 5);
 
+  const moduleNameById: Record<string, string> = Object.fromEntries(
+    mods.filter((m) => m.id).map((m) => [m.id, m.name]),
+  );
+
   const valueCards = [
     ...(bc?.revenue_streams ?? []).map((s) => ({
       icon: INTAKE_ICONS.chart, tone: 'up' as const, title: s.name, body: s.description,
@@ -523,6 +528,82 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
             ))}
           </div>
           {bc?.payback_logic && <p className="bp-payback">{bc.payback_logic}</p>}
+          {bc?.cost_of_inaction && (
+            <p className="bp-inaction">
+              <strong>What staying as you are costs: </strong>
+              {bc.cost_of_inaction}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* the customer journey — where each module lives in their experience */}
+      {(preview.journey?.stages?.length ?? 0) > 0 && (
+        <div>
+          <p className="studio-kicker mb-2">The customer journey</p>
+          <p className="studio-plan-rostertext mb-4">
+            What your customer does at every stage — and which parts of the system work for
+            them behind the scenes.
+          </p>
+          <div className="bp-journey">
+            {preview.journey!.stages.map((st, i) => (
+              <div className="bp-jstage" key={st.stage + i}>
+                <div className="bp-jstage-head">
+                  <span className="bp-jstage-no">{String(i + 1).padStart(2, '0')}</span>
+                  <p className="bp-jstage-name">{st.stage}</p>
+                </div>
+                {st.customer_action && (
+                  <p className="bp-jline"><span>Your customer</span>{st.customer_action}</p>
+                )}
+                {st.frontstage && (
+                  <p className="bp-jline"><span>What they see</span>{st.frontstage}</p>
+                )}
+                {st.backstage_modules.length > 0 && (
+                  <div className="bp-jmods">
+                    <span className="bp-jline-label">Working backstage</span>
+                    {st.backstage_modules.map((id) => (
+                      <span className="bp-jmod" key={id}>{moduleNameById[id] ?? id}</span>
+                    ))}
+                  </div>
+                )}
+                {st.fail_point_removed && (
+                  <p className="bp-jfixed">No longer goes wrong: {st.fail_point_removed}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* the scoreboard — baselines only ever the owner's numbers */}
+      {preview.scoreboard.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-2">The scoreboard</p>
+          <p className="studio-plan-rostertext mb-4">
+            How you'll know it's working. Baselines are your own numbers — where we don't have
+            one, it says so.
+          </p>
+          <div className="bp-scorewrap">
+            <table className="bp-score">
+              <thead>
+                <tr><th>Metric</th><th>Baseline</th><th>Target</th><th>Owner</th><th>Review</th></tr>
+              </thead>
+              <tbody>
+                {preview.scoreboard.map((r) => (
+                  <tr key={r.metric}>
+                    <td className="bp-score-metric">{r.metric}</td>
+                    <td>{r.baseline ?? '—'}</td>
+                    <td>{r.target ?? '—'}</td>
+                    <td>{r.owner ?? '—'}</td>
+                    <td>{r.review ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <a className="studio-ghost-btn bp-pdfbtn" href={studioPdfUrl(preview.id, 'blueprint')}>
+            Download the blueprint (PDF)
+          </a>
         </div>
       )}
 
@@ -1024,6 +1105,26 @@ function PlaybookCinematic({ preview }: { preview: StudioPreview }) {
         lead="The software is one actor in this plan. This is everything else: what you prepare, who does what, which partners you bring in, and what you watch once it's live."
       />
 
+      {(pb.quick_wins?.length ?? 0) > 0 && (
+        <div>
+          <p className="studio-kicker mb-1">Your first 30 days</p>
+          <p className="studio-plan-rostertext mb-4">
+            Real value before any software exists — each of these stands on its own.
+          </p>
+          <div className="studio-qwins">
+            {pb.quick_wins!.map((w, i) => (
+              <div className="studio-qwin" key={w.title + i}>
+                <div className="studio-qwin-head">
+                  <p className="studio-qwin-title">{w.title}</p>
+                  {w.no_software && <span className="studio-qwin-tag">No software needed</span>}
+                </div>
+                {w.detail && <p className="studio-plan-rostertext mt-1">{w.detail}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {PLAYBOOK_PHASES.map((phase) => {
         const steps = pb.steps.filter((s) => s.phase === phase.id);
         if (steps.length === 0) return null;
@@ -1038,8 +1139,11 @@ function PlaybookCinematic({ preview }: { preview: StudioPreview }) {
                   <div className="studio-plan-roadmap-card">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <p className="studio-plan-roadmap-title">{s.title}</p>
-                      <span className={`studio-pb-who studio-pb-who--${s.who}`}>
-                        {PLAYBOOK_WHO[s.who] ?? s.who}
+                      <span className="studio-pb-badges">
+                        {s.horizon && <span className="studio-pb-horizon">{s.horizon}</span>}
+                        <span className={`studio-pb-who studio-pb-who--${s.who}`}>
+                          {PLAYBOOK_WHO[s.who] ?? s.who}
+                        </span>
                       </span>
                     </div>
                     <p className="studio-plan-rostertext mt-1">{s.detail}</p>
@@ -1056,6 +1160,28 @@ function PlaybookCinematic({ preview }: { preview: StudioPreview }) {
           </div>
         );
       })}
+
+      {preview.risks.length > 0 && (
+        <div>
+          <p className="studio-kicker mb-1">What could make this fail — honestly</p>
+          <p className="studio-plan-rostertext mb-4">
+            The real risks are usually habits, not technology. Each one has a counter-move.
+          </p>
+          <div className="studio-risks">
+            {preview.risks.map((r, i) => (
+              <div className="studio-risk" key={r.risk + i}>
+                <p className="studio-risk-name">{r.risk}</p>
+                {r.mitigation && (
+                  <p className="studio-plan-rostertext mt-1">
+                    <strong>Counter-move:</strong> {r.mitigation}
+                  </p>
+                )}
+                {r.who_feels_it && <p className="studio-risk-who">Felt by: {r.who_feels_it}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {((people.ai_covers?.length ?? 0) > 0 || (people.humans_needed?.length ?? 0) > 0) && (
         <div className="studio-plan-columns">
@@ -2520,11 +2646,16 @@ export default function StudioPage() {
                           Every module, data model, agent spec, build sequence and acceptance check
                           is written down below. A competent team can build from this document.
                         </p>
-                        {preview.deck_available && (
-                          <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
-                            Download the deck
+                        <div className="studio-doc-downloads">
+                          {preview.deck_available && (
+                            <a className="studio-ghost-btn" href={studioDeckUrl(preview.id)}>
+                              Download the deck
+                            </a>
+                          )}
+                          <a className="studio-ghost-btn" href={studioPdfUrl(preview.id, 'technical')}>
+                            Download as PDF
                           </a>
-                        )}
+                        </div>
                       </div>
                     </div>
                     <div className="studio-deepdive studio-deepdive--slim mb-10">
@@ -2543,6 +2674,50 @@ export default function StudioPage() {
                         Request your deep-dive
                       </a>
                     </div>
+                    {preview.procedures.length > 0 && (
+                      <div className="mb-10">
+                        <p className="studio-kicker mb-1">Core procedures</p>
+                        <p className="studio-plan-rostertext mb-4">
+                          The routines this business runs on once live — who, or which AI, does
+                          each step. The layer a franchise manual is made of.
+                        </p>
+                        <div className="studio-sops">
+                          {preview.procedures.map((p) => (
+                            <div className="studio-sop" key={p.name}>
+                              <p className="studio-sop-name">{p.name}</p>
+                              {p.trigger && (
+                                <p className="studio-sop-trigger">Starts when: {p.trigger}</p>
+                              )}
+                              <ol className="studio-sop-steps">
+                                {p.steps.map((st, i) => (
+                                  <li key={i}>
+                                    {st.actor && (
+                                      /* the model may write "ai (Module Name)" — treat any
+                                         ai-prefixed actor as the AI, keep the module name */
+                                      <span
+                                        className={`studio-sop-actor${/^ai\b/i.test(st.actor) ? ' studio-sop-actor--ai' : ''}`}
+                                      >
+                                        {/^ai\b/i.test(st.actor) ? st.actor.replace(/^ai\s*/i, '').replace(/^\((.*)\)$/, 'AI · $1') || 'AI' : st.actor}
+                                      </span>
+                                    )}
+                                    {st.step}
+                                  </li>
+                                ))}
+                              </ol>
+                              {p.exceptions.length > 0 && (
+                                <div className="studio-sop-ex">
+                                  {p.exceptions.map((e, i) => (
+                                    <p key={i}>
+                                      <strong>If {e.when}:</strong> {e.then}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <TechnicalCinematic preview={preview} />
                   </div>
                 )}

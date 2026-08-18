@@ -64,6 +64,11 @@ def write_playbook(
         if not steps:
             raise ValueError("playbook had no valid steps")
         result["steps"] = steps
+        # Quick wins are garnish on the playbook, never a reason to fail it.
+        result["quick_wins"] = [
+            w for w in (result.get("quick_wins") or [])
+            if isinstance(w, dict) and w.get("title")
+        ][:6]
         result.setdefault("people_plan", {})
         log_usage(
             db, request_id,

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import AiUsageEvent, Request
-from app.pipeline import compositing, export_pptx, orchestrator, screen_story, what_this_is
+from app.pipeline import compositing, export_pdf, export_pptx, orchestrator, screen_story, what_this_is
 
 logger = logging.getLogger("consultant.requests")
 
@@ -245,6 +245,12 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # with the AI-covers-it / humans-needed people plan. Null for runs
         # from before the stage existed or when its call failed.
         "playbook": json.loads(req.playbook_json) if req.playbook_json else None,
+        # The consultancy layers (extras stage) — each null/empty for older
+        # runs or when its one call failed; every layer fails open alone.
+        "journey": json.loads(req.journey_json) if req.journey_json else None,
+        "scoreboard": json.loads(req.scoreboard_json) if req.scoreboard_json else [],
+        "risks": json.loads(req.risks_json) if req.risks_json else [],
+        "procedures": json.loads(req.procedures_json)["procedures"] if req.procedures_json else [],
     }
 
 
@@ -338,6 +344,29 @@ def get_admin_detail(request_id: int, db: Session = Depends(get_db)):
             for img in sorted(req.images, key=lambda i: (i.role_id, i.variant))
         ],
     }
+
+
+@router.get("/{request_id}/export/pdf/{kind}")
+def export_pdf_route(request_id: int, kind: str, db: Session = Depends(get_db)):
+    """The blueprint or technical plan as a branded PDF — the deliverable a
+    client prints, forwards, and files. 400 before the document exists,
+    same contract as the deck route."""
+    if kind not in ("blueprint", "technical"):
+        raise HTTPException(status_code=404, detail="Unknown document")
+    req = db.get(Request, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    try:
+        out_path = export_pdf.build_pdf(req, kind)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Document not ready yet")
+
+    file_stub = "".join(c if c.isalnum() else "-" for c in (req.concept_name or req.business_name or "document"))
+    return FileResponse(
+        out_path,
+        media_type="application/pdf",
+        filename=f"{file_stub}-{kind}.pdf",
+    )
 
 
 @router.get("/{request_id}/export/pptx")
