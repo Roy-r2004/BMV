@@ -2299,7 +2299,12 @@ export default function StudioPage() {
                         role="tab"
                         aria-selected={activeTab === tab.id}
                         className={`studio-tab${activeTab === tab.id ? ' studio-tab--active' : ''}`}
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={(e) => {
+                          // On phones the bar scrolls horizontally — keep the
+                          // tapped tab fully in view instead of half-clipped.
+                          e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+                          setActiveTab(tab.id);
+                        }}
                       >
                         {tab.label}
                       </button>
