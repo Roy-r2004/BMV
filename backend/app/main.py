@@ -199,9 +199,14 @@ if settings.STATIC_DIR and settings.STATIC_DIR.is_dir():
         if full_path.startswith("api/") or full_path == "api":
             raise HTTPException(status_code=404, detail="Not found")
 
-        if full_path in ("", "favicon.ico"):
+        if full_path == "":
             return FileResponse(_static_path / "index.html")
 
+        # No special-casing favicon.ico to index.html: it used to be mapped
+        # there back when no icon file existed, which fed Google's favicon
+        # crawler an HTML page at 200 — so search results showed the
+        # placeholder globe instead of the logo. A real /favicon.ico ships
+        # in the frontend build now and is served by the file check below.
         target = _static_path / full_path
         if target.is_file():
             return FileResponse(target)
