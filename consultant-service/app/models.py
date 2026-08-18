@@ -32,6 +32,16 @@ class Request(Base):
     # How the business earns today, in the owner's words — the one intake
     # question that grounds the revenue-model half of the decomposition.
     revenue_today: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Which register the discovery numbers are in: "operating" (current
+    # reality) or "opening" (a plan, no history yet). Nullable: intakes from
+    # before the toggle existed.
+    operating_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # The discovery Q&A as [{"question","answer"}] — whatever tailored
+    # questions were asked, exactly as asked. A flexible list rather than
+    # fixed columns: the right questions differ per business, and only
+    # answered ones are stored. The decompose stage may compute ONLY with
+    # these numbers.
+    ops_numbers_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Pipeline output.
     status: Mapped[str] = mapped_column(String(50), default="new")

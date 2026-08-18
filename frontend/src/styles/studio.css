@@ -2617,3 +2617,85 @@
   font-weight: 700;
   color: #2563eb;
 }
+
+/* ── discovery step — the consultant's opening questions ─────────────── */
+
+.studio-disc-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 0.8rem;
+  background: rgba(37, 99, 235, 0.05);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.studio-disc-intro svg {
+  flex: 0 0 auto;
+  color: #2563eb;
+  margin-top: 0.15rem;
+}
+
+.studio-disc-intro p {
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.studio-disc-intro strong {
+  color: #0f172a;
+}
+
+.studio-disc-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.5rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-disc-why {
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.studio-disc-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.4rem 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.studio-disc-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(37, 99, 235, 0.2);
+  border-top-color: #2563eb;
+  animation: studio-disc-spin 0.8s linear infinite;
+}
+
+@keyframes studio-disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-disc-spinner {
+    animation: none;
+  }
+}

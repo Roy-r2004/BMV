@@ -5,6 +5,7 @@ import SiteNav from '../components/SiteNav';
 import SiteFooter from '../components/SiteFooter';
 import {
   createStudioRequest,
+  fetchDiscoveryQuestions,
   getStudioPreview,
   getStudioProgress,
   consultantAssetUrl,
@@ -12,6 +13,8 @@ import {
   isNotFound,
   studioDeckUrl,
   studioResultPath,
+  type DiscoveryQuestion,
+  type OperatingStage,
   type StudioPreview,
   type StudioProgress,
   type StudioScreen,
@@ -176,7 +179,35 @@ const INTAKE_STEPS = [
   { id: 'inspiration', label: 'Inspiration', subtitle: 'A tool you admire' },
   { id: 'project', label: 'Project', subtitle: 'Scope & AI appetite' },
   { id: 'contact', label: 'Contact', subtitle: 'Where to send it' },
+  { id: 'discovery', label: 'Numbers', subtitle: 'The questions a consultant asks first' },
 ] as const;
+
+const STAGE_OPTIONS = ['Already operating', 'Opening soon'];
+const STAGE_MAP: Record<string, OperatingStage> = {
+  'Already operating': 'operating',
+  'Opening soon': 'opening',
+};
+const STAGE_REVERSE: Record<OperatingStage, string> = {
+  operating: 'Already operating',
+  opening: 'Opening soon',
+};
+
+/** Shown only when the tailoring call itself is unreachable — the server
+ *  already serves its own fallback on model failure. Mirrors that set. */
+const LOCAL_DISCOVERY_FALLBACK: Record<OperatingStage, DiscoveryQuestion[]> = {
+  operating: [
+    { id: 'admin-hours', label: 'How many hours a week go to repetitive admin?', placeholder: 'e.g. 12 hours on bookings, follow-ups, paperwork', why: 'Time is the first cost your system removes - this sizes it.' },
+    { id: 'avg-value', label: 'What is one sale, visit or job worth on average?', placeholder: 'e.g. $85', why: 'Lets every recovered hour and missed sale be valued at your own prices.' },
+    { id: 'monthly-volume', label: 'How many customers, orders or jobs in a typical month?', placeholder: 'e.g. 340', why: 'Sets the scale every other number multiplies against.' },
+    { id: 'loss-rate', label: 'What share of bookings or leads never turn into money?', placeholder: 'e.g. about 20% no-show or go quiet', why: 'Recovered losses are usually the fastest payback - this sizes them.' },
+  ],
+  opening: [
+    { id: 'planned-price', label: 'What do you plan to charge for one sale, visit or job?', placeholder: 'e.g. $30', why: 'Anchors every capacity and payback calculation in your own pricing.' },
+    { id: 'planned-capacity', label: 'How many customers or orders are you built to handle per week at launch?', placeholder: 'e.g. 200', why: 'Your target capacity is what the system has to keep full.' },
+    { id: 'planned-hires', label: 'How many people do you plan to hire for phones, bookings or admin?', placeholder: 'e.g. 1 part-time', why: 'Every role the system covers is a hire you can delay.' },
+    { id: 'launch-budget', label: 'What is your launch budget for tools and software?', placeholder: 'e.g. $5,000', why: 'Keeps every recommendation inside what you actually planned to spend.' },
+  ],
+};
 
 const NEEDS_AI_OPTIONS = ['Yes, definitely', 'Maybe, if it adds value', 'No, keep it simple'];
 const NEEDS_AI_MAP: Record<string, string> = {
@@ -1230,10 +1261,19 @@ export default function StudioPage() {
     whatsapp: '',
     site_url: '',
     revenue_today: '',
+    operating_stage: 'operating' as OperatingStage,
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0);
+  // The tailored discovery questions. Prefetched in the background the
+  // moment the brief is complete enough (leaving the Challenge step), so
+  // by the time the visitor reaches the Numbers step they are waiting -
+  // the step feels like the consultant already read the brief.
+  const [discoveryQs, setDiscoveryQs] = useState<DiscoveryQuestion[] | null>(null);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
+  const [numbersAnswers, setNumbersAnswers] = useState<Record<string, string>>({});
+  const discoveryKey = useRef<string | null>(null);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const elapsed = useElapsed(act === 'building', startedAt);
@@ -1402,8 +1442,30 @@ export default function StudioPage() {
     return key === null;
   };
 
+  const prefetchDiscovery = useCallback(() => {
+    const name = form.business_name.trim();
+    const desc = form.business_description.trim();
+    if (name.length < 2 || desc.length < 30) return;
+    const key = form.operating_stage + '|' + name + '|' + desc;
+    if (discoveryKey.current === key) return;
+    discoveryKey.current = key;
+    setDiscoveryLoading(true);
+    fetchDiscoveryQuestions({
+      business_name: name,
+      business_description: desc,
+      industry: form.industry.trim() || undefined,
+      operating_stage: form.operating_stage,
+    })
+      .then((qs) => setDiscoveryQs(qs.length ? qs : LOCAL_DISCOVERY_FALLBACK[form.operating_stage]))
+      .catch(() => setDiscoveryQs(LOCAL_DISCOVERY_FALLBACK[form.operating_stage]))
+      .finally(() => setDiscoveryLoading(false));
+  }, [form.business_name, form.business_description, form.industry, form.operating_stage]);
+
   const goNext = () => {
     if (!validateStep(step)) return;
+    // Idempotent (keyed on the brief) - re-fires only when name,
+    // description or stage actually changed since the last fetch.
+    if (step >= 1) prefetchDiscovery();
     setStep((s) => Math.min(s + 1, INTAKE_STEPS.length - 1));
   };
 
@@ -1441,6 +1503,10 @@ export default function StudioPage() {
         whatsapp: form.whatsapp.trim() || undefined,
         site_url: form.site_url.trim() || undefined,
         revenue_today: form.revenue_today.trim() || undefined,
+        operating_stage: form.operating_stage,
+        ops_numbers: (discoveryQs ?? [])
+          .filter((q) => (numbersAnswers[q.id] ?? '').trim())
+          .map((q) => ({ question: q.label, answer: numbersAnswers[q.id].trim() })),
       });
       sessionStorage.setItem(RESUME_KEY, String(id));
       // The run gets its address the moment it exists, not when it finishes —
@@ -1664,6 +1730,17 @@ export default function StudioPage() {
                               </div>
                             </div>
                             <div className="studio-field">
+                              <label>Where are you today?</label>
+                              <StudioPills
+                                options={STAGE_OPTIONS}
+                                value={STAGE_REVERSE[form.operating_stage]}
+                                onChange={(v) => setForm({ ...form, operating_stage: STAGE_MAP[v] })}
+                              />
+                              <p className="studio-hint">
+                                Changes which numbers we ask for - your current reality, or your plan.
+                              </p>
+                            </div>
+                            <div className="studio-field">
                               <label htmlFor="st-siteurl">
                                 Website or Google/Instagram page{' '}
                                 <span className="text-slate-500 font-normal">(optional)</span>
@@ -1819,6 +1896,43 @@ export default function StudioPage() {
                           </>
                         )}
 
+                        {step === 5 && (
+                          <div className="studio-discovery">
+                            <div className="studio-disc-intro">
+                              <Icon path={INTAKE_ICONS.shield} className="w-4 h-4" />
+                              <p>
+                                Tailored to your brief. Answer what you know, skip the rest - every
+                                figure in your plan is calculated <strong>only</strong> from numbers
+                                you give us. We never invent one.
+                              </p>
+                            </div>
+                            {discoveryLoading || discoveryQs == null ? (
+                              <div className="studio-disc-loading" aria-live="polite">
+                                <span className="studio-disc-spinner" aria-hidden="true" />
+                                Reading your brief and writing your questions&hellip;
+                              </div>
+                            ) : (
+                              discoveryQs.map((q, i) => (
+                                <div className="studio-field studio-disc-q" key={q.id}>
+                                  <label htmlFor={'st-dq-' + q.id}>
+                                    <span className="studio-disc-no">{String(i + 1).padStart(2, '0')}</span>
+                                    {q.label} <span className="text-slate-500 font-normal">(optional)</span>
+                                  </label>
+                                  <input
+                                    id={'st-dq-' + q.id}
+                                    value={numbersAnswers[q.id] ?? ''}
+                                    onChange={(e) =>
+                                      setNumbersAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                                    }
+                                    placeholder={q.placeholder}
+                                  />
+                                  {q.why && <p className="studio-hint studio-disc-why">{q.why}</p>}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+
                         {step === 4 && (
                           <>
                             <div className="studio-field" data-invalid={!!errors.email}>
@@ -1863,12 +1977,17 @@ export default function StudioPage() {
                         </button>
                       )}
                       {step < INTAKE_STEPS.length - 1 ? (
-                        <button type="button" className="studio-cta studio-stepnav-cta" onClick={goNext}>
+                        /* Distinct keys: without them React reuses this DOM
+                           node when the step flips, the browser's default
+                           click action then runs against type="submit", and
+                           Continue on the second-to-last step submits the
+                           whole form — skipping the final step entirely. */
+                        <button key="next" type="button" className="studio-cta studio-stepnav-cta" onClick={goNext}>
                           Continue
                           <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
                         </button>
                       ) : (
-                        <button className="studio-cta studio-stepnav-cta" type="submit" disabled={submitting}>
+                        <button key="go" className="studio-cta studio-stepnav-cta" type="submit" disabled={submitting}>
                           {submitting ? 'Opening the studio…' : 'Design my software'}
                           {!submitting && <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />}
                         </button>

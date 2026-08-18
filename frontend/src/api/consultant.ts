@@ -37,6 +37,46 @@ export interface StudioIntake {
   /** How the business earns today, in the owner's words — grounds the
    *  revenue-model half of the decomposition stage. */
   revenue_today?: string;
+  /** Which register the discovery numbers are in: current reality, or a
+   *  plan for a business that hasn't launched yet. */
+  operating_stage?: OperatingStage;
+  /** The discovery Q&A — the ONLY numbers the business case is allowed to
+   *  compute with. Only answered questions are sent. */
+  ops_numbers?: OpsNumber[];
+}
+
+export type OperatingStage = 'operating' | 'opening';
+
+export interface OpsNumber {
+  question: string;
+  answer: string;
+}
+
+/** One tailored discovery question, written by the fast model from the
+ *  brief (or a stage-generic fallback when that call fails). */
+export interface DiscoveryQuestion {
+  id: string;
+  label: string;
+  placeholder: string;
+  why: string;
+}
+
+/** The questions a consultant would open with, tailored to this brief.
+ *  The service never fails closed (it serves a fallback set), so a reject
+ *  here means the network itself — callers keep their own local fallback. */
+export async function fetchDiscoveryQuestions(input: {
+  business_name: string;
+  business_description: string;
+  industry?: string;
+  operating_stage: OperatingStage;
+}): Promise<DiscoveryQuestion[]> {
+  const form = new FormData();
+  form.set('business_name', input.business_name);
+  form.set('business_description', input.business_description);
+  if (input.industry) form.set('industry', input.industry);
+  form.set('operating_stage', input.operating_stage);
+  const { data } = await consultantClient.post('/api/discovery/questions', form, { timeout: 15000 });
+  return Array.isArray(data?.questions) ? data.questions : [];
 }
 
 export interface StudioProgress {
@@ -209,6 +249,8 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   if (intake.whatsapp) form.set('whatsapp', intake.whatsapp);
   if (intake.site_url) form.set('site_url', intake.site_url);
   if (intake.revenue_today) form.set('revenue_today', intake.revenue_today);
+  if (intake.operating_stage) form.set('operating_stage', intake.operating_stage);
+  if (intake.ops_numbers?.length) form.set('ops_numbers', JSON.stringify(intake.ops_numbers));
   const { data } = await consultantClient.post('/api/requests', form, { timeout: 30000 });
   return data;
 }

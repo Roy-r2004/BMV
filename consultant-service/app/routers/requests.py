@@ -17,6 +17,31 @@ logger = logging.getLogger("consultant.requests")
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 
+_ALLOWED_STAGES = {"operating", "opening"}
+
+
+def _sanitize_ops_numbers(raw: str | None) -> str | None:
+    """The discovery answers arrive as client-built JSON — keep only
+    well-formed {question, answer} pairs with real content, bounded in
+    count and length. Malformed input stores None, never a 500: the
+    numbers are optional garnish on the request, not a precondition."""
+    if not raw:
+        return None
+    try:
+        pairs = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(pairs, list):
+        return None
+    cleaned = []
+    for p in pairs[:8]:
+        if not isinstance(p, dict):
+            continue
+        question = str(p.get("question") or "").strip()[:300]
+        answer = str(p.get("answer") or "").strip()[:300]
+        if question and answer:
+            cleaned.append({"question": question, "answer": answer})
+    return json.dumps(cleaned) if cleaned else None
 
 
 @router.post("")
@@ -36,6 +61,8 @@ def create_request(
     whatsapp: str | None = Form(None),
     site_url: str | None = Form(None),
     revenue_today: str | None = Form(None),
+    operating_stage: str | None = Form(None),
+    ops_numbers: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     # Every accepted request spends real AI money — cap how many can be
@@ -64,6 +91,8 @@ def create_request(
         whatsapp=whatsapp,
         site_url=site_url,
         revenue_today=revenue_today,
+        operating_stage=operating_stage if operating_stage in _ALLOWED_STAGES else None,
+        ops_numbers_json=_sanitize_ops_numbers(ops_numbers),
         status="new",
         is_generating=True,
     )
@@ -202,6 +231,10 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # too little content — the frontend renders nothing in that case,
         # same rule as every other optional field on this payload.
         "site_research": site_research,
+        # The discovery Q&A the business case computed from — echoed back so
+        # the result page can show WHICH numbers the figures trace to.
+        "operating_stage": req.operating_stage,
+        "ops_numbers": json.loads(req.ops_numbers_json) if req.ops_numbers_json else [],
         # The decomposition the blueprint/technical documents were written
         # FROM — modules (each with its deep spec) and the business case.
         # Exposed structured so the result page can render them natively

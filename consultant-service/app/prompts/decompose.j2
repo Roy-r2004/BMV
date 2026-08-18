@@ -7,7 +7,11 @@ Industry: {{ industry }}
 How they earn today (their words): {{ revenue_today }}
 Main problem (their words): {{ main_problem }}
 Desired outcome (their words): {{ desired_outcome }}
+Stage: {% if operating_stage == "opening" %}NOT launched yet — every number below is their plan or target, not history{% else %}already operating{% endif %}
 Real facts pulled from their own site (verified, weight heavily if present): {{ site_research }}
+
+THE OWNER'S OWN NUMBERS (their answers to our discovery questions — the ONLY numbers you may compute with)
+{{ owner_numbers }}
 
 ANALYSIS SO FAR
 Business model archetype: {{ business_model }}
@@ -21,7 +25,12 @@ Planned concept name: {{ concept_name }}
 
 TASK
 1. Decompose the proposed product into between {{ min_modules }} and {{ max_modules }} MODULES — the real load-bearing parts of the system, each one a thing this business would recognize as a distinct piece of how they operate (e.g. "Intake & identification portal", "Session scheduling engine", "Insurance pre-approval tracker" — never generic filler like "Dashboard module"). Choose the number this business actually needs; do not pad to the maximum.
-2. Build the BUSINESS CASE: exactly how this product makes or protects money for THIS business. Ground it in how they earn today. Never invent currency amounts or percentages — describe mechanisms, not fake numbers.
+2. Build the BUSINESS CASE: exactly how this product makes or protects money for THIS business. Ground it in how they earn today.
+
+Number rules — absolute:
+- If owner numbers exist above: every figure you write must be one of those numbers or plain arithmetic on them, and must name the input it came from ("at your $85 average visit...", "of the 14 hours you told us about..."). State every assumption you introduce and make it conservative ("if reminders recover even a third of the no-shows"). Put the computed figures in payback_logic and in the relevant costs_removed / revenue_streams entries, and close each computed claim with "by your own figures".
+{% if operating_stage == "opening" %}- This business has NOT launched: their numbers are targets and plans, not history. Compute forward from the plan and label it as their plan ("at your planned $30 ticket..."). Never predict that a target will be hit — frame value as capacity, readiness and avoided hires, not projected profits.
+{% endif %}- Where no owner number covers a claim: describe the mechanism only. Never invent currency amounts or percentages — a made-up number is worse than none.
 
 Every module must trace to a named pain point or revenue stream. If you cannot justify a module from the facts above, leave it out.
 

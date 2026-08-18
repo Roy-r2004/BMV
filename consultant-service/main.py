@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
+from app.routers import discovery as discovery_router
 from app.routers import requests as requests_router
 
 # Nothing in this service configured logging, so the root logger sat at
@@ -38,6 +39,7 @@ os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
 
 app.include_router(requests_router.router)
+app.include_router(discovery_router.router)
 
 
 @app.on_event("startup")

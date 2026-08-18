@@ -148,6 +148,10 @@ class Settings:
     # never a fixed count, a floor against a degenerate answer and a
     # ceiling against a runaway one). Each module costs one extra deep-spec
     # text call, so MAX also caps that stage's spend.
+    # Discovery questions are soft-bounded the same way modules are — the
+    # model chooses the count this business needs within the bounds.
+    MIN_DISCOVERY_QUESTIONS: int = int(_env_or("MIN_DISCOVERY_QUESTIONS", "3"))
+    MAX_DISCOVERY_QUESTIONS: int = int(_env_or("MAX_DISCOVERY_QUESTIONS", "6"))
     MIN_MODULES_PER_REQUEST: int = int(_env_or("MIN_MODULES_PER_REQUEST", "3"))
     MAX_MODULES_PER_REQUEST: int = int(_env_or("MAX_MODULES_PER_REQUEST", "7"))
     VARIANTS_PER_ROLE: int = int(_env_or("VARIANTS_PER_ROLE", "2"))

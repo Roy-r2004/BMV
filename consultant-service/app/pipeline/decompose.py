@@ -30,6 +30,24 @@ from app.templating import render
 logger = logging.getLogger("consultant.decompose")
 
 
+def _format_owner_numbers(req: Request) -> str:
+    """The discovery Q&A as prompt lines. 'none provided' rather than an
+    empty block — the prompt's number rules key off whether real numbers
+    exist, and the model must be able to tell."""
+    if not req.ops_numbers_json:
+        return "none provided"
+    try:
+        pairs = json.loads(req.ops_numbers_json)
+    except ValueError:
+        return "none provided"
+    lines = [
+        f"- {p.get('question')}: {p.get('answer')}"
+        for p in pairs
+        if isinstance(p, dict) and p.get("question") and p.get("answer")
+    ]
+    return "\n".join(lines) or "none provided"
+
+
 def _clamp_modules(modules: list) -> list:
     """Soft bounds, same pattern as roles: trust the model's count, step in
     only on a degenerate or runaway answer."""
@@ -61,6 +79,8 @@ def decompose_business(
             main_problem=req.main_problem or "unspecified",
             desired_outcome=req.desired_outcome or "unspecified",
             site_research=_format_site_research(req),
+            operating_stage=req.operating_stage or "operating",
+            owner_numbers=_format_owner_numbers(req),
             business_model=analysis.get("business_model", "Unknown"),
             target_customer_profile=analysis.get("target_customer_profile", ""),
             pain_points=json.dumps(analysis.get("pain_points", [])),
