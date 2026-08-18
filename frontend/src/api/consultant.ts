@@ -40,12 +40,16 @@ export interface StudioIntake {
   /** Which register the discovery numbers are in: current reality, or a
    *  plan for a business that hasn't launched yet. */
   operating_stage?: OperatingStage;
+  /** "full" (blueprint the whole business) or "capability" (one solution
+   *  scoped into an existing operation). */
+  engagement_type?: EngagementType;
   /** The discovery Q&A — the ONLY numbers the business case is allowed to
    *  compute with. Only answered questions are sent. */
   ops_numbers?: OpsNumber[];
 }
 
 export type OperatingStage = 'operating' | 'opening';
+export type EngagementType = 'full' | 'capability';
 
 export interface OpsNumber {
   question: string;
@@ -69,12 +73,14 @@ export async function fetchDiscoveryQuestions(input: {
   business_description: string;
   industry?: string;
   operating_stage: OperatingStage;
+  engagement_type?: EngagementType;
 }): Promise<DiscoveryQuestion[]> {
   const form = new FormData();
   form.set('business_name', input.business_name);
   form.set('business_description', input.business_description);
   if (input.industry) form.set('industry', input.industry);
   form.set('operating_stage', input.operating_stage);
+  if (input.engagement_type) form.set('engagement_type', input.engagement_type);
   const { data } = await consultantClient.post('/api/discovery/questions', form, { timeout: 15000 });
   return Array.isArray(data?.questions) ? data.questions : [];
 }
@@ -182,9 +188,26 @@ export interface StudioPreview {
   /** The consultancy layers (extras stage). Each is null/empty for older
    *  runs or when its one call failed — every layer fails open alone. */
   journey: { stages: StudioJourneyStage[] } | null;
+  organization: StudioOrganization | null;
   scoreboard: StudioScoreboardRow[];
   risks: StudioRisk[];
   procedures: StudioProcedure[];
+  engagement_type: EngagementType | null;
+}
+
+/** Humans and AI agents on one chart, with decision rights — plus what
+ *  actually changes for each human (the adoption plan's raw material). */
+export interface StudioOrgRole {
+  role: string;
+  type: 'human' | 'ai';
+  responsibilities: string[];
+  decides_alone: string | null;
+  hands_off: string | null;
+}
+
+export interface StudioOrganization {
+  roles: StudioOrgRole[];
+  change_impact: { role: string; what_changes: string | null; must_learn: string | null }[];
 }
 
 /** One stage of the service-blueprint journey: what the customer does,
@@ -274,6 +297,8 @@ export interface StudioModule {
 }
 
 export interface StudioBusinessCase {
+  /** Who is served, how they arrive, and the retention mechanism. */
+  customers?: { segments?: string[]; channels?: string[]; how_kept?: string | null } | null;
   revenue_streams: { name: string; description: string; enabled_by?: string }[];
   costs_removed: { cost: string; how: string; enabled_by?: string }[];
   pricing_levers: string[];
@@ -309,6 +334,7 @@ export async function createStudioRequest(intake: StudioIntake): Promise<{ id: n
   if (intake.site_url) form.set('site_url', intake.site_url);
   if (intake.revenue_today) form.set('revenue_today', intake.revenue_today);
   if (intake.operating_stage) form.set('operating_stage', intake.operating_stage);
+  if (intake.engagement_type) form.set('engagement_type', intake.engagement_type);
   if (intake.ops_numbers?.length) form.set('ops_numbers', JSON.stringify(intake.ops_numbers));
   const { data } = await consultantClient.post('/api/requests', form, { timeout: 30000 });
   return data;

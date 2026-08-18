@@ -7,6 +7,46 @@ from sqlalchemy.orm import Session
 from app.models import AiUsageEvent, Request
 
 
+def build_engagement_register(
+    engagement_type: str | None,
+    needs_ai: str | None,
+    main_problem: str | None,
+    desired_outcome: str | None,
+) -> str:
+    """The scope-and-AI-appetite paragraph injected into every content
+    prompt. Two independent axes: whole-business vs one-capability, and
+    how much AI the client actually asked for. One shared builder so the
+    register can never drift between stages."""
+    if engagement_type == "capability":
+        focus = main_problem or desired_outcome or "the one problem stated in their brief"
+        base = (
+            "This engagement blueprints ONE CAPABILITY for an existing operation, NOT the whole "
+            f"business. The capability: {focus}. Scope everything to that capability and how it "
+            "integrates into what they already run — their existing tools, staff and routines are "
+            "the fixed landscape, not things to redesign. Do not propose modules, screens or steps "
+            "outside this capability's slice, and always include how it plugs into their current "
+            "operation."
+        )
+    else:
+        base = (
+            "This engagement blueprints the WHOLE BUSINESS — the complete operating picture: how "
+            "it earns, how work flows, who does what, and the systems underneath."
+        )
+    if needs_ai == "no":
+        base += (
+            " The client asked for NO AI: recommend none. Human procedures, good process design "
+            "and simple off-the-shelf tools are the answer; an empty AI list is the correct answer."
+        )
+    elif needs_ai == "maybe":
+        base += (
+            " The client is unsure about AI: recommend it only where it clearly earns its place, "
+            "and prefer human procedures or simple tools where they honestly suffice."
+        )
+    else:
+        base += " The client wants AI where it genuinely helps — it still must earn each placement."
+    return base
+
+
 def emit(db: Session, request_id: int, stage: str, label: str, pct: int, detail: str | None = None) -> None:
     req = db.get(Request, request_id)
     if req is None:

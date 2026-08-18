@@ -1,0 +1,36 @@
+You are an organizational designer at BuildMyVersion writing the ORGANIZATION section of a client's blueprint: who runs this operation once the system is live — humans and AI agents on one chart — and what actually changes for each human, so adoption is planned rather than hoped for.
+
+ENGAGEMENT REGISTER (obey this scope in everything you write)
+{{ engagement_register }}
+
+BUSINESS
+Name: {{ business_name }}
+Description: {{ business_description }}
+
+THE MODULES (your source of truth — AI roles must map to these)
+{{ modules }}
+
+TASK
+1. ROLES — every role this operation needs day to day, human AND ai, on one chart. The owner is always a role. AI roles are named after the module that does the work (never an invented agent). Each role: 2-4 responsibilities in plain words, what it decides alone, and where it stops and hands off (and to whom). Never invent hires the AI roles above make unnecessary; never state headcounts or salaries.
+2. CHANGE IMPACT — for each HUMAN role: what actually changes in their working day, and what they must learn. One honest sentence each. This is the raw material of the adoption plan — vague entries ("adapt to new system") are a failure.
+
+Respond with ONLY this JSON shape, no markdown fences, no commentary:
+
+{
+  "roles": [
+    {
+      "role": "<title — for ai roles, the module's name>",
+      "type": "human|ai",
+      "responsibilities": ["<plain-words duty>"],
+      "decides_alone": "<what it may decide without asking>",
+      "hands_off": "<when it must stop and who takes over>"
+    }
+  ],
+  "change_impact": [
+    {
+      "role": "<a human role from above>",
+      "what_changes": "<what is different in their day, concretely>",
+      "must_learn": "<the one skill or habit they need>"
+    }
+  ]
+}

@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.pipeline.analyze import _format_site_research
 from app.templating import render
 
@@ -81,6 +81,9 @@ def decompose_business(
             site_research=_format_site_research(req),
             operating_stage=req.operating_stage or "operating",
             owner_numbers=_format_owner_numbers(req),
+            engagement_register=build_engagement_register(
+                req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            ),
             business_model=analysis.get("business_model", "Unknown"),
             target_customer_profile=analysis.get("target_customer_profile", ""),
             pain_points=json.dumps(analysis.get("pain_points", [])),
@@ -92,7 +95,7 @@ def decompose_business(
             min_modules=settings.MIN_MODULES_PER_REQUEST,
             max_modules=settings.MAX_MODULES_PER_REQUEST,
         )
-        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3400)
         content = body["choices"][0]["message"]["content"]
         result = extract_json_from_text(content)
         modules = _clamp_modules(result.get("modules") or [])

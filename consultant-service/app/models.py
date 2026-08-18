@@ -36,6 +36,10 @@ class Request(Base):
     # reality) or "opening" (a plan, no history yet). Nullable: intakes from
     # before the toggle existed.
     operating_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Which engagement this is: "full" (blueprint the whole business) or
+    # "capability" (one solution scoped into an existing operation).
+    # Nullable: intakes from before the toggle; treated as "full".
+    engagement_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # The discovery Q&A as [{"question","answer"}] — whatever tailored
     # questions were asked, exactly as asked. A flexible list rather than
     # fixed columns: the right questions differ per business, and only
@@ -80,6 +84,9 @@ class Request(Base):
     scoreboard_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     risks_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     procedures_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The organization layer: human + AI roles with decision rights, and
+    # the per-human change impact that seeds the adoption plan.
+    org_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     consulting_recommendations_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     concept_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

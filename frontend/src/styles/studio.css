@@ -3166,3 +3166,122 @@
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+
+/* ── customers strip + organization chart ───────────────────────────── */
+
+.bp-customers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: 0.6rem;
+  margin: 0.9rem 0;
+}
+
+.bp-customers p {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.7rem;
+  background: #ffffff;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.84rem;
+  color: #475569;
+  line-height: 1.5;
+  min-width: 0;
+}
+
+.bp-customers p span {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #2563eb;
+  margin-bottom: 0.2rem;
+}
+
+.studio-tabpanel-extra {
+  margin-top: 3rem;
+}
+
+.studio-orggrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  gap: 0.8rem;
+}
+
+.studio-orgrole {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.9rem;
+  background: #ffffff;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 14px 32px -28px rgba(15, 23, 42, 0.5);
+  min-width: 0;
+}
+
+.studio-orgrole--ai {
+  border-color: rgba(37, 99, 235, 0.25);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.04), #ffffff 55%);
+}
+
+.studio-orgrole-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.studio-orgrole-type {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 999px;
+  padding: 0.14rem 0.5rem;
+}
+
+.studio-orgrole--ai .studio-orgrole-type {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.studio-orgrole-resp {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.studio-orgrole-line {
+  margin-top: 0.45rem;
+  font-size: 0.78rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.studio-orgrole-line span {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.studio-orgimpact p {
+  font-size: 0.86rem;
+  color: #475569;
+  line-height: 1.55;
+  margin-bottom: 0.5rem;
+}
+
+.studio-orgimpact strong {
+  color: #0f172a;
+}
+
+.studio-orgimpact em {
+  color: #2563eb;
+  font-style: normal;
+  font-weight: 600;
+}

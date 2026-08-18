@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.templating import render
 
 
@@ -58,6 +58,9 @@ def analyze_business(db: Session, request_id: int) -> dict:
             desired_outcome=req.desired_outcome or "unspecified",
             what_you_like=req.what_you_like or "none given",
             site_research=_format_site_research(req),
+            engagement_register=build_engagement_register(
+                req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            ),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}])
         content = body["choices"][0]["message"]["content"]

@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.pipeline.decompose import _format_owner_numbers
 from app.templating import render
 
@@ -56,6 +56,9 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
     revenue_today = req.revenue_today or "not stated"
     owner_numbers = _format_owner_numbers(req)
     operating_stage = req.operating_stage or "operating"
+    register = build_engagement_register(
+        req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+    )
 
     # Slim module context: the full deep specs would triple every prompt;
     # id/name/purpose/ai/kpis is what these three layers actually consume.
@@ -83,6 +86,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             target_customer_profile=analysis.get("target_customer_profile", ""),
             pain_points=json.dumps(analysis.get("pain_points", [])),
             modules=slim,
+            engagement_register=register,
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1500)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
@@ -105,6 +109,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             owner_numbers=owner_numbers,
             modules=slim,
             business_case=bc_json,
+            engagement_register=register,
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=1600)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
@@ -121,6 +126,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             business_description=biz_desc,
             revenue_today=revenue_today,
             modules=slim,
+            engagement_register=register,
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=2200)
         result = extract_json_from_text(body["choices"][0]["message"]["content"])
@@ -138,7 +144,30 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
             raise ValueError("no valid procedures")
         return {"payload": {"procedures": procs[:5]}, "usage": body.get("usage")}
 
-    tasks = [("journey", _journey), ("governance", _governance), ("procedures", _procedures)]
+    def _organization() -> dict | None:
+        prompt = render(
+            "organization.j2",
+            business_name=biz_name,
+            business_description=biz_desc,
+            modules=slim,
+            engagement_register=register,
+        )
+        # Twelve roles with responsibilities run long — 1800 tokens was seen
+        # truncating mid-JSON on a 5-module business.
+        body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}], max_tokens=3000)
+        result = extract_json_from_text(body["choices"][0]["message"]["content"])
+        roles = [r for r in (result.get("roles") or []) if isinstance(r, dict) and r.get("role")][:12]
+        impact = [c for c in (result.get("change_impact") or []) if isinstance(c, dict) and c.get("role")][:8]
+        if not roles:
+            raise ValueError("organization had no valid roles")
+        return {"payload": {"roles": roles, "change_impact": impact}, "usage": body.get("usage")}
+
+    tasks = [
+        ("journey", _journey),
+        ("governance", _governance),
+        ("procedures", _procedures),
+        ("organization", _organization),
+    ]
 
     def _guarded(item):
         name, fn = item
@@ -147,7 +176,7 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         except Exception as exc:  # each layer fails open alone
             return name, None, str(exc)[:500]
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(_guarded, tasks))
 
     for name, result, error in results:
@@ -169,4 +198,6 @@ def build_extras(db: Session, request_id: int, analysis: dict, decomposition: di
         req.risks_json = json.dumps(gov["risks"])
     if by_name.get("procedures"):
         req.procedures_json = json.dumps(by_name["procedures"])
+    if by_name.get("organization"):
+        req.org_json = json.dumps(by_name["organization"])
     db.commit()

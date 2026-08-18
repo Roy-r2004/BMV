@@ -15,6 +15,7 @@ import {
   studioPdfUrl,
   studioResultPath,
   type DiscoveryQuestion,
+  type EngagementType,
   type OperatingStage,
   type StudioPreview,
   type StudioProgress,
@@ -182,6 +183,16 @@ const INTAKE_STEPS = [
   { id: 'contact', label: 'Contact', subtitle: 'Where to send it' },
   { id: 'discovery', label: 'Numbers', subtitle: 'The questions a consultant asks first' },
 ] as const;
+
+const ENGAGEMENT_OPTIONS = ['My whole business', 'One specific problem'];
+const ENGAGEMENT_MAP: Record<string, EngagementType> = {
+  'My whole business': 'full',
+  'One specific problem': 'capability',
+};
+const ENGAGEMENT_REVERSE: Record<EngagementType, string> = {
+  full: 'My whole business',
+  capability: 'One specific problem',
+};
 
 const STAGE_OPTIONS = ['Already operating', 'Opening soon'];
 const STAGE_MAP: Record<string, OperatingStage> = {
@@ -527,6 +538,17 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
               </div>
             ))}
           </div>
+          {bc?.customers && ((bc.customers.segments?.length ?? 0) > 0 || (bc.customers.channels?.length ?? 0) > 0) && (
+            <div className="bp-customers">
+              {(bc.customers.segments?.length ?? 0) > 0 && (
+                <p><span>Who you serve</span>{bc.customers.segments!.join(' · ')}</p>
+              )}
+              {(bc.customers.channels?.length ?? 0) > 0 && (
+                <p><span>How they arrive</span>{bc.customers.channels!.join(' · ')}</p>
+              )}
+              {bc.customers.how_kept && <p><span>How they're kept</span>{bc.customers.how_kept}</p>}
+            </div>
+          )}
           {bc?.payback_logic && <p className="bp-payback">{bc.payback_logic}</p>}
           {bc?.cost_of_inaction && (
             <p className="bp-inaction">
@@ -1431,6 +1453,7 @@ export default function StudioPage() {
     site_url: '',
     revenue_today: '',
     operating_stage: 'operating' as OperatingStage,
+    engagement_type: 'full' as EngagementType,
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -1615,7 +1638,7 @@ export default function StudioPage() {
     const name = form.business_name.trim();
     const desc = form.business_description.trim();
     if (name.length < 2 || desc.length < 30) return;
-    const key = form.operating_stage + '|' + name + '|' + desc;
+    const key = form.operating_stage + '|' + form.engagement_type + '|' + name + '|' + desc;
     if (discoveryKey.current === key) return;
     discoveryKey.current = key;
     setDiscoveryLoading(true);
@@ -1624,6 +1647,7 @@ export default function StudioPage() {
       business_description: desc,
       industry: form.industry.trim() || undefined,
       operating_stage: form.operating_stage,
+      engagement_type: form.engagement_type,
     })
       .then((qs) => setDiscoveryQs(qs.length ? qs : LOCAL_DISCOVERY_FALLBACK[form.operating_stage]))
       .catch(() => setDiscoveryQs(LOCAL_DISCOVERY_FALLBACK[form.operating_stage]))
@@ -1673,6 +1697,7 @@ export default function StudioPage() {
         site_url: form.site_url.trim() || undefined,
         revenue_today: form.revenue_today.trim() || undefined,
         operating_stage: form.operating_stage,
+        engagement_type: form.engagement_type,
         ops_numbers: (discoveryQs ?? [])
           .filter((q) => (numbersAnswers[q.id] ?? '').trim())
           .map((q) => ({ question: q.label, answer: numbersAnswers[q.id].trim() })),
@@ -1907,6 +1932,18 @@ export default function StudioPage() {
                               />
                               <p className="studio-hint">
                                 Changes which numbers we ask for - your current reality, or your plan.
+                              </p>
+                            </div>
+                            <div className="studio-field">
+                              <label>What should we blueprint?</label>
+                              <StudioPills
+                                options={ENGAGEMENT_OPTIONS}
+                                value={ENGAGEMENT_REVERSE[form.engagement_type]}
+                                onChange={(v) => setForm({ ...form, engagement_type: ENGAGEMENT_MAP[v] })}
+                              />
+                              <p className="studio-hint">
+                                Your entire operation end to end - or one capability, scoped into what
+                                you already run.
                               </p>
                             </div>
                             <div className="studio-field">
@@ -2719,6 +2756,47 @@ export default function StudioPage() {
                       </div>
                     )}
                     <TechnicalCinematic preview={preview} />
+                  </div>
+                )}
+
+                {activeTab === 'team' && preview.organization && (
+                  <div className="studio-tabpanel-extra">
+                    <p className="studio-kicker mb-1">The organization - humans and AI on one chart</p>
+                    <p className="studio-plan-rostertext mb-4">
+                      Who runs this day to day, what each role decides alone, and where it hands off.
+                    </p>
+                    <div className="studio-orggrid">
+                      {preview.organization.roles.map((r) => (
+                        <div className={`studio-orgrole${r.type === 'ai' ? ' studio-orgrole--ai' : ''}`} key={r.role}>
+                          <p className="studio-orgrole-name">
+                            {r.role}
+                            <span className="studio-orgrole-type">{r.type === 'ai' ? 'AI' : 'Human'}</span>
+                          </p>
+                          {r.responsibilities.length > 0 && (
+                            <p className="studio-orgrole-resp">{r.responsibilities.join(' · ')}</p>
+                          )}
+                          {r.decides_alone && (
+                            <p className="studio-orgrole-line"><span>Decides alone</span>{r.decides_alone}</p>
+                          )}
+                          {r.hands_off && (
+                            <p className="studio-orgrole-line"><span>Hands off</span>{r.hands_off}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {preview.organization.change_impact.length > 0 && (
+                      <div className="mt-6">
+                        <p className="studio-kicker mb-2">What changes for your people</p>
+                        <div className="studio-orgimpact">
+                          {preview.organization.change_impact.map((c) => (
+                            <p key={c.role}>
+                              <strong>{c.role}:</strong> {c.what_changes}
+                              {c.must_learn && <em> Must learn: {c.must_learn}</em>}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

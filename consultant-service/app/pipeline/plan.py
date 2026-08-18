@@ -78,6 +78,9 @@ def plan_integration(db: Session, request_id: int, consult_result: dict) -> dict
             consulting_summary=consult_result.get("consulting_summary", ""),
             recommended_ai_employees=json.dumps(consult_result.get("recommended_ai_employees", [])),
             recommended_features=json.dumps(consult_result.get("recommended_features", [])),
+            engagement_register=build_engagement_register(
+                req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            ),
             min_roles=settings.MIN_ROLES_PER_REQUEST,
             max_roles=settings.MAX_ROLES_PER_REQUEST,
         )

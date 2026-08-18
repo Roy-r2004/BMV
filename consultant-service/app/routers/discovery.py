@@ -53,6 +53,33 @@ _FALLBACK_OPERATING = [
     },
 ]
 
+_FALLBACK_CAPABILITY = [
+    {
+        "id": "problem-frequency",
+        "label": "How often does this problem happen — per day or per week?",
+        "placeholder": "e.g. 15 times a week",
+        "why": "Frequency times cost is the size of the problem.",
+    },
+    {
+        "id": "hours-lost",
+        "label": "How many hours a week does dealing with it take?",
+        "placeholder": "e.g. 6 hours",
+        "why": "The time this capability hands back, in your own hours.",
+    },
+    {
+        "id": "value-lost",
+        "label": "What does one missed or mishandled case cost you?",
+        "placeholder": "e.g. a $120 booking",
+        "why": "Puts your own price on every failure the fix prevents.",
+    },
+    {
+        "id": "current-tooling",
+        "label": "What do you spend monthly on tools for this today, if anything?",
+        "placeholder": "e.g. $50/month",
+        "why": "The honest baseline any new tool must beat.",
+    },
+]
+
 _FALLBACK_OPENING = [
     {
         "id": "planned-price",
@@ -107,10 +134,14 @@ def discovery_questions(
     business_description: str = Form(...),
     industry: str | None = Form(None),
     operating_stage: str | None = Form(None),
+    engagement_type: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     operating = operating_stage != "opening"
-    fallback = _FALLBACK_OPERATING if operating else _FALLBACK_OPENING
+    if engagement_type == "capability":
+        fallback = _FALLBACK_CAPABILITY
+    else:
+        fallback = _FALLBACK_OPERATING if operating else _FALLBACK_OPENING
 
     try:
         prompt = render(
@@ -119,6 +150,7 @@ def discovery_questions(
             business_description=business_description,
             industry=industry or "unspecified",
             operating=operating,
+            capability=engagement_type == "capability",
             min_questions=settings.MIN_DISCOVERY_QUESTIONS,
             max_questions=settings.MAX_DISCOVERY_QUESTIONS,
         )

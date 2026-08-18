@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import extract_json_from_text, log_usage
+from app.pipeline._shared import build_engagement_register, extract_json_from_text, log_usage
 from app.templating import render
 
 
@@ -38,6 +38,9 @@ def consult(db: Session, request_id: int, analysis: dict) -> dict:
             target_customer_profile=analysis.get("target_customer_profile", ""),
             pain_points=json.dumps(analysis.get("pain_points", [])),
             growth_opportunity=analysis.get("growth_opportunity", ""),
+            engagement_register=build_engagement_register(
+                req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+            ),
         )
         body = provider.chat(settings.ANALYSIS_MODEL, [{"role": "user", "content": prompt}])
         content = body["choices"][0]["message"]["content"]

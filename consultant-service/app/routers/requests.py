@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 
 _ALLOWED_STAGES = {"operating", "opening"}
+_ALLOWED_ENGAGEMENTS = {"full", "capability"}
 
 
 def _sanitize_ops_numbers(raw: str | None) -> str | None:
@@ -62,6 +63,7 @@ def create_request(
     site_url: str | None = Form(None),
     revenue_today: str | None = Form(None),
     operating_stage: str | None = Form(None),
+    engagement_type: str | None = Form(None),
     ops_numbers: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
@@ -92,6 +94,7 @@ def create_request(
         site_url=site_url,
         revenue_today=revenue_today,
         operating_stage=operating_stage if operating_stage in _ALLOWED_STAGES else None,
+        engagement_type=engagement_type if engagement_type in _ALLOWED_ENGAGEMENTS else None,
         ops_numbers_json=_sanitize_ops_numbers(ops_numbers),
         status="new",
         is_generating=True,
@@ -234,6 +237,7 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # The discovery Q&A the business case computed from — echoed back so
         # the result page can show WHICH numbers the figures trace to.
         "operating_stage": req.operating_stage,
+        "engagement_type": req.engagement_type,
         "ops_numbers": json.loads(req.ops_numbers_json) if req.ops_numbers_json else [],
         # The decomposition the blueprint/technical documents were written
         # FROM — modules (each with its deep spec) and the business case.
@@ -248,6 +252,7 @@ def get_preview(request_id: int, db: Session = Depends(get_db)):
         # The consultancy layers (extras stage) — each null/empty for older
         # runs or when its one call failed; every layer fails open alone.
         "journey": json.loads(req.journey_json) if req.journey_json else None,
+        "organization": json.loads(req.org_json) if req.org_json else None,
         "scoreboard": json.loads(req.scoreboard_json) if req.scoreboard_json else [],
         "risks": json.loads(req.risks_json) if req.risks_json else [],
         "procedures": json.loads(req.procedures_json)["procedures"] if req.procedures_json else [],

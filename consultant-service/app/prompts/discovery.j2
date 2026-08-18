@@ -5,6 +5,7 @@ Name: {{ business_name }}
 Description: {{ business_description }}
 Industry: {{ industry }}
 Stage: {% if operating %}already operating{% else %}NOT launched yet — they have plans and targets, no history{% endif %}
+Engagement: {% if capability %}ONE CAPABILITY — they want one specific problem solved inside their existing operation. Every question must size THAT problem: its frequency, the hours it eats, the value of one failure, what they spend on it today. Do not ask about the rest of the business.{% else %}the whole business{% endif %}
 
 RULES
 - Between {{ min_questions }} and {{ max_questions }} questions. Choose the number this business needs; never pad.

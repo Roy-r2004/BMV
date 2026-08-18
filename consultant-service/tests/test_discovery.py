@@ -167,6 +167,7 @@ def _decompose_context(**overrides):
         pain_points="[]", growth_opportunity="", consulting_summary="", recommended_ai_employees="[]",
         recommended_features="[]", concept_name="BeaconOS", min_modules=3, max_modules=7,
         operating_stage="operating", owner_numbers="- How many visits a month?: 340",
+        engagement_register="reg",
     )
     ctx.update(overrides)
     return ctx

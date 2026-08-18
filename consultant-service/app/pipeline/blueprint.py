@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.ai import provider
 from app.config import settings
 from app.models import Request
-from app.pipeline._shared import log_usage
+from app.pipeline._shared import build_engagement_register, log_usage
 from app.templating import render
 
 
@@ -78,6 +78,9 @@ def write_blueprint(
         modules=json.dumps(modules, indent=1) if modules else "(empty)",
         business_case=json.dumps(business_case, indent=1) if business_case else "(empty)",
         modules_present=bool(modules),
+        engagement_register=build_engagement_register(
+            req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+        ),
     )
     content = _markdown_call(db, request_id, "blueprint", prompt)
     req.mvp_blueprint = content
@@ -106,6 +109,9 @@ def write_technical_plan(
         recommended_ai_employees=json.dumps(consult_result.get("recommended_ai_employees", [])),
         modules=json.dumps(modules, indent=1) if modules else "(empty)",
         modules_present=bool(modules),
+        engagement_register=build_engagement_register(
+            req.engagement_type, req.needs_ai, req.main_problem, req.desired_outcome,
+        ),
     )
     # Per-module anatomy (data model, agent brain/tools/guardrails, APIs)
     # makes this the longest document — give it the budget to finish.
