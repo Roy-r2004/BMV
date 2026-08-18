@@ -1229,18 +1229,23 @@ function PlansPanel({ preview }: { preview: StudioPreview }) {
       {/* The middle rung of the ladder — for readers convinced by the plan
           but not ready to commit to a build. */}
       <div className="studio-deepdive">
-        <div>
+        <div className="studio-deepdive-info">
           <p className="studio-kicker mb-2">Not ready to choose?</p>
           <p className="studio-deepdive-title">Book a deep-dive working session</p>
           <p className="studio-deepdive-text">
             90 minutes with our consultant inside your real operation. We correct this plan
-            together — modules re-scoped, the business case recomputed from your actual numbers —
-            and you leave with an exact quote. $200, credited in full against your build.
+            together — modules re-scoped, the business case recomputed from your actual
+            numbers — and you leave with an exact quote.
           </p>
         </div>
-        <a className="studio-ghost-btn studio-deepdive-btn" href={deepDiveEmailHref}>
-          Request your deep-dive
-        </a>
+        <div className="studio-deepdive-side">
+          <p className="studio-deepdive-price">$200</p>
+          <p className="studio-deepdive-credit">Credited in full against your build</p>
+          <a className="studio-cta studio-deepdive-btn" href={deepDiveEmailHref}>
+            Request your deep-dive
+            <Icon path="M17 8l4 4m0 0l-4 4m4-4H3" className="w-4 h-4" />
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -2507,7 +2512,7 @@ export default function StudioPage() {
                         end. $200, credited in full against your build.
                       </p>
                       <a
-                        className="studio-ghost-btn studio-deepdive-btn"
+                        className="studio-cta studio-deepdive-btn"
                         href={consultingEmailUrl(
                           `Deep-dive request — ${preview.business_name} (demo #${preview.id})`,
                           `Hi,\n\nI'd like to book the deep-dive working session for my demo (${window.location.origin}${studioResultPath(preview.id)}).\n\nPreferred days and times: \n`,
