@@ -413,8 +413,18 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
   type TechRail = { ai_agent?: { purpose?: string; brain?: string[]; escalation?: string } };
   const agentMods = mods.filter((m) => m.spec?.ai?.role || (m as { tech?: TechRail }).tech?.ai_agent);
   const integrations = [...new Set(mods.flatMap((m) => m.spec?.integrations ?? []))];
+  // Brain entries are written for the technical plan and carry parenthetical
+  // entity asides ("(from InvestmentCriteriaConfiguration entity)") — strip
+  // them for this at-a-glance panel, where they read as jargon and, on a
+  // phone, each turned into a tall card of its own.
+  const cleanSource = (s: string) => s.replace(/\s*\([^)]*\)?/g, '').replace(/\s+/g, ' ').trim();
   const dataSources = [
-    ...new Set(agentMods.flatMap((m) => (m as { tech?: TechRail }).tech?.ai_agent?.brain ?? [])),
+    ...new Set(
+      agentMods
+        .flatMap((m) => (m as { tech?: TechRail }).tech?.ai_agent?.brain ?? [])
+        .map(cleanSource)
+        .filter(Boolean),
+    ),
   ].slice(0, 5);
 
   const valueCards = [

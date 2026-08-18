@@ -2812,3 +2812,31 @@
   margin-top: 0;
   padding: 1.2rem 1.4rem 1.2rem 1.7rem;
 }
+
+/* Phones: the blueprint's data sources sit two-up and clamp to three
+   lines — the panel was a full-width tower of tall cards demanding a
+   screen of scrolling. Lives at the end of the file so it wins the
+   cascade over .bp-sources' base flex-column. */
+@media (max-width: 640px) {
+  .bp-sources {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    max-width: none;
+    gap: 0.45rem;
+  }
+
+  .bp-sources .bp-mini-kicker {
+    grid-column: 1 / -1;
+  }
+
+  .bp-source {
+    align-items: flex-start;
+  }
+
+  .bp-source p {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
