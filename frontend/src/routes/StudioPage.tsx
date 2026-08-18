@@ -417,7 +417,14 @@ function DecomposedBlueprint({ preview }: { preview: StudioPreview }) {
   // entity asides ("(from InvestmentCriteriaConfiguration entity)") — strip
   // them for this at-a-glance panel, where they read as jargon and, on a
   // phone, each turned into a tall card of its own.
-  const cleanSource = (s: string) => s.replace(/\s*\([^)]*\)?/g, '').replace(/\s+/g, ' ').trim();
+  const cleanSource = (s: string) =>
+    s
+      .replace(/\s*\([^)]*\)?/g, '')
+      // CamelCase entity names read as code AND, being unbreakable words,
+      // blow up the phone grid's column widths — space them into words.
+      .replace(/\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b/g, (w) => w.replace(/([a-z0-9])([A-Z])/g, '$1 $2'))
+      .replace(/\s+/g, ' ')
+      .trim();
   const dataSources = [
     ...new Set(
       agentMods

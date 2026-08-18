@@ -2820,7 +2820,9 @@
 @media (max-width: 640px) {
   .bp-sources {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0,…): a bare 1fr floors at min-content, so one unbreakable
+       word inflates its column and shoves the other off the panel edge. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     max-width: none;
     gap: 0.45rem;
   }
@@ -2831,6 +2833,7 @@
 
   .bp-source {
     align-items: flex-start;
+    min-width: 0;
   }
 
   .bp-source p {
@@ -2838,5 +2841,6 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: anywhere;
   }
 }
