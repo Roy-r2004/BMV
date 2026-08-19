@@ -1958,16 +1958,20 @@ export default function StudioPage() {
   };
 
   // Switching tabs on a long page must land the reader at the top of the
-  // new tab, not mid-scroll of wherever the previous tab left them. The
-  // ref skips the mount run so opening a result URL doesn't jump.
+  // new tab's content — the tab bar itself, not the page hero above it.
+  // The ref skips the mount run so opening a result URL doesn't jump.
   const firstTabRender = useRef(true);
+  const resultTabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (firstTabRender.current) {
       firstTabRender.current = false;
       return;
     }
     if (act !== 'reveal') return;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    const bar = resultTabsRef.current;
+    // 80px clears the fixed navbar so the bar isn't hidden under it.
+    const top = bar ? bar.getBoundingClientRect().top + window.scrollY - 80 : 0;
+    window.scrollTo({ top: Math.max(top, 0), behavior: reduceMotion ? 'auto' : 'smooth' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -2937,7 +2941,7 @@ export default function StudioPage() {
                     skipped the technical plan or named no AI employees never
                     shows an empty tab, since RESULT_TABS filters on that. */}
                 {visibleTabs.length > 1 && (
-                  <div className="studio-tabs" role="tablist" aria-label="Result sections">
+                  <div className="studio-tabs" role="tablist" aria-label="Result sections" ref={resultTabsRef}>
                     {visibleTabs.map((tab) => (
                       <button
                         key={tab.id}
